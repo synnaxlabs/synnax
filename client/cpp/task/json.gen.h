@@ -400,6 +400,91 @@ inline x::json::json NoneScale::to_json() const {
     return j;
 }
 
+inline LinearScaleUpdate LinearScaleUpdate::parse(x::json::Parser parser) {
+    LinearScaleUpdate result;
+    result.slope = parser.field<std::optional<double>>("slope");
+    result.offset = parser.field<std::optional<double>>("offset");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json LinearScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->slope.has_value()) j["slope"] = *this->slope;
+    if (this->offset.has_value()) j["offset"] = *this->offset;
+    j["type"] = this->type;
+    return j;
+}
+
+inline MapScaleUpdate MapScaleUpdate::parse(x::json::Parser parser) {
+    MapScaleUpdate result;
+    result.pre_scaled_min = parser.field<std::optional<double>>("pre_scaled_min");
+    result.pre_scaled_max = parser.field<std::optional<double>>("pre_scaled_max");
+    result.scaled_min = parser.field<std::optional<double>>("scaled_min");
+    result.scaled_max = parser.field<std::optional<double>>("scaled_max");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json MapScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->pre_scaled_min.has_value()) j["pre_scaled_min"] = *this->pre_scaled_min;
+    if (this->pre_scaled_max.has_value()) j["pre_scaled_max"] = *this->pre_scaled_max;
+    if (this->scaled_min.has_value()) j["scaled_min"] = *this->scaled_min;
+    if (this->scaled_max.has_value()) j["scaled_max"] = *this->scaled_max;
+    j["type"] = this->type;
+    return j;
+}
+
+inline PolynomialScaleUpdate PolynomialScaleUpdate::parse(x::json::Parser parser) {
+    PolynomialScaleUpdate result;
+    result.coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "coeffs"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PolynomialScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->coeffs.has_value()) j["coeffs"] = this->coeffs->to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline TableScaleUpdate TableScaleUpdate::parse(x::json::Parser parser) {
+    TableScaleUpdate result;
+    result.pre_scaled_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "pre_scaled_vals"
+    );
+    result.scaled_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "scaled_vals"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TableScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->pre_scaled_vals.has_value())
+        j["pre_scaled_vals"] = this->pre_scaled_vals->to_json();
+    if (this->scaled_vals.has_value()) j["scaled_vals"] = this->scaled_vals->to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline NoneScaleUpdate NoneScaleUpdate::parse(x::json::Parser parser) {
+    NoneScaleUpdate result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NoneScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
 inline Scale parse_scale(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "linear") return LinearScale::parse(parser);
@@ -434,6 +519,21 @@ inline x::json::json to_json(const Action &value) {
     j["type"] = discriminator;
     j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
     return j;
+}
+
+inline ScaleUpdate parse_scale_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "linear") return LinearScaleUpdate::parse(parser);
+    if (discriminator == "map") return MapScaleUpdate::parse(parser);
+    if (discriminator == "polynomial") return PolynomialScaleUpdate::parse(parser);
+    if (discriminator == "table") return TableScaleUpdate::parse(parser);
+    if (discriminator == "none") return NoneScaleUpdate::parse(parser);
+    parser.field_err("type", "unknown ScaleUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ScaleUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

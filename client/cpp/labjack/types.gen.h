@@ -32,6 +32,8 @@ struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
 struct ScanConfigUpdate;
+struct ReadChannelBaseUpdate;
+struct WriteChannelBaseUpdate;
 struct WriteConfig;
 struct WriteConfigUpdate;
 struct ReadConfig;
@@ -118,6 +120,46 @@ struct ScanConfigUpdate {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadChannelBaseUpdate holds changes to the fields of the read channel. An
+/// absent field does not change.
+struct ReadChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+    std::optional<std::string> port;
+
+    static ReadChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelBaseUpdate holds changes to the fields of the write channel. An
+/// absent field does not change.
+struct WriteChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+    std::optional<std::string> port;
+
+    static WriteChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief AnalogWriteChannel drives an analog output on a DAC port.
 struct AnalogWriteChannel : public BaseWriteChannel {
     std::string type = "analog";
@@ -152,6 +194,60 @@ WriteChannel parse_write_channel(x::json::Parser parser);
         value
     );
 }
+
+/// @brief AnalogWriteChannelUpdate drives an analog output on a DAC port.
+struct AnalogWriteChannelUpdate {
+    std::string type = "analog";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+    std::optional<std::string> port;
+
+    static AnalogWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalWriteChannelUpdate drives a digital output line on a DIO port.
+struct DigitalWriteChannelUpdate {
+    std::string type = "digital";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+    std::optional<std::string> port;
+
+    static DigitalWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelUpdate holds changes to the fields of the write channel. A type
+/// that differs from the stored one changes the variant.
+using WriteChannelUpdate = std::variant<
+    WriteChannelBaseUpdate,
+    AnalogWriteChannelUpdate,
+    DigitalWriteChannelUpdate>;
+
+WriteChannelUpdate parse_write_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannelUpdate &value);
 
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
@@ -225,6 +321,97 @@ ReadChannel parse_read_channel(x::json::Parser parser);
     );
 }
 
+/// @brief AnalogReadChannelUpdate reads a voltage from an analog input port.
+struct AnalogReadChannelUpdate {
+    std::string type = "analog";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+    std::optional<std::string> port;
+    /// @brief range is the largest voltage magnitude the channel reads, in Volts. The
+    /// channel uses the smallest range of the device that covers it.
+    std::optional<double> range;
+    /// @brief neg_chan is the AIN port of the negative input for a differential reading
+    /// on T7 devices. When absent, the channel reads against ground.
+    ::x::patch::Change<std::uint16_t> neg_chan;
+    /// @brief scale is the scale applied to raw samples after acquisition.
+    std::optional<::synnax::task::ScaleUpdate> scale;
+
+    static AnalogReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalReadChannelUpdate reads a digital input line.
+struct DigitalReadChannelUpdate {
+    std::string type = "digital";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+    std::optional<std::string> port;
+
+    static DigitalReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ThermocoupleReadChannelUpdate reads temperature from a thermocouple.
+struct ThermocoupleReadChannelUpdate {
+    std::string type = "thermocouple";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+    std::optional<std::string> port;
+    /// @brief thermocouple_type selects the thermocouple alloy type.
+    std::optional<std::string> thermocouple_type;
+    /// @brief neg_chan is the AIN port of the thermocouple's negative lead on T7
+    /// devices. When absent, the channel reads against ground.
+    ::x::patch::Change<std::uint16_t> neg_chan;
+    /// @brief cjc_source selects the cold-junction-compensation source: the device
+    /// sensor ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the
+    /// thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or
+    /// an AIN port (e.g. 'AIN2').
+    std::optional<std::string> cjc_source;
+    /// @brief cjc_slope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
+    std::optional<double> cjc_slope;
+    /// @brief cjc_offset is the CJC temperature offset, in Kelvins.
+    std::optional<double> cjc_offset;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+    /// @brief scale is the scale applied to raw samples after acquisition.
+    std::optional<::synnax::task::ScaleUpdate> scale;
+
+    static ThermocoupleReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelUpdate holds changes to the fields of the read channel. A type
+/// that differs from the stored one changes the variant.
+using ReadChannelUpdate = std::variant<
+    ReadChannelBaseUpdate,
+    AnalogReadChannelUpdate,
+    DigitalReadChannelUpdate,
+    ThermocoupleReadChannelUpdate>;
+
+ReadChannelUpdate parse_read_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannelUpdate &value);
+
 /// @brief WriteConfig configures a LabJack write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
@@ -254,7 +441,8 @@ struct WriteConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> state_rate;
     /// @brief channels are the channels the task drives.
-    std::optional<::x::patch::ValueList<WriteChannel>> channels;
+    std::optional<::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>
+        channels;
 
     static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -298,7 +486,8 @@ struct ReadConfigUpdate {
     /// @brief device is the key of the device the task acquires from.
     std::optional<::synnax::device::Key> device;
     /// @brief channels are the channels the task acquires.
-    std::optional<::x::patch::ValueList<ReadChannel>> channels;
+    std::optional<::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>
+        channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
     /// which the task reports a skew warning. When absent, the Driver picks two seconds
     /// of scans.
@@ -310,5 +499,52 @@ struct ReadConfigUpdate {
 
     static ReadConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+};
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::labjack::WriteChannel> {
+    static ::synnax::labjack::WriteChannel parse(Parser parser) {
+        return ::synnax::labjack::parse_write_channel(parser);
+    }
+
+    static json to_json(const ::synnax::labjack::WriteChannel &value) {
+        return ::synnax::labjack::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::labjack::WriteChannelUpdate> {
+    static ::synnax::labjack::WriteChannelUpdate parse(Parser parser) {
+        return ::synnax::labjack::parse_write_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::labjack::WriteChannelUpdate &value) {
+        return ::synnax::labjack::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::labjack::ReadChannel> {
+    static ::synnax::labjack::ReadChannel parse(Parser parser) {
+        return ::synnax::labjack::parse_read_channel(parser);
+    }
+
+    static json to_json(const ::synnax::labjack::ReadChannel &value) {
+        return ::synnax::labjack::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::labjack::ReadChannelUpdate> {
+    static ::synnax::labjack::ReadChannelUpdate parse(Parser parser) {
+        return ::synnax::labjack::parse_read_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::labjack::ReadChannelUpdate &value) {
+        return ::synnax::labjack::to_json(value);
+    }
 };
 }

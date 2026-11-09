@@ -12,9 +12,12 @@
 package ni
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -1037,7 +1040,7 @@ type AnalogReadConfigUpdate struct {
 	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
 	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
 	// Channels are the analog input channels the task acquires.
-	Channels *patch.ValueList[AIChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[AIChannel, string, AIChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // CounterReadConfigUpdate holds changes to the fields of the counter read config. An
@@ -1054,7 +1057,7 @@ type CounterReadConfigUpdate struct {
 	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
 	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
 	// Channels are the counter input channels the task acquires.
-	Channels *patch.ValueList[CIChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[CIChannel, string, CIChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // AnalogWriteConfigUpdate holds changes to the fields of the analog write config. An
@@ -1071,7 +1074,7 @@ type AnalogWriteConfigUpdate struct {
 	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate *telem.Rate `json:"state_rate,omitzero" msgpack:"state_rate,omitempty"`
 	// Channels are the analog output channels the task drives.
-	Channels *patch.ValueList[AOChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[AOChannel, string, AOChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // DigitalReadConfigUpdate holds changes to the fields of the digital read config. An
@@ -1121,6 +1124,2607 @@ type ScanConfigUpdate struct {
 	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
 }
 
+// AIChannelBaseUpdate holds changes to the fields of the ai channel. An absent field
+// does not change.
+type AIChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+}
+
+// AIChannelUpdateType is the "type" value that selects a variant of AIChannelUpdate.
+type AIChannelUpdateType string
+
+const (
+	// AIVoltageChannelUpdateType reads a voltage.
+	AIVoltageChannelUpdateType AIChannelUpdateType = "ai_voltage"
+	// AIAccelChannelUpdateType reads acceleration from an accelerometer.
+	AIAccelChannelUpdateType AIChannelUpdateType = "ai_accel"
+	// AIBridgeChannelUpdateType reads a generic bridge-based sensor.
+	AIBridgeChannelUpdateType AIChannelUpdateType = "ai_bridge"
+	// AICurrentChannelUpdateType reads a current.
+	AICurrentChannelUpdateType AIChannelUpdateType = "ai_current"
+	// AIForceBridgeTableChannelUpdateType reads force from a bridge with a calibration
+	// table.
+	AIForceBridgeTableChannelUpdateType AIChannelUpdateType = "ai_force_bridge_table"
+	// AIForceBridgeTwoPointLinChannelUpdateType reads force from a bridge with
+	// two-point linear calibration.
+	AIForceBridgeTwoPointLinChannelUpdateType AIChannelUpdateType = "ai_force_bridge_two_point_lin"
+	// AIForceIEPEChannelUpdateType reads force from an IEPE sensor.
+	AIForceIEPEChannelUpdateType AIChannelUpdateType = "ai_force_iepe"
+	// AIMicrophoneChannelUpdateType reads sound pressure from a microphone.
+	AIMicrophoneChannelUpdateType AIChannelUpdateType = "ai_microphone"
+	// AIPressureBridgeTableChannelUpdateType reads pressure from a bridge with a
+	// calibration table.
+	AIPressureBridgeTableChannelUpdateType AIChannelUpdateType = "ai_pressure_bridge_table"
+	// AIPressureBridgeTwoPointLinChannelUpdateType reads pressure from a bridge with
+	// two-point linear calibration.
+	AIPressureBridgeTwoPointLinChannelUpdateType AIChannelUpdateType = "ai_pressure_bridge_two_point_lin"
+	// AIResistanceChannelUpdateType reads a resistance.
+	AIResistanceChannelUpdateType AIChannelUpdateType = "ai_resistance"
+	// AIRTDChannelUpdateType reads temperature from an RTD.
+	AIRTDChannelUpdateType AIChannelUpdateType = "ai_rtd"
+	// AIStrainGaugeChannelUpdateType reads strain from a strain gauge.
+	AIStrainGaugeChannelUpdateType AIChannelUpdateType = "ai_strain_gauge"
+	// AITempBuiltinChannelUpdateType reads temperature from the device's built-in
+	// sensor.
+	AITempBuiltinChannelUpdateType AIChannelUpdateType = "ai_temp_builtin"
+	// AIThermocoupleChannelUpdateType reads temperature from a thermocouple.
+	AIThermocoupleChannelUpdateType AIChannelUpdateType = "ai_thermocouple"
+	// AITorqueBridgeTableChannelUpdateType reads torque from a bridge with a
+	// calibration table.
+	AITorqueBridgeTableChannelUpdateType AIChannelUpdateType = "ai_torque_bridge_table"
+	// AITorqueBridgeTwoPointLinChannelUpdateType reads torque from a bridge with
+	// two-point linear calibration.
+	AITorqueBridgeTwoPointLinChannelUpdateType AIChannelUpdateType = "ai_torque_bridge_two_point_lin"
+	// AIVelocityIEPEChannelUpdateType reads velocity from an IEPE sensor.
+	AIVelocityIEPEChannelUpdateType AIChannelUpdateType = "ai_velocity_iepe"
+	// AIAccel4WireDCVoltageChannelUpdateType reads acceleration from a 4-wire
+	// DC-voltage accelerometer.
+	AIAccel4WireDCVoltageChannelUpdateType AIChannelUpdateType = "ai_accel_4_wire_dc_voltage"
+	// AIAccelChargeChannelUpdateType reads acceleration from a charge-mode
+	// accelerometer.
+	AIAccelChargeChannelUpdateType AIChannelUpdateType = "ai_accel_charge"
+	// AIChargeChannelUpdateType reads a raw charge.
+	AIChargeChannelUpdateType AIChannelUpdateType = "ai_charge"
+	// AICurrentRMSChannelUpdateType reads RMS current.
+	AICurrentRMSChannelUpdateType AIChannelUpdateType = "ai_current_rms"
+	// AIForceBridgePolynomialChannelUpdateType reads force from a bridge with
+	// polynomial calibration.
+	AIForceBridgePolynomialChannelUpdateType AIChannelUpdateType = "ai_force_bridge_polynomial"
+	// AIFreqVoltageChannelUpdateType reads frequency from a voltage signal.
+	AIFreqVoltageChannelUpdateType AIChannelUpdateType = "ai_freq_voltage"
+	// AIPressureBridgePolynomialChannelUpdateType reads pressure from a bridge with
+	// polynomial calibration.
+	AIPressureBridgePolynomialChannelUpdateType AIChannelUpdateType = "ai_pressure_bridge_polynomial"
+	// AIThermistorIexChannelUpdateType reads temperature from a current-excited
+	// thermistor.
+	AIThermistorIexChannelUpdateType AIChannelUpdateType = "ai_thermistor_iex"
+	// AIThermistorVexChannelUpdateType reads temperature from a voltage-excited
+	// thermistor.
+	AIThermistorVexChannelUpdateType AIChannelUpdateType = "ai_thermistor_vex"
+	// AITorqueBridgePolynomialChannelUpdateType reads torque from a bridge with
+	// polynomial calibration.
+	AITorqueBridgePolynomialChannelUpdateType AIChannelUpdateType = "ai_torque_bridge_polynomial"
+	// AIVoltageRMSChannelUpdateType reads RMS voltage.
+	AIVoltageRMSChannelUpdateType AIChannelUpdateType = "ai_voltage_rms"
+	// AIVoltageWithExcitChannelUpdateType reads a voltage with excitation.
+	AIVoltageWithExcitChannelUpdateType AIChannelUpdateType = "ai_voltage_with_excit"
+)
+
+// AIChannelUpdateVariant is implemented by every AIChannelUpdate variant.
+type AIChannelUpdateVariant interface {
+	isAIChannelUpdateVariant()
+}
+
+func (AIChannelBaseUpdate) isAIChannelUpdateVariant() {}
+
+// AIVoltageChannelUpdate reads a voltage.
+type AIVoltageChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+}
+
+func (AIVoltageChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIAccelChannelUpdate reads acceleration from an accelerometer.
+type AIAccelChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// Sensitivity is the sensor's sensitivity rating.
+	Sensitivity *float64 `json:"sensitivity,omitzero" msgpack:"sensitivity,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the acceleration measurement.
+	Units *AccelUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits *AccelSensitivityUnits `json:"sensitivity_units,omitzero" msgpack:"sensitivity_units,omitempty"`
+}
+
+func (AIAccelChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIBridgeChannelUpdate reads a generic bridge-based sensor.
+type AIBridgeChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the electrical output units of the bridge.
+	Units *ElectricalUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+}
+
+func (AIBridgeChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AICurrentChannelUpdate reads a current.
+type AICurrentChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// ShuntResistorLoc selects where the shunt resistor is located.
+	ShuntResistorLoc *ShuntResistorLocation `json:"shunt_resistor_loc,omitzero" msgpack:"shunt_resistor_loc,omitempty"`
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
+	ExtShuntResistorVal *float64 `json:"ext_shunt_resistor_val,omitzero" msgpack:"ext_shunt_resistor_val,omitempty"`
+}
+
+func (AICurrentChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIForceBridgeTableChannelUpdate reads force from a bridge with a calibration table.
+type AIForceBridgeTableChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ElectricalVals are the electrical breakpoints of the calibration table.
+	ElectricalVals *patch.ValueList[float64] `json:"electrical_vals,omitzero" msgpack:"electrical_vals,omitempty"`
+	// ElectricalUnits are the units of the electrical breakpoints.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// PhysicalVals are the physical values corresponding to each electrical breakpoint.
+	PhysicalVals *patch.ValueList[float64] `json:"physical_vals,omitzero" msgpack:"physical_vals,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the force measurement.
+	Units *ForceUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits *ForceUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIForceBridgeTableChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIForceBridgeTwoPointLinChannelUpdate reads force from a bridge with two-point linear
+// calibration.
+type AIForceBridgeTwoPointLinChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// FirstElectricalVal is the first electrical calibration point.
+	FirstElectricalVal *float64 `json:"first_electrical_val,omitzero" msgpack:"first_electrical_val,omitempty"`
+	// SecondElectricalVal is the second electrical calibration point.
+	SecondElectricalVal *float64 `json:"second_electrical_val,omitzero" msgpack:"second_electrical_val,omitempty"`
+	// ElectricalUnits are the units of the electrical calibration points.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// FirstPhysicalVal is the physical value at the first electrical point.
+	FirstPhysicalVal *float64 `json:"first_physical_val,omitzero" msgpack:"first_physical_val,omitempty"`
+	// SecondPhysicalVal is the physical value at the second electrical point.
+	SecondPhysicalVal *float64 `json:"second_physical_val,omitzero" msgpack:"second_physical_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the force measurement.
+	Units *ForceUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits *ForceUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIForceBridgeTwoPointLinChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIForceIEPEChannelUpdate reads force from an IEPE sensor.
+type AIForceIEPEChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// Sensitivity is the sensor's sensitivity rating.
+	Sensitivity *float64 `json:"sensitivity,omitzero" msgpack:"sensitivity,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the force measurement.
+	Units *ForceUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// SensitivityUnits are the units of the IEPE sensor sensitivity.
+	SensitivityUnits *ForceSensitivityUnits `json:"sensitivity_units,omitzero" msgpack:"sensitivity_units,omitempty"`
+}
+
+func (AIForceIEPEChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIMicrophoneChannelUpdate reads sound pressure from a microphone.
+type AIMicrophoneChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MicSensitivity is the microphone sensitivity, in mV/Pa.
+	MicSensitivity *float64 `json:"mic_sensitivity,omitzero" msgpack:"mic_sensitivity,omitempty"`
+	// MaxSndPressLevel is the maximum expected sound pressure level, in dB.
+	MaxSndPressLevel *float64 `json:"max_snd_press_level,omitzero" msgpack:"max_snd_press_level,omitempty"`
+}
+
+func (AIMicrophoneChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIPressureBridgeTableChannelUpdate reads pressure from a bridge with a calibration
+// table.
+type AIPressureBridgeTableChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ElectricalVals are the electrical breakpoints of the calibration table.
+	ElectricalVals *patch.ValueList[float64] `json:"electrical_vals,omitzero" msgpack:"electrical_vals,omitempty"`
+	// ElectricalUnits are the units of the electrical breakpoints.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// PhysicalVals are the physical values corresponding to each electrical breakpoint.
+	PhysicalVals *patch.ValueList[float64] `json:"physical_vals,omitzero" msgpack:"physical_vals,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the pressure measurement.
+	Units *PressureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits *PressureUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIPressureBridgeTableChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIPressureBridgeTwoPointLinChannelUpdate reads pressure from a bridge with two-point
+// linear calibration.
+type AIPressureBridgeTwoPointLinChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// FirstElectricalVal is the first electrical calibration point.
+	FirstElectricalVal *float64 `json:"first_electrical_val,omitzero" msgpack:"first_electrical_val,omitempty"`
+	// SecondElectricalVal is the second electrical calibration point.
+	SecondElectricalVal *float64 `json:"second_electrical_val,omitzero" msgpack:"second_electrical_val,omitempty"`
+	// ElectricalUnits are the units of the electrical calibration points.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// FirstPhysicalVal is the physical value at the first electrical point.
+	FirstPhysicalVal *float64 `json:"first_physical_val,omitzero" msgpack:"first_physical_val,omitempty"`
+	// SecondPhysicalVal is the physical value at the second electrical point.
+	SecondPhysicalVal *float64 `json:"second_physical_val,omitzero" msgpack:"second_physical_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the pressure measurement.
+	Units *PressureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits *PressureUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIPressureBridgeTwoPointLinChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIResistanceChannelUpdate reads a resistance.
+type AIResistanceChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// ResistanceConfig selects the number of wires used for the resistance measurement.
+	ResistanceConfig *ResistanceConfig `json:"resistance_config,omitzero" msgpack:"resistance_config,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+}
+
+func (AIResistanceChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIRTDChannelUpdate reads temperature from an RTD.
+type AIRTDChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// ResistanceConfig selects the number of wires used for the resistance measurement.
+	ResistanceConfig *ResistanceConfig `json:"resistance_config,omitzero" msgpack:"resistance_config,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// RtdType selects the RTD resistance-temperature curve.
+	RtdType *RTDType `json:"rtd_type,omitzero" msgpack:"rtd_type,omitempty"`
+	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
+	R0 *float64 `json:"r0,omitzero" msgpack:"r0,omitempty"`
+}
+
+func (AIRTDChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIStrainGaugeChannelUpdate reads strain from a strain gauge.
+type AIStrainGaugeChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// StrainConfig selects the strain-gauge bridge configuration.
+	StrainConfig *StrainConfig `json:"strain_config,omitzero" msgpack:"strain_config,omitempty"`
+	// GageFactor is the gauge factor of the strain gauge.
+	GageFactor *float64 `json:"gage_factor,omitzero" msgpack:"gage_factor,omitempty"`
+	// InitialBridgeVoltage is the bridge output voltage in the unloaded state.
+	InitialBridgeVoltage *float64 `json:"initial_bridge_voltage,omitzero" msgpack:"initial_bridge_voltage,omitempty"`
+	// NominalGageResistance is the nominal gauge resistance, in Ohms.
+	NominalGageResistance *float64 `json:"nominal_gage_resistance,omitzero" msgpack:"nominal_gage_resistance,omitempty"`
+	// PoissonRatio is the Poisson ratio of the measured material.
+	PoissonRatio *float64 `json:"poisson_ratio,omitzero" msgpack:"poisson_ratio,omitempty"`
+	// LeadWireResistance is the resistance of the lead wires, in Ohms.
+	LeadWireResistance *float64 `json:"lead_wire_resistance,omitzero" msgpack:"lead_wire_resistance,omitempty"`
+}
+
+func (AIStrainGaugeChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AITempBuiltinChannelUpdate reads temperature from the device's built-in sensor.
+type AITempBuiltinChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+}
+
+func (AITempBuiltinChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIThermocoupleChannelUpdate reads temperature from a thermocouple.
+type AIThermocoupleChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// ThermocoupleType selects the thermocouple alloy type.
+	ThermocoupleType *ThermocoupleType `json:"thermocouple_type,omitzero" msgpack:"thermocouple_type,omitempty"`
+	// Cjc is the cold-junction compensation applied to the reading.
+	Cjc *CJCUpdate `json:"cjc,omitzero" msgpack:"cjc,omitempty"`
+}
+
+func (AIThermocoupleChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AITorqueBridgeTableChannelUpdate reads torque from a bridge with a calibration table.
+type AITorqueBridgeTableChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ElectricalVals are the electrical breakpoints of the calibration table.
+	ElectricalVals *patch.ValueList[float64] `json:"electrical_vals,omitzero" msgpack:"electrical_vals,omitempty"`
+	// ElectricalUnits are the units of the electrical breakpoints.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// PhysicalVals are the physical values corresponding to each electrical breakpoint.
+	PhysicalVals *patch.ValueList[float64] `json:"physical_vals,omitzero" msgpack:"physical_vals,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the torque measurement.
+	Units *TorqueUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the calibration table.
+	PhysicalUnits *TorqueUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AITorqueBridgeTableChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AITorqueBridgeTwoPointLinChannelUpdate reads torque from a bridge with two-point
+// linear calibration.
+type AITorqueBridgeTwoPointLinChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// FirstElectricalVal is the first electrical calibration point.
+	FirstElectricalVal *float64 `json:"first_electrical_val,omitzero" msgpack:"first_electrical_val,omitempty"`
+	// SecondElectricalVal is the second electrical calibration point.
+	SecondElectricalVal *float64 `json:"second_electrical_val,omitzero" msgpack:"second_electrical_val,omitempty"`
+	// ElectricalUnits are the units of the electrical calibration points.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// FirstPhysicalVal is the physical value at the first electrical point.
+	FirstPhysicalVal *float64 `json:"first_physical_val,omitzero" msgpack:"first_physical_val,omitempty"`
+	// SecondPhysicalVal is the physical value at the second electrical point.
+	SecondPhysicalVal *float64 `json:"second_physical_val,omitzero" msgpack:"second_physical_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the torque measurement.
+	Units *TorqueUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the two-point calibration.
+	PhysicalUnits *TorqueUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AITorqueBridgeTwoPointLinChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIVelocityIEPEChannelUpdate reads velocity from an IEPE sensor.
+type AIVelocityIEPEChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// Sensitivity is the sensor's sensitivity rating.
+	Sensitivity *float64 `json:"sensitivity,omitzero" msgpack:"sensitivity,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the velocity measurement.
+	Units *VelocityUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// SensitivityUnits are the units of the IEPE sensor sensitivity.
+	SensitivityUnits *VelocitySensitivityUnits `json:"sensitivity_units,omitzero" msgpack:"sensitivity_units,omitempty"`
+}
+
+func (AIVelocityIEPEChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIAccel4WireDCVoltageChannelUpdate reads acceleration from a 4-wire DC-voltage
+// accelerometer.
+type AIAccel4WireDCVoltageChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// Sensitivity is the sensor's sensitivity rating.
+	Sensitivity *float64 `json:"sensitivity,omitzero" msgpack:"sensitivity,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the acceleration measurement.
+	Units *AccelUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits *AccelSensitivityUnits `json:"sensitivity_units,omitzero" msgpack:"sensitivity_units,omitempty"`
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
+	// reading.
+	ScaledByExcitation *bool `json:"scaled_by_excitation,omitzero" msgpack:"scaled_by_excitation,omitempty"`
+}
+
+func (AIAccel4WireDCVoltageChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIAccelChargeChannelUpdate reads acceleration from a charge-mode accelerometer.
+type AIAccelChargeChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// Sensitivity is the sensor's sensitivity rating.
+	Sensitivity *float64 `json:"sensitivity,omitzero" msgpack:"sensitivity,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the acceleration measurement.
+	Units *AccelUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits *AccelChargeSensitivityUnits `json:"sensitivity_units,omitzero" msgpack:"sensitivity_units,omitempty"`
+}
+
+func (AIAccelChargeChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIChargeChannelUpdate reads a raw charge.
+type AIChargeChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the charge measurement.
+	Units *ChargeUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+}
+
+func (AIChargeChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AICurrentRMSChannelUpdate reads RMS current.
+type AICurrentRMSChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// ShuntResistorLoc selects where the shunt resistor is located.
+	ShuntResistorLoc *ShuntResistorLocation `json:"shunt_resistor_loc,omitzero" msgpack:"shunt_resistor_loc,omitempty"`
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
+	ExtShuntResistorVal *float64 `json:"ext_shunt_resistor_val,omitzero" msgpack:"ext_shunt_resistor_val,omitempty"`
+}
+
+func (AICurrentRMSChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIForceBridgePolynomialChannelUpdate reads force from a bridge with polynomial
+// calibration.
+type AIForceBridgePolynomialChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ForwardCoeffs are the coefficients mapping electrical to physical values.
+	ForwardCoeffs *patch.ValueList[float64] `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitempty"`
+	// ReverseCoeffs are the coefficients mapping physical to electrical values.
+	ReverseCoeffs *patch.ValueList[float64] `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitempty"`
+	// ElectricalUnits are the electrical output units of the bridge.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the force measurement.
+	Units *ForceUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits *ForceUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIForceBridgePolynomialChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIFreqVoltageChannelUpdate reads frequency from a voltage signal.
+type AIFreqVoltageChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// ThresholdLevel is the voltage level at which a cycle is counted.
+	ThresholdLevel *float64 `json:"threshold_level,omitzero" msgpack:"threshold_level,omitempty"`
+	// Hysteresis is the hysteresis applied around the threshold level.
+	Hysteresis *float64 `json:"hysteresis,omitzero" msgpack:"hysteresis,omitempty"`
+}
+
+func (AIFreqVoltageChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIPressureBridgePolynomialChannelUpdate reads pressure from a bridge with polynomial
+// calibration.
+type AIPressureBridgePolynomialChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ForwardCoeffs are the coefficients mapping electrical to physical values.
+	ForwardCoeffs *patch.ValueList[float64] `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitempty"`
+	// ReverseCoeffs are the coefficients mapping physical to electrical values.
+	ReverseCoeffs *patch.ValueList[float64] `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitempty"`
+	// ElectricalUnits are the electrical output units of the bridge.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the pressure measurement.
+	Units *PressureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits *PressureUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AIPressureBridgePolynomialChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIThermistorIexChannelUpdate reads temperature from a current-excited thermistor.
+type AIThermistorIexChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// ResistanceConfig selects the number of wires used for the resistance measurement.
+	ResistanceConfig *ResistanceConfig `json:"resistance_config,omitzero" msgpack:"resistance_config,omitempty"`
+	// CurrentExcitSource selects the source of the current excitation signal.
+	CurrentExcitSource *ExcitationSource `json:"current_excit_source,omitzero" msgpack:"current_excit_source,omitempty"`
+	// CurrentExcitVal is the current excitation level, in Amps.
+	CurrentExcitVal *float64 `json:"current_excit_val,omitzero" msgpack:"current_excit_val,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// A is the first Steinhart-Hart coefficient.
+	A *float64 `json:"a,omitzero" msgpack:"a,omitempty"`
+	// B is the second Steinhart-Hart coefficient.
+	B *float64 `json:"b,omitzero" msgpack:"b,omitempty"`
+	// C is the third Steinhart-Hart coefficient.
+	C *float64 `json:"c,omitzero" msgpack:"c,omitempty"`
+}
+
+func (AIThermistorIexChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIThermistorVexChannelUpdate reads temperature from a voltage-excited thermistor.
+type AIThermistorVexChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// ResistanceConfig selects the number of wires used for the resistance measurement.
+	ResistanceConfig *ResistanceConfig `json:"resistance_config,omitzero" msgpack:"resistance_config,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// A is the first Steinhart-Hart coefficient.
+	A *float64 `json:"a,omitzero" msgpack:"a,omitempty"`
+	// B is the second Steinhart-Hart coefficient.
+	B *float64 `json:"b,omitzero" msgpack:"b,omitempty"`
+	// C is the third Steinhart-Hart coefficient.
+	C *float64 `json:"c,omitzero" msgpack:"c,omitempty"`
+	// R1 is the reference resistor value, in Ohms.
+	R1 *float64 `json:"r1,omitzero" msgpack:"r1,omitempty"`
+}
+
+func (AIThermistorVexChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AITorqueBridgePolynomialChannelUpdate reads torque from a bridge with polynomial
+// calibration.
+type AITorqueBridgePolynomialChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
+	NominalBridgeResistance *float64 `json:"nominal_bridge_resistance,omitzero" msgpack:"nominal_bridge_resistance,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// ForwardCoeffs are the coefficients mapping electrical to physical values.
+	ForwardCoeffs *patch.ValueList[float64] `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitempty"`
+	// ReverseCoeffs are the coefficients mapping physical to electrical values.
+	ReverseCoeffs *patch.ValueList[float64] `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitempty"`
+	// ElectricalUnits are the electrical output units of the bridge.
+	ElectricalUnits *ElectricalUnits `json:"electrical_units,omitzero" msgpack:"electrical_units,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// Units are the units of the torque measurement.
+	Units *TorqueUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// PhysicalUnits are the physical units of the polynomial calibration.
+	PhysicalUnits *TorqueUnits `json:"physical_units,omitzero" msgpack:"physical_units,omitempty"`
+}
+
+func (AITorqueBridgePolynomialChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIVoltageRMSChannelUpdate reads RMS voltage.
+type AIVoltageRMSChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+}
+
+func (AIVoltageRMSChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIVoltageWithExcitChannelUpdate reads a voltage with excitation.
+type AIVoltageWithExcitChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the channel belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig *TerminalConfig `json:"terminal_config,omitzero" msgpack:"terminal_config,omitempty"`
+	// VoltageExcitSource selects the source of the voltage excitation signal.
+	VoltageExcitSource *ExcitationSource `json:"voltage_excit_source,omitzero" msgpack:"voltage_excit_source,omitempty"`
+	// VoltageExcitVal is the voltage excitation level, in Volts.
+	VoltageExcitVal *float64 `json:"voltage_excit_val,omitzero" msgpack:"voltage_excit_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// BridgeConfig selects the physical bridge wiring.
+	BridgeConfig *BridgeConfig `json:"bridge_config,omitzero" msgpack:"bridge_config,omitempty"`
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
+	// reading.
+	ScaledByExcitation *bool `json:"scaled_by_excitation,omitzero" msgpack:"scaled_by_excitation,omitempty"`
+}
+
+func (AIVoltageWithExcitChannelUpdate) isAIChannelUpdateVariant() {}
+
+// AIChannelUpdate holds changes to the fields of the ai channel. A type that differs
+// from the stored one changes the variant.
+type AIChannelUpdate struct {
+	Variant AIChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u AIChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AIChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case AIVoltageChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageChannelUpdate
+		}{Type: AIVoltageChannelUpdateType, AIVoltageChannelUpdate: v})
+	case AIAccelChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccelChannelUpdate
+		}{Type: AIAccelChannelUpdateType, AIAccelChannelUpdate: v})
+	case AIBridgeChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIBridgeChannelUpdate
+		}{Type: AIBridgeChannelUpdateType, AIBridgeChannelUpdate: v})
+	case AICurrentChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AICurrentChannelUpdate
+		}{Type: AICurrentChannelUpdateType, AICurrentChannelUpdate: v})
+	case AIForceBridgeTableChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgeTableChannelUpdate
+		}{Type: AIForceBridgeTableChannelUpdateType, AIForceBridgeTableChannelUpdate: v})
+	case AIForceBridgeTwoPointLinChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgeTwoPointLinChannelUpdate
+		}{Type: AIForceBridgeTwoPointLinChannelUpdateType, AIForceBridgeTwoPointLinChannelUpdate: v})
+	case AIForceIEPEChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceIEPEChannelUpdate
+		}{Type: AIForceIEPEChannelUpdateType, AIForceIEPEChannelUpdate: v})
+	case AIMicrophoneChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIMicrophoneChannelUpdate
+		}{Type: AIMicrophoneChannelUpdateType, AIMicrophoneChannelUpdate: v})
+	case AIPressureBridgeTableChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgeTableChannelUpdate
+		}{Type: AIPressureBridgeTableChannelUpdateType, AIPressureBridgeTableChannelUpdate: v})
+	case AIPressureBridgeTwoPointLinChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgeTwoPointLinChannelUpdate
+		}{Type: AIPressureBridgeTwoPointLinChannelUpdateType, AIPressureBridgeTwoPointLinChannelUpdate: v})
+	case AIResistanceChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIResistanceChannelUpdate
+		}{Type: AIResistanceChannelUpdateType, AIResistanceChannelUpdate: v})
+	case AIRTDChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIRTDChannelUpdate
+		}{Type: AIRTDChannelUpdateType, AIRTDChannelUpdate: v})
+	case AIStrainGaugeChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIStrainGaugeChannelUpdate
+		}{Type: AIStrainGaugeChannelUpdateType, AIStrainGaugeChannelUpdate: v})
+	case AITempBuiltinChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITempBuiltinChannelUpdate
+		}{Type: AITempBuiltinChannelUpdateType, AITempBuiltinChannelUpdate: v})
+	case AIThermocoupleChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermocoupleChannelUpdate
+		}{Type: AIThermocoupleChannelUpdateType, AIThermocoupleChannelUpdate: v})
+	case AITorqueBridgeTableChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgeTableChannelUpdate
+		}{Type: AITorqueBridgeTableChannelUpdateType, AITorqueBridgeTableChannelUpdate: v})
+	case AITorqueBridgeTwoPointLinChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgeTwoPointLinChannelUpdate
+		}{Type: AITorqueBridgeTwoPointLinChannelUpdateType, AITorqueBridgeTwoPointLinChannelUpdate: v})
+	case AIVelocityIEPEChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVelocityIEPEChannelUpdate
+		}{Type: AIVelocityIEPEChannelUpdateType, AIVelocityIEPEChannelUpdate: v})
+	case AIAccel4WireDCVoltageChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccel4WireDCVoltageChannelUpdate
+		}{Type: AIAccel4WireDCVoltageChannelUpdateType, AIAccel4WireDCVoltageChannelUpdate: v})
+	case AIAccelChargeChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccelChargeChannelUpdate
+		}{Type: AIAccelChargeChannelUpdateType, AIAccelChargeChannelUpdate: v})
+	case AIChargeChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIChargeChannelUpdate
+		}{Type: AIChargeChannelUpdateType, AIChargeChannelUpdate: v})
+	case AICurrentRMSChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AICurrentRMSChannelUpdate
+		}{Type: AICurrentRMSChannelUpdateType, AICurrentRMSChannelUpdate: v})
+	case AIForceBridgePolynomialChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgePolynomialChannelUpdate
+		}{Type: AIForceBridgePolynomialChannelUpdateType, AIForceBridgePolynomialChannelUpdate: v})
+	case AIFreqVoltageChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIFreqVoltageChannelUpdate
+		}{Type: AIFreqVoltageChannelUpdateType, AIFreqVoltageChannelUpdate: v})
+	case AIPressureBridgePolynomialChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgePolynomialChannelUpdate
+		}{Type: AIPressureBridgePolynomialChannelUpdateType, AIPressureBridgePolynomialChannelUpdate: v})
+	case AIThermistorIexChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermistorIexChannelUpdate
+		}{Type: AIThermistorIexChannelUpdateType, AIThermistorIexChannelUpdate: v})
+	case AIThermistorVexChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermistorVexChannelUpdate
+		}{Type: AIThermistorVexChannelUpdateType, AIThermistorVexChannelUpdate: v})
+	case AITorqueBridgePolynomialChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgePolynomialChannelUpdate
+		}{Type: AITorqueBridgePolynomialChannelUpdateType, AITorqueBridgePolynomialChannelUpdate: v})
+	case AIVoltageRMSChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageRMSChannelUpdate
+		}{Type: AIVoltageRMSChannelUpdateType, AIVoltageRMSChannelUpdate: v})
+	case AIVoltageWithExcitChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageWithExcitChannelUpdate
+		}{Type: AIVoltageWithExcitChannelUpdateType, AIVoltageWithExcitChannelUpdate: v})
+	default:
+		return errors.Newf("AIChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *AIChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AIChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v AIChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AIVoltageChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageChannelUpdate
+	case AIAccelChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccelChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccelChannelUpdate
+	case AIBridgeChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIBridgeChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIBridgeChannelUpdate
+	case AICurrentChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AICurrentChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AICurrentChannelUpdate
+	case AIForceBridgeTableChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgeTableChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgeTableChannelUpdate
+	case AIForceBridgeTwoPointLinChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgeTwoPointLinChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgeTwoPointLinChannelUpdate
+	case AIForceIEPEChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceIEPEChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceIEPEChannelUpdate
+	case AIMicrophoneChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIMicrophoneChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIMicrophoneChannelUpdate
+	case AIPressureBridgeTableChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgeTableChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgeTableChannelUpdate
+	case AIPressureBridgeTwoPointLinChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgeTwoPointLinChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgeTwoPointLinChannelUpdate
+	case AIResistanceChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIResistanceChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIResistanceChannelUpdate
+	case AIRTDChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIRTDChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIRTDChannelUpdate
+	case AIStrainGaugeChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIStrainGaugeChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIStrainGaugeChannelUpdate
+	case AITempBuiltinChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITempBuiltinChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITempBuiltinChannelUpdate
+	case AIThermocoupleChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermocoupleChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermocoupleChannelUpdate
+	case AITorqueBridgeTableChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgeTableChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgeTableChannelUpdate
+	case AITorqueBridgeTwoPointLinChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgeTwoPointLinChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgeTwoPointLinChannelUpdate
+	case AIVelocityIEPEChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVelocityIEPEChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVelocityIEPEChannelUpdate
+	case AIAccel4WireDCVoltageChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccel4WireDCVoltageChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccel4WireDCVoltageChannelUpdate
+	case AIAccelChargeChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIAccelChargeChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIAccelChargeChannelUpdate
+	case AIChargeChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIChargeChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIChargeChannelUpdate
+	case AICurrentRMSChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AICurrentRMSChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AICurrentRMSChannelUpdate
+	case AIForceBridgePolynomialChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIForceBridgePolynomialChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIForceBridgePolynomialChannelUpdate
+	case AIFreqVoltageChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIFreqVoltageChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIFreqVoltageChannelUpdate
+	case AIPressureBridgePolynomialChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIPressureBridgePolynomialChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIPressureBridgePolynomialChannelUpdate
+	case AIThermistorIexChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermistorIexChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermistorIexChannelUpdate
+	case AIThermistorVexChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIThermistorVexChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIThermistorVexChannelUpdate
+	case AITorqueBridgePolynomialChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AITorqueBridgePolynomialChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AITorqueBridgePolynomialChannelUpdate
+	case AIVoltageRMSChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageRMSChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageRMSChannelUpdate
+	case AIVoltageWithExcitChannelUpdateType:
+		var v struct {
+			Type AIChannelUpdateType `json:"type"`
+			AIVoltageWithExcitChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AIVoltageWithExcitChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AIChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AIChannelUpdate) Type() AIChannelUpdateType {
+	switch u.Variant.(type) {
+	case AIVoltageChannelUpdate:
+		return AIVoltageChannelUpdateType
+	case AIAccelChannelUpdate:
+		return AIAccelChannelUpdateType
+	case AIBridgeChannelUpdate:
+		return AIBridgeChannelUpdateType
+	case AICurrentChannelUpdate:
+		return AICurrentChannelUpdateType
+	case AIForceBridgeTableChannelUpdate:
+		return AIForceBridgeTableChannelUpdateType
+	case AIForceBridgeTwoPointLinChannelUpdate:
+		return AIForceBridgeTwoPointLinChannelUpdateType
+	case AIForceIEPEChannelUpdate:
+		return AIForceIEPEChannelUpdateType
+	case AIMicrophoneChannelUpdate:
+		return AIMicrophoneChannelUpdateType
+	case AIPressureBridgeTableChannelUpdate:
+		return AIPressureBridgeTableChannelUpdateType
+	case AIPressureBridgeTwoPointLinChannelUpdate:
+		return AIPressureBridgeTwoPointLinChannelUpdateType
+	case AIResistanceChannelUpdate:
+		return AIResistanceChannelUpdateType
+	case AIRTDChannelUpdate:
+		return AIRTDChannelUpdateType
+	case AIStrainGaugeChannelUpdate:
+		return AIStrainGaugeChannelUpdateType
+	case AITempBuiltinChannelUpdate:
+		return AITempBuiltinChannelUpdateType
+	case AIThermocoupleChannelUpdate:
+		return AIThermocoupleChannelUpdateType
+	case AITorqueBridgeTableChannelUpdate:
+		return AITorqueBridgeTableChannelUpdateType
+	case AITorqueBridgeTwoPointLinChannelUpdate:
+		return AITorqueBridgeTwoPointLinChannelUpdateType
+	case AIVelocityIEPEChannelUpdate:
+		return AIVelocityIEPEChannelUpdateType
+	case AIAccel4WireDCVoltageChannelUpdate:
+		return AIAccel4WireDCVoltageChannelUpdateType
+	case AIAccelChargeChannelUpdate:
+		return AIAccelChargeChannelUpdateType
+	case AIChargeChannelUpdate:
+		return AIChargeChannelUpdateType
+	case AICurrentRMSChannelUpdate:
+		return AICurrentRMSChannelUpdateType
+	case AIForceBridgePolynomialChannelUpdate:
+		return AIForceBridgePolynomialChannelUpdateType
+	case AIFreqVoltageChannelUpdate:
+		return AIFreqVoltageChannelUpdateType
+	case AIPressureBridgePolynomialChannelUpdate:
+		return AIPressureBridgePolynomialChannelUpdateType
+	case AIThermistorIexChannelUpdate:
+		return AIThermistorIexChannelUpdateType
+	case AIThermistorVexChannelUpdate:
+		return AIThermistorVexChannelUpdateType
+	case AITorqueBridgePolynomialChannelUpdate:
+		return AITorqueBridgePolynomialChannelUpdateType
+	case AIVoltageRMSChannelUpdate:
+		return AIVoltageRMSChannelUpdateType
+	case AIVoltageWithExcitChannelUpdate:
+		return AIVoltageWithExcitChannelUpdateType
+	}
+	return ""
+}
+
+// CIChannelBaseUpdate holds changes to the fields of the ci channel. An absent field
+// does not change.
+type CIChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+}
+
+// CIChannelUpdateType is the "type" value that selects a variant of CIChannelUpdate.
+type CIChannelUpdateType string
+
+const (
+	// CIFrequencyChannelUpdateType measures signal frequency.
+	CIFrequencyChannelUpdateType CIChannelUpdateType = "ci_frequency"
+	// CIEdgeCountChannelUpdateType counts signal edges.
+	CIEdgeCountChannelUpdateType CIChannelUpdateType = "ci_edge_count"
+	// CIPeriodChannelUpdateType measures signal period.
+	CIPeriodChannelUpdateType CIChannelUpdateType = "ci_period"
+	// CIPulseWidthChannelUpdateType measures pulse width.
+	CIPulseWidthChannelUpdateType CIChannelUpdateType = "ci_pulse_width"
+	// CISemiPeriodChannelUpdateType measures semi-period.
+	CISemiPeriodChannelUpdateType CIChannelUpdateType = "ci_semi_period"
+	// CITwoEdgeSepChannelUpdateType measures the separation between two edges.
+	CITwoEdgeSepChannelUpdateType CIChannelUpdateType = "ci_two_edge_sep"
+	// CIVelocityLinearChannelUpdateType measures linear velocity from an encoder.
+	CIVelocityLinearChannelUpdateType CIChannelUpdateType = "ci_velocity_linear"
+	// CIVelocityAngularChannelUpdateType measures angular velocity from an encoder.
+	CIVelocityAngularChannelUpdateType CIChannelUpdateType = "ci_velocity_angular"
+	// CIPositionLinearChannelUpdateType measures linear position from an encoder.
+	CIPositionLinearChannelUpdateType CIChannelUpdateType = "ci_position_linear"
+	// CIPositionAngularChannelUpdateType measures angular position from an encoder.
+	CIPositionAngularChannelUpdateType CIChannelUpdateType = "ci_position_angular"
+	// CIDutyCycleChannelUpdateType measures the duty cycle of a signal.
+	CIDutyCycleChannelUpdateType CIChannelUpdateType = "ci_duty_cycle"
+)
+
+// CIChannelUpdateVariant is implemented by every CIChannelUpdate variant.
+type CIChannelUpdateVariant interface {
+	isCIChannelUpdateVariant()
+}
+
+func (CIChannelBaseUpdate) isCIChannelUpdateVariant() {}
+
+// CIFrequencyChannelUpdate measures signal frequency.
+type CIFrequencyChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected frequency.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected frequency.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the frequency measurement.
+	Units *CIFreqUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Edge selects the edge the counter responds to.
+	Edge *CIEdge `json:"edge,omitzero" msgpack:"edge,omitempty"`
+	// MeasMethod selects the measurement method.
+	MeasMethod *CIMeasMethod `json:"meas_method,omitzero" msgpack:"meas_method,omitempty"`
+	// MeasTime is the averaging window for high-frequency measurement, in seconds.
+	MeasTime *float64 `json:"meas_time,omitzero" msgpack:"meas_time,omitempty"`
+	// Divisor is the counter divisor for large-range measurement.
+	Divisor *uint32 `json:"divisor,omitzero" msgpack:"divisor,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CIFrequencyChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIEdgeCountChannelUpdate counts signal edges.
+type CIEdgeCountChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// ActiveEdge selects the edge that increments the count.
+	ActiveEdge *CIEdge `json:"active_edge,omitzero" msgpack:"active_edge,omitempty"`
+	// CountDirection selects the direction the counter counts.
+	CountDirection *CICountDirection `json:"count_direction,omitzero" msgpack:"count_direction,omitempty"`
+	// InitialCount is the value the counter starts at.
+	InitialCount *uint32 `json:"initial_count,omitzero" msgpack:"initial_count,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CIEdgeCountChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIPeriodChannelUpdate measures signal period.
+type CIPeriodChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected period, in the selected units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected period, in the selected units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the period measurement.
+	Units *CITimeUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// StartingEdge selects the edge that starts a period measurement.
+	StartingEdge *CIEdge `json:"starting_edge,omitzero" msgpack:"starting_edge,omitempty"`
+	// MeasMethod selects the measurement method.
+	MeasMethod *CIMeasMethod `json:"meas_method,omitzero" msgpack:"meas_method,omitempty"`
+	// MeasTime is the averaging window for high-frequency measurement, in seconds.
+	MeasTime *float64 `json:"meas_time,omitzero" msgpack:"meas_time,omitempty"`
+	// Divisor is the counter divisor for large-range measurement.
+	Divisor *uint32 `json:"divisor,omitzero" msgpack:"divisor,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CIPeriodChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIPulseWidthChannelUpdate measures pulse width.
+type CIPulseWidthChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected pulse width, in the selected units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected pulse width, in the selected units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the pulse-width measurement.
+	Units *CITimeUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// StartingEdge selects the edge that starts a pulse-width measurement.
+	StartingEdge *CIEdge `json:"starting_edge,omitzero" msgpack:"starting_edge,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CIPulseWidthChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CISemiPeriodChannelUpdate measures semi-period.
+type CISemiPeriodChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected semi-period, in the selected units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected semi-period, in the selected units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the semi-period measurement.
+	Units *CITimeUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CISemiPeriodChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CITwoEdgeSepChannelUpdate measures the separation between two edges.
+type CITwoEdgeSepChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected separation, in the selected units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected separation, in the selected units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the two-edge-separation measurement.
+	Units *CITimeUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// FirstEdge selects the edge that starts the measurement.
+	FirstEdge *CIEdge `json:"first_edge,omitzero" msgpack:"first_edge,omitempty"`
+	// SecondEdge selects the edge that stops the measurement.
+	SecondEdge *CIEdge `json:"second_edge,omitzero" msgpack:"second_edge,omitempty"`
+	// FirstTerminal is the terminal the first edge's signal is wired to.
+	FirstTerminal *string `json:"first_terminal,omitzero" msgpack:"first_terminal,omitempty"`
+	// SecondTerminal is the terminal the second edge's signal is wired to.
+	SecondTerminal *string `json:"second_terminal,omitzero" msgpack:"second_terminal,omitempty"`
+}
+
+func (CITwoEdgeSepChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIVelocityLinearChannelUpdate measures linear velocity from an encoder.
+type CIVelocityLinearChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected velocity.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected velocity.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the velocity measurement.
+	Units *CILinearVelocityUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType *CIDecodingType `json:"decoding_type,omitzero" msgpack:"decoding_type,omitempty"`
+	// DistPerPulse is the linear distance per encoder pulse.
+	DistPerPulse *float64 `json:"dist_per_pulse,omitzero" msgpack:"dist_per_pulse,omitempty"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA *string `json:"terminal_a,omitzero" msgpack:"terminal_a,omitempty"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB *string `json:"terminal_b,omitzero" msgpack:"terminal_b,omitempty"`
+}
+
+func (CIVelocityLinearChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIVelocityAngularChannelUpdate measures angular velocity from an encoder.
+type CIVelocityAngularChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected velocity.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected velocity.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// Units are the units of the velocity measurement.
+	Units *CIAngularVelocityUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType *CIDecodingType `json:"decoding_type,omitzero" msgpack:"decoding_type,omitempty"`
+	// PulsesPerRev is the number of encoder pulses per revolution.
+	PulsesPerRev *uint32 `json:"pulses_per_rev,omitzero" msgpack:"pulses_per_rev,omitempty"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA *string `json:"terminal_a,omitzero" msgpack:"terminal_a,omitempty"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB *string `json:"terminal_b,omitzero" msgpack:"terminal_b,omitempty"`
+}
+
+func (CIVelocityAngularChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIPositionLinearChannelUpdate measures linear position from an encoder.
+type CIPositionLinearChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// ZIndexEnabled is true when the encoder's Z index resets the count.
+	ZIndexEnabled *bool `json:"z_index_enabled,omitzero" msgpack:"z_index_enabled,omitempty"`
+	// ZIndexVal is the value the measurement resets to when the Z index is active.
+	ZIndexVal *float64 `json:"z_index_val,omitzero" msgpack:"z_index_val,omitempty"`
+	// ZIndexPhase selects the A/B states at which the Z index is active.
+	ZIndexPhase *ZIndexPhase `json:"z_index_phase,omitzero" msgpack:"z_index_phase,omitempty"`
+	// TerminalZ is the terminal the Z index signal is wired to.
+	TerminalZ *string `json:"terminal_z,omitzero" msgpack:"terminal_z,omitempty"`
+	// Units are the units of the position measurement.
+	Units *CILinearPositionUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType *CIDecodingType `json:"decoding_type,omitzero" msgpack:"decoding_type,omitempty"`
+	// DistPerPulse is the linear distance per encoder pulse.
+	DistPerPulse *float64 `json:"dist_per_pulse,omitzero" msgpack:"dist_per_pulse,omitempty"`
+	// InitialPos is the position the encoder starts at.
+	InitialPos *float64 `json:"initial_pos,omitzero" msgpack:"initial_pos,omitempty"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA *string `json:"terminal_a,omitzero" msgpack:"terminal_a,omitempty"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB *string `json:"terminal_b,omitzero" msgpack:"terminal_b,omitempty"`
+}
+
+func (CIPositionLinearChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIPositionAngularChannelUpdate measures angular position from an encoder.
+type CIPositionAngularChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// ZIndexEnabled is true when the encoder's Z index resets the count.
+	ZIndexEnabled *bool `json:"z_index_enabled,omitzero" msgpack:"z_index_enabled,omitempty"`
+	// ZIndexVal is the value the measurement resets to when the Z index is active.
+	ZIndexVal *float64 `json:"z_index_val,omitzero" msgpack:"z_index_val,omitempty"`
+	// ZIndexPhase selects the A/B states at which the Z index is active.
+	ZIndexPhase *ZIndexPhase `json:"z_index_phase,omitzero" msgpack:"z_index_phase,omitempty"`
+	// TerminalZ is the terminal the Z index signal is wired to.
+	TerminalZ *string `json:"terminal_z,omitzero" msgpack:"terminal_z,omitempty"`
+	// Units are the units of the position measurement.
+	Units *CIAngularPositionUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// DecodingType selects the encoder decoding type.
+	DecodingType *CIDecodingType `json:"decoding_type,omitzero" msgpack:"decoding_type,omitempty"`
+	// PulsesPerRev is the number of encoder pulses per revolution.
+	PulsesPerRev *uint32 `json:"pulses_per_rev,omitzero" msgpack:"pulses_per_rev,omitempty"`
+	// InitialAngle is the angle the encoder starts at.
+	InitialAngle *float64 `json:"initial_angle,omitzero" msgpack:"initial_angle,omitempty"`
+	// TerminalA is the terminal for encoder channel A.
+	TerminalA *string `json:"terminal_a,omitzero" msgpack:"terminal_a,omitempty"`
+	// TerminalB is the terminal for encoder channel B.
+	TerminalB *string `json:"terminal_b,omitzero" msgpack:"terminal_b,omitempty"`
+}
+
+func (CIPositionAngularChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIDutyCycleChannelUpdate measures the duty cycle of a signal.
+type CIDutyCycleChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical counter the channel uses.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Device is the key of the device the counter belongs to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+	// MinVal is the minimum expected duty-cycle frequency.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected duty-cycle frequency.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// ActiveEdge selects the edge the counter responds to.
+	ActiveEdge *CIEdge `json:"active_edge,omitzero" msgpack:"active_edge,omitempty"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal *string `json:"terminal,omitzero" msgpack:"terminal,omitempty"`
+}
+
+func (CIDutyCycleChannelUpdate) isCIChannelUpdateVariant() {}
+
+// CIChannelUpdate holds changes to the fields of the ci channel. A type that differs
+// from the stored one changes the variant.
+type CIChannelUpdate struct {
+	Variant CIChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u CIChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CIChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case CIFrequencyChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIFrequencyChannelUpdate
+		}{Type: CIFrequencyChannelUpdateType, CIFrequencyChannelUpdate: v})
+	case CIEdgeCountChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIEdgeCountChannelUpdate
+		}{Type: CIEdgeCountChannelUpdateType, CIEdgeCountChannelUpdate: v})
+	case CIPeriodChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPeriodChannelUpdate
+		}{Type: CIPeriodChannelUpdateType, CIPeriodChannelUpdate: v})
+	case CIPulseWidthChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPulseWidthChannelUpdate
+		}{Type: CIPulseWidthChannelUpdateType, CIPulseWidthChannelUpdate: v})
+	case CISemiPeriodChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CISemiPeriodChannelUpdate
+		}{Type: CISemiPeriodChannelUpdateType, CISemiPeriodChannelUpdate: v})
+	case CITwoEdgeSepChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CITwoEdgeSepChannelUpdate
+		}{Type: CITwoEdgeSepChannelUpdateType, CITwoEdgeSepChannelUpdate: v})
+	case CIVelocityLinearChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIVelocityLinearChannelUpdate
+		}{Type: CIVelocityLinearChannelUpdateType, CIVelocityLinearChannelUpdate: v})
+	case CIVelocityAngularChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIVelocityAngularChannelUpdate
+		}{Type: CIVelocityAngularChannelUpdateType, CIVelocityAngularChannelUpdate: v})
+	case CIPositionLinearChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPositionLinearChannelUpdate
+		}{Type: CIPositionLinearChannelUpdateType, CIPositionLinearChannelUpdate: v})
+	case CIPositionAngularChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPositionAngularChannelUpdate
+		}{Type: CIPositionAngularChannelUpdateType, CIPositionAngularChannelUpdate: v})
+	case CIDutyCycleChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIDutyCycleChannelUpdate
+		}{Type: CIDutyCycleChannelUpdateType, CIDutyCycleChannelUpdate: v})
+	default:
+		return errors.Newf("CIChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *CIChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type CIChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v CIChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CIFrequencyChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIFrequencyChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIFrequencyChannelUpdate
+	case CIEdgeCountChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIEdgeCountChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIEdgeCountChannelUpdate
+	case CIPeriodChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPeriodChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPeriodChannelUpdate
+	case CIPulseWidthChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPulseWidthChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPulseWidthChannelUpdate
+	case CISemiPeriodChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CISemiPeriodChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CISemiPeriodChannelUpdate
+	case CITwoEdgeSepChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CITwoEdgeSepChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CITwoEdgeSepChannelUpdate
+	case CIVelocityLinearChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIVelocityLinearChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIVelocityLinearChannelUpdate
+	case CIVelocityAngularChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIVelocityAngularChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIVelocityAngularChannelUpdate
+	case CIPositionLinearChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPositionLinearChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPositionLinearChannelUpdate
+	case CIPositionAngularChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIPositionAngularChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIPositionAngularChannelUpdate
+	case CIDutyCycleChannelUpdateType:
+		var v struct {
+			Type CIChannelUpdateType `json:"type"`
+			CIDutyCycleChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CIDutyCycleChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CIChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u CIChannelUpdate) Type() CIChannelUpdateType {
+	switch u.Variant.(type) {
+	case CIFrequencyChannelUpdate:
+		return CIFrequencyChannelUpdateType
+	case CIEdgeCountChannelUpdate:
+		return CIEdgeCountChannelUpdateType
+	case CIPeriodChannelUpdate:
+		return CIPeriodChannelUpdateType
+	case CIPulseWidthChannelUpdate:
+		return CIPulseWidthChannelUpdateType
+	case CISemiPeriodChannelUpdate:
+		return CISemiPeriodChannelUpdateType
+	case CITwoEdgeSepChannelUpdate:
+		return CITwoEdgeSepChannelUpdateType
+	case CIVelocityLinearChannelUpdate:
+		return CIVelocityLinearChannelUpdateType
+	case CIVelocityAngularChannelUpdate:
+		return CIVelocityAngularChannelUpdateType
+	case CIPositionLinearChannelUpdate:
+		return CIPositionLinearChannelUpdateType
+	case CIPositionAngularChannelUpdate:
+		return CIPositionAngularChannelUpdateType
+	case CIDutyCycleChannelUpdate:
+		return CIDutyCycleChannelUpdateType
+	}
+	return ""
+}
+
+// AOChannelBaseUpdate holds changes to the fields of the ao channel. An absent field
+// does not change.
+type AOChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+// AOChannelUpdateType is the "type" value that selects a variant of AOChannelUpdate.
+type AOChannelUpdateType string
+
+const (
+	// AOCurrentChannelUpdateType drives a current output.
+	AOCurrentChannelUpdateType AOChannelUpdateType = "ao_current"
+	// AOFuncGenChannelUpdateType drives a function-generator output.
+	AOFuncGenChannelUpdateType AOChannelUpdateType = "ao_func_gen"
+	// AOVoltageChannelUpdateType drives a voltage output.
+	AOVoltageChannelUpdateType AOChannelUpdateType = "ao_voltage"
+)
+
+// AOChannelUpdateVariant is implemented by every AOChannelUpdate variant.
+type AOChannelUpdateVariant interface {
+	isAOChannelUpdateVariant()
+}
+
+func (AOChannelBaseUpdate) isAOChannelUpdateVariant() {}
+
+// AOCurrentChannelUpdate drives a current output.
+type AOCurrentChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+}
+
+func (AOCurrentChannelUpdate) isAOChannelUpdateVariant() {}
+
+// AOFuncGenChannelUpdate drives a function-generator output.
+type AOFuncGenChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// WaveType selects the waveform to generate.
+	WaveType *WaveType `json:"wave_type,omitzero" msgpack:"wave_type,omitempty"`
+	// Frequency is the waveform frequency, in Hertz.
+	Frequency *float64 `json:"frequency,omitzero" msgpack:"frequency,omitempty"`
+	// Amplitude is the waveform amplitude.
+	Amplitude *float64 `json:"amplitude,omitzero" msgpack:"amplitude,omitempty"`
+	// Offset is the waveform DC offset.
+	Offset *float64 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+func (AOFuncGenChannelUpdate) isAOChannelUpdateVariant() {}
+
+// AOVoltageChannelUpdate drives a voltage output.
+type AOVoltageChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// MinVal is the minimum expected value, in scaled units.
+	MinVal *float64 `json:"min_val,omitzero" msgpack:"min_val,omitempty"`
+	// MaxVal is the maximum expected value, in scaled units.
+	MaxVal *float64 `json:"max_val,omitzero" msgpack:"max_val,omitempty"`
+	// CustomScale is the scale applied to the raw measurement.
+	CustomScale *ScaleUpdate `json:"custom_scale,omitzero" msgpack:"custom_scale,omitempty"`
+}
+
+func (AOVoltageChannelUpdate) isAOChannelUpdateVariant() {}
+
+// AOChannelUpdate holds changes to the fields of the ao channel. A type that differs
+// from the stored one changes the variant.
+type AOChannelUpdate struct {
+	Variant AOChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u AOChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AOChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case AOCurrentChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOCurrentChannelUpdate
+		}{Type: AOCurrentChannelUpdateType, AOCurrentChannelUpdate: v})
+	case AOFuncGenChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOFuncGenChannelUpdate
+		}{Type: AOFuncGenChannelUpdateType, AOFuncGenChannelUpdate: v})
+	case AOVoltageChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOVoltageChannelUpdate
+		}{Type: AOVoltageChannelUpdateType, AOVoltageChannelUpdate: v})
+	default:
+		return errors.Newf("AOChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *AOChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AOChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v AOChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AOCurrentChannelUpdateType:
+		var v struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOCurrentChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOCurrentChannelUpdate
+	case AOFuncGenChannelUpdateType:
+		var v struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOFuncGenChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOFuncGenChannelUpdate
+	case AOVoltageChannelUpdateType:
+		var v struct {
+			Type AOChannelUpdateType `json:"type"`
+			AOVoltageChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AOVoltageChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AOChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannelUpdate) Type() AOChannelUpdateType {
+	switch u.Variant.(type) {
+	case AOCurrentChannelUpdate:
+		return AOCurrentChannelUpdateType
+	case AOFuncGenChannelUpdate:
+		return AOFuncGenChannelUpdateType
+	case AOVoltageChannelUpdate:
+		return AOVoltageChannelUpdateType
+	}
+	return ""
+}
+
 // DIChannelUpdate holds changes to the fields of the di channel. An absent field does
 // not change.
 type DIChannelUpdate struct {
@@ -1157,4 +3761,367 @@ type DOChannelUpdate struct {
 	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
 	// Line is the digital line within the port the channel writes to.
 	Line *uint8 `json:"line,omitzero" msgpack:"line,omitempty"`
+}
+
+// ScaleUpdateType is the "type" value that selects a variant of ScaleUpdate.
+type ScaleUpdateType string
+
+const (
+	// LinearScaleUpdateType maps raw values to engineering units with a slope and
+	// intercept.
+	LinearScaleUpdateType ScaleUpdateType = "linear"
+	// MapScaleUpdateType maps a raw range linearly onto a scaled range.
+	MapScaleUpdateType ScaleUpdateType = "map"
+	// TableScaleUpdateType maps raw values to engineering units via a lookup table.
+	TableScaleUpdateType ScaleUpdateType = "table"
+	// PolynomialScaleUpdateType maps raw values to engineering units with a polynomial.
+	PolynomialScaleUpdateType ScaleUpdateType = "polynomial"
+	// NoneScaleUpdateType applies no scaling; the raw value is used directly.
+	NoneScaleUpdateType ScaleUpdateType = "none"
+)
+
+// ScaleUpdateVariant is implemented by every ScaleUpdate variant.
+type ScaleUpdateVariant interface {
+	isScaleUpdateVariant()
+}
+
+// LinearScaleUpdate maps raw values to engineering units with a slope and intercept.
+type LinearScaleUpdate struct {
+	// Slope is the multiplier applied to the raw value.
+	Slope *float64 `json:"slope,omitzero" msgpack:"slope,omitempty"`
+	// YIntercept is the offset added after scaling.
+	YIntercept *float64 `json:"y_intercept,omitzero" msgpack:"y_intercept,omitempty"`
+	// PreScaledUnits are the units of the raw value before scaling.
+	PreScaledUnits *Units `json:"pre_scaled_units,omitzero" msgpack:"pre_scaled_units,omitempty"`
+	// ScaledUnits are the units of the value after scaling.
+	ScaledUnits *string `json:"scaled_units,omitzero" msgpack:"scaled_units,omitempty"`
+}
+
+func (LinearScaleUpdate) isScaleUpdateVariant() {}
+
+// MapScaleUpdate maps a raw range linearly onto a scaled range.
+type MapScaleUpdate struct {
+	// PreScaledMin is the lower bound of the raw input range.
+	PreScaledMin *float64 `json:"pre_scaled_min,omitzero" msgpack:"pre_scaled_min,omitempty"`
+	// PreScaledMax is the upper bound of the raw input range.
+	PreScaledMax *float64 `json:"pre_scaled_max,omitzero" msgpack:"pre_scaled_max,omitempty"`
+	// ScaledMin is the lower bound of the scaled output range.
+	ScaledMin *float64 `json:"scaled_min,omitzero" msgpack:"scaled_min,omitempty"`
+	// ScaledMax is the upper bound of the scaled output range.
+	ScaledMax *float64 `json:"scaled_max,omitzero" msgpack:"scaled_max,omitempty"`
+	// PreScaledUnits are the units of the raw value before scaling.
+	PreScaledUnits *Units `json:"pre_scaled_units,omitzero" msgpack:"pre_scaled_units,omitempty"`
+	// ScaledUnits are the units of the value after scaling.
+	ScaledUnits *string `json:"scaled_units,omitzero" msgpack:"scaled_units,omitempty"`
+}
+
+func (MapScaleUpdate) isScaleUpdateVariant() {}
+
+// TableScaleUpdate maps raw values to engineering units via a lookup table.
+type TableScaleUpdate struct {
+	// PreScaledVals are the raw breakpoints, monotonically increasing.
+	PreScaledVals *patch.ValueList[float64] `json:"pre_scaled_vals,omitzero" msgpack:"pre_scaled_vals,omitempty"`
+	// ScaledVals are the engineering-unit values at each breakpoint.
+	ScaledVals *patch.ValueList[float64] `json:"scaled_vals,omitzero" msgpack:"scaled_vals,omitempty"`
+	// PreScaledUnits are the units of the raw values before scaling.
+	PreScaledUnits *Units `json:"pre_scaled_units,omitzero" msgpack:"pre_scaled_units,omitempty"`
+	// ScaledUnits are the units of the values after scaling.
+	ScaledUnits *string `json:"scaled_units,omitzero" msgpack:"scaled_units,omitempty"`
+}
+
+func (TableScaleUpdate) isScaleUpdateVariant() {}
+
+// PolynomialScaleUpdate maps raw values to engineering units with a polynomial.
+type PolynomialScaleUpdate struct {
+	// ForwardCoeffs are the coefficients mapping pre-scaled to scaled values.
+	ForwardCoeffs *patch.ValueList[float64] `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitempty"`
+	// ReverseCoeffs are the coefficients mapping scaled to pre-scaled values.
+	ReverseCoeffs *patch.ValueList[float64] `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitempty"`
+	// PreScaledUnits are the units of the raw value before scaling.
+	PreScaledUnits *Units `json:"pre_scaled_units,omitzero" msgpack:"pre_scaled_units,omitempty"`
+	// ScaledUnits are the units of the value after scaling.
+	ScaledUnits *string `json:"scaled_units,omitzero" msgpack:"scaled_units,omitempty"`
+}
+
+func (PolynomialScaleUpdate) isScaleUpdateVariant() {}
+
+// NoneScaleUpdate applies no scaling; the raw value is used directly.
+type NoneScaleUpdate struct {
+}
+
+func (NoneScaleUpdate) isScaleUpdateVariant() {}
+
+// ScaleUpdate holds changes to the fields of the scale. A type that differs from the
+// stored one changes the variant.
+type ScaleUpdate struct {
+	Variant ScaleUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ScaleUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case LinearScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			LinearScaleUpdate
+		}{Type: LinearScaleUpdateType, LinearScaleUpdate: v})
+	case MapScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			MapScaleUpdate
+		}{Type: MapScaleUpdateType, MapScaleUpdate: v})
+	case TableScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			TableScaleUpdate
+		}{Type: TableScaleUpdateType, TableScaleUpdate: v})
+	case PolynomialScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			PolynomialScaleUpdate
+		}{Type: PolynomialScaleUpdateType, PolynomialScaleUpdate: v})
+	case NoneScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			NoneScaleUpdate
+		}{Type: NoneScaleUpdateType, NoneScaleUpdate: v})
+	default:
+		return errors.Newf("ScaleUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ScaleUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ScaleUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case LinearScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			LinearScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LinearScaleUpdate
+	case MapScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			MapScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.MapScaleUpdate
+	case TableScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			TableScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TableScaleUpdate
+	case PolynomialScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			PolynomialScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PolynomialScaleUpdate
+	case NoneScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			NoneScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NoneScaleUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ScaleUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ScaleUpdate) Type() ScaleUpdateType {
+	switch u.Variant.(type) {
+	case LinearScaleUpdate:
+		return LinearScaleUpdateType
+	case MapScaleUpdate:
+		return MapScaleUpdateType
+	case TableScaleUpdate:
+		return TableScaleUpdateType
+	case PolynomialScaleUpdate:
+		return PolynomialScaleUpdateType
+	case NoneScaleUpdate:
+		return NoneScaleUpdateType
+	}
+	return ""
+}
+
+// CJCUpdateType is the "source" value that selects a variant of CJCUpdate.
+type CJCUpdateType string
+
+const (
+	// BuiltInCJCUpdateType reads the reference temperature from the device's own
+	// sensor.
+	BuiltInCJCUpdateType CJCUpdateType = "built_in"
+	// ConstValCJCUpdateType uses a fixed reference temperature.
+	ConstValCJCUpdateType CJCUpdateType = "const_val"
+	// ChanCJCUpdateType reads the reference temperature from another channel.
+	ChanCJCUpdateType CJCUpdateType = "chan"
+)
+
+// CJCUpdateVariant is implemented by every CJCUpdate variant.
+type CJCUpdateVariant interface {
+	isCJCUpdateVariant()
+}
+
+// BuiltInCJCUpdate reads the reference temperature from the device's own sensor.
+type BuiltInCJCUpdate struct {
+}
+
+func (BuiltInCJCUpdate) isCJCUpdateVariant() {}
+
+// ConstValCJCUpdate uses a fixed reference temperature.
+type ConstValCJCUpdate struct {
+	// Val is the reference temperature, in the channel's units.
+	Val *float64 `json:"val,omitzero" msgpack:"val,omitempty"`
+}
+
+func (ConstValCJCUpdate) isCJCUpdateVariant() {}
+
+// ChanCJCUpdate reads the reference temperature from another channel.
+type ChanCJCUpdate struct {
+	// Port is the port of the channel that measures the reference.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+func (ChanCJCUpdate) isCJCUpdateVariant() {}
+
+// CJCUpdate holds changes to the fields of the cjc. A source that differs from the
+// stored one changes the variant.
+type CJCUpdate struct {
+	Variant CJCUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "source" tag injected.
+func (u CJCUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BuiltInCJCUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CJCUpdateType `json:"source"`
+			BuiltInCJCUpdate
+		}{Type: BuiltInCJCUpdateType, BuiltInCJCUpdate: v})
+	case ConstValCJCUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CJCUpdateType `json:"source"`
+			ConstValCJCUpdate
+		}{Type: ConstValCJCUpdateType, ConstValCJCUpdate: v})
+	case ChanCJCUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CJCUpdateType `json:"source"`
+			ChanCJCUpdate
+		}{Type: ChanCJCUpdateType, ChanCJCUpdate: v})
+	default:
+		return errors.Newf("CJCUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "source" field.
+func (u *CJCUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type CJCUpdateType `json:"source"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case BuiltInCJCUpdateType:
+		var v struct {
+			Type CJCUpdateType `json:"source"`
+			BuiltInCJCUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BuiltInCJCUpdate
+	case ConstValCJCUpdateType:
+		var v struct {
+			Type CJCUpdateType `json:"source"`
+			ConstValCJCUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConstValCJCUpdate
+	case ChanCJCUpdateType:
+		var v struct {
+			Type CJCUpdateType `json:"source"`
+			ChanCJCUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ChanCJCUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CJCUpdate: unknown source %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u CJCUpdate) Source() CJCUpdateType {
+	switch u.Variant.(type) {
+	case BuiltInCJCUpdate:
+		return BuiltInCJCUpdateType
+	case ConstValCJCUpdate:
+		return ConstValCJCUpdateType
+	case ChanCJCUpdate:
+		return ChanCJCUpdateType
+	}
+	return ""
 }

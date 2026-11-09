@@ -545,3 +545,17 @@ inline Functions::Functions() = default;
 
 inline Edges::Edges() = default;
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::arc::ir::Target> {
+    static ::arc::ir::Target parse(Parser parser) {
+        return ::arc::ir::parse_target(parser);
+    }
+
+    static json to_json(const ::arc::ir::Target &value) {
+        return ::arc::ir::to_json(value);
+    }
+};
+}

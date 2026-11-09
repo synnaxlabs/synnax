@@ -287,6 +287,9 @@ func (t *Table) collectDependencies(typ Type) []string {
 		if form.BorrowsEnum() {
 			addDep(form.Enum)
 		}
+		if form.HasUntagged() {
+			addDep(form.Untagged)
+		}
 		for _, variant := range form.Variants {
 			addDep(variant.Type)
 			if !variant.Inline {

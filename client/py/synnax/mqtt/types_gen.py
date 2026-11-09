@@ -213,6 +213,30 @@ class ScanConfigUpdate(TypedDict, total=False):
     disabled: bool
 
 
+class ReadEntryBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read entry. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the entry within the task.
+        disabled: Is true when the entry is excluded from the task.
+    """
+
+    key: Required[str]
+    disabled: bool
+
+
+class WriteTargetBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write target. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the target within the task.
+        disabled: Is true when the target is excluded from the task.
+    """
+
+    key: Required[str]
+    disabled: bool
+
+
 class EdgeTagUpdate(TypedDict, total=False):
     """Holds changes to the fields of the edge tag. An absent field does not change.
 
@@ -236,6 +260,18 @@ class EdgeTagUpdate(TypedDict, total=False):
     tag_type: SparkplugDataType
     command_channel: channel_.Key
     command_channel_name: patch.Change[str]
+
+
+class WriteFieldBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write field. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the field within the target.
+        pointer: Is the JSON Pointer where the value is placed in the payload.
+    """
+
+    key: Required[str]
+    pointer: str
 
 
 class ReadField(BaseModel):
@@ -292,6 +328,59 @@ class ChannelField(BaseModel):
     data_type: telem.DataType = telem.DataType("float64")
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
+
+
+class ReadFieldUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read field. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the field within the entry.
+        name: Is the human-readable field name.
+        disabled: Is true when the field is excluded from the task.
+        channel: Is the Synnax channel the extracted value is written to.
+        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
+            takes the whole payload.
+        data_type: Is the data type of the extracted value.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
+        enum_values: Maps string labels in the payload to numeric channel values.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    pointer: str
+    data_type: telem.DataType
+    time_format: patch.Change[TimeFormat]
+    enum_values: patch.ValueListDict[EnumEntry]
+
+
+class ChannelFieldUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the channel field. An absent field does not
+    change.
+
+    Attributes:
+        pointer: Is the JSON Pointer where the channel value is placed in the payload.
+            An empty pointer sends the bare value as the entire payload, in which case
+            the target may not declare any additional fields.
+        json_type: Is the JSON type the channel value is serialized as.
+        channel: Is the Synnax command channel that triggers the publish.
+        name: Is the human-readable name of the command channel.
+        data_type: Is the data type of the command channel.
+        time_format: Is the output encoding when the command channel holds timestamps.
+            An unset format is ISO 8601.
+        enum_values: Maps numeric channel values to string labels. Only valid when
+            json_type is 'string'.
+    """
+
+    pointer: str
+    json_type: JSONType
+    channel: channel_.Key
+    name: str
+    data_type: telem.DataType
+    time_format: patch.Change[TimeFormat]
+    enum_values: patch.ValueListDict[EnumEntry]
 
 
 class StaticWriteField(BaseWriteField):
@@ -365,6 +454,33 @@ class EdgeConfigUpdate(TypedDict, total=False):
     tags: patch.ListDict[EdgeTag, str, EdgeTagUpdate]
 
 
+class StaticWriteFieldUpdate(TypedDict, total=False):
+    """Places a fixed value in the payload."""
+
+    type: Required[Literal["static"]]
+    key: Required[str]
+    pointer: str
+    json_type: JSONType
+    value: JsonValue
+
+
+class GeneratedWriteFieldUpdate(TypedDict, total=False):
+    """Places a freshly generated UUID or timestamp in the payload."""
+
+    type: Required[Literal["generated"]]
+    key: Required[str]
+    pointer: str
+    generator: GeneratorType
+    time_format: patch.Change[TimeFormat]
+
+
+# Holds changes to the fields of the write field. A type that differs from the stored
+# one changes the variant.
+WriteFieldUpdate = (
+    WriteFieldBaseUpdate | StaticWriteFieldUpdate | GeneratedWriteFieldUpdate
+)
+
+
 class PlainReadEntry(BaseReadEntry):
     """Reads JSON payloads from one topic."""
 
@@ -395,6 +511,39 @@ ReadEntry = Annotated[
     PlainReadEntry | SparkplugReadEntry,
     Field(discriminator="type"),
 ]
+
+
+class PlainReadEntryUpdate(TypedDict, total=False):
+    """Reads JSON payloads from one topic."""
+
+    type: Required[Literal["plain"]]
+    key: Required[str]
+    disabled: bool
+    topic: str
+    qos: QoS
+    retained_ignored: bool
+    fields: patch.ListDict[ReadField, str, ReadFieldUpdate]
+    index: str
+
+
+class SparkplugReadEntryUpdate(TypedDict, total=False):
+    """Reads one Sparkplug B tag."""
+
+    type: Required[Literal["sparkplug"]]
+    key: Required[str]
+    disabled: bool
+    group: str
+    edge_node: str
+    device: str
+    tag: str
+    channel: channel_.Key
+    name: str
+    data_type: telem.DataType
+
+
+# Holds changes to the fields of the read entry. A type that differs from the stored one
+# changes the variant.
+ReadEntryUpdate = ReadEntryBaseUpdate | PlainReadEntryUpdate | SparkplugReadEntryUpdate
 
 
 class PlainWriteTarget(BaseWriteTarget):
@@ -429,6 +578,41 @@ WriteTarget = Annotated[
 ]
 
 
+class PlainWriteTargetUpdate(TypedDict, total=False):
+    """Publishes a JSON payload to one topic."""
+
+    type: Required[Literal["plain"]]
+    key: Required[str]
+    disabled: bool
+    topic: str
+    qos: QoS
+    retained: bool
+    channel: patch.Struct[ChannelFieldUpdate, ChannelField]
+    fields: patch.ListDict[WriteField, str, WriteFieldUpdate]
+
+
+class SparkplugWriteTargetUpdate(TypedDict, total=False):
+    """Sends a Sparkplug B command for one tag."""
+
+    type: Required[Literal["sparkplug"]]
+    key: Required[str]
+    disabled: bool
+    group: str
+    edge_node: str
+    device: str
+    tag: str
+    tag_type: SparkplugDataType
+    channel: channel_.Key
+    name: str
+
+
+# Holds changes to the fields of the write target. A type that differs from the stored
+# one changes the variant.
+WriteTargetUpdate = (
+    WriteTargetBaseUpdate | PlainWriteTargetUpdate | SparkplugWriteTargetUpdate
+)
+
+
 class ReadConfig(task.PersistConfig):
     """Configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
     a broker device and writes their values to Synnax channels.
@@ -461,7 +645,7 @@ class ReadConfigUpdate(TypedDict, total=False):
     auto_start: bool
     data_saving_disabled: bool
     device: device_.Key
-    entries: patch.ValueListDict[ReadEntry]
+    entries: patch.ListDict[ReadEntry, str, ReadEntryUpdate]
 
 
 class WriteConfig(task.StartConfig):
@@ -494,4 +678,4 @@ class WriteConfigUpdate(TypedDict, total=False):
     key: UUID
     auto_start: bool
     device: device_.Key
-    targets: patch.ValueListDict[WriteTarget]
+    targets: patch.ListDict[WriteTarget, str, WriteTargetUpdate]

@@ -341,3 +341,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("device", key);
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::device::Action> {
+    static ::synnax::device::Action parse(Parser parser) {
+        return ::synnax::device::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::device::Action &value) {
+        return ::synnax::device::to_json(value);
+    }
+};
+}

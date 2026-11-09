@@ -16,10 +16,10 @@ import (
 )
 
 var _ = Describe("Update types", func() {
-	It("Should render an update as a TypedDict without Core-only fields", func(
-		ctx SpecContext,
-	) {
-		loader := NewMockFileLoader()
+	var loader *MockFileLoader
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
 		loader.Add("schemas/x/patch", `
 			@go output "x/go/patch"
 			@py output "x/py/x/patch"
@@ -38,6 +38,11 @@ var _ = Describe("Update types", func() {
 				set E[]?
 			}
 		`)
+	})
+
+	It("Should render an update as a TypedDict without Core-only fields", func(
+		ctx SpecContext,
+	) {
 		resp := MustGenerate(ctx, `
 			import "schemas/x/patch"
 
@@ -59,6 +64,39 @@ var _ = Describe("Update types", func() {
 			"    name: str\n",
 			"    note: patch.Change[str]\n",
 			"    tags: patch.ValueListDict[str]\n\n\nclass CreatePayload",
+		)
+	})
+
+	It("Should render a union update as a union of TypedDicts", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/view"
+			@py output "client/py/synnax/view"
+
+			Base struct {
+				key  uuid
+				name string { @patch }
+			}
+
+			View union on type extends Base {
+				range {
+					where string? { @patch }
+				}
+				status {
+					level int32 { @patch }
+				}
+				@actions
+			}
+		`, "view", loader, types.New(types.DefaultOptions()))
+		ExpectContent(resp, "client/py/synnax/view/types_gen.py").ToContain(
+			"class RangeUpdate(TypedDict, total=False):\n"+
+				"    type: Required[Literal[\"range\"]]\n"+
+				"    name: str\n"+
+				"    where: patch.Change[str]\n",
+			"Update = BaseUpdate | RangeUpdate | StatusUpdate\n",
 		)
 	})
 })

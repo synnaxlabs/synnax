@@ -1569,6 +1569,10 @@ const (
 type {{.InterfaceName}} interface {
 	{{.Marker}}()
 }
+{{- if .Untagged}}
+
+func ({{.Untagged}}) {{.Marker}}() {}
+{{- end}}
 {{range .Variants}}
 {{- if $u.Adjacent}}
 func ({{.TypeName}}) {{$u.Marker}}() {}
@@ -1700,6 +1704,10 @@ func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
+{{- if .Untagged}}
+	case {{.Untagged}}:
+		return json.MarshalEncode(enc, v)
+{{- end}}
 {{- range .Variants}}
 	case {{.TypeName}}:
 {{- if $u.Adjacent}}
@@ -1739,6 +1747,16 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+{{- if .Untagged}}
+	case "":
+		var v {{.Untagged}}
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+{{- end}}
 {{- range .Variants}}
 	case {{.ConstName}}:
 {{- if $u.Adjacent}}

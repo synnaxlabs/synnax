@@ -69,6 +69,50 @@ export const scanConfigUpdateZ = z.object({
 });
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
+/**
+ * ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+ * field does not change.
+ */
+export const readChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** device is the key of the slave device the channel reads from. */
+  device: device.keyZ.optional(),
+});
+export interface ReadChannelBaseUpdate extends z.infer<typeof readChannelBaseUpdateZ> {}
+
+/**
+ * WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+ * field does not change.
+ */
+export const writeChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** device is the key of the slave device the channel writes to. */
+  device: device.keyZ.optional(),
+});
+export interface WriteChannelBaseUpdate extends z.infer<
+  typeof writeChannelBaseUpdateZ
+> {}
+
 /** EntryReadChannel addresses a PDO entry by its CoE index and sub-index. */
 export const entryReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("entry"),
@@ -169,10 +213,198 @@ export const WRITE_CHANNEL_SCHEMAS: {
   unresolved: unresolvedWriteChannelZ,
 };
 
+/** EntryReadChannelUpdate addresses a PDO entry by its CoE index and sub-index. */
+export const entryReadChannelUpdateZ = z.object({
+  type: z.literal("entry"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** device is the key of the slave device the channel reads from. */
+  device: device.keyZ.optional(),
+  /** index is the CoE object dictionary index of the PDO entry. */
+  index: zod.uint16.optional(),
+  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
+  subIndex: zod.uint8.optional(),
+  /** dataType is the data type of the PDO entry. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * scale is the scale applied to raw samples after acquisition. A scaled channel
+   * writes to a float Synnax channel.
+   */
+  scale: task.scaleUpdateZ.optional(),
+});
+export interface EntryReadChannelUpdate extends z.infer<
+  typeof entryReadChannelUpdateZ
+> {}
+
+/**
+ * UnresolvedReadChannelUpdate is a channel whose PDO entry name matched no single entry
+ * on its slave. It must be given an entry before the task runs.
+ */
+export const unresolvedReadChannelUpdateZ = z.object({
+  type: z.literal("unresolved"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** device is the key of the slave device the channel reads from. */
+  device: device.keyZ.optional(),
+  /** pdo is the entry name that matched no single entry on the slave. */
+  pdo: z.string().optional(),
+});
+export interface UnresolvedReadChannelUpdate extends z.infer<
+  typeof unresolvedReadChannelUpdateZ
+> {}
+
+export const READ_CHANNEL_UPDATE_TYPES = ["entry", "unresolved"] as const;
+export const readChannelUpdateTypeZ = z.enum(READ_CHANNEL_UPDATE_TYPES);
+export type ReadChannelUpdateType = z.infer<typeof readChannelUpdateTypeZ>;
+
+/**
+ * ReadChannelUpdate holds changes to the fields of the read channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const readChannelUpdateZ = z.union([
+  readChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [entryReadChannelUpdateZ, unresolvedReadChannelUpdateZ]),
+]);
+export type ReadChannelUpdate =
+  | (ReadChannelBaseUpdate & {
+      type?: never;
+      index?: never;
+      subIndex?: never;
+      dataType?: never;
+      scale?: never;
+      pdo?: never;
+    })
+  | EntryReadChannelUpdate
+  | UnresolvedReadChannelUpdate;
+
+export const READ_CHANNEL_UPDATE_SCHEMAS: {
+  [K in ReadChannelUpdateType]: z.ZodType<Extract<ReadChannelUpdate, { type: K }>>;
+} = {
+  entry: entryReadChannelUpdateZ,
+  unresolved: unresolvedReadChannelUpdateZ,
+};
+
+/** EntryWriteChannelUpdate addresses a PDO entry by its CoE index and sub-index. */
+export const entryWriteChannelUpdateZ = z.object({
+  type: z.literal("entry"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** device is the key of the slave device the channel writes to. */
+  device: device.keyZ.optional(),
+  /** index is the CoE object dictionary index of the PDO entry. */
+  index: zod.uint16.optional(),
+  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
+  subIndex: zod.uint8.optional(),
+  /** dataType is the data type of the PDO entry. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * stopValue is the value the entry takes when the task stops. The bus sends it before
+   * the slaves leave OP.
+   */
+  stopValue: z.number().optional(),
+});
+export interface EntryWriteChannelUpdate extends z.infer<
+  typeof entryWriteChannelUpdateZ
+> {}
+
+/**
+ * UnresolvedWriteChannelUpdate is a channel whose PDO entry name matched no single
+ * entry on its slave. It must be given an entry before the task runs.
+ */
+export const unresolvedWriteChannelUpdateZ = z.object({
+  type: z.literal("unresolved"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** device is the key of the slave device the channel writes to. */
+  device: device.keyZ.optional(),
+  /** pdo is the entry name that matched no single entry on the slave. */
+  pdo: z.string().optional(),
+});
+export interface UnresolvedWriteChannelUpdate extends z.infer<
+  typeof unresolvedWriteChannelUpdateZ
+> {}
+
+export const WRITE_CHANNEL_UPDATE_TYPES = ["entry", "unresolved"] as const;
+export const writeChannelUpdateTypeZ = z.enum(WRITE_CHANNEL_UPDATE_TYPES);
+export type WriteChannelUpdateType = z.infer<typeof writeChannelUpdateTypeZ>;
+
+/**
+ * WriteChannelUpdate holds changes to the fields of the write channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const writeChannelUpdateZ = z.union([
+  writeChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    entryWriteChannelUpdateZ,
+    unresolvedWriteChannelUpdateZ,
+  ]),
+]);
+export type WriteChannelUpdate =
+  | (WriteChannelBaseUpdate & {
+      type?: never;
+      index?: never;
+      subIndex?: never;
+      dataType?: never;
+      stopValue?: never;
+      pdo?: never;
+    })
+  | EntryWriteChannelUpdate
+  | UnresolvedWriteChannelUpdate;
+
+export const WRITE_CHANNEL_UPDATE_SCHEMAS: {
+  [K in WriteChannelUpdateType]: z.ZodType<Extract<WriteChannelUpdate, { type: K }>>;
+} = {
+  entry: entryWriteChannelUpdateZ,
+  unresolved: unresolvedWriteChannelUpdateZ,
+};
+
 export const readConfigZ = task.readConfigZ.extend({
   channels: readChannelZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = task.persistConfigZ.extend({
+  stateRate: z.number().default(25),
+  executionRate: z.number().default(1000),
+  channels: writeChannelZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /**
  * ReadConfigUpdate holds changes to the fields of the read config. An absent field does
@@ -190,16 +422,11 @@ export const readConfigUpdateZ = z.object({
   /** streamRate is the rate at which samples are streamed to Synnax, in Hertz. */
   streamRate: telem.rateZ.optional(),
   /** channels are the channels the task acquires. */
-  channels: patch.valueListZ(readChannelZ).optional(),
+  channels: patch
+    .listZ({ e: readChannelZ, k: z.string(), u: readChannelUpdateZ })
+    .optional(),
 });
 export interface ReadConfigUpdate extends z.infer<typeof readConfigUpdateZ> {}
-
-export const writeConfigZ = task.persistConfigZ.extend({
-  stateRate: z.number().default(25),
-  executionRate: z.number().default(1000),
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /**
  * WriteConfigUpdate holds changes to the fields of the write config. An absent field
@@ -217,6 +444,8 @@ export const writeConfigUpdateZ = z.object({
   /** executionRate is the rate at which commands are applied to the bus, in Hertz. */
   executionRate: telem.rateZ.optional(),
   /** channels are the channels the task drives. */
-  channels: patch.valueListZ(writeChannelZ).optional(),
+  channels: patch
+    .listZ({ e: writeChannelZ, k: z.string(), u: writeChannelUpdateZ })
+    .optional(),
 });
 export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}

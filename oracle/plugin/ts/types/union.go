@@ -56,6 +56,13 @@ type unionData struct {
 	// has many large variants, and its inferred schema type is too long for a
 	// declaration file.
 	Annotated bool
+	// UntaggedSchema and UntaggedType name the struct that a value without the
+	// discriminator takes, or are empty when the discriminator is required.
+	UntaggedSchema string
+	UntaggedType   string
+	// UntaggedNever lists the discriminator and the variant fields that the
+	// untagged struct lacks, so the type of an untagged value forbids them.
+	UntaggedNever []string
 }
 
 // lazyVariantThreshold is the variant count at which a union wraps each variant in
@@ -123,6 +130,18 @@ func (p *Plugin) processUnion(
 			ud.TypeName = ns + "." + domain.GetName(enumType, "ts")
 		}
 	}
+	var untagged set.Set[string]
+	if form.HasUntagged() {
+		ud.UntaggedSchema = p.typeRefToZod(&form.Untagged, table, data)
+		ud.UntaggedType = p.typeRefToTS(&form.Untagged, table, data, true)
+		ud.UntaggedNever = []string{ud.Discriminator}
+		untagged = set.New(ud.Discriminator)
+		if typ, ok := form.Untagged.Resolve(table); ok {
+			for _, f := range resolution.UnifiedFields(typ, table) {
+				untagged.Add(FieldName(f.Name))
+			}
+		}
+	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			Value:      v.Name,
@@ -165,6 +184,10 @@ func (p *Plugin) processUnion(
 			// field referencing the union itself (a recursive variant) renders as
 			// a lazy getter.
 			vd.Fields = append(vd.Fields, p.processField(f, entry, table, data, false))
+			if name := FieldName(f.Name); untagged != nil && !untagged.Contains(name) {
+				untagged.Add(name)
+				ud.UntaggedNever = append(ud.UntaggedNever, name)
+			}
 		}
 		if !v.Inline {
 			if pn, ok := parentSchemaName(v.Type, table, data); ok {

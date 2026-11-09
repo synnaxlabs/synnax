@@ -35,6 +35,9 @@ type unionDispatchData struct {
 	// Adjacent reports that each variant is a payload type that sits beside the
 	// discriminator in a member named by the discriminator value.
 	Adjacent bool
+	// Untagged is the struct that a value without the discriminator parses to, or
+	// empty when the discriminator is required.
+	Untagged string
 }
 
 type unionDispatchVariant struct {
@@ -76,6 +79,9 @@ func (p *Plugin) processUnion(
 			})
 		}
 		return nil, dispatch
+	}
+	if untagged, ok := form.Untagged.Resolve(data.table); ok {
+		dispatch.Untagged = p.resolveExtendsType(form.Untagged, untagged, data)
 	}
 	discField := resolution.Field{
 		Name: form.Discriminator,

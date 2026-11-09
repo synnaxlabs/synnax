@@ -147,6 +147,18 @@ class ScanConfigUpdate(TypedDict, total=False):
     disabled: bool
 
 
+class WriteFieldBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write field. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the field within the endpoint.
+        pointer: Is the JSON Pointer where the value is placed in the body.
+    """
+
+    key: Required[str]
+    pointer: str
+
+
 class ReadField(BaseModel):
     """Is a single value extracted from an endpoint's JSON response.
 
@@ -290,6 +302,33 @@ WriteField = Annotated[
 ]
 
 
+class StaticWriteFieldUpdate(TypedDict, total=False):
+    """Places a fixed value in the request body."""
+
+    type: Required[Literal["static"]]
+    key: Required[str]
+    pointer: str
+    json_type: JSONType
+    value: JsonValue
+
+
+class GeneratedWriteFieldUpdate(TypedDict, total=False):
+    """Places a freshly generated UUID or timestamp in the body."""
+
+    type: Required[Literal["generated"]]
+    key: Required[str]
+    pointer: str
+    generator: GeneratorType
+    time_format: patch.Change[TimeFormat]
+
+
+# Holds changes to the fields of the write field. A type that differs from the stored
+# one changes the variant.
+WriteFieldUpdate = (
+    WriteFieldBaseUpdate | StaticWriteFieldUpdate | GeneratedWriteFieldUpdate
+)
+
+
 class ReadEndpoint(BaseModel):
     """Is a single HTTP endpoint polled by a read task.
 
@@ -395,7 +434,7 @@ class WriteEndpointUpdate(TypedDict, total=False):
     headers: patch.ValueListDict[Header]
     query_params: patch.ValueListDict[QueryParam]
     channel: patch.Struct[ChannelFieldUpdate, ChannelField]
-    fields: patch.ValueListDict[WriteField]
+    fields: patch.ListDict[WriteField, str, WriteFieldUpdate]
 
 
 class ReadConfig(task.PersistConfig):

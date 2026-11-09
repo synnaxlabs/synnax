@@ -104,3 +104,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("label", key.to_string());
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::label::Action> {
+    static ::synnax::label::Action parse(Parser parser) {
+        return ::synnax::label::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::label::Action &value) {
+        return ::synnax::label::to_json(value);
+    }
+};
+}

@@ -30,6 +30,11 @@ type unionData struct {
 	DiscName string
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantData
+	// Dict reports that each variant renders as a TypedDict with all of its fields.
+	Dict bool
+	// Untagged is the struct that a value without the discriminator takes, or empty
+	// when the discriminator is required.
+	Untagged string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -63,19 +68,39 @@ func processUnion(
 	keyFields []keyFieldData,
 ) unionData {
 	form := entry.Form.(resolution.UnionForm)
-	data.imports.addPydantic("Field")
-	data.imports.addTyping("Annotated")
-	data.imports.addTyping("Literal")
 	ud := unionData{
 		Name:     getPyName(entry),
 		Doc:      doc.Get(entry.Domains),
 		DiscName: fieldName(form.Discriminator),
+		Dict:     isDict(entry) && !form.Adjacent,
+	}
+	if !ud.Dict {
+		data.imports.addPydantic("Field")
+		data.imports.addTyping("Annotated")
+	}
+	data.imports.addTyping("Literal")
+	if ud.Dict {
+		data.imports.addTyping("TypedDict")
+		data.imports.addTyping("Required")
+		data.dict = true
+		defer func() { data.dict = false }()
+		if form.HasUntagged() {
+			ud.Untagged = typeToPython(form.Untagged, table, data)
+		}
 	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			ClassName: casing.VariantTypeName(ud.Name, v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
+		}
+		if ud.Dict {
+			for _, f := range resolution.UnifiedVariantFields(entry, v, table) {
+				vd.Fields = append(vd.Fields,
+					processField(f, table, data, keyFields, nil))
+			}
+			ud.Variants = append(ud.Variants, vd)
+			continue
 		}
 		if form.Adjacent {
 			data.imports.addPydantic("BaseModel")

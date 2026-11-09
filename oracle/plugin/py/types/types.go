@@ -2518,6 +2518,25 @@ class {{ .PyName }}(BaseModel):
 {{- else if .IsUnion }}
 {{- with .Union }}
 {{- $disc := .DiscName }}
+{{- if .Dict }}
+{{- range .Variants }}
+
+
+class {{ .ClassName }}(TypedDict, total=False):
+{{- if .Doc }}
+{{ formatVariantDocstring . }}
+{{- end }}
+    {{ $disc }}: Required[Literal["{{ .Value }}"]]
+{{- range .Fields }}
+    {{ .Name }}: {{ .DictType }}
+{{- end }}
+{{- end }}
+
+
+{{ if .Doc }}{{ pyDocComment .Doc }}
+{{ end -}}
+{{ .Name }} = {{ if .Untagged }}{{ .Untagged }} | {{ end }}{{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }}
+{{- else }}
 {{- range .Variants }}
 
 
@@ -2538,6 +2557,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
     {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }},
     Field(discriminator="{{ .DiscName }}"),
 ]
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

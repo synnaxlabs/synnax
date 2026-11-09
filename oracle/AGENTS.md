@@ -260,12 +260,17 @@ fields reach. Every update field is optional:
   a generic struct, a `record`, and a type parameter are replaced whole.
 - A list becomes `patch.List<E, K, EUpdate>` when its entry has a required `@key`, else
   `patch.ValueList<E>`. An entry update always holds the key.
+- A union becomes `<Union>Update`: one variant update per variant, holding the `type`
+  and every base and variant field. An update without `type` takes only the base
+  fields (`UnionForm.Untagged`, `<Name>BaseUpdate`). A union record takes no `@patch
+  core` field.
 - A field named `set`, `insert`, `remove`, `update`, or `move` is an analyzer error.
 
 Python renders an update as a TypedDict (`@py dict`), and each generic struct that a
 TypedDict holds gets a `<Name>Dict` form. `@presence` marks a type whose value carries
 its own absence (`patch.Change`): an optional field of it holds the value itself, with
-no Go pointer and no C++ `std::optional`.
+no Go pointer and no C++ `std::optional`. Each C++ union specializes `x::json::Codec`
+so that a generic type, such as `patch::List`, can hold it.
 
 ## Path actions
 

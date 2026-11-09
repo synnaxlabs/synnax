@@ -14,6 +14,8 @@ package view
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
@@ -390,4 +392,132 @@ func (u Action) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// BaseUpdate holds changes to the fields of the view. An absent field does not change.
+type BaseUpdate struct {
+	// Name is a human-readable name for the view.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+func (BaseUpdate) isUpdateVariant() {}
+
+// RangeUpdate is a saved view of ranges.
+type RangeUpdate struct {
+	// Name is a human-readable name for the view.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Where selects the ranges the view shows. An absent where shows all.
+	Where patch.Change[ranger.Where] `json:"where,omitzero" msgpack:"where,omitempty"`
+}
+
+func (RangeUpdate) isUpdateVariant() {}
+
+// StatusUpdate is a saved view of statuses.
+type StatusUpdate struct {
+	// Name is a human-readable name for the view.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Where selects the statuses the view shows. An absent where shows all.
+	Where patch.Change[status.Where] `json:"where,omitzero" msgpack:"where,omitempty"`
+}
+
+func (StatusUpdate) isUpdateVariant() {}
+
+// Update holds changes to the fields of the view. A type that differs from the stored
+// one changes the variant.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case RangeUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			RangeUpdate
+		}{Type: TypeRange, RangeUpdate: v})
+	case StatusUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			StatusUpdate
+		}{Type: TypeStatus, StatusUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Type `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v BaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TypeRange:
+		var v struct {
+			Type Type `json:"type"`
+			RangeUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.RangeUpdate
+	case TypeStatus:
+		var v struct {
+			Type Type `json:"type"`
+			StatusUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StatusUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Update) Type() Type {
+	switch u.Variant.(type) {
+	case RangeUpdate:
+		return TypeRange
+	case StatusUpdate:
+		return TypeStatus
+	}
+	return ""
 }

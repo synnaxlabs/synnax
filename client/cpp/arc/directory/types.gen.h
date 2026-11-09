@@ -228,3 +228,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("arc_directory", key.to_string());
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::arc::directory::Action> {
+    static ::synnax::arc::directory::Action parse(Parser parser) {
+        return ::synnax::arc::directory::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::arc::directory::Action &value) {
+        return ::synnax::arc::directory::to_json(value);
+    }
+};
+}

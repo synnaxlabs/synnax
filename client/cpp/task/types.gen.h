@@ -189,6 +189,80 @@ using Scale = std::
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);
 
+/// @brief LinearScaleUpdate maps raw values to engineering units with a slope and
+/// offset.
+struct LinearScaleUpdate {
+    std::string type = "linear";
+    /// @brief slope is the multiplier applied to the raw value.
+    std::optional<double> slope;
+    /// @brief offset is the offset added after scaling.
+    std::optional<double> offset;
+
+    static LinearScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MapScaleUpdate maps a raw range linearly onto a scaled range.
+struct MapScaleUpdate {
+    std::string type = "map";
+    /// @brief pre_scaled_min is the lower bound of the raw input range.
+    std::optional<double> pre_scaled_min;
+    /// @brief pre_scaled_max is the upper bound of the raw input range.
+    std::optional<double> pre_scaled_max;
+    /// @brief scaled_min is the lower bound of the scaled output range.
+    std::optional<double> scaled_min;
+    /// @brief scaled_max is the upper bound of the scaled output range.
+    std::optional<double> scaled_max;
+
+    static MapScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief PolynomialScaleUpdate maps raw values to engineering units with a polynomial.
+struct PolynomialScaleUpdate {
+    std::string type = "polynomial";
+    /// @brief coeffs are the coefficients from the constant term up, so that index i
+    /// holds the coefficient of x^i.
+    std::optional<::x::patch::ValueList<double>> coeffs;
+
+    static PolynomialScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TableScaleUpdate maps raw values to engineering units by linear interpolation
+/// between the breakpoints, and clips raw values outside the table to its first or last
+/// scaled value.
+struct TableScaleUpdate {
+    std::string type = "table";
+    /// @brief pre_scaled_vals are the raw breakpoints, in increasing order.
+    std::optional<::x::patch::ValueList<double>> pre_scaled_vals;
+    /// @brief scaled_vals are the engineering-unit values at each breakpoint.
+    std::optional<::x::patch::ValueList<double>> scaled_vals;
+
+    static TableScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NoneScaleUpdate applies no scaling; the raw value is used directly.
+struct NoneScaleUpdate {
+    std::string type = "none";
+
+    static NoneScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScaleUpdate holds changes to the fields of the scale. A type that differs
+/// from the stored one changes the variant.
+using ScaleUpdate = std::variant<
+    LinearScaleUpdate,
+    MapScaleUpdate,
+    PolynomialScaleUpdate,
+    TableScaleUpdate,
+    NoneScaleUpdate>;
+
+ScaleUpdate parse_scale_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ScaleUpdate &value);
+
 /// @brief Where is a filter that selects tasks.
 struct Where {
     /// @brief and_ matches when every child matches.
@@ -490,4 +564,40 @@ const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("task", key.to_string());
 }
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::task::Scale> {
+    static ::synnax::task::Scale parse(Parser parser) {
+        return ::synnax::task::parse_scale(parser);
+    }
+
+    static json to_json(const ::synnax::task::Scale &value) {
+        return ::synnax::task::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::task::ScaleUpdate> {
+    static ::synnax::task::ScaleUpdate parse(Parser parser) {
+        return ::synnax::task::parse_scale_update(parser);
+    }
+
+    static json to_json(const ::synnax::task::ScaleUpdate &value) {
+        return ::synnax::task::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::task::Action> {
+    static ::synnax::task::Action parse(Parser parser) {
+        return ::synnax::task::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::task::Action &value) {
+        return ::synnax::task::to_json(value);
+    }
+};
 }

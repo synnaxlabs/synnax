@@ -12,10 +12,16 @@
 package labjack
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 	"uuid"
 )
@@ -138,7 +144,7 @@ type ReadConfigUpdate struct {
 	// Device is the key of the device the task acquires from.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 	// Channels are the channels the task acquires.
-	Channels *patch.ValueList[ReadChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[ReadChannel, string, ReadChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
 	// reports a skew warning. When absent, the Driver picks two seconds of scans.
 	DeviceScanBacklogWarnOnCount patch.Change[uint32] `json:"device_scan_backlog_warn_on_count,omitzero" msgpack:"device_scan_backlog_warn_on_count,omitempty"`
@@ -171,7 +177,7 @@ type WriteConfigUpdate struct {
 	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate *telem.Rate `json:"state_rate,omitzero" msgpack:"state_rate,omitempty"`
 	// Channels are the channels the task drives.
-	Channels *patch.ValueList[WriteChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[WriteChannel, string, WriteChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
@@ -186,4 +192,396 @@ type ScanConfigUpdate struct {
 	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
 	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
 	TCPScanMultiplier *uint32 `json:"tcp_scan_multiplier,omitzero" msgpack:"tcp_scan_multiplier,omitempty"`
+}
+
+// ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+// field does not change.
+type ReadChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+// ReadChannelUpdateType is the "type" value that selects a variant of
+// ReadChannelUpdate.
+type ReadChannelUpdateType string
+
+const (
+	// AnalogReadChannelUpdateType reads a voltage from an analog input port.
+	AnalogReadChannelUpdateType ReadChannelUpdateType = "analog"
+	// DigitalReadChannelUpdateType reads a digital input line.
+	DigitalReadChannelUpdateType ReadChannelUpdateType = "digital"
+	// ThermocoupleReadChannelUpdateType reads temperature from a thermocouple.
+	ThermocoupleReadChannelUpdateType ReadChannelUpdateType = "thermocouple"
+)
+
+// ReadChannelUpdateVariant is implemented by every ReadChannelUpdate variant.
+type ReadChannelUpdateVariant interface {
+	isReadChannelUpdateVariant()
+}
+
+func (ReadChannelBaseUpdate) isReadChannelUpdateVariant() {}
+
+// AnalogReadChannelUpdate reads a voltage from an analog input port.
+type AnalogReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Range is the largest voltage magnitude the channel reads, in Volts. The channel
+	// uses the smallest range of the device that covers it.
+	Range *float64 `json:"range,omitzero" msgpack:"range,omitempty"`
+	// NegChan is the AIN port of the negative input for a differential reading on T7
+	// devices. When absent, the channel reads against ground.
+	NegChan patch.Change[uint16] `json:"neg_chan,omitzero" msgpack:"neg_chan,omitempty"`
+	// Scale is the scale applied to raw samples after acquisition.
+	Scale *task.ScaleUpdate `json:"scale,omitzero" msgpack:"scale,omitempty"`
+}
+
+func (AnalogReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// DigitalReadChannelUpdate reads a digital input line.
+type DigitalReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+func (DigitalReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// ThermocoupleReadChannelUpdate reads temperature from a thermocouple.
+type ThermocoupleReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+	// ThermocoupleType selects the thermocouple alloy type.
+	ThermocoupleType *ThermocoupleType `json:"thermocouple_type,omitzero" msgpack:"thermocouple_type,omitempty"`
+	// NegChan is the AIN port of the thermocouple's negative lead on T7 devices. When
+	// absent, the channel reads against ground.
+	NegChan patch.Change[uint16] `json:"neg_chan,omitzero" msgpack:"neg_chan,omitempty"`
+	// CjcSource selects the cold-junction-compensation source: the device sensor
+	// ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+	// terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
+	// 'AIN2').
+	CjcSource *string `json:"cjc_source,omitzero" msgpack:"cjc_source,omitempty"`
+	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
+	CjcSlope *float64 `json:"cjc_slope,omitzero" msgpack:"cjc_slope,omitempty"`
+	// CjcOffset is the CJC temperature offset, in Kelvins.
+	CjcOffset *float64 `json:"cjc_offset,omitzero" msgpack:"cjc_offset,omitempty"`
+	// Units are the units of the temperature measurement.
+	Units *TemperatureUnits `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Scale is the scale applied to raw samples after acquisition.
+	Scale *task.ScaleUpdate `json:"scale,omitzero" msgpack:"scale,omitempty"`
+}
+
+func (ThermocoupleReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// ReadChannelUpdate holds changes to the fields of the read channel. A type that
+// differs from the stored one changes the variant.
+type ReadChannelUpdate struct {
+	Variant ReadChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ReadChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case AnalogReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			AnalogReadChannelUpdate
+		}{Type: AnalogReadChannelUpdateType, AnalogReadChannelUpdate: v})
+	case DigitalReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			DigitalReadChannelUpdate
+		}{Type: DigitalReadChannelUpdateType, DigitalReadChannelUpdate: v})
+	case ThermocoupleReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			ThermocoupleReadChannelUpdate
+		}{Type: ThermocoupleReadChannelUpdateType, ThermocoupleReadChannelUpdate: v})
+	default:
+		return errors.Newf("ReadChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v ReadChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AnalogReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			AnalogReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AnalogReadChannelUpdate
+	case DigitalReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			DigitalReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DigitalReadChannelUpdate
+	case ThermocoupleReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			ThermocoupleReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ThermocoupleReadChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannelUpdate) Type() ReadChannelUpdateType {
+	switch u.Variant.(type) {
+	case AnalogReadChannelUpdate:
+		return AnalogReadChannelUpdateType
+	case DigitalReadChannelUpdate:
+		return DigitalReadChannelUpdateType
+	case ThermocoupleReadChannelUpdate:
+		return ThermocoupleReadChannelUpdateType
+	}
+	return ""
+}
+
+// WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+// field does not change.
+type WriteChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+// WriteChannelUpdateType is the "type" value that selects a variant of
+// WriteChannelUpdate.
+type WriteChannelUpdateType string
+
+const (
+	// AnalogWriteChannelUpdateType drives an analog output on a DAC port.
+	AnalogWriteChannelUpdateType WriteChannelUpdateType = "analog"
+	// DigitalWriteChannelUpdateType drives a digital output line on a DIO port.
+	DigitalWriteChannelUpdateType WriteChannelUpdateType = "digital"
+)
+
+// WriteChannelUpdateVariant is implemented by every WriteChannelUpdate variant.
+type WriteChannelUpdateVariant interface {
+	isWriteChannelUpdateVariant()
+}
+
+func (WriteChannelBaseUpdate) isWriteChannelUpdateVariant() {}
+
+// AnalogWriteChannelUpdate drives an analog output on a DAC port.
+type AnalogWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+func (AnalogWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// DigitalWriteChannelUpdate drives a digital output line on a DIO port.
+type DigitalWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+	Port *string `json:"port,omitzero" msgpack:"port,omitempty"`
+}
+
+func (DigitalWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// WriteChannelUpdate holds changes to the fields of the write channel. A type that
+// differs from the stored one changes the variant.
+type WriteChannelUpdate struct {
+	Variant WriteChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case AnalogWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			AnalogWriteChannelUpdate
+		}{Type: AnalogWriteChannelUpdateType, AnalogWriteChannelUpdate: v})
+	case DigitalWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			DigitalWriteChannelUpdate
+		}{Type: DigitalWriteChannelUpdateType, DigitalWriteChannelUpdate: v})
+	default:
+		return errors.Newf("WriteChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AnalogWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			AnalogWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AnalogWriteChannelUpdate
+	case DigitalWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			DigitalWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DigitalWriteChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannelUpdate) Type() WriteChannelUpdateType {
+	switch u.Variant.(type) {
+	case AnalogWriteChannelUpdate:
+		return AnalogWriteChannelUpdateType
+	case DigitalWriteChannelUpdate:
+		return DigitalWriteChannelUpdateType
+	}
+	return ""
 }

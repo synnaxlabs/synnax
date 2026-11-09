@@ -11,7 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Required,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
@@ -155,6 +163,16 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class BaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the arc. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the module.
+    """
+
+    name: str
+
+
 class TextSource(BaseModel):
     """Is Arc source code written as text."""
 
@@ -229,6 +247,25 @@ class Cursor(BaseModel):
 
     key: Key
     name: str | None = None
+
+
+class AutomationUpdate(TypedDict, total=False):
+    """Is an Arc that runs on a rack as a task."""
+
+    type: Required[Literal["automation"]]
+    name: str
+
+
+class ModuleUpdate(TypedDict, total=False):
+    """Is an Arc that holds code for other Arcs to import."""
+
+    type: Required[Literal["module"]]
+    name: str
+
+
+# Holds changes to the fields of the arc. A type that differs from the stored one
+# changes the variant.
+Update = BaseUpdate | AutomationUpdate | ModuleUpdate
 
 
 class Base(BaseModel):

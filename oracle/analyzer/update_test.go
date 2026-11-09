@@ -110,7 +110,8 @@ var _ = Describe("Update types", func() {
 			update := table.MustGet("test.Update")
 			Expect(update.Updates).To(Equal("test.Plot"))
 			Expect(doc.Get(update.Domains)).To(Equal(
-				"holds changes to the fields of the plot. An absent field does not change.",
+				"holds changes to the fields of the plot. An absent field does not " +
+					"change.",
 			))
 			form := update.Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
@@ -309,6 +310,101 @@ var _ = Describe("Update types", func() {
 		})
 	})
 
+	Describe("Union updates", func() {
+		const record = `
+			import "schemas/x/patch"
+
+			Base struct {
+				key  uuid
+				name string { @patch }
+			}
+
+			View union on type extends Base {
+				range {
+					where string? { @patch }
+				}
+				status {
+					level int32 { @patch }
+				}
+				@actions
+			}
+		`
+
+		It("Should take an update without the type as base fields only", func(
+			ctx SpecContext,
+		) {
+			table := analyze(ctx, record)
+			update := table.MustGet("test.Update")
+			Expect(update.Updates).To(Equal("test.View"))
+			Expect(doc.Get(update.Domains)).To(Equal(
+				"holds changes to the fields of the view. A type that differs from " +
+					"the stored one changes the variant.",
+			))
+			form := update.Form.(resolution.UnionForm)
+			Expect(form.Untagged.Name).To(Equal("test.BaseUpdate"))
+			base := table.MustGet("test.BaseUpdate").Form.(resolution.StructForm)
+			Expect(fieldNames(base)).To(Equal([]string{"name"}))
+		})
+
+		It("Should give each variant update the base and variant fields", func(
+			ctx SpecContext,
+		) {
+			table := analyze(ctx, record)
+			form := table.MustGet("test.Update").Form.(resolution.UnionForm)
+			Expect(form.Variants).To(HaveLen(2))
+			Expect(form.Variants[0].Inline).To(BeTrue())
+			payload := table.MustGet(form.Variants[0].Type.Name)
+			Expect(payload.Synthetic).To(BeTrue())
+			pform := payload.Form.(resolution.StructForm)
+			Expect(fieldNames(pform)).To(Equal([]string{"name", "where"}))
+			Expect(findField(pform.Fields, "where").Type.Name).To(Equal("patch.Change"))
+		})
+
+		It("Should keep the key of a union that a list holds", func(ctx SpecContext) {
+			table := analyze(ctx, `
+				import "schemas/x/patch"
+
+				Scale union on type {
+					linear { slope float64 }
+					none {}
+				}
+
+				ChannelBase struct {
+					key  string { @key }
+					port int32
+				}
+
+				Channel union on type extends ChannelBase {
+					voltage {
+						max   float64
+						scale Scale
+					}
+					current {
+						shunt float64
+					}
+				}
+
+				Config struct {
+					channels Channel[]
+					@patch
+				}
+			`)
+			field := fieldOf(table, "test.ConfigUpdate", "channels")
+			Expect(field.Type.Name).To(Equal("patch.List"))
+			Expect(field.Type.TypeArgs[2].Name).To(Equal("test.ChannelUpdate"))
+			base := table.MustGet("test.ChannelBaseUpdate").Form.(resolution.StructForm)
+			Expect(findField(base.Fields, "key").Optional).To(BeFalse())
+			channel := table.MustGet("test.ChannelUpdate").Form.(resolution.UnionForm)
+			Expect(channel.Untagged.Name).To(Equal("test.ChannelBaseUpdate"))
+			voltage := table.MustGet(channel.Variants[0].Type.Name).
+				Form.(resolution.StructForm)
+			Expect(findField(voltage.Fields, "scale").Type.Name).
+				To(Equal("test.ScaleUpdate"))
+			scale := table.MustGet("test.ScaleUpdate").Form.(resolution.UnionForm)
+			Expect(scale.HasUntagged()).To(BeFalse())
+		})
+	})
+
 	DescribeTable("Should reject", func(ctx SpecContext, source, wantErr string) {
 		_, diag := Analyze(ctx, source, "test", loader)
 		Expect(diag).To(MatchError(ContainSubstring(wantErr)))
@@ -369,6 +465,16 @@ Config struct {
     @patch
 }`, "6:0 error: Config derives the update type test.ConfigUpdate, which the "+
 			"schema already declares"),
+		Entry("a Core-only field on a union record", `
+import "schemas/x/patch"
+Base struct {
+    key  uuid
+    hash string { @patch core }
+}
+View union on type extends Base {
+    range {}
+    @actions
+}`, "5:4 error: View.hash: a union record takes no Core-only field"),
 		Entry("an option on @presence", `
 Box struct<T> {
     value T?

@@ -138,6 +138,30 @@ export const scanConfigUpdateZ = z.object({
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
 /**
+ * ReadEntryBaseUpdate holds changes to the fields of the read entry. An absent field
+ * does not change.
+ */
+export const readEntryBaseUpdateZ = z.object({
+  /** key uniquely identifies the entry within the task. */
+  key: z.string(),
+  /** disabled is true when the entry is excluded from the task. */
+  disabled: z.boolean().optional(),
+});
+export interface ReadEntryBaseUpdate extends z.infer<typeof readEntryBaseUpdateZ> {}
+
+/**
+ * WriteTargetBaseUpdate holds changes to the fields of the write target. An absent
+ * field does not change.
+ */
+export const writeTargetBaseUpdateZ = z.object({
+  /** key uniquely identifies the target within the task. */
+  key: z.string(),
+  /** disabled is true when the target is excluded from the task. */
+  disabled: z.boolean().optional(),
+});
+export interface WriteTargetBaseUpdate extends z.infer<typeof writeTargetBaseUpdateZ> {}
+
+/**
  * EdgeTagUpdate holds changes to the fields of the edge tag. An absent field does not
  * change.
  */
@@ -164,6 +188,18 @@ export const edgeTagUpdateZ = z.object({
   commandChannelName: patch.changeZ(z.string()).optional(),
 });
 export interface EdgeTagUpdate extends z.infer<typeof edgeTagUpdateZ> {}
+
+/**
+ * WriteFieldBaseUpdate holds changes to the fields of the write field. An absent field
+ * does not change.
+ */
+export const writeFieldBaseUpdateZ = z.object({
+  /** key uniquely identifies the field within the target. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the payload. */
+  pointer: z.string().optional(),
+});
+export interface WriteFieldBaseUpdate extends z.infer<typeof writeFieldBaseUpdateZ> {}
 
 /** ReadField is a single value extracted from the JSON payload of a topic. */
 export const readFieldZ = z.object({
@@ -220,6 +256,68 @@ export const channelFieldZ = z.object({
   enumValues: enumEntryZ.array().default(() => []),
 });
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
+
+/**
+ * ReadFieldUpdate holds changes to the fields of the read field. An absent field does
+ * not change.
+ */
+export const readFieldUpdateZ = z.object({
+  /** key uniquely identifies the field within the entry. */
+  key: z.string(),
+  /** name is the human-readable field name. */
+  name: z.string().optional(),
+  /** disabled is true when the field is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel the extracted value is written to. */
+  channel: channel.keyZ.optional(),
+  /**
+   * pointer is the JSON Pointer to the value within the payload. An empty pointer takes
+   * the whole payload.
+   */
+  pointer: z.string().optional(),
+  /** dataType is the data type of the extracted value. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * timeFormat is the encoding of the JSON value when the target channel holds
+   * timestamps. Required for timestamp channels.
+   */
+  timeFormat: patch.changeZ(timeFormatZ).optional(),
+  /** enumValues maps string labels in the payload to numeric channel values. */
+  enumValues: patch.valueListZ(enumEntryZ).optional(),
+});
+export interface ReadFieldUpdate extends z.infer<typeof readFieldUpdateZ> {}
+
+/**
+ * ChannelFieldUpdate holds changes to the fields of the channel field. An absent field
+ * does not change.
+ */
+export const channelFieldUpdateZ = z.object({
+  /**
+   * pointer is the JSON Pointer where the channel value is placed in the payload. An
+   * empty pointer sends the bare value as the entire payload, in which case the target
+   * may not declare any additional fields.
+   */
+  pointer: z.string().optional(),
+  /** jsonType is the JSON type the channel value is serialized as. */
+  jsonType: jsonTypeZ.optional(),
+  /** channel is the Synnax command channel that triggers the publish. */
+  channel: channel.keyZ.optional(),
+  /** name is the human-readable name of the command channel. */
+  name: z.string().optional(),
+  /** dataType is the data type of the command channel. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * timeFormat is the output encoding when the command channel holds timestamps. An
+   * unset format is ISO 8601.
+   */
+  timeFormat: patch.changeZ(timeFormatZ).optional(),
+  /**
+   * enumValues maps numeric channel values to string labels. Only valid when json_type
+   * is 'string'.
+   */
+  enumValues: patch.valueListZ(enumEntryZ).optional(),
+});
+export interface ChannelFieldUpdate extends z.infer<typeof channelFieldUpdateZ> {}
 
 /** StaticWriteField places a fixed value in the payload. */
 export const staticWriteFieldZ = baseWriteFieldZ.extend({
@@ -298,6 +396,73 @@ export const edgeConfigUpdateZ = z.object({
 });
 export interface EdgeConfigUpdate extends z.infer<typeof edgeConfigUpdateZ> {}
 
+/** StaticWriteFieldUpdate places a fixed value in the payload. */
+export const staticWriteFieldUpdateZ = z.object({
+  type: z.literal("static"),
+  /** key uniquely identifies the field within the target. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the payload. */
+  pointer: z.string().optional(),
+  /** jsonType is the JSON type the value is serialized as. */
+  jsonType: jsonTypeZ.optional(),
+  /** value is the fixed JSON value placed at the pointer. */
+  value: z.unknown().optional(),
+});
+export interface StaticWriteFieldUpdate extends z.infer<
+  typeof staticWriteFieldUpdateZ
+> {}
+
+/**
+ * GeneratedWriteFieldUpdate places a freshly generated UUID or timestamp in the
+ * payload.
+ */
+export const generatedWriteFieldUpdateZ = z.object({
+  type: z.literal("generated"),
+  /** key uniquely identifies the field within the target. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the payload. */
+  pointer: z.string().optional(),
+  /** generator is the generator that produces a fresh value per publish. */
+  generator: generatorTypeZ.optional(),
+  /**
+   * timeFormat is the output encoding for timestamp generators. Defaults to iso8601.
+   */
+  timeFormat: patch.changeZ(timeFormatZ).optional(),
+});
+export interface GeneratedWriteFieldUpdate extends z.infer<
+  typeof generatedWriteFieldUpdateZ
+> {}
+
+export const WRITE_FIELD_UPDATE_TYPES = ["static", "generated"] as const;
+export const writeFieldUpdateTypeZ = z.enum(WRITE_FIELD_UPDATE_TYPES);
+export type WriteFieldUpdateType = z.infer<typeof writeFieldUpdateTypeZ>;
+
+/**
+ * WriteFieldUpdate holds changes to the fields of the write field. A type that differs
+ * from the stored one changes the variant.
+ */
+export const writeFieldUpdateZ = z.union([
+  writeFieldBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [staticWriteFieldUpdateZ, generatedWriteFieldUpdateZ]),
+]);
+export type WriteFieldUpdate =
+  | (WriteFieldBaseUpdate & {
+      type?: never;
+      jsonType?: never;
+      value?: never;
+      generator?: never;
+      timeFormat?: never;
+    })
+  | StaticWriteFieldUpdate
+  | GeneratedWriteFieldUpdate;
+
+export const WRITE_FIELD_UPDATE_SCHEMAS: {
+  [K in WriteFieldUpdateType]: z.ZodType<Extract<WriteFieldUpdate, { type: K }>>;
+} = {
+  static: staticWriteFieldUpdateZ,
+  generated: generatedWriteFieldUpdateZ,
+};
+
 /** PlainReadEntry reads JSON payloads from one topic. */
 export const plainReadEntryZ = baseReadEntryZ.extend({
   type: z.literal("plain"),
@@ -361,6 +526,96 @@ export const READ_ENTRY_SCHEMAS: {
   sparkplug: sparkplugReadEntryZ,
 };
 
+/** PlainReadEntryUpdate reads JSON payloads from one topic. */
+export const plainReadEntryUpdateZ = z.object({
+  type: z.literal("plain"),
+  /** key uniquely identifies the entry within the task. */
+  key: z.string(),
+  /** disabled is true when the entry is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** topic is the topic to subscribe to. It holds no wildcards. */
+  topic: z.string().optional(),
+  /** qos is the quality of service of the subscription. */
+  qos: qoSZ.optional(),
+  /**
+   * retainedIgnored is true when the task drops the retained message that the broker
+   * sends on subscribe.
+   */
+  retainedIgnored: z.boolean().optional(),
+  /** fields contains the values to extract from each payload. */
+  fields: patch.listZ({ e: readFieldZ, k: z.string(), u: readFieldUpdateZ }).optional(),
+  /**
+   * index is the key of the field whose channel indexes the others. Empty when the task
+   * stamps samples on arrival.
+   */
+  index: z.string().optional(),
+});
+export interface PlainReadEntryUpdate extends z.infer<typeof plainReadEntryUpdateZ> {}
+
+/** SparkplugReadEntryUpdate reads one Sparkplug B tag. */
+export const sparkplugReadEntryUpdateZ = z.object({
+  type: z.literal("sparkplug"),
+  /** key uniquely identifies the entry within the task. */
+  key: z.string(),
+  /** disabled is true when the entry is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** group is the Sparkplug group ID of the edge node. */
+  group: z.string().optional(),
+  /** edgeNode is the Sparkplug edge node ID. */
+  edgeNode: z.string().optional(),
+  /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
+  device: z.string().optional(),
+  /** tag is the name of the tag. */
+  tag: z.string().optional(),
+  /** channel is the Synnax channel the tag value is written to. */
+  channel: channel.keyZ.optional(),
+  /** name is the human-readable name of the channel. */
+  name: z.string().optional(),
+  /** dataType is the data type of the channel. */
+  dataType: telem.dataTypeZ.optional(),
+});
+export interface SparkplugReadEntryUpdate extends z.infer<
+  typeof sparkplugReadEntryUpdateZ
+> {}
+
+export const READ_ENTRY_UPDATE_TYPES = ["plain", "sparkplug"] as const;
+export const readEntryUpdateTypeZ = z.enum(READ_ENTRY_UPDATE_TYPES);
+export type ReadEntryUpdateType = z.infer<typeof readEntryUpdateTypeZ>;
+
+/**
+ * ReadEntryUpdate holds changes to the fields of the read entry. A type that differs
+ * from the stored one changes the variant.
+ */
+export const readEntryUpdateZ = z.union([
+  readEntryBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [plainReadEntryUpdateZ, sparkplugReadEntryUpdateZ]),
+]);
+export type ReadEntryUpdate =
+  | (ReadEntryBaseUpdate & {
+      type?: never;
+      topic?: never;
+      qos?: never;
+      retainedIgnored?: never;
+      fields?: never;
+      index?: never;
+      group?: never;
+      edgeNode?: never;
+      device?: never;
+      tag?: never;
+      channel?: never;
+      name?: never;
+      dataType?: never;
+    })
+  | PlainReadEntryUpdate
+  | SparkplugReadEntryUpdate;
+
+export const READ_ENTRY_UPDATE_SCHEMAS: {
+  [K in ReadEntryUpdateType]: z.ZodType<Extract<ReadEntryUpdate, { type: K }>>;
+} = {
+  plain: plainReadEntryUpdateZ,
+  sparkplug: sparkplugReadEntryUpdateZ,
+};
+
 /** PlainWriteTarget publishes a JSON payload to one topic. */
 export const plainWriteTargetZ = baseWriteTargetZ.extend({
   type: z.literal("plain"),
@@ -418,6 +673,93 @@ export const WRITE_TARGET_SCHEMAS: {
   sparkplug: sparkplugWriteTargetZ,
 };
 
+/** PlainWriteTargetUpdate publishes a JSON payload to one topic. */
+export const plainWriteTargetUpdateZ = z.object({
+  type: z.literal("plain"),
+  /** key uniquely identifies the target within the task. */
+  key: z.string(),
+  /** disabled is true when the target is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** topic is the topic to publish to. */
+  topic: z.string().optional(),
+  /** qos is the quality of service of the publish. */
+  qos: qoSZ.optional(),
+  /** retained is true when the broker retains the published message. */
+  retained: z.boolean().optional(),
+  /** channel is the command channel whose writes trigger the publish. */
+  channel: patch.structZ({ u: channelFieldUpdateZ, t: channelFieldZ }).optional(),
+  /** fields contains additional static or generated payload fields. */
+  fields: patch
+    .listZ({ e: writeFieldZ, k: z.string(), u: writeFieldUpdateZ })
+    .optional(),
+});
+export interface PlainWriteTargetUpdate extends z.infer<
+  typeof plainWriteTargetUpdateZ
+> {}
+
+/** SparkplugWriteTargetUpdate sends a Sparkplug B command for one tag. */
+export const sparkplugWriteTargetUpdateZ = z.object({
+  type: z.literal("sparkplug"),
+  /** key uniquely identifies the target within the task. */
+  key: z.string(),
+  /** disabled is true when the target is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** group is the Sparkplug group ID of the edge node. */
+  group: z.string().optional(),
+  /** edgeNode is the Sparkplug edge node ID. */
+  edgeNode: z.string().optional(),
+  /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
+  device: z.string().optional(),
+  /** tag is the name of the tag to command. */
+  tag: z.string().optional(),
+  /** tagType is the Sparkplug B data type the command value is sent as. */
+  tagType: sparkplugDataTypeZ.optional(),
+  /** channel is the Synnax command channel whose writes trigger the command. */
+  channel: channel.keyZ.optional(),
+  /** name is the human-readable name of the command channel. */
+  name: z.string().optional(),
+});
+export interface SparkplugWriteTargetUpdate extends z.infer<
+  typeof sparkplugWriteTargetUpdateZ
+> {}
+
+export const WRITE_TARGET_UPDATE_TYPES = ["plain", "sparkplug"] as const;
+export const writeTargetUpdateTypeZ = z.enum(WRITE_TARGET_UPDATE_TYPES);
+export type WriteTargetUpdateType = z.infer<typeof writeTargetUpdateTypeZ>;
+
+/**
+ * WriteTargetUpdate holds changes to the fields of the write target. A type that
+ * differs from the stored one changes the variant.
+ */
+export const writeTargetUpdateZ = z.union([
+  writeTargetBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [plainWriteTargetUpdateZ, sparkplugWriteTargetUpdateZ]),
+]);
+export type WriteTargetUpdate =
+  | (WriteTargetBaseUpdate & {
+      type?: never;
+      topic?: never;
+      qos?: never;
+      retained?: never;
+      channel?: never;
+      fields?: never;
+      group?: never;
+      edgeNode?: never;
+      device?: never;
+      tag?: never;
+      tagType?: never;
+      name?: never;
+    })
+  | PlainWriteTargetUpdate
+  | SparkplugWriteTargetUpdate;
+
+export const WRITE_TARGET_UPDATE_SCHEMAS: {
+  [K in WriteTargetUpdateType]: z.ZodType<Extract<WriteTargetUpdate, { type: K }>>;
+} = {
+  plain: plainWriteTargetUpdateZ,
+  sparkplug: sparkplugWriteTargetUpdateZ,
+};
+
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
   entries: readEntryZ.array().default(() => []),
@@ -438,7 +780,9 @@ export const readConfigUpdateZ = z.object({
   /** device is the key of the broker device to read from. */
   device: device.keyZ.optional(),
   /** entries contains the topics and tags to read. */
-  entries: patch.valueListZ(readEntryZ).optional(),
+  entries: patch
+    .listZ({ e: readEntryZ, k: z.string(), u: readEntryUpdateZ })
+    .optional(),
 });
 export interface ReadConfigUpdate extends z.infer<typeof readConfigUpdateZ> {}
 
@@ -460,6 +804,8 @@ export const writeConfigUpdateZ = z.object({
   /** device is the key of the broker device to write to. */
   device: device.keyZ.optional(),
   /** targets contains the topics and tags to write to. */
-  targets: patch.valueListZ(writeTargetZ).optional(),
+  targets: patch
+    .listZ({ e: writeTargetZ, k: z.string(), u: writeTargetUpdateZ })
+    .optional(),
 });
 export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}

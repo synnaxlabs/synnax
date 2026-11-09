@@ -33,6 +33,15 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/**
+ * BaseUpdate holds changes to the fields of the view. An absent field does not change.
+ */
+export const baseUpdateZ = z.object({
+  /** name is a human-readable name for the view. */
+  name: z.string().optional(),
+});
+export interface BaseUpdate extends z.infer<typeof baseUpdateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
@@ -47,6 +56,44 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** RangeUpdate is a saved view of ranges. */
+export const rangeUpdateZ = z.object({
+  type: z.literal("range"),
+  /** name is a human-readable name for the view. */
+  name: z.string().optional(),
+  /** where selects the ranges the view shows. An absent where shows all. */
+  where: patch.changeZ(ranger.whereZ).optional(),
+});
+export interface RangeUpdate extends z.infer<typeof rangeUpdateZ> {}
+
+/** StatusUpdate is a saved view of statuses. */
+export const statusUpdateZ = z.object({
+  type: z.literal("status"),
+  /** name is a human-readable name for the view. */
+  name: z.string().optional(),
+  /** where selects the statuses the view shows. An absent where shows all. */
+  where: patch.changeZ(status.whereZ).optional(),
+});
+export interface StatusUpdate extends z.infer<typeof statusUpdateZ> {}
+
+/**
+ * Update holds changes to the fields of the view. A type that differs from the stored
+ * one changes the variant.
+ */
+export const updateZ = z.union([
+  baseUpdateZ.strict(),
+  z.discriminatedUnion("type", [rangeUpdateZ, statusUpdateZ]),
+]);
+export type Update =
+  (BaseUpdate & { type?: never; where?: never }) | RangeUpdate | StatusUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in Type]: z.ZodType<Extract<Update, { type: K }>>;
+} = {
+  range: rangeUpdateZ,
+  status: statusUpdateZ,
+};
 
 /** Base carries the fields shared by every view variant. */
 export const baseZ = z.object({

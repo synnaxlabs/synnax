@@ -92,6 +92,48 @@ export const scanConfigUpdateZ = z.object({
 });
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
+/**
+ * ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+ * field does not change.
+ */
+export const readChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4'). */
+  port: z.string().optional(),
+});
+export interface ReadChannelBaseUpdate extends z.infer<typeof readChannelBaseUpdateZ> {}
+
+/**
+ * WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+ * field does not change.
+ */
+export const writeChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4'). */
+  port: z.string().optional(),
+});
+export interface WriteChannelBaseUpdate extends z.infer<
+  typeof writeChannelBaseUpdateZ
+> {}
+
 /** AnalogReadChannel reads a voltage from an analog input port. */
 export const analogReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("analog"),
@@ -209,6 +251,202 @@ export const WRITE_CHANNEL_SCHEMAS: {
   digital: digitalWriteChannelZ,
 };
 
+/** AnalogReadChannelUpdate reads a voltage from an analog input port. */
+export const analogReadChannelUpdateZ = z.object({
+  type: z.literal("analog"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4'). */
+  port: z.string().optional(),
+  /**
+   * range is the largest voltage magnitude the channel reads, in Volts. The channel
+   * uses the smallest range of the device that covers it.
+   */
+  range: z.number().optional(),
+  /**
+   * negChan is the AIN port of the negative input for a differential reading on T7
+   * devices. When absent, the channel reads against ground.
+   */
+  negChan: patch.changeZ(zod.uint16).optional(),
+  /** scale is the scale applied to raw samples after acquisition. */
+  scale: task.scaleUpdateZ.optional(),
+});
+export interface AnalogReadChannelUpdate extends z.infer<
+  typeof analogReadChannelUpdateZ
+> {}
+
+/** DigitalReadChannelUpdate reads a digital input line. */
+export const digitalReadChannelUpdateZ = z.object({
+  type: z.literal("digital"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4'). */
+  port: z.string().optional(),
+});
+export interface DigitalReadChannelUpdate extends z.infer<
+  typeof digitalReadChannelUpdateZ
+> {}
+
+/** ThermocoupleReadChannelUpdate reads temperature from a thermocouple. */
+export const thermocoupleReadChannelUpdateZ = z.object({
+  type: z.literal("thermocouple"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4'). */
+  port: z.string().optional(),
+  /** thermocoupleType selects the thermocouple alloy type. */
+  thermocoupleType: thermocoupleTypeZ.optional(),
+  /**
+   * negChan is the AIN port of the thermocouple's negative lead on T7 devices. When
+   * absent, the channel reads against ground.
+   */
+  negChan: patch.changeZ(zod.uint16).optional(),
+  /**
+   * cjcSource selects the cold-junction-compensation source: the device sensor
+   * ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+   * terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
+   * 'AIN2').
+   */
+  cjcSource: z.string().optional(),
+  /** cjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt. */
+  cjcSlope: z.number().optional(),
+  /** cjcOffset is the CJC temperature offset, in Kelvins. */
+  cjcOffset: z.number().optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+  /** scale is the scale applied to raw samples after acquisition. */
+  scale: task.scaleUpdateZ.optional(),
+});
+export interface ThermocoupleReadChannelUpdate extends z.infer<
+  typeof thermocoupleReadChannelUpdateZ
+> {}
+
+export const READ_CHANNEL_UPDATE_TYPES = ["analog", "digital", "thermocouple"] as const;
+export const readChannelUpdateTypeZ = z.enum(READ_CHANNEL_UPDATE_TYPES);
+export type ReadChannelUpdateType = z.infer<typeof readChannelUpdateTypeZ>;
+
+/**
+ * ReadChannelUpdate holds changes to the fields of the read channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const readChannelUpdateZ = z.union([
+  readChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    analogReadChannelUpdateZ,
+    digitalReadChannelUpdateZ,
+    thermocoupleReadChannelUpdateZ,
+  ]),
+]);
+export type ReadChannelUpdate =
+  | (ReadChannelBaseUpdate & {
+      type?: never;
+      range?: never;
+      negChan?: never;
+      scale?: never;
+      thermocoupleType?: never;
+      cjcSource?: never;
+      cjcSlope?: never;
+      cjcOffset?: never;
+      units?: never;
+    })
+  | AnalogReadChannelUpdate
+  | DigitalReadChannelUpdate
+  | ThermocoupleReadChannelUpdate;
+
+export const READ_CHANNEL_UPDATE_SCHEMAS: {
+  [K in ReadChannelUpdateType]: z.ZodType<Extract<ReadChannelUpdate, { type: K }>>;
+} = {
+  analog: analogReadChannelUpdateZ,
+  digital: digitalReadChannelUpdateZ,
+  thermocouple: thermocoupleReadChannelUpdateZ,
+};
+
+/** AnalogWriteChannelUpdate drives an analog output on a DAC port. */
+export const analogWriteChannelUpdateZ = z.object({
+  type: z.literal("analog"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4'). */
+  port: z.string().optional(),
+});
+export interface AnalogWriteChannelUpdate extends z.infer<
+  typeof analogWriteChannelUpdateZ
+> {}
+
+/** DigitalWriteChannelUpdate drives a digital output line on a DIO port. */
+export const digitalWriteChannelUpdateZ = z.object({
+  type: z.literal("digital"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4'). */
+  port: z.string().optional(),
+});
+export interface DigitalWriteChannelUpdate extends z.infer<
+  typeof digitalWriteChannelUpdateZ
+> {}
+
+export const WRITE_CHANNEL_UPDATE_TYPES = ["analog", "digital"] as const;
+export const writeChannelUpdateTypeZ = z.enum(WRITE_CHANNEL_UPDATE_TYPES);
+export type WriteChannelUpdateType = z.infer<typeof writeChannelUpdateTypeZ>;
+
+/**
+ * WriteChannelUpdate holds changes to the fields of the write channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const writeChannelUpdateZ = z.union([
+  writeChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [analogWriteChannelUpdateZ, digitalWriteChannelUpdateZ]),
+]);
+export type WriteChannelUpdate =
+  | (WriteChannelBaseUpdate & { type?: never })
+  | AnalogWriteChannelUpdate
+  | DigitalWriteChannelUpdate;
+
+export const WRITE_CHANNEL_UPDATE_SCHEMAS: {
+  [K in WriteChannelUpdateType]: z.ZodType<Extract<WriteChannelUpdate, { type: K }>>;
+} = {
+  analog: analogWriteChannelUpdateZ,
+  digital: digitalWriteChannelUpdateZ,
+};
+
 export const readConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
@@ -216,6 +454,12 @@ export const readConfigZ = task.readConfigZ.extend({
   ljmScanBacklogWarnOnCount: z.uint32().min(1).optional(),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = task.writeConfigZ.extend({
+  stateRate: z.number().default(10),
+  channels: writeChannelZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /**
  * ReadConfigUpdate holds changes to the fields of the read config. An absent field does
@@ -235,7 +479,9 @@ export const readConfigUpdateZ = z.object({
   /** device is the key of the device the task acquires from. */
   device: device.keyZ.optional(),
   /** channels are the channels the task acquires. */
-  channels: patch.valueListZ(readChannelZ).optional(),
+  channels: patch
+    .listZ({ e: readChannelZ, k: z.string(), u: readChannelUpdateZ })
+    .optional(),
   /**
    * deviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
    * reports a skew warning. When absent, the Driver picks two seconds of scans.
@@ -248,12 +494,6 @@ export const readConfigUpdateZ = z.object({
   ljmScanBacklogWarnOnCount: patch.changeZ(z.uint32()).optional(),
 });
 export interface ReadConfigUpdate extends z.infer<typeof readConfigUpdateZ> {}
-
-export const writeConfigZ = task.writeConfigZ.extend({
-  stateRate: z.number().default(10),
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /**
  * WriteConfigUpdate holds changes to the fields of the write config. An absent field
@@ -271,6 +511,8 @@ export const writeConfigUpdateZ = z.object({
   /** stateRate is the rate at which output state is reported to Synnax, in Hertz. */
   stateRate: telem.rateZ.optional(),
   /** channels are the channels the task drives. */
-  channels: patch.valueListZ(writeChannelZ).optional(),
+  channels: patch
+    .listZ({ e: writeChannelZ, k: z.string(), u: writeChannelUpdateZ })
+    .optional(),
 });
 export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}

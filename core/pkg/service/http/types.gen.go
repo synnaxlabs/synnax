@@ -12,11 +12,15 @@
 package http
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 	"uuid"
 )
@@ -227,7 +231,7 @@ type WriteEndpointUpdate struct {
 	// Channel is the command channel whose writes trigger this endpoint.
 	Channel *patch.Struct[ChannelFieldUpdate, ChannelField] `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Fields contains additional static or generated body fields.
-	Fields *patch.ValueList[WriteField] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+	Fields *patch.List[WriteField, string, WriteFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
 }
 
 // ReadFieldUpdate holds changes to the fields of the read field. An absent field does
@@ -299,4 +303,154 @@ func (c ChannelFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 // DecodeMsgpack implements msgpack.CustomDecoder.
 func (c *ChannelFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return patch.DecodeMsgpack(dec, c)
+}
+
+// WriteFieldBaseUpdate holds changes to the fields of the write field. An absent field
+// does not change.
+type WriteFieldBaseUpdate struct {
+	// Key uniquely identifies the field within the endpoint.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the body.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+}
+
+// WriteFieldUpdateType is the "type" value that selects a variant of WriteFieldUpdate.
+type WriteFieldUpdateType string
+
+const (
+	// StaticWriteFieldUpdateType places a fixed value in the request body.
+	StaticWriteFieldUpdateType WriteFieldUpdateType = "static"
+	// GeneratedWriteFieldUpdateType places a freshly generated UUID or timestamp in the
+	// body.
+	GeneratedWriteFieldUpdateType WriteFieldUpdateType = "generated"
+)
+
+// WriteFieldUpdateVariant is implemented by every WriteFieldUpdate variant.
+type WriteFieldUpdateVariant interface {
+	isWriteFieldUpdateVariant()
+}
+
+func (WriteFieldBaseUpdate) isWriteFieldUpdateVariant() {}
+
+// StaticWriteFieldUpdate places a fixed value in the request body.
+type StaticWriteFieldUpdate struct {
+	// Key uniquely identifies the field within the endpoint.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the body.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// JSONType is the JSON type the value is serialized as.
+	JSONType *JSONType `json:"json_type,omitzero" msgpack:"json_type,omitempty"`
+	// Value is the fixed JSON value placed at the pointer.
+	Value *any `json:"value,omitzero" msgpack:"value,omitempty"`
+}
+
+func (StaticWriteFieldUpdate) isWriteFieldUpdateVariant() {}
+
+// GeneratedWriteFieldUpdate places a freshly generated UUID or timestamp in the body.
+type GeneratedWriteFieldUpdate struct {
+	// Key uniquely identifies the field within the endpoint.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the body.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// Generator is the generator that produces a fresh value per request.
+	Generator *GeneratorType `json:"generator,omitzero" msgpack:"generator,omitempty"`
+	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+}
+
+func (GeneratedWriteFieldUpdate) isWriteFieldUpdateVariant() {}
+
+// WriteFieldUpdate holds changes to the fields of the write field. A type that differs
+// from the stored one changes the variant.
+type WriteFieldUpdate struct {
+	Variant WriteFieldUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteFieldUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteFieldBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case StaticWriteFieldUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldUpdateType `json:"type"`
+			StaticWriteFieldUpdate
+		}{Type: StaticWriteFieldUpdateType, StaticWriteFieldUpdate: v})
+	case GeneratedWriteFieldUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldUpdateType `json:"type"`
+			GeneratedWriteFieldUpdate
+		}{Type: GeneratedWriteFieldUpdateType, GeneratedWriteFieldUpdate: v})
+	default:
+		return errors.Newf("WriteFieldUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteFieldUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteFieldUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteFieldBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticWriteFieldUpdateType:
+		var v struct {
+			Type WriteFieldUpdateType `json:"type"`
+			StaticWriteFieldUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StaticWriteFieldUpdate
+	case GeneratedWriteFieldUpdateType:
+		var v struct {
+			Type WriteFieldUpdateType `json:"type"`
+			GeneratedWriteFieldUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GeneratedWriteFieldUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteFieldUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteFieldUpdate) Type() WriteFieldUpdateType {
+	switch u.Variant.(type) {
+	case StaticWriteFieldUpdate:
+		return StaticWriteFieldUpdateType
+	case GeneratedWriteFieldUpdate:
+		return GeneratedWriteFieldUpdateType
+	}
+	return ""
 }

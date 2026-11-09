@@ -12,9 +12,16 @@
 package ethercat
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"uuid"
 )
 
@@ -99,7 +106,7 @@ type ReadConfigUpdate struct {
 	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
 	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
 	// Channels are the channels the task acquires.
-	Channels *patch.ValueList[ReadChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[ReadChannel, string, ReadChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // WriteConfigUpdate holds changes to the fields of the write config. An absent field
@@ -116,7 +123,7 @@ type WriteConfigUpdate struct {
 	// ExecutionRate is the rate at which commands are applied to the bus, in Hertz.
 	ExecutionRate *telem.Rate `json:"execution_rate,omitzero" msgpack:"execution_rate,omitempty"`
 	// Channels are the channels the task drives.
-	Channels *patch.ValueList[WriteChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[WriteChannel, string, WriteChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
@@ -128,4 +135,368 @@ type ScanConfigUpdate struct {
 	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
 	// Disabled is true when scanning is paused.
 	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+// field does not change.
+type ReadChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Device is the key of the slave device the channel reads from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+}
+
+// ReadChannelUpdateType is the "type" value that selects a variant of
+// ReadChannelUpdate.
+type ReadChannelUpdateType string
+
+const (
+	// EntryReadChannelUpdateType addresses a PDO entry by its CoE index and sub-index.
+	EntryReadChannelUpdateType ReadChannelUpdateType = "entry"
+	// UnresolvedReadChannelUpdateType is a channel whose PDO entry name matched no
+	// single entry on its slave. It must be given an entry before the task runs.
+	UnresolvedReadChannelUpdateType ReadChannelUpdateType = "unresolved"
+)
+
+// ReadChannelUpdateVariant is implemented by every ReadChannelUpdate variant.
+type ReadChannelUpdateVariant interface {
+	isReadChannelUpdateVariant()
+}
+
+func (ReadChannelBaseUpdate) isReadChannelUpdateVariant() {}
+
+// EntryReadChannelUpdate addresses a PDO entry by its CoE index and sub-index.
+type EntryReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Device is the key of the slave device the channel reads from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Index is the CoE object dictionary index of the PDO entry.
+	Index *uint16 `json:"index,omitzero" msgpack:"index,omitempty"`
+	// SubIndex is the CoE object dictionary sub-index of the PDO entry.
+	SubIndex *uint8 `json:"sub_index,omitzero" msgpack:"sub_index,omitempty"`
+	// DataType is the data type of the PDO entry.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// Scale is the scale applied to raw samples after acquisition. A scaled channel
+	// writes to a float Synnax channel.
+	Scale *task.ScaleUpdate `json:"scale,omitzero" msgpack:"scale,omitempty"`
+}
+
+func (EntryReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// UnresolvedReadChannelUpdate is a channel whose PDO entry name matched no single entry
+// on its slave. It must be given an entry before the task runs.
+type UnresolvedReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Device is the key of the slave device the channel reads from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Pdo is the entry name that matched no single entry on the slave.
+	Pdo *string `json:"pdo,omitzero" msgpack:"pdo,omitempty"`
+}
+
+func (UnresolvedReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// ReadChannelUpdate holds changes to the fields of the read channel. A type that
+// differs from the stored one changes the variant.
+type ReadChannelUpdate struct {
+	Variant ReadChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ReadChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case EntryReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			EntryReadChannelUpdate
+		}{Type: EntryReadChannelUpdateType, EntryReadChannelUpdate: v})
+	case UnresolvedReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			UnresolvedReadChannelUpdate
+		}{Type: UnresolvedReadChannelUpdateType, UnresolvedReadChannelUpdate: v})
+	default:
+		return errors.Newf("ReadChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v ReadChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EntryReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			EntryReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EntryReadChannelUpdate
+	case UnresolvedReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			UnresolvedReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnresolvedReadChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannelUpdate) Type() ReadChannelUpdateType {
+	switch u.Variant.(type) {
+	case EntryReadChannelUpdate:
+		return EntryReadChannelUpdateType
+	case UnresolvedReadChannelUpdate:
+		return UnresolvedReadChannelUpdateType
+	}
+	return ""
+}
+
+// WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+// field does not change.
+type WriteChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Device is the key of the slave device the channel writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+}
+
+// WriteChannelUpdateType is the "type" value that selects a variant of
+// WriteChannelUpdate.
+type WriteChannelUpdateType string
+
+const (
+	// EntryWriteChannelUpdateType addresses a PDO entry by its CoE index and sub-index.
+	EntryWriteChannelUpdateType WriteChannelUpdateType = "entry"
+	// UnresolvedWriteChannelUpdateType is a channel whose PDO entry name matched no
+	// single entry on its slave. It must be given an entry before the task runs.
+	UnresolvedWriteChannelUpdateType WriteChannelUpdateType = "unresolved"
+)
+
+// WriteChannelUpdateVariant is implemented by every WriteChannelUpdate variant.
+type WriteChannelUpdateVariant interface {
+	isWriteChannelUpdateVariant()
+}
+
+func (WriteChannelBaseUpdate) isWriteChannelUpdateVariant() {}
+
+// EntryWriteChannelUpdate addresses a PDO entry by its CoE index and sub-index.
+type EntryWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Device is the key of the slave device the channel writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Index is the CoE object dictionary index of the PDO entry.
+	Index *uint16 `json:"index,omitzero" msgpack:"index,omitempty"`
+	// SubIndex is the CoE object dictionary sub-index of the PDO entry.
+	SubIndex *uint8 `json:"sub_index,omitzero" msgpack:"sub_index,omitempty"`
+	// DataType is the data type of the PDO entry.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// StopValue is the value the entry takes when the task stops. The bus sends it
+	// before the slaves leave OP.
+	StopValue *float64 `json:"stop_value,omitzero" msgpack:"stop_value,omitempty"`
+}
+
+func (EntryWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// UnresolvedWriteChannelUpdate is a channel whose PDO entry name matched no single
+// entry on its slave. It must be given an entry before the task runs.
+type UnresolvedWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Device is the key of the slave device the channel writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Pdo is the entry name that matched no single entry on the slave.
+	Pdo *string `json:"pdo,omitzero" msgpack:"pdo,omitempty"`
+}
+
+func (UnresolvedWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// WriteChannelUpdate holds changes to the fields of the write channel. A type that
+// differs from the stored one changes the variant.
+type WriteChannelUpdate struct {
+	Variant WriteChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case EntryWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			EntryWriteChannelUpdate
+		}{Type: EntryWriteChannelUpdateType, EntryWriteChannelUpdate: v})
+	case UnresolvedWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			UnresolvedWriteChannelUpdate
+		}{Type: UnresolvedWriteChannelUpdateType, UnresolvedWriteChannelUpdate: v})
+	default:
+		return errors.Newf("WriteChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EntryWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			EntryWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EntryWriteChannelUpdate
+	case UnresolvedWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			UnresolvedWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnresolvedWriteChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannelUpdate) Type() WriteChannelUpdateType {
+	switch u.Variant.(type) {
+	case EntryWriteChannelUpdate:
+		return EntryWriteChannelUpdateType
+	case UnresolvedWriteChannelUpdate:
+		return UnresolvedWriteChannelUpdateType
+	}
+	return ""
 }

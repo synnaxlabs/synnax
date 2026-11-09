@@ -48,6 +48,9 @@ type unionData struct {
 	// Base is the struct every variant inherits (e.g. "BaseAIChannel"), set only when
 	// resolver.SharedBase finds one. The union then gets a base() accessor.
 	Base string
+	// Untagged is the struct that a value without the discriminator takes, or empty
+	// when the discriminator is required. It is the first alternative of the variant.
+	Untagged string
 }
 
 // unionVariantData is the template view of one variant for the dispatch alias.
@@ -101,6 +104,9 @@ func (p *Plugin) processUnion(
 		ud.Base = p.resolveExtendsType(base, parent, data)
 	}
 
+	if untagged, ok := form.Untagged.Resolve(data.table); ok {
+		ud.Untagged = p.resolveExtendsType(form.Untagged, untagged, data)
+	}
 	if form.Adjacent {
 		data.AddInternal("x/cpp/json/json.h")
 		for _, v := range form.Variants {

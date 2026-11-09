@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypedDict, override as _override
+from typing import Annotated, Literal, Required, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -92,6 +92,49 @@ class ScanConfigUpdate(TypedDict, total=False):
     disabled: bool
 
 
+class ReadChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        device: Is the key of the slave device the channel reads from.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    device: device_.Key
+
+
+class WriteChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write channel. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from the task.
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+        device: Is the key of the slave device the channel writes to.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    device: device_.Key
+
+
 class EntryReadChannel(BaseReadChannel):
     """Addresses a PDO entry by its CoE index and sub-index."""
 
@@ -146,6 +189,84 @@ WriteChannel = Annotated[
 ]
 
 
+class EntryReadChannelUpdate(TypedDict, total=False):
+    """Addresses a PDO entry by its CoE index and sub-index."""
+
+    type: Required[Literal["entry"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    device: device_.Key
+    index: int
+    sub_index: int
+    data_type: telem.DataType
+    scale: task.ScaleUpdate
+
+
+class UnresolvedReadChannelUpdate(TypedDict, total=False):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
+    """
+
+    type: Required[Literal["unresolved"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    device: device_.Key
+    pdo: str
+
+
+# Holds changes to the fields of the read channel. A type that differs from the stored
+# one changes the variant.
+ReadChannelUpdate = (
+    ReadChannelBaseUpdate | EntryReadChannelUpdate | UnresolvedReadChannelUpdate
+)
+
+
+class EntryWriteChannelUpdate(TypedDict, total=False):
+    """Addresses a PDO entry by its CoE index and sub-index."""
+
+    type: Required[Literal["entry"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    device: device_.Key
+    index: int
+    sub_index: int
+    data_type: telem.DataType
+    stop_value: float
+
+
+class UnresolvedWriteChannelUpdate(TypedDict, total=False):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
+    """
+
+    type: Required[Literal["unresolved"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    device: device_.Key
+    pdo: str
+
+
+# Holds changes to the fields of the write channel. A type that differs from the stored
+# one changes the variant.
+WriteChannelUpdate = (
+    WriteChannelBaseUpdate | EntryWriteChannelUpdate | UnresolvedWriteChannelUpdate
+)
+
+
 class ReadConfig(task.ReadConfig):
     """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
@@ -155,6 +276,25 @@ class ReadConfig(task.ReadConfig):
     """
 
     channels: list[ReadChannel] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.PersistConfig):
+    """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
+    slave; all slaves must share one network interface.
+
+    Attributes:
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        execution_rate: Is the rate at which commands are applied to the bus, in Hertz.
+        channels: Are the channels the task drives.
+    """
+
+    state_rate: telem.Rate = telem.Rate(25)
+    execution_rate: telem.Rate = telem.Rate(1000)
+    channels: list[WriteChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -178,26 +318,7 @@ class ReadConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     sample_rate: telem.Rate
     stream_rate: telem.Rate
-    channels: patch.ValueListDict[ReadChannel]
-
-
-class WriteConfig(task.PersistConfig):
-    """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
-    slave; all slaves must share one network interface.
-
-    Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
-        execution_rate: Is the rate at which commands are applied to the bus, in Hertz.
-        channels: Are the channels the task drives.
-    """
-
-    state_rate: telem.Rate = telem.Rate(25)
-    execution_rate: telem.Rate = telem.Rate(1000)
-    channels: list[WriteChannel] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+    channels: patch.ListDict[ReadChannel, str, ReadChannelUpdate]
 
 
 class WriteConfigUpdate(TypedDict, total=False):
@@ -217,4 +338,4 @@ class WriteConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     state_rate: telem.Rate
     execution_rate: telem.Rate
-    channels: patch.ValueListDict[WriteChannel]
+    channels: patch.ListDict[WriteChannel, str, WriteChannelUpdate]

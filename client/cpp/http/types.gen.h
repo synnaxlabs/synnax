@@ -33,6 +33,7 @@ struct EnumEntry;
 struct BaseWriteField;
 struct ScanConfig;
 struct ScanConfigUpdate;
+struct WriteFieldBaseUpdate;
 struct ReadField;
 struct ReadFieldUpdate;
 struct ChannelField;
@@ -132,6 +133,18 @@ struct ScanConfigUpdate {
     std::optional<bool> disabled;
 
     static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteFieldBaseUpdate holds changes to the fields of the write field. An
+/// absent field does not change.
+struct WriteFieldBaseUpdate {
+    /// @brief key uniquely identifies the field within the endpoint.
+    std::string key;
+    /// @brief pointer is the JSON Pointer where the value is placed in the body.
+    std::optional<std::string> pointer;
+
+    static WriteFieldBaseUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -285,6 +298,48 @@ WriteField parse_write_field(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseWriteField & { return v; }, value);
 }
 
+/// @brief StaticWriteFieldUpdate places a fixed value in the request body.
+struct StaticWriteFieldUpdate {
+    std::string type = "static";
+    /// @brief key uniquely identifies the field within the endpoint.
+    std::string key;
+    /// @brief pointer is the JSON Pointer where the value is placed in the body.
+    std::optional<std::string> pointer;
+    /// @brief json_type is the JSON type the value is serialized as.
+    std::optional<std::string> json_type;
+    /// @brief value is the fixed JSON value placed at the pointer.
+    std::optional<x::json::json> value;
+
+    static StaticWriteFieldUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief GeneratedWriteFieldUpdate places a freshly generated UUID or timestamp in the
+/// body.
+struct GeneratedWriteFieldUpdate {
+    std::string type = "generated";
+    /// @brief key uniquely identifies the field within the endpoint.
+    std::string key;
+    /// @brief pointer is the JSON Pointer where the value is placed in the body.
+    std::optional<std::string> pointer;
+    /// @brief generator is the generator that produces a fresh value per request.
+    std::optional<std::string> generator;
+    /// @brief time_format is the output encoding for timestamp generators. Defaults to
+    /// iso8601.
+    ::x::patch::Change<std::string> time_format;
+
+    static GeneratedWriteFieldUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteFieldUpdate holds changes to the fields of the write field. A type that
+/// differs from the stored one changes the variant.
+using WriteFieldUpdate = std::
+    variant<WriteFieldBaseUpdate, StaticWriteFieldUpdate, GeneratedWriteFieldUpdate>;
+
+WriteFieldUpdate parse_write_field_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteFieldUpdate &value);
+
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
@@ -375,7 +430,7 @@ struct WriteEndpointUpdate {
     /// @brief channel is the command channel whose writes trigger this endpoint.
     std::optional<::x::patch::Struct<ChannelFieldUpdate, ChannelField>> channel;
     /// @brief fields contains additional static or generated body fields.
-    std::optional<::x::patch::ValueList<WriteField>> fields;
+    std::optional<::x::patch::List<WriteField, std::string, WriteFieldUpdate>> fields;
 
     static WriteEndpointUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -454,5 +509,30 @@ struct WriteConfigUpdate {
 
     static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+};
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::http::WriteField> {
+    static ::synnax::http::WriteField parse(Parser parser) {
+        return ::synnax::http::parse_write_field(parser);
+    }
+
+    static json to_json(const ::synnax::http::WriteField &value) {
+        return ::synnax::http::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::http::WriteFieldUpdate> {
+    static ::synnax::http::WriteFieldUpdate parse(Parser parser) {
+        return ::synnax::http::parse_write_field_update(parser);
+    }
+
+    static json to_json(const ::synnax::http::WriteFieldUpdate &value) {
+        return ::synnax::http::to_json(value);
+    }
 };
 }

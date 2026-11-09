@@ -290,3 +290,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("rack", std::to_string(key));
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::rack::Action> {
+    static ::synnax::rack::Action parse(Parser parser) {
+        return ::synnax::rack::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::rack::Action &value) {
+        return ::synnax::rack::to_json(value);
+    }
+};
+}

@@ -77,7 +77,14 @@ func synthesizeUpdateTypes(c *analysisCtx) {
 	for len(s.queue) > 0 {
 		typ := s.queue[0]
 		s.queue = s.queue[1:]
-		s.derive(typ, typ.Name+updateSuffix, wireFields(typ, c.table), nil, true)
+		name := typ.Name + updateSuffix
+		if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+			s.deriveUnion(typ, name, func(f resolution.Field) bool {
+				return !wireOmitted(f)
+			}, true)
+			continue
+		}
+		s.derive(typ, name, wireFields(typ, c.table), nil, true)
 	}
 }
 
@@ -124,6 +131,10 @@ func (s *updateSynth) root(typ resolution.Type) {
 	if typ.Synthetic || typ.Updates != "" {
 		return
 	}
+	if form, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+		s.rootUnion(typ, form)
+		return
+	}
 	form, isStruct := typ.Form.(resolution.StructForm)
 	if !isStruct {
 		return
@@ -155,6 +166,138 @@ func (s *updateSynth) root(typ resolution.Type) {
 	if len(core) > 0 {
 		s.input(typ, core)
 	}
+}
+
+// rootUnion derives the update of a union record with @patch fields in its base or its
+// variants. A union record takes no Core-only field.
+func (s *updateSynth) rootUnion(typ resolution.Type, form resolution.UnionForm) {
+	if _, record := typ.Domains[actionsDomain]; !record {
+		return
+	}
+	fields := baseFields(form, s.c.table)
+	for _, v := range form.Variants {
+		fields = append(fields, resolution.UnifiedVariantFields(typ, v, s.c.table)...)
+	}
+	patchedFields := lo.Filter(fields, func(f resolution.Field, _ int) bool {
+		return patched(f)
+	})
+	if len(patchedFields) == 0 {
+		return
+	}
+	if f, ok := lo.Find(patchedFields, coreOnly); ok {
+		s.report(typ, diagnostics.Errorf(ruleCtx(f.AST),
+			"%s.%s: a union record takes no Core-only field", typ.Name, f.Name,
+		))
+		return
+	}
+	s.deriveUnion(typ, updateSuffix, patched, false)
+}
+
+// baseFields returns the fields that every variant of a union shares.
+func baseFields(form resolution.UnionForm, table *resolution.Table) []resolution.Field {
+	var fields []resolution.Field
+	for _, ref := range form.Extends {
+		if base, _, ok := resolution.Dealias(ref, table); ok {
+			fields = append(fields, resolution.UnifiedFields(base, table)...)
+		}
+	}
+	return fields
+}
+
+// deriveUnion registers the update union of owner with the given name. Each variant
+// update holds the variant tag and changes the fields that keep selects. An update
+// without the tag changes only base fields, so the union takes it untagged when owner
+// has base fields. A reached update always holds the key of owner.
+func (s *updateSynth) deriveUnion(
+	owner resolution.Type,
+	name string,
+	keep func(resolution.Field) bool,
+	reached bool,
+) {
+	qualified := owner.Namespace + "." + name
+	if s.declared(owner, qualified) {
+		return
+	}
+	form := owner.Form.(resolution.UnionForm)
+	var untagged resolution.TypeRef
+	kept := func(f resolution.Field, _ int) bool { return keep(f) }
+	if base := lo.Filter(baseFields(form, s.c.table), kept); len(base) > 0 {
+		baseName := strings.TrimSuffix(name, updateSuffix) + "Base" + updateSuffix
+		if !s.derive(owner, baseName, base, nil, reached) {
+			return
+		}
+		untagged = resolution.TypeRef{Name: owner.Namespace + "." + baseName}
+	}
+	variants := make([]resolution.UnionVariant, 0, len(form.Variants))
+	for _, v := range form.Variants {
+		fields := lo.Filter(resolution.UnifiedVariantFields(owner, v, s.c.table), kept)
+		updates, ok := s.fields(owner, fields, reached)
+		if !ok {
+			return
+		}
+		payload := name + pascalIdent(v.Name) + "Payload"
+		if s.declared(owner, owner.Namespace+"."+payload) {
+			return
+		}
+		lo.Must0(s.c.table.Add(resolution.Type{
+			Name:          payload,
+			Namespace:     owner.Namespace,
+			QualifiedName: owner.Namespace + "." + payload,
+			FilePath:      owner.FilePath,
+			Form:          resolution.StructForm{Fields: updates},
+			Domains:       updateDomains(owner),
+			Synthetic:     true,
+			Updates:       owner.QualifiedName,
+		}))
+		variants = append(variants, resolution.UnionVariant{
+			Name:    v.Name,
+			Domains: v.Domains,
+			Type:    resolution.TypeRef{Name: owner.Namespace + "." + payload},
+			Inline:  true,
+		})
+	}
+	noun := strings.ReplaceAll(casing.TypeSnake(owner.Name), "_", " ")
+	lo.Must0(s.c.table.Add(resolution.Type{
+		Name:          name,
+		Namespace:     owner.Namespace,
+		QualifiedName: qualified,
+		FilePath:      owner.FilePath,
+		Form: resolution.UnionForm{
+			Discriminator: form.Discriminator,
+			Enum:          form.Enum,
+			Variants:      variants,
+			Untagged:      untagged,
+		},
+		Domains: withDoc(
+			updateDomains(owner),
+			"holds changes to the fields of the "+noun+". A "+form.Discriminator+
+				" that differs from the stored one changes the variant.",
+		),
+		Updates: owner.QualifiedName,
+	}))
+}
+
+// declared reports whether the table already holds the type qualified that owner
+// derives, and reports a schema type that takes the name.
+func (s *updateSynth) declared(owner resolution.Type, qualified string) bool {
+	existing, ok := s.c.table.Get(qualified)
+	if ok {
+		s.collides(owner, existing)
+	}
+	return ok
+}
+
+// collides reports, and returns true, when the schema declares existing, the name of
+// an update type that owner derives.
+func (s *updateSynth) collides(owner, existing resolution.Type) bool {
+	if existing.Updates == owner.QualifiedName {
+		return false
+	}
+	s.report(owner, diagnostics.Errorf(ruleCtx(owner.AST),
+		"%s derives the update type %s, which the schema already declares",
+		owner.Name, existing.QualifiedName,
+	))
+	return true
 }
 
 // input registers UpdateInput, the update that a TypeScript client sends: Update
@@ -248,26 +391,14 @@ func (s *updateSynth) derive(
 	fields []resolution.Field,
 	params []resolution.TypeParam,
 	reached bool,
-) {
+) bool {
 	qualified := owner.Namespace + "." + name
 	if existing, ok := s.c.table.Get(qualified); ok {
-		if existing.Updates != owner.QualifiedName {
-			s.report(owner, diagnostics.Errorf(ruleCtx(owner.AST),
-				"%s derives the update type %s, which the schema already declares",
-				owner.Name, qualified,
-			))
-		}
-		return
+		return !s.collides(owner, existing)
 	}
-	updates := make([]resolution.Field, 0, len(fields))
-	valid := true
-	for _, f := range fields {
-		uf, ok := s.field(owner, f, reached)
-		valid = valid && ok
-		updates = append(updates, uf)
-	}
-	if !valid {
-		return
+	updates, ok := s.fields(owner, fields, reached)
+	if !ok {
+		return false
 	}
 	kept := keptParams(params, updates)
 	noun := strings.ReplaceAll(casing.TypeSnake(owner.Name), "_", " ")
@@ -284,6 +415,24 @@ func (s *updateSynth) derive(
 		),
 		Updates: owner.QualifiedName,
 	}))
+	return true
+}
+
+// fields returns the update fields that change fields of owner, and false after
+// reporting why one takes none.
+func (s *updateSynth) fields(
+	owner resolution.Type,
+	fields []resolution.Field,
+	reached bool,
+) ([]resolution.Field, bool) {
+	updates := make([]resolution.Field, 0, len(fields))
+	valid := true
+	for _, f := range fields {
+		uf, ok := s.field(owner, f, reached)
+		valid = valid && ok
+		updates = append(updates, uf)
+	}
+	return updates, valid
 }
 
 // updateDomains returns the domains of the update type of owner: the outputs and omits
@@ -419,8 +568,8 @@ func updateFieldDomains(f resolution.Field) map[string]resolution.Domain {
 }
 
 // change returns the type that an update field holds to change a required value of
-// ref: the operators of a list, the merge of a struct, or ref itself, which replaces
-// the value whole.
+// ref: the operators of a list, the merge of a struct, the update of a union, or ref
+// itself, which replaces the value whole.
 func (s *updateSynth) change(ref resolution.TypeRef) resolution.TypeRef {
 	if ref.IsTypeParam() {
 		return ref
@@ -436,10 +585,10 @@ func (s *updateSynth) change(ref resolution.TypeRef) resolution.TypeRef {
 	if !ok || !mergeable(typ) {
 		return ref
 	}
-	if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
-		return generic(structType, s.updateOf(typ), ref)
+	if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+		return s.updateOf(typ)
 	}
-	return ref
+	return generic(structType, s.updateOf(typ), ref)
 }
 
 // updateOf returns a reference to the update type of the reached typ, and queues typ
@@ -450,7 +599,7 @@ func (s *updateSynth) updateOf(typ resolution.Type) resolution.TypeRef {
 }
 
 // keyedEntry returns the entry type of a list whose entries an update names by key,
-// and the type of the key.
+// and the type of the key. The key of a union entry is in its base.
 func (s *updateSynth) keyedEntry(
 	elem resolution.TypeRef,
 ) (resolution.Type, resolution.TypeRef, bool) {
@@ -461,19 +610,20 @@ func (s *updateSynth) keyedEntry(
 	if !ok || !mergeable(typ) {
 		return resolution.Type{}, resolution.TypeRef{}, false
 	}
-	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct {
-		return resolution.Type{}, resolution.TypeRef{}, false
+	fields := wireFields(typ, s.c.table)
+	if form, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+		fields = baseFields(form, s.c.table)
 	}
-	key, ok := lo.Find(wireFields(typ, s.c.table), func(f resolution.Field) bool {
+	key, ok := lo.Find(fields, func(f resolution.Field) bool {
 		_, isKey := f.Domains["key"]
 		return isKey && !f.Optional
 	})
 	return typ, key.Type, ok
 }
 
-// mergeable reports whether an update merges into a value of typ, field by field. A
-// value of any other type, such as a filter or a struct with a hand-written Go form,
-// is replaced whole.
+// mergeable reports whether an update merges into a value of typ, a struct or a union,
+// field by field. A value of any other type, such as a filter or a struct with a
+// hand-written Go form, is replaced whole.
 func mergeable(typ resolution.Type) bool {
 	if typ.Filter != nil || typ.Synthetic || omit.IsSkipped(typ, "go") {
 		return false
@@ -481,8 +631,13 @@ func mergeable(typ resolution.Type) bool {
 	if exprValue(typ.Domains, "go", "json") == "hand" {
 		return false
 	}
-	form, isStruct := typ.Form.(resolution.StructForm)
-	return isStruct && !form.IsGeneric()
+	switch form := typ.Form.(type) {
+	case resolution.StructForm:
+		return !form.IsGeneric()
+	case resolution.UnionForm:
+		return !form.Adjacent
+	}
+	return false
 }
 
 // absent reports whether ref names a declared type, or holds one, that does not exist

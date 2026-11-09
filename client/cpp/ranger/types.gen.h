@@ -296,3 +296,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("range", key.to_string());
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::ranger::Action> {
+    static ::synnax::ranger::Action parse(Parser parser) {
+        return ::synnax::ranger::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::ranger::Action &value) {
+        return ::synnax::ranger::to_json(value);
+    }
+};
+}

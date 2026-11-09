@@ -99,6 +99,44 @@ export const scanConfigUpdateZ = z.object({
 });
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
+/**
+ * ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+ * field does not change.
+ */
+export const readChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+});
+export interface ReadChannelBaseUpdate extends z.infer<typeof readChannelBaseUpdateZ> {}
+
+/**
+ * WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+ * field does not change.
+ */
+export const writeChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel commands are read from. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel writes to. */
+  address: zod.uint16.optional(),
+});
+export interface WriteChannelBaseUpdate extends z.infer<
+  typeof writeChannelBaseUpdateZ
+> {}
+
 /** CoilWriteChannel writes a single bit to a coil. */
 export const coilWriteChannelZ = baseWriteChannelZ.extend({
   type: z.literal("coil"),
@@ -283,28 +321,376 @@ export const READ_CHANNEL_SCHEMAS: {
   input_register_bit: inputRegisterBitReadChannelZ,
 };
 
+/** CoilReadChannelUpdate reads a single bit from a coil. */
+export const coilReadChannelUpdateZ = z.object({
+  type: z.literal("coil"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+});
+export interface CoilReadChannelUpdate extends z.infer<typeof coilReadChannelUpdateZ> {}
+
+/** DiscreteInputReadChannelUpdate reads a single bit from a discrete input. */
+export const discreteInputReadChannelUpdateZ = z.object({
+  type: z.literal("discrete_input"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+});
+export interface DiscreteInputReadChannelUpdate extends z.infer<
+  typeof discreteInputReadChannelUpdateZ
+> {}
+
+/**
+ * HoldingRegisterReadChannelUpdate reads a typed value from one or more holding
+ * registers.
+ */
+export const holdingRegisterReadChannelUpdateZ = z.object({
+  type: z.literal("holding_register"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** dataType is the data type the register contents are interpreted as. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * bytesSwapped is true when the byte order within each 16-bit word is swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: patch.changeZ(z.boolean()).optional(),
+  /**
+   * wordsSwapped is true when the word order of multi-register values is swapped. When
+   * absent, the device's word order applies.
+   */
+  wordsSwapped: patch.changeZ(z.boolean()).optional(),
+});
+export interface HoldingRegisterReadChannelUpdate extends z.infer<
+  typeof holdingRegisterReadChannelUpdateZ
+> {}
+
+/**
+ * InputRegisterReadChannelUpdate reads a typed value from one or more input registers.
+ */
+export const inputRegisterReadChannelUpdateZ = z.object({
+  type: z.literal("input_register"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** dataType is the data type the register contents are interpreted as. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * bytesSwapped is true when the byte order within each 16-bit word is swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: patch.changeZ(z.boolean()).optional(),
+  /**
+   * wordsSwapped is true when the word order of multi-register values is swapped. When
+   * absent, the device's word order applies.
+   */
+  wordsSwapped: patch.changeZ(z.boolean()).optional(),
+});
+export interface InputRegisterReadChannelUpdate extends z.infer<
+  typeof inputRegisterReadChannelUpdateZ
+> {}
+
+/**
+ * HoldingRegisterStringReadChannelUpdate reads a string from consecutive holding
+ * registers.
+ */
+export const holdingRegisterStringReadChannelUpdateZ = z.object({
+  type: z.literal("holding_register_string"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** length is the number of characters, two to each register. */
+  length: zod.uint16.optional(),
+  /**
+   * bytesSwapped is true when the two characters of each register are swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: patch.changeZ(z.boolean()).optional(),
+});
+export interface HoldingRegisterStringReadChannelUpdate extends z.infer<
+  typeof holdingRegisterStringReadChannelUpdateZ
+> {}
+
+/**
+ * InputRegisterStringReadChannelUpdate reads a string from consecutive input registers.
+ */
+export const inputRegisterStringReadChannelUpdateZ = z.object({
+  type: z.literal("input_register_string"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** length is the number of characters, two to each register. */
+  length: zod.uint16.optional(),
+  /**
+   * bytesSwapped is true when the two characters of each register are swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: patch.changeZ(z.boolean()).optional(),
+});
+export interface InputRegisterStringReadChannelUpdate extends z.infer<
+  typeof inputRegisterStringReadChannelUpdateZ
+> {}
+
+/** HoldingRegisterBitReadChannelUpdate reads one bit of a holding register. */
+export const holdingRegisterBitReadChannelUpdateZ = z.object({
+  type: z.literal("holding_register_bit"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** bit is the bit index, from 0 (least significant) to 15. */
+  bit: zod.uint8.optional(),
+});
+export interface HoldingRegisterBitReadChannelUpdate extends z.infer<
+  typeof holdingRegisterBitReadChannelUpdateZ
+> {}
+
+/** InputRegisterBitReadChannelUpdate reads one bit of an input register. */
+export const inputRegisterBitReadChannelUpdateZ = z.object({
+  type: z.literal("input_register_bit"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel reads from. */
+  address: zod.uint16.optional(),
+  /** bit is the bit index, from 0 (least significant) to 15. */
+  bit: zod.uint8.optional(),
+});
+export interface InputRegisterBitReadChannelUpdate extends z.infer<
+  typeof inputRegisterBitReadChannelUpdateZ
+> {}
+
+export const READ_CHANNEL_UPDATE_TYPES = [
+  "coil",
+  "discrete_input",
+  "holding_register",
+  "input_register",
+  "holding_register_string",
+  "input_register_string",
+  "holding_register_bit",
+  "input_register_bit",
+] as const;
+export const readChannelUpdateTypeZ = z.enum(READ_CHANNEL_UPDATE_TYPES);
+export type ReadChannelUpdateType = z.infer<typeof readChannelUpdateTypeZ>;
+
+/**
+ * ReadChannelUpdate holds changes to the fields of the read channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const readChannelUpdateZ = z.union([
+  readChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    coilReadChannelUpdateZ,
+    discreteInputReadChannelUpdateZ,
+    holdingRegisterReadChannelUpdateZ,
+    inputRegisterReadChannelUpdateZ,
+    holdingRegisterStringReadChannelUpdateZ,
+    inputRegisterStringReadChannelUpdateZ,
+    holdingRegisterBitReadChannelUpdateZ,
+    inputRegisterBitReadChannelUpdateZ,
+  ]),
+]);
+export type ReadChannelUpdate =
+  | (ReadChannelBaseUpdate & {
+      type?: never;
+      dataType?: never;
+      bytesSwapped?: never;
+      wordsSwapped?: never;
+      length?: never;
+      bit?: never;
+    })
+  | CoilReadChannelUpdate
+  | DiscreteInputReadChannelUpdate
+  | HoldingRegisterReadChannelUpdate
+  | InputRegisterReadChannelUpdate
+  | HoldingRegisterStringReadChannelUpdate
+  | InputRegisterStringReadChannelUpdate
+  | HoldingRegisterBitReadChannelUpdate
+  | InputRegisterBitReadChannelUpdate;
+
+export const READ_CHANNEL_UPDATE_SCHEMAS: {
+  [K in ReadChannelUpdateType]: z.ZodType<Extract<ReadChannelUpdate, { type: K }>>;
+} = {
+  coil: coilReadChannelUpdateZ,
+  discrete_input: discreteInputReadChannelUpdateZ,
+  holding_register: holdingRegisterReadChannelUpdateZ,
+  input_register: inputRegisterReadChannelUpdateZ,
+  holding_register_string: holdingRegisterStringReadChannelUpdateZ,
+  input_register_string: inputRegisterStringReadChannelUpdateZ,
+  holding_register_bit: holdingRegisterBitReadChannelUpdateZ,
+  input_register_bit: inputRegisterBitReadChannelUpdateZ,
+};
+
+/** CoilWriteChannelUpdate writes a single bit to a coil. */
+export const coilWriteChannelUpdateZ = z.object({
+  type: z.literal("coil"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel commands are read from. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel writes to. */
+  address: zod.uint16.optional(),
+});
+export interface CoilWriteChannelUpdate extends z.infer<
+  typeof coilWriteChannelUpdateZ
+> {}
+
+/**
+ * HoldingRegisterWriteChannelUpdate writes a typed value to one or more holding
+ * registers.
+ */
+export const holdingRegisterWriteChannelUpdateZ = z.object({
+  type: z.literal("holding_register"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel commands are read from. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel writes to. */
+  address: zod.uint16.optional(),
+  /** dataType is the data type the register contents are interpreted as. */
+  dataType: telem.dataTypeZ.optional(),
+  /**
+   * bytesSwapped is true when the byte order within each 16-bit word is swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: patch.changeZ(z.boolean()).optional(),
+  /**
+   * wordsSwapped is true when the word order of multi-register values is swapped. When
+   * absent, the device's word order applies.
+   */
+  wordsSwapped: patch.changeZ(z.boolean()).optional(),
+});
+export interface HoldingRegisterWriteChannelUpdate extends z.infer<
+  typeof holdingRegisterWriteChannelUpdateZ
+> {}
+
+/** HoldingRegisterBitWriteChannelUpdate writes one bit of a holding register. */
+export const holdingRegisterBitWriteChannelUpdateZ = z.object({
+  type: z.literal("holding_register_bit"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel commands are read from. */
+  channel: channel.keyZ.optional(),
+  /** address is the Modbus address the channel writes to. */
+  address: zod.uint16.optional(),
+  /** bit is the bit index, from 0 (least significant) to 15. */
+  bit: zod.uint8.optional(),
+});
+export interface HoldingRegisterBitWriteChannelUpdate extends z.infer<
+  typeof holdingRegisterBitWriteChannelUpdateZ
+> {}
+
+export const WRITE_CHANNEL_UPDATE_TYPES = [
+  "coil",
+  "holding_register",
+  "holding_register_bit",
+] as const;
+export const writeChannelUpdateTypeZ = z.enum(WRITE_CHANNEL_UPDATE_TYPES);
+export type WriteChannelUpdateType = z.infer<typeof writeChannelUpdateTypeZ>;
+
+/**
+ * WriteChannelUpdate holds changes to the fields of the write channel. A type that
+ * differs from the stored one changes the variant.
+ */
+export const writeChannelUpdateZ = z.union([
+  writeChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    coilWriteChannelUpdateZ,
+    holdingRegisterWriteChannelUpdateZ,
+    holdingRegisterBitWriteChannelUpdateZ,
+  ]),
+]);
+export type WriteChannelUpdate =
+  | (WriteChannelBaseUpdate & {
+      type?: never;
+      dataType?: never;
+      bytesSwapped?: never;
+      wordsSwapped?: never;
+      bit?: never;
+    })
+  | CoilWriteChannelUpdate
+  | HoldingRegisterWriteChannelUpdate
+  | HoldingRegisterBitWriteChannelUpdate;
+
+export const WRITE_CHANNEL_UPDATE_SCHEMAS: {
+  [K in WriteChannelUpdateType]: z.ZodType<Extract<WriteChannelUpdate, { type: K }>>;
+} = {
+  coil: coilWriteChannelUpdateZ,
+  holding_register: holdingRegisterWriteChannelUpdateZ,
+  holding_register_bit: holdingRegisterBitWriteChannelUpdateZ,
+};
+
 export const writeConfigZ = task.writeConfigZ.extend({
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-/**
- * WriteConfigUpdate holds changes to the fields of the write config. An absent field
- * does not change.
- */
-export const writeConfigUpdateZ = z.object({
-  /** key is the unique identifier for the stored configuration record. */
-  key: z.uuid().optional(),
-  /** autoStart is true when the task should start as soon as it is configured. */
-  autoStart: z.boolean().optional(),
-  /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
-  dataSavingDisabled: z.boolean().optional(),
-  /** device is the key of the device the task writes to. */
-  device: device.keyZ.optional(),
-  /** channels are the channels the task drives. */
-  channels: patch.valueListZ(writeChannelZ).optional(),
-});
-export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}
 
 export const readConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
@@ -330,6 +716,28 @@ export const readConfigUpdateZ = z.object({
   /** device is the key of the device the task acquires from. */
   device: device.keyZ.optional(),
   /** channels are the channels the task acquires. */
-  channels: patch.valueListZ(readChannelZ).optional(),
+  channels: patch
+    .listZ({ e: readChannelZ, k: z.string(), u: readChannelUpdateZ })
+    .optional(),
 });
 export interface ReadConfigUpdate extends z.infer<typeof readConfigUpdateZ> {}
+
+/**
+ * WriteConfigUpdate holds changes to the fields of the write config. An absent field
+ * does not change.
+ */
+export const writeConfigUpdateZ = z.object({
+  /** key is the unique identifier for the stored configuration record. */
+  key: z.uuid().optional(),
+  /** autoStart is true when the task should start as soon as it is configured. */
+  autoStart: z.boolean().optional(),
+  /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
+  dataSavingDisabled: z.boolean().optional(),
+  /** device is the key of the device the task writes to. */
+  device: device.keyZ.optional(),
+  /** channels are the channels the task drives. */
+  channels: patch
+    .listZ({ e: writeChannelZ, k: z.string(), u: writeChannelUpdateZ })
+    .optional(),
+});
+export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}

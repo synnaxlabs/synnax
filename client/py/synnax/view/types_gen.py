@@ -11,7 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Literal,
+    Required,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,6 +60,16 @@ class Order(BaseModel):
 
     field: OrderField
     descending: bool = False
+
+
+class BaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the view. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the view.
+    """
+
+    name: str
 
 
 class Base(BaseModel):
@@ -119,6 +136,27 @@ class Cursor(BaseModel):
 
     key: Key
     name: str | None = None
+
+
+class RangeUpdate(TypedDict, total=False):
+    """Is a saved view of ranges."""
+
+    type: Required[Literal["range"]]
+    name: str
+    where: patch.Change[ranger.Where]
+
+
+class StatusUpdate(TypedDict, total=False):
+    """Is a saved view of statuses."""
+
+    type: Required[Literal["status"]]
+    name: str
+    where: patch.Change[status.Where]
+
+
+# Holds changes to the fields of the view. A type that differs from the stored one
+# changes the variant.
+Update = BaseUpdate | RangeUpdate | StatusUpdate
 
 
 class RangeView(Base):

@@ -202,6 +202,99 @@ export const SCALE_SCHEMAS: {
   none: noneScaleZ,
 };
 
+/** LinearScaleUpdate maps raw values to engineering units with a slope and offset. */
+export const linearScaleUpdateZ = z.object({
+  type: z.literal("linear"),
+  /** slope is the multiplier applied to the raw value. */
+  slope: z.number().optional(),
+  /** offset is the offset added after scaling. */
+  offset: z.number().optional(),
+});
+export interface LinearScaleUpdate extends z.infer<typeof linearScaleUpdateZ> {}
+
+/** MapScaleUpdate maps a raw range linearly onto a scaled range. */
+export const mapScaleUpdateZ = z.object({
+  type: z.literal("map"),
+  /** preScaledMin is the lower bound of the raw input range. */
+  preScaledMin: z.number().optional(),
+  /** preScaledMax is the upper bound of the raw input range. */
+  preScaledMax: z.number().optional(),
+  /** scaledMin is the lower bound of the scaled output range. */
+  scaledMin: z.number().optional(),
+  /** scaledMax is the upper bound of the scaled output range. */
+  scaledMax: z.number().optional(),
+});
+export interface MapScaleUpdate extends z.infer<typeof mapScaleUpdateZ> {}
+
+/** PolynomialScaleUpdate maps raw values to engineering units with a polynomial. */
+export const polynomialScaleUpdateZ = z.object({
+  type: z.literal("polynomial"),
+  /**
+   * coeffs are the coefficients from the constant term up, so that index i holds the
+   * coefficient of x^i.
+   */
+  coeffs: patch.valueListZ(z.number()).optional(),
+});
+export interface PolynomialScaleUpdate extends z.infer<typeof polynomialScaleUpdateZ> {}
+
+/**
+ * TableScaleUpdate maps raw values to engineering units by linear interpolation between
+ * the breakpoints, and clips raw values outside the table to its first or last scaled
+ * value.
+ */
+export const tableScaleUpdateZ = z.object({
+  type: z.literal("table"),
+  /** preScaledVals are the raw breakpoints, in increasing order. */
+  preScaledVals: patch.valueListZ(z.number()).optional(),
+  /** scaledVals are the engineering-unit values at each breakpoint. */
+  scaledVals: patch.valueListZ(z.number()).optional(),
+});
+export interface TableScaleUpdate extends z.infer<typeof tableScaleUpdateZ> {}
+
+/** NoneScaleUpdate applies no scaling; the raw value is used directly. */
+export const noneScaleUpdateZ = z.object({
+  type: z.literal("none"),
+});
+export interface NoneScaleUpdate extends z.infer<typeof noneScaleUpdateZ> {}
+
+export const SCALE_UPDATE_TYPES = [
+  "linear",
+  "map",
+  "polynomial",
+  "table",
+  "none",
+] as const;
+export const scaleUpdateTypeZ = z.enum(SCALE_UPDATE_TYPES);
+export type ScaleUpdateType = z.infer<typeof scaleUpdateTypeZ>;
+
+/**
+ * ScaleUpdate holds changes to the fields of the scale. A type that differs from the
+ * stored one changes the variant.
+ */
+export const scaleUpdateZ = z.discriminatedUnion("type", [
+  linearScaleUpdateZ,
+  mapScaleUpdateZ,
+  polynomialScaleUpdateZ,
+  tableScaleUpdateZ,
+  noneScaleUpdateZ,
+]);
+export type ScaleUpdate =
+  | LinearScaleUpdate
+  | MapScaleUpdate
+  | PolynomialScaleUpdate
+  | TableScaleUpdate
+  | NoneScaleUpdate;
+
+export const SCALE_UPDATE_SCHEMAS: {
+  [K in ScaleUpdateType]: z.ZodType<Extract<ScaleUpdate, { type: K }>>;
+} = {
+  linear: linearScaleUpdateZ,
+  map: mapScaleUpdateZ,
+  polynomial: polynomialScaleUpdateZ,
+  table: tableScaleUpdateZ,
+  none: noneScaleUpdateZ,
+};
+
 export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
 export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<

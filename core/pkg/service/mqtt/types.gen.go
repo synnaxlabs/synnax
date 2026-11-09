@@ -12,11 +12,15 @@
 package mqtt
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 	"uuid"
 )
@@ -223,7 +227,7 @@ type ReadConfigUpdate struct {
 	// Device is the key of the broker device to read from.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 	// Entries contains the topics and tags to read.
-	Entries *patch.ValueList[ReadEntry] `json:"entries,omitzero" msgpack:"entries,omitempty"`
+	Entries *patch.List[ReadEntry, string, ReadEntryUpdate] `json:"entries,omitzero" msgpack:"entries,omitempty"`
 }
 
 // WriteConfigUpdate holds changes to the fields of the write config. An absent field
@@ -236,7 +240,7 @@ type WriteConfigUpdate struct {
 	// Device is the key of the broker device to write to.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 	// Targets contains the topics and tags to write to.
-	Targets *patch.ValueList[WriteTarget] `json:"targets,omitzero" msgpack:"targets,omitempty"`
+	Targets *patch.List[WriteTarget, string, WriteTargetUpdate] `json:"targets,omitzero" msgpack:"targets,omitempty"`
 }
 
 // ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
@@ -270,6 +274,339 @@ type EdgeConfigUpdate struct {
 	Tags *patch.List[EdgeTag, string, EdgeTagUpdate] `json:"tags,omitzero" msgpack:"tags,omitempty"`
 }
 
+// ReadEntryBaseUpdate holds changes to the fields of the read entry. An absent field
+// does not change.
+type ReadEntryBaseUpdate struct {
+	// Key uniquely identifies the entry within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the entry is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadEntryUpdateType is the "type" value that selects a variant of ReadEntryUpdate.
+type ReadEntryUpdateType string
+
+const (
+	// PlainReadEntryUpdateType reads JSON payloads from one topic.
+	PlainReadEntryUpdateType ReadEntryUpdateType = "plain"
+	// SparkplugReadEntryUpdateType reads one Sparkplug B tag.
+	SparkplugReadEntryUpdateType ReadEntryUpdateType = "sparkplug"
+)
+
+// ReadEntryUpdateVariant is implemented by every ReadEntryUpdate variant.
+type ReadEntryUpdateVariant interface {
+	isReadEntryUpdateVariant()
+}
+
+func (ReadEntryBaseUpdate) isReadEntryUpdateVariant() {}
+
+// PlainReadEntryUpdate reads JSON payloads from one topic.
+type PlainReadEntryUpdate struct {
+	// Key uniquely identifies the entry within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the entry is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Topic is the topic to subscribe to. It holds no wildcards.
+	Topic *string `json:"topic,omitzero" msgpack:"topic,omitempty"`
+	// Qos is the quality of service of the subscription.
+	Qos *QoS `json:"qos,omitzero" msgpack:"qos,omitempty"`
+	// RetainedIgnored is true when the task drops the retained message that the broker
+	// sends on subscribe.
+	RetainedIgnored *bool `json:"retained_ignored,omitzero" msgpack:"retained_ignored,omitempty"`
+	// Fields contains the values to extract from each payload.
+	Fields *patch.List[ReadField, string, ReadFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index *string `json:"index,omitzero" msgpack:"index,omitempty"`
+}
+
+func (PlainReadEntryUpdate) isReadEntryUpdateVariant() {}
+
+// SparkplugReadEntryUpdate reads one Sparkplug B tag.
+type SparkplugReadEntryUpdate struct {
+	// Key uniquely identifies the entry within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the entry is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Group is the Sparkplug group ID of the edge node.
+	Group *string `json:"group,omitzero" msgpack:"group,omitempty"`
+	// EdgeNode is the Sparkplug edge node ID.
+	EdgeNode *string `json:"edge_node,omitzero" msgpack:"edge_node,omitempty"`
+	// Device is the Sparkplug device ID. Empty for a tag of the edge node.
+	Device *string `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Tag is the name of the tag.
+	Tag *string `json:"tag,omitzero" msgpack:"tag,omitempty"`
+	// Channel is the Synnax channel the tag value is written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Name is the human-readable name of the channel.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// DataType is the data type of the channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+}
+
+func (SparkplugReadEntryUpdate) isReadEntryUpdateVariant() {}
+
+// ReadEntryUpdate holds changes to the fields of the read entry. A type that differs
+// from the stored one changes the variant.
+type ReadEntryUpdate struct {
+	Variant ReadEntryUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadEntryUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ReadEntryBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case PlainReadEntryUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryUpdateType `json:"type"`
+			PlainReadEntryUpdate
+		}{Type: PlainReadEntryUpdateType, PlainReadEntryUpdate: v})
+	case SparkplugReadEntryUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryUpdateType `json:"type"`
+			SparkplugReadEntryUpdate
+		}{Type: SparkplugReadEntryUpdateType, SparkplugReadEntryUpdate: v})
+	default:
+		return errors.Newf("ReadEntryUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadEntryUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadEntryUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v ReadEntryBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PlainReadEntryUpdateType:
+		var v struct {
+			Type ReadEntryUpdateType `json:"type"`
+			PlainReadEntryUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PlainReadEntryUpdate
+	case SparkplugReadEntryUpdateType:
+		var v struct {
+			Type ReadEntryUpdateType `json:"type"`
+			SparkplugReadEntryUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SparkplugReadEntryUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadEntryUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadEntryUpdate) Type() ReadEntryUpdateType {
+	switch u.Variant.(type) {
+	case PlainReadEntryUpdate:
+		return PlainReadEntryUpdateType
+	case SparkplugReadEntryUpdate:
+		return SparkplugReadEntryUpdateType
+	}
+	return ""
+}
+
+// WriteTargetBaseUpdate holds changes to the fields of the write target. An absent
+// field does not change.
+type WriteTargetBaseUpdate struct {
+	// Key uniquely identifies the target within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the target is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// WriteTargetUpdateType is the "type" value that selects a variant of
+// WriteTargetUpdate.
+type WriteTargetUpdateType string
+
+const (
+	// PlainWriteTargetUpdateType publishes a JSON payload to one topic.
+	PlainWriteTargetUpdateType WriteTargetUpdateType = "plain"
+	// SparkplugWriteTargetUpdateType sends a Sparkplug B command for one tag.
+	SparkplugWriteTargetUpdateType WriteTargetUpdateType = "sparkplug"
+)
+
+// WriteTargetUpdateVariant is implemented by every WriteTargetUpdate variant.
+type WriteTargetUpdateVariant interface {
+	isWriteTargetUpdateVariant()
+}
+
+func (WriteTargetBaseUpdate) isWriteTargetUpdateVariant() {}
+
+// PlainWriteTargetUpdate publishes a JSON payload to one topic.
+type PlainWriteTargetUpdate struct {
+	// Key uniquely identifies the target within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the target is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Topic is the topic to publish to.
+	Topic *string `json:"topic,omitzero" msgpack:"topic,omitempty"`
+	// Qos is the quality of service of the publish.
+	Qos *QoS `json:"qos,omitzero" msgpack:"qos,omitempty"`
+	// Retained is true when the broker retains the published message.
+	Retained *bool `json:"retained,omitzero" msgpack:"retained,omitempty"`
+	// Channel is the command channel whose writes trigger the publish.
+	Channel *patch.Struct[ChannelFieldUpdate, ChannelField] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Fields contains additional static or generated payload fields.
+	Fields *patch.List[WriteField, string, WriteFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+}
+
+func (PlainWriteTargetUpdate) isWriteTargetUpdateVariant() {}
+
+// SparkplugWriteTargetUpdate sends a Sparkplug B command for one tag.
+type SparkplugWriteTargetUpdate struct {
+	// Key uniquely identifies the target within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the target is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Group is the Sparkplug group ID of the edge node.
+	Group *string `json:"group,omitzero" msgpack:"group,omitempty"`
+	// EdgeNode is the Sparkplug edge node ID.
+	EdgeNode *string `json:"edge_node,omitzero" msgpack:"edge_node,omitempty"`
+	// Device is the Sparkplug device ID. Empty for a tag of the edge node.
+	Device *string `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Tag is the name of the tag to command.
+	Tag *string `json:"tag,omitzero" msgpack:"tag,omitempty"`
+	// TagType is the Sparkplug B data type the command value is sent as.
+	TagType *SparkplugDataType `json:"tag_type,omitzero" msgpack:"tag_type,omitempty"`
+	// Channel is the Synnax command channel whose writes trigger the command.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Name is the human-readable name of the command channel.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+func (SparkplugWriteTargetUpdate) isWriteTargetUpdateVariant() {}
+
+// WriteTargetUpdate holds changes to the fields of the write target. A type that
+// differs from the stored one changes the variant.
+type WriteTargetUpdate struct {
+	Variant WriteTargetUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteTargetUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteTargetBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case PlainWriteTargetUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetUpdateType `json:"type"`
+			PlainWriteTargetUpdate
+		}{Type: PlainWriteTargetUpdateType, PlainWriteTargetUpdate: v})
+	case SparkplugWriteTargetUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetUpdateType `json:"type"`
+			SparkplugWriteTargetUpdate
+		}{Type: SparkplugWriteTargetUpdateType, SparkplugWriteTargetUpdate: v})
+	default:
+		return errors.Newf("WriteTargetUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteTargetUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteTargetUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteTargetBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PlainWriteTargetUpdateType:
+		var v struct {
+			Type WriteTargetUpdateType `json:"type"`
+			PlainWriteTargetUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PlainWriteTargetUpdate
+	case SparkplugWriteTargetUpdateType:
+		var v struct {
+			Type WriteTargetUpdateType `json:"type"`
+			SparkplugWriteTargetUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SparkplugWriteTargetUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteTargetUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteTargetUpdate) Type() WriteTargetUpdateType {
+	switch u.Variant.(type) {
+	case PlainWriteTargetUpdate:
+		return PlainWriteTargetUpdateType
+	case SparkplugWriteTargetUpdate:
+		return SparkplugWriteTargetUpdateType
+	}
+	return ""
+}
+
 // EdgeTagUpdate holds changes to the fields of the edge tag. An absent field does not
 // change.
 type EdgeTagUpdate struct {
@@ -299,4 +636,221 @@ func (e EdgeTagUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 // DecodeMsgpack implements msgpack.CustomDecoder.
 func (e *EdgeTagUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return patch.DecodeMsgpack(dec, e)
+}
+
+// ReadFieldUpdate holds changes to the fields of the read field. An absent field does
+// not change.
+type ReadFieldUpdate struct {
+	// Key uniquely identifies the field within the entry.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable field name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the field is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel the extracted value is written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Pointer is the JSON Pointer to the value within the payload. An empty pointer
+	// takes the whole payload.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// DataType is the data type of the extracted value.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// TimeFormat is the encoding of the JSON value when the target channel holds
+	// timestamps. Required for timestamp channels.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps string labels in the payload to numeric channel values.
+	EnumValues *patch.ValueList[EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (r ReadFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, r)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (r *ReadFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, r)
+}
+
+// ChannelFieldUpdate holds changes to the fields of the channel field. An absent field
+// does not change.
+type ChannelFieldUpdate struct {
+	// Pointer is the JSON Pointer where the channel value is placed in the payload. An
+	// empty pointer sends the bare value as the entire payload, in which case the
+	// target may not declare any additional fields.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// JSONType is the JSON type the channel value is serialized as.
+	JSONType *JSONType `json:"json_type,omitzero" msgpack:"json_type,omitempty"`
+	// Channel is the Synnax command channel that triggers the publish.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Name is the human-readable name of the command channel.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// DataType is the data type of the command channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps numeric channel values to string labels. Only valid when
+	// json_type is 'string'.
+	EnumValues *patch.ValueList[EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (c ChannelFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, c)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (c *ChannelFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, c)
+}
+
+// WriteFieldBaseUpdate holds changes to the fields of the write field. An absent field
+// does not change.
+type WriteFieldBaseUpdate struct {
+	// Key uniquely identifies the field within the target.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the payload.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+}
+
+// WriteFieldUpdateType is the "type" value that selects a variant of WriteFieldUpdate.
+type WriteFieldUpdateType string
+
+const (
+	// StaticWriteFieldUpdateType places a fixed value in the payload.
+	StaticWriteFieldUpdateType WriteFieldUpdateType = "static"
+	// GeneratedWriteFieldUpdateType places a freshly generated UUID or timestamp in the
+	// payload.
+	GeneratedWriteFieldUpdateType WriteFieldUpdateType = "generated"
+)
+
+// WriteFieldUpdateVariant is implemented by every WriteFieldUpdate variant.
+type WriteFieldUpdateVariant interface {
+	isWriteFieldUpdateVariant()
+}
+
+func (WriteFieldBaseUpdate) isWriteFieldUpdateVariant() {}
+
+// StaticWriteFieldUpdate places a fixed value in the payload.
+type StaticWriteFieldUpdate struct {
+	// Key uniquely identifies the field within the target.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the payload.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// JSONType is the JSON type the value is serialized as.
+	JSONType *JSONType `json:"json_type,omitzero" msgpack:"json_type,omitempty"`
+	// Value is the fixed JSON value placed at the pointer.
+	Value *any `json:"value,omitzero" msgpack:"value,omitempty"`
+}
+
+func (StaticWriteFieldUpdate) isWriteFieldUpdateVariant() {}
+
+// GeneratedWriteFieldUpdate places a freshly generated UUID or timestamp in the
+// payload.
+type GeneratedWriteFieldUpdate struct {
+	// Key uniquely identifies the field within the target.
+	Key string `json:"key" msgpack:"key"`
+	// Pointer is the JSON Pointer where the value is placed in the payload.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// Generator is the generator that produces a fresh value per publish.
+	Generator *GeneratorType `json:"generator,omitzero" msgpack:"generator,omitempty"`
+	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+}
+
+func (GeneratedWriteFieldUpdate) isWriteFieldUpdateVariant() {}
+
+// WriteFieldUpdate holds changes to the fields of the write field. A type that differs
+// from the stored one changes the variant.
+type WriteFieldUpdate struct {
+	Variant WriteFieldUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteFieldUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteFieldBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case StaticWriteFieldUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldUpdateType `json:"type"`
+			StaticWriteFieldUpdate
+		}{Type: StaticWriteFieldUpdateType, StaticWriteFieldUpdate: v})
+	case GeneratedWriteFieldUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldUpdateType `json:"type"`
+			GeneratedWriteFieldUpdate
+		}{Type: GeneratedWriteFieldUpdateType, GeneratedWriteFieldUpdate: v})
+	default:
+		return errors.Newf("WriteFieldUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteFieldUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteFieldUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteFieldBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticWriteFieldUpdateType:
+		var v struct {
+			Type WriteFieldUpdateType `json:"type"`
+			StaticWriteFieldUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StaticWriteFieldUpdate
+	case GeneratedWriteFieldUpdateType:
+		var v struct {
+			Type WriteFieldUpdateType `json:"type"`
+			GeneratedWriteFieldUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GeneratedWriteFieldUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteFieldUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteFieldUpdate) Type() WriteFieldUpdateType {
+	switch u.Variant.(type) {
+	case StaticWriteFieldUpdate:
+		return StaticWriteFieldUpdateType
+	case GeneratedWriteFieldUpdate:
+		return GeneratedWriteFieldUpdateType
+	}
+	return ""
 }

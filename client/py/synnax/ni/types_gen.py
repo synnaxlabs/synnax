@@ -819,6 +819,68 @@ class ScanConfigUpdate(TypedDict, total=False):
     disabled: bool
 
 
+class AIChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the ai channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        port: Is the physical port the channel reads from.
+        device: Is the key of the device the channel belongs to.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+
+
+class CIChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the ci channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        port: Is the physical counter the channel uses.
+        device: Is the key of the device the counter belongs to.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+
+
+class AOChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the ao channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        disabled: Is true when the channel is excluded from the task.
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+        port: Is the physical port the channel writes to.
+    """
+
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: int
+
+
 class DIChannelUpdate(TypedDict, total=False):
     """Holds changes to the fields of the di channel. An absent field does not change.
 
@@ -944,6 +1006,90 @@ Scale = Annotated[
     LinearScale | MapScale | TableScale | PolynomialScale | NoneScale,
     Field(discriminator="type"),
 ]
+
+
+class LinearScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units with a slope and intercept."""
+
+    type: Required[Literal["linear"]]
+    slope: float
+    y_intercept: float
+    pre_scaled_units: Units
+    scaled_units: str
+
+
+class MapScaleUpdate(TypedDict, total=False):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Required[Literal["map"]]
+    pre_scaled_min: float
+    pre_scaled_max: float
+    scaled_min: float
+    scaled_max: float
+    pre_scaled_units: Units
+    scaled_units: str
+
+
+class TableScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units via a lookup table."""
+
+    type: Required[Literal["table"]]
+    pre_scaled_vals: patch.ValueListDict[float]
+    scaled_vals: patch.ValueListDict[float]
+    pre_scaled_units: Units
+    scaled_units: str
+
+
+class PolynomialScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Required[Literal["polynomial"]]
+    forward_coeffs: patch.ValueListDict[float]
+    reverse_coeffs: patch.ValueListDict[float]
+    pre_scaled_units: Units
+    scaled_units: str
+
+
+class NoneScaleUpdate(TypedDict, total=False):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Required[Literal["none"]]
+
+
+# Holds changes to the fields of the scale. A type that differs from the stored one
+# changes the variant.
+ScaleUpdate = (
+    LinearScaleUpdate
+    | MapScaleUpdate
+    | TableScaleUpdate
+    | PolynomialScaleUpdate
+    | NoneScaleUpdate
+)
+
+
+class BuiltInCJCUpdate(TypedDict, total=False):
+    """Reads the reference temperature from the device's own sensor."""
+
+    source: Required[Literal["built_in"]]
+
+
+class ConstValCJCUpdate(TypedDict, total=False):
+    """Uses a fixed reference temperature."""
+
+    source: Required[Literal["const_val"]]
+    val: float
+
+
+class ChanCJCUpdate(TypedDict, total=False):
+    """Reads the reference temperature from another channel."""
+
+    source: Required[Literal["chan"]]
+    port: int
+
+
+# Holds changes to the fields of the cjc. A source that differs from the stored one
+# changes the variant.
+CJCUpdate = BuiltInCJCUpdate | ConstValCJCUpdate | ChanCJCUpdate
 
 
 class DigitalReadConfig(task.ReadConfig):
@@ -1077,6 +1223,955 @@ class CustomScale(BaseModel):
     """
 
     custom_scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
+
+
+class CIFrequencyChannelUpdate(TypedDict, total=False):
+    """Measures signal frequency."""
+
+    type: Required[Literal["ci_frequency"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CIFreqUnits
+    edge: CIEdge
+    meas_method: CIMeasMethod
+    meas_time: float
+    divisor: int
+    terminal: str
+
+
+class CIEdgeCountChannelUpdate(TypedDict, total=False):
+    """Counts signal edges."""
+
+    type: Required[Literal["ci_edge_count"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    active_edge: CIEdge
+    count_direction: CICountDirection
+    initial_count: int
+    terminal: str
+
+
+class CIPeriodChannelUpdate(TypedDict, total=False):
+    """Measures signal period."""
+
+    type: Required[Literal["ci_period"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CITimeUnits
+    starting_edge: CIEdge
+    meas_method: CIMeasMethod
+    meas_time: float
+    divisor: int
+    terminal: str
+
+
+class CIPulseWidthChannelUpdate(TypedDict, total=False):
+    """Measures pulse width."""
+
+    type: Required[Literal["ci_pulse_width"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CITimeUnits
+    starting_edge: CIEdge
+    terminal: str
+
+
+class CISemiPeriodChannelUpdate(TypedDict, total=False):
+    """Measures semi-period."""
+
+    type: Required[Literal["ci_semi_period"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CITimeUnits
+    terminal: str
+
+
+class CITwoEdgeSepChannelUpdate(TypedDict, total=False):
+    """Measures the separation between two edges."""
+
+    type: Required[Literal["ci_two_edge_sep"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CITimeUnits
+    first_edge: CIEdge
+    second_edge: CIEdge
+    first_terminal: str
+    second_terminal: str
+
+
+class CIVelocityLinearChannelUpdate(TypedDict, total=False):
+    """Measures linear velocity from an encoder."""
+
+    type: Required[Literal["ci_velocity_linear"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CILinearVelocityUnits
+    decoding_type: CIDecodingType
+    dist_per_pulse: float
+    terminal_a: str
+    terminal_b: str
+
+
+class CIVelocityAngularChannelUpdate(TypedDict, total=False):
+    """Measures angular velocity from an encoder."""
+
+    type: Required[Literal["ci_velocity_angular"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    units: CIAngularVelocityUnits
+    decoding_type: CIDecodingType
+    pulses_per_rev: int
+    terminal_a: str
+    terminal_b: str
+
+
+class CIPositionLinearChannelUpdate(TypedDict, total=False):
+    """Measures linear position from an encoder."""
+
+    type: Required[Literal["ci_position_linear"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    z_index_enabled: bool
+    z_index_val: float
+    z_index_phase: ZIndexPhase
+    terminal_z: str
+    units: CILinearPositionUnits
+    decoding_type: CIDecodingType
+    dist_per_pulse: float
+    initial_pos: float
+    terminal_a: str
+    terminal_b: str
+
+
+class CIPositionAngularChannelUpdate(TypedDict, total=False):
+    """Measures angular position from an encoder."""
+
+    type: Required[Literal["ci_position_angular"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    z_index_enabled: bool
+    z_index_val: float
+    z_index_phase: ZIndexPhase
+    terminal_z: str
+    units: CIAngularPositionUnits
+    decoding_type: CIDecodingType
+    pulses_per_rev: int
+    initial_angle: float
+    terminal_a: str
+    terminal_b: str
+
+
+class CIDutyCycleChannelUpdate(TypedDict, total=False):
+    """Measures the duty cycle of a signal."""
+
+    type: Required[Literal["ci_duty_cycle"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    custom_scale: ScaleUpdate
+    min_val: float
+    max_val: float
+    active_edge: CIEdge
+    terminal: str
+
+
+# Holds changes to the fields of the ci channel. A type that differs from the stored one
+# changes the variant.
+CIChannelUpdate = (
+    CIChannelBaseUpdate
+    | CIFrequencyChannelUpdate
+    | CIEdgeCountChannelUpdate
+    | CIPeriodChannelUpdate
+    | CIPulseWidthChannelUpdate
+    | CISemiPeriodChannelUpdate
+    | CITwoEdgeSepChannelUpdate
+    | CIVelocityLinearChannelUpdate
+    | CIVelocityAngularChannelUpdate
+    | CIPositionLinearChannelUpdate
+    | CIPositionAngularChannelUpdate
+    | CIDutyCycleChannelUpdate
+)
+
+
+class AOCurrentChannelUpdate(TypedDict, total=False):
+    """Drives a current output."""
+
+    type: Required[Literal["ao_current"]]
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: int
+    min_val: float
+    max_val: float
+    custom_scale: ScaleUpdate
+
+
+class AOFuncGenChannelUpdate(TypedDict, total=False):
+    """Drives a function-generator output."""
+
+    type: Required[Literal["ao_func_gen"]]
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: int
+    wave_type: WaveType
+    frequency: float
+    amplitude: float
+    offset: float
+
+
+class AOVoltageChannelUpdate(TypedDict, total=False):
+    """Drives a voltage output."""
+
+    type: Required[Literal["ao_voltage"]]
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: int
+    min_val: float
+    max_val: float
+    custom_scale: ScaleUpdate
+
+
+# Holds changes to the fields of the ao channel. A type that differs from the stored one
+# changes the variant.
+AOChannelUpdate = (
+    AOChannelBaseUpdate
+    | AOCurrentChannelUpdate
+    | AOFuncGenChannelUpdate
+    | AOVoltageChannelUpdate
+)
+
+
+class AIVoltageChannelUpdate(TypedDict, total=False):
+    """Reads a voltage."""
+
+    type: Required[Literal["ai_voltage"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    custom_scale: ScaleUpdate
+
+
+class AIAccelChannelUpdate(TypedDict, total=False):
+    """Reads acceleration from an accelerometer."""
+
+    type: Required[Literal["ai_accel"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    sensitivity: float
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    custom_scale: ScaleUpdate
+    units: AccelUnits
+    sensitivity_units: AccelSensitivityUnits
+
+
+class AIBridgeChannelUpdate(TypedDict, total=False):
+    """Reads a generic bridge-based sensor."""
+
+    type: Required[Literal["ai_bridge"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    custom_scale: ScaleUpdate
+    units: ElectricalUnits
+
+
+class AICurrentChannelUpdate(TypedDict, total=False):
+    """Reads a current."""
+
+    type: Required[Literal["ai_current"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    custom_scale: ScaleUpdate
+    shunt_resistor_loc: ShuntResistorLocation
+    ext_shunt_resistor_val: float
+
+
+class AIForceBridgeTableChannelUpdate(TypedDict, total=False):
+    """Reads force from a bridge with a calibration table."""
+
+    type: Required[Literal["ai_force_bridge_table"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    electrical_vals: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    physical_vals: patch.ValueListDict[float]
+    custom_scale: ScaleUpdate
+    units: ForceUnits
+    physical_units: ForceUnits
+
+
+class AIForceBridgeTwoPointLinChannelUpdate(TypedDict, total=False):
+    """Reads force from a bridge with two-point linear calibration."""
+
+    type: Required[Literal["ai_force_bridge_two_point_lin"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    first_electrical_val: float
+    second_electrical_val: float
+    electrical_units: ElectricalUnits
+    first_physical_val: float
+    second_physical_val: float
+    custom_scale: ScaleUpdate
+    units: ForceUnits
+    physical_units: ForceUnits
+
+
+class AIForceIEPEChannelUpdate(TypedDict, total=False):
+    """Reads force from an IEPE sensor."""
+
+    type: Required[Literal["ai_force_iepe"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    sensitivity: float
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    custom_scale: ScaleUpdate
+    units: ForceUnits
+    sensitivity_units: ForceSensitivityUnits
+
+
+class AIMicrophoneChannelUpdate(TypedDict, total=False):
+    """Reads sound pressure from a microphone."""
+
+    type: Required[Literal["ai_microphone"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    terminal_config: TerminalConfig
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    custom_scale: ScaleUpdate
+    mic_sensitivity: float
+    max_snd_press_level: float
+
+
+class AIPressureBridgeTableChannelUpdate(TypedDict, total=False):
+    """Reads pressure from a bridge with a calibration table."""
+
+    type: Required[Literal["ai_pressure_bridge_table"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    electrical_vals: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    physical_vals: patch.ValueListDict[float]
+    custom_scale: ScaleUpdate
+    units: PressureUnits
+    physical_units: PressureUnits
+
+
+class AIPressureBridgeTwoPointLinChannelUpdate(TypedDict, total=False):
+    """Reads pressure from a bridge with two-point linear calibration."""
+
+    type: Required[Literal["ai_pressure_bridge_two_point_lin"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    first_electrical_val: float
+    second_electrical_val: float
+    electrical_units: ElectricalUnits
+    first_physical_val: float
+    second_physical_val: float
+    custom_scale: ScaleUpdate
+    units: PressureUnits
+    physical_units: PressureUnits
+
+
+class AIResistanceChannelUpdate(TypedDict, total=False):
+    """Reads a resistance."""
+
+    type: Required[Literal["ai_resistance"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    resistance_config: ResistanceConfig
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    custom_scale: ScaleUpdate
+
+
+class AIRTDChannelUpdate(TypedDict, total=False):
+    """Reads temperature from an RTD."""
+
+    type: Required[Literal["ai_rtd"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    resistance_config: ResistanceConfig
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    units: TemperatureUnits
+    rtd_type: RTDType
+    r0: float
+
+
+class AIStrainGaugeChannelUpdate(TypedDict, total=False):
+    """Reads strain from a strain gauge."""
+
+    type: Required[Literal["ai_strain_gauge"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    custom_scale: ScaleUpdate
+    strain_config: StrainConfig
+    gage_factor: float
+    initial_bridge_voltage: float
+    nominal_gage_resistance: float
+    poisson_ratio: float
+    lead_wire_resistance: float
+
+
+class AITempBuiltinChannelUpdate(TypedDict, total=False):
+    """Reads temperature from the device's built-in sensor."""
+
+    type: Required[Literal["ai_temp_builtin"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    device: device_.Key
+    units: TemperatureUnits
+
+
+class AIThermocoupleChannelUpdate(TypedDict, total=False):
+    """Reads temperature from a thermocouple."""
+
+    type: Required[Literal["ai_thermocouple"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    units: TemperatureUnits
+    thermocouple_type: ThermocoupleType
+    cjc: CJCUpdate
+
+
+class AITorqueBridgeTableChannelUpdate(TypedDict, total=False):
+    """Reads torque from a bridge with a calibration table."""
+
+    type: Required[Literal["ai_torque_bridge_table"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    electrical_vals: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    physical_vals: patch.ValueListDict[float]
+    custom_scale: ScaleUpdate
+    units: TorqueUnits
+    physical_units: TorqueUnits
+
+
+class AITorqueBridgeTwoPointLinChannelUpdate(TypedDict, total=False):
+    """Reads torque from a bridge with two-point linear calibration."""
+
+    type: Required[Literal["ai_torque_bridge_two_point_lin"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    first_electrical_val: float
+    second_electrical_val: float
+    electrical_units: ElectricalUnits
+    first_physical_val: float
+    second_physical_val: float
+    custom_scale: ScaleUpdate
+    units: TorqueUnits
+    physical_units: TorqueUnits
+
+
+class AIVelocityIEPEChannelUpdate(TypedDict, total=False):
+    """Reads velocity from an IEPE sensor."""
+
+    type: Required[Literal["ai_velocity_iepe"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    sensitivity: float
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    custom_scale: ScaleUpdate
+    units: VelocityUnits
+    sensitivity_units: VelocitySensitivityUnits
+
+
+class AIAccel4WireDCVoltageChannelUpdate(TypedDict, total=False):
+    """Reads acceleration from a 4-wire DC-voltage accelerometer."""
+
+    type: Required[Literal["ai_accel_4_wire_dc_voltage"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    sensitivity: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    custom_scale: ScaleUpdate
+    units: AccelUnits
+    sensitivity_units: AccelSensitivityUnits
+    scaled_by_excitation: bool
+
+
+class AIAccelChargeChannelUpdate(TypedDict, total=False):
+    """Reads acceleration from a charge-mode accelerometer."""
+
+    type: Required[Literal["ai_accel_charge"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    sensitivity: float
+    custom_scale: ScaleUpdate
+    units: AccelUnits
+    sensitivity_units: AccelChargeSensitivityUnits
+
+
+class AIChargeChannelUpdate(TypedDict, total=False):
+    """Reads a raw charge."""
+
+    type: Required[Literal["ai_charge"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    custom_scale: ScaleUpdate
+    units: ChargeUnits
+
+
+class AICurrentRMSChannelUpdate(TypedDict, total=False):
+    """Reads RMS current."""
+
+    type: Required[Literal["ai_current_rms"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    custom_scale: ScaleUpdate
+    shunt_resistor_loc: ShuntResistorLocation
+    ext_shunt_resistor_val: float
+
+
+class AIForceBridgePolynomialChannelUpdate(TypedDict, total=False):
+    """Reads force from a bridge with polynomial calibration."""
+
+    type: Required[Literal["ai_force_bridge_polynomial"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    forward_coeffs: patch.ValueListDict[float]
+    reverse_coeffs: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    custom_scale: ScaleUpdate
+    units: ForceUnits
+    physical_units: ForceUnits
+
+
+class AIFreqVoltageChannelUpdate(TypedDict, total=False):
+    """Reads frequency from a voltage signal."""
+
+    type: Required[Literal["ai_freq_voltage"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    custom_scale: ScaleUpdate
+    threshold_level: float
+    hysteresis: float
+
+
+class AIPressureBridgePolynomialChannelUpdate(TypedDict, total=False):
+    """Reads pressure from a bridge with polynomial calibration."""
+
+    type: Required[Literal["ai_pressure_bridge_polynomial"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    forward_coeffs: patch.ValueListDict[float]
+    reverse_coeffs: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    custom_scale: ScaleUpdate
+    units: PressureUnits
+    physical_units: PressureUnits
+
+
+class AIThermistorIexChannelUpdate(TypedDict, total=False):
+    """Reads temperature from a current-excited thermistor."""
+
+    type: Required[Literal["ai_thermistor_iex"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    resistance_config: ResistanceConfig
+    current_excit_source: ExcitationSource
+    current_excit_val: float
+    units: TemperatureUnits
+    a: float
+    b: float
+    c: float
+
+
+class AIThermistorVexChannelUpdate(TypedDict, total=False):
+    """Reads temperature from a voltage-excited thermistor."""
+
+    type: Required[Literal["ai_thermistor_vex"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    resistance_config: ResistanceConfig
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    units: TemperatureUnits
+    a: float
+    b: float
+    c: float
+    r1: float
+
+
+class AITorqueBridgePolynomialChannelUpdate(TypedDict, total=False):
+    """Reads torque from a bridge with polynomial calibration."""
+
+    type: Required[Literal["ai_torque_bridge_polynomial"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    bridge_config: BridgeConfig
+    nominal_bridge_resistance: float
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    forward_coeffs: patch.ValueListDict[float]
+    reverse_coeffs: patch.ValueListDict[float]
+    electrical_units: ElectricalUnits
+    custom_scale: ScaleUpdate
+    units: TorqueUnits
+    physical_units: TorqueUnits
+
+
+class AIVoltageRMSChannelUpdate(TypedDict, total=False):
+    """Reads RMS voltage."""
+
+    type: Required[Literal["ai_voltage_rms"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    custom_scale: ScaleUpdate
+
+
+class AIVoltageWithExcitChannelUpdate(TypedDict, total=False):
+    """Reads a voltage with excitation."""
+
+    type: Required[Literal["ai_voltage_with_excit"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    device: device_.Key
+    min_val: float
+    max_val: float
+    terminal_config: TerminalConfig
+    voltage_excit_source: ExcitationSource
+    voltage_excit_val: float
+    custom_scale: ScaleUpdate
+    bridge_config: BridgeConfig
+    scaled_by_excitation: bool
+
+
+# Holds changes to the fields of the ai channel. A type that differs from the stored one
+# changes the variant.
+AIChannelUpdate = (
+    AIChannelBaseUpdate
+    | AIVoltageChannelUpdate
+    | AIAccelChannelUpdate
+    | AIBridgeChannelUpdate
+    | AICurrentChannelUpdate
+    | AIForceBridgeTableChannelUpdate
+    | AIForceBridgeTwoPointLinChannelUpdate
+    | AIForceIEPEChannelUpdate
+    | AIMicrophoneChannelUpdate
+    | AIPressureBridgeTableChannelUpdate
+    | AIPressureBridgeTwoPointLinChannelUpdate
+    | AIResistanceChannelUpdate
+    | AIRTDChannelUpdate
+    | AIStrainGaugeChannelUpdate
+    | AITempBuiltinChannelUpdate
+    | AIThermocoupleChannelUpdate
+    | AITorqueBridgeTableChannelUpdate
+    | AITorqueBridgeTwoPointLinChannelUpdate
+    | AIVelocityIEPEChannelUpdate
+    | AIAccel4WireDCVoltageChannelUpdate
+    | AIAccelChargeChannelUpdate
+    | AIChargeChannelUpdate
+    | AICurrentRMSChannelUpdate
+    | AIForceBridgePolynomialChannelUpdate
+    | AIFreqVoltageChannelUpdate
+    | AIPressureBridgePolynomialChannelUpdate
+    | AIThermistorIexChannelUpdate
+    | AIThermistorVexChannelUpdate
+    | AITorqueBridgePolynomialChannelUpdate
+    | AIVoltageRMSChannelUpdate
+    | AIVoltageWithExcitChannelUpdate
+)
 
 
 class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
@@ -1610,7 +2705,7 @@ class AnalogReadConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     sample_rate: telem.Rate
     stream_rate: telem.Rate
-    channels: patch.ValueListDict[AIChannel]
+    channels: patch.ListDict[AIChannel, str, AIChannelUpdate]
 
 
 class CounterReadConfig(task.ReadConfig):
@@ -1645,7 +2740,7 @@ class CounterReadConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     sample_rate: telem.Rate
     stream_rate: telem.Rate
-    channels: patch.ValueListDict[CIChannel]
+    channels: patch.ListDict[CIChannel, str, CIChannelUpdate]
 
 
 class AnalogWriteConfig(WriteConfig):
@@ -1680,4 +2775,4 @@ class AnalogWriteConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     device: device_.Key
     state_rate: telem.Rate
-    channels: patch.ValueListDict[AOChannel]
+    channels: patch.ListDict[AOChannel, str, AOChannelUpdate]

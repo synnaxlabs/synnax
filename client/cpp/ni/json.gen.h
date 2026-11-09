@@ -702,7 +702,8 @@ inline AnalogReadConfigUpdate AnalogReadConfigUpdate::parse(x::json::Parser pars
         ),
         .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
         .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<AIChannel>>>(
+        .channels = parser.field<
+            std::optional<::x::patch::List<AIChannel, std::string, AIChannelUpdate>>>(
             "channels"
         ),
     };
@@ -729,7 +730,8 @@ inline CounterReadConfigUpdate CounterReadConfigUpdate::parse(x::json::Parser pa
         ),
         .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
         .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<CIChannel>>>(
+        .channels = parser.field<
+            std::optional<::x::patch::List<CIChannel, std::string, CIChannelUpdate>>>(
             "channels"
         ),
     };
@@ -756,7 +758,8 @@ inline AnalogWriteConfigUpdate AnalogWriteConfigUpdate::parse(x::json::Parser pa
         ),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
         .state_rate = parser.field<std::optional<::x::telem::Rate>>("state_rate"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<AOChannel>>>(
+        .channels = parser.field<
+            std::optional<::x::patch::List<AOChannel, std::string, AOChannelUpdate>>>(
             "channels"
         ),
     };
@@ -846,6 +849,84 @@ inline x::json::json ScanConfigUpdate::to_json() const {
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->rate.has_value()) j["rate"] = *this->rate;
     if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    return j;
+}
+
+inline AIChannelBaseUpdate AIChannelBaseUpdate::parse(x::json::Parser parser) {
+    return AIChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .port = parser.field<std::optional<std::uint32_t>>("port"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+    };
+}
+
+inline x::json::json AIChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    return j;
+}
+
+inline CIChannelBaseUpdate CIChannelBaseUpdate::parse(x::json::Parser parser) {
+    return CIChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .port = parser.field<std::optional<std::uint32_t>>("port"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+    };
+}
+
+inline x::json::json CIChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    return j;
+}
+
+inline AOChannelBaseUpdate AOChannelBaseUpdate::parse(x::json::Parser parser) {
+    return AOChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "cmd_channel"
+        ),
+        .state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "state_channel"
+        ),
+        .cmd_channel_name = parser.field<std::optional<std::string>>(
+            "cmd_channel_name"
+        ),
+        .state_channel_name = parser.field<std::optional<std::string>>(
+            "state_channel_name"
+        ),
+        .port = parser.field<std::optional<std::uint32_t>>("port"),
+    };
+}
+
+inline x::json::json AOChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
     return j;
 }
 
@@ -2379,6 +2460,2507 @@ inline x::json::json AOVoltageChannel::to_json() const {
     return j;
 }
 
+inline AIVoltageChannelUpdate AIVoltageChannelUpdate::parse(x::json::Parser parser) {
+    AIVoltageChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIVoltageChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIAccelChannelUpdate AIAccelChannelUpdate::parse(x::json::Parser parser) {
+    AIAccelChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.sensitivity = parser.field<std::optional<double>>("sensitivity");
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.sensitivity_units = parser.field<std::optional<std::string>>(
+        "sensitivity_units"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIAccelChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->sensitivity.has_value()) j["sensitivity"] = *this->sensitivity;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->sensitivity_units.has_value())
+        j["sensitivity_units"] = *this->sensitivity_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIBridgeChannelUpdate AIBridgeChannelUpdate::parse(x::json::Parser parser) {
+    AIBridgeChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIBridgeChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AICurrentChannelUpdate AICurrentChannelUpdate::parse(x::json::Parser parser) {
+    AICurrentChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.shunt_resistor_loc = parser.field<std::optional<std::string>>(
+        "shunt_resistor_loc"
+    );
+    result.ext_shunt_resistor_val = parser.field<std::optional<double>>(
+        "ext_shunt_resistor_val"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AICurrentChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->shunt_resistor_loc.has_value())
+        j["shunt_resistor_loc"] = *this->shunt_resistor_loc;
+    if (this->ext_shunt_resistor_val.has_value())
+        j["ext_shunt_resistor_val"] = *this->ext_shunt_resistor_val;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIForceBridgeTableChannelUpdate
+AIForceBridgeTableChannelUpdate::parse(x::json::Parser parser) {
+    AIForceBridgeTableChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.electrical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "electrical_vals"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.physical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "physical_vals"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIForceBridgeTableChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->electrical_vals.has_value())
+        j["electrical_vals"] = this->electrical_vals->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->physical_vals.has_value())
+        j["physical_vals"] = this->physical_vals->to_json();
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIForceBridgeTwoPointLinChannelUpdate
+AIForceBridgeTwoPointLinChannelUpdate::parse(x::json::Parser parser) {
+    AIForceBridgeTwoPointLinChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.first_electrical_val = parser.field<std::optional<double>>(
+        "first_electrical_val"
+    );
+    result.second_electrical_val = parser.field<std::optional<double>>(
+        "second_electrical_val"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.first_physical_val = parser.field<std::optional<double>>(
+        "first_physical_val"
+    );
+    result.second_physical_val = parser.field<std::optional<double>>(
+        "second_physical_val"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIForceBridgeTwoPointLinChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->first_electrical_val.has_value())
+        j["first_electrical_val"] = *this->first_electrical_val;
+    if (this->second_electrical_val.has_value())
+        j["second_electrical_val"] = *this->second_electrical_val;
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->first_physical_val.has_value())
+        j["first_physical_val"] = *this->first_physical_val;
+    if (this->second_physical_val.has_value())
+        j["second_physical_val"] = *this->second_physical_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIForceIEPEChannelUpdate
+AIForceIEPEChannelUpdate::parse(x::json::Parser parser) {
+    AIForceIEPEChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.sensitivity = parser.field<std::optional<double>>("sensitivity");
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.sensitivity_units = parser.field<std::optional<std::string>>(
+        "sensitivity_units"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIForceIEPEChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->sensitivity.has_value()) j["sensitivity"] = *this->sensitivity;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->sensitivity_units.has_value())
+        j["sensitivity_units"] = *this->sensitivity_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIMicrophoneChannelUpdate
+AIMicrophoneChannelUpdate::parse(x::json::Parser parser) {
+    AIMicrophoneChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.mic_sensitivity = parser.field<std::optional<double>>("mic_sensitivity");
+    result.max_snd_press_level = parser.field<std::optional<double>>(
+        "max_snd_press_level"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIMicrophoneChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->mic_sensitivity.has_value())
+        j["mic_sensitivity"] = *this->mic_sensitivity;
+    if (this->max_snd_press_level.has_value())
+        j["max_snd_press_level"] = *this->max_snd_press_level;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIPressureBridgeTableChannelUpdate
+AIPressureBridgeTableChannelUpdate::parse(x::json::Parser parser) {
+    AIPressureBridgeTableChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.electrical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "electrical_vals"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.physical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "physical_vals"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIPressureBridgeTableChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->electrical_vals.has_value())
+        j["electrical_vals"] = this->electrical_vals->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->physical_vals.has_value())
+        j["physical_vals"] = this->physical_vals->to_json();
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIPressureBridgeTwoPointLinChannelUpdate
+AIPressureBridgeTwoPointLinChannelUpdate::parse(x::json::Parser parser) {
+    AIPressureBridgeTwoPointLinChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.first_electrical_val = parser.field<std::optional<double>>(
+        "first_electrical_val"
+    );
+    result.second_electrical_val = parser.field<std::optional<double>>(
+        "second_electrical_val"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.first_physical_val = parser.field<std::optional<double>>(
+        "first_physical_val"
+    );
+    result.second_physical_val = parser.field<std::optional<double>>(
+        "second_physical_val"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIPressureBridgeTwoPointLinChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->first_electrical_val.has_value())
+        j["first_electrical_val"] = *this->first_electrical_val;
+    if (this->second_electrical_val.has_value())
+        j["second_electrical_val"] = *this->second_electrical_val;
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->first_physical_val.has_value())
+        j["first_physical_val"] = *this->first_physical_val;
+    if (this->second_physical_val.has_value())
+        j["second_physical_val"] = *this->second_physical_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIResistanceChannelUpdate
+AIResistanceChannelUpdate::parse(x::json::Parser parser) {
+    AIResistanceChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.resistance_config = parser.field<std::optional<std::string>>(
+        "resistance_config"
+    );
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIResistanceChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->resistance_config.has_value())
+        j["resistance_config"] = *this->resistance_config;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIRTDChannelUpdate AIRTDChannelUpdate::parse(x::json::Parser parser) {
+    AIRTDChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.resistance_config = parser.field<std::optional<std::string>>(
+        "resistance_config"
+    );
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.rtd_type = parser.field<std::optional<std::string>>("rtd_type");
+    result.r0 = parser.field<std::optional<double>>("r0");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIRTDChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->resistance_config.has_value())
+        j["resistance_config"] = *this->resistance_config;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->rtd_type.has_value()) j["rtd_type"] = *this->rtd_type;
+    if (this->r0.has_value()) j["r0"] = *this->r0;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIStrainGaugeChannelUpdate
+AIStrainGaugeChannelUpdate::parse(x::json::Parser parser) {
+    AIStrainGaugeChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.strain_config = parser.field<std::optional<std::string>>("strain_config");
+    result.gage_factor = parser.field<std::optional<double>>("gage_factor");
+    result.initial_bridge_voltage = parser.field<std::optional<double>>(
+        "initial_bridge_voltage"
+    );
+    result.nominal_gage_resistance = parser.field<std::optional<double>>(
+        "nominal_gage_resistance"
+    );
+    result.poisson_ratio = parser.field<std::optional<double>>("poisson_ratio");
+    result.lead_wire_resistance = parser.field<std::optional<double>>(
+        "lead_wire_resistance"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIStrainGaugeChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->strain_config.has_value()) j["strain_config"] = *this->strain_config;
+    if (this->gage_factor.has_value()) j["gage_factor"] = *this->gage_factor;
+    if (this->initial_bridge_voltage.has_value())
+        j["initial_bridge_voltage"] = *this->initial_bridge_voltage;
+    if (this->nominal_gage_resistance.has_value())
+        j["nominal_gage_resistance"] = *this->nominal_gage_resistance;
+    if (this->poisson_ratio.has_value()) j["poisson_ratio"] = *this->poisson_ratio;
+    if (this->lead_wire_resistance.has_value())
+        j["lead_wire_resistance"] = *this->lead_wire_resistance;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AITempBuiltinChannelUpdate
+AITempBuiltinChannelUpdate::parse(x::json::Parser parser) {
+    AITempBuiltinChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AITempBuiltinChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->units.has_value()) j["units"] = *this->units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIThermocoupleChannelUpdate
+AIThermocoupleChannelUpdate::parse(x::json::Parser parser) {
+    AIThermocoupleChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.thermocouple_type = parser.field<std::optional<std::string>>(
+        "thermocouple_type"
+    );
+    result.cjc = parser.has("cjc")
+                   ? std::optional<CJCUpdate>(parse_cjc_update(parser.child("cjc")))
+                   : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIThermocoupleChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->thermocouple_type.has_value())
+        j["thermocouple_type"] = *this->thermocouple_type;
+    if (this->cjc.has_value()) j["cjc"] = ::synnax::ni::to_json(*this->cjc);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AITorqueBridgeTableChannelUpdate
+AITorqueBridgeTableChannelUpdate::parse(x::json::Parser parser) {
+    AITorqueBridgeTableChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.electrical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "electrical_vals"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.physical_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "physical_vals"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AITorqueBridgeTableChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->electrical_vals.has_value())
+        j["electrical_vals"] = this->electrical_vals->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->physical_vals.has_value())
+        j["physical_vals"] = this->physical_vals->to_json();
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AITorqueBridgeTwoPointLinChannelUpdate
+AITorqueBridgeTwoPointLinChannelUpdate::parse(x::json::Parser parser) {
+    AITorqueBridgeTwoPointLinChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.first_electrical_val = parser.field<std::optional<double>>(
+        "first_electrical_val"
+    );
+    result.second_electrical_val = parser.field<std::optional<double>>(
+        "second_electrical_val"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.first_physical_val = parser.field<std::optional<double>>(
+        "first_physical_val"
+    );
+    result.second_physical_val = parser.field<std::optional<double>>(
+        "second_physical_val"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AITorqueBridgeTwoPointLinChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->first_electrical_val.has_value())
+        j["first_electrical_val"] = *this->first_electrical_val;
+    if (this->second_electrical_val.has_value())
+        j["second_electrical_val"] = *this->second_electrical_val;
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->first_physical_val.has_value())
+        j["first_physical_val"] = *this->first_physical_val;
+    if (this->second_physical_val.has_value())
+        j["second_physical_val"] = *this->second_physical_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIVelocityIEPEChannelUpdate
+AIVelocityIEPEChannelUpdate::parse(x::json::Parser parser) {
+    AIVelocityIEPEChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.sensitivity = parser.field<std::optional<double>>("sensitivity");
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.sensitivity_units = parser.field<std::optional<std::string>>(
+        "sensitivity_units"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIVelocityIEPEChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->sensitivity.has_value()) j["sensitivity"] = *this->sensitivity;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->sensitivity_units.has_value())
+        j["sensitivity_units"] = *this->sensitivity_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIAccel4WireDCVoltageChannelUpdate
+AIAccel4WireDCVoltageChannelUpdate::parse(x::json::Parser parser) {
+    AIAccel4WireDCVoltageChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.sensitivity = parser.field<std::optional<double>>("sensitivity");
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.sensitivity_units = parser.field<std::optional<std::string>>(
+        "sensitivity_units"
+    );
+    result.scaled_by_excitation = parser.field<std::optional<bool>>(
+        "scaled_by_excitation"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIAccel4WireDCVoltageChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->sensitivity.has_value()) j["sensitivity"] = *this->sensitivity;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->sensitivity_units.has_value())
+        j["sensitivity_units"] = *this->sensitivity_units;
+    if (this->scaled_by_excitation.has_value())
+        j["scaled_by_excitation"] = *this->scaled_by_excitation;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIAccelChargeChannelUpdate
+AIAccelChargeChannelUpdate::parse(x::json::Parser parser) {
+    AIAccelChargeChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.sensitivity = parser.field<std::optional<double>>("sensitivity");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.sensitivity_units = parser.field<std::optional<std::string>>(
+        "sensitivity_units"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIAccelChargeChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->sensitivity.has_value()) j["sensitivity"] = *this->sensitivity;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->sensitivity_units.has_value())
+        j["sensitivity_units"] = *this->sensitivity_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIChargeChannelUpdate AIChargeChannelUpdate::parse(x::json::Parser parser) {
+    AIChargeChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIChargeChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AICurrentRMSChannelUpdate
+AICurrentRMSChannelUpdate::parse(x::json::Parser parser) {
+    AICurrentRMSChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.shunt_resistor_loc = parser.field<std::optional<std::string>>(
+        "shunt_resistor_loc"
+    );
+    result.ext_shunt_resistor_val = parser.field<std::optional<double>>(
+        "ext_shunt_resistor_val"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AICurrentRMSChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->shunt_resistor_loc.has_value())
+        j["shunt_resistor_loc"] = *this->shunt_resistor_loc;
+    if (this->ext_shunt_resistor_val.has_value())
+        j["ext_shunt_resistor_val"] = *this->ext_shunt_resistor_val;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIForceBridgePolynomialChannelUpdate
+AIForceBridgePolynomialChannelUpdate::parse(x::json::Parser parser) {
+    AIForceBridgePolynomialChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.forward_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "forward_coeffs"
+    );
+    result.reverse_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "reverse_coeffs"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIForceBridgePolynomialChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->forward_coeffs.has_value())
+        j["forward_coeffs"] = this->forward_coeffs->to_json();
+    if (this->reverse_coeffs.has_value())
+        j["reverse_coeffs"] = this->reverse_coeffs->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIFreqVoltageChannelUpdate
+AIFreqVoltageChannelUpdate::parse(x::json::Parser parser) {
+    AIFreqVoltageChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.threshold_level = parser.field<std::optional<double>>("threshold_level");
+    result.hysteresis = parser.field<std::optional<double>>("hysteresis");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIFreqVoltageChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->threshold_level.has_value())
+        j["threshold_level"] = *this->threshold_level;
+    if (this->hysteresis.has_value()) j["hysteresis"] = *this->hysteresis;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIPressureBridgePolynomialChannelUpdate
+AIPressureBridgePolynomialChannelUpdate::parse(x::json::Parser parser) {
+    AIPressureBridgePolynomialChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.forward_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "forward_coeffs"
+    );
+    result.reverse_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "reverse_coeffs"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIPressureBridgePolynomialChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->forward_coeffs.has_value())
+        j["forward_coeffs"] = this->forward_coeffs->to_json();
+    if (this->reverse_coeffs.has_value())
+        j["reverse_coeffs"] = this->reverse_coeffs->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIThermistorIexChannelUpdate
+AIThermistorIexChannelUpdate::parse(x::json::Parser parser) {
+    AIThermistorIexChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.resistance_config = parser.field<std::optional<std::string>>(
+        "resistance_config"
+    );
+    result.current_excit_source = parser.field<std::optional<std::string>>(
+        "current_excit_source"
+    );
+    result.current_excit_val = parser.field<std::optional<double>>("current_excit_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.a = parser.field<std::optional<double>>("a");
+    result.b = parser.field<std::optional<double>>("b");
+    result.c = parser.field<std::optional<double>>("c");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIThermistorIexChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->resistance_config.has_value())
+        j["resistance_config"] = *this->resistance_config;
+    if (this->current_excit_source.has_value())
+        j["current_excit_source"] = *this->current_excit_source;
+    if (this->current_excit_val.has_value())
+        j["current_excit_val"] = *this->current_excit_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->a.has_value()) j["a"] = *this->a;
+    if (this->b.has_value()) j["b"] = *this->b;
+    if (this->c.has_value()) j["c"] = *this->c;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIThermistorVexChannelUpdate
+AIThermistorVexChannelUpdate::parse(x::json::Parser parser) {
+    AIThermistorVexChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.resistance_config = parser.field<std::optional<std::string>>(
+        "resistance_config"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.a = parser.field<std::optional<double>>("a");
+    result.b = parser.field<std::optional<double>>("b");
+    result.c = parser.field<std::optional<double>>("c");
+    result.r1 = parser.field<std::optional<double>>("r1");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIThermistorVexChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->resistance_config.has_value())
+        j["resistance_config"] = *this->resistance_config;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->a.has_value()) j["a"] = *this->a;
+    if (this->b.has_value()) j["b"] = *this->b;
+    if (this->c.has_value()) j["c"] = *this->c;
+    if (this->r1.has_value()) j["r1"] = *this->r1;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AITorqueBridgePolynomialChannelUpdate
+AITorqueBridgePolynomialChannelUpdate::parse(x::json::Parser parser) {
+    AITorqueBridgePolynomialChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.nominal_bridge_resistance = parser.field<std::optional<double>>(
+        "nominal_bridge_resistance"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.forward_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "forward_coeffs"
+    );
+    result.reverse_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "reverse_coeffs"
+    );
+    result.electrical_units = parser.field<std::optional<std::string>>(
+        "electrical_units"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.physical_units = parser.field<std::optional<std::string>>("physical_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AITorqueBridgePolynomialChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->nominal_bridge_resistance.has_value())
+        j["nominal_bridge_resistance"] = *this->nominal_bridge_resistance;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->forward_coeffs.has_value())
+        j["forward_coeffs"] = this->forward_coeffs->to_json();
+    if (this->reverse_coeffs.has_value())
+        j["reverse_coeffs"] = this->reverse_coeffs->to_json();
+    if (this->electrical_units.has_value())
+        j["electrical_units"] = *this->electrical_units;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->physical_units.has_value()) j["physical_units"] = *this->physical_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIVoltageRMSChannelUpdate
+AIVoltageRMSChannelUpdate::parse(x::json::Parser parser) {
+    AIVoltageRMSChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIVoltageRMSChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AIVoltageWithExcitChannelUpdate
+AIVoltageWithExcitChannelUpdate::parse(x::json::Parser parser) {
+    AIVoltageWithExcitChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.terminal_config = parser.field<std::optional<std::string>>(
+        "terminal_config"
+    );
+    result.voltage_excit_source = parser.field<std::optional<std::string>>(
+        "voltage_excit_source"
+    );
+    result.voltage_excit_val = parser.field<std::optional<double>>("voltage_excit_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.bridge_config = parser.field<std::optional<std::string>>("bridge_config");
+    result.scaled_by_excitation = parser.field<std::optional<bool>>(
+        "scaled_by_excitation"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AIVoltageWithExcitChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->terminal_config.has_value())
+        j["terminal_config"] = *this->terminal_config;
+    if (this->voltage_excit_source.has_value())
+        j["voltage_excit_source"] = *this->voltage_excit_source;
+    if (this->voltage_excit_val.has_value())
+        j["voltage_excit_val"] = *this->voltage_excit_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->bridge_config.has_value()) j["bridge_config"] = *this->bridge_config;
+    if (this->scaled_by_excitation.has_value())
+        j["scaled_by_excitation"] = *this->scaled_by_excitation;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIFrequencyChannelUpdate
+CIFrequencyChannelUpdate::parse(x::json::Parser parser) {
+    CIFrequencyChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.edge = parser.field<std::optional<std::string>>("edge");
+    result.meas_method = parser.field<std::optional<std::string>>("meas_method");
+    result.meas_time = parser.field<std::optional<double>>("meas_time");
+    result.divisor = parser.field<std::optional<std::uint32_t>>("divisor");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIFrequencyChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->edge.has_value()) j["edge"] = *this->edge;
+    if (this->meas_method.has_value()) j["meas_method"] = *this->meas_method;
+    if (this->meas_time.has_value()) j["meas_time"] = *this->meas_time;
+    if (this->divisor.has_value()) j["divisor"] = *this->divisor;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIEdgeCountChannelUpdate
+CIEdgeCountChannelUpdate::parse(x::json::Parser parser) {
+    CIEdgeCountChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.active_edge = parser.field<std::optional<std::string>>("active_edge");
+    result.count_direction = parser.field<std::optional<std::string>>(
+        "count_direction"
+    );
+    result.initial_count = parser.field<std::optional<std::uint32_t>>("initial_count");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIEdgeCountChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->active_edge.has_value()) j["active_edge"] = *this->active_edge;
+    if (this->count_direction.has_value())
+        j["count_direction"] = *this->count_direction;
+    if (this->initial_count.has_value()) j["initial_count"] = *this->initial_count;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIPeriodChannelUpdate CIPeriodChannelUpdate::parse(x::json::Parser parser) {
+    CIPeriodChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.starting_edge = parser.field<std::optional<std::string>>("starting_edge");
+    result.meas_method = parser.field<std::optional<std::string>>("meas_method");
+    result.meas_time = parser.field<std::optional<double>>("meas_time");
+    result.divisor = parser.field<std::optional<std::uint32_t>>("divisor");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIPeriodChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->starting_edge.has_value()) j["starting_edge"] = *this->starting_edge;
+    if (this->meas_method.has_value()) j["meas_method"] = *this->meas_method;
+    if (this->meas_time.has_value()) j["meas_time"] = *this->meas_time;
+    if (this->divisor.has_value()) j["divisor"] = *this->divisor;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIPulseWidthChannelUpdate
+CIPulseWidthChannelUpdate::parse(x::json::Parser parser) {
+    CIPulseWidthChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.starting_edge = parser.field<std::optional<std::string>>("starting_edge");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIPulseWidthChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->starting_edge.has_value()) j["starting_edge"] = *this->starting_edge;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CISemiPeriodChannelUpdate
+CISemiPeriodChannelUpdate::parse(x::json::Parser parser) {
+    CISemiPeriodChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CISemiPeriodChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CITwoEdgeSepChannelUpdate
+CITwoEdgeSepChannelUpdate::parse(x::json::Parser parser) {
+    CITwoEdgeSepChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.first_edge = parser.field<std::optional<std::string>>("first_edge");
+    result.second_edge = parser.field<std::optional<std::string>>("second_edge");
+    result.first_terminal = parser.field<std::optional<std::string>>("first_terminal");
+    result.second_terminal = parser.field<std::optional<std::string>>(
+        "second_terminal"
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CITwoEdgeSepChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->first_edge.has_value()) j["first_edge"] = *this->first_edge;
+    if (this->second_edge.has_value()) j["second_edge"] = *this->second_edge;
+    if (this->first_terminal.has_value()) j["first_terminal"] = *this->first_terminal;
+    if (this->second_terminal.has_value())
+        j["second_terminal"] = *this->second_terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIVelocityLinearChannelUpdate
+CIVelocityLinearChannelUpdate::parse(x::json::Parser parser) {
+    CIVelocityLinearChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.decoding_type = parser.field<std::optional<std::string>>("decoding_type");
+    result.dist_per_pulse = parser.field<std::optional<double>>("dist_per_pulse");
+    result.terminal_a = parser.field<std::optional<std::string>>("terminal_a");
+    result.terminal_b = parser.field<std::optional<std::string>>("terminal_b");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIVelocityLinearChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->decoding_type.has_value()) j["decoding_type"] = *this->decoding_type;
+    if (this->dist_per_pulse.has_value()) j["dist_per_pulse"] = *this->dist_per_pulse;
+    if (this->terminal_a.has_value()) j["terminal_a"] = *this->terminal_a;
+    if (this->terminal_b.has_value()) j["terminal_b"] = *this->terminal_b;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIVelocityAngularChannelUpdate
+CIVelocityAngularChannelUpdate::parse(x::json::Parser parser) {
+    CIVelocityAngularChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.decoding_type = parser.field<std::optional<std::string>>("decoding_type");
+    result.pulses_per_rev = parser.field<std::optional<std::uint32_t>>(
+        "pulses_per_rev"
+    );
+    result.terminal_a = parser.field<std::optional<std::string>>("terminal_a");
+    result.terminal_b = parser.field<std::optional<std::string>>("terminal_b");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIVelocityAngularChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->decoding_type.has_value()) j["decoding_type"] = *this->decoding_type;
+    if (this->pulses_per_rev.has_value()) j["pulses_per_rev"] = *this->pulses_per_rev;
+    if (this->terminal_a.has_value()) j["terminal_a"] = *this->terminal_a;
+    if (this->terminal_b.has_value()) j["terminal_b"] = *this->terminal_b;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIPositionLinearChannelUpdate
+CIPositionLinearChannelUpdate::parse(x::json::Parser parser) {
+    CIPositionLinearChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.z_index_enabled = parser.field<std::optional<bool>>("z_index_enabled");
+    result.z_index_val = parser.field<std::optional<double>>("z_index_val");
+    result.z_index_phase = parser.field<std::optional<std::string>>("z_index_phase");
+    result.terminal_z = parser.field<std::optional<std::string>>("terminal_z");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.decoding_type = parser.field<std::optional<std::string>>("decoding_type");
+    result.dist_per_pulse = parser.field<std::optional<double>>("dist_per_pulse");
+    result.initial_pos = parser.field<std::optional<double>>("initial_pos");
+    result.terminal_a = parser.field<std::optional<std::string>>("terminal_a");
+    result.terminal_b = parser.field<std::optional<std::string>>("terminal_b");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIPositionLinearChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->z_index_enabled.has_value())
+        j["z_index_enabled"] = *this->z_index_enabled;
+    if (this->z_index_val.has_value()) j["z_index_val"] = *this->z_index_val;
+    if (this->z_index_phase.has_value()) j["z_index_phase"] = *this->z_index_phase;
+    if (this->terminal_z.has_value()) j["terminal_z"] = *this->terminal_z;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->decoding_type.has_value()) j["decoding_type"] = *this->decoding_type;
+    if (this->dist_per_pulse.has_value()) j["dist_per_pulse"] = *this->dist_per_pulse;
+    if (this->initial_pos.has_value()) j["initial_pos"] = *this->initial_pos;
+    if (this->terminal_a.has_value()) j["terminal_a"] = *this->terminal_a;
+    if (this->terminal_b.has_value()) j["terminal_b"] = *this->terminal_b;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIPositionAngularChannelUpdate
+CIPositionAngularChannelUpdate::parse(x::json::Parser parser) {
+    CIPositionAngularChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.z_index_enabled = parser.field<std::optional<bool>>("z_index_enabled");
+    result.z_index_val = parser.field<std::optional<double>>("z_index_val");
+    result.z_index_phase = parser.field<std::optional<std::string>>("z_index_phase");
+    result.terminal_z = parser.field<std::optional<std::string>>("terminal_z");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.decoding_type = parser.field<std::optional<std::string>>("decoding_type");
+    result.pulses_per_rev = parser.field<std::optional<std::uint32_t>>(
+        "pulses_per_rev"
+    );
+    result.initial_angle = parser.field<std::optional<double>>("initial_angle");
+    result.terminal_a = parser.field<std::optional<std::string>>("terminal_a");
+    result.terminal_b = parser.field<std::optional<std::string>>("terminal_b");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIPositionAngularChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->z_index_enabled.has_value())
+        j["z_index_enabled"] = *this->z_index_enabled;
+    if (this->z_index_val.has_value()) j["z_index_val"] = *this->z_index_val;
+    if (this->z_index_phase.has_value()) j["z_index_phase"] = *this->z_index_phase;
+    if (this->terminal_z.has_value()) j["terminal_z"] = *this->terminal_z;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->decoding_type.has_value()) j["decoding_type"] = *this->decoding_type;
+    if (this->pulses_per_rev.has_value()) j["pulses_per_rev"] = *this->pulses_per_rev;
+    if (this->initial_angle.has_value()) j["initial_angle"] = *this->initial_angle;
+    if (this->terminal_a.has_value()) j["terminal_a"] = *this->terminal_a;
+    if (this->terminal_b.has_value()) j["terminal_b"] = *this->terminal_b;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CIDutyCycleChannelUpdate
+CIDutyCycleChannelUpdate::parse(x::json::Parser parser) {
+    CIDutyCycleChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.active_edge = parser.field<std::optional<std::string>>("active_edge");
+    result.terminal = parser.field<std::optional<std::string>>("terminal");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CIDutyCycleChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->active_edge.has_value()) j["active_edge"] = *this->active_edge;
+    if (this->terminal.has_value()) j["terminal"] = *this->terminal;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AOCurrentChannelUpdate AOCurrentChannelUpdate::parse(x::json::Parser parser) {
+    AOCurrentChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AOCurrentChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AOFuncGenChannelUpdate AOFuncGenChannelUpdate::parse(x::json::Parser parser) {
+    AOFuncGenChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.wave_type = parser.field<std::optional<std::string>>("wave_type");
+    result.frequency = parser.field<std::optional<double>>("frequency");
+    result.amplitude = parser.field<std::optional<double>>("amplitude");
+    result.offset = parser.field<std::optional<double>>("offset");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AOFuncGenChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->wave_type.has_value()) j["wave_type"] = *this->wave_type;
+    if (this->frequency.has_value()) j["frequency"] = *this->frequency;
+    if (this->amplitude.has_value()) j["amplitude"] = *this->amplitude;
+    if (this->offset.has_value()) j["offset"] = *this->offset;
+    j["type"] = this->type;
+    return j;
+}
+
+inline AOVoltageChannelUpdate AOVoltageChannelUpdate::parse(x::json::Parser parser) {
+    AOVoltageChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.min_val = parser.field<std::optional<double>>("min_val");
+    result.max_val = parser.field<std::optional<double>>("max_val");
+    result.custom_scale = parser.has("custom_scale")
+                            ? std::optional<ScaleUpdate>(
+                                  parse_scale_update(parser.child("custom_scale"))
+                              )
+                            : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AOVoltageChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->min_val.has_value()) j["min_val"] = *this->min_val;
+    if (this->max_val.has_value()) j["max_val"] = *this->max_val;
+    if (this->custom_scale.has_value())
+        j["custom_scale"] = ::synnax::ni::to_json(*this->custom_scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline LinearScaleUpdate LinearScaleUpdate::parse(x::json::Parser parser) {
+    LinearScaleUpdate result;
+    result.slope = parser.field<std::optional<double>>("slope");
+    result.y_intercept = parser.field<std::optional<double>>("y_intercept");
+    result.pre_scaled_units = parser.field<std::optional<std::string>>(
+        "pre_scaled_units"
+    );
+    result.scaled_units = parser.field<std::optional<std::string>>("scaled_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json LinearScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->slope.has_value()) j["slope"] = *this->slope;
+    if (this->y_intercept.has_value()) j["y_intercept"] = *this->y_intercept;
+    if (this->pre_scaled_units.has_value())
+        j["pre_scaled_units"] = *this->pre_scaled_units;
+    if (this->scaled_units.has_value()) j["scaled_units"] = *this->scaled_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline MapScaleUpdate MapScaleUpdate::parse(x::json::Parser parser) {
+    MapScaleUpdate result;
+    result.pre_scaled_min = parser.field<std::optional<double>>("pre_scaled_min");
+    result.pre_scaled_max = parser.field<std::optional<double>>("pre_scaled_max");
+    result.scaled_min = parser.field<std::optional<double>>("scaled_min");
+    result.scaled_max = parser.field<std::optional<double>>("scaled_max");
+    result.pre_scaled_units = parser.field<std::optional<std::string>>(
+        "pre_scaled_units"
+    );
+    result.scaled_units = parser.field<std::optional<std::string>>("scaled_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json MapScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->pre_scaled_min.has_value()) j["pre_scaled_min"] = *this->pre_scaled_min;
+    if (this->pre_scaled_max.has_value()) j["pre_scaled_max"] = *this->pre_scaled_max;
+    if (this->scaled_min.has_value()) j["scaled_min"] = *this->scaled_min;
+    if (this->scaled_max.has_value()) j["scaled_max"] = *this->scaled_max;
+    if (this->pre_scaled_units.has_value())
+        j["pre_scaled_units"] = *this->pre_scaled_units;
+    if (this->scaled_units.has_value()) j["scaled_units"] = *this->scaled_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline TableScaleUpdate TableScaleUpdate::parse(x::json::Parser parser) {
+    TableScaleUpdate result;
+    result.pre_scaled_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "pre_scaled_vals"
+    );
+    result.scaled_vals = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "scaled_vals"
+    );
+    result.pre_scaled_units = parser.field<std::optional<std::string>>(
+        "pre_scaled_units"
+    );
+    result.scaled_units = parser.field<std::optional<std::string>>("scaled_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TableScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->pre_scaled_vals.has_value())
+        j["pre_scaled_vals"] = this->pre_scaled_vals->to_json();
+    if (this->scaled_vals.has_value()) j["scaled_vals"] = this->scaled_vals->to_json();
+    if (this->pre_scaled_units.has_value())
+        j["pre_scaled_units"] = *this->pre_scaled_units;
+    if (this->scaled_units.has_value()) j["scaled_units"] = *this->scaled_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline PolynomialScaleUpdate PolynomialScaleUpdate::parse(x::json::Parser parser) {
+    PolynomialScaleUpdate result;
+    result.forward_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "forward_coeffs"
+    );
+    result.reverse_coeffs = parser.field<std::optional<::x::patch::ValueList<double>>>(
+        "reverse_coeffs"
+    );
+    result.pre_scaled_units = parser.field<std::optional<std::string>>(
+        "pre_scaled_units"
+    );
+    result.scaled_units = parser.field<std::optional<std::string>>("scaled_units");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PolynomialScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->forward_coeffs.has_value())
+        j["forward_coeffs"] = this->forward_coeffs->to_json();
+    if (this->reverse_coeffs.has_value())
+        j["reverse_coeffs"] = this->reverse_coeffs->to_json();
+    if (this->pre_scaled_units.has_value())
+        j["pre_scaled_units"] = *this->pre_scaled_units;
+    if (this->scaled_units.has_value()) j["scaled_units"] = *this->scaled_units;
+    j["type"] = this->type;
+    return j;
+}
+
+inline NoneScaleUpdate NoneScaleUpdate::parse(x::json::Parser parser) {
+    NoneScaleUpdate result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NoneScaleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline BuiltInCJCUpdate BuiltInCJCUpdate::parse(x::json::Parser parser) {
+    BuiltInCJCUpdate result;
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json BuiltInCJCUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["source"] = this->source;
+    return j;
+}
+
+inline ConstValCJCUpdate ConstValCJCUpdate::parse(x::json::Parser parser) {
+    ConstValCJCUpdate result;
+    result.val = parser.field<std::optional<double>>("val");
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json ConstValCJCUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->val.has_value()) j["val"] = *this->val;
+    j["source"] = this->source;
+    return j;
+}
+
+inline ChanCJCUpdate ChanCJCUpdate::parse(x::json::Parser parser) {
+    ChanCJCUpdate result;
+    result.port = parser.field<std::optional<std::uint32_t>>("port");
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json ChanCJCUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["source"] = this->source;
+    return j;
+}
+
 inline CJC parse_cjc(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("source");
     if (discriminator == "built_in") return BuiltInCJC::parse(parser);
@@ -2496,6 +5078,144 @@ inline AOChannel parse_ao_channel(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const AOChannel &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline AIChannelUpdate parse_ai_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return AIChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "ai_voltage") return AIVoltageChannelUpdate::parse(parser);
+    if (discriminator == "ai_accel") return AIAccelChannelUpdate::parse(parser);
+    if (discriminator == "ai_bridge") return AIBridgeChannelUpdate::parse(parser);
+    if (discriminator == "ai_current") return AICurrentChannelUpdate::parse(parser);
+    if (discriminator == "ai_force_bridge_table")
+        return AIForceBridgeTableChannelUpdate::parse(parser);
+    if (discriminator == "ai_force_bridge_two_point_lin")
+        return AIForceBridgeTwoPointLinChannelUpdate::parse(parser);
+    if (discriminator == "ai_force_iepe")
+        return AIForceIEPEChannelUpdate::parse(parser);
+    if (discriminator == "ai_microphone")
+        return AIMicrophoneChannelUpdate::parse(parser);
+    if (discriminator == "ai_pressure_bridge_table")
+        return AIPressureBridgeTableChannelUpdate::parse(parser);
+    if (discriminator == "ai_pressure_bridge_two_point_lin")
+        return AIPressureBridgeTwoPointLinChannelUpdate::parse(parser);
+    if (discriminator == "ai_resistance")
+        return AIResistanceChannelUpdate::parse(parser);
+    if (discriminator == "ai_rtd") return AIRTDChannelUpdate::parse(parser);
+    if (discriminator == "ai_strain_gauge")
+        return AIStrainGaugeChannelUpdate::parse(parser);
+    if (discriminator == "ai_temp_builtin")
+        return AITempBuiltinChannelUpdate::parse(parser);
+    if (discriminator == "ai_thermocouple")
+        return AIThermocoupleChannelUpdate::parse(parser);
+    if (discriminator == "ai_torque_bridge_table")
+        return AITorqueBridgeTableChannelUpdate::parse(parser);
+    if (discriminator == "ai_torque_bridge_two_point_lin")
+        return AITorqueBridgeTwoPointLinChannelUpdate::parse(parser);
+    if (discriminator == "ai_velocity_iepe")
+        return AIVelocityIEPEChannelUpdate::parse(parser);
+    if (discriminator == "ai_accel_4_wire_dc_voltage")
+        return AIAccel4WireDCVoltageChannelUpdate::parse(parser);
+    if (discriminator == "ai_accel_charge")
+        return AIAccelChargeChannelUpdate::parse(parser);
+    if (discriminator == "ai_charge") return AIChargeChannelUpdate::parse(parser);
+    if (discriminator == "ai_current_rms")
+        return AICurrentRMSChannelUpdate::parse(parser);
+    if (discriminator == "ai_force_bridge_polynomial")
+        return AIForceBridgePolynomialChannelUpdate::parse(parser);
+    if (discriminator == "ai_freq_voltage")
+        return AIFreqVoltageChannelUpdate::parse(parser);
+    if (discriminator == "ai_pressure_bridge_polynomial")
+        return AIPressureBridgePolynomialChannelUpdate::parse(parser);
+    if (discriminator == "ai_thermistor_iex")
+        return AIThermistorIexChannelUpdate::parse(parser);
+    if (discriminator == "ai_thermistor_vex")
+        return AIThermistorVexChannelUpdate::parse(parser);
+    if (discriminator == "ai_torque_bridge_polynomial")
+        return AITorqueBridgePolynomialChannelUpdate::parse(parser);
+    if (discriminator == "ai_voltage_rms")
+        return AIVoltageRMSChannelUpdate::parse(parser);
+    if (discriminator == "ai_voltage_with_excit")
+        return AIVoltageWithExcitChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown AIChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const AIChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline CIChannelUpdate parse_ci_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return CIChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "ci_frequency") return CIFrequencyChannelUpdate::parse(parser);
+    if (discriminator == "ci_edge_count")
+        return CIEdgeCountChannelUpdate::parse(parser);
+    if (discriminator == "ci_period") return CIPeriodChannelUpdate::parse(parser);
+    if (discriminator == "ci_pulse_width")
+        return CIPulseWidthChannelUpdate::parse(parser);
+    if (discriminator == "ci_semi_period")
+        return CISemiPeriodChannelUpdate::parse(parser);
+    if (discriminator == "ci_two_edge_sep")
+        return CITwoEdgeSepChannelUpdate::parse(parser);
+    if (discriminator == "ci_velocity_linear")
+        return CIVelocityLinearChannelUpdate::parse(parser);
+    if (discriminator == "ci_velocity_angular")
+        return CIVelocityAngularChannelUpdate::parse(parser);
+    if (discriminator == "ci_position_linear")
+        return CIPositionLinearChannelUpdate::parse(parser);
+    if (discriminator == "ci_position_angular")
+        return CIPositionAngularChannelUpdate::parse(parser);
+    if (discriminator == "ci_duty_cycle")
+        return CIDutyCycleChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown CIChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const CIChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline AOChannelUpdate parse_ao_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return AOChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "ao_current") return AOCurrentChannelUpdate::parse(parser);
+    if (discriminator == "ao_func_gen") return AOFuncGenChannelUpdate::parse(parser);
+    if (discriminator == "ao_voltage") return AOVoltageChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown AOChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const AOChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ScaleUpdate parse_scale_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "linear") return LinearScaleUpdate::parse(parser);
+    if (discriminator == "map") return MapScaleUpdate::parse(parser);
+    if (discriminator == "table") return TableScaleUpdate::parse(parser);
+    if (discriminator == "polynomial") return PolynomialScaleUpdate::parse(parser);
+    if (discriminator == "none") return NoneScaleUpdate::parse(parser);
+    parser.field_err("type", "unknown ScaleUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ScaleUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline CJCUpdate parse_cjc_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("source");
+    if (discriminator == "built_in") return BuiltInCJCUpdate::parse(parser);
+    if (discriminator == "const_val") return ConstValCJCUpdate::parse(parser);
+    if (discriminator == "chan") return ChanCJCUpdate::parse(parser);
+    parser.field_err("source", "unknown CJCUpdate source: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const CJCUpdate &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

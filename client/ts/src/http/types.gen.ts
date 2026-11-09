@@ -104,6 +104,18 @@ export const scanConfigUpdateZ = z.object({
 });
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
+/**
+ * WriteFieldBaseUpdate holds changes to the fields of the write field. An absent field
+ * does not change.
+ */
+export const writeFieldBaseUpdateZ = z.object({
+  /** key uniquely identifies the field within the endpoint. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the body. */
+  pointer: z.string().optional(),
+});
+export interface WriteFieldBaseUpdate extends z.infer<typeof writeFieldBaseUpdateZ> {}
+
 /** ReadField is a single value extracted from an endpoint's JSON response. */
 export const readFieldZ = z.object({
   /** key uniquely identifies the field within the endpoint. */
@@ -279,6 +291,72 @@ export const WRITE_FIELD_SCHEMAS: {
   generated: generatedWriteFieldZ,
 };
 
+/** StaticWriteFieldUpdate places a fixed value in the request body. */
+export const staticWriteFieldUpdateZ = z.object({
+  type: z.literal("static"),
+  /** key uniquely identifies the field within the endpoint. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the body. */
+  pointer: z.string().optional(),
+  /** jsonType is the JSON type the value is serialized as. */
+  jsonType: jsonTypeZ.optional(),
+  /** value is the fixed JSON value placed at the pointer. */
+  value: z.unknown().optional(),
+});
+export interface StaticWriteFieldUpdate extends z.infer<
+  typeof staticWriteFieldUpdateZ
+> {}
+
+/**
+ * GeneratedWriteFieldUpdate places a freshly generated UUID or timestamp in the body.
+ */
+export const generatedWriteFieldUpdateZ = z.object({
+  type: z.literal("generated"),
+  /** key uniquely identifies the field within the endpoint. */
+  key: z.string(),
+  /** pointer is the JSON Pointer where the value is placed in the body. */
+  pointer: z.string().optional(),
+  /** generator is the generator that produces a fresh value per request. */
+  generator: generatorTypeZ.optional(),
+  /**
+   * timeFormat is the output encoding for timestamp generators. Defaults to iso8601.
+   */
+  timeFormat: patch.changeZ(timeFormatZ).optional(),
+});
+export interface GeneratedWriteFieldUpdate extends z.infer<
+  typeof generatedWriteFieldUpdateZ
+> {}
+
+export const WRITE_FIELD_UPDATE_TYPES = ["static", "generated"] as const;
+export const writeFieldUpdateTypeZ = z.enum(WRITE_FIELD_UPDATE_TYPES);
+export type WriteFieldUpdateType = z.infer<typeof writeFieldUpdateTypeZ>;
+
+/**
+ * WriteFieldUpdate holds changes to the fields of the write field. A type that differs
+ * from the stored one changes the variant.
+ */
+export const writeFieldUpdateZ = z.union([
+  writeFieldBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [staticWriteFieldUpdateZ, generatedWriteFieldUpdateZ]),
+]);
+export type WriteFieldUpdate =
+  | (WriteFieldBaseUpdate & {
+      type?: never;
+      jsonType?: never;
+      value?: never;
+      generator?: never;
+      timeFormat?: never;
+    })
+  | StaticWriteFieldUpdate
+  | GeneratedWriteFieldUpdate;
+
+export const WRITE_FIELD_UPDATE_SCHEMAS: {
+  [K in WriteFieldUpdateType]: z.ZodType<Extract<WriteFieldUpdate, { type: K }>>;
+} = {
+  static: staticWriteFieldUpdateZ,
+  generated: generatedWriteFieldUpdateZ,
+};
+
 /** ReadEndpoint is a single HTTP endpoint polled by a read task. */
 export const readEndpointZ = z.object({
   /** key uniquely identifies the endpoint within the task. */
@@ -371,7 +449,9 @@ export const writeEndpointUpdateZ = z.object({
   /** channel is the command channel whose writes trigger this endpoint. */
   channel: patch.structZ({ u: channelFieldUpdateZ, t: channelFieldZ }).optional(),
   /** fields contains additional static or generated body fields. */
-  fields: patch.valueListZ(writeFieldZ).optional(),
+  fields: patch
+    .listZ({ e: writeFieldZ, k: z.string(), u: writeFieldUpdateZ })
+    .optional(),
 });
 export interface WriteEndpointUpdate extends z.infer<typeof writeEndpointUpdateZ> {}
 

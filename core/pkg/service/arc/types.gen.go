@@ -926,3 +926,127 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// BaseUpdate holds changes to the fields of the arc. An absent field does not change.
+type BaseUpdate struct {
+	// Name is a human-readable name for the module.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+func (BaseUpdate) isUpdateVariant() {}
+
+// AutomationUpdate is an Arc that runs on a rack as a task.
+type AutomationUpdate struct {
+	// Name is a human-readable name for the module.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+func (AutomationUpdate) isUpdateVariant() {}
+
+// ModuleUpdate is an Arc that holds code for other Arcs to import.
+type ModuleUpdate struct {
+	// Name is a human-readable name for the module.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+func (ModuleUpdate) isUpdateVariant() {}
+
+// Update holds changes to the fields of the arc. A type that differs from the stored
+// one changes the variant.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case AutomationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			AutomationUpdate
+		}{Type: TypeAutomation, AutomationUpdate: v})
+	case ModuleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			ModuleUpdate
+		}{Type: TypeModule, ModuleUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Type `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v BaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TypeAutomation:
+		var v struct {
+			Type Type `json:"type"`
+			AutomationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AutomationUpdate
+	case TypeModule:
+		var v struct {
+			Type Type `json:"type"`
+			ModuleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ModuleUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Update) Type() Type {
+	switch u.Variant.(type) {
+	case AutomationUpdate:
+		return TypeAutomation
+	case ModuleUpdate:
+		return TypeModule
+	}
+	return ""
+}

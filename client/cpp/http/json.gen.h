@@ -410,7 +410,8 @@ inline WriteEndpointUpdate WriteEndpointUpdate::parse(x::json::Parser parser) {
             std::optional<::x::patch::Struct<ChannelFieldUpdate, ChannelField>>>(
             "channel"
         ),
-        .fields = parser.field<std::optional<::x::patch::ValueList<WriteField>>>(
+        .fields = parser.field<
+            std::optional<::x::patch::List<WriteField, std::string, WriteFieldUpdate>>>(
             "fields"
         ),
     };
@@ -488,6 +489,20 @@ inline x::json::json ChannelFieldUpdate::to_json() const {
     return j;
 }
 
+inline WriteFieldBaseUpdate WriteFieldBaseUpdate::parse(x::json::Parser parser) {
+    return WriteFieldBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .pointer = parser.field<std::optional<std::string>>("pointer"),
+    };
+}
+
+inline x::json::json WriteFieldBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->pointer.has_value()) j["pointer"] = *this->pointer;
+    return j;
+}
+
 inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
     StaticWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
@@ -526,6 +541,47 @@ inline x::json::json GeneratedWriteField::to_json() const {
     return j;
 }
 
+inline StaticWriteFieldUpdate StaticWriteFieldUpdate::parse(x::json::Parser parser) {
+    StaticWriteFieldUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.pointer = parser.field<std::optional<std::string>>("pointer");
+    result.json_type = parser.field<std::optional<std::string>>("json_type");
+    result.value = parser.field<std::optional<x::json::json>>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StaticWriteFieldUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->pointer.has_value()) j["pointer"] = *this->pointer;
+    if (this->json_type.has_value()) j["json_type"] = *this->json_type;
+    if (this->value.has_value()) j["value"] = *this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline GeneratedWriteFieldUpdate
+GeneratedWriteFieldUpdate::parse(x::json::Parser parser) {
+    GeneratedWriteFieldUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.pointer = parser.field<std::optional<std::string>>("pointer");
+    result.generator = parser.field<std::optional<std::string>>("generator");
+    result.time_format = ::x::patch::Change<std::string>::parse(parser, "time_format");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json GeneratedWriteFieldUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->pointer.has_value()) j["pointer"] = *this->pointer;
+    if (this->generator.has_value()) j["generator"] = *this->generator;
+    this->time_format.to_json(j, "time_format");
+    j["type"] = this->type;
+    return j;
+}
+
 inline WriteField parse_write_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "static") return StaticWriteField::parse(parser);
@@ -535,6 +591,19 @@ inline WriteField parse_write_field(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteFieldUpdate parse_write_field_update(x::json::Parser parser) {
+    if (!parser.has("type")) return WriteFieldBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "static") return StaticWriteFieldUpdate::parse(parser);
+    if (discriminator == "generated") return GeneratedWriteFieldUpdate::parse(parser);
+    parser.field_err("type", "unknown WriteFieldUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteFieldUpdate &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

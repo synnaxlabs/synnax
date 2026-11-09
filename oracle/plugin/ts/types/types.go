@@ -3650,7 +3650,7 @@ export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
 {{ if .Doc -}}
 {{ formatDoc .TSName .Doc }}
 {{ end -}}
-export const {{ .SchemaName }}{{ if and .Annotated $.GenerateTypes }}: z.ZodType<{{ .TSName }}>{{ end }} = z.discriminatedUnion("{{ .Discriminator }}", [
+export const {{ .SchemaName }}{{ if and .Annotated $.GenerateTypes }}: z.ZodType<{{ .TSName }}>{{ end }} = {{ if .UntaggedSchema }}z.union([{{ .UntaggedSchema }}.strict(), {{ end }}z.discriminatedUnion("{{ .Discriminator }}", [
 {{- $lazy := .LazyVariants }}
 {{- range .Variants }}
 {{- if $lazy }}
@@ -3659,9 +3659,9 @@ export const {{ .SchemaName }}{{ if and .Annotated $.GenerateTypes }}: z.ZodType
   {{ .SchemaName }},
 {{- end }}
 {{- end }}
-]);
+]){{ if .UntaggedSchema }}]){{ end }};
 {{- if $.GenerateTypes }}
-export type {{ .TSName }} = {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.TypeName }}{{ end }};
+export type {{ .TSName }} = {{ if .UntaggedType }}({{ .UntaggedType }} & { {{ range .UntaggedNever }}{{ . }}?: never; {{ end }}}) | {{ end }}{{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.TypeName }}{{ end }};
 {{- end }}
 
 export const {{ .SchemasConst }}: {

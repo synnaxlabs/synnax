@@ -49,6 +49,7 @@ struct InsertCharPayload;
 struct DeleteCharPayload;
 struct ForgetCharsPayload;
 struct SetDirectoryPayload;
+struct BaseUpdate;
 struct Where;
 struct Cursor;
 struct Order;
@@ -190,6 +191,16 @@ struct SetDirectoryPayload {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief BaseUpdate holds changes to the fields of the arc. An absent field does not
+/// change.
+struct BaseUpdate {
+    /// @brief name is a human-readable name for the module.
+    std::optional<std::string> name;
+
+    static BaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Where is a filter that selects Arcs.
 struct Where {
     /// @brief and_ matches when every child matches.
@@ -298,6 +309,33 @@ Source parse_source(x::json::Parser parser);
 to_proto(const Source &value);
 std::pair<Source, x::errors::Error>
 source_from_proto(const ::service::arc::pb::Source &pb);
+
+/// @brief AutomationUpdate is an Arc that runs on a rack as a task.
+struct AutomationUpdate {
+    std::string type = TYPE_AUTOMATION;
+    /// @brief name is a human-readable name for the module.
+    std::optional<std::string> name;
+
+    static AutomationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ModuleUpdate is an Arc that holds code for other Arcs to import.
+struct ModuleUpdate {
+    std::string type = TYPE_MODULE;
+    /// @brief name is a human-readable name for the module.
+    std::optional<std::string> name;
+
+    static ModuleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update holds changes to the fields of the arc. A type that differs from the
+/// stored one changes the variant.
+using Update = std::variant<BaseUpdate, AutomationUpdate, ModuleUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 /// @brief Order is a sort of arcs.
 struct Order {
@@ -486,4 +524,51 @@ const synnax::resource::ID TYPE_RESOURCE_ID("arc", "");
 inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("arc", key.to_string());
 }
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::arc::Source> {
+    static ::synnax::arc::Source parse(Parser parser) {
+        return ::synnax::arc::parse_source(parser);
+    }
+
+    static json to_json(const ::synnax::arc::Source &value) {
+        return ::synnax::arc::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::arc::Update> {
+    static ::synnax::arc::Update parse(Parser parser) {
+        return ::synnax::arc::parse_update(parser);
+    }
+
+    static json to_json(const ::synnax::arc::Update &value) {
+        return ::synnax::arc::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::arc::Arc> {
+    static ::synnax::arc::Arc parse(Parser parser) {
+        return ::synnax::arc::parse_arc(parser);
+    }
+
+    static json to_json(const ::synnax::arc::Arc &value) {
+        return ::synnax::arc::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::arc::Action> {
+    static ::synnax::arc::Action parse(Parser parser) {
+        return ::synnax::arc::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::arc::Action &value) {
+        return ::synnax::arc::to_json(value);
+    }
+};
 }

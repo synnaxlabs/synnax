@@ -141,7 +141,9 @@ export const recordUpdateZ = z.object({
   /** timeFormat is the encoding of the sample timestamp. */
   timeFormat: http.timeFormatZ.optional(),
   /** fields contains additional static or generated record fields. */
-  fields: patch.valueListZ(http.writeFieldZ).optional(),
+  fields: patch
+    .listZ({ e: http.writeFieldZ, k: z.string(), u: http.writeFieldUpdateZ })
+    .optional(),
 });
 export interface RecordUpdate extends z.infer<typeof recordUpdateZ> {}
 

@@ -344,7 +344,7 @@ type RecordUpdate struct {
 	// TimeFormat is the encoding of the sample timestamp.
 	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// Fields contains additional static or generated record fields.
-	Fields *patch.ValueList[http.WriteField] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+	Fields *patch.List[http.WriteField, string, http.WriteFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder.

@@ -31,9 +31,11 @@ struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
 struct ScanConfigUpdate;
+struct ReadChannelBaseUpdate;
+struct WriteChannelBaseUpdate;
 struct ReadConfig;
-struct ReadConfigUpdate;
 struct WriteConfig;
+struct ReadConfigUpdate;
 struct WriteConfigUpdate;
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
@@ -94,6 +96,48 @@ struct ScanConfigUpdate {
     std::optional<bool> disabled;
 
     static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelBaseUpdate holds changes to the fields of the read channel. An
+/// absent field does not change.
+struct ReadChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief device is the key of the slave device the channel reads from.
+    std::optional<::synnax::device::Key> device;
+
+    static ReadChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelBaseUpdate holds changes to the fields of the write channel. An
+/// absent field does not change.
+struct WriteChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief device is the key of the slave device the channel writes to.
+    std::optional<::synnax::device::Key> device;
+
+    static WriteChannelBaseUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -183,6 +227,132 @@ WriteChannel parse_write_channel(x::json::Parser parser);
     );
 }
 
+/// @brief EntryReadChannelUpdate addresses a PDO entry by its CoE index and sub-index.
+struct EntryReadChannelUpdate {
+    std::string type = "entry";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief device is the key of the slave device the channel reads from.
+    std::optional<::synnax::device::Key> device;
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::optional<std::uint16_t> index;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::optional<std::uint8_t> sub_index;
+    /// @brief data_type is the data type of the PDO entry.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
+    /// channel writes to a float Synnax channel.
+    std::optional<::synnax::task::ScaleUpdate> scale;
+
+    static EntryReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnresolvedReadChannelUpdate is a channel whose PDO entry name matched no
+/// single entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedReadChannelUpdate {
+    std::string type = "unresolved";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief device is the key of the slave device the channel reads from.
+    std::optional<::synnax::device::Key> device;
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::optional<std::string> pdo;
+
+    static UnresolvedReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelUpdate holds changes to the fields of the read channel. A type
+/// that differs from the stored one changes the variant.
+using ReadChannelUpdate = std::
+    variant<ReadChannelBaseUpdate, EntryReadChannelUpdate, UnresolvedReadChannelUpdate>;
+
+ReadChannelUpdate parse_read_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannelUpdate &value);
+
+/// @brief EntryWriteChannelUpdate addresses a PDO entry by its CoE index and sub-index.
+struct EntryWriteChannelUpdate {
+    std::string type = "entry";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief device is the key of the slave device the channel writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::optional<std::uint16_t> index;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::optional<std::uint8_t> sub_index;
+    /// @brief data_type is the data type of the PDO entry.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief stop_value is the value the entry takes when the task stops. The bus
+    /// sends it before the slaves leave OP.
+    std::optional<double> stop_value;
+
+    static EntryWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnresolvedWriteChannelUpdate is a channel whose PDO entry name matched no
+/// single entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedWriteChannelUpdate {
+    std::string type = "unresolved";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief device is the key of the slave device the channel writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::optional<std::string> pdo;
+
+    static UnresolvedWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelUpdate holds changes to the fields of the write channel. A type
+/// that differs from the stored one changes the variant.
+using WriteChannelUpdate = std::variant<
+    WriteChannelBaseUpdate,
+    EntryWriteChannelUpdate,
+    UnresolvedWriteChannelUpdate>;
+
+WriteChannelUpdate parse_write_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannelUpdate &value);
+
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
 struct ReadConfig : public ::synnax::task::ReadConfig {
@@ -190,6 +360,22 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     std::vector<ReadChannel> channels;
 
     static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
+/// entry on its own slave; all slaves must share one network interface.
+struct WriteConfig : public ::synnax::task::PersistConfig {
+    /// @brief state_rate is the rate at which output state is reported to Synnax, in
+    /// Hertz.
+    ::x::telem::Rate state_rate = ::x::telem::Rate(25);
+    /// @brief execution_rate is the rate at which commands are applied to the bus, in
+    /// Hertz.
+    ::x::telem::Rate execution_rate = ::x::telem::Rate(1000);
+    /// @brief channels are the channels the task drives.
+    std::vector<WriteChannel> channels;
+
+    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -210,25 +396,10 @@ struct ReadConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> stream_rate;
     /// @brief channels are the channels the task acquires.
-    std::optional<::x::patch::ValueList<ReadChannel>> channels;
+    std::optional<::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>
+        channels;
 
     static ReadConfigUpdate parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
-/// entry on its own slave; all slaves must share one network interface.
-struct WriteConfig : public ::synnax::task::PersistConfig {
-    /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// Hertz.
-    ::x::telem::Rate state_rate = ::x::telem::Rate(25);
-    /// @brief execution_rate is the rate at which commands are applied to the bus, in
-    /// Hertz.
-    ::x::telem::Rate execution_rate = ::x::telem::Rate(1000);
-    /// @brief channels are the channels the task drives.
-    std::vector<WriteChannel> channels;
-
-    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -250,9 +421,57 @@ struct WriteConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> execution_rate;
     /// @brief channels are the channels the task drives.
-    std::optional<::x::patch::ValueList<WriteChannel>> channels;
+    std::optional<::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>
+        channels;
 
     static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+};
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::ethercat::ReadChannel> {
+    static ::synnax::ethercat::ReadChannel parse(Parser parser) {
+        return ::synnax::ethercat::parse_read_channel(parser);
+    }
+
+    static json to_json(const ::synnax::ethercat::ReadChannel &value) {
+        return ::synnax::ethercat::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ethercat::WriteChannel> {
+    static ::synnax::ethercat::WriteChannel parse(Parser parser) {
+        return ::synnax::ethercat::parse_write_channel(parser);
+    }
+
+    static json to_json(const ::synnax::ethercat::WriteChannel &value) {
+        return ::synnax::ethercat::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ethercat::ReadChannelUpdate> {
+    static ::synnax::ethercat::ReadChannelUpdate parse(Parser parser) {
+        return ::synnax::ethercat::parse_read_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::ethercat::ReadChannelUpdate &value) {
+        return ::synnax::ethercat::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ethercat::WriteChannelUpdate> {
+    static ::synnax::ethercat::WriteChannelUpdate parse(Parser parser) {
+        return ::synnax::ethercat::parse_write_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::ethercat::WriteChannelUpdate &value) {
+        return ::synnax::ethercat::to_json(value);
+    }
 };
 }

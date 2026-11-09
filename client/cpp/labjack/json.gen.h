@@ -185,9 +185,8 @@ inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
         .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
         .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<ReadChannel>>>(
-            "channels"
-        ),
+        .channels = parser.field<std::optional<
+            ::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>>("channels"),
         .device_scan_backlog_warn_on_count = ::x::patch::Change<std::uint32_t>::parse(
             parser,
             "device_scan_backlog_warn_on_count"
@@ -226,7 +225,8 @@ inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
         ),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
         .state_rate = parser.field<std::optional<::x::telem::Rate>>("state_rate"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<WriteChannel>>>(
+        .channels = parser.field<std::optional<
+            ::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>>(
             "channels"
         ),
     };
@@ -262,6 +262,60 @@ inline x::json::json ScanConfigUpdate::to_json() const {
     if (this->disabled.has_value()) j["disabled"] = *this->disabled;
     if (this->tcp_scan_multiplier.has_value())
         j["tcp_scan_multiplier"] = *this->tcp_scan_multiplier;
+    return j;
+}
+
+inline ReadChannelBaseUpdate ReadChannelBaseUpdate::parse(x::json::Parser parser) {
+    return ReadChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .port = parser.field<std::optional<std::string>>("port"),
+    };
+}
+
+inline x::json::json ReadChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    return j;
+}
+
+inline WriteChannelBaseUpdate WriteChannelBaseUpdate::parse(x::json::Parser parser) {
+    return WriteChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "cmd_channel"
+        ),
+        .state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "state_channel"
+        ),
+        .cmd_channel_name = parser.field<std::optional<std::string>>(
+            "cmd_channel_name"
+        ),
+        .state_channel_name = parser.field<std::optional<std::string>>(
+            "state_channel_name"
+        ),
+        .port = parser.field<std::optional<std::string>>("port"),
+    };
+}
+
+inline x::json::json WriteChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
     return j;
 }
 
@@ -374,6 +428,179 @@ inline x::json::json DigitalWriteChannel::to_json() const {
     return j;
 }
 
+inline AnalogReadChannelUpdate AnalogReadChannelUpdate::parse(x::json::Parser parser) {
+    AnalogReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::string>>("port");
+    result.range = parser.field<std::optional<double>>("range");
+    result.neg_chan = ::x::patch::Change<std::uint16_t>::parse(parser, "neg_chan");
+    result.scale = parser.has("scale")
+                     ? std::optional<::synnax::task::ScaleUpdate>(
+                           ::synnax::task::parse_scale_update(parser.child("scale"))
+                       )
+                     : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AnalogReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->range.has_value()) j["range"] = *this->range;
+    this->neg_chan.to_json(j, "neg_chan");
+    if (this->scale.has_value()) j["scale"] = ::synnax::task::to_json(*this->scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline DigitalReadChannelUpdate
+DigitalReadChannelUpdate::parse(x::json::Parser parser) {
+    DigitalReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::string>>("port");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json DigitalReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ThermocoupleReadChannelUpdate
+ThermocoupleReadChannelUpdate::parse(x::json::Parser parser) {
+    ThermocoupleReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.port = parser.field<std::optional<std::string>>("port");
+    result.thermocouple_type = parser.field<std::optional<std::string>>(
+        "thermocouple_type"
+    );
+    result.neg_chan = ::x::patch::Change<std::uint16_t>::parse(parser, "neg_chan");
+    result.cjc_source = parser.field<std::optional<std::string>>("cjc_source");
+    result.cjc_slope = parser.field<std::optional<double>>("cjc_slope");
+    result.cjc_offset = parser.field<std::optional<double>>("cjc_offset");
+    result.units = parser.field<std::optional<std::string>>("units");
+    result.scale = parser.has("scale")
+                     ? std::optional<::synnax::task::ScaleUpdate>(
+                           ::synnax::task::parse_scale_update(parser.child("scale"))
+                       )
+                     : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ThermocoupleReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->port.has_value()) j["port"] = *this->port;
+    if (this->thermocouple_type.has_value())
+        j["thermocouple_type"] = *this->thermocouple_type;
+    this->neg_chan.to_json(j, "neg_chan");
+    if (this->cjc_source.has_value()) j["cjc_source"] = *this->cjc_source;
+    if (this->cjc_slope.has_value()) j["cjc_slope"] = *this->cjc_slope;
+    if (this->cjc_offset.has_value()) j["cjc_offset"] = *this->cjc_offset;
+    if (this->units.has_value()) j["units"] = *this->units;
+    if (this->scale.has_value()) j["scale"] = ::synnax::task::to_json(*this->scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AnalogWriteChannelUpdate
+AnalogWriteChannelUpdate::parse(x::json::Parser parser) {
+    AnalogWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.port = parser.field<std::optional<std::string>>("port");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AnalogWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["type"] = this->type;
+    return j;
+}
+
+inline DigitalWriteChannelUpdate
+DigitalWriteChannelUpdate::parse(x::json::Parser parser) {
+    DigitalWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.port = parser.field<std::optional<std::string>>("port");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json DigitalWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["type"] = this->type;
+    return j;
+}
+
 inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "analog") return AnalogReadChannel::parse(parser);
@@ -396,6 +623,34 @@ inline WriteChannel parse_write_channel(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteChannel &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ReadChannelUpdate parse_read_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return ReadChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "analog") return AnalogReadChannelUpdate::parse(parser);
+    if (discriminator == "digital") return DigitalReadChannelUpdate::parse(parser);
+    if (discriminator == "thermocouple")
+        return ThermocoupleReadChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown ReadChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ReadChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteChannelUpdate parse_write_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return WriteChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "analog") return AnalogWriteChannelUpdate::parse(parser);
+    if (discriminator == "digital") return DigitalWriteChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown WriteChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteChannelUpdate &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

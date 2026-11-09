@@ -126,6 +126,9 @@ inline x::json::json {{.Name}}::to_json() const {
 {{- $u := .}}
 
 inline {{.Name}} parse_{{.SnakeName}}(x::json::Parser parser) {
+{{- if .Untagged}}
+    if (!parser.has("{{.DiscJSON}}")) return {{.Untagged}}::parse(parser);
+{{- end}}
     const auto discriminator = parser.field<std::string>("{{.DiscJSON}}");
 {{- range .Variants}}
 {{- if $u.Adjacent}}

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypedDict, override as _override
+from typing import Annotated, Literal, Required, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -125,6 +125,43 @@ class ScanConfigUpdate(TypedDict, total=False):
     disabled: bool
 
 
+class ReadChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that samples are written to.
+        address: Is the Modbus address the channel reads from.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+
+
+class WriteChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write channel. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from the task.
+        channel: Is the Synnax channel commands are read from.
+        address: Is the Modbus address the channel writes to.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+
+
 class CoilWriteChannel(BaseWriteChannel):
     """Writes a single bit to a coil."""
 
@@ -214,6 +251,168 @@ ReadChannel = Annotated[
 ]
 
 
+class CoilReadChannelUpdate(TypedDict, total=False):
+    """Reads a single bit from a coil."""
+
+    type: Required[Literal["coil"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+
+
+class DiscreteInputReadChannelUpdate(TypedDict, total=False):
+    """Reads a single bit from a discrete input."""
+
+    type: Required[Literal["discrete_input"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+
+
+class HoldingRegisterReadChannelUpdate(TypedDict, total=False):
+    """Reads a typed value from one or more holding registers."""
+
+    type: Required[Literal["holding_register"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    data_type: telem.DataType
+    bytes_swapped: patch.Change[bool]
+    words_swapped: patch.Change[bool]
+
+
+class InputRegisterReadChannelUpdate(TypedDict, total=False):
+    """Reads a typed value from one or more input registers."""
+
+    type: Required[Literal["input_register"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    data_type: telem.DataType
+    bytes_swapped: patch.Change[bool]
+    words_swapped: patch.Change[bool]
+
+
+class HoldingRegisterStringReadChannelUpdate(TypedDict, total=False):
+    """Reads a string from consecutive holding registers."""
+
+    type: Required[Literal["holding_register_string"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    length: int
+    bytes_swapped: patch.Change[bool]
+
+
+class InputRegisterStringReadChannelUpdate(TypedDict, total=False):
+    """Reads a string from consecutive input registers."""
+
+    type: Required[Literal["input_register_string"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    length: int
+    bytes_swapped: patch.Change[bool]
+
+
+class HoldingRegisterBitReadChannelUpdate(TypedDict, total=False):
+    """Reads one bit of a holding register."""
+
+    type: Required[Literal["holding_register_bit"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    bit: int
+
+
+class InputRegisterBitReadChannelUpdate(TypedDict, total=False):
+    """Reads one bit of an input register."""
+
+    type: Required[Literal["input_register_bit"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    bit: int
+
+
+# Holds changes to the fields of the read channel. A type that differs from the stored
+# one changes the variant.
+ReadChannelUpdate = (
+    ReadChannelBaseUpdate
+    | CoilReadChannelUpdate
+    | DiscreteInputReadChannelUpdate
+    | HoldingRegisterReadChannelUpdate
+    | InputRegisterReadChannelUpdate
+    | HoldingRegisterStringReadChannelUpdate
+    | InputRegisterStringReadChannelUpdate
+    | HoldingRegisterBitReadChannelUpdate
+    | InputRegisterBitReadChannelUpdate
+)
+
+
+class CoilWriteChannelUpdate(TypedDict, total=False):
+    """Writes a single bit to a coil."""
+
+    type: Required[Literal["coil"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+
+
+class HoldingRegisterWriteChannelUpdate(TypedDict, total=False):
+    """Writes a typed value to one or more holding registers."""
+
+    type: Required[Literal["holding_register"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    data_type: telem.DataType
+    bytes_swapped: patch.Change[bool]
+    words_swapped: patch.Change[bool]
+
+
+class HoldingRegisterBitWriteChannelUpdate(TypedDict, total=False):
+    """Writes one bit of a holding register."""
+
+    type: Required[Literal["holding_register_bit"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    address: int
+    bit: int
+
+
+# Holds changes to the fields of the write channel. A type that differs from the stored
+# one changes the variant.
+WriteChannelUpdate = (
+    WriteChannelBaseUpdate
+    | CoilWriteChannelUpdate
+    | HoldingRegisterWriteChannelUpdate
+    | HoldingRegisterBitWriteChannelUpdate
+)
+
+
 class WriteConfig(task.WriteConfig):
     """Configures a Modbus write task.
 
@@ -226,24 +425,6 @@ class WriteConfig(task.WriteConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class WriteConfigUpdate(TypedDict, total=False):
-    """Holds changes to the fields of the write config. An absent field does not change.
-
-    Attributes:
-        key: Is the unique identifier for the stored configuration record.
-        auto_start: Is true when the task should start as soon as it is configured.
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
-        device: Is the key of the device the task writes to.
-        channels: Are the channels the task drives.
-    """
-
-    key: UUID
-    auto_start: bool
-    data_saving_disabled: bool
-    device: device_.Key
-    channels: patch.ValueListDict[WriteChannel]
 
 
 class ReadConfig(task.ReadConfig):
@@ -281,4 +462,22 @@ class ReadConfigUpdate(TypedDict, total=False):
     sample_rate: telem.Rate
     stream_rate: telem.Rate
     device: device_.Key
-    channels: patch.ValueListDict[ReadChannel]
+    channels: patch.ListDict[ReadChannel, str, ReadChannelUpdate]
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        channels: Are the channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    channels: patch.ListDict[WriteChannel, str, WriteChannelUpdate]

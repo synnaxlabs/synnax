@@ -575,6 +575,24 @@ struct has_static_parse<
 template<typename T>
 inline constexpr bool has_static_parse_v = has_static_parse<T>::value;
 
+/// @brief Codec parses and writes a type that holds no parse or to_json member, such as
+/// a union. Generated code specializes it for each union before any use.
+template<typename T>
+struct Codec {};
+
+template<typename T, typename = void>
+struct has_codec : std::false_type {};
+
+template<typename T>
+struct has_codec<
+    T,
+    std::enable_if_t<
+        std::is_same_v<T, decltype(Codec<T>::parse(std::declval<Parser>()))>>>
+    : std::true_type {};
+
+template<typename T>
+inline constexpr bool has_codec_v = has_codec<T>::value;
+
 template<typename T>
 inline constexpr bool
     is_parser_constructible_v = std::is_constructible_v<T, Parser> ||
@@ -631,6 +649,9 @@ T Parser::parse_value(const std::string &path, const json &j) {
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
+    } else if constexpr (has_codec_v<T>) {
+        const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
+        return Codec<T>::parse(Parser(j, errors, child_prefix));
     } else if constexpr (is_parseable_v<T>) {
         const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
         Parser child_parser(j, errors, child_prefix);
@@ -692,13 +713,16 @@ template<typename T>
 inline constexpr bool has_to_json_v = has_to_json<T>::value;
 
 /// @brief Converts a value to JSON. A value with a to_json() method has it called, a
-/// std::monostate becomes null, and any other value is assigned directly.
+/// std::monostate becomes null, a type with a Codec is written by it, and any other
+/// value is assigned directly.
 template<typename T>
 json to_json(const T &value) {
     if constexpr (std::is_same_v<T, std::monostate>)
         return nullptr;
     else if constexpr (has_to_json_v<T>)
         return value.to_json();
+    else if constexpr (has_codec_v<T>)
+        return Codec<T>::to_json(value);
     else
         return value;
 }

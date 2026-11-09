@@ -21,6 +21,7 @@
 #include "client/cpp/modbus/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/json.gen.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
@@ -203,9 +204,8 @@ inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
         .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
         .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<ReadChannel>>>(
-            "channels"
-        ),
+        .channels = parser.field<std::optional<
+            ::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>>("channels"),
     };
 }
 
@@ -230,7 +230,8 @@ inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
             "data_saving_disabled"
         ),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<WriteChannel>>>(
+        .channels = parser.field<std::optional<
+            ::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>>(
             "channels"
         ),
     };
@@ -260,6 +261,46 @@ inline x::json::json ScanConfigUpdate::to_json() const {
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->rate.has_value()) j["rate"] = *this->rate;
     if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    return j;
+}
+
+inline ReadChannelBaseUpdate ReadChannelBaseUpdate::parse(x::json::Parser parser) {
+    return ReadChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .address = parser.field<std::optional<std::uint16_t>>("address"),
+    };
+}
+
+inline x::json::json ReadChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    return j;
+}
+
+inline WriteChannelBaseUpdate WriteChannelBaseUpdate::parse(x::json::Parser parser) {
+    return WriteChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .address = parser.field<std::optional<std::uint16_t>>("address"),
+    };
+}
+
+inline x::json::json WriteChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
     return j;
 }
 
@@ -461,6 +502,289 @@ inline x::json::json HoldingRegisterBitWriteChannel::to_json() const {
     return j;
 }
 
+inline CoilReadChannelUpdate CoilReadChannelUpdate::parse(x::json::Parser parser) {
+    CoilReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CoilReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    j["type"] = this->type;
+    return j;
+}
+
+inline DiscreteInputReadChannelUpdate
+DiscreteInputReadChannelUpdate::parse(x::json::Parser parser) {
+    DiscreteInputReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json DiscreteInputReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterReadChannelUpdate
+HoldingRegisterReadChannelUpdate::parse(x::json::Parser parser) {
+    HoldingRegisterReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.bytes_swapped = ::x::patch::Change<bool>::parse(parser, "bytes_swapped");
+    result.words_swapped = ::x::patch::Change<bool>::parse(parser, "words_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    this->bytes_swapped.to_json(j, "bytes_swapped");
+    this->words_swapped.to_json(j, "words_swapped");
+    j["type"] = this->type;
+    return j;
+}
+
+inline InputRegisterReadChannelUpdate
+InputRegisterReadChannelUpdate::parse(x::json::Parser parser) {
+    InputRegisterReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.bytes_swapped = ::x::patch::Change<bool>::parse(parser, "bytes_swapped");
+    result.words_swapped = ::x::patch::Change<bool>::parse(parser, "words_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json InputRegisterReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    this->bytes_swapped.to_json(j, "bytes_swapped");
+    this->words_swapped.to_json(j, "words_swapped");
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterStringReadChannelUpdate
+HoldingRegisterStringReadChannelUpdate::parse(x::json::Parser parser) {
+    HoldingRegisterStringReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.length = parser.field<std::optional<std::uint16_t>>("length");
+    result.bytes_swapped = ::x::patch::Change<bool>::parse(parser, "bytes_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterStringReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->length.has_value()) j["length"] = *this->length;
+    this->bytes_swapped.to_json(j, "bytes_swapped");
+    j["type"] = this->type;
+    return j;
+}
+
+inline InputRegisterStringReadChannelUpdate
+InputRegisterStringReadChannelUpdate::parse(x::json::Parser parser) {
+    InputRegisterStringReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.length = parser.field<std::optional<std::uint16_t>>("length");
+    result.bytes_swapped = ::x::patch::Change<bool>::parse(parser, "bytes_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json InputRegisterStringReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->length.has_value()) j["length"] = *this->length;
+    this->bytes_swapped.to_json(j, "bytes_swapped");
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterBitReadChannelUpdate
+HoldingRegisterBitReadChannelUpdate::parse(x::json::Parser parser) {
+    HoldingRegisterBitReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.bit = parser.field<std::optional<std::uint8_t>>("bit");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterBitReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->bit.has_value()) j["bit"] = *this->bit;
+    j["type"] = this->type;
+    return j;
+}
+
+inline InputRegisterBitReadChannelUpdate
+InputRegisterBitReadChannelUpdate::parse(x::json::Parser parser) {
+    InputRegisterBitReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.bit = parser.field<std::optional<std::uint8_t>>("bit");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json InputRegisterBitReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->bit.has_value()) j["bit"] = *this->bit;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CoilWriteChannelUpdate CoilWriteChannelUpdate::parse(x::json::Parser parser) {
+    CoilWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CoilWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterWriteChannelUpdate
+HoldingRegisterWriteChannelUpdate::parse(x::json::Parser parser) {
+    HoldingRegisterWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.bytes_swapped = ::x::patch::Change<bool>::parse(parser, "bytes_swapped");
+    result.words_swapped = ::x::patch::Change<bool>::parse(parser, "words_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    this->bytes_swapped.to_json(j, "bytes_swapped");
+    this->words_swapped.to_json(j, "words_swapped");
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterBitWriteChannelUpdate
+HoldingRegisterBitWriteChannelUpdate::parse(x::json::Parser parser) {
+    HoldingRegisterBitWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.address = parser.field<std::optional<std::uint16_t>>("address");
+    result.bit = parser.field<std::optional<std::uint8_t>>("bit");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterBitWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->address.has_value()) j["address"] = *this->address;
+    if (this->bit.has_value()) j["bit"] = *this->bit;
+    j["type"] = this->type;
+    return j;
+}
+
 inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "coil") return CoilReadChannel::parse(parser);
@@ -498,6 +822,48 @@ inline WriteChannel parse_write_channel(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteChannel &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ReadChannelUpdate parse_read_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return ReadChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "coil") return CoilReadChannelUpdate::parse(parser);
+    if (discriminator == "discrete_input")
+        return DiscreteInputReadChannelUpdate::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterReadChannelUpdate::parse(parser);
+    if (discriminator == "input_register")
+        return InputRegisterReadChannelUpdate::parse(parser);
+    if (discriminator == "holding_register_string")
+        return HoldingRegisterStringReadChannelUpdate::parse(parser);
+    if (discriminator == "input_register_string")
+        return InputRegisterStringReadChannelUpdate::parse(parser);
+    if (discriminator == "holding_register_bit")
+        return HoldingRegisterBitReadChannelUpdate::parse(parser);
+    if (discriminator == "input_register_bit")
+        return InputRegisterBitReadChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown ReadChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ReadChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteChannelUpdate parse_write_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return WriteChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "coil") return CoilWriteChannelUpdate::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterWriteChannelUpdate::parse(parser);
+    if (discriminator == "holding_register_bit")
+        return HoldingRegisterBitWriteChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown WriteChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteChannelUpdate &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

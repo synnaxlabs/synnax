@@ -163,7 +163,7 @@ class RecordUpdate(TypedDict, total=False):
     channel_pointer: patch.Change[str]
     timestamp_pointer: patch.Change[str]
     time_format: http.TimeFormat
-    fields: patch.ValueListDict[http.WriteField]
+    fields: patch.ListDict[http.WriteField, str, http.WriteFieldUpdate]
 
 
 class WriteChannelUpdate(TypedDict, total=False):

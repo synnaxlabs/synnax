@@ -310,6 +310,18 @@ inline x::json::json RetrieveResponse::to_json() const {
     return j;
 }
 
+inline BaseUpdate BaseUpdate::parse(x::json::Parser parser) {
+    return BaseUpdate{
+        .name = parser.field<std::optional<std::string>>("name"),
+    };
+}
+
+inline x::json::json BaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
 inline TextSource TextSource::parse(x::json::Parser parser) {
     TextSource result;
     result.text = parser.field<::arc::text::Text>("text", ::arc::text::Text{});
@@ -364,6 +376,34 @@ inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
 inline x::json::json ModuleArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline AutomationUpdate AutomationUpdate::parse(x::json::Parser parser) {
+    AutomationUpdate result;
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AutomationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ModuleUpdate ModuleUpdate::parse(x::json::Parser parser) {
+    ModuleUpdate result;
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ModuleUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
     j["type"] = this->type;
     return j;
 }
@@ -449,6 +489,19 @@ inline x::json::json to_json(const Action &value) {
     j["type"] = discriminator;
     j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
     return j;
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    if (!parser.has("type")) return BaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "automation") return AutomationUpdate::parse(parser);
+    if (discriminator == "module") return ModuleUpdate::parse(parser);
+    parser.field_err("type", "unknown Update type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

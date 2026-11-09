@@ -175,9 +175,8 @@ inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
         ),
         .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
         .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
-        .channels = parser.field<std::optional<::x::patch::ValueList<ReadChannel>>>(
-            "channels"
-        ),
+        .channels = parser.field<std::optional<
+            ::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>>("channels"),
     };
 }
 
@@ -204,7 +203,8 @@ inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
         .execution_rate = parser.field<std::optional<::x::telem::Rate>>(
             "execution_rate"
         ),
-        .channels = parser.field<std::optional<::x::patch::ValueList<WriteChannel>>>(
+        .channels = parser.field<std::optional<
+            ::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>>(
             "channels"
         ),
     };
@@ -235,6 +235,62 @@ inline x::json::json ScanConfigUpdate::to_json() const {
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->rate.has_value()) j["rate"] = *this->rate;
     if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    return j;
+}
+
+inline ReadChannelBaseUpdate ReadChannelBaseUpdate::parse(x::json::Parser parser) {
+    return ReadChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+    };
+}
+
+inline x::json::json ReadChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->device.has_value()) j["device"] = *this->device;
+    return j;
+}
+
+inline WriteChannelBaseUpdate WriteChannelBaseUpdate::parse(x::json::Parser parser) {
+    return WriteChannelBaseUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "cmd_channel"
+        ),
+        .state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "state_channel"
+        ),
+        .cmd_channel_name = parser.field<std::optional<std::string>>(
+            "cmd_channel_name"
+        ),
+        .state_channel_name = parser.field<std::optional<std::string>>(
+            "state_channel_name"
+        ),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+    };
+}
+
+inline x::json::json WriteChannelBaseUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->device.has_value()) j["device"] = *this->device;
     return j;
 }
 
@@ -320,6 +376,152 @@ inline x::json::json UnresolvedWriteChannel::to_json() const {
     return j;
 }
 
+inline EntryReadChannelUpdate EntryReadChannelUpdate::parse(x::json::Parser parser) {
+    EntryReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.index = parser.field<std::optional<std::uint16_t>>("index");
+    result.sub_index = parser.field<std::optional<std::uint8_t>>("sub_index");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.scale = parser.has("scale")
+                     ? std::optional<::synnax::task::ScaleUpdate>(
+                           ::synnax::task::parse_scale_update(parser.child("scale"))
+                       )
+                     : std::nullopt;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json EntryReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->index.has_value()) j["index"] = *this->index;
+    if (this->sub_index.has_value()) j["sub_index"] = *this->sub_index;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    if (this->scale.has_value()) j["scale"] = ::synnax::task::to_json(*this->scale);
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnresolvedReadChannelUpdate
+UnresolvedReadChannelUpdate::parse(x::json::Parser parser) {
+    UnresolvedReadChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.channel = parser.field<std::optional<::synnax::channel::Key>>("channel");
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.pdo = parser.field<std::optional<std::string>>("pdo");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnresolvedReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->pdo.has_value()) j["pdo"] = *this->pdo;
+    j["type"] = this->type;
+    return j;
+}
+
+inline EntryWriteChannelUpdate EntryWriteChannelUpdate::parse(x::json::Parser parser) {
+    EntryWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.index = parser.field<std::optional<std::uint16_t>>("index");
+    result.sub_index = parser.field<std::optional<std::uint8_t>>("sub_index");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.stop_value = parser.field<std::optional<double>>("stop_value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json EntryWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->index.has_value()) j["index"] = *this->index;
+    if (this->sub_index.has_value()) j["sub_index"] = *this->sub_index;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    if (this->stop_value.has_value()) j["stop_value"] = *this->stop_value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnresolvedWriteChannelUpdate
+UnresolvedWriteChannelUpdate::parse(x::json::Parser parser) {
+    UnresolvedWriteChannelUpdate result;
+    result.key = parser.field<std::string>("key");
+    result.name = parser.field<std::optional<std::string>>("name");
+    result.disabled = parser.field<std::optional<bool>>("disabled");
+    result.cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "cmd_channel"
+    );
+    result.state_channel = parser.field<std::optional<::synnax::channel::Key>>(
+        "state_channel"
+    );
+    result.cmd_channel_name = parser.field<std::optional<std::string>>(
+        "cmd_channel_name"
+    );
+    result.state_channel_name = parser.field<std::optional<std::string>>(
+        "state_channel_name"
+    );
+    result.device = parser.field<std::optional<::synnax::device::Key>>("device");
+    result.pdo = parser.field<std::optional<std::string>>("pdo");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnresolvedWriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
+    if (this->state_channel.has_value()) j["state_channel"] = *this->state_channel;
+    if (this->cmd_channel_name.has_value())
+        j["cmd_channel_name"] = *this->cmd_channel_name;
+    if (this->state_channel_name.has_value())
+        j["state_channel_name"] = *this->state_channel_name;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->pdo.has_value()) j["pdo"] = *this->pdo;
+    j["type"] = this->type;
+    return j;
+}
+
 inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "entry") return EntryReadChannel::parse(parser);
@@ -341,6 +543,34 @@ inline WriteChannel parse_write_channel(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteChannel &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ReadChannelUpdate parse_read_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return ReadChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "entry") return EntryReadChannelUpdate::parse(parser);
+    if (discriminator == "unresolved")
+        return UnresolvedReadChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown ReadChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ReadChannelUpdate &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteChannelUpdate parse_write_channel_update(x::json::Parser parser) {
+    if (!parser.has("type")) return WriteChannelBaseUpdate::parse(parser);
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "entry") return EntryWriteChannelUpdate::parse(parser);
+    if (discriminator == "unresolved")
+        return UnresolvedWriteChannelUpdate::parse(parser);
+    parser.field_err("type", "unknown WriteChannelUpdate type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteChannelUpdate &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

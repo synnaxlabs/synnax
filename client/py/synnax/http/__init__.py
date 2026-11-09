@@ -35,6 +35,7 @@ from synnax.http.types_gen import (
     WriteConfig,
     WriteEndpoint,
     WriteField,
+    WriteFieldUpdate,
 )
 
 __all__ = [
@@ -62,5 +63,6 @@ __all__ = [
     "WriteConfig",
     "WriteEndpoint",
     "WriteField",
+    "WriteFieldUpdate",
     "WriteTask",
 ]

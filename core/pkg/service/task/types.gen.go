@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 	"uuid"
@@ -468,4 +469,212 @@ type Update struct {
 	// ignored on writes from clients. Compare against a status's config_hash to detect
 	// drift.
 	ConfigHash *string `json:"config_hash,omitzero" msgpack:"config_hash,omitempty"`
+}
+
+// ScaleUpdateType is the "type" value that selects a variant of ScaleUpdate.
+type ScaleUpdateType string
+
+const (
+	// LinearScaleUpdateType maps raw values to engineering units with a slope and
+	// offset.
+	LinearScaleUpdateType ScaleUpdateType = "linear"
+	// MapScaleUpdateType maps a raw range linearly onto a scaled range.
+	MapScaleUpdateType ScaleUpdateType = "map"
+	// PolynomialScaleUpdateType maps raw values to engineering units with a polynomial.
+	PolynomialScaleUpdateType ScaleUpdateType = "polynomial"
+	// TableScaleUpdateType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleUpdateType ScaleUpdateType = "table"
+	// NoneScaleUpdateType applies no scaling; the raw value is used directly.
+	NoneScaleUpdateType ScaleUpdateType = "none"
+)
+
+// ScaleUpdateVariant is implemented by every ScaleUpdate variant.
+type ScaleUpdateVariant interface {
+	isScaleUpdateVariant()
+}
+
+// LinearScaleUpdate maps raw values to engineering units with a slope and offset.
+type LinearScaleUpdate struct {
+	// Slope is the multiplier applied to the raw value.
+	Slope *float64 `json:"slope,omitzero" msgpack:"slope,omitempty"`
+	// Offset is the offset added after scaling.
+	Offset *float64 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+func (LinearScaleUpdate) isScaleUpdateVariant() {}
+
+// MapScaleUpdate maps a raw range linearly onto a scaled range.
+type MapScaleUpdate struct {
+	// PreScaledMin is the lower bound of the raw input range.
+	PreScaledMin *float64 `json:"pre_scaled_min,omitzero" msgpack:"pre_scaled_min,omitempty"`
+	// PreScaledMax is the upper bound of the raw input range.
+	PreScaledMax *float64 `json:"pre_scaled_max,omitzero" msgpack:"pre_scaled_max,omitempty"`
+	// ScaledMin is the lower bound of the scaled output range.
+	ScaledMin *float64 `json:"scaled_min,omitzero" msgpack:"scaled_min,omitempty"`
+	// ScaledMax is the upper bound of the scaled output range.
+	ScaledMax *float64 `json:"scaled_max,omitzero" msgpack:"scaled_max,omitempty"`
+}
+
+func (MapScaleUpdate) isScaleUpdateVariant() {}
+
+// PolynomialScaleUpdate maps raw values to engineering units with a polynomial.
+type PolynomialScaleUpdate struct {
+	// Coeffs are the coefficients from the constant term up, so that index i holds the
+	// coefficient of x^i.
+	Coeffs *patch.ValueList[float64] `json:"coeffs,omitzero" msgpack:"coeffs,omitempty"`
+}
+
+func (PolynomialScaleUpdate) isScaleUpdateVariant() {}
+
+// TableScaleUpdate maps raw values to engineering units by linear interpolation between
+// the breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScaleUpdate struct {
+	// PreScaledVals are the raw breakpoints, in increasing order.
+	PreScaledVals *patch.ValueList[float64] `json:"pre_scaled_vals,omitzero" msgpack:"pre_scaled_vals,omitempty"`
+	// ScaledVals are the engineering-unit values at each breakpoint.
+	ScaledVals *patch.ValueList[float64] `json:"scaled_vals,omitzero" msgpack:"scaled_vals,omitempty"`
+}
+
+func (TableScaleUpdate) isScaleUpdateVariant() {}
+
+// NoneScaleUpdate applies no scaling; the raw value is used directly.
+type NoneScaleUpdate struct {
+}
+
+func (NoneScaleUpdate) isScaleUpdateVariant() {}
+
+// ScaleUpdate holds changes to the fields of the scale. A type that differs from the
+// stored one changes the variant.
+type ScaleUpdate struct {
+	Variant ScaleUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ScaleUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case LinearScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			LinearScaleUpdate
+		}{Type: LinearScaleUpdateType, LinearScaleUpdate: v})
+	case MapScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			MapScaleUpdate
+		}{Type: MapScaleUpdateType, MapScaleUpdate: v})
+	case PolynomialScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			PolynomialScaleUpdate
+		}{Type: PolynomialScaleUpdateType, PolynomialScaleUpdate: v})
+	case TableScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			TableScaleUpdate
+		}{Type: TableScaleUpdateType, TableScaleUpdate: v})
+	case NoneScaleUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ScaleUpdateType `json:"type"`
+			NoneScaleUpdate
+		}{Type: NoneScaleUpdateType, NoneScaleUpdate: v})
+	default:
+		return errors.Newf("ScaleUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ScaleUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ScaleUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case LinearScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			LinearScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LinearScaleUpdate
+	case MapScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			MapScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.MapScaleUpdate
+	case PolynomialScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			PolynomialScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PolynomialScaleUpdate
+	case TableScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			TableScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TableScaleUpdate
+	case NoneScaleUpdateType:
+		var v struct {
+			Type ScaleUpdateType `json:"type"`
+			NoneScaleUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NoneScaleUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ScaleUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ScaleUpdate) Type() ScaleUpdateType {
+	switch u.Variant.(type) {
+	case LinearScaleUpdate:
+		return LinearScaleUpdateType
+	case MapScaleUpdate:
+		return MapScaleUpdateType
+	case PolynomialScaleUpdate:
+		return PolynomialScaleUpdateType
+	case TableScaleUpdate:
+		return TableScaleUpdateType
+	case NoneScaleUpdate:
+		return NoneScaleUpdateType
+	}
+	return ""
 }

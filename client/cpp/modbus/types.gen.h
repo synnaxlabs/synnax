@@ -21,6 +21,7 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/types.gen.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
@@ -34,10 +35,12 @@ struct ScanConfig;
 struct RegisterBit;
 struct RegisterString;
 struct ScanConfigUpdate;
+struct ReadChannelBaseUpdate;
+struct WriteChannelBaseUpdate;
 struct WriteConfig;
-struct WriteConfigUpdate;
 struct ReadConfig;
 struct ReadConfigUpdate;
+struct WriteConfigUpdate;
 
 /// @brief RegisterValue interprets one or more 16-bit registers as a single typed
 /// value.
@@ -129,6 +132,42 @@ struct ScanConfigUpdate {
     std::optional<bool> disabled;
 
     static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelBaseUpdate holds changes to the fields of the read channel. An
+/// absent field does not change.
+struct ReadChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+
+    static ReadChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelBaseUpdate holds changes to the fields of the write channel. An
+/// absent field does not change.
+struct WriteChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel writes to.
+    std::optional<std::uint16_t> address;
+
+    static WriteChannelBaseUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -267,32 +306,282 @@ ReadChannel parse_read_channel(x::json::Parser parser);
     );
 }
 
+/// @brief CoilReadChannelUpdate reads a single bit from a coil.
+struct CoilReadChannelUpdate {
+    std::string type = "coil";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+
+    static CoilReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DiscreteInputReadChannelUpdate reads a single bit from a discrete input.
+struct DiscreteInputReadChannelUpdate {
+    std::string type = "discrete_input";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+
+    static DiscreteInputReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterReadChannelUpdate reads a typed value from one or more holding
+/// registers.
+struct HoldingRegisterReadChannelUpdate {
+    std::string type = "holding_register";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief data_type is the data type the register contents are interpreted as.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief bytes_swapped is true when the byte order within each 16-bit word is
+    /// swapped. When absent, the device's byte order applies.
+    ::x::patch::Change<bool> bytes_swapped;
+    /// @brief words_swapped is true when the word order of multi-register values is
+    /// swapped. When absent, the device's word order applies.
+    ::x::patch::Change<bool> words_swapped;
+
+    static HoldingRegisterReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterReadChannelUpdate reads a typed value from one or more input
+/// registers.
+struct InputRegisterReadChannelUpdate {
+    std::string type = "input_register";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief data_type is the data type the register contents are interpreted as.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief bytes_swapped is true when the byte order within each 16-bit word is
+    /// swapped. When absent, the device's byte order applies.
+    ::x::patch::Change<bool> bytes_swapped;
+    /// @brief words_swapped is true when the word order of multi-register values is
+    /// swapped. When absent, the device's word order applies.
+    ::x::patch::Change<bool> words_swapped;
+
+    static InputRegisterReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterStringReadChannelUpdate reads a string from consecutive
+/// holding registers.
+struct HoldingRegisterStringReadChannelUpdate {
+    std::string type = "holding_register_string";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief length is the number of characters, two to each register.
+    std::optional<std::uint16_t> length;
+    /// @brief bytes_swapped is true when the two characters of each register are
+    /// swapped. When absent, the device's byte order applies.
+    ::x::patch::Change<bool> bytes_swapped;
+
+    static HoldingRegisterStringReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterStringReadChannelUpdate reads a string from consecutive input
+/// registers.
+struct InputRegisterStringReadChannelUpdate {
+    std::string type = "input_register_string";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief length is the number of characters, two to each register.
+    std::optional<std::uint16_t> length;
+    /// @brief bytes_swapped is true when the two characters of each register are
+    /// swapped. When absent, the device's byte order applies.
+    ::x::patch::Change<bool> bytes_swapped;
+
+    static InputRegisterStringReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterBitReadChannelUpdate reads one bit of a holding register.
+struct HoldingRegisterBitReadChannelUpdate {
+    std::string type = "holding_register_bit";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief bit is the bit index, from 0 (least significant) to 15.
+    std::optional<std::uint8_t> bit;
+
+    static HoldingRegisterBitReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterBitReadChannelUpdate reads one bit of an input register.
+struct InputRegisterBitReadChannelUpdate {
+    std::string type = "input_register_bit";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel reads from.
+    std::optional<std::uint16_t> address;
+    /// @brief bit is the bit index, from 0 (least significant) to 15.
+    std::optional<std::uint8_t> bit;
+
+    static InputRegisterBitReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelUpdate holds changes to the fields of the read channel. A type
+/// that differs from the stored one changes the variant.
+using ReadChannelUpdate = std::variant<
+    ReadChannelBaseUpdate,
+    CoilReadChannelUpdate,
+    DiscreteInputReadChannelUpdate,
+    HoldingRegisterReadChannelUpdate,
+    InputRegisterReadChannelUpdate,
+    HoldingRegisterStringReadChannelUpdate,
+    InputRegisterStringReadChannelUpdate,
+    HoldingRegisterBitReadChannelUpdate,
+    InputRegisterBitReadChannelUpdate>;
+
+ReadChannelUpdate parse_read_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannelUpdate &value);
+
+/// @brief CoilWriteChannelUpdate writes a single bit to a coil.
+struct CoilWriteChannelUpdate {
+    std::string type = "coil";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel writes to.
+    std::optional<std::uint16_t> address;
+
+    static CoilWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterWriteChannelUpdate writes a typed value to one or more holding
+/// registers.
+struct HoldingRegisterWriteChannelUpdate {
+    std::string type = "holding_register";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel writes to.
+    std::optional<std::uint16_t> address;
+    /// @brief data_type is the data type the register contents are interpreted as.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief bytes_swapped is true when the byte order within each 16-bit word is
+    /// swapped. When absent, the device's byte order applies.
+    ::x::patch::Change<bool> bytes_swapped;
+    /// @brief words_swapped is true when the word order of multi-register values is
+    /// swapped. When absent, the device's word order applies.
+    ::x::patch::Change<bool> words_swapped;
+
+    static HoldingRegisterWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterBitWriteChannelUpdate writes one bit of a holding register.
+struct HoldingRegisterBitWriteChannelUpdate {
+    std::string type = "holding_register_bit";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief address is the Modbus address the channel writes to.
+    std::optional<std::uint16_t> address;
+    /// @brief bit is the bit index, from 0 (least significant) to 15.
+    std::optional<std::uint8_t> bit;
+
+    static HoldingRegisterBitWriteChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelUpdate holds changes to the fields of the write channel. A type
+/// that differs from the stored one changes the variant.
+using WriteChannelUpdate = std::variant<
+    WriteChannelBaseUpdate,
+    CoilWriteChannelUpdate,
+    HoldingRegisterWriteChannelUpdate,
+    HoldingRegisterBitWriteChannelUpdate>;
+
+WriteChannelUpdate parse_write_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannelUpdate &value);
+
 /// @brief WriteConfig configures a Modbus write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief channels are the channels the task drives.
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
-/// field does not change.
-struct WriteConfigUpdate {
-    /// @brief key is the unique identifier for the stored configuration record.
-    std::optional<x::uuid::UUID> key;
-    /// @brief auto_start is true when the task should start as soon as it is
-    /// configured.
-    std::optional<bool> auto_start;
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    std::optional<bool> data_saving_disabled;
-    /// @brief device is the key of the device the task writes to.
-    std::optional<::synnax::device::Key> device;
-    /// @brief channels are the channels the task drives.
-    std::optional<::x::patch::ValueList<WriteChannel>> channels;
-
-    static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -326,9 +615,78 @@ struct ReadConfigUpdate {
     /// @brief device is the key of the device the task acquires from.
     std::optional<::synnax::device::Key> device;
     /// @brief channels are the channels the task acquires.
-    std::optional<::x::patch::ValueList<ReadChannel>> channels;
+    std::optional<::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>
+        channels;
 
     static ReadConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
+/// field does not change.
+struct WriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the device the task writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief channels are the channels the task drives.
+    std::optional<::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>
+        channels;
+
+    static WriteConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::modbus::WriteChannel> {
+    static ::synnax::modbus::WriteChannel parse(Parser parser) {
+        return ::synnax::modbus::parse_write_channel(parser);
+    }
+
+    static json to_json(const ::synnax::modbus::WriteChannel &value) {
+        return ::synnax::modbus::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::modbus::ReadChannel> {
+    static ::synnax::modbus::ReadChannel parse(Parser parser) {
+        return ::synnax::modbus::parse_read_channel(parser);
+    }
+
+    static json to_json(const ::synnax::modbus::ReadChannel &value) {
+        return ::synnax::modbus::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::modbus::ReadChannelUpdate> {
+    static ::synnax::modbus::ReadChannelUpdate parse(Parser parser) {
+        return ::synnax::modbus::parse_read_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::modbus::ReadChannelUpdate &value) {
+        return ::synnax::modbus::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::modbus::WriteChannelUpdate> {
+    static ::synnax::modbus::WriteChannelUpdate parse(Parser parser) {
+        return ::synnax::modbus::parse_write_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::modbus::WriteChannelUpdate &value) {
+        return ::synnax::modbus::to_json(value);
+    }
 };
 }

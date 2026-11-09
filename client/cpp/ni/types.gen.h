@@ -40,6 +40,9 @@ struct ScanConfig;
 struct CounterPort;
 struct DigitalPort;
 struct ScanConfigUpdate;
+struct AIChannelBaseUpdate;
+struct CIChannelBaseUpdate;
+struct AOChannelBaseUpdate;
 struct DIChannelUpdate;
 struct DOChannelUpdate;
 struct DigitalReadConfig;
@@ -419,6 +422,68 @@ struct ScanConfigUpdate {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief AIChannelBaseUpdate holds changes to the fields of the ai channel. An absent
+/// field does not change.
+struct AIChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+
+    static AIChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIChannelBaseUpdate holds changes to the fields of the ci channel. An absent
+/// field does not change.
+struct CIChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+
+    static CIChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AOChannelBaseUpdate holds changes to the fields of the ao channel. An absent
+/// field does not change.
+struct AOChannelBaseUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to.
+    std::optional<std::uint32_t> port;
+
+    static AOChannelBaseUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief DIChannelUpdate holds changes to the fields of the di channel. An absent
 /// field does not change.
 struct DIChannelUpdate {
@@ -497,6 +562,42 @@ using CJC = std::variant<BuiltInCJC, ConstValCJC, ChanCJC>;
 
 CJC parse_cjc(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const CJC &value);
+
+/// @brief BuiltInCJCUpdate reads the reference temperature from the device's own
+/// sensor.
+struct BuiltInCJCUpdate {
+    std::string source = "built_in";
+
+    static BuiltInCJCUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConstValCJCUpdate uses a fixed reference temperature.
+struct ConstValCJCUpdate {
+    std::string source = "const_val";
+    /// @brief val is the reference temperature, in the channel's units.
+    std::optional<double> val;
+
+    static ConstValCJCUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ChanCJCUpdate reads the reference temperature from another channel.
+struct ChanCJCUpdate {
+    std::string source = "chan";
+    /// @brief port is the port of the channel that measures the reference.
+    std::optional<std::uint32_t> port;
+
+    static ChanCJCUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CJCUpdate holds changes to the fields of the cjc. A source that differs from
+/// the stored one changes the variant.
+using CJCUpdate = std::variant<BuiltInCJCUpdate, ConstValCJCUpdate, ChanCJCUpdate>;
+
+CJCUpdate parse_cjc_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const CJCUpdate &value);
 
 /// @brief DigitalReadConfig configures an NI digital read task.
 struct DigitalReadConfig : public ::synnax::task::ReadConfig {
@@ -648,6 +749,95 @@ using Scale = std::
 
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);
+
+/// @brief LinearScaleUpdate maps raw values to engineering units with a slope and
+/// intercept.
+struct LinearScaleUpdate {
+    std::string type = "linear";
+    /// @brief slope is the multiplier applied to the raw value.
+    std::optional<double> slope;
+    /// @brief y_intercept is the offset added after scaling.
+    std::optional<double> y_intercept;
+    /// @brief pre_scaled_units are the units of the raw value before scaling.
+    std::optional<std::string> pre_scaled_units;
+    /// @brief scaled_units are the units of the value after scaling.
+    std::optional<std::string> scaled_units;
+
+    static LinearScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MapScaleUpdate maps a raw range linearly onto a scaled range.
+struct MapScaleUpdate {
+    std::string type = "map";
+    /// @brief pre_scaled_min is the lower bound of the raw input range.
+    std::optional<double> pre_scaled_min;
+    /// @brief pre_scaled_max is the upper bound of the raw input range.
+    std::optional<double> pre_scaled_max;
+    /// @brief scaled_min is the lower bound of the scaled output range.
+    std::optional<double> scaled_min;
+    /// @brief scaled_max is the upper bound of the scaled output range.
+    std::optional<double> scaled_max;
+    /// @brief pre_scaled_units are the units of the raw value before scaling.
+    std::optional<std::string> pre_scaled_units;
+    /// @brief scaled_units are the units of the value after scaling.
+    std::optional<std::string> scaled_units;
+
+    static MapScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TableScaleUpdate maps raw values to engineering units via a lookup table.
+struct TableScaleUpdate {
+    std::string type = "table";
+    /// @brief pre_scaled_vals are the raw breakpoints, monotonically increasing.
+    std::optional<::x::patch::ValueList<double>> pre_scaled_vals;
+    /// @brief scaled_vals are the engineering-unit values at each breakpoint.
+    std::optional<::x::patch::ValueList<double>> scaled_vals;
+    /// @brief pre_scaled_units are the units of the raw values before scaling.
+    std::optional<std::string> pre_scaled_units;
+    /// @brief scaled_units are the units of the values after scaling.
+    std::optional<std::string> scaled_units;
+
+    static TableScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief PolynomialScaleUpdate maps raw values to engineering units with a polynomial.
+struct PolynomialScaleUpdate {
+    std::string type = "polynomial";
+    /// @brief forward_coeffs are the coefficients mapping pre-scaled to scaled values.
+    std::optional<::x::patch::ValueList<double>> forward_coeffs;
+    /// @brief reverse_coeffs are the coefficients mapping scaled to pre-scaled values.
+    std::optional<::x::patch::ValueList<double>> reverse_coeffs;
+    /// @brief pre_scaled_units are the units of the raw value before scaling.
+    std::optional<std::string> pre_scaled_units;
+    /// @brief scaled_units are the units of the value after scaling.
+    std::optional<std::string> scaled_units;
+
+    static PolynomialScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NoneScaleUpdate applies no scaling; the raw value is used directly.
+struct NoneScaleUpdate {
+    std::string type = "none";
+
+    static NoneScaleUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScaleUpdate holds changes to the fields of the scale. A type that differs
+/// from the stored one changes the variant.
+using ScaleUpdate = std::variant<
+    LinearScaleUpdate,
+    MapScaleUpdate,
+    TableScaleUpdate,
+    PolynomialScaleUpdate,
+    NoneScaleUpdate>;
+
+ScaleUpdate parse_scale_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ScaleUpdate &value);
 
 /// @brief BridgePolynomial scales bridge electrical output to physical units with a
 /// polynomial.
@@ -808,6 +998,1722 @@ struct CustomScale {
     static CustomScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief AIVoltageChannelUpdate reads a voltage.
+struct AIVoltageChannelUpdate {
+    std::string type = "ai_voltage";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+
+    static AIVoltageChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIAccelChannelUpdate reads acceleration from an accelerometer.
+struct AIAccelChannelUpdate {
+    std::string type = "ai_accel";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief sensitivity is the sensor's sensitivity rating.
+    std::optional<double> sensitivity;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the acceleration measurement.
+    std::optional<std::string> units;
+    /// @brief sensitivity_units are the units of the accelerometer sensitivity.
+    std::optional<std::string> sensitivity_units;
+
+    static AIAccelChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIBridgeChannelUpdate reads a generic bridge-based sensor.
+struct AIBridgeChannelUpdate {
+    std::string type = "ai_bridge";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the electrical output units of the bridge.
+    std::optional<std::string> units;
+
+    static AIBridgeChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AICurrentChannelUpdate reads a current.
+struct AICurrentChannelUpdate {
+    std::string type = "ai_current";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief shunt_resistor_loc selects where the shunt resistor is located.
+    std::optional<std::string> shunt_resistor_loc;
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
+    std::optional<double> ext_shunt_resistor_val;
+
+    static AICurrentChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIForceBridgeTableChannelUpdate reads force from a bridge with a calibration
+/// table.
+struct AIForceBridgeTableChannelUpdate {
+    std::string type = "ai_force_bridge_table";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief electrical_vals are the electrical breakpoints of the calibration table.
+    std::optional<::x::patch::ValueList<double>> electrical_vals;
+    /// @brief electrical_units are the units of the electrical breakpoints.
+    std::optional<std::string> electrical_units;
+    /// @brief physical_vals are the physical values corresponding to each electrical
+    /// breakpoint.
+    std::optional<::x::patch::ValueList<double>> physical_vals;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the force measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the calibration table.
+    std::optional<std::string> physical_units;
+
+    static AIForceBridgeTableChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIForceBridgeTwoPointLinChannelUpdate reads force from a bridge with
+/// two-point linear calibration.
+struct AIForceBridgeTwoPointLinChannelUpdate {
+    std::string type = "ai_force_bridge_two_point_lin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief first_electrical_val is the first electrical calibration point.
+    std::optional<double> first_electrical_val;
+    /// @brief second_electrical_val is the second electrical calibration point.
+    std::optional<double> second_electrical_val;
+    /// @brief electrical_units are the units of the electrical calibration points.
+    std::optional<std::string> electrical_units;
+    /// @brief first_physical_val is the physical value at the first electrical point.
+    std::optional<double> first_physical_val;
+    /// @brief second_physical_val is the physical value at the second electrical point.
+    std::optional<double> second_physical_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the force measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the two-point calibration.
+    std::optional<std::string> physical_units;
+
+    static AIForceBridgeTwoPointLinChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIForceIEPEChannelUpdate reads force from an IEPE sensor.
+struct AIForceIEPEChannelUpdate {
+    std::string type = "ai_force_iepe";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief sensitivity is the sensor's sensitivity rating.
+    std::optional<double> sensitivity;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the force measurement.
+    std::optional<std::string> units;
+    /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
+    std::optional<std::string> sensitivity_units;
+
+    static AIForceIEPEChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIMicrophoneChannelUpdate reads sound pressure from a microphone.
+struct AIMicrophoneChannelUpdate {
+    std::string type = "ai_microphone";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief mic_sensitivity is the microphone sensitivity, in mV/Pa.
+    std::optional<double> mic_sensitivity;
+    /// @brief max_snd_press_level is the maximum expected sound pressure level, in dB.
+    std::optional<double> max_snd_press_level;
+
+    static AIMicrophoneChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIPressureBridgeTableChannelUpdate reads pressure from a bridge with a
+/// calibration table.
+struct AIPressureBridgeTableChannelUpdate {
+    std::string type = "ai_pressure_bridge_table";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief electrical_vals are the electrical breakpoints of the calibration table.
+    std::optional<::x::patch::ValueList<double>> electrical_vals;
+    /// @brief electrical_units are the units of the electrical breakpoints.
+    std::optional<std::string> electrical_units;
+    /// @brief physical_vals are the physical values corresponding to each electrical
+    /// breakpoint.
+    std::optional<::x::patch::ValueList<double>> physical_vals;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the pressure measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the calibration table.
+    std::optional<std::string> physical_units;
+
+    static AIPressureBridgeTableChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIPressureBridgeTwoPointLinChannelUpdate reads pressure from a bridge with
+/// two-point linear calibration.
+struct AIPressureBridgeTwoPointLinChannelUpdate {
+    std::string type = "ai_pressure_bridge_two_point_lin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief first_electrical_val is the first electrical calibration point.
+    std::optional<double> first_electrical_val;
+    /// @brief second_electrical_val is the second electrical calibration point.
+    std::optional<double> second_electrical_val;
+    /// @brief electrical_units are the units of the electrical calibration points.
+    std::optional<std::string> electrical_units;
+    /// @brief first_physical_val is the physical value at the first electrical point.
+    std::optional<double> first_physical_val;
+    /// @brief second_physical_val is the physical value at the second electrical point.
+    std::optional<double> second_physical_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the pressure measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the two-point calibration.
+    std::optional<std::string> physical_units;
+
+    static AIPressureBridgeTwoPointLinChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIResistanceChannelUpdate reads a resistance.
+struct AIResistanceChannelUpdate {
+    std::string type = "ai_resistance";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief resistance_config selects the number of wires used for the resistance
+    /// measurement.
+    std::optional<std::string> resistance_config;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+
+    static AIResistanceChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIRTDChannelUpdate reads temperature from an RTD.
+struct AIRTDChannelUpdate {
+    std::string type = "ai_rtd";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief resistance_config selects the number of wires used for the resistance
+    /// measurement.
+    std::optional<std::string> resistance_config;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+    /// @brief rtd_type selects the RTD resistance-temperature curve.
+    std::optional<std::string> rtd_type;
+    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in Ohms.
+    std::optional<double> r0;
+
+    static AIRTDChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIStrainGaugeChannelUpdate reads strain from a strain gauge.
+struct AIStrainGaugeChannelUpdate {
+    std::string type = "ai_strain_gauge";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief strain_config selects the strain-gauge bridge configuration.
+    std::optional<std::string> strain_config;
+    /// @brief gage_factor is the gauge factor of the strain gauge.
+    std::optional<double> gage_factor;
+    /// @brief initial_bridge_voltage is the bridge output voltage in the unloaded
+    /// state.
+    std::optional<double> initial_bridge_voltage;
+    /// @brief nominal_gage_resistance is the nominal gauge resistance, in Ohms.
+    std::optional<double> nominal_gage_resistance;
+    /// @brief poisson_ratio is the Poisson ratio of the measured material.
+    std::optional<double> poisson_ratio;
+    /// @brief lead_wire_resistance is the resistance of the lead wires, in Ohms.
+    std::optional<double> lead_wire_resistance;
+
+    static AIStrainGaugeChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AITempBuiltinChannelUpdate reads temperature from the device's built-in
+/// sensor.
+struct AITempBuiltinChannelUpdate {
+    std::string type = "ai_temp_builtin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+
+    static AITempBuiltinChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIThermocoupleChannelUpdate reads temperature from a thermocouple.
+struct AIThermocoupleChannelUpdate {
+    std::string type = "ai_thermocouple";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+    /// @brief thermocouple_type selects the thermocouple alloy type.
+    std::optional<std::string> thermocouple_type;
+    /// @brief cjc is the cold-junction compensation applied to the reading.
+    std::optional<CJCUpdate> cjc;
+
+    static AIThermocoupleChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AITorqueBridgeTableChannelUpdate reads torque from a bridge with a
+/// calibration table.
+struct AITorqueBridgeTableChannelUpdate {
+    std::string type = "ai_torque_bridge_table";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief electrical_vals are the electrical breakpoints of the calibration table.
+    std::optional<::x::patch::ValueList<double>> electrical_vals;
+    /// @brief electrical_units are the units of the electrical breakpoints.
+    std::optional<std::string> electrical_units;
+    /// @brief physical_vals are the physical values corresponding to each electrical
+    /// breakpoint.
+    std::optional<::x::patch::ValueList<double>> physical_vals;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the torque measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the calibration table.
+    std::optional<std::string> physical_units;
+
+    static AITorqueBridgeTableChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AITorqueBridgeTwoPointLinChannelUpdate reads torque from a bridge with
+/// two-point linear calibration.
+struct AITorqueBridgeTwoPointLinChannelUpdate {
+    std::string type = "ai_torque_bridge_two_point_lin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief first_electrical_val is the first electrical calibration point.
+    std::optional<double> first_electrical_val;
+    /// @brief second_electrical_val is the second electrical calibration point.
+    std::optional<double> second_electrical_val;
+    /// @brief electrical_units are the units of the electrical calibration points.
+    std::optional<std::string> electrical_units;
+    /// @brief first_physical_val is the physical value at the first electrical point.
+    std::optional<double> first_physical_val;
+    /// @brief second_physical_val is the physical value at the second electrical point.
+    std::optional<double> second_physical_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the torque measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the two-point calibration.
+    std::optional<std::string> physical_units;
+
+    static AITorqueBridgeTwoPointLinChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIVelocityIEPEChannelUpdate reads velocity from an IEPE sensor.
+struct AIVelocityIEPEChannelUpdate {
+    std::string type = "ai_velocity_iepe";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief sensitivity is the sensor's sensitivity rating.
+    std::optional<double> sensitivity;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the velocity measurement.
+    std::optional<std::string> units;
+    /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
+    std::optional<std::string> sensitivity_units;
+
+    static AIVelocityIEPEChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIAccel4WireDCVoltageChannelUpdate reads acceleration from a 4-wire
+/// DC-voltage accelerometer.
+struct AIAccel4WireDCVoltageChannelUpdate {
+    std::string type = "ai_accel_4_wire_dc_voltage";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief sensitivity is the sensor's sensitivity rating.
+    std::optional<double> sensitivity;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the acceleration measurement.
+    std::optional<std::string> units;
+    /// @brief sensitivity_units are the units of the accelerometer sensitivity.
+    std::optional<std::string> sensitivity_units;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the reading.
+    std::optional<bool> scaled_by_excitation;
+
+    static AIAccel4WireDCVoltageChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIAccelChargeChannelUpdate reads acceleration from a charge-mode
+/// accelerometer.
+struct AIAccelChargeChannelUpdate {
+    std::string type = "ai_accel_charge";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief sensitivity is the sensor's sensitivity rating.
+    std::optional<double> sensitivity;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the acceleration measurement.
+    std::optional<std::string> units;
+    /// @brief sensitivity_units are the units of the accelerometer sensitivity.
+    std::optional<std::string> sensitivity_units;
+
+    static AIAccelChargeChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIChargeChannelUpdate reads a raw charge.
+struct AIChargeChannelUpdate {
+    std::string type = "ai_charge";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the charge measurement.
+    std::optional<std::string> units;
+
+    static AIChargeChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AICurrentRMSChannelUpdate reads RMS current.
+struct AICurrentRMSChannelUpdate {
+    std::string type = "ai_current_rms";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief shunt_resistor_loc selects where the shunt resistor is located.
+    std::optional<std::string> shunt_resistor_loc;
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
+    std::optional<double> ext_shunt_resistor_val;
+
+    static AICurrentRMSChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIForceBridgePolynomialChannelUpdate reads force from a bridge with
+/// polynomial calibration.
+struct AIForceBridgePolynomialChannelUpdate {
+    std::string type = "ai_force_bridge_polynomial";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief forward_coeffs are the coefficients mapping electrical to physical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> forward_coeffs;
+    /// @brief reverse_coeffs are the coefficients mapping physical to electrical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> reverse_coeffs;
+    /// @brief electrical_units are the electrical output units of the bridge.
+    std::optional<std::string> electrical_units;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the force measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the polynomial calibration.
+    std::optional<std::string> physical_units;
+
+    static AIForceBridgePolynomialChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIFreqVoltageChannelUpdate reads frequency from a voltage signal.
+struct AIFreqVoltageChannelUpdate {
+    std::string type = "ai_freq_voltage";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief threshold_level is the voltage level at which a cycle is counted.
+    std::optional<double> threshold_level;
+    /// @brief hysteresis is the hysteresis applied around the threshold level.
+    std::optional<double> hysteresis;
+
+    static AIFreqVoltageChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIPressureBridgePolynomialChannelUpdate reads pressure from a bridge with
+/// polynomial calibration.
+struct AIPressureBridgePolynomialChannelUpdate {
+    std::string type = "ai_pressure_bridge_polynomial";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief forward_coeffs are the coefficients mapping electrical to physical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> forward_coeffs;
+    /// @brief reverse_coeffs are the coefficients mapping physical to electrical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> reverse_coeffs;
+    /// @brief electrical_units are the electrical output units of the bridge.
+    std::optional<std::string> electrical_units;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the pressure measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the polynomial calibration.
+    std::optional<std::string> physical_units;
+
+    static AIPressureBridgePolynomialChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIThermistorIexChannelUpdate reads temperature from a current-excited
+/// thermistor.
+struct AIThermistorIexChannelUpdate {
+    std::string type = "ai_thermistor_iex";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief resistance_config selects the number of wires used for the resistance
+    /// measurement.
+    std::optional<std::string> resistance_config;
+    /// @brief current_excit_source selects the source of the current excitation signal.
+    std::optional<std::string> current_excit_source;
+    /// @brief current_excit_val is the current excitation level, in Amps.
+    std::optional<double> current_excit_val;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+    /// @brief a is the first Steinhart-Hart coefficient.
+    std::optional<double> a;
+    /// @brief b is the second Steinhart-Hart coefficient.
+    std::optional<double> b;
+    /// @brief c is the third Steinhart-Hart coefficient.
+    std::optional<double> c;
+
+    static AIThermistorIexChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIThermistorVexChannelUpdate reads temperature from a voltage-excited
+/// thermistor.
+struct AIThermistorVexChannelUpdate {
+    std::string type = "ai_thermistor_vex";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief resistance_config selects the number of wires used for the resistance
+    /// measurement.
+    std::optional<std::string> resistance_config;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief units are the units of the temperature measurement.
+    std::optional<std::string> units;
+    /// @brief a is the first Steinhart-Hart coefficient.
+    std::optional<double> a;
+    /// @brief b is the second Steinhart-Hart coefficient.
+    std::optional<double> b;
+    /// @brief c is the third Steinhart-Hart coefficient.
+    std::optional<double> c;
+    /// @brief r1 is the reference resistor value, in Ohms.
+    std::optional<double> r1;
+
+    static AIThermistorVexChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AITorqueBridgePolynomialChannelUpdate reads torque from a bridge with
+/// polynomial calibration.
+struct AITorqueBridgePolynomialChannelUpdate {
+    std::string type = "ai_torque_bridge_polynomial";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
+    /// Ohms.
+    std::optional<double> nominal_bridge_resistance;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief forward_coeffs are the coefficients mapping electrical to physical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> forward_coeffs;
+    /// @brief reverse_coeffs are the coefficients mapping physical to electrical
+    /// values.
+    std::optional<::x::patch::ValueList<double>> reverse_coeffs;
+    /// @brief electrical_units are the electrical output units of the bridge.
+    std::optional<std::string> electrical_units;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief units are the units of the torque measurement.
+    std::optional<std::string> units;
+    /// @brief physical_units are the physical units of the polynomial calibration.
+    std::optional<std::string> physical_units;
+
+    static AITorqueBridgePolynomialChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIVoltageRMSChannelUpdate reads RMS voltage.
+struct AIVoltageRMSChannelUpdate {
+    std::string type = "ai_voltage_rms";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+
+    static AIVoltageRMSChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIVoltageWithExcitChannelUpdate reads a voltage with excitation.
+struct AIVoltageWithExcitChannelUpdate {
+    std::string type = "ai_voltage_with_excit";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the channel belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::optional<std::string> terminal_config;
+    /// @brief voltage_excit_source selects the source of the voltage excitation signal.
+    std::optional<std::string> voltage_excit_source;
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
+    std::optional<double> voltage_excit_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief bridge_config selects the physical bridge wiring.
+    std::optional<std::string> bridge_config;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the reading.
+    std::optional<bool> scaled_by_excitation;
+
+    static AIVoltageWithExcitChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AIChannelUpdate holds changes to the fields of the ai channel. A type that
+/// differs from the stored one changes the variant.
+using AIChannelUpdate = std::variant<
+    AIChannelBaseUpdate,
+    AIVoltageChannelUpdate,
+    AIAccelChannelUpdate,
+    AIBridgeChannelUpdate,
+    AICurrentChannelUpdate,
+    AIForceBridgeTableChannelUpdate,
+    AIForceBridgeTwoPointLinChannelUpdate,
+    AIForceIEPEChannelUpdate,
+    AIMicrophoneChannelUpdate,
+    AIPressureBridgeTableChannelUpdate,
+    AIPressureBridgeTwoPointLinChannelUpdate,
+    AIResistanceChannelUpdate,
+    AIRTDChannelUpdate,
+    AIStrainGaugeChannelUpdate,
+    AITempBuiltinChannelUpdate,
+    AIThermocoupleChannelUpdate,
+    AITorqueBridgeTableChannelUpdate,
+    AITorqueBridgeTwoPointLinChannelUpdate,
+    AIVelocityIEPEChannelUpdate,
+    AIAccel4WireDCVoltageChannelUpdate,
+    AIAccelChargeChannelUpdate,
+    AIChargeChannelUpdate,
+    AICurrentRMSChannelUpdate,
+    AIForceBridgePolynomialChannelUpdate,
+    AIFreqVoltageChannelUpdate,
+    AIPressureBridgePolynomialChannelUpdate,
+    AIThermistorIexChannelUpdate,
+    AIThermistorVexChannelUpdate,
+    AITorqueBridgePolynomialChannelUpdate,
+    AIVoltageRMSChannelUpdate,
+    AIVoltageWithExcitChannelUpdate>;
+
+AIChannelUpdate parse_ai_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const AIChannelUpdate &value);
+
+/// @brief CIFrequencyChannelUpdate measures signal frequency.
+struct CIFrequencyChannelUpdate {
+    std::string type = "ci_frequency";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected frequency.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected frequency.
+    std::optional<double> max_val;
+    /// @brief units are the units of the frequency measurement.
+    std::optional<std::string> units;
+    /// @brief edge selects the edge the counter responds to.
+    std::optional<std::string> edge;
+    /// @brief meas_method selects the measurement method.
+    std::optional<std::string> meas_method;
+    /// @brief meas_time is the averaging window for high-frequency measurement, in
+    /// seconds.
+    std::optional<double> meas_time;
+    /// @brief divisor is the counter divisor for large-range measurement.
+    std::optional<std::uint32_t> divisor;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CIFrequencyChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIEdgeCountChannelUpdate counts signal edges.
+struct CIEdgeCountChannelUpdate {
+    std::string type = "ci_edge_count";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief active_edge selects the edge that increments the count.
+    std::optional<std::string> active_edge;
+    /// @brief count_direction selects the direction the counter counts.
+    std::optional<std::string> count_direction;
+    /// @brief initial_count is the value the counter starts at.
+    std::optional<std::uint32_t> initial_count;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CIEdgeCountChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIPeriodChannelUpdate measures signal period.
+struct CIPeriodChannelUpdate {
+    std::string type = "ci_period";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected period, in the selected units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected period, in the selected units.
+    std::optional<double> max_val;
+    /// @brief units are the units of the period measurement.
+    std::optional<std::string> units;
+    /// @brief starting_edge selects the edge that starts a period measurement.
+    std::optional<std::string> starting_edge;
+    /// @brief meas_method selects the measurement method.
+    std::optional<std::string> meas_method;
+    /// @brief meas_time is the averaging window for high-frequency measurement, in
+    /// seconds.
+    std::optional<double> meas_time;
+    /// @brief divisor is the counter divisor for large-range measurement.
+    std::optional<std::uint32_t> divisor;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CIPeriodChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIPulseWidthChannelUpdate measures pulse width.
+struct CIPulseWidthChannelUpdate {
+    std::string type = "ci_pulse_width";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected pulse width, in the selected units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected pulse width, in the selected units.
+    std::optional<double> max_val;
+    /// @brief units are the units of the pulse-width measurement.
+    std::optional<std::string> units;
+    /// @brief starting_edge selects the edge that starts a pulse-width measurement.
+    std::optional<std::string> starting_edge;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CIPulseWidthChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CISemiPeriodChannelUpdate measures semi-period.
+struct CISemiPeriodChannelUpdate {
+    std::string type = "ci_semi_period";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected semi-period, in the selected units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected semi-period, in the selected units.
+    std::optional<double> max_val;
+    /// @brief units are the units of the semi-period measurement.
+    std::optional<std::string> units;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CISemiPeriodChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CITwoEdgeSepChannelUpdate measures the separation between two edges.
+struct CITwoEdgeSepChannelUpdate {
+    std::string type = "ci_two_edge_sep";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected separation, in the selected units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected separation, in the selected units.
+    std::optional<double> max_val;
+    /// @brief units are the units of the two-edge-separation measurement.
+    std::optional<std::string> units;
+    /// @brief first_edge selects the edge that starts the measurement.
+    std::optional<std::string> first_edge;
+    /// @brief second_edge selects the edge that stops the measurement.
+    std::optional<std::string> second_edge;
+    /// @brief first_terminal is the terminal the first edge's signal is wired to.
+    std::optional<std::string> first_terminal;
+    /// @brief second_terminal is the terminal the second edge's signal is wired to.
+    std::optional<std::string> second_terminal;
+
+    static CITwoEdgeSepChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIVelocityLinearChannelUpdate measures linear velocity from an encoder.
+struct CIVelocityLinearChannelUpdate {
+    std::string type = "ci_velocity_linear";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected velocity.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected velocity.
+    std::optional<double> max_val;
+    /// @brief units are the units of the velocity measurement.
+    std::optional<std::string> units;
+    /// @brief decoding_type selects the encoder decoding type.
+    std::optional<std::string> decoding_type;
+    /// @brief dist_per_pulse is the linear distance per encoder pulse.
+    std::optional<double> dist_per_pulse;
+    /// @brief terminal_a is the terminal for encoder channel A.
+    std::optional<std::string> terminal_a;
+    /// @brief terminal_b is the terminal for encoder channel B.
+    std::optional<std::string> terminal_b;
+
+    static CIVelocityLinearChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIVelocityAngularChannelUpdate measures angular velocity from an encoder.
+struct CIVelocityAngularChannelUpdate {
+    std::string type = "ci_velocity_angular";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected velocity.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected velocity.
+    std::optional<double> max_val;
+    /// @brief units are the units of the velocity measurement.
+    std::optional<std::string> units;
+    /// @brief decoding_type selects the encoder decoding type.
+    std::optional<std::string> decoding_type;
+    /// @brief pulses_per_rev is the number of encoder pulses per revolution.
+    std::optional<std::uint32_t> pulses_per_rev;
+    /// @brief terminal_a is the terminal for encoder channel A.
+    std::optional<std::string> terminal_a;
+    /// @brief terminal_b is the terminal for encoder channel B.
+    std::optional<std::string> terminal_b;
+
+    static CIVelocityAngularChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIPositionLinearChannelUpdate measures linear position from an encoder.
+struct CIPositionLinearChannelUpdate {
+    std::string type = "ci_position_linear";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief z_index_enabled is true when the encoder's Z index resets the count.
+    std::optional<bool> z_index_enabled;
+    /// @brief z_index_val is the value the measurement resets to when the Z index is
+    /// active.
+    std::optional<double> z_index_val;
+    /// @brief z_index_phase selects the A/B states at which the Z index is active.
+    std::optional<std::string> z_index_phase;
+    /// @brief terminal_z is the terminal the Z index signal is wired to.
+    std::optional<std::string> terminal_z;
+    /// @brief units are the units of the position measurement.
+    std::optional<std::string> units;
+    /// @brief decoding_type selects the encoder decoding type.
+    std::optional<std::string> decoding_type;
+    /// @brief dist_per_pulse is the linear distance per encoder pulse.
+    std::optional<double> dist_per_pulse;
+    /// @brief initial_pos is the position the encoder starts at.
+    std::optional<double> initial_pos;
+    /// @brief terminal_a is the terminal for encoder channel A.
+    std::optional<std::string> terminal_a;
+    /// @brief terminal_b is the terminal for encoder channel B.
+    std::optional<std::string> terminal_b;
+
+    static CIPositionLinearChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIPositionAngularChannelUpdate measures angular position from an encoder.
+struct CIPositionAngularChannelUpdate {
+    std::string type = "ci_position_angular";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief z_index_enabled is true when the encoder's Z index resets the count.
+    std::optional<bool> z_index_enabled;
+    /// @brief z_index_val is the value the measurement resets to when the Z index is
+    /// active.
+    std::optional<double> z_index_val;
+    /// @brief z_index_phase selects the A/B states at which the Z index is active.
+    std::optional<std::string> z_index_phase;
+    /// @brief terminal_z is the terminal the Z index signal is wired to.
+    std::optional<std::string> terminal_z;
+    /// @brief units are the units of the position measurement.
+    std::optional<std::string> units;
+    /// @brief decoding_type selects the encoder decoding type.
+    std::optional<std::string> decoding_type;
+    /// @brief pulses_per_rev is the number of encoder pulses per revolution.
+    std::optional<std::uint32_t> pulses_per_rev;
+    /// @brief initial_angle is the angle the encoder starts at.
+    std::optional<double> initial_angle;
+    /// @brief terminal_a is the terminal for encoder channel A.
+    std::optional<std::string> terminal_a;
+    /// @brief terminal_b is the terminal for encoder channel B.
+    std::optional<std::string> terminal_b;
+
+    static CIPositionAngularChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIDutyCycleChannelUpdate measures the duty cycle of a signal.
+struct CIDutyCycleChannelUpdate {
+    std::string type = "ci_duty_cycle";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical counter the channel uses.
+    std::optional<std::uint32_t> port;
+    /// @brief device is the key of the device the counter belongs to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+    /// @brief min_val is the minimum expected duty-cycle frequency.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected duty-cycle frequency.
+    std::optional<double> max_val;
+    /// @brief active_edge selects the edge the counter responds to.
+    std::optional<std::string> active_edge;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::optional<std::string> terminal;
+
+    static CIDutyCycleChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CIChannelUpdate holds changes to the fields of the ci channel. A type that
+/// differs from the stored one changes the variant.
+using CIChannelUpdate = std::variant<
+    CIChannelBaseUpdate,
+    CIFrequencyChannelUpdate,
+    CIEdgeCountChannelUpdate,
+    CIPeriodChannelUpdate,
+    CIPulseWidthChannelUpdate,
+    CISemiPeriodChannelUpdate,
+    CITwoEdgeSepChannelUpdate,
+    CIVelocityLinearChannelUpdate,
+    CIVelocityAngularChannelUpdate,
+    CIPositionLinearChannelUpdate,
+    CIPositionAngularChannelUpdate,
+    CIDutyCycleChannelUpdate>;
+
+CIChannelUpdate parse_ci_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const CIChannelUpdate &value);
+
+/// @brief AOCurrentChannelUpdate drives a current output.
+struct AOCurrentChannelUpdate {
+    std::string type = "ao_current";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to.
+    std::optional<std::uint32_t> port;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+
+    static AOCurrentChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AOFuncGenChannelUpdate drives a function-generator output.
+struct AOFuncGenChannelUpdate {
+    std::string type = "ao_func_gen";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to.
+    std::optional<std::uint32_t> port;
+    /// @brief wave_type selects the waveform to generate.
+    std::optional<std::string> wave_type;
+    /// @brief frequency is the waveform frequency, in Hertz.
+    std::optional<double> frequency;
+    /// @brief amplitude is the waveform amplitude.
+    std::optional<double> amplitude;
+    /// @brief offset is the waveform DC offset.
+    std::optional<double> offset;
+
+    static AOFuncGenChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AOVoltageChannelUpdate drives a voltage output.
+struct AOVoltageChannelUpdate {
+    std::string type = "ao_voltage";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to.
+    std::optional<std::uint32_t> port;
+    /// @brief min_val is the minimum expected value, in scaled units.
+    std::optional<double> min_val;
+    /// @brief max_val is the maximum expected value, in scaled units.
+    std::optional<double> max_val;
+    /// @brief custom_scale is the scale applied to the raw measurement.
+    std::optional<ScaleUpdate> custom_scale;
+
+    static AOVoltageChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AOChannelUpdate holds changes to the fields of the ao channel. A type that
+/// differs from the stored one changes the variant.
+using AOChannelUpdate = std::variant<
+    AOChannelBaseUpdate,
+    AOCurrentChannelUpdate,
+    AOFuncGenChannelUpdate,
+    AOVoltageChannelUpdate>;
+
+AOChannelUpdate parse_ao_channel_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const AOChannelUpdate &value);
 
 /// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
 /// ranges of an NI device. The Driver stores it in the device properties under
@@ -1735,7 +3641,7 @@ struct AnalogReadConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> stream_rate;
     /// @brief channels are the analog input channels the task acquires.
-    std::optional<::x::patch::ValueList<AIChannel>> channels;
+    std::optional<::x::patch::List<AIChannel, std::string, AIChannelUpdate>> channels;
 
     static AnalogReadConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1768,7 +3674,7 @@ struct CounterReadConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> stream_rate;
     /// @brief channels are the counter input channels the task acquires.
-    std::optional<::x::patch::ValueList<CIChannel>> channels;
+    std::optional<::x::patch::List<CIChannel, std::string, CIChannelUpdate>> channels;
 
     static CounterReadConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1800,9 +3706,122 @@ struct AnalogWriteConfigUpdate {
     /// Hertz.
     std::optional<::x::telem::Rate> state_rate;
     /// @brief channels are the analog output channels the task drives.
-    std::optional<::x::patch::ValueList<AOChannel>> channels;
+    std::optional<::x::patch::List<AOChannel, std::string, AOChannelUpdate>> channels;
 
     static AnalogWriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+};
+}
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::ni::CJC> {
+    static ::synnax::ni::CJC parse(Parser parser) {
+        return ::synnax::ni::parse_cjc(parser);
+    }
+
+    static json to_json(const ::synnax::ni::CJC &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::CJCUpdate> {
+    static ::synnax::ni::CJCUpdate parse(Parser parser) {
+        return ::synnax::ni::parse_cjc_update(parser);
+    }
+
+    static json to_json(const ::synnax::ni::CJCUpdate &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::Scale> {
+    static ::synnax::ni::Scale parse(Parser parser) {
+        return ::synnax::ni::parse_scale(parser);
+    }
+
+    static json to_json(const ::synnax::ni::Scale &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::ScaleUpdate> {
+    static ::synnax::ni::ScaleUpdate parse(Parser parser) {
+        return ::synnax::ni::parse_scale_update(parser);
+    }
+
+    static json to_json(const ::synnax::ni::ScaleUpdate &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::AIChannelUpdate> {
+    static ::synnax::ni::AIChannelUpdate parse(Parser parser) {
+        return ::synnax::ni::parse_ai_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::ni::AIChannelUpdate &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::CIChannelUpdate> {
+    static ::synnax::ni::CIChannelUpdate parse(Parser parser) {
+        return ::synnax::ni::parse_ci_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::ni::CIChannelUpdate &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::AOChannelUpdate> {
+    static ::synnax::ni::AOChannelUpdate parse(Parser parser) {
+        return ::synnax::ni::parse_ao_channel_update(parser);
+    }
+
+    static json to_json(const ::synnax::ni::AOChannelUpdate &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::AIChannel> {
+    static ::synnax::ni::AIChannel parse(Parser parser) {
+        return ::synnax::ni::parse_ai_channel(parser);
+    }
+
+    static json to_json(const ::synnax::ni::AIChannel &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::CIChannel> {
+    static ::synnax::ni::CIChannel parse(Parser parser) {
+        return ::synnax::ni::parse_ci_channel(parser);
+    }
+
+    static json to_json(const ::synnax::ni::CIChannel &value) {
+        return ::synnax::ni::to_json(value);
+    }
+};
+
+template<>
+struct Codec<::synnax::ni::AOChannel> {
+    static ::synnax::ni::AOChannel parse(Parser parser) {
+        return ::synnax::ni::parse_ao_channel(parser);
+    }
+
+    static json to_json(const ::synnax::ni::AOChannel &value) {
+        return ::synnax::ni::to_json(value);
+    }
 };
 }

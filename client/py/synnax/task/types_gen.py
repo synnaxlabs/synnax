@@ -15,6 +15,7 @@ from typing import (
     Annotated,
     Any,
     Literal,
+    Required,
     TypeAlias,
     TypedDict,
     override as _override,
@@ -153,6 +154,59 @@ Scale = Annotated[
     LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
     Field(discriminator="type"),
 ]
+
+
+class LinearScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units with a slope and offset."""
+
+    type: Required[Literal["linear"]]
+    slope: float
+    offset: float
+
+
+class MapScaleUpdate(TypedDict, total=False):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Required[Literal["map"]]
+    pre_scaled_min: float
+    pre_scaled_max: float
+    scaled_min: float
+    scaled_max: float
+
+
+class PolynomialScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Required[Literal["polynomial"]]
+    coeffs: patch.ValueListDict[float]
+
+
+class TableScaleUpdate(TypedDict, total=False):
+    """Maps raw values to engineering units by linear interpolation between the
+    breakpoints, and clips raw values outside the table to its first or last scaled
+    value.
+    """
+
+    type: Required[Literal["table"]]
+    pre_scaled_vals: patch.ValueListDict[float]
+    scaled_vals: patch.ValueListDict[float]
+
+
+class NoneScaleUpdate(TypedDict, total=False):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Required[Literal["none"]]
+
+
+# Holds changes to the fields of the scale. A type that differs from the stored one
+# changes the variant.
+ScaleUpdate = (
+    LinearScaleUpdate
+    | MapScaleUpdate
+    | PolynomialScaleUpdate
+    | TableScaleUpdate
+    | NoneScaleUpdate
+)
 
 
 class Where(BaseModel):

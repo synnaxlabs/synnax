@@ -265,6 +265,13 @@ var _ = Describe("FormatPyComment", func() {
 		Expect(doc.FormatPyComment("sets a value.\nIt creates the path.")).
 			To(Equal("# Sets a value.\n# It creates the path."))
 	})
+	It("should wrap a line longer than 88 columns", func() {
+		long := strings.Repeat("word ", 20) + "end."
+		Expect(doc.FormatPyComment(long)).To(Equal(
+			"# Word" + strings.Repeat(" word", 16) + "\n# " +
+				strings.Repeat("word ", 3) + "end.",
+		))
+	})
 })
 
 var _ = Describe("FormatPyDocstringGoogle", func() {

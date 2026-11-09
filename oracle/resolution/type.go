@@ -205,7 +205,14 @@ type UnionForm struct {
 	// member named by the tag, as {"type": t, t: payload}. Each variant then references
 	// a named payload type, and no variant inlines its fields.
 	Adjacent bool
+	// Untagged names the struct that a value without the discriminator takes. It
+	// admits no member of any variant. The zero TypeRef means the discriminator is
+	// required.
+	Untagged TypeRef
 }
+
+// HasUntagged reports whether a value without the discriminator is valid.
+func (f UnionForm) HasUntagged() bool { return f.Untagged.Name != "" }
 
 func (UnionForm) typeForm() {}
 
@@ -423,6 +430,9 @@ func refersTo(
 			}
 		}
 		if form.BorrowsEnum() && refersTo(form.Enum, targetQN, table, visited) {
+			return true
+		}
+		if form.HasUntagged() && refersTo(form.Untagged, targetQN, table, visited) {
 			return true
 		}
 		for _, v := range form.Variants {

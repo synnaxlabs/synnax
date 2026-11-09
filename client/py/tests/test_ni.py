@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from synnax.ni.types_gen import AIChannelUpdate
 from x.strings import random_name
 
 
@@ -889,3 +890,30 @@ class TestNIDeviceHelpers:
         )
         assert isinstance(device.properties, dict)
         assert device.properties["identifier"] == "test_id"
+
+
+@pytest.mark.ni
+class TestNIChannelUpdate:
+    def test_update_holds_named_variant_fields(self) -> None:
+        """Should hold the base and variant fields of the named variant."""
+        update: AIChannelUpdate = {"key": "c3", "type": "ai_voltage", "max_val": 10}
+        assert "max_val" in update
+
+    def test_update_without_type_holds_base_fields(self) -> None:
+        """Should hold only base fields in an update without a type."""
+        base: AIChannelUpdate = {"key": "c3", "port": 4}
+        variant: AIChannelUpdate = {  # type: ignore[assignment]
+            "key": "c3",
+            "max_val": 10,
+        }
+        assert "type" not in base
+        assert "type" not in variant
+
+    def test_update_rejects_field_of_other_variant(self) -> None:
+        """Should not take a field of another variant."""
+        update: AIChannelUpdate = {
+            "key": "c3",
+            "type": "ai_voltage",  # type: ignore[typeddict-item]
+            "thermocouple_type": "K",
+        }
+        assert "thermocouple_type" in update

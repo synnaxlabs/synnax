@@ -71,6 +71,9 @@ type unionData struct {
 	// a member named by the tag. The payloads then take the marker method, and the
 	// union declares no variant structs.
 	Adjacent bool
+	// Untagged is the struct that a value without the discriminator decodes to, or
+	// empty when the discriminator is required. The struct takes the marker method.
+	Untagged string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -232,6 +235,9 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		)
 	}
 
+	if form.HasUntagged() {
+		ud.Untagged = data.resolver.ResolveTypeRef(form.Untagged, data.ctx)
+	}
 	if form.Adjacent {
 		ud.Adjacent = true
 		data.AddExternal("github.com/synnaxlabs/x/union")

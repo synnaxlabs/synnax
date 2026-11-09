@@ -76,6 +76,38 @@ var _ = Describe("Update types", func() {
 			ToNotContain("nullToUndefined")
 	})
 
+	It("Should forbid the variant fields in an update without the type", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/view"
+			@ts output "client/ts/src/view"
+
+			Base struct {
+				key  uuid
+				name string { @patch }
+			}
+
+			View union on type extends Base {
+				range {
+					where string? { @patch }
+				}
+				status {
+					level int32 { @patch }
+				}
+				@actions
+			}
+		`, "view", loader, typesPlugin)
+		ExpectContent(resp, "client/ts/src/view/types.gen.ts").ToContain(
+			`export const updateZ = z.union([baseUpdateZ.strict(), `+
+				`z.discriminatedUnion("type", [`,
+			"export type Update = (BaseUpdate & { type?: never; where?: never; "+
+				"level?: never; }) | RangeUpdate | StatusUpdate;",
+		)
+	})
+
 	It("Should derive the input of a client from the update", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, record, "plot", loader, typesPlugin)
 		ExpectContent(resp, "client/ts/src/plot/types.gen.ts").ToContain(

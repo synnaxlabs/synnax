@@ -534,6 +534,68 @@ export const scanConfigUpdateZ = z.object({
 export interface ScanConfigUpdate extends z.infer<typeof scanConfigUpdateZ> {}
 
 /**
+ * AIChannelBaseUpdate holds changes to the fields of the ai channel. An absent field
+ * does not change.
+ */
+export const aiChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+});
+export interface AIChannelBaseUpdate extends z.infer<typeof aiChannelBaseUpdateZ> {}
+
+/**
+ * CIChannelBaseUpdate holds changes to the fields of the ci channel. An absent field
+ * does not change.
+ */
+export const ciChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+});
+export interface CIChannelBaseUpdate extends z.infer<typeof ciChannelBaseUpdateZ> {}
+
+/**
+ * AOChannelBaseUpdate holds changes to the fields of the ao channel. An absent field
+ * does not change.
+ */
+export const aoChannelBaseUpdateZ = z.object({
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to. */
+  port: z.uint32().optional(),
+});
+export interface AOChannelBaseUpdate extends z.infer<typeof aoChannelBaseUpdateZ> {}
+
+/**
  * DIChannelUpdate holds changes to the fields of the di channel. An absent field does
  * not change.
  */
@@ -724,6 +786,157 @@ export const SCALE_SCHEMAS: {
   none: noneScaleZ,
 };
 
+/**
+ * LinearScaleUpdate maps raw values to engineering units with a slope and intercept.
+ */
+export const linearScaleUpdateZ = z.object({
+  type: z.literal("linear"),
+  /** slope is the multiplier applied to the raw value. */
+  slope: z.number().optional(),
+  /** yIntercept is the offset added after scaling. */
+  yIntercept: z.number().optional(),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.optional(),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().optional(),
+});
+export interface LinearScaleUpdate extends z.infer<typeof linearScaleUpdateZ> {}
+
+/** MapScaleUpdate maps a raw range linearly onto a scaled range. */
+export const mapScaleUpdateZ = z.object({
+  type: z.literal("map"),
+  /** preScaledMin is the lower bound of the raw input range. */
+  preScaledMin: z.number().optional(),
+  /** preScaledMax is the upper bound of the raw input range. */
+  preScaledMax: z.number().optional(),
+  /** scaledMin is the lower bound of the scaled output range. */
+  scaledMin: z.number().optional(),
+  /** scaledMax is the upper bound of the scaled output range. */
+  scaledMax: z.number().optional(),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.optional(),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().optional(),
+});
+export interface MapScaleUpdate extends z.infer<typeof mapScaleUpdateZ> {}
+
+/** TableScaleUpdate maps raw values to engineering units via a lookup table. */
+export const tableScaleUpdateZ = z.object({
+  type: z.literal("table"),
+  /** preScaledVals are the raw breakpoints, monotonically increasing. */
+  preScaledVals: patch.valueListZ(z.number()).optional(),
+  /** scaledVals are the engineering-unit values at each breakpoint. */
+  scaledVals: patch.valueListZ(z.number()).optional(),
+  /** preScaledUnits are the units of the raw values before scaling. */
+  preScaledUnits: unitsZ.optional(),
+  /** scaledUnits are the units of the values after scaling. */
+  scaledUnits: z.string().optional(),
+});
+export interface TableScaleUpdate extends z.infer<typeof tableScaleUpdateZ> {}
+
+/** PolynomialScaleUpdate maps raw values to engineering units with a polynomial. */
+export const polynomialScaleUpdateZ = z.object({
+  type: z.literal("polynomial"),
+  /** forwardCoeffs are the coefficients mapping pre-scaled to scaled values. */
+  forwardCoeffs: patch.valueListZ(z.number()).optional(),
+  /** reverseCoeffs are the coefficients mapping scaled to pre-scaled values. */
+  reverseCoeffs: patch.valueListZ(z.number()).optional(),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.optional(),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().optional(),
+});
+export interface PolynomialScaleUpdate extends z.infer<typeof polynomialScaleUpdateZ> {}
+
+/** NoneScaleUpdate applies no scaling; the raw value is used directly. */
+export const noneScaleUpdateZ = z.object({
+  type: z.literal("none"),
+});
+export interface NoneScaleUpdate extends z.infer<typeof noneScaleUpdateZ> {}
+
+export const SCALE_UPDATE_TYPES = [
+  "linear",
+  "map",
+  "table",
+  "polynomial",
+  "none",
+] as const;
+export const scaleUpdateTypeZ = z.enum(SCALE_UPDATE_TYPES);
+export type ScaleUpdateType = z.infer<typeof scaleUpdateTypeZ>;
+
+/**
+ * ScaleUpdate holds changes to the fields of the scale. A type that differs from the
+ * stored one changes the variant.
+ */
+export const scaleUpdateZ = z.discriminatedUnion("type", [
+  linearScaleUpdateZ,
+  mapScaleUpdateZ,
+  tableScaleUpdateZ,
+  polynomialScaleUpdateZ,
+  noneScaleUpdateZ,
+]);
+export type ScaleUpdate =
+  | LinearScaleUpdate
+  | MapScaleUpdate
+  | TableScaleUpdate
+  | PolynomialScaleUpdate
+  | NoneScaleUpdate;
+
+export const SCALE_UPDATE_SCHEMAS: {
+  [K in ScaleUpdateType]: z.ZodType<Extract<ScaleUpdate, { type: K }>>;
+} = {
+  linear: linearScaleUpdateZ,
+  map: mapScaleUpdateZ,
+  table: tableScaleUpdateZ,
+  polynomial: polynomialScaleUpdateZ,
+  none: noneScaleUpdateZ,
+};
+
+/** BuiltInCJCUpdate reads the reference temperature from the device's own sensor. */
+export const builtInCJCUpdateZ = z.object({
+  source: z.literal("built_in"),
+});
+export interface BuiltInCJCUpdate extends z.infer<typeof builtInCJCUpdateZ> {}
+
+/** ConstValCJCUpdate uses a fixed reference temperature. */
+export const constValCJCUpdateZ = z.object({
+  source: z.literal("const_val"),
+  /** val is the reference temperature, in the channel's units. */
+  val: z.number().optional(),
+});
+export interface ConstValCJCUpdate extends z.infer<typeof constValCJCUpdateZ> {}
+
+/** ChanCJCUpdate reads the reference temperature from another channel. */
+export const chanCJCUpdateZ = z.object({
+  source: z.literal("chan"),
+  /** port is the port of the channel that measures the reference. */
+  port: z.uint32().optional(),
+});
+export interface ChanCJCUpdate extends z.infer<typeof chanCJCUpdateZ> {}
+
+export const CJC_UPDATE_TYPES = ["built_in", "const_val", "chan"] as const;
+export const cjcUpdateTypeZ = z.enum(CJC_UPDATE_TYPES);
+export type CJCUpdateType = z.infer<typeof cjcUpdateTypeZ>;
+
+/**
+ * CJCUpdate holds changes to the fields of the cjc. A source that differs from the
+ * stored one changes the variant.
+ */
+export const cjcUpdateZ = z.discriminatedUnion("source", [
+  builtInCJCUpdateZ,
+  constValCJCUpdateZ,
+  chanCJCUpdateZ,
+]);
+export type CJCUpdate = BuiltInCJCUpdate | ConstValCJCUpdate | ChanCJCUpdate;
+
+export const CJC_UPDATE_SCHEMAS: {
+  [K in CJCUpdateType]: z.ZodType<Extract<CJCUpdate, { source: K }>>;
+} = {
+  built_in: builtInCJCUpdateZ,
+  const_val: constValCJCUpdateZ,
+  chan: chanCJCUpdateZ,
+};
+
 export const digitalReadConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: diChannelZ.array().default(() => []),
@@ -864,6 +1077,1964 @@ export const customScaleZ = z.object({
   customScale: scaleZ.prefault({ type: "none" }),
 });
 export interface CustomScale extends z.infer<typeof customScaleZ> {}
+
+/** CIFrequencyChannelUpdate measures signal frequency. */
+export const ciFrequencyChannelUpdateZ = z.object({
+  type: z.literal("ci_frequency"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected frequency. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected frequency. */
+  maxVal: z.number().optional(),
+  /** units are the units of the frequency measurement. */
+  units: ciFreqUnitsZ.optional(),
+  /** edge selects the edge the counter responds to. */
+  edge: ciEdgeZ.optional(),
+  /** measMethod selects the measurement method. */
+  measMethod: ciMeasMethodZ.optional(),
+  /** measTime is the averaging window for high-frequency measurement, in seconds. */
+  measTime: z.number().optional(),
+  /** divisor is the counter divisor for large-range measurement. */
+  divisor: z.uint32().optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CIFrequencyChannelUpdate extends z.infer<
+  typeof ciFrequencyChannelUpdateZ
+> {}
+
+/** CIEdgeCountChannelUpdate counts signal edges. */
+export const ciEdgeCountChannelUpdateZ = z.object({
+  type: z.literal("ci_edge_count"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** activeEdge selects the edge that increments the count. */
+  activeEdge: ciEdgeZ.optional(),
+  /** countDirection selects the direction the counter counts. */
+  countDirection: ciCountDirectionZ.optional(),
+  /** initialCount is the value the counter starts at. */
+  initialCount: z.uint32().optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CIEdgeCountChannelUpdate extends z.infer<
+  typeof ciEdgeCountChannelUpdateZ
+> {}
+
+/** CIPeriodChannelUpdate measures signal period. */
+export const ciPeriodChannelUpdateZ = z.object({
+  type: z.literal("ci_period"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected period, in the selected units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected period, in the selected units. */
+  maxVal: z.number().optional(),
+  /** units are the units of the period measurement. */
+  units: ciTimeUnitsZ.optional(),
+  /** startingEdge selects the edge that starts a period measurement. */
+  startingEdge: ciEdgeZ.optional(),
+  /** measMethod selects the measurement method. */
+  measMethod: ciMeasMethodZ.optional(),
+  /** measTime is the averaging window for high-frequency measurement, in seconds. */
+  measTime: z.number().optional(),
+  /** divisor is the counter divisor for large-range measurement. */
+  divisor: z.uint32().optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CIPeriodChannelUpdate extends z.infer<typeof ciPeriodChannelUpdateZ> {}
+
+/** CIPulseWidthChannelUpdate measures pulse width. */
+export const ciPulseWidthChannelUpdateZ = z.object({
+  type: z.literal("ci_pulse_width"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected pulse width, in the selected units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected pulse width, in the selected units. */
+  maxVal: z.number().optional(),
+  /** units are the units of the pulse-width measurement. */
+  units: ciTimeUnitsZ.optional(),
+  /** startingEdge selects the edge that starts a pulse-width measurement. */
+  startingEdge: ciEdgeZ.optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CIPulseWidthChannelUpdate extends z.infer<
+  typeof ciPulseWidthChannelUpdateZ
+> {}
+
+/** CISemiPeriodChannelUpdate measures semi-period. */
+export const ciSemiPeriodChannelUpdateZ = z.object({
+  type: z.literal("ci_semi_period"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected semi-period, in the selected units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected semi-period, in the selected units. */
+  maxVal: z.number().optional(),
+  /** units are the units of the semi-period measurement. */
+  units: ciTimeUnitsZ.optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CISemiPeriodChannelUpdate extends z.infer<
+  typeof ciSemiPeriodChannelUpdateZ
+> {}
+
+/** CITwoEdgeSepChannelUpdate measures the separation between two edges. */
+export const ciTwoEdgeSepChannelUpdateZ = z.object({
+  type: z.literal("ci_two_edge_sep"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected separation, in the selected units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected separation, in the selected units. */
+  maxVal: z.number().optional(),
+  /** units are the units of the two-edge-separation measurement. */
+  units: ciTimeUnitsZ.optional(),
+  /** firstEdge selects the edge that starts the measurement. */
+  firstEdge: ciEdgeZ.optional(),
+  /** secondEdge selects the edge that stops the measurement. */
+  secondEdge: ciEdgeZ.optional(),
+  /** firstTerminal is the terminal the first edge's signal is wired to. */
+  firstTerminal: z.string().optional(),
+  /** secondTerminal is the terminal the second edge's signal is wired to. */
+  secondTerminal: z.string().optional(),
+});
+export interface CITwoEdgeSepChannelUpdate extends z.infer<
+  typeof ciTwoEdgeSepChannelUpdateZ
+> {}
+
+/** CIVelocityLinearChannelUpdate measures linear velocity from an encoder. */
+export const ciVelocityLinearChannelUpdateZ = z.object({
+  type: z.literal("ci_velocity_linear"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected velocity. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected velocity. */
+  maxVal: z.number().optional(),
+  /** units are the units of the velocity measurement. */
+  units: ciLinearVelocityUnitsZ.optional(),
+  /** decodingType selects the encoder decoding type. */
+  decodingType: ciDecodingTypeZ.optional(),
+  /** distPerPulse is the linear distance per encoder pulse. */
+  distPerPulse: z.number().optional(),
+  /** terminalA is the terminal for encoder channel A. */
+  terminalA: z.string().optional(),
+  /** terminalB is the terminal for encoder channel B. */
+  terminalB: z.string().optional(),
+});
+export interface CIVelocityLinearChannelUpdate extends z.infer<
+  typeof ciVelocityLinearChannelUpdateZ
+> {}
+
+/** CIVelocityAngularChannelUpdate measures angular velocity from an encoder. */
+export const ciVelocityAngularChannelUpdateZ = z.object({
+  type: z.literal("ci_velocity_angular"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected velocity. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected velocity. */
+  maxVal: z.number().optional(),
+  /** units are the units of the velocity measurement. */
+  units: ciAngularVelocityUnitsZ.optional(),
+  /** decodingType selects the encoder decoding type. */
+  decodingType: ciDecodingTypeZ.optional(),
+  /** pulsesPerRev is the number of encoder pulses per revolution. */
+  pulsesPerRev: z.uint32().optional(),
+  /** terminalA is the terminal for encoder channel A. */
+  terminalA: z.string().optional(),
+  /** terminalB is the terminal for encoder channel B. */
+  terminalB: z.string().optional(),
+});
+export interface CIVelocityAngularChannelUpdate extends z.infer<
+  typeof ciVelocityAngularChannelUpdateZ
+> {}
+
+/** CIPositionLinearChannelUpdate measures linear position from an encoder. */
+export const ciPositionLinearChannelUpdateZ = z.object({
+  type: z.literal("ci_position_linear"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** zIndexEnabled is true when the encoder's Z index resets the count. */
+  zIndexEnabled: z.boolean().optional(),
+  /** zIndexVal is the value the measurement resets to when the Z index is active. */
+  zIndexVal: z.number().optional(),
+  /** zIndexPhase selects the A/B states at which the Z index is active. */
+  zIndexPhase: zIndexPhaseZ.optional(),
+  /** terminalZ is the terminal the Z index signal is wired to. */
+  terminalZ: z.string().optional(),
+  /** units are the units of the position measurement. */
+  units: ciLinearPositionUnitsZ.optional(),
+  /** decodingType selects the encoder decoding type. */
+  decodingType: ciDecodingTypeZ.optional(),
+  /** distPerPulse is the linear distance per encoder pulse. */
+  distPerPulse: z.number().optional(),
+  /** initialPos is the position the encoder starts at. */
+  initialPos: z.number().optional(),
+  /** terminalA is the terminal for encoder channel A. */
+  terminalA: z.string().optional(),
+  /** terminalB is the terminal for encoder channel B. */
+  terminalB: z.string().optional(),
+});
+export interface CIPositionLinearChannelUpdate extends z.infer<
+  typeof ciPositionLinearChannelUpdateZ
+> {}
+
+/** CIPositionAngularChannelUpdate measures angular position from an encoder. */
+export const ciPositionAngularChannelUpdateZ = z.object({
+  type: z.literal("ci_position_angular"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** zIndexEnabled is true when the encoder's Z index resets the count. */
+  zIndexEnabled: z.boolean().optional(),
+  /** zIndexVal is the value the measurement resets to when the Z index is active. */
+  zIndexVal: z.number().optional(),
+  /** zIndexPhase selects the A/B states at which the Z index is active. */
+  zIndexPhase: zIndexPhaseZ.optional(),
+  /** terminalZ is the terminal the Z index signal is wired to. */
+  terminalZ: z.string().optional(),
+  /** units are the units of the position measurement. */
+  units: ciAngularPositionUnitsZ.optional(),
+  /** decodingType selects the encoder decoding type. */
+  decodingType: ciDecodingTypeZ.optional(),
+  /** pulsesPerRev is the number of encoder pulses per revolution. */
+  pulsesPerRev: z.uint32().optional(),
+  /** initialAngle is the angle the encoder starts at. */
+  initialAngle: z.number().optional(),
+  /** terminalA is the terminal for encoder channel A. */
+  terminalA: z.string().optional(),
+  /** terminalB is the terminal for encoder channel B. */
+  terminalB: z.string().optional(),
+});
+export interface CIPositionAngularChannelUpdate extends z.infer<
+  typeof ciPositionAngularChannelUpdateZ
+> {}
+
+/** CIDutyCycleChannelUpdate measures the duty cycle of a signal. */
+export const ciDutyCycleChannelUpdateZ = z.object({
+  type: z.literal("ci_duty_cycle"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical counter the channel uses. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the counter belongs to. */
+  device: device.keyZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** minVal is the minimum expected duty-cycle frequency. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected duty-cycle frequency. */
+  maxVal: z.number().optional(),
+  /** activeEdge selects the edge the counter responds to. */
+  activeEdge: ciEdgeZ.optional(),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().optional(),
+});
+export interface CIDutyCycleChannelUpdate extends z.infer<
+  typeof ciDutyCycleChannelUpdateZ
+> {}
+
+export const CI_CHANNEL_UPDATE_TYPES = [
+  "ci_frequency",
+  "ci_edge_count",
+  "ci_period",
+  "ci_pulse_width",
+  "ci_semi_period",
+  "ci_two_edge_sep",
+  "ci_velocity_linear",
+  "ci_velocity_angular",
+  "ci_position_linear",
+  "ci_position_angular",
+  "ci_duty_cycle",
+] as const;
+export const ciChannelUpdateTypeZ = z.enum(CI_CHANNEL_UPDATE_TYPES);
+export type CIChannelUpdateType = z.infer<typeof ciChannelUpdateTypeZ>;
+
+/**
+ * CIChannelUpdate holds changes to the fields of the ci channel. A type that differs
+ * from the stored one changes the variant.
+ */
+export const ciChannelUpdateZ = z.union([
+  ciChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    ciFrequencyChannelUpdateZ,
+    ciEdgeCountChannelUpdateZ,
+    ciPeriodChannelUpdateZ,
+    ciPulseWidthChannelUpdateZ,
+    ciSemiPeriodChannelUpdateZ,
+    ciTwoEdgeSepChannelUpdateZ,
+    ciVelocityLinearChannelUpdateZ,
+    ciVelocityAngularChannelUpdateZ,
+    ciPositionLinearChannelUpdateZ,
+    ciPositionAngularChannelUpdateZ,
+    ciDutyCycleChannelUpdateZ,
+  ]),
+]);
+export type CIChannelUpdate =
+  | (CIChannelBaseUpdate & {
+      type?: never;
+      customScale?: never;
+      minVal?: never;
+      maxVal?: never;
+      units?: never;
+      edge?: never;
+      measMethod?: never;
+      measTime?: never;
+      divisor?: never;
+      terminal?: never;
+      activeEdge?: never;
+      countDirection?: never;
+      initialCount?: never;
+      startingEdge?: never;
+      firstEdge?: never;
+      secondEdge?: never;
+      firstTerminal?: never;
+      secondTerminal?: never;
+      decodingType?: never;
+      distPerPulse?: never;
+      terminalA?: never;
+      terminalB?: never;
+      pulsesPerRev?: never;
+      zIndexEnabled?: never;
+      zIndexVal?: never;
+      zIndexPhase?: never;
+      terminalZ?: never;
+      initialPos?: never;
+      initialAngle?: never;
+    })
+  | CIFrequencyChannelUpdate
+  | CIEdgeCountChannelUpdate
+  | CIPeriodChannelUpdate
+  | CIPulseWidthChannelUpdate
+  | CISemiPeriodChannelUpdate
+  | CITwoEdgeSepChannelUpdate
+  | CIVelocityLinearChannelUpdate
+  | CIVelocityAngularChannelUpdate
+  | CIPositionLinearChannelUpdate
+  | CIPositionAngularChannelUpdate
+  | CIDutyCycleChannelUpdate;
+
+export const CI_CHANNEL_UPDATE_SCHEMAS: {
+  [K in CIChannelUpdateType]: z.ZodType<Extract<CIChannelUpdate, { type: K }>>;
+} = {
+  ci_frequency: ciFrequencyChannelUpdateZ,
+  ci_edge_count: ciEdgeCountChannelUpdateZ,
+  ci_period: ciPeriodChannelUpdateZ,
+  ci_pulse_width: ciPulseWidthChannelUpdateZ,
+  ci_semi_period: ciSemiPeriodChannelUpdateZ,
+  ci_two_edge_sep: ciTwoEdgeSepChannelUpdateZ,
+  ci_velocity_linear: ciVelocityLinearChannelUpdateZ,
+  ci_velocity_angular: ciVelocityAngularChannelUpdateZ,
+  ci_position_linear: ciPositionLinearChannelUpdateZ,
+  ci_position_angular: ciPositionAngularChannelUpdateZ,
+  ci_duty_cycle: ciDutyCycleChannelUpdateZ,
+};
+
+/** AOCurrentChannelUpdate drives a current output. */
+export const aoCurrentChannelUpdateZ = z.object({
+  type: z.literal("ao_current"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to. */
+  port: z.uint32().optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+});
+export interface AOCurrentChannelUpdate extends z.infer<
+  typeof aoCurrentChannelUpdateZ
+> {}
+
+/** AOFuncGenChannelUpdate drives a function-generator output. */
+export const aoFuncGenChannelUpdateZ = z.object({
+  type: z.literal("ao_func_gen"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to. */
+  port: z.uint32().optional(),
+  /** waveType selects the waveform to generate. */
+  waveType: waveTypeZ.optional(),
+  /** frequency is the waveform frequency, in Hertz. */
+  frequency: z.number().optional(),
+  /** amplitude is the waveform amplitude. */
+  amplitude: z.number().optional(),
+  /** offset is the waveform DC offset. */
+  offset: z.number().optional(),
+});
+export interface AOFuncGenChannelUpdate extends z.infer<
+  typeof aoFuncGenChannelUpdateZ
+> {}
+
+/** AOVoltageChannelUpdate drives a voltage output. */
+export const aoVoltageChannelUpdateZ = z.object({
+  type: z.literal("ao_voltage"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** disabled is true when the channel is excluded from the task. */
+  disabled: z.boolean().optional(),
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.optional(),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.optional(),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().optional(),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().optional(),
+  /** port is the physical port the channel writes to. */
+  port: z.uint32().optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+});
+export interface AOVoltageChannelUpdate extends z.infer<
+  typeof aoVoltageChannelUpdateZ
+> {}
+
+export const AO_CHANNEL_UPDATE_TYPES = [
+  "ao_current",
+  "ao_func_gen",
+  "ao_voltage",
+] as const;
+export const aoChannelUpdateTypeZ = z.enum(AO_CHANNEL_UPDATE_TYPES);
+export type AOChannelUpdateType = z.infer<typeof aoChannelUpdateTypeZ>;
+
+/**
+ * AOChannelUpdate holds changes to the fields of the ao channel. A type that differs
+ * from the stored one changes the variant.
+ */
+export const aoChannelUpdateZ = z.union([
+  aoChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    aoCurrentChannelUpdateZ,
+    aoFuncGenChannelUpdateZ,
+    aoVoltageChannelUpdateZ,
+  ]),
+]);
+export type AOChannelUpdate =
+  | (AOChannelBaseUpdate & {
+      type?: never;
+      minVal?: never;
+      maxVal?: never;
+      customScale?: never;
+      waveType?: never;
+      frequency?: never;
+      amplitude?: never;
+      offset?: never;
+    })
+  | AOCurrentChannelUpdate
+  | AOFuncGenChannelUpdate
+  | AOVoltageChannelUpdate;
+
+export const AO_CHANNEL_UPDATE_SCHEMAS: {
+  [K in AOChannelUpdateType]: z.ZodType<Extract<AOChannelUpdate, { type: K }>>;
+} = {
+  ao_current: aoCurrentChannelUpdateZ,
+  ao_func_gen: aoFuncGenChannelUpdateZ,
+  ao_voltage: aoVoltageChannelUpdateZ,
+};
+
+/** AIVoltageChannelUpdate reads a voltage. */
+export const aiVoltageChannelUpdateZ = z.object({
+  type: z.literal("ai_voltage"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+});
+export interface AIVoltageChannelUpdate extends z.infer<
+  typeof aiVoltageChannelUpdateZ
+> {}
+
+/** AIAccelChannelUpdate reads acceleration from an accelerometer. */
+export const aiAccelChannelUpdateZ = z.object({
+  type: z.literal("ai_accel"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** sensitivity is the sensor's sensitivity rating. */
+  sensitivity: z.number().optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the acceleration measurement. */
+  units: accelUnitsZ.optional(),
+  /** sensitivityUnits are the units of the accelerometer sensitivity. */
+  sensitivityUnits: accelSensitivityUnitsZ.optional(),
+});
+export interface AIAccelChannelUpdate extends z.infer<typeof aiAccelChannelUpdateZ> {}
+
+/** AIBridgeChannelUpdate reads a generic bridge-based sensor. */
+export const aiBridgeChannelUpdateZ = z.object({
+  type: z.literal("ai_bridge"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the electrical output units of the bridge. */
+  units: electricalUnitsZ.optional(),
+});
+export interface AIBridgeChannelUpdate extends z.infer<typeof aiBridgeChannelUpdateZ> {}
+
+/** AICurrentChannelUpdate reads a current. */
+export const aiCurrentChannelUpdateZ = z.object({
+  type: z.literal("ai_current"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** shuntResistorLoc selects where the shunt resistor is located. */
+  shuntResistorLoc: shuntResistorLocationZ.optional(),
+  /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
+  extShuntResistorVal: z.number().optional(),
+});
+export interface AICurrentChannelUpdate extends z.infer<
+  typeof aiCurrentChannelUpdateZ
+> {}
+
+/**
+ * AIForceBridgeTableChannelUpdate reads force from a bridge with a calibration table.
+ */
+export const aiForceBridgeTableChannelUpdateZ = z.object({
+  type: z.literal("ai_force_bridge_table"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** electricalVals are the electrical breakpoints of the calibration table. */
+  electricalVals: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the units of the electrical breakpoints. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /**
+   * physicalVals are the physical values corresponding to each electrical breakpoint.
+   */
+  physicalVals: patch.valueListZ(z.number()).optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the force measurement. */
+  units: forceUnitsZ.optional(),
+  /** physicalUnits are the physical units of the calibration table. */
+  physicalUnits: forceUnitsZ.optional(),
+});
+export interface AIForceBridgeTableChannelUpdate extends z.infer<
+  typeof aiForceBridgeTableChannelUpdateZ
+> {}
+
+/**
+ * AIForceBridgeTwoPointLinChannelUpdate reads force from a bridge with two-point linear
+ * calibration.
+ */
+export const aiForceBridgeTwoPointLinChannelUpdateZ = z.object({
+  type: z.literal("ai_force_bridge_two_point_lin"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** firstElectricalVal is the first electrical calibration point. */
+  firstElectricalVal: z.number().optional(),
+  /** secondElectricalVal is the second electrical calibration point. */
+  secondElectricalVal: z.number().optional(),
+  /** electricalUnits are the units of the electrical calibration points. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** firstPhysicalVal is the physical value at the first electrical point. */
+  firstPhysicalVal: z.number().optional(),
+  /** secondPhysicalVal is the physical value at the second electrical point. */
+  secondPhysicalVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the force measurement. */
+  units: forceUnitsZ.optional(),
+  /** physicalUnits are the physical units of the two-point calibration. */
+  physicalUnits: forceUnitsZ.optional(),
+});
+export interface AIForceBridgeTwoPointLinChannelUpdate extends z.infer<
+  typeof aiForceBridgeTwoPointLinChannelUpdateZ
+> {}
+
+/** AIForceIEPEChannelUpdate reads force from an IEPE sensor. */
+export const aiForceIEPEChannelUpdateZ = z.object({
+  type: z.literal("ai_force_iepe"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** sensitivity is the sensor's sensitivity rating. */
+  sensitivity: z.number().optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the force measurement. */
+  units: forceUnitsZ.optional(),
+  /** sensitivityUnits are the units of the IEPE sensor sensitivity. */
+  sensitivityUnits: forceSensitivityUnitsZ.optional(),
+});
+export interface AIForceIEPEChannelUpdate extends z.infer<
+  typeof aiForceIEPEChannelUpdateZ
+> {}
+
+/** AIMicrophoneChannelUpdate reads sound pressure from a microphone. */
+export const aiMicrophoneChannelUpdateZ = z.object({
+  type: z.literal("ai_microphone"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** micSensitivity is the microphone sensitivity, in mV/Pa. */
+  micSensitivity: z.number().optional(),
+  /** maxSndPressLevel is the maximum expected sound pressure level, in dB. */
+  maxSndPressLevel: z.number().optional(),
+});
+export interface AIMicrophoneChannelUpdate extends z.infer<
+  typeof aiMicrophoneChannelUpdateZ
+> {}
+
+/**
+ * AIPressureBridgeTableChannelUpdate reads pressure from a bridge with a calibration
+ * table.
+ */
+export const aiPressureBridgeTableChannelUpdateZ = z.object({
+  type: z.literal("ai_pressure_bridge_table"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** electricalVals are the electrical breakpoints of the calibration table. */
+  electricalVals: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the units of the electrical breakpoints. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /**
+   * physicalVals are the physical values corresponding to each electrical breakpoint.
+   */
+  physicalVals: patch.valueListZ(z.number()).optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the pressure measurement. */
+  units: pressureUnitsZ.optional(),
+  /** physicalUnits are the physical units of the calibration table. */
+  physicalUnits: pressureUnitsZ.optional(),
+});
+export interface AIPressureBridgeTableChannelUpdate extends z.infer<
+  typeof aiPressureBridgeTableChannelUpdateZ
+> {}
+
+/**
+ * AIPressureBridgeTwoPointLinChannelUpdate reads pressure from a bridge with two-point
+ * linear calibration.
+ */
+export const aiPressureBridgeTwoPointLinChannelUpdateZ = z.object({
+  type: z.literal("ai_pressure_bridge_two_point_lin"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** firstElectricalVal is the first electrical calibration point. */
+  firstElectricalVal: z.number().optional(),
+  /** secondElectricalVal is the second electrical calibration point. */
+  secondElectricalVal: z.number().optional(),
+  /** electricalUnits are the units of the electrical calibration points. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** firstPhysicalVal is the physical value at the first electrical point. */
+  firstPhysicalVal: z.number().optional(),
+  /** secondPhysicalVal is the physical value at the second electrical point. */
+  secondPhysicalVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the pressure measurement. */
+  units: pressureUnitsZ.optional(),
+  /** physicalUnits are the physical units of the two-point calibration. */
+  physicalUnits: pressureUnitsZ.optional(),
+});
+export interface AIPressureBridgeTwoPointLinChannelUpdate extends z.infer<
+  typeof aiPressureBridgeTwoPointLinChannelUpdateZ
+> {}
+
+/** AIResistanceChannelUpdate reads a resistance. */
+export const aiResistanceChannelUpdateZ = z.object({
+  type: z.literal("ai_resistance"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /**
+   * resistanceConfig selects the number of wires used for the resistance measurement.
+   */
+  resistanceConfig: resistanceConfigZ.optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+});
+export interface AIResistanceChannelUpdate extends z.infer<
+  typeof aiResistanceChannelUpdateZ
+> {}
+
+/** AIRTDChannelUpdate reads temperature from an RTD. */
+export const aiRTDChannelUpdateZ = z.object({
+  type: z.literal("ai_rtd"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /**
+   * resistanceConfig selects the number of wires used for the resistance measurement.
+   */
+  resistanceConfig: resistanceConfigZ.optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+  /** rtdType selects the RTD resistance-temperature curve. */
+  rtdType: rtdTypeZ.optional(),
+  /** r0 is the sensor resistance at 0 degrees Celsius, in Ohms. */
+  r0: z.number().optional(),
+});
+export interface AIRTDChannelUpdate extends z.infer<typeof aiRTDChannelUpdateZ> {}
+
+/** AIStrainGaugeChannelUpdate reads strain from a strain gauge. */
+export const aiStrainGaugeChannelUpdateZ = z.object({
+  type: z.literal("ai_strain_gauge"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** strainConfig selects the strain-gauge bridge configuration. */
+  strainConfig: strainConfigZ.optional(),
+  /** gageFactor is the gauge factor of the strain gauge. */
+  gageFactor: z.number().optional(),
+  /** initialBridgeVoltage is the bridge output voltage in the unloaded state. */
+  initialBridgeVoltage: z.number().optional(),
+  /** nominalGageResistance is the nominal gauge resistance, in Ohms. */
+  nominalGageResistance: z.number().optional(),
+  /** poissonRatio is the Poisson ratio of the measured material. */
+  poissonRatio: z.number().optional(),
+  /** leadWireResistance is the resistance of the lead wires, in Ohms. */
+  leadWireResistance: z.number().optional(),
+});
+export interface AIStrainGaugeChannelUpdate extends z.infer<
+  typeof aiStrainGaugeChannelUpdateZ
+> {}
+
+/** AITempBuiltinChannelUpdate reads temperature from the device's built-in sensor. */
+export const aiTempBuiltinChannelUpdateZ = z.object({
+  type: z.literal("ai_temp_builtin"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+});
+export interface AITempBuiltinChannelUpdate extends z.infer<
+  typeof aiTempBuiltinChannelUpdateZ
+> {}
+
+/** AIThermocoupleChannelUpdate reads temperature from a thermocouple. */
+export const aiThermocoupleChannelUpdateZ = z.object({
+  type: z.literal("ai_thermocouple"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+  /** thermocoupleType selects the thermocouple alloy type. */
+  thermocoupleType: thermocoupleTypeZ.optional(),
+  /** cjc is the cold-junction compensation applied to the reading. */
+  cjc: cjcUpdateZ.optional(),
+});
+export interface AIThermocoupleChannelUpdate extends z.infer<
+  typeof aiThermocoupleChannelUpdateZ
+> {}
+
+/**
+ * AITorqueBridgeTableChannelUpdate reads torque from a bridge with a calibration table.
+ */
+export const aiTorqueBridgeTableChannelUpdateZ = z.object({
+  type: z.literal("ai_torque_bridge_table"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** electricalVals are the electrical breakpoints of the calibration table. */
+  electricalVals: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the units of the electrical breakpoints. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /**
+   * physicalVals are the physical values corresponding to each electrical breakpoint.
+   */
+  physicalVals: patch.valueListZ(z.number()).optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the torque measurement. */
+  units: torqueUnitsZ.optional(),
+  /** physicalUnits are the physical units of the calibration table. */
+  physicalUnits: torqueUnitsZ.optional(),
+});
+export interface AITorqueBridgeTableChannelUpdate extends z.infer<
+  typeof aiTorqueBridgeTableChannelUpdateZ
+> {}
+
+/**
+ * AITorqueBridgeTwoPointLinChannelUpdate reads torque from a bridge with two-point
+ * linear calibration.
+ */
+export const aiTorqueBridgeTwoPointLinChannelUpdateZ = z.object({
+  type: z.literal("ai_torque_bridge_two_point_lin"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** firstElectricalVal is the first electrical calibration point. */
+  firstElectricalVal: z.number().optional(),
+  /** secondElectricalVal is the second electrical calibration point. */
+  secondElectricalVal: z.number().optional(),
+  /** electricalUnits are the units of the electrical calibration points. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** firstPhysicalVal is the physical value at the first electrical point. */
+  firstPhysicalVal: z.number().optional(),
+  /** secondPhysicalVal is the physical value at the second electrical point. */
+  secondPhysicalVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the torque measurement. */
+  units: torqueUnitsZ.optional(),
+  /** physicalUnits are the physical units of the two-point calibration. */
+  physicalUnits: torqueUnitsZ.optional(),
+});
+export interface AITorqueBridgeTwoPointLinChannelUpdate extends z.infer<
+  typeof aiTorqueBridgeTwoPointLinChannelUpdateZ
+> {}
+
+/** AIVelocityIEPEChannelUpdate reads velocity from an IEPE sensor. */
+export const aiVelocityIEPEChannelUpdateZ = z.object({
+  type: z.literal("ai_velocity_iepe"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** sensitivity is the sensor's sensitivity rating. */
+  sensitivity: z.number().optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the velocity measurement. */
+  units: velocityUnitsZ.optional(),
+  /** sensitivityUnits are the units of the IEPE sensor sensitivity. */
+  sensitivityUnits: velocitySensitivityUnitsZ.optional(),
+});
+export interface AIVelocityIEPEChannelUpdate extends z.infer<
+  typeof aiVelocityIEPEChannelUpdateZ
+> {}
+
+/**
+ * AIAccel4WireDCVoltageChannelUpdate reads acceleration from a 4-wire DC-voltage
+ * accelerometer.
+ */
+export const aiAccel4WireDCVoltageChannelUpdateZ = z.object({
+  type: z.literal("ai_accel_4_wire_dc_voltage"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** sensitivity is the sensor's sensitivity rating. */
+  sensitivity: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the acceleration measurement. */
+  units: accelUnitsZ.optional(),
+  /** sensitivityUnits are the units of the accelerometer sensitivity. */
+  sensitivityUnits: accelSensitivityUnitsZ.optional(),
+  /**
+   * scaledByExcitation is true when the excitation voltage is used to scale the
+   * reading.
+   */
+  scaledByExcitation: z.boolean().optional(),
+});
+export interface AIAccel4WireDCVoltageChannelUpdate extends z.infer<
+  typeof aiAccel4WireDCVoltageChannelUpdateZ
+> {}
+
+/** AIAccelChargeChannelUpdate reads acceleration from a charge-mode accelerometer. */
+export const aiAccelChargeChannelUpdateZ = z.object({
+  type: z.literal("ai_accel_charge"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** sensitivity is the sensor's sensitivity rating. */
+  sensitivity: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the acceleration measurement. */
+  units: accelUnitsZ.optional(),
+  /** sensitivityUnits are the units of the accelerometer sensitivity. */
+  sensitivityUnits: accelChargeSensitivityUnitsZ.optional(),
+});
+export interface AIAccelChargeChannelUpdate extends z.infer<
+  typeof aiAccelChargeChannelUpdateZ
+> {}
+
+/** AIChargeChannelUpdate reads a raw charge. */
+export const aiChargeChannelUpdateZ = z.object({
+  type: z.literal("ai_charge"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the charge measurement. */
+  units: chargeUnitsZ.optional(),
+});
+export interface AIChargeChannelUpdate extends z.infer<typeof aiChargeChannelUpdateZ> {}
+
+/** AICurrentRMSChannelUpdate reads RMS current. */
+export const aiCurrentRMSChannelUpdateZ = z.object({
+  type: z.literal("ai_current_rms"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** shuntResistorLoc selects where the shunt resistor is located. */
+  shuntResistorLoc: shuntResistorLocationZ.optional(),
+  /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
+  extShuntResistorVal: z.number().optional(),
+});
+export interface AICurrentRMSChannelUpdate extends z.infer<
+  typeof aiCurrentRMSChannelUpdateZ
+> {}
+
+/**
+ * AIForceBridgePolynomialChannelUpdate reads force from a bridge with polynomial
+ * calibration.
+ */
+export const aiForceBridgePolynomialChannelUpdateZ = z.object({
+  type: z.literal("ai_force_bridge_polynomial"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** forwardCoeffs are the coefficients mapping electrical to physical values. */
+  forwardCoeffs: patch.valueListZ(z.number()).optional(),
+  /** reverseCoeffs are the coefficients mapping physical to electrical values. */
+  reverseCoeffs: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the electrical output units of the bridge. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the force measurement. */
+  units: forceUnitsZ.optional(),
+  /** physicalUnits are the physical units of the polynomial calibration. */
+  physicalUnits: forceUnitsZ.optional(),
+});
+export interface AIForceBridgePolynomialChannelUpdate extends z.infer<
+  typeof aiForceBridgePolynomialChannelUpdateZ
+> {}
+
+/** AIFreqVoltageChannelUpdate reads frequency from a voltage signal. */
+export const aiFreqVoltageChannelUpdateZ = z.object({
+  type: z.literal("ai_freq_voltage"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** thresholdLevel is the voltage level at which a cycle is counted. */
+  thresholdLevel: z.number().optional(),
+  /** hysteresis is the hysteresis applied around the threshold level. */
+  hysteresis: z.number().optional(),
+});
+export interface AIFreqVoltageChannelUpdate extends z.infer<
+  typeof aiFreqVoltageChannelUpdateZ
+> {}
+
+/**
+ * AIPressureBridgePolynomialChannelUpdate reads pressure from a bridge with polynomial
+ * calibration.
+ */
+export const aiPressureBridgePolynomialChannelUpdateZ = z.object({
+  type: z.literal("ai_pressure_bridge_polynomial"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** forwardCoeffs are the coefficients mapping electrical to physical values. */
+  forwardCoeffs: patch.valueListZ(z.number()).optional(),
+  /** reverseCoeffs are the coefficients mapping physical to electrical values. */
+  reverseCoeffs: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the electrical output units of the bridge. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the pressure measurement. */
+  units: pressureUnitsZ.optional(),
+  /** physicalUnits are the physical units of the polynomial calibration. */
+  physicalUnits: pressureUnitsZ.optional(),
+});
+export interface AIPressureBridgePolynomialChannelUpdate extends z.infer<
+  typeof aiPressureBridgePolynomialChannelUpdateZ
+> {}
+
+/** AIThermistorIexChannelUpdate reads temperature from a current-excited thermistor. */
+export const aiThermistorIexChannelUpdateZ = z.object({
+  type: z.literal("ai_thermistor_iex"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /**
+   * resistanceConfig selects the number of wires used for the resistance measurement.
+   */
+  resistanceConfig: resistanceConfigZ.optional(),
+  /** currentExcitSource selects the source of the current excitation signal. */
+  currentExcitSource: excitationSourceZ.optional(),
+  /** currentExcitVal is the current excitation level, in Amps. */
+  currentExcitVal: z.number().optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+  /** a is the first Steinhart-Hart coefficient. */
+  a: z.number().optional(),
+  /** b is the second Steinhart-Hart coefficient. */
+  b: z.number().optional(),
+  /** c is the third Steinhart-Hart coefficient. */
+  c: z.number().optional(),
+});
+export interface AIThermistorIexChannelUpdate extends z.infer<
+  typeof aiThermistorIexChannelUpdateZ
+> {}
+
+/** AIThermistorVexChannelUpdate reads temperature from a voltage-excited thermistor. */
+export const aiThermistorVexChannelUpdateZ = z.object({
+  type: z.literal("ai_thermistor_vex"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /**
+   * resistanceConfig selects the number of wires used for the resistance measurement.
+   */
+  resistanceConfig: resistanceConfigZ.optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** units are the units of the temperature measurement. */
+  units: temperatureUnitsZ.optional(),
+  /** a is the first Steinhart-Hart coefficient. */
+  a: z.number().optional(),
+  /** b is the second Steinhart-Hart coefficient. */
+  b: z.number().optional(),
+  /** c is the third Steinhart-Hart coefficient. */
+  c: z.number().optional(),
+  /** r1 is the reference resistor value, in Ohms. */
+  r1: z.number().optional(),
+});
+export interface AIThermistorVexChannelUpdate extends z.infer<
+  typeof aiThermistorVexChannelUpdateZ
+> {}
+
+/**
+ * AITorqueBridgePolynomialChannelUpdate reads torque from a bridge with polynomial
+ * calibration.
+ */
+export const aiTorqueBridgePolynomialChannelUpdateZ = z.object({
+  type: z.literal("ai_torque_bridge_polynomial"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
+  nominalBridgeResistance: z.number().optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** forwardCoeffs are the coefficients mapping electrical to physical values. */
+  forwardCoeffs: patch.valueListZ(z.number()).optional(),
+  /** reverseCoeffs are the coefficients mapping physical to electrical values. */
+  reverseCoeffs: patch.valueListZ(z.number()).optional(),
+  /** electricalUnits are the electrical output units of the bridge. */
+  electricalUnits: electricalUnitsZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** units are the units of the torque measurement. */
+  units: torqueUnitsZ.optional(),
+  /** physicalUnits are the physical units of the polynomial calibration. */
+  physicalUnits: torqueUnitsZ.optional(),
+});
+export interface AITorqueBridgePolynomialChannelUpdate extends z.infer<
+  typeof aiTorqueBridgePolynomialChannelUpdateZ
+> {}
+
+/** AIVoltageRMSChannelUpdate reads RMS voltage. */
+export const aiVoltageRMSChannelUpdateZ = z.object({
+  type: z.literal("ai_voltage_rms"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+});
+export interface AIVoltageRMSChannelUpdate extends z.infer<
+  typeof aiVoltageRMSChannelUpdateZ
+> {}
+
+/** AIVoltageWithExcitChannelUpdate reads a voltage with excitation. */
+export const aiVoltageWithExcitChannelUpdateZ = z.object({
+  type: z.literal("ai_voltage_with_excit"),
+  /** key uniquely identifies the channel within the task. */
+  key: z.string(),
+  /** name is the human-readable channel name. */
+  name: z.string().optional(),
+  /** disabled is true when the channel is excluded from acquisition. */
+  disabled: z.boolean().optional(),
+  /** channel is the Synnax channel that raw samples are written to. */
+  channel: channel.keyZ.optional(),
+  /** port is the physical port the channel reads from. */
+  port: z.uint32().optional(),
+  /** device is the key of the device the channel belongs to. */
+  device: device.keyZ.optional(),
+  /** minVal is the minimum expected value, in scaled units. */
+  minVal: z.number().optional(),
+  /** maxVal is the maximum expected value, in scaled units. */
+  maxVal: z.number().optional(),
+  /** terminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...). */
+  terminalConfig: terminalConfigZ.optional(),
+  /** voltageExcitSource selects the source of the voltage excitation signal. */
+  voltageExcitSource: excitationSourceZ.optional(),
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
+  voltageExcitVal: z.number().optional(),
+  /** customScale is the scale applied to the raw measurement. */
+  customScale: scaleUpdateZ.optional(),
+  /** bridgeConfig selects the physical bridge wiring. */
+  bridgeConfig: bridgeConfigZ.optional(),
+  /**
+   * scaledByExcitation is true when the excitation voltage is used to scale the
+   * reading.
+   */
+  scaledByExcitation: z.boolean().optional(),
+});
+export interface AIVoltageWithExcitChannelUpdate extends z.infer<
+  typeof aiVoltageWithExcitChannelUpdateZ
+> {}
+
+export const AI_CHANNEL_UPDATE_TYPES = [
+  "ai_voltage",
+  "ai_accel",
+  "ai_bridge",
+  "ai_current",
+  "ai_force_bridge_table",
+  "ai_force_bridge_two_point_lin",
+  "ai_force_iepe",
+  "ai_microphone",
+  "ai_pressure_bridge_table",
+  "ai_pressure_bridge_two_point_lin",
+  "ai_resistance",
+  "ai_rtd",
+  "ai_strain_gauge",
+  "ai_temp_builtin",
+  "ai_thermocouple",
+  "ai_torque_bridge_table",
+  "ai_torque_bridge_two_point_lin",
+  "ai_velocity_iepe",
+  "ai_accel_4_wire_dc_voltage",
+  "ai_accel_charge",
+  "ai_charge",
+  "ai_current_rms",
+  "ai_force_bridge_polynomial",
+  "ai_freq_voltage",
+  "ai_pressure_bridge_polynomial",
+  "ai_thermistor_iex",
+  "ai_thermistor_vex",
+  "ai_torque_bridge_polynomial",
+  "ai_voltage_rms",
+  "ai_voltage_with_excit",
+] as const;
+export const aiChannelUpdateTypeZ = z.enum(AI_CHANNEL_UPDATE_TYPES);
+export type AIChannelUpdateType = z.infer<typeof aiChannelUpdateTypeZ>;
+
+/**
+ * AIChannelUpdate holds changes to the fields of the ai channel. A type that differs
+ * from the stored one changes the variant.
+ */
+export const aiChannelUpdateZ = z.union([
+  aiChannelBaseUpdateZ.strict(),
+  z.discriminatedUnion("type", [
+    z.lazy(() => aiVoltageChannelUpdateZ),
+    z.lazy(() => aiAccelChannelUpdateZ),
+    z.lazy(() => aiBridgeChannelUpdateZ),
+    z.lazy(() => aiCurrentChannelUpdateZ),
+    z.lazy(() => aiForceBridgeTableChannelUpdateZ),
+    z.lazy(() => aiForceBridgeTwoPointLinChannelUpdateZ),
+    z.lazy(() => aiForceIEPEChannelUpdateZ),
+    z.lazy(() => aiMicrophoneChannelUpdateZ),
+    z.lazy(() => aiPressureBridgeTableChannelUpdateZ),
+    z.lazy(() => aiPressureBridgeTwoPointLinChannelUpdateZ),
+    z.lazy(() => aiResistanceChannelUpdateZ),
+    z.lazy(() => aiRTDChannelUpdateZ),
+    z.lazy(() => aiStrainGaugeChannelUpdateZ),
+    z.lazy(() => aiTempBuiltinChannelUpdateZ),
+    z.lazy(() => aiThermocoupleChannelUpdateZ),
+    z.lazy(() => aiTorqueBridgeTableChannelUpdateZ),
+    z.lazy(() => aiTorqueBridgeTwoPointLinChannelUpdateZ),
+    z.lazy(() => aiVelocityIEPEChannelUpdateZ),
+    z.lazy(() => aiAccel4WireDCVoltageChannelUpdateZ),
+    z.lazy(() => aiAccelChargeChannelUpdateZ),
+    z.lazy(() => aiChargeChannelUpdateZ),
+    z.lazy(() => aiCurrentRMSChannelUpdateZ),
+    z.lazy(() => aiForceBridgePolynomialChannelUpdateZ),
+    z.lazy(() => aiFreqVoltageChannelUpdateZ),
+    z.lazy(() => aiPressureBridgePolynomialChannelUpdateZ),
+    z.lazy(() => aiThermistorIexChannelUpdateZ),
+    z.lazy(() => aiThermistorVexChannelUpdateZ),
+    z.lazy(() => aiTorqueBridgePolynomialChannelUpdateZ),
+    z.lazy(() => aiVoltageRMSChannelUpdateZ),
+    z.lazy(() => aiVoltageWithExcitChannelUpdateZ),
+  ]),
+]);
+export type AIChannelUpdate =
+  | (AIChannelBaseUpdate & {
+      type?: never;
+      minVal?: never;
+      maxVal?: never;
+      terminalConfig?: never;
+      customScale?: never;
+      sensitivity?: never;
+      currentExcitSource?: never;
+      currentExcitVal?: never;
+      units?: never;
+      sensitivityUnits?: never;
+      bridgeConfig?: never;
+      nominalBridgeResistance?: never;
+      voltageExcitSource?: never;
+      voltageExcitVal?: never;
+      shuntResistorLoc?: never;
+      extShuntResistorVal?: never;
+      electricalVals?: never;
+      electricalUnits?: never;
+      physicalVals?: never;
+      physicalUnits?: never;
+      firstElectricalVal?: never;
+      secondElectricalVal?: never;
+      firstPhysicalVal?: never;
+      secondPhysicalVal?: never;
+      micSensitivity?: never;
+      maxSndPressLevel?: never;
+      resistanceConfig?: never;
+      rtdType?: never;
+      r0?: never;
+      strainConfig?: never;
+      gageFactor?: never;
+      initialBridgeVoltage?: never;
+      nominalGageResistance?: never;
+      poissonRatio?: never;
+      leadWireResistance?: never;
+      thermocoupleType?: never;
+      cjc?: never;
+      scaledByExcitation?: never;
+      forwardCoeffs?: never;
+      reverseCoeffs?: never;
+      thresholdLevel?: never;
+      hysteresis?: never;
+      a?: never;
+      b?: never;
+      c?: never;
+      r1?: never;
+    })
+  | AIVoltageChannelUpdate
+  | AIAccelChannelUpdate
+  | AIBridgeChannelUpdate
+  | AICurrentChannelUpdate
+  | AIForceBridgeTableChannelUpdate
+  | AIForceBridgeTwoPointLinChannelUpdate
+  | AIForceIEPEChannelUpdate
+  | AIMicrophoneChannelUpdate
+  | AIPressureBridgeTableChannelUpdate
+  | AIPressureBridgeTwoPointLinChannelUpdate
+  | AIResistanceChannelUpdate
+  | AIRTDChannelUpdate
+  | AIStrainGaugeChannelUpdate
+  | AITempBuiltinChannelUpdate
+  | AIThermocoupleChannelUpdate
+  | AITorqueBridgeTableChannelUpdate
+  | AITorqueBridgeTwoPointLinChannelUpdate
+  | AIVelocityIEPEChannelUpdate
+  | AIAccel4WireDCVoltageChannelUpdate
+  | AIAccelChargeChannelUpdate
+  | AIChargeChannelUpdate
+  | AICurrentRMSChannelUpdate
+  | AIForceBridgePolynomialChannelUpdate
+  | AIFreqVoltageChannelUpdate
+  | AIPressureBridgePolynomialChannelUpdate
+  | AIThermistorIexChannelUpdate
+  | AIThermistorVexChannelUpdate
+  | AITorqueBridgePolynomialChannelUpdate
+  | AIVoltageRMSChannelUpdate
+  | AIVoltageWithExcitChannelUpdate;
+
+export const AI_CHANNEL_UPDATE_SCHEMAS: {
+  [K in AIChannelUpdateType]: z.ZodType<Extract<AIChannelUpdate, { type: K }>>;
+} = {
+  ai_voltage: aiVoltageChannelUpdateZ,
+  ai_accel: aiAccelChannelUpdateZ,
+  ai_bridge: aiBridgeChannelUpdateZ,
+  ai_current: aiCurrentChannelUpdateZ,
+  ai_force_bridge_table: aiForceBridgeTableChannelUpdateZ,
+  ai_force_bridge_two_point_lin: aiForceBridgeTwoPointLinChannelUpdateZ,
+  ai_force_iepe: aiForceIEPEChannelUpdateZ,
+  ai_microphone: aiMicrophoneChannelUpdateZ,
+  ai_pressure_bridge_table: aiPressureBridgeTableChannelUpdateZ,
+  ai_pressure_bridge_two_point_lin: aiPressureBridgeTwoPointLinChannelUpdateZ,
+  ai_resistance: aiResistanceChannelUpdateZ,
+  ai_rtd: aiRTDChannelUpdateZ,
+  ai_strain_gauge: aiStrainGaugeChannelUpdateZ,
+  ai_temp_builtin: aiTempBuiltinChannelUpdateZ,
+  ai_thermocouple: aiThermocoupleChannelUpdateZ,
+  ai_torque_bridge_table: aiTorqueBridgeTableChannelUpdateZ,
+  ai_torque_bridge_two_point_lin: aiTorqueBridgeTwoPointLinChannelUpdateZ,
+  ai_velocity_iepe: aiVelocityIEPEChannelUpdateZ,
+  ai_accel_4_wire_dc_voltage: aiAccel4WireDCVoltageChannelUpdateZ,
+  ai_accel_charge: aiAccelChargeChannelUpdateZ,
+  ai_charge: aiChargeChannelUpdateZ,
+  ai_current_rms: aiCurrentRMSChannelUpdateZ,
+  ai_force_bridge_polynomial: aiForceBridgePolynomialChannelUpdateZ,
+  ai_freq_voltage: aiFreqVoltageChannelUpdateZ,
+  ai_pressure_bridge_polynomial: aiPressureBridgePolynomialChannelUpdateZ,
+  ai_thermistor_iex: aiThermistorIexChannelUpdateZ,
+  ai_thermistor_vex: aiThermistorVexChannelUpdateZ,
+  ai_torque_bridge_polynomial: aiTorqueBridgePolynomialChannelUpdateZ,
+  ai_voltage_rms: aiVoltageRMSChannelUpdateZ,
+  ai_voltage_with_excit: aiVoltageWithExcitChannelUpdateZ,
+};
 
 /** AIVoltageChannel reads a voltage. */
 export const aiVoltageChannelZ = baseAIChannelZ
@@ -1880,7 +4051,9 @@ export const analogReadConfigUpdateZ = z.object({
   /** streamRate is the rate at which samples are streamed to Synnax, in Hertz. */
   streamRate: telem.rateZ.optional(),
   /** channels are the analog input channels the task acquires. */
-  channels: patch.valueListZ(aiChannelZ).optional(),
+  channels: patch
+    .listZ({ e: aiChannelZ, k: z.string(), u: aiChannelUpdateZ })
+    .optional(),
 });
 export interface AnalogReadConfigUpdate extends z.infer<
   typeof analogReadConfigUpdateZ
@@ -1907,7 +4080,9 @@ export const counterReadConfigUpdateZ = z.object({
   /** streamRate is the rate at which samples are streamed to Synnax, in Hertz. */
   streamRate: telem.rateZ.optional(),
   /** channels are the counter input channels the task acquires. */
-  channels: patch.valueListZ(ciChannelZ).optional(),
+  channels: patch
+    .listZ({ e: ciChannelZ, k: z.string(), u: ciChannelUpdateZ })
+    .optional(),
 });
 export interface CounterReadConfigUpdate extends z.infer<
   typeof counterReadConfigUpdateZ
@@ -1934,7 +4109,9 @@ export const analogWriteConfigUpdateZ = z.object({
   /** stateRate is the rate at which output state is reported to Synnax, in Hertz. */
   stateRate: telem.rateZ.optional(),
   /** channels are the analog output channels the task drives. */
-  channels: patch.valueListZ(aoChannelZ).optional(),
+  channels: patch
+    .listZ({ e: aoChannelZ, k: z.string(), u: aoChannelUpdateZ })
+    .optional(),
 });
 export interface AnalogWriteConfigUpdate extends z.infer<
   typeof analogWriteConfigUpdateZ

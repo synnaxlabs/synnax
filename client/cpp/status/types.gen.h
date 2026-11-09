@@ -267,3 +267,17 @@ inline synnax::resource::ID resource_id(const Key &key) {
     return synnax::resource::ID("status", key);
 }
 }
+
+namespace x::json {
+
+template<>
+struct Codec<::synnax::status::Action> {
+    static ::synnax::status::Action parse(Parser parser) {
+        return ::synnax::status::parse_action(parser);
+    }
+
+    static json to_json(const ::synnax::status::Action &value) {
+        return ::synnax::status::to_json(value);
+    }
+};
+}

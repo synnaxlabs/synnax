@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypedDict, override as _override
+from typing import Annotated, Literal, Required, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -130,6 +130,47 @@ class ScanConfigUpdate(TypedDict, total=False):
     tcp_scan_multiplier: int
 
 
+class ReadChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        port: Is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: str
+
+
+class WriteChannelBaseUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write channel. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        disabled: Is true when the channel is excluded from the task.
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+        port: Is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
+    """
+
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: str
+
+
 class AnalogReadChannel(BaseReadChannel):
     """Reads a voltage from an analog input port."""
 
@@ -190,6 +231,92 @@ WriteChannel = Annotated[
 ]
 
 
+class AnalogReadChannelUpdate(TypedDict, total=False):
+    """Reads a voltage from an analog input port."""
+
+    type: Required[Literal["analog"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: str
+    range: float
+    neg_chan: patch.Change[int]
+    scale: task.ScaleUpdate
+
+
+class DigitalReadChannelUpdate(TypedDict, total=False):
+    """Reads a digital input line."""
+
+    type: Required[Literal["digital"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: str
+
+
+class ThermocoupleReadChannelUpdate(TypedDict, total=False):
+    """Reads temperature from a thermocouple."""
+
+    type: Required[Literal["thermocouple"]]
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: str
+    thermocouple_type: ThermocoupleType
+    neg_chan: patch.Change[int]
+    cjc_source: str
+    cjc_slope: float
+    cjc_offset: float
+    units: TemperatureUnits
+    scale: task.ScaleUpdate
+
+
+# Holds changes to the fields of the read channel. A type that differs from the stored
+# one changes the variant.
+ReadChannelUpdate = (
+    ReadChannelBaseUpdate
+    | AnalogReadChannelUpdate
+    | DigitalReadChannelUpdate
+    | ThermocoupleReadChannelUpdate
+)
+
+
+class AnalogWriteChannelUpdate(TypedDict, total=False):
+    """Drives an analog output on a DAC port."""
+
+    type: Required[Literal["analog"]]
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: str
+
+
+class DigitalWriteChannelUpdate(TypedDict, total=False):
+    """Drives a digital output line on a DIO port."""
+
+    type: Required[Literal["digital"]]
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: str
+
+
+# Holds changes to the fields of the write channel. A type that differs from the stored
+# one changes the variant.
+WriteChannelUpdate = (
+    WriteChannelBaseUpdate | AnalogWriteChannelUpdate | DigitalWriteChannelUpdate
+)
+
+
 class ReadConfig(task.ReadConfig):
     """Configures a LabJack read task.
 
@@ -212,6 +339,22 @@ class ReadConfig(task.ReadConfig):
     ljm_scan_backlog_warn_on_count: int | None = Field(
         default=None, ge=1, le=4294967295
     )
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.WriteConfig):
+    """Configures a LabJack write task.
+
+    Attributes:
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        channels: Are the channels the task drives.
+    """
+
+    state_rate: telem.Rate = telem.Rate(10)
+    channels: list[WriteChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -243,25 +386,9 @@ class ReadConfigUpdate(TypedDict, total=False):
     sample_rate: telem.Rate
     stream_rate: telem.Rate
     device: device_.Key
-    channels: patch.ValueListDict[ReadChannel]
+    channels: patch.ListDict[ReadChannel, str, ReadChannelUpdate]
     device_scan_backlog_warn_on_count: patch.Change[int]
     ljm_scan_backlog_warn_on_count: patch.Change[int]
-
-
-class WriteConfig(task.WriteConfig):
-    """Configures a LabJack write task.
-
-    Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
-        channels: Are the channels the task drives.
-    """
-
-    state_rate: telem.Rate = telem.Rate(10)
-    channels: list[WriteChannel] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class WriteConfigUpdate(TypedDict, total=False):
@@ -281,4 +408,4 @@ class WriteConfigUpdate(TypedDict, total=False):
     data_saving_disabled: bool
     device: device_.Key
     state_rate: telem.Rate
-    channels: patch.ValueListDict[WriteChannel]
+    channels: patch.ListDict[WriteChannel, str, WriteChannelUpdate]

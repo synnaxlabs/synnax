@@ -142,6 +142,15 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/**
+ * BaseUpdate holds changes to the fields of the arc. An absent field does not change.
+ */
+export const baseUpdateZ = z.object({
+  /** name is a human-readable name for the module. */
+  name: z.string().optional(),
+});
+export interface BaseUpdate extends z.infer<typeof baseUpdateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
@@ -182,6 +191,39 @@ export const SOURCE_SCHEMAS: {
 } = {
   text: textSourceZ,
   graph: graphSourceZ,
+};
+
+/** AutomationUpdate is an Arc that runs on a rack as a task. */
+export const automationUpdateZ = z.object({
+  type: z.literal("automation"),
+  /** name is a human-readable name for the module. */
+  name: z.string().optional(),
+});
+export interface AutomationUpdate extends z.infer<typeof automationUpdateZ> {}
+
+/** ModuleUpdate is an Arc that holds code for other Arcs to import. */
+export const moduleUpdateZ = z.object({
+  type: z.literal("module"),
+  /** name is a human-readable name for the module. */
+  name: z.string().optional(),
+});
+export interface ModuleUpdate extends z.infer<typeof moduleUpdateZ> {}
+
+/**
+ * Update holds changes to the fields of the arc. A type that differs from the stored
+ * one changes the variant.
+ */
+export const updateZ = z.union([
+  baseUpdateZ.strict(),
+  z.discriminatedUnion("type", [automationUpdateZ, moduleUpdateZ]),
+]);
+export type Update = (BaseUpdate & { type?: never }) | AutomationUpdate | ModuleUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in Type]: z.ZodType<Extract<Update, { type: K }>>;
+} = {
+  automation: automationUpdateZ,
+  module: moduleUpdateZ,
 };
 
 /** Where is a filter that selects Arcs. */

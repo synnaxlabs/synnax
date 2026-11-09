@@ -327,6 +327,7 @@ func (p *Plugin) generateFile(
 				IsUnion: true,
 				Union:   ud,
 			})
+			data.Unions = append(data.Unions, ud)
 		}
 	}
 
@@ -1273,6 +1274,9 @@ type templateData struct {
 	ForwardDecls []string
 	Enums        []enumData
 	SortedDecls  []sortedDeclData
+	// Unions are the unions of the namespace, each of which specializes x::json::Codec
+	// so that a generic type can hold it.
+	Unions []unionData
 }
 
 // resourceData contains information for generating resource ID support.
@@ -1750,7 +1754,7 @@ struct {{$s.OptionsName}} {
 {{- if $u.Doc}}
 {{formatDoc $u.Name $u.Doc}}
 {{- end}}
-using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end}}{{$v.TypeName}}{{end}}>;
+using {{$u.Name}} = std::variant<{{if $u.Untagged}}{{$u.Untagged}}, {{end}}{{range $j, $v := $u.Variants}}{{if $j}}, {{end}}{{$v.TypeName}}{{end}}>;
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
@@ -1782,5 +1786,23 @@ inline synnax::resource::ID resource_id(const {{.Resource.KeyType}}& key) {
 }
 {{- end}}
 }
+{{- if .Unions}}
+
+namespace x::json {
+{{- range .Unions}}
+
+template<>
+struct Codec<::{{$.Namespace}}::{{.Name}}> {
+    static ::{{$.Namespace}}::{{.Name}} parse(Parser parser) {
+        return ::{{$.Namespace}}::parse_{{.SnakeName}}(parser);
+    }
+
+    static json to_json(const ::{{$.Namespace}}::{{.Name}} &value) {
+        return ::{{$.Namespace}}::to_json(value);
+    }
+};
+{{- end}}
+}
+{{- end}}
 `),
 )

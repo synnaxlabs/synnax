@@ -12,10 +12,15 @@
 package modbus
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"uuid"
 )
 
@@ -145,7 +150,7 @@ type ReadConfigUpdate struct {
 	// Device is the key of the device the task acquires from.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 	// Channels are the channels the task acquires.
-	Channels *patch.ValueList[ReadChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[ReadChannel, string, ReadChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // WriteConfigUpdate holds changes to the fields of the write config. An absent field
@@ -160,7 +165,7 @@ type WriteConfigUpdate struct {
 	// Device is the key of the device the task writes to.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 	// Channels are the channels the task drives.
-	Channels *patch.ValueList[WriteChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	Channels *patch.List[WriteChannel, string, WriteChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
 }
 
 // ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
@@ -172,4 +177,610 @@ type ScanConfigUpdate struct {
 	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
 	// Disabled is true when scanning is paused.
 	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadChannelBaseUpdate holds changes to the fields of the read channel. An absent
+// field does not change.
+type ReadChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+}
+
+// ReadChannelUpdateType is the "type" value that selects a variant of
+// ReadChannelUpdate.
+type ReadChannelUpdateType string
+
+const (
+	// CoilReadChannelUpdateType reads a single bit from a coil.
+	CoilReadChannelUpdateType ReadChannelUpdateType = "coil"
+	// DiscreteInputReadChannelUpdateType reads a single bit from a discrete input.
+	DiscreteInputReadChannelUpdateType ReadChannelUpdateType = "discrete_input"
+	// HoldingRegisterReadChannelUpdateType reads a typed value from one or more holding
+	// registers.
+	HoldingRegisterReadChannelUpdateType ReadChannelUpdateType = "holding_register"
+	// InputRegisterReadChannelUpdateType reads a typed value from one or more input
+	// registers.
+	InputRegisterReadChannelUpdateType ReadChannelUpdateType = "input_register"
+	// HoldingRegisterStringReadChannelUpdateType reads a string from consecutive
+	// holding registers.
+	HoldingRegisterStringReadChannelUpdateType ReadChannelUpdateType = "holding_register_string"
+	// InputRegisterStringReadChannelUpdateType reads a string from consecutive input
+	// registers.
+	InputRegisterStringReadChannelUpdateType ReadChannelUpdateType = "input_register_string"
+	// HoldingRegisterBitReadChannelUpdateType reads one bit of a holding register.
+	HoldingRegisterBitReadChannelUpdateType ReadChannelUpdateType = "holding_register_bit"
+	// InputRegisterBitReadChannelUpdateType reads one bit of an input register.
+	InputRegisterBitReadChannelUpdateType ReadChannelUpdateType = "input_register_bit"
+)
+
+// ReadChannelUpdateVariant is implemented by every ReadChannelUpdate variant.
+type ReadChannelUpdateVariant interface {
+	isReadChannelUpdateVariant()
+}
+
+func (ReadChannelBaseUpdate) isReadChannelUpdateVariant() {}
+
+// CoilReadChannelUpdate reads a single bit from a coil.
+type CoilReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+}
+
+func (CoilReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// DiscreteInputReadChannelUpdate reads a single bit from a discrete input.
+type DiscreteInputReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+}
+
+func (DiscreteInputReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// HoldingRegisterReadChannelUpdate reads a typed value from one or more holding
+// registers.
+type HoldingRegisterReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// DataType is the data type the register contents are interpreted as.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped patch.Change[bool] `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	// When absent, the device's word order applies.
+	WordsSwapped patch.Change[bool] `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+func (HoldingRegisterReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// InputRegisterReadChannelUpdate reads a typed value from one or more input registers.
+type InputRegisterReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// DataType is the data type the register contents are interpreted as.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped patch.Change[bool] `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	// When absent, the device's word order applies.
+	WordsSwapped patch.Change[bool] `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+func (InputRegisterReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// HoldingRegisterStringReadChannelUpdate reads a string from consecutive holding
+// registers.
+type HoldingRegisterStringReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// Length is the number of characters, two to each register.
+	Length *uint16 `json:"length,omitzero" msgpack:"length,omitempty"`
+	// BytesSwapped is true when the two characters of each register are swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped patch.Change[bool] `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+}
+
+func (HoldingRegisterStringReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// InputRegisterStringReadChannelUpdate reads a string from consecutive input registers.
+type InputRegisterStringReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// Length is the number of characters, two to each register.
+	Length *uint16 `json:"length,omitzero" msgpack:"length,omitempty"`
+	// BytesSwapped is true when the two characters of each register are swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped patch.Change[bool] `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+}
+
+func (InputRegisterStringReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// HoldingRegisterBitReadChannelUpdate reads one bit of a holding register.
+type HoldingRegisterBitReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit *uint8 `json:"bit,omitzero" msgpack:"bit,omitempty"`
+}
+
+func (HoldingRegisterBitReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// InputRegisterBitReadChannelUpdate reads one bit of an input register.
+type InputRegisterBitReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel reads from.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit *uint8 `json:"bit,omitzero" msgpack:"bit,omitempty"`
+}
+
+func (InputRegisterBitReadChannelUpdate) isReadChannelUpdateVariant() {}
+
+// ReadChannelUpdate holds changes to the fields of the read channel. A type that
+// differs from the stored one changes the variant.
+type ReadChannelUpdate struct {
+	Variant ReadChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ReadChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case CoilReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			CoilReadChannelUpdate
+		}{Type: CoilReadChannelUpdateType, CoilReadChannelUpdate: v})
+	case DiscreteInputReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			DiscreteInputReadChannelUpdate
+		}{Type: DiscreteInputReadChannelUpdateType, DiscreteInputReadChannelUpdate: v})
+	case HoldingRegisterReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterReadChannelUpdate
+		}{Type: HoldingRegisterReadChannelUpdateType, HoldingRegisterReadChannelUpdate: v})
+	case InputRegisterReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterReadChannelUpdate
+		}{Type: InputRegisterReadChannelUpdateType, InputRegisterReadChannelUpdate: v})
+	case HoldingRegisterStringReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterStringReadChannelUpdate
+		}{Type: HoldingRegisterStringReadChannelUpdateType, HoldingRegisterStringReadChannelUpdate: v})
+	case InputRegisterStringReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterStringReadChannelUpdate
+		}{Type: InputRegisterStringReadChannelUpdateType, InputRegisterStringReadChannelUpdate: v})
+	case HoldingRegisterBitReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterBitReadChannelUpdate
+		}{Type: HoldingRegisterBitReadChannelUpdateType, HoldingRegisterBitReadChannelUpdate: v})
+	case InputRegisterBitReadChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterBitReadChannelUpdate
+		}{Type: InputRegisterBitReadChannelUpdateType, InputRegisterBitReadChannelUpdate: v})
+	default:
+		return errors.Newf("ReadChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v ReadChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CoilReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			CoilReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CoilReadChannelUpdate
+	case DiscreteInputReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			DiscreteInputReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DiscreteInputReadChannelUpdate
+	case HoldingRegisterReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterReadChannelUpdate
+	case InputRegisterReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.InputRegisterReadChannelUpdate
+	case HoldingRegisterStringReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterStringReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterStringReadChannelUpdate
+	case InputRegisterStringReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterStringReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.InputRegisterStringReadChannelUpdate
+	case HoldingRegisterBitReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			HoldingRegisterBitReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterBitReadChannelUpdate
+	case InputRegisterBitReadChannelUpdateType:
+		var v struct {
+			Type ReadChannelUpdateType `json:"type"`
+			InputRegisterBitReadChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.InputRegisterBitReadChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannelUpdate) Type() ReadChannelUpdateType {
+	switch u.Variant.(type) {
+	case CoilReadChannelUpdate:
+		return CoilReadChannelUpdateType
+	case DiscreteInputReadChannelUpdate:
+		return DiscreteInputReadChannelUpdateType
+	case HoldingRegisterReadChannelUpdate:
+		return HoldingRegisterReadChannelUpdateType
+	case InputRegisterReadChannelUpdate:
+		return InputRegisterReadChannelUpdateType
+	case HoldingRegisterStringReadChannelUpdate:
+		return HoldingRegisterStringReadChannelUpdateType
+	case InputRegisterStringReadChannelUpdate:
+		return InputRegisterStringReadChannelUpdateType
+	case HoldingRegisterBitReadChannelUpdate:
+		return HoldingRegisterBitReadChannelUpdateType
+	case InputRegisterBitReadChannelUpdate:
+		return InputRegisterBitReadChannelUpdateType
+	}
+	return ""
+}
+
+// WriteChannelBaseUpdate holds changes to the fields of the write channel. An absent
+// field does not change.
+type WriteChannelBaseUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel commands are read from.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel writes to.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+}
+
+// WriteChannelUpdateType is the "type" value that selects a variant of
+// WriteChannelUpdate.
+type WriteChannelUpdateType string
+
+const (
+	// CoilWriteChannelUpdateType writes a single bit to a coil.
+	CoilWriteChannelUpdateType WriteChannelUpdateType = "coil"
+	// HoldingRegisterWriteChannelUpdateType writes a typed value to one or more holding
+	// registers.
+	HoldingRegisterWriteChannelUpdateType WriteChannelUpdateType = "holding_register"
+	// HoldingRegisterBitWriteChannelUpdateType writes one bit of a holding register.
+	HoldingRegisterBitWriteChannelUpdateType WriteChannelUpdateType = "holding_register_bit"
+)
+
+// WriteChannelUpdateVariant is implemented by every WriteChannelUpdate variant.
+type WriteChannelUpdateVariant interface {
+	isWriteChannelUpdateVariant()
+}
+
+func (WriteChannelBaseUpdate) isWriteChannelUpdateVariant() {}
+
+// CoilWriteChannelUpdate writes a single bit to a coil.
+type CoilWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel commands are read from.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel writes to.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+}
+
+func (CoilWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// HoldingRegisterWriteChannelUpdate writes a typed value to one or more holding
+// registers.
+type HoldingRegisterWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel commands are read from.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel writes to.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// DataType is the data type the register contents are interpreted as.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped patch.Change[bool] `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	// When absent, the device's word order applies.
+	WordsSwapped patch.Change[bool] `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+func (HoldingRegisterWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// HoldingRegisterBitWriteChannelUpdate writes one bit of a holding register.
+type HoldingRegisterBitWriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel commands are read from.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Address is the Modbus address the channel writes to.
+	Address *uint16 `json:"address,omitzero" msgpack:"address,omitempty"`
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit *uint8 `json:"bit,omitzero" msgpack:"bit,omitempty"`
+}
+
+func (HoldingRegisterBitWriteChannelUpdate) isWriteChannelUpdateVariant() {}
+
+// WriteChannelUpdate holds changes to the fields of the write channel. A type that
+// differs from the stored one changes the variant.
+type WriteChannelUpdate struct {
+	Variant WriteChannelUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannelUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WriteChannelBaseUpdate:
+		return json.MarshalEncode(enc, v)
+	case CoilWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			CoilWriteChannelUpdate
+		}{Type: CoilWriteChannelUpdateType, CoilWriteChannelUpdate: v})
+	case HoldingRegisterWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			HoldingRegisterWriteChannelUpdate
+		}{Type: HoldingRegisterWriteChannelUpdateType, HoldingRegisterWriteChannelUpdate: v})
+	case HoldingRegisterBitWriteChannelUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelUpdateType `json:"type"`
+			HoldingRegisterBitWriteChannelUpdate
+		}{Type: HoldingRegisterBitWriteChannelUpdateType, HoldingRegisterBitWriteChannelUpdate: v})
+	default:
+		return errors.Newf("WriteChannelUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannelUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteChannelUpdateType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "":
+		var v WriteChannelBaseUpdate
+		if err := json.Unmarshal(
+			data, &v, opts, json.RejectUnknownMembers(true),
+		); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CoilWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			CoilWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CoilWriteChannelUpdate
+	case HoldingRegisterWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			HoldingRegisterWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterWriteChannelUpdate
+	case HoldingRegisterBitWriteChannelUpdateType:
+		var v struct {
+			Type WriteChannelUpdateType `json:"type"`
+			HoldingRegisterBitWriteChannelUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterBitWriteChannelUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannelUpdate: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannelUpdate) Type() WriteChannelUpdateType {
+	switch u.Variant.(type) {
+	case CoilWriteChannelUpdate:
+		return CoilWriteChannelUpdateType
+	case HoldingRegisterWriteChannelUpdate:
+		return HoldingRegisterWriteChannelUpdateType
+	case HoldingRegisterBitWriteChannelUpdate:
+		return HoldingRegisterBitWriteChannelUpdateType
+	}
+	return ""
 }
