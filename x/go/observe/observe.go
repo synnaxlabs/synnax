@@ -31,10 +31,10 @@ type Observable[T any] interface {
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
-	// Notify notifies all subscribers of the Value.
+	// Notify notifies all subscribers of the Value. It calls each handler without
+	// holding a lock, so a handler can connect or disconnect handlers. A handler that
+	// disconnects while a Notify is in progress can still run once in that Notify.
 	Notify(context.Context, T)
-	// GoNotify starts a goroutine to notify all subscribers of the Value.
-	GoNotify(context.Context, T)
 }
 
 type base[T any] struct {
@@ -61,16 +61,11 @@ func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
 
 func (b *base[T]) Notify(ctx context.Context, v T) {
 	b.mu.RLock()
-	defer b.mu.RUnlock()
-	for h := range b.handlers {
+	handlers := b.handlers.Slice()
+	b.mu.RUnlock()
+	for _, h := range handlers {
 		(*h)(ctx, v)
 	}
-}
-
-func (b *base[T]) GoNotify(ctx context.Context, v T) {
-	// context.WithoutCancel is used because the goroutine outlives the caller - we
-	// sever the cancellation chain while preserving values such as trace spans.
-	go b.Notify(context.WithoutCancel(ctx), v)
 }
 
 // Noop is an observable that never calls its OnChange function and does

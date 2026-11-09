@@ -41,6 +41,33 @@ var _ = Describe("Observer", func() {
 		obs.Notify(ctx, 5)
 		Expect(called).To(BeFalse())
 	})
+
+	It(
+		"Should allow a handler to disconnect itself during Notify",
+		func(ctx SpecContext) {
+			obs := observe.New[int]()
+			calls := 0
+			var disconnect observe.Disconnect
+			disconnect = obs.OnChange(func(context.Context, int) {
+				calls++
+				disconnect()
+			})
+			notified := make(chan struct{})
+			connected := make(chan struct{})
+			go func() {
+				obs.Notify(ctx, 1)
+				close(notified)
+			}()
+			go func() {
+				obs.OnChange(func(context.Context, int) {})
+				close(connected)
+			}()
+			Eventually(notified).Should(BeClosed())
+			Eventually(connected).Should(BeClosed())
+			obs.Notify(ctx, 2)
+			Expect(calls).To(Equal(1))
+		},
+	)
 })
 
 var _ = Describe("Translator", func() {
