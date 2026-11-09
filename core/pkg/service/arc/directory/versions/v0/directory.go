@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Directory{}
 // GorpKey implements gorp.Entry.
 func (d Directory) GorpKey() Key { return d.Key }
 
-// SetOptions implements gorp.Entry.
-func (Directory) SetOptions() []any { return nil }
-
 // ResourceID returns the resource ID of the directory.
 func (d Directory) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeArcDirectory, Key: d.Key.String()}

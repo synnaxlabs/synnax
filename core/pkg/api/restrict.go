@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,8 +28,8 @@ import (
 // so it names the records involved instead of their tables and keys. It names only the
 // records that the caller can retrieve.
 func restrictMiddleware(
+	db *gorp.DB,
 	res *resource.Service,
-	tasks *task.Service,
 	rbacSvc *rbac.Service,
 ) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
@@ -40,13 +40,7 @@ func restrictMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		if described := describeRestrict(
-			ctx,
-			res,
-			tasks,
-			rbacSvc,
-			err,
-		); described != nil {
+		if described := describeRestrict(ctx, db, res, rbacSvc, err); described != nil {
 			return oCtx, described
 		}
 		return oCtx, err
@@ -58,14 +52,14 @@ func restrictMiddleware(
 // gorp.RestrictError.
 func describeRestrict(
 	ctx context.Context,
+	db *gorp.DB,
 	res *resource.Service,
-	tasks *task.Service,
 	rbacSvc *rbac.Service,
 	err error,
 ) error {
 	var pathErr validate.PathError
 	if errors.As(err, &pathErr) {
-		described := describeRestrict(ctx, res, tasks, rbacSvc, pathErr.Err)
+		described := describeRestrict(ctx, db, res, rbacSvc, pathErr.Err)
 		if described == nil {
 			return nil
 		}
@@ -80,26 +74,29 @@ func describeRestrict(
 		Type: resource.Type(restrict.Target.Table),
 		Key:  restrict.Target.Key,
 	}
-	holder, ofTask := tasks.ConfigTask(restrict.Holder)
+	holder, ofTask := taskconfig.TaskOf(restrict.Holder)
 	if !ofTask {
 		holder = resource.ID{
 			Type: resource.Type(restrict.Holder.Table),
 			Key:  restrict.Holder.Key,
 		}
 	}
-	allowed, aErr := rbacSvc.NewEnforcer(nil).Allowed(
-		ctx,
-		auth.GetSubject(ctx),
-		access.ActionRetrieve,
-	)
-	if aErr != nil {
-		return aErr
-	}
-	found, rErr := res.Retrieve(ctx, nil, lo.Filter(
-		[]resource.ID{target, holder},
-		func(id resource.ID, _ int) bool { return allowed(id) },
-	)...)
-	if rErr != nil {
+	var found []resource.Resource
+	if rErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
+			ctx,
+			auth.GetSubject(ctx),
+			access.ActionRetrieve,
+		)
+		if err != nil {
+			return err
+		}
+		found, err = res.Retrieve(ctx, snap, lo.Filter(
+			[]resource.ID{target, holder},
+			func(id resource.ID, _ int) bool { return allowed(id) },
+		)...)
+		return err
+	}); rErr != nil {
 		return rErr
 	}
 	names := make(map[resource.ID]string, len(found))

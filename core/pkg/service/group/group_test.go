@@ -30,7 +30,6 @@ var _ = Describe("Group", Ordered, func() {
 	var (
 		db  *gorp.DB
 		svc *group.Service
-		w   group.Writer
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -39,7 +38,6 @@ var _ = Describe("Group", Ordered, func() {
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
-		w = svc.NewWriter(nil)
 	})
 
 	create := func(ctx context.Context, name string, parent *group.Group) group.Group {
@@ -48,7 +46,9 @@ var _ = Describe("Group", Ordered, func() {
 		if parent != nil {
 			g.Parent = new(parent.ResourceID())
 		}
-		Expect(w.Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		return g
 	}
 
@@ -58,7 +58,7 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(svc.NewRetrieve().
 			Where(group.MatchKeys(key)).
 			Entry(&g).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return g
 	}
 
@@ -72,14 +72,18 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should keep a key that the caller provides", func(ctx SpecContext) {
 			key := uuid.New()
 			g := group.Group{Key: key, Name: "test2", Scope: resource.TypeChannel}
-			Expect(w.Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 			Expect(retrieve(ctx, key).Name).To(Equal("test2"))
 		})
 
 		It("Should give a nested group the scope of its parent", func(ctx SpecContext) {
 			parent := create(ctx, "parent", nil)
 			child := group.Group{Name: "child", Parent: new(parent.ResourceID())}
-			Expect(w.Create(ctx, &child)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &child)
+			})).To(Succeed())
 			Expect(retrieve(ctx, child.Key).Scope).To(Equal(resource.TypeChannel))
 		})
 
@@ -92,7 +96,9 @@ var _ = Describe("Group", Ordered, func() {
 					Scope:  resource.TypeDevice,
 					Parent: new(parent.ResourceID()),
 				}
-				Expect(w.Create(ctx, &child)).To(MatchError(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &child)
+				})).To(MatchError(
 					"parent: a device group cannot sit under a channel parent: " +
 						"validation error",
 				))
@@ -106,7 +112,9 @@ var _ = Describe("Group", Ordered, func() {
 					Name:   "bad parent",
 					Parent: &resource.ID{Type: resource.TypeChannel, Key: "1"},
 				}
-				Expect(w.Create(ctx, &g)).To(MatchError(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &g)
+				})).To(MatchError(
 					ContainSubstring(
 						`must be a group, project, or rack, got "channel"`,
 					),
@@ -117,7 +125,9 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should reject a parent group that does not exist", func(ctx SpecContext) {
 			missing := uuid.New()
 			g := group.Group{Name: "orphan", Parent: new(group.ResourceID(missing))}
-			Expect(w.Create(ctx, &g)).To(MatchError(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(MatchError(
 				ContainSubstring("group " + missing.String() + " does not exist"),
 			))
 		})
@@ -125,7 +135,9 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should keep the scope of an existing group", func(ctx SpecContext) {
 			g := create(ctx, "fixed scope", nil)
 			g.Scope = resource.TypeDevice
-			Expect(w.Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 			Expect(g.Scope).To(Equal(resource.TypeChannel))
 			Expect(retrieve(ctx, g.Key).Scope).To(Equal(resource.TypeChannel))
 		})
@@ -135,7 +147,9 @@ var _ = Describe("Group", Ordered, func() {
 			g := create(ctx, "child", &parent)
 			g.Parent = nil
 			g.Name = "renamed"
-			Expect(w.Create(ctx, &g)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
 			Expect(g.Parent).To(Equal(new(parent.ResourceID())))
 			stored := retrieve(ctx, g.Key)
 			Expect(stored.Parent).To(Equal(new(parent.ResourceID())))
@@ -144,12 +158,16 @@ var _ = Describe("Group", Ordered, func() {
 
 		It("Should reject a group with an empty name", func(ctx SpecContext) {
 			g := group.Group{Scope: resource.TypeChannel}
-			Expect(w.Create(ctx, &g)).To(MatchError(ContainSubstring("name: required")))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should reject a group with no scope and no parent", func(ctx SpecContext) {
 			g := group.Group{Name: "no scope"}
-			Expect(w.Create(ctx, &g)).To(MatchError("scope: invalid scope: "))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(MatchError("scope: invalid scope: "))
 		})
 	})
 
@@ -184,7 +202,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(g1.Key, g2.Key)).
 				Entries(&ret).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
@@ -194,7 +212,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Where(group.MatchNames(created.Name)).
 				Entry(&g).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 
@@ -206,13 +224,13 @@ var _ = Describe("Group", Ordered, func() {
 				Where(group.MatchKeys(parent.Key, child.Key)).
 				Where(group.MatchHasParent(true)).
 				Entries(&nested).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(nested).To(ConsistOf(child))
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(parent.Key, child.Key)).
 				Where(group.MatchHasParent(false)).
 				Entries(&top).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(top).To(ConsistOf(parent))
 		})
 	})
@@ -225,14 +243,14 @@ var _ = Describe("Group", Ordered, func() {
 				mid := create(ctx, "mid", &root)
 				a := create(ctx, "a", &mid)
 				b := create(ctx, "b", &mid)
-				Expect(svc.Ancestors(ctx, nil, a.Key, b.Key)).
+				Expect(svc.Ancestors(ctx, db, a.Key, b.Key)).
 					To(ConsistOf(mid, root))
 			},
 		)
 
 		It("Should return nothing for a top-level group", func(ctx SpecContext) {
 			g := create(ctx, "lonely", nil)
-			Expect(svc.Ancestors(ctx, nil, g.Key)).To(BeEmpty())
+			Expect(svc.Ancestors(ctx, db, g.Key)).To(BeEmpty())
 		})
 	})
 
@@ -262,9 +280,35 @@ var _ = Describe("Group", Ordered, func() {
 			parent := create(ctx, "children-parent", nil)
 			a := create(ctx, "children-a", &parent)
 			b := create(ctx, "children-b", &parent)
-			Expect(svc.Children(ctx, nil, parent.Key)).
+			Expect(svc.Children(ctx, db, parent.Key)).
 				To(ConsistOf(a.ResourceID(), b.ResourceID()))
 		})
+	})
+
+	It("Should read the groups around a group through a snapshot", func(
+		ctx SpecContext,
+	) {
+		root := create(ctx, "snapshot-root", nil)
+		mid := create(ctx, "snapshot-mid", &root)
+		leaf := create(ctx, "snapshot-leaf", &mid)
+		var (
+			ancestors []group.Group
+			children  []resource.ID
+			top       *resource.ID
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			if ancestors, err = svc.Ancestors(ctx, snap, leaf.Key); err != nil {
+				return err
+			}
+			if children, err = svc.Children(ctx, snap, mid.Key); err != nil {
+				return err
+			}
+			top, err = group.TopParent(ctx, snap, leaf.Key)
+			return err
+		})).To(Succeed())
+		Expect(ancestors).To(ConsistOf(mid, root))
+		Expect(children).To(ConsistOf(leaf.ResourceID()))
+		Expect(top).To(BeNil())
 	})
 
 	Describe("SetParent", func() {
@@ -272,7 +316,10 @@ var _ = Describe("Group", Ordered, func() {
 			parent := create(ctx, "new-parent", nil)
 			a := create(ctx, "moved-a", nil)
 			b := create(ctx, "moved-b", nil)
-			Expect(w.SetParent(ctx, new(parent.ResourceID()), a.Key, b.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					SetParent(ctx, new(parent.ResourceID()), a.Key, b.Key)
+			})).
 				To(Succeed())
 			Expect(retrieve(ctx, a.Key).Parent).To(Equal(new(parent.ResourceID())))
 			Expect(retrieve(ctx, b.Key).Parent).To(Equal(new(parent.ResourceID())))
@@ -281,15 +328,21 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should move a group to the top level", func(ctx SpecContext) {
 			parent := create(ctx, "old-parent", nil)
 			child := create(ctx, "promoted", &parent)
-			Expect(w.SetParent(ctx, nil, child.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetParent(ctx, nil, child.Key)
+			})).To(Succeed())
 			Expect(retrieve(ctx, child.Key).Parent).To(BeNil())
 		})
 
 		It("Should reject a parent of a different scope", func(ctx SpecContext) {
 			parent := group.Group{Name: "device parent", Scope: resource.TypeDevice}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &parent)
+			})).To(Succeed())
 			g := create(ctx, "channel child", nil)
-			Expect(w.SetParent(ctx, new(parent.ResourceID()), g.Key)).To(MatchError(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetParent(ctx, new(parent.ResourceID()), g.Key)
+			})).To(MatchError(
 				"parent: a channel group cannot sit under a device parent: " +
 					"validation error",
 			))
@@ -298,7 +351,10 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should reject a move that forms a cycle", func(ctx SpecContext) {
 			root := create(ctx, "cycle-root", nil)
 			child := create(ctx, "cycle-child", &root)
-			Expect(w.SetParent(ctx, new(child.ResourceID()), root.Key)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					SetParent(ctx, new(child.ResourceID()), root.Key)
+			})).
 				To(MatchError(ContainSubstring("would form a cycle")))
 		})
 	})
@@ -306,13 +362,17 @@ var _ = Describe("Group", Ordered, func() {
 	Describe("Rename", func() {
 		It("Should rename a group", func(ctx SpecContext) {
 			created := create(ctx, "original-name", nil)
-			Expect(w.Rename(ctx, created.Key, "renamed")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(ctx, created.Key, "renamed")
+			})).To(Succeed())
 			Expect(retrieve(ctx, created.Key).Name).To(Equal("renamed"))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {
 			created := create(ctx, "keep-name", nil)
-			Expect(w.Rename(ctx, created.Key, "")).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(ctx, created.Key, "")
+			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
@@ -323,7 +383,9 @@ var _ = Describe("Group", Ordered, func() {
 			func(ctx SpecContext) {
 				parent := create(ctx, "parent-to-keep", nil)
 				create(ctx, "child-blocking-delete", &parent)
-				Expect(w.Delete(ctx, parent.Key)).To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, parent.Key)
+				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
 						"cannot delete group parent-to-keep because it is not empty",
@@ -335,11 +397,13 @@ var _ = Describe("Group", Ordered, func() {
 
 		It("Should delete an empty group", func(ctx SpecContext) {
 			created := create(ctx, "to-delete", nil)
-			Expect(w.Delete(ctx, created.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, created.Key)
+			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(group.MatchKeys(created.Key)).
 				Entry(new(group.Group)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -348,12 +412,15 @@ var _ = Describe("Group", Ordered, func() {
 				root := create(ctx, "root-nested", nil)
 				level1 := create(ctx, "level1-nested", &root)
 				level2 := create(ctx, "level2-nested", &level1)
-				Expect(w.Delete(ctx, root.Key, level2.Key, level1.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Delete(ctx, root.Key, level2.Key, level1.Key)
+				})).To(Succeed())
 				var groups []group.Group
 				Expect(svc.NewRetrieve().
 					Where(group.MatchKeys(root.Key, level1.Key, level2.Key)).
 					Entries(&groups).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				Expect(groups).To(BeEmpty())
 			},
 		)
@@ -365,7 +432,9 @@ var _ = Describe("Group", Ordered, func() {
 				Name:  "builtin-to-delete",
 				Scope: resource.TypeBuiltin,
 			}
-			Expect(w.Create(ctx, &builtin)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &builtin)
+			})).To(Succeed())
 			kept := create(ctx, "kept-by-builtin-delete", nil)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.BuiltinDeleteMigration().
@@ -373,24 +442,26 @@ var _ = Describe("Group", Ordered, func() {
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(group.MatchScopes(resource.TypeBuiltin)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 			Expect(retrieve(ctx, kept.Key).Name).To(Equal("kept-by-builtin-delete"))
 		})
 	})
 
-	Describe("Observe", func() {
-		It("Should notify when a group is created", func(ctx SpecContext) {
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			called := false
-			svc.Observe().
-				OnChange(func(context.Context, gorp.TxReader[group.Key, group.Group]) {
-					called = true
-				})
+	Describe("Changes", func() {
+		It("Should return the group that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
 			g := group.Group{Name: "observe-test", Scope: resource.TypeChannel}
-			Expect(svc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(called).To(BeTrue())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+			Expect(names).To(Equal([]string{"observe-test"}))
 		})
 	})
 

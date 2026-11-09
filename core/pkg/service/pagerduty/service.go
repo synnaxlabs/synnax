@@ -78,6 +78,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:          &legacy.Alert,
 			Migrations:      []gorp.Migration{v1.StatusKeysMigration},
 			SetEntryKey:     (*TaskConfig).SetKey,
+			PatchEntry:      (*TaskConfig).Patch,
+			HashEntry:       (*TaskConfig).HashContent,
 		},
 	); !ok(err, s.Alert) {
 		return nil, err

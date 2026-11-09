@@ -27,7 +27,8 @@ import (
 
 var keyNamespace = uuid.MustParse("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41")
 
-// migratedKey is a name-based UUID of the subject, so every node writes one record.
+// migratedKey is a name-based UUID of the subject, so a migration that runs twice
+// writes one record.
 func migratedKey(subject resource.ID) Key {
 	return xuuid.NewV5(keyNamespace, subject.String())
 }

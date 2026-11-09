@@ -25,32 +25,28 @@ type int8Entry struct {
 	Data string
 }
 
-func (e int8Entry) GorpKey() int8   { return e.ID }
-func (int8Entry) SetOptions() []any { return nil }
+func (e int8Entry) GorpKey() int8 { return e.ID }
 
 type int16Entry struct {
 	ID   int16
 	Data string
 }
 
-func (e int16Entry) GorpKey() int16  { return e.ID }
-func (int16Entry) SetOptions() []any { return nil }
+func (e int16Entry) GorpKey() int16 { return e.ID }
 
 type int64Entry struct {
 	ID   int64
 	Data string
 }
 
-func (e int64Entry) GorpKey() int64  { return e.ID }
-func (int64Entry) SetOptions() []any { return nil }
+func (e int64Entry) GorpKey() int64 { return e.ID }
 
 type uint8Entry struct {
 	ID   uint8
 	Data string
 }
 
-func (e uint8Entry) GorpKey() uint8  { return e.ID }
-func (uint8Entry) SetOptions() []any { return nil }
+func (e uint8Entry) GorpKey() uint8 { return e.ID }
 
 type uint16Entry struct {
 	ID   uint16
@@ -58,7 +54,6 @@ type uint16Entry struct {
 }
 
 func (e uint16Entry) GorpKey() uint16 { return e.ID }
-func (uint16Entry) SetOptions() []any { return nil }
 
 type uint32Entry struct {
 	ID   uint32
@@ -66,7 +61,6 @@ type uint32Entry struct {
 }
 
 func (e uint32Entry) GorpKey() uint32 { return e.ID }
-func (uint32Entry) SetOptions() []any { return nil }
 
 type uint64Entry struct {
 	ID   uint64
@@ -74,7 +68,6 @@ type uint64Entry struct {
 }
 
 func (e uint64Entry) GorpKey() uint64 { return e.ID }
-func (uint64Entry) SetOptions() []any { return nil }
 
 type stringEntry struct {
 	ID   string
@@ -82,7 +75,6 @@ type stringEntry struct {
 }
 
 func (e stringEntry) GorpKey() string { return e.ID }
-func (stringEntry) SetOptions() []any { return nil }
 
 type namedStringKey string
 
@@ -92,7 +84,6 @@ type namedStringEntry struct {
 }
 
 func (e namedStringEntry) GorpKey() namedStringKey { return e.ID }
-func (namedStringEntry) SetOptions() []any         { return nil }
 
 var _ = Describe("KeyCodec", func() {
 	var tx gorp.Tx

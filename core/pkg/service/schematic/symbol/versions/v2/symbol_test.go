@@ -26,12 +26,6 @@ var _ = Describe("Symbol", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Symbol{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("ResourceID", func() {
 		It("Should return the symbol resource identifier", func() {
 			k := uuid.New()

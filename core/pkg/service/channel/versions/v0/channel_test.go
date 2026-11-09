@@ -61,17 +61,6 @@ var _ = Describe("Channel", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should bootstrap-lease a free channel", func() {
-			ch := v0.Channel{Leaseholder: node.KeyFree}
-			Expect(ch.SetOptions()).To(Equal([]any{node.KeyBootstrapper}))
-		})
-		It("Should lease a non-free channel to its leaseholder", func() {
-			ch := v0.Channel{Leaseholder: 2}
-			Expect(ch.SetOptions()).To(Equal([]any{node.Key(2)}))
-		})
-	})
-
 	Describe("Free", func() {
 		It("Should return true for a channel with no leaseholder", func() {
 			Expect(v0.Channel{Leaseholder: node.KeyFree}.Free()).To(BeTrue())

@@ -143,9 +143,7 @@ describe("Group", () => {
     });
     it("should leave out a key that no group has", async () => {
       const a = await createTopLevel();
-      const groups = await client.groups.retrieve({
-        where: { key: { in: [a.key, uuid.create()] } },
-      });
+      const groups = await client.groups.retrieve({ key: [a.key, uuid.create()] });
       expect(groups.map((g) => g.key)).toEqual([a.key]);
     });
     it("should retrieve the children of a parent that match where", async () => {
@@ -294,9 +292,7 @@ describe("Group", () => {
         client.channels.setGroupRequest(ch.key, key),
       ]);
       expect(
-        (await client.channels.retrieve({ where: { groups: [key] } })).map(
-          (c) => c.key,
-        ),
+        (await client.channels.retrieve({ groups: [key] })).map((c) => c.key),
       ).toEqual([ch.key]);
     });
     it("should commit nothing when a request fails", async () => {

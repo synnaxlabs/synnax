@@ -10,120 +10,119 @@
 package secret_test
 
 import (
+	"context"
+	"encoding/json/v2"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		layer     *service.Layer
-		responses confluence.Outlet[framer.StreamerResponse]
+		layer *service.Layer
+		db    *gorp.DB
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 	})
-	BeforeEach(func(ctx SpecContext) {
+	// receive streams the channel with the given name and returns the samples of the
+	// next frame after write runs.
+	receive := func(ctx context.Context, name string, write func()) [][]byte {
+		GinkgoHelper()
+		var ch channel.Channel
+		Expect(layer.Channel.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Entry(&ch).
+			Exec(ctx, db)).To(Succeed())
 		streamer := MustSucceed(layer.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: channel.Keys{
-				layer.Secret.SetChannelKey(),
-				layer.Secret.DeleteChannelKey(),
-			},
+			Keys:        channel.Keys{ch.Key()},
 			SendOpenAck: true,
 		}))
-		var requests confluence.Inlet[framer.StreamerRequest]
-		requests, responses = confluence.Attach(streamer, 2)
+		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-		DeferCleanup(func() {
+		shutdown := signal.NewHardShutdown(sCtx, cancel)
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		defer func() {
 			requests.Close()
 			confluence.Drain(responses)
-			Expect(closeStreamer.Close()).To(Succeed())
-		})
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Expect(shutdown.Close()).To(Succeed())
+		}()
 		Eventually(responses.Outlet()).Should(Receive())
-	})
-	// receive decodes the records in the next frame, which must hold only the channel
-	// with the given key.
-	receive := func(
-		key channel.Key,
-		recordOf func([]byte) (resource.ID, error),
-	) []resource.ID {
-		GinkgoHelper()
+		write()
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
-		var records []resource.ID
+		var samples [][]byte
 		for sample := range res.Frame.SeriesAt(0).Samples() {
-			records = append(records, MustSucceed(recordOf(sample)))
+			samples = append(samples, sample)
 		}
-		return records
+		return samples
 	}
-	create := func(ctx SpecContext) secret.Secret {
+	write := func(ctx context.Context, fn func(secret.Writer) error) {
 		GinkgoHelper()
-		s := secret.Secret{Variant: secret.FileSecret{
-			Base: secret.Base{Name: "Key file"},
-			Path: "/etc/key.pem",
-		}}
-		Expect(layer.Secret.NewWriter(nil).Create(ctx, &s, nil)).To(Succeed())
-		return s
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return fn(layer.Secret.NewWriter(tx))
+		})).To(Succeed())
+	}
+	create := func(ctx context.Context, s *secret.Secret) {
+		GinkgoHelper()
+		write(ctx, func(w secret.Writer) error {
+			return w.Create(ctx, s, []byte("hunter2"))
+		})
+	}
+	stored := func(name string) secret.Secret {
+		return secret.Secret{
+			Variant: secret.StoredSecret{Base: secret.Base{Name: name}},
+		}
 	}
 
-	It("Should publish each created secret on the set channel", func(ctx SpecContext) {
-		s := create(ctx)
-		Expect(receive(layer.Secret.SetChannelKey(), secret.SetRecord)).
-			To(Equal([]resource.ID{s.ResourceID()}))
+	It("Should publish each created secret without its value", func(ctx SpecContext) {
+		s := stored("Set")
+		samples := receive(ctx, "sy_secret_set", func() { create(ctx, &s) })
+		Expect(samples).To(HaveLen(1))
+		var fields map[string]any
+		Expect(json.Unmarshal(samples[0], &fields)).To(Succeed())
+		Expect(fields).To(HaveKeyWithValue("key", s.Base().Key.String()))
+		Expect(fields).To(HaveKeyWithValue("name", "Set"))
+		Expect(fields).NotTo(HaveKey("value"))
 	})
-	It(
-		"Should publish the key of each deleted secret on the delete channel",
-		func(ctx SpecContext) {
-			s := create(ctx)
-			receive(layer.Secret.SetChannelKey(), secret.SetRecord)
-			Expect(layer.Secret.NewWriter(nil).Delete(ctx, s.Base().Key)).
-				To(Succeed())
-			Expect(receive(layer.Secret.DeleteChannelKey(), secret.DeleteRecord)).
-				To(Equal([]resource.ID{s.ResourceID()}))
-		},
-	)
-})
 
-var _ = Describe("SetRecord", func() {
-	It("Should reject a sample that is not a secret", func() {
-		Expect(secret.SetRecord([]byte("not json"))).Error().
-			To(MatchError(ContainSubstring("invalid character")))
+	It("Should broadcast a create action without the value", func(ctx SpecContext) {
+		s := stored("Action")
+		samples := receive(ctx, "sy_secret_action_set", func() { create(ctx, &s) })
+		Expect(samples).To(HaveLen(1))
+		Expect(string(samples[0])).NotTo(ContainSubstring("value"))
+		var scoped actions.Scoped[secret.Key, secret.Action]
+		Expect(json.Unmarshal(samples[0], &scoped)).To(Succeed())
+		Expect(scoped.Key).To(Equal(s.Base().Key))
+		Expect(scoped.Actions).To(HaveLen(1))
+		Expect(scoped.Actions[0].Create.Secret.Base().Name).To(Equal("Action"))
 	})
-})
 
-var _ = Describe("DeleteRecord", func() {
-	It("Should reject a sample that is not a key", func() {
-		Expect(secret.DeleteRecord([]byte{1, 2})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("secret delete sample is 2 bytes, not 16")),
-		))
-	})
-})
-
-var _ = Describe("ServiceConfig", func() {
-	It("Should require a channel service when signals are set", func() {
-		cfg := secret.DefaultServiceConfig.Override(secret.ServiceConfig{
-			Signals: &signals.Provider{},
+	It("Should publish the key of each deleted secret", func(ctx SpecContext) {
+		s := stored("Delete")
+		create(ctx, &s)
+		samples := receive(ctx, "sy_secret_delete", func() {
+			write(ctx, func(w secret.Writer) error {
+				return w.Delete(ctx, s.Base().Key)
+			})
 		})
-		Expect(cfg.Validate()).To(MatchError(
-			ContainSubstring("channel: required when signals is set"),
-		))
+		Expect(samples).To(HaveLen(1))
+		Expect(uuid.UUID(samples[0])).To(Equal(s.Base().Key))
 	})
 })

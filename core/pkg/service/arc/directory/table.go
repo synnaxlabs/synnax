@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -60,7 +59,6 @@ func (c TableConfig) Validate() error {
 
 // Table stores Arc directories. Open it before the tables that reference directories.
 type Table struct {
-	db      *gorp.DB
 	table   *gorp.Table[Key, Directory]
 	indexes indexes
 }
@@ -71,7 +69,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Table{db: cfg.DB, indexes: newIndexes()}
+	t := &Table{indexes: newIndexes()}
 	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Directory]{
 		DB:              cfg.DB,
 		Name:            tableName,
@@ -86,17 +84,20 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 
 // NewRetrieve opens a query for directories.
 func (t *Table) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: t.db, gorp: t.table.NewRetrieve(), indexes: t.indexes}
+	return Retrieve{gorp: t.table.NewRetrieve(), indexes: t.indexes}
 }
 
-// NewWriter opens a writer that runs on tx, or on the database when tx is nil.
+// NewWriter opens a writer that runs on tx.
 func (t *Table) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(t.db, tx), table: t.table}
+	return Writer{tx: tx, table: t.table}
 }
 
-// Observe returns an observable of the changes to directories.
-func (t *Table) Observe() observe.Observable[gorp.TxReader[Key, Directory]] {
-	return t.table.Observe()
+// Changes returns the changes that c made to directories.
+func (t *Table) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Directory] {
+	return t.table.Changes(ctx, c)
 }
 
 // Resources returns the resource.Provider of directories.
@@ -143,31 +144,24 @@ func (w Writer) Create(ctx context.Context, d *Directory) error {
 	return w.table.NewCreate().Entry(d).Exec(ctx, w.tx)
 }
 
-// Rename gives the directory with key the given name.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.update(ctx, func(d Directory) Directory { d.Name = name; return d }, key)
-}
-
-// SetParent moves the directories with keys into the directory parent. A move that
-// puts a directory below itself is a validation error.
-func (w Writer) SetParent(ctx context.Context, parent Key, keys ...Key) error {
-	return w.update(
-		ctx,
-		func(d Directory) Directory { d.Parent = &parent; return d },
-		keys...,
-	)
-}
-
-func (w Writer) update(
+// Update replaces the directory with key with the result of change, which receives the
+// stored directory. An invalid result is a validation error.
+func (w Writer) Update(
 	ctx context.Context,
-	change func(Directory) Directory,
-	keys ...Key,
+	key Key,
+	change func(Directory) (Directory, error),
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Directory](keys...)).
+		Where(gorp.MatchKeys[Key, Directory](key)).
 		ChangeErr(func(_ gorp.Context, d Directory) (Directory, error) {
-			d = change(d)
-			return d, d.Validate()
+			d, err := change(d)
+			if err != nil {
+				return Directory{}, err
+			}
+			if err = d.Validate(); err != nil {
+				return Directory{}, err
+			}
+			return d, nil
 		}).
 		Exec(ctx, w.tx)
 }
@@ -178,7 +172,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Directory](keys...)).
 		Guard(func(ctx gorp.Context, d Directory) error {
-			deps, err := w.table.Dependents(ctx, ctx.Tx, d.Key)
+			deps, err := w.table.Dependents(ctx, ctx.Snapshot, d.Key)
 			if err != nil {
 				return err
 			}

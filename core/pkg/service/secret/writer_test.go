@@ -33,8 +33,8 @@ var _ = Describe("Writer", func() {
 
 	resolve := func(ctx SpecContext, key secret.Key) string {
 		GinkgoHelper()
-		g := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
-		return string(MustSucceed(e.svc.Resolve(ctx, nil, rk, g, key))[key])
+		g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
+		return string(MustSucceed(e.svc.Resolve(ctx, rk, g, key))[key])
 	}
 
 	Describe("Create", func() {
@@ -52,7 +52,9 @@ var _ = Describe("Writer", func() {
 			s := secret.Secret{Variant: secret.StoredSecret{
 				Base: secret.Base{Key: key, Name: "Password"},
 			}}
-			Expect(e.svc.NewWriter(nil).Create(ctx, &s, []byte("a"))).To(Succeed())
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Create(ctx, &s, []byte("a"))
+			})).To(Succeed())
 			Expect(e.retrieve(ctx, key).Base().Name).To(Equal("Password"))
 		})
 		It("Should save the path of a file secret", func(ctx SpecContext) {
@@ -60,7 +62,9 @@ var _ = Describe("Writer", func() {
 				Base: secret.Base{Name: "Client key"},
 				Path: "/etc/plant/key.pem",
 			}}
-			Expect(e.svc.NewWriter(nil).Create(ctx, &s, nil)).To(Succeed())
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Create(ctx, &s, nil)
+			})).To(Succeed())
 			file := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
 			Expect(file.Path).To(Equal("/etc/plant/key.pem"))
 		})
@@ -69,16 +73,18 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				s := e.createStored(ctx, "Password", "old")
 				e.now += 10
-				Expect(
-					e.svc.NewWriter(nil).Create(ctx, &s, []byte("new")),
-				).To(Succeed())
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					return w.Create(ctx, &s, []byte("new"))
+				})).To(Succeed())
 				Expect(e.retrieve(ctx, s.Base().Key).Base().Updated).To(Equal(e.now))
 				Expect(resolve(ctx, s.Base().Key)).To(Equal("new"))
 			},
 		)
 		DescribeTable("Should reject an invalid secret",
 			func(ctx SpecContext, s secret.Secret, value, msg string) {
-				Expect(e.svc.NewWriter(nil).Create(ctx, &s, []byte(value))).
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					return w.Create(ctx, &s, []byte(value))
+				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry(
@@ -117,19 +123,23 @@ var _ = Describe("Writer", func() {
 	Describe("Rename", func() {
 		It("Should rename the secret and keep its value", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Before", "hunter2")
-			Expect(
-				e.svc.NewWriter(nil).Rename(ctx, s.Base().Key, "After"),
-			).To(Succeed())
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Rename(ctx, s.Base().Key, "After")
+			})).To(Succeed())
 			Expect(e.retrieve(ctx, s.Base().Key).Base().Name).To(Equal("After"))
 			Expect(resolve(ctx, s.Base().Key)).To(Equal("hunter2"))
 		})
 		It("Should reject an empty name", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Before", "hunter2")
-			Expect(e.svc.NewWriter(nil).Rename(ctx, s.Base().Key, "")).
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Rename(ctx, s.Base().Key, "")
+			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should return not found for a missing secret", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(nil).Rename(ctx, uuid.New(), "A")).
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Rename(ctx, uuid.New(), "A")
+			})).
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -137,13 +147,17 @@ var _ = Describe("Writer", func() {
 	Describe("Delete", func() {
 		It("Should delete the secret", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Password", "hunter2")
-			Expect(e.svc.NewWriter(nil).Delete(ctx, s.Base().Key)).To(Succeed())
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Delete(ctx, s.Base().Key)
+			})).To(Succeed())
 			Expect(e.svc.NewRetrieve().
 				Where(secret.MatchKeys(s.Base().Key)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should succeed for a missing secret", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(nil).Delete(ctx, uuid.New())).To(Succeed())
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Delete(ctx, uuid.New())
+			})).To(Succeed())
 		})
 	})
 })

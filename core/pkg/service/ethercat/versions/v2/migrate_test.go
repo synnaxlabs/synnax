@@ -56,7 +56,7 @@ func createMixed() v2.Slave {
 	}
 }
 
-func failLookup(context.Context, gorp.Tx, []string) (map[string]v2.Slave, error) {
+func failLookup(context.Context, gorp.Snapshot, []string) (map[string]v2.Slave, error) {
 	return nil, errors.New("lookup failed")
 }
 
@@ -101,7 +101,7 @@ var _ = Describe("Migrate", func() {
 	)
 	slaves := func(
 		_ context.Context,
-		_ gorp.Tx,
+		_ gorp.Snapshot,
 		keys []string,
 	) (map[string]v2.Slave, error) {
 		requested = append(requested, keys)

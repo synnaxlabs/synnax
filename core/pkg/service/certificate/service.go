@@ -11,12 +11,11 @@ package certificate
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -48,10 +47,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
-	// Channel finds the channels that Signals publishes changes on.
-	//
-	// [REQUIRED] when Signals is set.
-	Channel *channel.Service
 	// Now returns the current time.
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
@@ -80,7 +75,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.ExpiryCheckInterval = override.Numeric(
 		c.ExpiryCheckInterval,
@@ -96,11 +90,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("secret", c.Secret)
 	v.NotNil("status", c.Status)
 	v.NotNil("now", c.Now)
-	v.Ternary(
-		"channel",
-		c.Signals != nil && c.Channel == nil,
-		"required when signals is set",
-	)
 	v.Positive("expiry_check_interval", c.ExpiryCheckInterval)
 	return v.Error()
 }
@@ -108,12 +97,11 @@ func (c ServiceConfig) Validate() error {
 // Service stores certificates, reads their details, and reports their expiry as
 // statuses.
 type Service struct {
-	table            *gorp.Table[Key, Certificate]
-	indexes          indexes
-	closer           xio.MultiCloser
-	cfg              ServiceConfig
-	setChannelKey    channel.Key
-	deleteChannelKey channel.Key
+	table   *gorp.Table[Key, Certificate]
+	state   *actions.State[Key, Action]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
 }
 
 // OpenService opens a Service with the given configuration. The Service updates the
@@ -124,6 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
+	s.state = actions.NewState[Key, Action](s.cfg.DB)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Certificate]{
@@ -136,23 +125,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = s.cfg.Signals.PublishFromGorp(
-			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+		if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Certificate]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		if s.setChannelKey, err = s.retrieveChannelKey(
-			ctx,
-			"sy_certificate_set",
-		); !ok(err, nil) {
-			return nil, err
-		}
-		if s.deleteChannelKey, err = s.retrieveChannelKey(
-			ctx,
-			"sy_certificate_delete",
-		); !ok(err, nil) {
+		if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_certificate_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -163,31 +146,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	sCtx.Go(s.checkExpiry, signal.WithKey("expiry"))
 	return s, nil
 }
-
-func (s *Service) retrieveChannelKey(
-	ctx context.Context,
-	name string,
-) (channel.Key, error) {
-	var ch channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchNames(name)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
-		return 0, err
-	}
-	return ch.Key(), nil
-}
-
-// SetChannelKey returns the key of the channel that publishes each certificate that is
-// created or changed. Its samples carry the paths of certificates and the keys of
-// their private keys, so only subjects that can retrieve a certificate may receive
-// them. The key is zero when the Service has no Signals.
-func (s *Service) SetChannelKey() channel.Key { return s.setChannelKey }
-
-// DeleteChannelKey returns the key of the channel that publishes the key of each
-// deleted certificate. Only subjects that can retrieve a certificate may receive its
-// samples. The key is zero when the Service has no Signals.
-func (s *Service) DeleteChannelKey() channel.Key { return s.deleteChannelKey }
 
 func (s *Service) checkExpiry(ctx context.Context) error {
 	ticker := time.NewTicker(s.cfg.ExpiryCheckInterval.Duration())
@@ -208,24 +166,30 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 // safe to call concurrently with any other method of the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a Writer that creates, renames, and deletes certificates. If tx is
-// nil, the Writer writes directly to the DB.
+// Changes returns the changes that the commit c made to certificates.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Certificate] {
+	return s.table.Changes(ctx, c)
+}
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
+// NewWriter opens a Writer that creates, changes, and deletes certificates in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:       tx,
-		table:    s.table,
-		secrets:  s.cfg.Secret.NewWriter(tx),
-		statuses: s.cfg.Status.NewWriter(tx),
-		now:      s.cfg.Now,
+		tx:         tx,
+		table:      s.table,
+		secrets:    s.cfg.Secret.NewWriter(tx),
+		statuses:   s.cfg.Status.NewWriter(tx),
+		now:        s.cfg.Now,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // NewRetrieve opens a query that retrieves certificates.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
