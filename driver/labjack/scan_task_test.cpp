@@ -107,11 +107,15 @@ TEST_F(ScannerTest, ListsADeviceOnTwoConnectionsOnce) {
     EXPECT_EQ(devices[0].location, "LJM_ctUSB");
 }
 
-/// @brief it should reject a negative TCP scan multiplier.
-TEST(ScanTaskConfigTest, RejectsNegativeTcpScanMultiplier) {
-    auto parser = x::json::Parser(x::json::json{{"tcp_scan_multiplier", -1}});
-    ScanTaskConfig cfg(parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    EXPECT_EQ(parser.error_json()["errors"][0]["path"], "tcp_scan_multiplier");
+/// @brief it should reject a TCP scan multiplier that is not positive.
+TEST(ScanTaskConfigTest, RejectsNonPositiveTcpScanMultiplier) {
+    for (const auto multiplier: {0, -1}) {
+        auto parser = x::json::Parser(
+            x::json::json{{"tcp_scan_multiplier", multiplier}}
+        );
+        ScanTaskConfig cfg(parser);
+        ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+        EXPECT_EQ(parser.error_json()["errors"][0]["path"], "tcp_scan_multiplier");
+    }
 }
 }

@@ -24,6 +24,8 @@ const (
 	ground = 199
 	// maxNegChan is the last AIN port that a T7 takes as a negative channel.
 	maxNegChan = 127
+	// defaultTCPScanMultiplier is the schema default of tcp_scan_multiplier.
+	defaultTCPScanMultiplier = 10
 )
 
 func storedNegChan(ch v2.ReadChannel) (int32, bool) {
@@ -37,9 +39,9 @@ func storedNegChan(ch v2.ReadChannel) (int32, bool) {
 }
 
 // migrateNegChan maps ground to absent and clamps any other value into 0 to 127. The
-// bool is true when the value clamps.
+// bool is true when the value clamps. v2 filled a 0 with ground, so 0 is ground too.
 func migrateNegChan(old int32) (*uint16, bool) {
-	if old == ground {
+	if old == ground || old == 0 {
 		return nil, false
 	}
 	clamped := min(max(old, 0), maxNegChan)
@@ -126,14 +128,18 @@ var ReadMigration = migrate.NewInstrumentedEntry(
 	migrateStoredReadConfig,
 )
 
-// MigrateScanConfig lifts a v2 scan config to v3. A TCP scan multiplier below 1
-// clamps to 1.
+// MigrateScanConfig lifts a v2 scan config to v3. A TCP scan multiplier of 0 takes
+// the default of 10, as v2 filled it, and a negative one clamps to 1.
 func MigrateScanConfig(ctx context.Context, old v2.ScanConfig) (ScanConfig, error) {
 	cfg, err := autoMigrateScanConfig(ctx, old)
 	if err != nil {
 		return ScanConfig{}, err
 	}
-	cfg.TCPScanMultiplier = uint32(max(old.TCPScanMultiplier, 1))
+	if old.TCPScanMultiplier == 0 {
+		cfg.TCPScanMultiplier = defaultTCPScanMultiplier
+	} else {
+		cfg.TCPScanMultiplier = uint32(max(old.TCPScanMultiplier, 1))
+	}
 	return cfg, nil
 }
 
@@ -146,7 +152,7 @@ func migrateStoredScanConfig(
 	if err != nil {
 		return ScanConfig{}, err
 	}
-	if int64(cfg.TCPScanMultiplier) != int64(old.TCPScanMultiplier) {
+	if old.TCPScanMultiplier < 0 {
 		ins.L.Warn(
 			"clamped a LabJack TCP scan multiplier",
 			zap.Stringer("config", old.Key),

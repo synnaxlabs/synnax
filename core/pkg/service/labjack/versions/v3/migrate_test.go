@@ -45,6 +45,7 @@ func thermocouple(negChan int32) v2.ReadChannel {
 }
 
 func negChanOf(ch v3.ReadChannel) *uint16 {
+	GinkgoHelper()
 	switch v := ch.Variant.(type) {
 	case v3.AnalogReadChannel:
 		return v.NegChan
@@ -70,8 +71,9 @@ var _ = Describe("MigrateReadChannel", func() {
 		},
 		Entry("analog ground", analog(199), BeNil(), false),
 		Entry("thermocouple ground", thermocouple(199), BeNil(), false),
+		Entry("v2 zero, which v2 filled with ground", analog(0), BeNil(), false),
 		Entry("analog pair", analog(3), HaveValue(BeEquivalentTo(3)), false),
-		Entry("lowest port", analog(0), HaveValue(BeEquivalentTo(0)), false),
+		Entry("lowest pair", analog(1), HaveValue(BeEquivalentTo(1)), false),
 		Entry("highest port", analog(127), HaveValue(BeEquivalentTo(127)), false),
 		Entry("below the lowest port", analog(-1), HaveValue(BeEquivalentTo(0)), true),
 		Entry(
@@ -117,7 +119,7 @@ var _ = Describe("MigrateReadConfig", func() {
 
 var _ = Describe("MigrateScanConfig", func() {
 	DescribeTable(
-		"Should clamp a TCP scan multiplier below 1",
+		"Should fill a TCP scan multiplier of 0 and clamp a negative one",
 		func(ctx SpecContext, old int32, expected uint32) {
 			cfg := MustSucceed(v3.MigrateScanConfig(ctx, v2.ScanConfig{
 				TCPScanMultiplier: old,
@@ -125,13 +127,14 @@ var _ = Describe("MigrateScanConfig", func() {
 			Expect(cfg.TCPScanMultiplier).To(Equal(expected))
 		},
 		Entry("negative", int32(-4), uint32(1)),
-		Entry("zero", int32(0), uint32(1)),
+		Entry("zero", int32(0), uint32(10)),
 		Entry("the minimum", int32(1), uint32(1)),
 		Entry("the default", int32(10), uint32(10)),
 	)
 })
 
 func observe() (alamos.Instrumentation, *observer.ObservedLogs) {
+	GinkgoHelper()
 	core, logs := observer.New(zapcore.WarnLevel)
 	logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core),

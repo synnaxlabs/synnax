@@ -143,6 +143,22 @@ std::unique_ptr<InputChan> parse_analog(const double range) {
     return chan;
 }
 
+/// @brief it should read an analog channel with no negative channel against ground.
+TEST(TestReadChannelParse, testAIChanAbsentNegChanIsGround) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const auto *const ai = dynamic_cast<AIChan *>(chan.get());
+    ASSERT_NE(ai, nullptr);
+    ASSERT_EQ(ai->neg_chan, LJM_GND);
+}
+
 /// @brief it should reject an analog channel with a max voltage of zero.
 TEST(TestReadChannelParse, testAIChanZeroRange) {
     const x::json::json cfg{
