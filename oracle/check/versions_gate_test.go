@@ -922,4 +922,111 @@ Channel struct {
 `)
 		Expect(aliasHints(run(p))).To(BeEmpty())
 	})
+
+	Describe("Rules on a type aliased from a frozen definer", func() {
+		const channelV1 = `
+Entry = v0.Entry
+
+Window = v0.Window
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+
+	@go marshal
+}
+`
+		frozen := func(entryRules, spanRules string) string {
+			return `
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+
+	@go marshal
+}
+`
+		}
+		live := func(entryRules, spanRules, entryGo string) string {
+			return `
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+` + entryGo + `
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+}
+`
+		}
+		const (
+			validate = "\n\t\t@validate max 17"
+			group    = "\n\t\t@default group \"range\""
+			fields   = "\t@go fields \"Size int\""
+		)
+
+		DescribeTable("Should fail a live rule that the frozen definer lacks",
+			func(entryRules, spanRules, entryGo, want string) {
+				write("schemas/synnax/versions/channel/v0.oracle", frozen("", ""))
+				write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+				report := run(analyzeLive(live(entryRules, spanRules, entryGo)))
+				Expect(report.Status).To(Equal(check.StatusFail))
+				Expect(report.Findings).ToNot(BeEmpty())
+				Expect(report.Findings[0].Path).
+					To(Equal("schemas/synnax/versions/channel/v1.oracle"))
+				Expect(report.Findings[0].Message).To(ContainSubstring(want))
+				Expect(report.Findings[0].FixHint).To(ContainSubstring("restate"))
+			},
+			Entry("on a validate rule", validate, "", "",
+				"v1 aliases Entry from v0, but the live @validate on "+
+					"Entry.min_val differs from v0's"),
+			Entry("on a default group", group, "", "",
+				"the live @default on Entry.min_val"),
+			Entry("on a Go method rule", "", "", fields,
+				"the live @go method rules on Entry"),
+			Entry("on an inline variant payload", "", validate, "",
+				"v1 aliases Window from v0, but the live @validate on "),
+		)
+
+		It("Should pass when the frozen definer restates the live rules", func() {
+			write(
+				"schemas/synnax/versions/channel/v0.oracle",
+				frozen(validate+group, validate),
+			)
+			write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+			report := run(analyzeLive(live(validate+group, validate, "")))
+			Expect(report.Findings).To(BeEmpty())
+		})
+	})
 })

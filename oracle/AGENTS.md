@@ -81,17 +81,20 @@ or generator logic and schemas disagree.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
   live file == merged projection), import placement, stored-pin currency, and delta
   minimality (a redeclaration structurally identical to its resolved predecessor must be
-  an alias; enum member sets compare exactly).
+  an alias; enum member sets compare exactly), and rule parity (a type the current
+  version aliases from a frozen definer has the same `@validate`, `@default`,
+  `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
   generated import. A frozen package takes its `@validate` rules, `@default` groups,
   `@go fields`, `@go imports`, and `@go to_any` from its version files only, never from
-  the live file. The current package's alias of a frozen type is that frozen type, so a
-  live-only rule on an aliased type does nothing: restate it in the version file that
-  defines the type. Current and frozen packages keep the version file's declaration
-  order, declare every member it records even when the live file marks it `@go omit`,
-  and resolve every dependency reference at the version it pins, never at the root. A
+  the live file. The current package's alias of a frozen type is that frozen type, so Go
+  reads an aliased type's rules from its definer while the other languages read the live
+  file. Restate each live rule in the definer's version file; the rule parity gate fails
+  until you do. Current and frozen packages keep the version file's declaration order,
+  declare every member it records even when the live file marks it `@go omit`, and
+  resolve every dependency reference at the version it pins, never at the root. A
   version package therefore reaches only declarations its version files fix, so it
   compiles and stands still until a version file changes. A mint demotes the current
   package, so it loses every live-only rule unless a version file restates it. A frozen

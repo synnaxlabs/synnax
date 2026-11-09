@@ -128,6 +128,11 @@ func checkChain(
 	// target its dependency chain's current version.
 	checkPinCurrency(ctx, r, resolver, chain)
 
+	// Rule parity: the current package's alias of a frozen type is that frozen type, so
+	// the Go rules come from the definer's version file while the other languages read
+	// the live file.
+	checkAliasedRules(ctx, r, res, resolver, chain)
+
 	// Minimality: every redeclaration must differ structurally from its resolved
 	// predecessor.
 	for i, k := range chain.Numbers {
@@ -775,4 +780,140 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 	names := found.Slice()
 	slices.Sort(names)
 	return names
+}
+
+// aliasedGoRules names the type-level @go expressions that generate Go methods or
+// fields.
+var aliasedGoRules = set.New("to_any", "fields", "imports")
+
+// checkAliasedRules fails when the current version aliases a type from a frozen
+// definer and the live type's @validate, @default, or @go method rules differ from the
+// definer's. Inline variant payloads of an aliased union count as aliased.
+func checkAliasedRules(
+	ctx context.Context,
+	r *GateReport,
+	res *pipeline.Result,
+	resolver *versions.Resolver,
+	chain versions.Chain,
+) {
+	livePath, current := chain.LivePath(), chain.Current()
+	path := chain.FilePath(current) + ".oracle"
+	ended, err := resolver.Ended(ctx, livePath)
+	if err != nil {
+		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+		return
+	}
+	if ended {
+		return
+	}
+	surf, err := resolver.Surface(ctx, livePath, current)
+	if err != nil {
+		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+		return
+	}
+	live := make(map[string]resolution.Type)
+	for _, t := range res.Resolutions.Types {
+		if t.FilePath == livePath+".oracle" {
+			live[t.Name] = t
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(surf)) {
+		def := surf[name]
+		if def.Version == current {
+			continue
+		}
+		definer, err := resolver.File(ctx, livePath, def.Version)
+		if err != nil {
+			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+			return
+		}
+		frozen := []resolution.Type{def.Type}
+		if u, isUnion := def.Type.Form.(resolution.UnionForm); isUnion {
+			for _, v := range u.Variants {
+				if payload, ok := v.Type.Resolve(definer.Table); v.Inline && ok {
+					frozen = append(frozen, payload)
+				}
+			}
+		}
+		for _, ft := range frozen {
+			lt, ok := live[ft.Name]
+			if !ok {
+				continue
+			}
+			for _, rule := range ruleDrift(lt, ft) {
+				r.fail(Finding{
+					Path:     path,
+					Severity: SeverityError,
+					Message: fmt.Sprintf(
+						"%s v%d aliases %s from v%d, but the live %s differs from "+
+							"v%d's",
+						livePath, current, name, def.Version, rule, def.Version,
+					),
+					FixHint: fmt.Sprintf(
+						"the Go alias uses v%d's rules: redeclare %s in v%d, or "+
+							"restate the rule in v%d",
+						def.Version, name, current, def.Version,
+					),
+				})
+			}
+		}
+	}
+}
+
+// ruleDrift describes every rule that differs between the live and frozen
+// declarations of one type.
+func ruleDrift(live, frozen resolution.Type) []string {
+	var drift []string
+	if goRulesKey(live) != goRulesKey(frozen) {
+		drift = append(drift, "@go method rules on "+live.Name)
+	}
+	lf, ok := live.Form.(resolution.StructForm)
+	if !ok {
+		return drift
+	}
+	ff, ok := frozen.Form.(resolution.StructForm)
+	if !ok {
+		return drift
+	}
+	frozenFields := make(map[string]resolution.Field, len(ff.Fields))
+	for _, f := range ff.Fields {
+		frozenFields[f.Name] = f
+	}
+	for _, f := range lf.Fields {
+		fr, ok := frozenFields[f.Name]
+		if !ok {
+			continue
+		}
+		for _, d := range []string{"validate", "default"} {
+			if exprsKey(
+				f.Domains[d].Expressions,
+			) != exprsKey(
+				fr.Domains[d].Expressions,
+			) {
+				drift = append(drift, "@"+d+" on "+live.Name+"."+f.Name)
+			}
+		}
+	}
+	return drift
+}
+
+// goRulesKey returns a comparable key of t's Go method expressions.
+func goRulesKey(t resolution.Type) string {
+	var exprs resolution.Expressions
+	for _, e := range t.Domains["go"].Expressions {
+		if aliasedGoRules.Contains(e.Name) {
+			exprs = append(exprs, e)
+		}
+	}
+	return exprsKey(exprs)
+}
+
+// exprsKey returns an order-insensitive key of exprs' names and values.
+func exprsKey(exprs resolution.Expressions) string {
+	keys := make([]string, len(exprs))
+	for i, e := range exprs {
+		keys[i] = fmt.Sprintf("%s %+v", e.Name, e.Values)
+	}
+	slices.Sort(keys)
+	return strings.Join(keys, "\n")
 }
