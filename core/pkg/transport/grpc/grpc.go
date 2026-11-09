@@ -116,7 +116,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		group.RetrieveAncestorsResponse,
 	]{}
 
-	// GROUP MEMBERSHIP
+	// BATCH
 	t.Batch = noop.UnaryServer[batch.ExecRequest, batch.ExecResponse]{}
 
 	// PROJECT
