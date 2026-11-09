@@ -71,6 +71,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RenameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -87,6 +91,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.RenameChannel = override.Nil(c.RenameChannel, other.RenameChannel)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
@@ -98,6 +103,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("rename_channel", c.RenameChannel)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
@@ -107,6 +113,7 @@ type Service struct {
 	status        *status.Service
 	rbac          *rbac.Service
 	renameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	stopper       *task.Stopper
 	alamos.Instrumentation
 }
 
@@ -122,6 +129,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		status:          cfg.Status,
 		rbac:            cfg.RBAC,
 		renameChannel:   cfg.RenameChannel,
+		stopper:         cfg.Stopper,
 	}, nil
 }
 
@@ -157,10 +165,37 @@ type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
+// PrepareDelete stops the running tasks of the Arcs in req and waits for them to stop,
+// for at most the timeout of the Stopper in total. PrepareDelete returns
+// access.ErrDenied, and stops nothing, when the subject cannot delete an Arc in req or
+// one of its tasks.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
+	var taskKeys []task.Key
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if taskKeys, err = s.internal.TaskKeys(ctx, snap, req.Keys...); err != nil {
+			return err
+		}
+		return s.rbac.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: append(arc.ResourceIDs(req.Keys), task.ResourceIDs(taskKeys)...),
+		})
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.stopper.Stop(ctx, taskKeys)
+}
+
+// Delete deletes the Arcs in req and their tasks. Run PrepareDelete first to stop the
+// tasks.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
+	_ struct{},
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

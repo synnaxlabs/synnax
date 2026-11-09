@@ -196,7 +196,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
-	taskKeys, err := w.taskKeys(ctx, w.matchTasks(key))
+	taskKeys, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.matchTasks(key))
 	if err != nil {
 		return err
 	}
@@ -214,16 +214,21 @@ func (w Writer) liveTasks(key Key) task.Filter {
 	return task.And(w.matchTasks(key), task.MatchSnapshot(false))
 }
 
-func (w Writer) taskKeys(ctx context.Context, f task.Filter) ([]task.Key, error) {
-	var tasks []task.Task
-	if err := w.tasks.NewRetrieve().
+func retrieveTaskKeys(
+	ctx context.Context,
+	tasks *task.Service,
+	snap gorp.Snapshot,
+	f task.Filter,
+) ([]task.Key, error) {
+	var matched []task.Task
+	if err := tasks.NewRetrieve().
 		Where(f).
-		Entries(&tasks).
-		Exec(ctx, w.tx); err != nil {
+		Entries(&matched).
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	keys := make([]task.Key, len(tasks))
-	for i, t := range tasks {
+	keys := make([]task.Key, len(matched))
+	for i, t := range matched {
 		keys[i] = t.Key
 	}
 	return keys, nil
@@ -247,7 +252,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := w.taskKeys(ctx, w.liveTasks(key))
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(key))
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +433,7 @@ func (w Writer) retrieveTask(
 // moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	b := a.Base()
-	existing, err := w.taskKeys(ctx, w.liveTasks(b.Key))
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(b.Key))
 	if err != nil || len(existing) == 0 {
 		return err
 	}

@@ -11,6 +11,7 @@ import { type label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
+  rejectRequests,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
@@ -302,7 +303,15 @@ describe("useList", () => {
     );
     act(() => result.current.more());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
-    spyOnSend(local).mockRejectedValue(new Error("boom"));
+    // A change to a range from another spec makes the client read that range by key,
+    // and a failed read logs an error. Only the search fails.
+    rejectRequests(
+      local,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).searchTerm != null,
+      new Error("boom"),
+    );
     act(() => result.current.search(randomWord()));
     await waitFor(() => expect(result.current.variant).toEqual("error"));
     expect(result.current.data).toEqual([]);

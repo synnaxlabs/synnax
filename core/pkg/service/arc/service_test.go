@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -383,5 +384,34 @@ var _ = Describe("NewRoot", func() {
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		Expect(root.Resolve(ctx, "new_root_ch")).Error().
 			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))
+	})
+})
+
+var _ = Describe("TaskKeys", func() {
+	It("Should return the tasks of every Arc", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		deployed := newAutomation(arc.Base{
+			Name:   "arc-task-keys",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
+		idle := newAutomation(arc.Base{
+			Name:   "arc-no-task-keys",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
+		w := svc.NewWriter(tx)
+		Expect(w.Create(ctx, &deployed)).To(Succeed())
+		Expect(w.Create(ctx, &idle)).To(Succeed())
+		t := MustSucceed(w.UpdateTask(
+			ctx,
+			deployed.Base().Key,
+			arc.TaskUpdate{Rack: new(testRack.Key)},
+		))
+		Expect(svc.TaskKeys(
+			ctx,
+			tx,
+			deployed.Base().Key,
+			idle.Base().Key,
+			uuid.New(),
+		)).To(Equal([]task.Key{t.Key}))
 	})
 })
