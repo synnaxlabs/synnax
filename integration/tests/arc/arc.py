@@ -216,23 +216,32 @@ class ArcCase(SimDaqCase, TestCase):
         """Fail unless the compile status of the module at path reaches variant in
         time. Returns that status."""
         key = self._module(path).arc_key
-        timer = sy.Timer()
-        while True:
+        last: sy.Status | None = None
+
+        def reached() -> sy.Status | None:
+            nonlocal last
             module = self.client.arcs.retrieve(key=key, include_status=True)
             assert isinstance(module, sy.arc.Module)
-            if module.status is not None and module.status.variant == variant:
-                return module.status
-            if timer.elapsed() > sy.TimeSpan(timeout):
-                self.fail(f"module {path} status is {module.status}, not {variant}")
+            last = module.status
+            if last is not None and last.variant == variant:
+                return last
+            return None
+
+        status = sy.poll(reached, timeout=timeout, interval=0.05)
+        if status is None:
+            self.fail(f"module {path} status is {last}, not {variant}")
+        return status
 
     def wait_for_config_hash_change(
         self, task_key: sy.task.Key, before: str, timeout: sy.CrudeTimeSpan
     ) -> None:
         """Fail unless the task's stored config hash moves away from before in time."""
-        timer = sy.Timer()
-        while self.client.tasks.retrieve(task_key).config_hash == before:
-            if timer.elapsed() > sy.TimeSpan(timeout):
-                self.fail(f"task {task_key} kept config hash {before}")
+
+        def moved() -> bool | None:
+            return self.client.tasks.retrieve(task_key).config_hash != before or None
+
+        if sy.poll(moved, timeout=timeout, interval=0.05) is None:
+            self.fail(f"task {task_key} kept config hash {before}")
 
     def start_arc_task(self, task: sy.task.Task) -> None:
         """Start the task and block until the runtime reports it running.

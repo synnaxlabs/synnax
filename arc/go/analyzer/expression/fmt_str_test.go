@@ -222,6 +222,43 @@ trig -> f()`
 		)
 	})
 
+	Describe("Placeholder calls", func() {
+		It("Should accept a call that returns a value", func(specCtx SpecContext) {
+			expectSuccess(specCtx, "func g() i64 { return 1 }\n"+
+				"func f() {\n    log = f\"pre {g()} post\"\n}\ntrig -> f()")
+		})
+
+		It("Should reject a call that returns nothing on its placeholder", func(
+			specCtx SpecContext,
+		) {
+			// Source line 2: `    log = f"pre {g()} post"`
+			// '{' sits at col 16 and '}' at col 20, so the span runs [16, 21).
+			code := "func g() {}\n" +
+				"func f() {\n    log = f\"pre {g()} post\"\n}\ntrig -> f()"
+			diags := analyze(specCtx, code)
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			d := findError(diags, `placeholder "g()" has type`)
+			Expect(d).ToNot(BeNil(), diags.String())
+			Expect(d.Range.Start.Line).To(Equal(uint32(2)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(16)))
+			Expect(d.Range.End.Character).To(Equal(uint32(21)))
+		})
+
+		It("Should report an undeclared function once", func(specCtx SpecContext) {
+			diags := analyze(specCtx, wrap(`    log = `+`f"{missing()}"`))
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			Expect(findError(diags, `placeholder "missing()"`)).To(BeNil())
+		})
+
+		It("Should report an undeclared name inside an expression once", func(
+			specCtx SpecContext,
+		) {
+			diags := analyze(specCtx, wrap(`    log = `+`f"{undeclared + 1}"`))
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			Expect(findError(diags, "undefined symbol: undeclared")).ToNot(BeNil())
+		})
+	})
+
 	DescribeTable("Should place a placeholder diagnostic after non-ASCII text",
 		func(specCtx SpecContext, placeholder, message string) {
 			diags := analyze(
