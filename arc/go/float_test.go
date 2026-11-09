@@ -645,8 +645,7 @@ var _ = Describe("NaN and infinity", func() {
 				Type: types.Chan(types.Bool()),
 				ID:   2,
 			}))
-			Expect(arc.CompileText(ctx, arc.Text{Raw: source}, root)).Error().
-				ToNot(HaveOccurred())
+			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 		},
 		Entry("a constant", "import math\nmath.inf -> gt(b=1) -> alarm"),
 		Entry("a float variable", "v := 2.5\nv -> gt(b=1) -> alarm"),
