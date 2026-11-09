@@ -95,6 +95,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.ReadMigration,
 			},
 			SetEntryKey:        (*ReadConfig).SetKey,
+			PatchEntry:         (*ReadConfig).Patch,
+			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ResolveEntry: func(
 				ctx context.Context,
@@ -121,6 +123,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.WriteMigration,
 			},
 			SetEntryKey:        (*WriteConfig).SetKey,
+			PatchEntry:         (*WriteConfig).Patch,
+			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(
 				ctx context.Context,
@@ -142,6 +146,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {

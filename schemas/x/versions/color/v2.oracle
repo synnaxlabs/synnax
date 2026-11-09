@@ -22,6 +22,7 @@ Color struct {
     }
 
     @doc value  "is an RGBA color with every component 0-255."
+    @go json    hand
     @go marshal hand
 }
 
