@@ -17,23 +17,47 @@ import (
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // moduleSource returns a loader source that reads the text of the module at an
-// import path, one directory below Arcs per segment.
+// import path, one directory below Arcs per segment. It sees only the modules that
+// every filter matches.
 func (s *Service) moduleSource(
-	tx gorp.Tx,
+	snap gorp.Snapshot,
+	filters ...Filter,
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
-		return s.retrieveModuleText(ctx, tx, path)
+		return s.retrieveModuleText(ctx, snap, path, filters...)
+	}
+}
+
+// checkedModuleSource returns a loader source like moduleSource that records each read
+// in lookups. A read gives the same answer when it gives the same text or error.
+func (s *Service) checkedModuleSource(
+	snap gorp.Snapshot,
+	lookups *channel.Lookups,
+) func(context.Context, string) (arctext.Text, error) {
+	return func(ctx context.Context, path string) (arctext.Text, error) {
+		t, err := s.retrieveModuleText(ctx, snap, path)
+		lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+			again, againErr := s.retrieveModuleText(ctx, snap, path)
+			if err != nil || againErr != nil {
+				return err != nil && againErr != nil &&
+					err.Error() == againErr.Error(), nil
+			}
+			return t.Raw == again.Raw, nil
+		})
+		return t, err
 	}
 }
 
 func (s *Service) retrieveModuleText(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	path string,
+	filters ...Filter,
 ) (arctext.Text, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
@@ -46,7 +70,7 @@ func (s *Service) retrieveModuleText(
 				directory.MatchNames(name),
 			)).
 			Entries(&dirs).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return arctext.Text{}, err
 		}
 		if len(dirs) == 0 {
@@ -55,13 +79,14 @@ func (s *Service) retrieveModuleText(
 		parent = dirs[0].Key
 	}
 	var arcs []Arc
-	if err := s.NewRetrieve().
-		Where(And(
-			MatchDirectories(parent),
-			MatchNames(segments[len(segments)-1]),
-		)).
-		Entries(&arcs).
-		Exec(ctx, tx); err != nil {
+	q := s.NewRetrieve().Where(And(
+		MatchDirectories(parent),
+		MatchNames(segments[len(segments)-1]),
+	))
+	for _, f := range filters {
+		q = q.Where(f)
+	}
+	if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
 		return arctext.Text{}, err
 	}
 	if len(arcs) == 0 {

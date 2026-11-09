@@ -12,8 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import project as project_
-from synnax import ranger
+from synnax import group as group_, project as project_, ranger
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import (
     Key,
@@ -123,6 +122,8 @@ class Client:
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -137,6 +138,8 @@ class Client:
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -152,6 +155,8 @@ class Client:
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -181,6 +186,9 @@ class Client:
         :param keys: Keeps schematics with one of these keys.
         :param projects: Keeps the schematics owned by any of these projects.
         :param ranges: Keeps the schematics owned by any of these ranges.
+        :param groups: Keeps schematics in any of these groups.
+        :param grouped: Keeps only schematics in a group when True, and only schematics
+            in no group when False.
         :param one: Returns one schematic for any filter.
         :returns: One schematic for a plain ``key`` or when ``one`` is set, otherwise a
             list of schematics. The list leaves out keys that do not exist.

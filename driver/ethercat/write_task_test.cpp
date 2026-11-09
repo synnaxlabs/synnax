@@ -165,19 +165,6 @@ protected:
         return cfg;
     }
 
-    x::json::json create_unresolved_output_channel_config(
-        const synnax::channel::Key &command_key,
-        const std::string &pdo_name
-    ) {
-        return {
-            {"type", "unresolved"},
-            {"device", slave_device.key},
-            {"pdo", pdo_name},
-            {"cmd_channel", command_key},
-            {"disabled", false}
-        };
-    }
-
     synnax::channel::Channel create_command_channel(
         const std::string &name,
         const x::telem::DataType &data_type

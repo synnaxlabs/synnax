@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -50,14 +49,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	roles = MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -66,10 +57,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   roles.Builtin.DriverKey,
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: roles.Builtin.DriverKey,
 	}))
 	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
 		DB:    db,
@@ -77,6 +68,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:  userSvc,
 		Rack:  rackSvc,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
+		),
+	)
 })
 
 // newRolesConfig opens a database apart from the suite's database.
