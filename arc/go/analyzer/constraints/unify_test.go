@@ -49,6 +49,33 @@ var _ = Describe("Type Unification", func() {
 		})
 	})
 
+	Describe("Defaults", func() {
+		It("Should give an unbound variable its default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.F64()))
+		})
+
+		It("Should let a constraint override the default", func() {
+			system := constraints.New()
+			tv := types.Variable("elem", nil)
+			system.AddDefault(tv, types.F64())
+			Expect(system.AddEquality(tv, types.Bool(), nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.Bool()))
+		})
+
+		It("Should fail on an unbound variable without a default", func() {
+			system := constraints.New()
+			Expect(system.AddEquality(
+				types.Variable("a", nil), types.Variable("b", nil), nil, "test",
+			)).To(Succeed())
+			Expect(system.Unify()).To(MatchError(constraints.ErrUnresolvedVariable))
+		})
+	})
+
 	Describe("Untyped float and integer literals", func() {
 		var (
 			floatConstraint = types.FloatConstraint()
@@ -67,6 +94,86 @@ var _ = Describe("Type Unification", func() {
 			},
 			Entry("float first", float, integer),
 			Entry("integer first", integer, float),
+		)
+
+		DescribeTable(
+			"Should keep the float's constraint with an exact float in either order",
+			func(firstIsFloat bool) {
+				exactConstraint := types.ExactIntegerFloatConstraint()
+				exact := types.Variable("exact", &exactConstraint)
+				left, right := float, exact
+				if !firstIsFloat {
+					left, right = exact, float
+				}
+				system := constraints.New()
+				Expect(system.AddCompatible(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddEquality(exact, types.I32(), nil, "test")).
+					To(MatchError(ContainSubstring("i32")))
+			},
+			Entry("float first", true),
+			Entry("exact float first", false),
+		)
+
+		DescribeTable(
+			"Should keep the float's constraint with a numeric variable in either order",
+			func(firstIsFloat bool) {
+				numericConstraint := types.NumericConstraint()
+				numeric := types.Variable("numeric", &numericConstraint)
+				left, right := float, numeric
+				if !firstIsFloat {
+					left, right = numeric, float
+				}
+				system := constraints.New()
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddEquality(numeric, types.I32(), nil, "test")).
+					To(MatchError(ContainSubstring("i32")))
+			},
+			Entry("float first", true),
+			Entry("numeric first", false),
+		)
+
+		DescribeTable(
+			"Should keep an open series element open for an integer in either order",
+			func(firstIsInteger bool) {
+				system := constraints.New()
+				numeric := system.OpenNumeric(types.Variable("elem", nil))
+				left, right := integer, numeric
+				if !firstIsInteger {
+					left, right = numeric, integer
+				}
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(numeric))
+			},
+			Entry("integer first", true),
+			Entry("numeric first", false),
+		)
+
+		It("Should let an integer fix a generic numeric variable", func() {
+			numericConstraint := types.NumericConstraint()
+			numeric := types.Variable("T", &numericConstraint)
+			system := constraints.New()
+			Expect(system.AddEquality(numeric, integer, nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(numeric)).To(Equal(types.I64()))
+		})
+
+		DescribeTable(
+			"Should make an empty series element numeric for an integer in either order",
+			func(firstIsInteger bool) {
+				open := types.Variable("open", nil)
+				left, right := integer, open
+				if !firstIsInteger {
+					left, right = open, integer
+				}
+				system := constraints.New()
+				system.AddDefault(open, types.F64())
+				Expect(system.AddEquality(left, right, nil, "test")).To(Succeed())
+				Expect(system.AddCompatible(open, float, nil, "test")).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(integer)).To(Equal(types.F64()))
+			},
+			Entry("integer first", true),
+			Entry("open element first", false),
 		)
 
 		It("Should take a concrete f32 through the float", func() {
