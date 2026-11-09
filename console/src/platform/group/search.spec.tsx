@@ -78,7 +78,7 @@ describe("Group search", () => {
       );
       return [
         ...Group.useMatches(query),
-        Tree.toMatches(channels, (c) => Tree.toResource("channel")(c.payload)),
+        Tree.toMatches(channels, (c) => Group.toHit("channel")(c.payload)),
       ];
     };
     await renderSearchable(

@@ -108,10 +108,5 @@ export const toResource =
   (type: resource.Type) =>
   <D extends record.KeyedNamed<record.Key>>(record: D): Resource => {
     const id: resource.ID = { type, key: String(record.key) };
-    return {
-      key: resource.idToString(id),
-      id,
-      name: record.name,
-      data: record as unknown as record.Unknown,
-    };
+    return { key: resource.idToString(id), id, name: record.name };
   };

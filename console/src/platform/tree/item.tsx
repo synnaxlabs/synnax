@@ -76,6 +76,11 @@ export interface Drop {
  * static, render-independent behavior for its resource type (children, order, drag,
  * context menu) as properties, read imperatively by the Tree.
  */
+/** Returns what a drag of the resource carries besides the resource itself. */
+export interface HaulItems {
+  (resource: Resource, client: Synnax): Haul.Item[];
+}
+
 export interface Item extends FC<ItemProps> {
   hasChildren: boolean;
   /** Whether nodes of this type show before the other children of their parent. */
@@ -83,7 +88,7 @@ export interface Item extends FC<ItemProps> {
   children?: Children;
   canDrop: CanDrop;
   drop?: Drop;
-  haulItems: (resource: Resource) => Haul.Item[];
+  haulItems: HaulItems;
   ContextMenu?: ContextMenu;
 }
 
@@ -128,7 +133,7 @@ export interface CreateItemParams {
   canDrop?: CanDrop;
   /** Moves dropped items into a node of this type. Required when canDrop can pass. */
   drop?: Drop;
-  haulItems?: (resource: Resource) => Haul.Item[];
+  haulItems?: HaulItems;
   ContextMenu?: ContextMenu;
   Content?: Content;
 }

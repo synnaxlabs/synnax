@@ -34,6 +34,8 @@ const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID
  * Returns the tree items of groups. A group lists its child groups and the members of
  * its scope.
  */
+const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
+
 export const createTreeItems = (
   members: PlatformGroup.Members,
 ): { group: Tree.Item } => {
@@ -136,7 +138,7 @@ export const createTreeItems = (
                 handleLink({ name: getResource(firstID).name, resourceID: firstID })
               }
             />
-            <Tree.CopyPropertiesContextMenuItem {...props} />
+            <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
           </>
         )}
         <Menu.Divider />

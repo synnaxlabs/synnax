@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { device, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/tree/testutil";
+import { createTestDevice, renderMenuItem } from "@/platform/device/testutil";
+import { createSelection } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
@@ -37,17 +36,16 @@ const items = [
 
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
   const onConfigure = vi.fn();
-  const resource = createDeviceResource({ key: id.create(), name: "dev", configured });
+  const dev = await createTestDevice(client, { configured });
   await renderMenuItem(
     <Device.TaskContextMenuItems
       onConfigure={onConfigure}
-      selection={createSelection({ ids: [resource.id] })}
-      state={createState([resource])}
+      selection={createSelection({ ids: [device.resourceID(dev.key)] })}
       items={items}
     />,
     { client: itemClient },
   );
-  return { onConfigure, key: resource.id.key };
+  return { onConfigure, key: dev.key };
 };
 
 describe("TaskContextMenuItems", () => {

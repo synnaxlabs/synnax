@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, task } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Device } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Task } from "@/platform/task";
@@ -53,7 +53,7 @@ export const createTaskContextMenuItem = ({
 
 export interface TaskContextMenuItemsProps extends Pick<
   Tree.ContextMenuProps,
-  "selection" | "state"
+  "selection"
 > {
   onConfigure: (deviceKey: device.Key) => void;
   items: TaskContextMenuItem[];
@@ -61,24 +61,19 @@ export interface TaskContextMenuItemsProps extends Pick<
 
 export const TaskContextMenuItems = ({
   onConfigure,
-  state: { getResource },
   selection: { ids },
   items,
 }: TaskContextMenuItemsProps) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-  const firstID = ids[0];
+  const { data: dev } = Device.useResult({ key: ids[0].key });
+  if (!hasCreatePermission || dev == null) return null;
   const maybeConfigure = () => {
-    if (getResource(firstID).data?.configured !== true) onConfigure(firstID.key);
+    if (!dev.configured) onConfigure(dev.key);
   };
-  if (!hasCreatePermission) return null;
   return (
     <>
       {items.map((Item) => (
-        <Item
-          key={Item.itemKey}
-          deviceKey={firstID.key}
-          beforeCreate={maybeConfigure}
-        />
+        <Item key={Item.itemKey} deviceKey={dev.key} beforeCreate={maybeConfigure} />
       ))}
     </>
   );

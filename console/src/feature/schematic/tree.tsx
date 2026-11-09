@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { resource, schematic } from "@synnaxlabs/client";
+import { query, resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
@@ -104,12 +105,21 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.schematics.retrieve(key);
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
+    client,
     selection: { ids, rootID, parentID },
     state,
   } = props;
   const activeRange = Range.useResolve();
+  const schematics = Store.useItems({
+    keys: ids.map(({ key }) => key),
+    subscribe: (listener, key) => client.schematics.watch(key).onChange(listener),
+    getItem: (keys) =>
+      keys.map((key) => client.schematics.watch(key).getCached()).filter(query.isLive),
+  });
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
@@ -139,7 +149,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
+      {schematics.every((s) => !s.snapshot) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
           <Menu.Item itemKey="copy" onClick={handleCopy}>
@@ -155,7 +165,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />

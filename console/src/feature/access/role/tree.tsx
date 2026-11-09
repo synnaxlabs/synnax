@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type Synnax, user } from "@synnaxlabs/client";
+import { access, query, type Synnax, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Access, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -27,25 +28,37 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) =>
+  await c.access.roles.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
+    client,
     selection: { ids },
-    state,
   } = props;
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = Tree.useResources(state, ids);
-  const hasInternal = resources.some((r) => r.data?.internal === true);
+  const roles = Store.useItems({
+    keys: ids.map(({ key }) => key),
+    subscribe: (listener, key) => client.access.roles.watch(key).onChange(listener),
+    getItem: (keys) =>
+      keys
+        .map((key) => client.access.roles.watch(key).getCached())
+        .filter(query.isLive),
+  });
+  const hasInternal = roles.some((r) => r.internal === true);
   return (
     <ContextMenu.Menu>
       {singleResource && hasUpdatePermission && !hasInternal && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       <Menu.Divider />
-      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      {singleResource && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && !hasInternal && (
         <ContextMenu.DeleteItem onClick={handleDelete} />
