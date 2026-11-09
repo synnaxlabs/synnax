@@ -40,9 +40,9 @@ export const invalid = (search: Search): boolean =>
 
 /**
  * Returns the start and end of each match of the pattern in the text a log draws for a
- * line. An empty match does not count. The pattern must have the global flag.
+ * line. A line matches when the result is not empty. An empty match, such as one of
+ * `^` or a lookahead, counts and has the same start and end. The pattern must have the
+ * global flag.
  */
 export const find = (pattern: RegExp, text: string): Array<[number, number]> =>
-  [...text.matchAll(pattern)]
-    .filter((m) => m[0].length > 0)
-    .map((m) => [m.index, m.index + m[0].length]);
+  [...text.matchAll(pattern)].map((m) => [m.index, m.index + m[0].length]);
