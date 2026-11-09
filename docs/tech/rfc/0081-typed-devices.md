@@ -192,7 +192,7 @@ Device struct {
     model      string             { @filter }
     alias      string
     simulated  bool = false
-    chassis    Chassis.Key?       { @ref }
+    chassis    Chassis.Key?
     identifier string = ""
     analog_input    AnalogInputPorts
     analog_output   AnalogOutputPorts
@@ -250,10 +250,10 @@ indexes and references, and publishes `sy_<type>_set` and `sy_<type>_delete` thr
 `signals.PublishTable`. `Resources` returns its provider for the resource service. Its
 writer runs in the transaction of the caller and exposes `Create`, `Update`, and
 `Delete`. `Create` writes the row and an initial unknown status. The `@ref` fields put
-the resource under its chassis or rack. `Update` takes a function over the stored row,
-so a caller changes one field group and leaves the other as stored. `Delete` removes the
-row. Gorp deletes its status, and the modules of a chassis, through the references. The
-API binder checks delete access on each record that the delete removes.
+the resource under its rack. `Update` takes a function over the stored row, so a caller
+changes one field group and leaves the other as stored. `Delete` removes the row. Gorp
+deletes its status through the references. The API binder checks delete access on each
+record that the delete removes.
 
 The referrer check for `ni.Device` scans the five NI config stores for a channel whose
 `device` is the key. Both tables belong to one service, so no cross-service query
