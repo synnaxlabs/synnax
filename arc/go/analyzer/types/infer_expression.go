@@ -383,15 +383,7 @@ func inferConstantType(
 	sym *symbol.Symbol,
 ) types.Type {
 	tv := types.Freshen(sym.Type, ctx.ScopedKey("const", ctx.AST))
-	if err := ctx.Constraints.AddEquality(
-		tv,
-		tv,
-		ctx.AST,
-		"constant type variable",
-	); err != nil {
-		zap.S().
-			DPanicf("unexpected error registering type variable with itself: %v", err)
-	}
+	ctx.Constraints.AddVariable(tv)
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
 }

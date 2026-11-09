@@ -3037,10 +3037,72 @@ var _ = Describe("Statement", func() {
 	})
 })
 
+var _ = Describe("Module constants in declarations", func() {
+	DescribeTable("Should accept a sequence stateful initializer",
+		func(bCtx SpecContext, value string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\nsequence main {\n" +
+				"limit f32 $= " + value + "\nstage a {\nx > 1.0 => next\n}\n" +
+				"stage b {\n}\n}\nx => main\nunused := math.inf * x"))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("a literal", "1.5"),
+		Entry("a constant", "math.inf"),
+		Entry("a cast constant", "f32(-math.nan)"),
+		Entry("a cast literal", "f32(1.5)"),
+		Entry("an expression on a constant", "math.inf * 2.0"),
+	)
+
+	It("Should fold a constant cast to its stored value", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		expr := MustSucceed(parser.ParseExpression("f32(-math.inf)"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		Expect(statement.CastConstValue(ctx, expr, types.F32())).To(Equal("-Infinity"))
+	})
+
+	DescribeTable("Should keep a sequence variable from a constant out of the flow",
+		func(bCtx SpecContext, op string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse(`import math
+sequence main {
+	limit f64 ` + op + ` math.inf
+	stage a {
+		x > limit => b
+	}
+	stage b {
+	}
+}
+x => main`))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			seq := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+			limit := MustSucceed(seq.Resolve(ctx, "limit"))
+			Expect(limit.Type).To(Equal(types.F64()))
+			Expect(limit.DefaultValue).To(Equal("Infinity"))
+		},
+		Entry("a variable", ":="),
+		Entry("a stateful variable", "$="),
+	)
+})
+
 var _ = Describe("Flow variables from module constants", func() {
 	DescribeTable(
-		"Should check the initializer",
-		func(bCtx SpecContext, source, message string) {
+		"Should accept the initializer",
+		func(bCtx SpecContext, source string) {
 			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
 				Name: "x",
 				Kind: symbol.KindChannel,
@@ -3050,24 +3112,18 @@ var _ = Describe("Flow variables from module constants", func() {
 			ast := MustSucceed(parser.Parse("import math\n" + source))
 			ctx := context.NewRoot(bCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
-			if message == "" {
-				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				return
-			}
-			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		},
-		Entry("a constant", "limit := math.inf", ""),
-		Entry("an expression on a constant", "limit := math.inf * 2.0", ""),
+		Entry("a constant", "limit := math.inf"),
+		Entry("an expression on a constant", "limit := math.inf * 2.0"),
 		Entry(
 			"a sequence variable",
 			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
-			"",
 		),
-		Entry("a channel read", "limit := x * math.inf", ""),
+		Entry("a channel read", "limit := x * math.inf"),
 		Entry(
 			"a function",
 			"func f() {v f64} f64 {\n limit := math.inf\n return limit\n}",
-			"",
 		),
 	)
 })
