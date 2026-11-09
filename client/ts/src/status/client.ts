@@ -105,16 +105,16 @@ export class Client extends query.Retriever<
   private readonly writeHandlers = new Set<(status: Status) => void>();
   private readonly ownedFetches = new scheduler.Batcher<resource.ID[], Status[]>({
     interval: OWNED_FETCH_DEBOUNCE,
-    exec: async (requests) => {
-      const owners = requests.flatMap(({ req }) => req);
-      const since = this.store.stamp();
-      const statuses = await this.execRetrieve({ where: { owners } });
-      this.store.ingest(statuses, { since });
-      requests.forEach(({ req, resolve }) => {
-        const wanted = new Set(resource.idToString(req));
-        resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
-      });
-    },
+    exec: async (requests) =>
+      await this.store.track(async (since) => {
+        const owners = requests.flatMap(({ req }) => req);
+        const statuses = await this.execRetrieve({ where: { owners } });
+        this.store.ingest(statuses, { since });
+        requests.forEach(({ req, resolve }) => {
+          const wanted = new Set(resource.idToString(req));
+          resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
+        });
+      }),
   });
 
   constructor(cfg: ClientConfig) {

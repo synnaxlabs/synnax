@@ -118,12 +118,12 @@ export class Client {
     this.searches = cache.queries<Search, Resource[], string, Resource>({
       name: "resources",
       table: this.table,
-      fetch: async (q) => {
-        const since = this.table.stamp();
-        const resources = await this.execSearch(q);
-        this.table.ingest(resources, { since });
-        return resources.map((r) => r.key);
-      },
+      fetch: async (q) =>
+        await this.table.track(async (since) => {
+          const resources = await this.execSearch(q);
+          this.table.ingest(resources, { since });
+          return resources.map((r) => r.key);
+        }),
       compose: (records) => records,
     });
     // The Core alone ranks a search, so each list is one window in its order.

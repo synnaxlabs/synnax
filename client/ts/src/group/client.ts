@@ -213,15 +213,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * chain stops at a project or rack, which the topmost group names as its parent.
    */
   async retrieveAncestors(keys: Key | Key[]): Promise<Group[]> {
-    const since = this.store.stamp();
-    const { groups } = await this.cfg.unary.send(
-      "/group/retrieve-ancestors",
-      { keys: array.toArray(keys) },
-      retrieveAncestorsReqZ,
-      retrieveResponseZ,
-    );
-    this.store.ingest(groups, { since });
-    return groups;
+    return await this.store.track(async (since) => {
+      const { groups } = await this.cfg.unary.send(
+        "/group/retrieve-ancestors",
+        { keys: array.toArray(keys) },
+        retrieveAncestorsReqZ,
+        retrieveResponseZ,
+      );
+      this.store.ingest(groups, { since });
+      return groups;
+    });
   }
 
   /**
