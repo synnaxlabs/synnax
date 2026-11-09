@@ -179,6 +179,9 @@ export const MultipleTrigger = <
 
   return (
     <Tag.Tags
+      // A ref that changes after mount never runs, so the box mounts again when the
+      // add button comes or goes.
+      key={showAddButton ? "add" : "box"}
       ref={showAddButton ? undefined : triggerRef}
       full="x"
       // The chassis is a div, so it needs a role and a tab stop to act as a button.

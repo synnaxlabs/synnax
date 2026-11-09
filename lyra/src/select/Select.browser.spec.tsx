@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -267,6 +267,18 @@ const openInModal = async (multiple = false): Promise<HTMLElement> => {
   return trigger;
 };
 
+const TextTags = (): ReactElement => {
+  const [value, setValue] = useState(["low"]);
+  return (
+    <Dialog.Frame>
+      <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
+        <Select.MultipleTrigger variant="text" aria-label="Levels" />
+        <Select.Dialog>{LEVELS}</Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  );
+};
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -383,6 +395,25 @@ describe("Select", () => {
         .element(page.getByPlaceholder("Search levels..."))
         .not.toBeInTheDocument();
       expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  describe("text multiple trigger", () => {
+    it("should get the focus back once its last tag goes", async () => {
+      const { container } = await renderThemed(
+        <Triggers.Provider>
+          <TextTags />
+        </Triggers.Provider>,
+      );
+      const add = Array.from(container.querySelectorAll("button")).at(-1);
+      assert(add instanceof HTMLElement);
+      await userEvent.click(add);
+      await userEvent.click(page.getByRole("option", { name: "Low" }));
+      await userEvent.keyboard("{Escape}");
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(
+        page.getByRole("button", { name: "Levels" }).element(),
+      );
     });
   });
 
