@@ -11,8 +11,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,9 +65,8 @@ const DEFAULT_STATE = {
   overshoot: { x: 0, y: 0 },
   selectionStart: -1,
   selectionEnd: -1,
-  visibleStart: 0,
-  computedLineHeight: 16,
   rowEntries: [],
+  searchedTo: "",
 };
 
 const LINES = [
@@ -79,8 +78,9 @@ const setupAether = (overrides: Record<string, unknown> = {}) => {
   const setState = vi.fn();
   const state = { ...DEFAULT_STATE, ...overrides };
   const selectedLines = vi.fn(async () => LINES);
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines }]);
-  return { setState, state, selectedLines };
+  const hit = vi.fn(async (_: { x: number; y: number }) => ({ entry: 0, char: 0 }));
+  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines, hit }]);
+  return { setState, state, selectedLines, hit };
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
@@ -116,6 +116,16 @@ describe("log/Base", () => {
     it("should render the empty content when state is empty", () => {
       renderLog();
       expect(screen.getByText("No log entries")).toBeDefined();
+    });
+
+    it("should show how far back a filtered log has searched", () => {
+      setupAether({ empty: false, searchedTo: "86400000000000" });
+      const { rerender } = renderLog({ timeZone: "UTC" });
+      const time = new TimeStamp(86400000000000n).toString("dateTime", "UTC");
+      expect(screen.getByText(/Searched back to/).textContent).toContain(time);
+      setupAether({ empty: false, searchedTo: "" });
+      rerender(<Base />);
+      expect(screen.queryByText(/Searched back to/)).toBeNull();
     });
 
     it("should show the loading symbol only while loading", () => {
@@ -339,62 +349,98 @@ describe("log/Base", () => {
   });
 
   describe("mouse interactions", () => {
-    it("should handle mouse down events on left click", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 0,
-      });
+    type State = Record<string, unknown>;
+
+    // Returns the state after the last update the log made.
+    const lastState = (setState: ReturnType<typeof vi.fn>, from: State = {}): State => {
+      const update = setState.mock.calls.at(-1)?.[0];
+      return typeof update === "function" ? update(from) : update;
+    };
+
+    const WHOLE = { selectionStartChar: -1, selectionEndChar: -1 };
+
+    it("should select the whole line a click lands on", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
-      expect(setState).toHaveBeenCalled();
+      fireEvent.mouseDown(getLogDiv(container), {
+        button: 0,
+        clientX: 30,
+        clientY: 50,
+      });
+      await waitFor(() =>
+        expect(lastState(setState)).toMatchObject({
+          selectionStart: 2,
+          selectionEnd: 2,
+          ...WHOLE,
+        }),
+      );
+      expect(hit).toHaveBeenCalledWith({ x: 30, y: 50 });
     });
 
-    it("should ignore non-left mouse button on mouse down", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-      });
+    it("should clear a line that alone is selected when clicked again", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const callsBefore = setState.mock.calls.length;
-      fireEvent.mouseDown(logDiv, { button: 2, clientY: 50 });
-      expect(setState.mock.calls.length).toBe(callsBefore);
+      fireEvent.mouseDown(getLogDiv(container), { button: 0 });
+      const selected = { selectionStart: 2, selectionEnd: 2, ...WHOLE };
+      await waitFor(() =>
+        expect(lastState(setState, selected)).toMatchObject({
+          selectionStart: -1,
+          selectionEnd: -1,
+        }),
+      );
     });
 
-    it("should handle mouse move events", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-      });
+    it("should ignore a button other than the left", () => {
+      const { hit } = setupAether({ empty: false });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
-      const callsAfterDown = setState.mock.calls.length;
-      fireEvent.mouseMove(logDiv, { clientY: 80 });
-      expect(setState.mock.calls.length).toBeGreaterThan(callsAfterDown);
+      fireEvent.mouseDown(getLogDiv(container), { button: 2 });
+      expect(hit).not.toHaveBeenCalled();
     });
 
-    it("should handle mouse up events", () => {
-      setupAether({ empty: false, computedLineHeight: 16 });
+    it("should select the characters between a drag's ends", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 3, char: 2 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseUp(logDiv);
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseMove(div, { clientX: 10, clientY: 90 });
+      await waitFor(() =>
+        expect(lastState(setState)).toMatchObject({
+          selectionStart: 1,
+          selectionStartChar: 4,
+          selectionEnd: 3,
+          selectionEndChar: 2,
+        }),
+      );
     });
 
-    it("should extend selection with shift+click", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 0,
-        selectionStart: 0,
-        selectionEnd: 0,
-      });
+    it("should stop selecting when the button comes up", async () => {
+      const { setState, hit } = setupAether({ empty: false });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 100, shiftKey: true });
-      expect(setState).toHaveBeenCalled();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseUp(div);
+      fireEvent.mouseMove(div, { clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
+    it("should extend the selection by whole lines on a shift-click", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 4, char: 3 });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, shiftKey: true });
+      await waitFor(() =>
+        expect(lastState(setState, { selectionStart: 1 })).toMatchObject({
+          selectionStart: 1,
+          selectionEnd: 4,
+          ...WHOLE,
+        }),
+      );
     });
   });
 
@@ -660,63 +706,6 @@ describe("log/Base", () => {
       fireEvent.keyDown(document.body, { code: "Escape" });
       fireEvent.keyUp(document.body, { code: "Escape" });
       expect(findUpdaterResult(setState, isClearSelection)).toBeUndefined();
-    });
-  });
-
-  describe("mouseYToEntryIndex", () => {
-    it("should handle mouse down when computedLineHeight is 0", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 0,
-        visibleStart: 0,
-      });
-      const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
-      expect(setState).toHaveBeenCalled();
-    });
-
-    it("should select the entry of a wrapped row", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        rowEntries: [4, 4, 4, 5],
-        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
-      });
-      const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
-      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
-        selectionStart: 4,
-      });
-    });
-
-    it("should select the last shown entry below the last row", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        rowEntries: [0, 0, 1],
-        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
-      });
-      const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 400 });
-      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
-      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
-        selectionStart: 1,
-      });
-    });
-
-    it("should compute entry index from clientY position", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 5,
-        region: { one: { x: 0, y: 100 }, two: { x: 400, y: 600 } },
-      });
-      const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 150 });
-      expect(setState).toHaveBeenCalled();
     });
   });
 });
