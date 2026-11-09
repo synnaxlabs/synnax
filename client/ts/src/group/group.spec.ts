@@ -55,6 +55,12 @@ describe("Group", () => {
         payload: { keys: [KEY] },
       });
     });
+    it("should build an ungroup request from a single key", () => {
+      expect(client.groups.ungroupRequest(KEY)).toMatchObject({
+        endpoint: "/group/ungroup",
+        payload: { keys: [KEY] },
+      });
+    });
     it("should build a set-parent request that moves groups to the top level", () => {
       expect(client.groups.setParentRequest([KEY], null)).toMatchObject({
         endpoint: "/group/set-parent",

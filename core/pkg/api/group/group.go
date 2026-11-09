@@ -181,6 +181,7 @@ func (s *Service) Rename(
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
+// UngroupRequest ungroups the groups with Keys.
 type UngroupRequest struct {
 	Keys []group.Key `json:"keys" msgpack:"keys"`
 }

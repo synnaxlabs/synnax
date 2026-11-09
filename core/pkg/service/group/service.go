@@ -48,8 +48,8 @@ type ServiceConfig struct {
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
-	// SetMembers holds the setter of each type that can sit in a group. Ungroup reads
-	// it to move members out of a group.
+	// SetMembers holds the setter of each type that can sit in a group. Ungroup fails
+	// on a member whose type has no setter.
 	SetMembers map[resource.Type]SetMembers
 }
 

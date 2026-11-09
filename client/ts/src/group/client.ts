@@ -37,6 +37,7 @@ const createReqZ = z.object({
 const createResZ = z.object({ group: groupZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const ungroupReqZ = z.object({ keys: keyZ.array() });
 const setParentReqZ = z.object({
   keys: keyZ.array(),
   parent: resource.idZ.optional(),
@@ -128,7 +129,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * Builds a request that deletes groups and moves what each one holds into its parent.
    * Its cache write drops the cached groups.
    */
-  ungroupRequest(keys: Key | Key[]): batch.Request<z.infer<typeof deleteReqZ>> {
+  ungroupRequest(keys: Key | Key[]): batch.Request<z.infer<typeof ungroupReqZ>> {
     const payload = { keys: array.toArray(keys) };
     return {
       endpoint: "/group/ungroup",
@@ -192,12 +193,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Deletes the groups and moves what each one holds into its parent. A group under it
-   * takes the parent as its parent. A record joins the parent when it is a group, and
-   * leaves its group when it is not.
+   * takes the parent as its parent. A record joins the parent when the parent is a
+   * group, and leaves its group when it is not.
    * @throws {ValidationError} if a group does not exist.
    */
   async ungroup(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
-    await this.send(this.ungroupRequest(keys), deleteReqZ, opts);
+    await this.send(this.ungroupRequest(keys), ungroupReqZ, opts);
   }
 
   /**

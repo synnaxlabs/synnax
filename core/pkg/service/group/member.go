@@ -219,9 +219,9 @@ func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) e
 }
 
 // Ungroup deletes the groups with keys and moves what each one holds into its parent. A
-// group under it takes the parent as its parent. A member joins the parent when it is a
-// group, and leaves its group when it is not. It returns a validation error when a
-// group does not exist, and an error when no setter moves the type of a member.
+// group under it takes the parent as its parent. A member joins the parent when the
+// parent is a group, and leaves its group when it is not. It returns a validation error
+// when a group does not exist, and an error when no setter moves the type of a member.
 func (w Writer) Ungroup(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
 		g, err := retrieveGroup(ctx, w.tx, key)

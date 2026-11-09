@@ -286,6 +286,64 @@ var _ = Describe("Group", func() {
 		)
 	})
 
+	Describe("Ungroup", func() {
+		var parent, g, child group.Group
+		BeforeEach(func(ctx SpecContext) {
+			parent = newGroup(ctx, resource.TypeChannel, nil)
+			g = newGroup(ctx, resource.TypeChannel, &parent)
+			child = newGroup(ctx, resource.TypeChannel, &g)
+		})
+		ungroupAs := func(ctx SpecContext, u user.User) (struct{}, error) {
+			return ungroup(
+				AuthedCtx(ctx, u),
+				apigroup.UngroupRequest{Keys: []group.Key{g.Key}},
+			)
+		}
+
+		It("Should need update access on a group that it moves", func(ctx SpecContext) {
+			u := newUser(
+				ctx,
+				grant(remove, g.ResourceID()),
+				grant(update, g.ResourceID(), parent.ResourceID()),
+			)
+			Expect(ungroupAs(ctx, u)).
+				Error().To(denied(u, access.ActionUpdate, child.ResourceID()))
+			Expect(exists(ctx, g.Key)).To(BeTrue())
+		})
+
+		It("Should need delete access on the group", func(ctx SpecContext) {
+			u := newUser(ctx, grant(
+				update,
+				g.ResourceID(),
+				parent.ResourceID(),
+				child.ResourceID(),
+			))
+			Expect(ungroupAs(ctx, u)).
+				Error().To(denied(u, access.ActionDelete, g.ResourceID()))
+			Expect(exists(ctx, g.Key)).To(BeTrue())
+		})
+
+		It(
+			"Should move what the group holds to its parent and delete it",
+			func(ctx SpecContext) {
+				u := newUser(
+					ctx,
+					grant(remove, g.ResourceID()),
+					grant(
+						update,
+						g.ResourceID(),
+						parent.ResourceID(),
+						child.ResourceID(),
+					),
+				)
+				MustSucceed(ungroupAs(ctx, u))
+				Expect(exists(ctx, g.Key)).To(BeFalse())
+				Expect(retrieve(ctx, child.Key).Parent).
+					To(Equal(new(parent.ResourceID())))
+			},
+		)
+	})
+
 	Describe("SetParent to another project", func() {
 		var (
 			from, to             project.Project

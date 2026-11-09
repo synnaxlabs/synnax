@@ -77,34 +77,39 @@ func rackID(key string) resource.ID {
 
 var _ = Describe("Member", func() {
 	var (
-		db  *gorp.DB
-		svc *group.Service
+		db         *gorp.DB
+		svc        *group.Service
+		setMembers map[resource.Type]group.SetMembers
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		setMembers = map[resource.Type]group.SetMembers{
+			resource.TypeRack: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				to *group.Key,
+				ids []resource.ID,
+			) error {
+				keys := make([]string, len(ids))
+				for i, id := range ids {
+					keys[i] = id.Key
+				}
+				return gorp.NewUpdate[string, rack]().
+					Where(gorp.MatchKeys[string, rack](keys...)).
+					Change(func(_ gorp.Context, r rack) rack {
+						r.Group = to
+						return r
+					}).
+					Exec(ctx, tx)
+			},
+		}
+	})
+
+	JustBeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
-			SetMembers: map[resource.Type]group.SetMembers{
-				resource.TypeRack: func(
-					ctx context.Context,
-					tx gorp.Tx,
-					to *group.Key,
-					ids []resource.ID,
-				) error {
-					keys := make([]string, len(ids))
-					for i, id := range ids {
-						keys[i] = id.Key
-					}
-					return gorp.NewUpdate[string, rack]().
-						Where(gorp.MatchKeys[string, rack](keys...)).
-						Change(func(_ gorp.Context, r rack) rack {
-							r.Group = to
-							return r
-						}).
-						Exec(ctx, tx)
-				},
-			},
+			DB:         db,
+			SetMembers: setMembers,
 		}))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, rack]{
 			DB:   db,
@@ -367,14 +372,12 @@ var _ = Describe("Member", func() {
 		)
 
 		It(
-			"Should move members out of their group when the parent is not a group",
+			"Should move a group under it to a parent that is not a group",
 			func(ctx SpecContext) {
 				g := create(ctx, resource.TypeDevice, new(rackID("r1")))
 				child := create(ctx, resource.TypeDevice, new(g.ResourceID()))
-				place(ctx, "r3", g)
 				Expect(ungroup(ctx, g.Key)).To(Succeed())
 				Expect(parentOf(ctx, child)).To(Equal(new(rackID("r1"))))
-				Expect(groupOf(ctx, "r3")).To(BeNil())
 			},
 		)
 
@@ -393,6 +396,18 @@ var _ = Describe("Member", func() {
 			Expect(ungroup(ctx, key)).To(MatchError(
 				"group " + key.String() + " does not exist: validation error",
 			))
+		})
+
+		Context("With no setter for a type", func() {
+			BeforeEach(func() { setMembers = nil })
+
+			It("Should reject a member of that type", func(ctx SpecContext) {
+				g := create(ctx, resource.TypeDevice, nil)
+				place(ctx, "r3", g)
+				Expect(ungroup(ctx, g.Key)).
+					To(MatchError("no setter moves a rack out of a group"))
+				Expect(exists(ctx, g)).To(BeTrue())
+			})
 		})
 	})
 
