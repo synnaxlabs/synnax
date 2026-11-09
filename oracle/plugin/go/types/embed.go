@@ -140,17 +140,19 @@ func resolvedAndDealiased(
 }
 
 // checkHeldEmbedded returns an error when field holds an embedded type that has
-// defaults in a slice, a map value, or an optional field. An embedded type takes no
-// decode hooks, so a decode leaves the defaults of such a value unset.
+// defaults in a slice, a map value, an optional field, or a generic struct. An embedded
+// type takes no decode hooks, so a decode leaves the defaults of such a value unset.
 func checkHeldEmbedded(owner string, field resolution.Field, data *templateData) error {
-	for _, ref := range heldRefs(field.Type, field.Optional, data.table) {
+	refs := heldRefs(field.Type, field.Optional, data.table, set.New[string]())
+	for _, ref := range refs {
 		for _, t := range resolvedAndDealiased(ref, data.table) {
 			key := embedKey(output.GetPath(t, "go"), naming.GetGoName(t))
 			if data.embedded.Contains(key) &&
 				typeSetsDefaults(ref, data, set.New[string]()) {
 				return errors.Newf(
 					"%s.%s: %s has defaults and another struct embeds it, so it "+
-						"cannot be held in a slice, a map, or an optional field",
+						"cannot be held in a slice, a map, an optional field, or a "+
+						"generic struct",
 					owner, field.Name, t.Name,
 				)
 			}
@@ -159,38 +161,70 @@ func checkHeldEmbedded(owner string, field resolution.Field, data *templateData)
 	return nil
 }
 
-// heldRefs returns the types that ref holds in slices and map values, and ref itself
-// when the field is optional. It looks through aliases and distinct types to the
-// collection they name.
+// heldRefs returns the types that ref holds in slices, map values, and the fields of a
+// generic struct, and ref itself when the field is optional. A generic struct sets no
+// defaults, so each of its fields counts as held. heldRefs looks through aliases and
+// distinct types to the collection or generic struct they name.
 func heldRefs(
 	ref resolution.TypeRef,
 	optional bool,
 	table *resolution.Table,
+	visited set.Set[string],
 ) []resolution.TypeRef {
+	if under, ok := underlying(ref, table); ok {
+		ref = under
+	}
 	switch {
 	case ref.Name == "Array" && len(ref.TypeArgs) == 1:
-		return heldRefs(ref.TypeArgs[0], true, table)
+		return heldRefs(ref.TypeArgs[0], true, table, visited)
 	case ref.Name == "Map" && len(ref.TypeArgs) == 2:
-		return heldRefs(ref.TypeArgs[1], true, table)
+		return heldRefs(ref.TypeArgs[1], true, table, visited)
 	}
-	if coll, ok := namedCollection(ref, table); ok {
-		return heldRefs(coll, optional, table)
-	}
+	var out []resolution.TypeRef
 	if optional {
-		return []resolution.TypeRef{ref}
+		out = append(out, ref)
 	}
-	return nil
+	t, form, ok := genericStruct(ref, table)
+	if !ok || visited.Contains(instanceKey(ref)) {
+		return out
+	}
+	visited.Add(instanceKey(ref))
+	args := resolution.TypeArgMap(form.TypeParams, ref.TypeArgs)
+	for _, f := range resolution.UnifiedFields(t, table) {
+		out = append(out, heldRefs(
+			resolution.SubstituteTypeRef(f.Type, args),
+			true,
+			table,
+			visited,
+		)...)
+	}
+	return out
 }
 
-// namedCollection returns the slice or map type that ref names through aliases and
-// distinct types.
-func namedCollection(
+// instanceKey identifies ref by its name and its type arguments.
+func instanceKey(ref resolution.TypeRef) string {
+	if len(ref.TypeArgs) == 0 {
+		return ref.Name
+	}
+	args := make([]string, len(ref.TypeArgs))
+	for i, a := range ref.TypeArgs {
+		args[i] = instanceKey(a)
+	}
+	return ref.Name + "<" + strings.Join(args, ",") + ">"
+}
+
+// underlying follows ref through aliases and distinct types, and returns the slice,
+// map, or generic struct instantiation that it names.
+func underlying(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 ) (resolution.TypeRef, bool) {
 	visited := set.New[string]()
 	for !ref.IsTypeParam() && !visited.Contains(ref.Name) {
 		if ref.Name == "Array" || ref.Name == "Map" {
+			return ref, true
+		}
+		if _, _, ok := genericStruct(ref, table); ok {
 			return ref, true
 		}
 		visited.Add(ref.Name)
@@ -212,4 +246,23 @@ func namedCollection(
 		}
 	}
 	return resolution.TypeRef{}, false
+}
+
+// genericStruct returns the generic struct that ref instantiates.
+func genericStruct(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.Type, resolution.StructForm, bool) {
+	if len(ref.TypeArgs) == 0 {
+		return resolution.Type{}, resolution.StructForm{}, false
+	}
+	t, ok := ref.Resolve(table)
+	if !ok {
+		return resolution.Type{}, resolution.StructForm{}, false
+	}
+	form, ok := t.Form.(resolution.StructForm)
+	if !ok || !form.IsGeneric() {
+		return resolution.Type{}, resolution.StructForm{}, false
+	}
+	return t, form, true
 }
