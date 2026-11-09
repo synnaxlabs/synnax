@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // LastVersion is the newest legacy OPC UA shape. The typed shape sits directly
@@ -26,17 +27,22 @@ const LastVersion imex.Version = 0
 
 // Read converts the released read shape. A config that already holds sampling keeps
 // it: the rewrite writes it as the array_mode and array_size that the first typed shape
-// lifts back into the same sampling. Only a config without sampling keeps its own
-// array_mode and array_size. A sampling of an unknown type is a validation error.
+// lifts back into the same sampling, which also clamps the size. Only a config without
+// sampling keeps its own array_mode and array_size. Validate rejects a sampling of an
+// unknown type.
 var Read = legacy.Rewrite{
 	Validate: func(config msgpack.EncodedJSON) error {
 		raw, ok := config["sampling"]
 		if !ok {
 			return nil
 		}
-		return msgpack.EncodedJSON{"sampling": raw}.Unmarshal(&struct {
-			Sampling v2.Sampling `json:"sampling"`
-		}{})
+		sampling, _ := raw.(map[string]any)
+		t, _ := sampling["type"].(string)
+		switch v2.SamplingType(t) {
+		case v2.UnarySamplingType, v2.ArraySamplingType:
+			return nil
+		}
+		return errors.Newf("sampling: unknown type %q", t)
 	},
 	Post: func(config msgpack.EncodedJSON) {
 		legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {

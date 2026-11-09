@@ -77,6 +77,12 @@ var _ = Describe("Service", func() {
 				},
 				1,
 			),
+			Entry("a present array sampling with a negative size",
+				msgpack.EncodedJSON{
+					"sampling": map[string]any{"type": "array", "size": -4},
+				},
+				1,
+			),
 			Entry("the flat array fields",
 				msgpack.EncodedJSON{"arrayMode": true, "arraySize": 24},
 				24,
