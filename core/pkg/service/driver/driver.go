@@ -200,9 +200,7 @@ func (d *Driver) startHeartbeat() {
 // will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	// Close cancels a command in flight instead of waiting for it: Close would stop at
-	// once any task that the command deploys.
-	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
+	d.closer = append(d.closer, signal.NewGracefulShutdown(sCtx, cancel))
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        channel.Keys{d.cfg.Task.CommandChannelKey()},
 		SendOpenAck: true,
@@ -709,7 +707,7 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 }
 
 func (d *Driver) Close() error {
-	// The command sink stops first, so no command deploys a task after the stops.
+	// The command sink drains first, so no command deploys a task after the stops.
 	err := d.closer.Close()
 	d.mu.Lock()
 	instances := d.mu.instances
