@@ -102,6 +102,8 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+// createRackWithStatus creates a rack that holds a live status. It returns the rack
+// with no status, as the Driver sends it on a create.
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
@@ -117,6 +119,7 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 			Message: "Rack is running",
 		})
 	})).To(Succeed())
+	r.Status = nil
 	return r
 }
 
@@ -267,6 +270,52 @@ var _ = Describe("Create", func() {
 			AuthedCtx(ctx, u),
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		)).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	dispatchGroup := func(
+		ctx SpecContext,
+		u user.User,
+		r rack.Rack,
+		g group.Group,
+	) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key:         r.Key,
+			DispatchKey: "dk",
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
+	}
+	It("Should apply the actions with update on the rack and group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch granted")
+		g := createDeviceGroup(ctx, "Dispatch granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID(), g.ResourceID())
+		MustSucceed(dispatchGroup(ctx, u, r, g))
+		Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+	})
+	It("Should refuse the actions without update on the rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch denied")
+		g := createDeviceGroup(ctx, "Dispatch denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+	It("Should refuse the actions without update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch group denied")
+		g := createDeviceGroup(ctx, "Dispatch group denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
 	})
 })
 

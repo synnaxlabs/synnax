@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -348,7 +349,22 @@ func (s *Service) match(
 		}
 		return res, nil
 	}
-	// The alias search pages the merged list, so the query carries only the where.
+	if r.Order != nil {
+		return nil, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+			"order",
+		)
+	}
+	if r.After != nil {
+		return nil, validate.PathedError(
+			errors.Wrap(
+				validate.ErrValidation,
+				"a search cannot resume after a position",
+			),
+			"after",
+		)
+	}
+	// The alias search limits the merged list, so the query carries only the where.
 	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
@@ -372,7 +388,6 @@ func (s *Service) match(
 		r.SearchTerm,
 		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },
 		limit,
-		int(r.Offset),
 	)
 }
 
@@ -486,16 +501,52 @@ type RenameRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Rename renames each channel in Keys to the name at the same index in Names. Renaming
-// an internal channel is a validation error.
+// Rename applies a rename action to each channel in Keys, giving it the name at the
+// same index in Names. Renaming an internal channel is a validation error.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).RenameMany(
-		ctx, req.Keys, req.Names, false,
-	)
+	if len(req.Keys) != len(req.Names) {
+		return struct{}{}, errors.Wrap(
+			validate.ErrValidation,
+			"keys and names must be the same length",
+		)
+	}
+	w := s.internal.NewWriter(tx)
+	for i, k := range req.Keys {
+		rename := channel.NewRenameAction(channel.RenamePayload{Name: req.Names[i]})
+		if _, err := w.Apply(ctx, k, rename); err != nil {
+			return struct{}{}, err
+		}
+	}
+	return struct{}{}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
+
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the data type that an expression edit infers.
+type DispatchResponse = actions.DispatchResponse[channel.Action]
+
+// Dispatch applies the action sequence to the target channel atomically. Subscribers to
+// the channel action channel receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	computed, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: computed}, nil
 }
 
 // SetGroupRequest moves channels into Group, or out of their group when Group is nil.

@@ -403,6 +403,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[channel.Key, channel.Action]{
+			Name:     "sy_channel_action_set",
+			Actions:  l.Channel.Actions(),
+			Resource: channel.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if closer, err := history.Publish(ctx, history.Config{
 		Instrumentation: cfg.Child("framer_history"),
 		Framer:          cfg.Distribution.Framer,
@@ -423,6 +433,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		signals.TableConfig[group.Key, group.Group]{
 			Changes:  l.Group.Changes,
+			Resource: group.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[group.Key, group.Action]{
+			Name:     "sy_group_action_set",
+			Actions:  l.Group.Actions(),
 			Resource: group.ResourceID,
 		},
 	); !ok(err, nil) {
@@ -451,6 +471,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		signals.TableConfig[status.Key, status.Status[any]]{
 			Changes:  l.Status.Changes,
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	// The Driver reads sy_status_set as statuses, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[status.Key, status.Action]{
+			Name:     "sy_status_action_set",
+			Actions:  l.Status.Actions(),
 			Resource: status.ResourceID,
 		},
 	); !ok(err, nil) {
@@ -544,6 +575,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		signals.TableConfig[rack.Key, rack.Rack]{
 			Changes:  l.Rack.Changes,
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	// The Driver reads sy_rack_set as racks, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[rack.Key, rack.Action]{
+			Name:     "sy_rack_action_set",
+			Actions:  l.Rack.Actions(),
 			Resource: rack.Key.ResourceID,
 		},
 	); !ok(err, nil) {

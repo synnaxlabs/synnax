@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Policy table for references. Pass it as
@@ -28,6 +29,7 @@ const tableName = "policy"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Policy, string]
 	role   *gorp.KeyReference[Key, Policy, role.Key]
 	search *gorp.SearchIndex[Key, Policy]
 }
@@ -37,6 +39,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Policy, string](
+			"name",
+			func(e *Policy) string { return compare.TextKey(string(e.Name)) },
+		),
 		role: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Policy, role.Key]{
 			Name:     "role",
 			Table:    "role",
@@ -59,6 +65,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Policy] {
 	return []gorp.Index[Key, Policy]{
+		i.name,
 		i.search,
 	}
 }
@@ -76,6 +83,37 @@ func (i indexes) references() []gorp.Reference[Key, Policy] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Policy]
+
+// OrderBy walks the policies in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Policy] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Policy] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -135,10 +173,17 @@ func MatchKeys(keys ...Key) Filter {
 // policies whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Policy] {
-		return gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Policy] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
 	}
 }
 
@@ -188,10 +233,10 @@ func (r Retrieve) Entries(es *[]Policy) Retrieve {
 // Limit sets the maximum number of policies to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the policies to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 

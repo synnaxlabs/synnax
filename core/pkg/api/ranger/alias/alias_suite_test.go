@@ -18,6 +18,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -40,9 +41,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *service.Layer
-	// set, del, resolve, list, and retrieve run their routes as the API layer binds
-	// them.
+	// set, dispatch, del, resolve, list, and retrieve run their routes as the API
+	// layer binds them.
 	set      freighter.UnaryHandler[apialias.SetRequest, struct{}]
+	dispatch freighter.UnaryHandler[apialias.DispatchRequest, struct{}]
 	del      freighter.UnaryHandler[apialias.DeleteRequest, struct{}]
 	resolve  freighter.UnaryHandler[apialias.ResolveRequest, apialias.ResolveResponse]
 	list     freighter.UnaryHandler[apialias.ListRequest, apialias.ListResponse]
@@ -63,8 +65,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	set = bind.Write(binder, apiSvc.Set)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	del = bind.Write(binder, apiSvc.Delete)
 	resolve = bind.Read(binder, apiSvc.Resolve)
 	list = bind.Read(binder, apiSvc.List)

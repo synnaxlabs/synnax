@@ -424,6 +424,42 @@ var _ = Describe("Service", func() {
 				Expect(stored(ctx).Name).To(Equal(name))
 			},
 		)
+		Describe("Dispatch", func() {
+			renameTo := func(name string) apichannel.DispatchRequest {
+				return apichannel.DispatchRequest{
+					Key: ch.Key(),
+					Actions: []channel.Action{
+						channel.NewRenameAction(channel.RenamePayload{Name: name}),
+					},
+				}
+			}
+			It("Should refuse the actions without update on the channel", func(
+				ctx SpecContext,
+			) {
+				Expect(
+					dispatch(AuthedCtx(ctx, outsider), renameTo(UniqueChannelName())),
+				).
+					Error().
+					To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
+			})
+			It("Should rename the channel in both stores with update on it", func(
+				ctx SpecContext,
+			) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				name := UniqueChannelName()
+				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
+					To(Equal(apichannel.DispatchResponse{}))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(name))
+			})
+		})
 	})
 	Describe("SetGroup", func() {
 		// denied matches an error that denies the subject the action on object.
@@ -750,15 +786,14 @@ var _ = Describe("Service", func() {
 				})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 			})
 
-			It("Should page the merged list of alias and name matches", func(
+			It("Should limit the merged list of alias and name matches", func(
 				ctx SpecContext,
 			) {
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,
 					SearchTerm: term,
 					Limit:      new(uint32(1)),
-					Offset:     1,
-				})).To(Equal([]channel.Key{byName.Key()}))
+				})).To(Equal([]channel.Key{byAlias.Key()}))
 			})
 
 			It("Should apply the where to alias matches", func(ctx SpecContext) {
@@ -783,6 +818,31 @@ var _ = Describe("Service", func() {
 					SearchTerm: term,
 				})).To(ConsistOf(byAlias.Key(), byName.Key()))
 			})
+
+			DescribeTable("Should reject a request that a search cannot answer", func(
+				ctx SpecContext,
+				req apichannel.RetrieveRequest,
+				msg string,
+			) {
+				req.Where, req.SearchTerm = both, term
+				Expect(retrieveChannels(
+					AuthedCtx(ctx, author),
+					apichannel.AliasedRetrieveRequest{Request: req, RangeKey: &rng.Key},
+				)).Error().To(MatchError(msg))
+			},
+				Entry(
+					"an order",
+					apichannel.RetrieveRequest{
+						Order: &apichannel.Order{Field: apichannel.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"a cursor",
+					apichannel.RetrieveRequest{After: &apichannel.Cursor{Key: 1}},
+					"after: a search cannot resume after a position: validation error",
+				),
+			)
 
 			It("Should return no channel for a zero limit", func(ctx SpecContext) {
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{

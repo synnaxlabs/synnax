@@ -90,6 +90,8 @@ type Transport struct {
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
+	// ChannelDispatch applies actions to a channel.
+	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -116,12 +118,16 @@ type Transport struct {
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, struct{}]
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
+	// KVDispatch applies path actions to a range key-value pair.
+	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
 	// ALIAS
 	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
 	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
 	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
+	// AliasDispatch applies path actions to a range alias.
+	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -129,6 +135,7 @@ type Transport struct {
 	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
 	GroupRename            freighter.UnaryServer[group.RenameRequest, struct{}]
+	GroupDispatch          freighter.UnaryServer[group.DispatchRequest, struct{}]
 	GroupRetrieve          freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	GroupRetrieveAncestors freighter.UnaryServer[group.RetrieveAncestorsRequest, group.RetrieveAncestorsResponse]
 	// PROJECT
@@ -136,6 +143,7 @@ type Transport struct {
 	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
 	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
 	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectDispatch freighter.UnaryServer[project.DispatchRequest, struct{}]
 	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
@@ -149,6 +157,7 @@ type Transport struct {
 	SchematicSymbolRetrieve    freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
 	SchematicSymbolDelete      freighter.UnaryServer[symbol.DeleteRequest, struct{}]
 	SchematicSymbolRename      freighter.UnaryServer[symbol.RenameRequest, struct{}]
+	SchematicSymbolDispatch    freighter.UnaryServer[symbol.DispatchRequest, struct{}]
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
@@ -186,6 +195,8 @@ type Transport struct {
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackRename renames a rack.
 	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackDispatch applies actions to a rack.
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -201,6 +212,8 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
+	// DeviceDispatch applies actions to a device.
+	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -228,6 +241,7 @@ type Transport struct {
 	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
 	ArcCreateDirectory   freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
 	ArcRenameDirectory   freighter.UnaryServer[arc.RenameDirectoryRequest, struct{}]
+	ArcDispatchDirectory freighter.UnaryServer[arc.DispatchDirectoryRequest, struct{}]
 	ArcDeleteDirectory   freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
 	ArcMove              freighter.UnaryServer[arc.MoveRequest, struct{}]
 	ArcLSP               freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
@@ -237,6 +251,8 @@ type Transport struct {
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
+	// ViewDispatch applies path actions to a view.
+	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -366,6 +382,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelDispatch,
 
 		// FRAME
 		t.FrameWriter,
@@ -385,6 +402,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.GroupCreate,
 		t.GroupDelete,
 		t.GroupRename,
+		t.GroupDispatch,
 		t.GroupRetrieve,
 		t.GroupRetrieveAncestors,
 
@@ -400,6 +418,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVGet,
 		t.KVSet,
 		t.KVDelete,
+		t.KVDispatch,
 
 		// ALIAS
 		t.AliasSet,
@@ -407,12 +426,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasRetrieve,
 		t.AliasList,
 		t.AliasDelete,
+		t.AliasDispatch,
 
 		// PROJECT
 		t.ProjectDelete,
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
+		t.ProjectDispatch,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -428,6 +449,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRetrieve,
 		t.SchematicSymbolDelete,
 		t.SchematicSymbolRename,
+		t.SchematicSymbolDispatch,
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
@@ -469,6 +491,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackRetrieve,
 		t.RackDelete,
 		t.RackRename,
+		t.RackDispatch,
 
 		// TASK
 		t.TaskCreate,
@@ -483,6 +506,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
+		t.DeviceDispatch,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -506,6 +530,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewRename,
+		t.ViewDispatch,
 
 		// ARC
 		t.ArcCreate,
@@ -516,6 +541,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieveDirectory,
 		t.ArcCreateDirectory,
 		t.ArcRenameDirectory,
+		t.ArcDispatchDirectory,
 		t.ArcDeleteDirectory,
 		t.ArcMove,
 		t.ArcLSP,
@@ -604,6 +630,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
 	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
+	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -624,6 +651,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
 	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
 	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
+	t.GroupDispatch.BindHandler(bind.Write(l.binder, l.Group.Dispatch))
 	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
 	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
 
@@ -662,6 +690,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
 	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
+	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
 	// ALIAS
 	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
@@ -669,12 +698,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
 	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
 	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
+	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
 
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
 	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
+	t.ProjectDispatch.BindHandler(bind.Write(l.binder, l.Project.Dispatch))
 	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
 	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
@@ -690,6 +721,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
 	t.SchematicSymbolDelete.BindHandler(bind.Write(l.binder, l.Symbol.Delete))
 	t.SchematicSymbolRename.BindHandler(bind.Write(l.binder, l.Symbol.Rename))
+	t.SchematicSymbolDispatch.BindHandler(bind.Write(l.binder, l.Symbol.Dispatch))
 	t.SchematicSymbolExportGroup.BindHandler(
 		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
@@ -737,6 +769,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
 	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
+	t.RackDispatch.BindHandler(bind.Write(l.binder, l.Rack.Dispatch))
 
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
@@ -753,6 +786,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
+	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
@@ -776,6 +810,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
 	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
 	t.ViewRename.BindHandler(bind.Write(l.binder, l.View.Rename))
+	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -786,6 +821,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcRetrieveDirectory.BindHandler(bind.Read(l.binder, l.Arc.RetrieveDirectories))
 	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
 	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
+	t.ArcDispatchDirectory.BindHandler(bind.Write(l.binder, l.Arc.DispatchDirectory))
 	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
 	t.ArcMove.BindHandler(bind.Write(l.binder, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
@@ -806,6 +842,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
 		DB:   cfg.Distribution.DB,
 		RBAC: cfg.Service.RBAC,
+		Held: auth.HeldTables(),
 	}); err != nil {
 		return nil, err
 	}

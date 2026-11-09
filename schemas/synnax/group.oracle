@@ -9,6 +9,7 @@
 
 import "schemas/synnax/resource"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
@@ -26,6 +27,7 @@ Group struct {
     name   string        {
         @doc value         "is a human-readable name for the group."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -42,6 +44,43 @@ Group struct {
         @ref kind      place
         @ref on_delete cascade
         @ref types     group project rack
+    }
+
+    action Create {
+        group Group
+
+        @doc value """
+            replaces the group with the given created state. Emitted by the Core when a
+            group is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the group."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the group.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the group."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the group."
+    }
+
+    action SetParent {
+        parent resource.ID?
+
+        @doc value """
+            moves the group under parent, or to the top level when parent is empty. A
+            move under a new top parent moves the records in the group to the project of
+            that top parent.
+        """
     }
 
     @doc value     """

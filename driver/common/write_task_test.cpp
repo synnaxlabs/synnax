@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <future>
+#include <iterator>
 
 #include "gtest/gtest.h"
 
@@ -15,6 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/common/testutil.h"
 #include "driver/common/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
@@ -50,6 +53,32 @@ public:
         auto err = pipeline::testutil::Sink::write(frame);
         this->set_state(frame);
         return err;
+    }
+};
+
+/// @brief a sink that skips each command of 0 and reports a warning for it. A command
+/// of 2 also warns, but fails with a temporary error.
+class SkippingSink final : public Sink {
+public:
+    /// @brief the frames the sink did not skip.
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
+
+    explicit SkippingSink(
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes
+    ):
+        Sink(std::vector<synnax::channel::Key>{1}), writes(writes) {}
+
+    x::errors::Error write(x::telem::Frame &frame) override {
+        const auto value = frame.at<uint8_t>(1, 0);
+        if (value == 0 || value == 2)
+            this->warn({
+                .message = "Skipped invalid command",
+                .description = "Channel 1: 0 is not valid. Write 1.",
+            });
+        if (value == 0) return x::errors::NIL;
+        if (value == 2) return {errors::TEMPORARY_HARDWARE_ERROR, "device unreachable"};
+        this->writes->push_back(frame.deep_copy());
+        return x::errors::NIL;
     }
 };
 
@@ -489,6 +518,107 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
 
     EXPECT_EQ(streamer_factory->streamer_opens.load(), 0);
     EXPECT_EQ(writer_factory->writer_opens.load(), 0);
+}
+
+/// @brief it should warn once without a retry wait for a skipped command, and clear the
+/// warning on the next command.
+TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    for (const uint8_t v: {0, 0, 1})
+        reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+    const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // A breaker wait would outlast the timeout below.
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
+        std::make_unique<SkippingSink>(writes),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1}, reads)
+    );
+    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        writes->size(),
+        1,
+        std::chrono::seconds(2),
+        std::chrono::milliseconds(5)
+    );
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto statuses = ctx->snapshot();
+    std::vector<synnax::task::Status> warnings;
+    std::ranges::copy_if(statuses, std::back_inserter(warnings), [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
+    ASSERT_EQ(warnings.size(), 1);
+    EXPECT_EQ(warnings[0].message, "Skipped invalid command");
+    EXPECT_EQ(warnings[0].description, "Channel 1: 0 is not valid. Write 1.");
+    EXPECT_TRUE(warnings[0].details.running);
+    EXPECT_EQ(statuses.back().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(statuses.back().details.running);
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
+/// @brief a write task that runs a SkippingSink on the given commands.
+struct SkippingWrite {
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    std::shared_ptr<driver::task::MockContext>
+        ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::unique_ptr<WriteTask> task;
+
+    explicit SkippingWrite(const std::vector<uint8_t> &commands) {
+        const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+        for (const auto v: commands)
+            reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+        synnax::task::Task t;
+        t.key = x::uuid::create();
+        this->task = std::make_unique<WriteTask>(
+            t,
+            this->ctx,
+            x::breaker::Config{.name = "test", .base_interval = x::telem::MILLISECOND},
+            std::make_unique<SkippingSink>(this->writes),
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory({1}, reads)
+        );
+    }
+};
+
+/// @brief it should report a temporary error instead of a warning from the same write.
+TEST(TestCommonWriteTask, TemporaryErrorTakesPrecedenceOverWarning) {
+    SkippingWrite w({2});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto statuses = w.ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().variant;
+        },
+        synnax::status::VARIANT_WARNING
+    );
+    const auto status = w.ctx->snapshot().back();
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "device unreachable");
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should log a repeated warning once, and log it again after a clean write.
+TEST(TestCommonWriteTask, RepeatedWarningLogsOnce) {
+    WarningSink log;
+    SkippingWrite w({0, 0, 1, 0});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ(log.count("0 is not valid"), 2);
+    EXPECT_EQ(w.writes->size(), 1);
+    ASSERT_TRUE(w.task->stop("stop", true));
 }
 
 /// @brief it should parse a device key from the config.

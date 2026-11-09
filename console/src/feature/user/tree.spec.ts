@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError, user } from "@synnaxlabs/client";
+import { access, NotFoundError, type Synnax, user } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -48,17 +49,15 @@ const createUser = async () => {
   });
 };
 
-const userResource = (key: string, name: string, rootUser = false) =>
-  createResource(user.resourceID(key), name, { root_user: rootUser });
+const userResource = (key: string, name: string) =>
+  createResource(user.resourceID(key), name);
 
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
+  menuClient: Synnax = client,
 ): Promise<void> => {
   assertDefined(Item.ContextMenu);
-  await renderTreeContextMenu(Item.ContextMenu, {
-    client,
-    resources,
-  });
+  await renderTreeContextMenu(Item.ContextMenu, { client: menuClient, resources });
 };
 
 describe("user tree item", () => {
@@ -86,8 +85,11 @@ describe("user tree item", () => {
   });
 
   it("should not offer a role change for the root user", async () => {
-    const u = await createUser();
-    await renderMenu([userResource(u.key, u.name, true)]);
+    const root = await client.users.current.retrieve();
+    const owner = await roles.get("Owner");
+    // The tree caches the users it lists.
+    await owner.users.retrieve(root.key);
+    await renderMenu([userResource(root.key, root.name)], owner);
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Change role")).toBeNull();
   });
@@ -113,16 +115,13 @@ describe("user tree item", () => {
     });
   });
 
-  it("should build user haul items from the resource payload", () => {
-    const data = {
-      key: "u1",
-      name: "",
-      rootUser: false,
-    };
-    const items = Item.haulItems(createResource(user.resourceID("u1"), "u", data));
+  it("should build user haul items from the cached user", async () => {
+    const u = await createUser();
+    await client.users.retrieve(u.key);
+    const items = Item.haulItems(userResource(u.key, u.name), client);
     expect(items).toHaveLength(1);
-    expect(items[0].key).toBe("u1");
-    expect(Item.haulItems(createResource(user.resourceID("u2"), "u2"))).toHaveLength(0);
+    expect(items[0].key).toBe(u.key);
+    expect(Item.haulItems(userResource(uuid.create(), "u2"), client)).toHaveLength(0);
   });
 });
 

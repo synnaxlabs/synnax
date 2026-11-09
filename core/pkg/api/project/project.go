@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
@@ -108,6 +109,23 @@ func (s *Service) Rename(
 	req RenameRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+// DispatchRequest carries an action sequence to apply to a single project. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[project.Key, project.Action]
+
+// Dispatch applies the action sequence to the target project atomically. Subscribers to
+// the project action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}

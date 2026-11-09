@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -56,8 +57,12 @@ var (
 		apichannel.CreateRequest,
 		apichannel.CreateResponse,
 	]
-	deleteChannels   freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
-	renameChannels   freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	deleteChannels freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
+	renameChannels freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	dispatch       freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
 	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
 	retrieveChannels freighter.UnaryHandler[
 		apichannel.AliasedRetrieveRequest,
@@ -81,11 +86,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(
-		bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}),
+		bind.NewService(bind.ServiceConfig{
+			DB:   db,
+			RBAC: rbacSvc,
+			Held: apiauth.HeldTables(),
+		}),
 	)
 	createChannels = bind.Write(binder, apiSvc.Create)
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
 	renameChannels = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
