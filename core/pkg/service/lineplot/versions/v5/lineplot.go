@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = LinePlot{}
 // GorpKey implements gorp.Entry.
 func (l LinePlot) GorpKey() Key { return l.Key }
 
-// SetOptions implements gorp.Entry.
-func (LinePlot) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the line plot.
 func (l LinePlot) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeLineplot, Key: l.Key.String()}

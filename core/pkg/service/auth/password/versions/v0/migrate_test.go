@@ -29,9 +29,6 @@ var _ = Describe("Password", func() {
 		key := uuid.New()
 		Expect(v0.Password{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.Password{}.SetOptions()).To(BeNil())
-	})
 	It("Should validate its subject", func() {
 		Expect(v0.Password{}.Validate()).To(MatchError(ContainSubstring("subject")))
 		Expect(v0.Password{Subject: resource.ID{
@@ -90,7 +87,7 @@ var _ = Describe("NewMove", func() {
 			Expect(ps[0].Created).ToNot(BeZero())
 		},
 	)
-	It("Should derive the same key on every node", func(ctx SpecContext) {
+	It("Should derive the same key on every run", func(ctx SpecContext) {
 		Expect(run(ctx)).To(Succeed())
 		first := passwords(ctx)
 		create(ctx, "alice")

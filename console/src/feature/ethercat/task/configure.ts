@@ -103,7 +103,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 ): Promise<SlaveValidationResult<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
   const slaves = await client.devices.retrieve({
-    where: { key: { in: slaveKeys } },
+    key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
   });
 
@@ -147,7 +147,7 @@ export const retrieveByName = async (
   names: string[],
 ): Promise<Map<string, channel.Channel>> => {
   if (names.length === 0) return new Map();
-  const found = await client.channels.retrieve({ where: { name: { in: names } } });
+  const found = await client.channels.retrieve({ name: names });
   return new Map(found.map((c) => [c.name, c]));
 };
 
@@ -174,7 +174,8 @@ const checkIndexFree = async (
     );
   const others = (
     await client.devices.retrieve({
-      where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+      make: MAKE,
+      model: SLAVE_MODEL,
       schemas: SLAVE_SCHEMAS,
     })
   ).filter(({ key }) => key !== slave.key);
@@ -184,9 +185,10 @@ const checkIndexFree = async (
   const indexes = new Map(
     commands.length === 0
       ? []
-      : (await client.channels.retrieve({ where: { key: { in: commands } } })).map(
-          (ch) => [ch.key, ch.index],
-        ),
+      : (await client.channels.retrieve({ key: commands })).map((ch) => [
+          ch.key,
+          ch.index,
+        ]),
   );
   const owner = others.find(
     ({ properties: { readIndex, writeStateIndex, write } }) =>
@@ -343,7 +345,8 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
     slave == null
       ? []
       : await client.devices.retrieve({
-          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+          make: MAKE,
+          model: SLAVE_MODEL,
           schemas: SLAVE_SCHEMAS,
         });
   const bound = new Set([

@@ -192,38 +192,6 @@ func parentTop(
 	return topParent(ctx, tx, p)
 }
 
-// SetParentObjects returns the top parents that moving the groups in gs under parent
-// needs update access on: for each group whose top parent the move changes, the top
-// parent it leaves and the one it joins. A nil top parent adds nothing.
-func SetParentObjects(
-	ctx context.Context,
-	tx gorp.Tx,
-	gs []Group,
-	parent *resource.ID,
-) ([]resource.ID, error) {
-	after, err := parentTop(ctx, tx, parent)
-	if err != nil {
-		return nil, err
-	}
-	var objects []resource.ID
-	add := func(id *resource.ID) {
-		if id != nil && !slices.Contains(objects, *id) {
-			objects = append(objects, *id)
-		}
-	}
-	for _, g := range gs {
-		before, err := topParent(ctx, tx, g)
-		if err != nil {
-			return nil, err
-		}
-		if !sameID(before, after) {
-			add(before)
-			add(after)
-		}
-	}
-	return objects, nil
-}
-
 // moveMembers passes the groups with keys and every group under them to the
 // MoveMembers hook, after those groups move under the top parent top.
 func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) error {
@@ -251,24 +219,24 @@ func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) e
 }
 
 // TopParent returns the parent of the group at the top of the chain that holds the
-// group with key, as seen by tx, or nil when that group has no parent. It returns a
+// group with key, as seen by snap, or nil when that group has no parent. It returns a
 // validation error when no group has key.
-func TopParent(ctx context.Context, tx gorp.Tx, key Key) (*resource.ID, error) {
-	g, err := retrieveGroup(ctx, tx, key)
+func TopParent(ctx context.Context, snap gorp.Snapshot, key Key) (*resource.ID, error) {
+	g, err := retrieveGroup(ctx, snap, key)
 	if err != nil {
 		return nil, err
 	}
-	return topParent(ctx, tx, g)
+	return topParent(ctx, snap, g)
 }
 
 // retrieveGroup returns the group with key, or a validation error when it does not
 // exist.
-func retrieveGroup(ctx context.Context, tx gorp.Tx, key Key) (Group, error) {
+func retrieveGroup(ctx context.Context, snap gorp.Snapshot, key Key) (Group, error) {
 	var g Group
 	err := gorp.NewRetrieve[Key, Group]().
 		Where(gorp.MatchKeys[Key, Group](key)).
 		Entry(&g).
-		Exec(ctx, tx)
+		Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
 		return Group{}, errors.Wrapf(
 			validate.ErrValidation,
@@ -281,13 +249,13 @@ func retrieveGroup(ctx context.Context, tx gorp.Tx, key Key) (Group, error) {
 
 // topParent returns the parent of the group at the top of g's chain, or nil when that
 // group has no parent.
-func topParent(ctx context.Context, tx gorp.Tx, g Group) (*resource.ID, error) {
+func topParent(ctx context.Context, snap gorp.Snapshot, g Group) (*resource.ID, error) {
 	for g.Parent != nil && g.Parent.Type == resource.TypeGroup {
 		key, err := KeyFromResourceID(*g.Parent)
 		if err != nil {
 			return nil, err
 		}
-		if g, err = retrieveGroup(ctx, tx, key); err != nil {
+		if g, err = retrieveGroup(ctx, snap, key); err != nil {
 			return nil, err
 		}
 	}
@@ -303,8 +271,8 @@ func sameID(a, b *resource.ID) bool {
 
 // CreateObjects returns the groups that a create of records needs update access on.
 // stored holds the records that exist before the create. A new record joins the group
-// it carries. A create keeps an existing record in its stored group, so it adds
-// nothing.
+// it carries, and a nil group adds nothing. A create keeps an existing record in its
+// stored group, so it adds nothing.
 func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	records []E,
 	stored []E,
@@ -314,24 +282,14 @@ func CreateObjects[K comparable, E interface{ GorpKey() K }](
 	for _, e := range stored {
 		exists.Add(e.GorpKey())
 	}
-	var joined []*Key
+	var objects []resource.ID
+	joined := set.New[Key]()
 	for _, e := range records {
-		if !exists.Contains(e.GorpKey()) {
-			joined = append(joined, groupOf(e))
+		if exists.Contains(e.GorpKey()) {
+			continue
 		}
-	}
-	return MoveObjects(nil, nil, joined...)
-}
-
-// MoveObjects returns the resources that moving the records with ids into the groups in
-// to needs update access on: the records, each group in from that holds one of them,
-// and each group in to. A nil group adds nothing.
-func MoveObjects(ids []resource.ID, from []*Key, to ...*Key) []resource.ID {
-	objects := slices.Clone(ids)
-	added := set.New[Key]()
-	for _, k := range slices.Concat(from, to) {
-		if k != nil && !added.Contains(*k) {
-			added.Add(*k)
+		if k := groupOf(e); k != nil && !joined.Contains(*k) {
+			joined.Add(*k)
 			objects = append(objects, ResourceID(*k))
 		}
 	}

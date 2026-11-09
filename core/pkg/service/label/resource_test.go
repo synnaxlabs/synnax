@@ -37,7 +37,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should name each label by its name", func(ctx SpecContext) {
 		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
-		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, db, []resource.ID{l.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
 	})
@@ -45,7 +47,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypeLabel, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -55,7 +57,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no label", func(ctx SpecContext) {
 		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
-		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
 		missing := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
 			ctx,
@@ -66,7 +70,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each label by its name", func(ctx SpecContext) {
 		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
-		Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
 		Expect(svc.Resources().List(ctx, db, 10, nil)).
 			To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
 	})

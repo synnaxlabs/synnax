@@ -32,22 +32,30 @@
 
 namespace driver::ethercat::soem {
 
-/// @brief configurable properties for a single mock slave.
+/// @brief one slave on the mock bus. config_init copies its identity into the SOEM
+/// slave table.
 struct MockSlaveInfo {
+    /// @brief the state of the slave on the bus. readstate and statecheck copy it into
+    /// the SOEM slave table.
     uint16_t state = EC_STATE_INIT;
     uint32_t eep_man = 0;
     uint32_t eep_id = 0;
     uint32_t eep_rev = 0;
     uint32_t eep_ser = 0;
     std::string name;
+    /// @brief the input and output bits that config_map_group maps for the slave.
     uint16_t Ibits = 0;
     uint16_t Obits = 0;
-    uint8_t group = 0;
+    /// @brief where config_map_group places the outputs and inputs of the slave in the
+    /// IOmap.
     size_t output_offset = 0;
     size_t input_offset = 0;
+    /// @brief the bit of its first byte where config_map_group starts the outputs and
+    /// inputs of a slave that maps fewer than 8 bits.
+    uint8_t output_start_bit = 0;
+    uint8_t input_start_bit = 0;
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
-    bool lost = false;
     /// @brief whether the slave has a distributed clock.
     bool hasdc = false;
     /// @brief the propagation delay from the reference clock in nanoseconds.
@@ -56,6 +64,26 @@ struct MockSlaveInfo {
     std::optional<uint16_t> bus_state;
     /// @brief the state last requested and not yet reached.
     std::optional<uint16_t> requested;
+    /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
+    /// successful SDOwrite replaces them.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief abort codes for objects that reject SDO reads, keyed by index and
+    /// sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief abort codes for objects that reject SDO writes, keyed by index and
+    /// sub-index. A code of 0 makes the write time out.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
+    /// and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
+    /// @brief object names returned by readODdescription, keyed by index.
+    std::map<uint16_t, std::string> od_names;
+    /// @brief the SII address of each category, keyed by category.
+    std::map<uint16_t, int16_t> sii_categories;
+    /// @brief SII bytes returned by siigetbyte, keyed by address.
+    std::map<uint16_t, uint8_t> sii_bytes;
+    /// @brief SII strings returned by siistring, keyed by string index.
+    std::map<uint16_t, std::string> sii_strings;
 };
 
 /// @brief a write through write_register.
@@ -91,20 +119,14 @@ public:
     /// @brief per requested state, the number of statecheck polls that report the
     /// slave's current state before it reaches the requested one.
     std::map<uint16_t, int> statecheck_pending_polls;
+    /// @brief the group sizes and working counters that config_map_group sets.
     uint32_t ibytes = 0;
     uint32_t obytes = 0;
     uint16_t outputs_wkc = 1;
     uint16_t inputs_wkc = 1;
-    /// @brief the SII address of each category, keyed by category.
-    std::map<uint16_t, int16_t> sii_categories;
-    /// @brief SII bytes returned by siigetbyte, keyed by address.
-    std::map<uint16_t, uint8_t> sii_bytes;
-    /// @brief SII strings returned by siistring, keyed by string index.
-    std::map<uint16_t, std::string> sii_strings;
     /// @brief the slaves whose EEPROM the master controls: siigetbyte adds the slave,
     /// eeprom2pdi removes it.
     std::set<uint16_t> eeprom_held;
-    int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
     int send_count = 0;
@@ -119,22 +141,12 @@ public:
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     std::optional<uint8_t> mapped_group;
-    /// @brief the latest value given to set_manual_state_change.
-    bool manual_state_change = false;
-    /// @brief manual_state_change at the latest config_map_group call.
+    /// @brief whether the context requested manual state changes at the latest
+    /// config_map_group call.
     std::optional<bool> manual_at_map;
-    /// @brief the group of the latest clear_process_data_sms call.
-    std::optional<uint8_t> sm_cleared_group;
-    /// @brief whether config_map_group came after clear_process_data_sms for its group.
+    /// @brief whether every process data sync manager of the mapped group had a length
+    /// of zero at the latest config_map_group call.
     bool sms_cleared_at_map = false;
-    /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
-    /// successful SDOwrite replaces them.
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
-    /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
-    /// and sub-index.
-    std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
-    /// @brief object names returned by readODdescription, keyed by index.
-    std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
     /// @brief the number of next readstate calls that get no reply. As in SOEM, each
     /// one sets every slave to EC_STATE_NONE.
@@ -158,9 +170,6 @@ public:
     };
     /// @brief SDO writes in call order.
     std::vector<SDOWrite> sdo_writes;
-    /// @brief abort codes for objects that reject SDO writes, keyed by index and
-    /// sub-index. A code of 0 makes the write time out.
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
     /// @brief the SOEM error list, oldest first.
     std::deque<ec_errort> errors;
     /// @brief PO2SOconfig hooks keyed by slave. config_map_group and reconfig_slave
@@ -168,11 +177,6 @@ public:
     std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
-    /// @brief the groups whose process data frames read the reference clock time,
-    /// keyed by group, with the position of the reference slave.
-    std::map<uint8_t, uint16_t> dc_groups;
-    /// @brief the position of the reference slave that configdc found, or 0.
-    uint16_t dc_reference = 0;
     /// @brief writes through write_register, in call order.
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
@@ -191,12 +195,10 @@ public:
     /// @brief registers, keyed by slave and address, whose reads get no answer.
     std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
-    /// @brief the value dc_time returns.
-    int64_t dc_time_value = 0;
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
     x::loop::HostClock clock;
-    /// @brief when set, each send_processdata sets dc_time_value to the clock time plus
+    /// @brief when set, each send_processdata sets the DC time to the clock time plus
     /// this, in nanoseconds, like a reference clock that runs on.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
@@ -207,7 +209,17 @@ public:
     int latch_return = 1;
 
 private:
-    uint8_t *iomap_ptr = nullptr;
+    /// @brief returns the mock slave at pos, or nullptr when no slave is there.
+    MockSlaveInfo *info(const uint16_t pos) {
+        if (pos == 0 || pos > this->slave_infos.size()) return nullptr;
+        return &this->slave_infos[pos - 1];
+    }
+
+    /// @brief returns the state the slave at pos is in on the bus.
+    uint16_t bus_state_of(const uint16_t pos) {
+        const auto *slave = this->info(pos);
+        return slave == nullptr ? 0 : slave->state;
+    }
 
     /// @brief runs the slave's PO2SOconfig hook, like SOEM does in PRE-OP.
     void run_PO2SOconfig(const uint16_t slave) {
@@ -244,29 +256,63 @@ public:
 
     void close() override { this->close_called = true; }
 
-    int config_init() override { return this->config_init_return; }
-
-    void clear_process_data_sms(const uint8_t group) override {
-        this->sm_cleared_group = group;
+    /// @brief like ecx_config_init, fills the slave table from slave_infos. Each slave
+    /// gets the sync manager lengths of its SII.
+    int config_init() override {
+        if (this->config_init_return <= 0) return this->config_init_return;
+        this->context.slavecount = static_cast<int>(this->slave_infos.size());
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            const auto &info = this->slave_infos[i];
+            auto &slave = this->context.slavelist[i + 1];
+            slave = {};
+            slave.state = info.state;
+            slave.ALstatuscode = info.ALstatuscode;
+            slave.eep_man = info.eep_man;
+            slave.eep_id = info.eep_id;
+            slave.eep_rev = info.eep_rev;
+            slave.eep_ser = info.eep_ser;
+            std::strncpy(slave.name, info.name.c_str(), EC_MAXNAME);
+            slave.mbx_proto = info.mbx_proto;
+            slave.hasdc = info.hasdc ? 1 : 0;
+            slave.pdelay = info.pdelay;
+            for (int sm = 2; sm < EC_MAXSM; ++sm)
+                slave.SM[sm].SMlength = 1;
+        }
+        return this->config_init_return;
     }
 
+    /// @brief like ecx_config_map_group, maps the slaves of group into iomap, sets the
+    /// group sizes and working counters, and runs the PO2SOconfig hook of each slave.
     int config_map_group(void *iomap, uint8_t group) override {
-        this->iomap_ptr = static_cast<uint8_t *>(iomap);
-        this->sms_cleared_at_map = this->sm_cleared_group == group;
+        auto *base = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
-        for (size_t i = 0; i < this->slave_infos.size(); ++i)
-            if (this->slave_infos[i].group == group)
-                this->run_PO2SOconfig(static_cast<uint16_t>(i + 1));
-        this->manual_at_map = this->manual_state_change;
+        this->manual_at_map = this->context.manualstatechange != 0;
+        this->sms_cleared_at_map = true;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            auto &slave = this->context.slavelist[i + 1];
+            if (slave.group != group) continue;
+            for (int sm = 2; sm < EC_MAXSM; ++sm)
+                if (slave.SM[sm].SMlength != 0) this->sms_cleared_at_map = false;
+            const auto pos = static_cast<uint16_t>(i + 1);
+            this->run_PO2SOconfig(pos);
+            const auto &info = this->slave_infos[i];
+            slave.Ibits = info.Ibits;
+            slave.Obits = info.Obits;
+            slave.outputs = base + info.output_offset;
+            slave.inputs = base + info.input_offset;
+            slave.Ostartbit = info.output_start_bit;
+            slave.Istartbit = info.input_start_bit;
+        }
+        auto &mapped = this->context.grouplist[group];
+        mapped.Ibytes = this->ibytes;
+        mapped.Obytes = this->obytes;
+        mapped.outputsWKC = this->outputs_wkc;
+        mapped.inputsWKC = this->inputs_wkc;
         return this->config_map_return;
     }
 
-    void set_manual_state_change(const bool manual) override {
-        this->manual_state_change = manual;
-    }
-
     int send_processdata(uint8_t group) override {
-        if (this->host_dc_offset) this->dc_time_value = now() + *this->host_dc_offset;
+        if (this->host_dc_offset) this->context.DCtime = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
@@ -279,8 +325,15 @@ public:
         return this->receive_return;
     }
 
+    /// @brief like ecx_writestate, requests the state in the slave table entry of the
+    /// slave.
     int writestate(uint16_t slave) override {
         this->written_slaves.push_back(slave);
+        if (auto *info = this->info(slave); info != nullptr) {
+            const uint16_t state = this->context.slavelist[slave].state;
+            this->state_change_requests.emplace_back(slave, state);
+            info->requested = state;
+        }
         return this->writestate_return;
     }
 
@@ -288,8 +341,10 @@ public:
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
-            for (auto &info: this->slave_infos)
-                info.state = EC_STATE_NONE;
+            for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+                this->slave_infos[i].state = EC_STATE_NONE;
+                this->context.slavelist[i + 1].state = EC_STATE_NONE;
+            }
             this->read_state.store(EC_STATE_NONE);
             return EC_STATE_NONE;
         }
@@ -304,7 +359,10 @@ public:
                 if (info.state == target) info.requested.reset();
             }
             lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
+            this->context.slavelist[i + 1].state = info.state;
+            this->context.slavelist[i + 1].ALstatuscode = info.ALstatuscode;
         }
+        this->context.slavelist[0].state = lowest;
         this->read_state.store(lowest);
         return lowest;
     }
@@ -313,19 +371,24 @@ public:
         return this->bus_slaves.value_or(static_cast<int>(this->slave_infos.size()));
     }
 
+    /// @brief like ecx_configdc, makes the first slave with a clock the reference, and
+    /// makes the frames of its group carry the DC time.
     bool configdc() override {
         this->configdc_count++;
-        this->dc_reference = 0;
-        for (size_t i = 0; i < this->slave_infos.size(); ++i)
-            if (this->slave_infos[i].hasdc) {
-                this->dc_reference = static_cast<uint16_t>(i + 1);
-                this->dc_groups[this->slave_infos[i].group] = this->dc_reference;
-                return true;
-            }
+        auto &bus = this->context.slavelist[0];
+        bus.hasdc = 0;
+        this->context.grouplist[0].hasdc = 0;
+        for (int i = 1; i <= this->context.slavecount; ++i) {
+            const auto &slave = this->context.slavelist[i];
+            if (slave.hasdc == 0) continue;
+            bus.hasdc = 1;
+            bus.DCnext = static_cast<uint16_t>(i);
+            this->context.grouplist[slave.group].hasdc = 1;
+            this->context.grouplist[slave.group].DCnext = static_cast<uint16_t>(i);
+            return true;
+        }
         return false;
     }
-
-    [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
     int sync_dc(uint8_t, int) override {
         this->sync_dc_count++;
@@ -390,10 +453,10 @@ public:
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
         this->run_PO2SOconfig(slave);
-        if (slave > 0 && slave <= this->slave_infos.size())
-            this->slave_infos[slave - 1].state = static_cast<uint16_t>(
-                this->reconfig_return
-            );
+        if (auto *info = this->info(slave); info != nullptr) {
+            info->state = static_cast<uint16_t>(this->reconfig_return);
+            this->context.slavelist[slave].state = info->state;
+        }
         return this->reconfig_return;
     }
 
@@ -411,11 +474,12 @@ public:
                 info.bus_state.reset();
                 info.requested = reqstate;
             }
-        if (slave > 0 && slave <= this->slave_infos.size()) {
-            auto &info = this->slave_infos[slave - 1];
-            info.state = state;
-            if (state == reqstate) info.requested.reset();
+        if (auto *info = this->info(slave); info != nullptr) {
+            info->state = state;
+            if (state == reqstate) info->requested.reset();
+            this->context.slavelist[slave].ALstatuscode = info->ALstatuscode;
         }
+        this->context.slavelist[slave].state = state;
         return state;
     }
 
@@ -424,7 +488,7 @@ public:
         const auto it = this->statecheck_overrides.find(reqstate);
         if (auto &pending = this->statecheck_pending_polls[reqstate]; pending > 0) {
             pending--;
-            return this->slave_state(slave);
+            return this->bus_state_of(slave);
         }
         return it != this->statecheck_overrides.end() ? it->second : reqstate;
     }
@@ -440,9 +504,19 @@ public:
     ) override {
         // SOEM sends no mailbox request to a slave whose last read state is below
         // PRE-OP.
-        if ((this->slave_state(slave) & 0x0F) < EC_STATE_PRE_OP) return 0;
-        const auto it = this->sdo_objects.find({index, sub_index});
-        if (it == this->sdo_objects.end()) return 0;
+        if ((this->context.slavelist[slave].state & 0x0F) < EC_STATE_PRE_OP) return 0;
+        const auto &info = this->slave_infos.at(slave - 1);
+        if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
+            abort != info.sdo_read_aborts.end()) {
+            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            return 0;
+        }
+        const auto &objects = info.sdo_objects;
+        const auto it = objects.find({index, sub_index});
+        if (it == objects.end()) {
+            this->push_sdo_abort(slave, index, sub_index, 0x06020000);
+            return 0;
+        }
         std::memcpy(p, &it->second, *psize);
         return 1;
     }
@@ -460,11 +534,12 @@ public:
         this->sdo_writes.push_back(
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
-        const auto it = this->sdo_write_aborts.find({index, sub_index});
-        if (it == this->sdo_write_aborts.end()) {
+        auto &info = this->slave_infos.at(slave - 1);
+        const auto it = info.sdo_write_aborts.find({index, sub_index});
+        if (it == info.sdo_write_aborts.end()) {
             uint32_t value = 0;
             std::memcpy(&value, p, std::min(psize, 4));
-            this->sdo_objects[{index, sub_index}] = value;
+            info.sdo_objects[{index, sub_index}] = value;
             return 1;
         }
         if (it->second != 0) this->push_sdo_abort(slave, index, sub_index, it->second);
@@ -490,31 +565,33 @@ public:
         return true;
     }
 
-    int16_t siifind(uint16_t, uint16_t category) override {
-        const auto it = this->sii_categories.find(category);
-        return it == this->sii_categories.end() ? 0 : it->second;
+    int16_t siifind(uint16_t slave, uint16_t category) override {
+        const auto &categories = this->slave_infos.at(slave - 1).sii_categories;
+        const auto it = categories.find(category);
+        return it == categories.end() ? 0 : it->second;
     }
 
     uint8_t siigetbyte(uint16_t slave, uint16_t address) override {
         this->eeprom_held.insert(slave);
-        const auto it = this->sii_bytes.find(address);
-        return it == this->sii_bytes.end() ? 0 : it->second;
+        const auto &bytes = this->slave_infos.at(slave - 1).sii_bytes;
+        const auto it = bytes.find(address);
+        return it == bytes.end() ? 0 : it->second;
     }
 
-    void siistring(char *str, uint16_t, uint16_t sn) override {
-        const auto it = this->sii_strings.find(sn);
-        const std::string value = it == this->sii_strings.end() ? "" : it->second;
+    void siistring(char *str, uint16_t slave, uint16_t sn) override {
+        const auto &strings = this->slave_infos.at(slave - 1).sii_strings;
+        const auto it = strings.find(sn);
+        const std::string value = it == strings.end() ? "" : it->second;
         std::strncpy(str, value.c_str(), EC_MAXNAME);
         str[EC_MAXNAME] = '\0';
     }
 
     void eeprom2pdi(uint16_t slave) override { this->eeprom_held.erase(slave); }
 
-    int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
-
     int readODdescription(uint16_t item, ec_ODlistt *od_list) override {
-        const auto it = this->od_names.find(od_list->Index[item]);
-        if (it == this->od_names.end()) return 0;
+        const auto &names = this->slave_infos.at(od_list->Slave - 1).od_names;
+        const auto it = names.find(od_list->Index[item]);
+        if (it == names.end()) return 0;
         std::strncpy(od_list->Name[item], it->second.c_str(), EC_MAXNAME);
         od_list->Name[item][EC_MAXNAME] = '\0';
         return 1;
@@ -526,141 +603,13 @@ public:
         ec_ODlistt *od_list,
         ec_OElistt *oe_list
     ) override {
-        const auto it = this->oe_entries.find({od_list->Index[item], sub_index});
-        if (it == this->oe_entries.end()) return 0;
+        const auto &entries = this->slave_infos.at(od_list->Slave - 1).oe_entries;
+        const auto it = entries.find({od_list->Index[item], sub_index});
+        if (it == entries.end()) return 0;
         oe_list->Entries++;
         std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
         oe_list->DataType[sub_index] = it->second.second;
         return 1;
-    }
-
-    [[nodiscard]] int slave_count() const override {
-        return static_cast<int>(this->slave_infos.size());
-    }
-
-    [[nodiscard]] uint16_t slave_state(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].state;
-    }
-
-    void set_slave_state(uint16_t pos, uint16_t state) override {
-        if (pos == 0 || pos > this->slave_infos.size()) return;
-        this->state_change_requests.emplace_back(pos, state);
-        this->slave_infos[pos - 1].requested = state;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_man(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].eep_man;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_id(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].eep_id;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_rev(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].eep_rev;
-    }
-
-    [[nodiscard]] uint32_t slave_eep_ser(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].eep_ser;
-    }
-
-    [[nodiscard]] std::string slave_name(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return "";
-        return this->slave_infos[pos - 1].name;
-    }
-
-    [[nodiscard]] uint16_t slave_Ibits(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].Ibits;
-    }
-
-    [[nodiscard]] uint16_t slave_Obits(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].Obits;
-    }
-
-    [[nodiscard]] uint8_t slave_group(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].group;
-    }
-
-    void set_slave_group(uint16_t pos, uint8_t group) override {
-        if (pos == 0 || pos > this->slave_infos.size()) return;
-        this->slave_infos[pos - 1].group = group;
-    }
-
-    [[nodiscard]] uint8_t *slave_outputs(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return nullptr;
-        if (this->iomap_ptr == nullptr) return nullptr;
-        return this->iomap_ptr + this->slave_infos[pos - 1].output_offset;
-    }
-
-    [[nodiscard]] uint8_t *slave_inputs(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return nullptr;
-        if (this->iomap_ptr == nullptr) return nullptr;
-        return this->iomap_ptr + this->slave_infos[pos - 1].input_offset;
-    }
-
-    [[nodiscard]] uint16_t slave_mbx_proto(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].mbx_proto;
-    }
-
-    [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].ALstatuscode;
-    }
-
-    [[nodiscard]] bool slave_hasdc(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return false;
-        return this->slave_infos[pos - 1].hasdc;
-    }
-
-    [[nodiscard]] int32_t slave_pdelay(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return 0;
-        return this->slave_infos[pos - 1].pdelay;
-    }
-
-    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
-        if (pos == 0 || pos > this->slave_infos.size()) return false;
-        return this->slave_infos[pos - 1].lost;
-    }
-
-    void set_slave_lost(uint16_t pos, bool lost) override {
-        if (pos == 0 || pos > this->slave_infos.size()) return;
-        this->slave_infos[pos - 1].lost = lost;
-    }
-
-    [[nodiscard]] uint32_t group_Ibytes(uint8_t group) const override {
-        return group == this->mapped_group ? this->ibytes : 0;
-    }
-
-    [[nodiscard]] uint32_t group_Obytes(uint8_t group) const override {
-        return group == this->mapped_group ? this->obytes : 0;
-    }
-
-    [[nodiscard]] uint16_t group_outputsWKC(uint8_t group) const override {
-        return group == this->mapped_group ? this->outputs_wkc : 0;
-    }
-
-    [[nodiscard]] uint16_t group_inputsWKC(uint8_t group) const override {
-        return group == this->mapped_group ? this->inputs_wkc : 0;
-    }
-
-    [[nodiscard]] bool group_hasdc(uint8_t group) const override {
-        return this->dc_groups.contains(group);
-    }
-
-    void set_group_dc(uint8_t group) override {
-        if (this->dc_reference == 0)
-            this->dc_groups.erase(group);
-        else
-            this->dc_groups[group] = this->dc_reference;
     }
 };
 

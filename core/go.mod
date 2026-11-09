@@ -5,7 +5,6 @@ go 1.27.3
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
 	github.com/synnaxlabs/arc => ../arc/go
-	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
 	github.com/synnaxlabs/gorp => ../gorp
@@ -29,7 +28,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/arc v0.0.0
-	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/gorp v0.0.0

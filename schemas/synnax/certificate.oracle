@@ -9,6 +9,7 @@
 
 import "schemas/synnax/secret"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/certificate"
@@ -67,6 +68,7 @@ Certificate union on source secret.Source extends Base {
             @doc value     """
                 is the secret that holds the private key, when there is one.
             """
+            @ref kind      use
             @ref on_delete restrict
         }
         details     Details     {
@@ -87,6 +89,33 @@ Certificate union on source secret.Source extends Base {
         }
 
         @doc value "is a certificate in files on the computer that uses it."
+    }
+
+    action Create {
+        certificate Certificate
+
+        @doc value """
+            replaces the certificate with the given created state. Emitted by the Core
+            when a certificate is created or replaced; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the certificate."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the certificate.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the certificate."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the certificate."
     }
 
     @doc value     """

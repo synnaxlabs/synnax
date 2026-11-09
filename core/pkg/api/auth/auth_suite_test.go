@@ -10,11 +10,15 @@
 package auth_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -35,6 +39,7 @@ func TestAPIAuth(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db          *gorp.DB
 	node        testutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
@@ -43,14 +48,34 @@ var (
 	userSvc     *user.Service
 	rackSvc     *rack.Service
 	apiSvc      *apiauth.Service
-	root        user.User
-	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
+	// These handlers run their routes as the API layer binds them.
+	changePassword freighter.UnaryHandler[apiauth.ChangePasswordRequest, struct{}]
+	setPassword    freighter.UnaryHandler[
+		apiauth.PasswordSetRequest,
+		apiauth.PasswordSetResponse,
+	]
+	createKey freighter.UnaryHandler[
+		apiauth.KeyCreateRequest,
+		apiauth.KeyCreateResponse,
+	]
+	deleteKeys     freighter.UnaryHandler[apiauth.KeyDeleteRequest, struct{}]
+	deleteSessions freighter.UnaryHandler[apiauth.SessionDeleteRequest, struct{}]
+	retrieveKeys   freighter.UnaryHandler[
+		apiauth.KeyRetrieveRequest,
+		apiauth.KeyRetrieveResponse,
+	]
+	retrieveSessions freighter.UnaryHandler[
+		apiauth.SessionRetrieveRequest,
+		apiauth.SessionRetrieveResponse,
+	]
+	root  user.User
+	creds = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
-	db := node.DB
+	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Password: passwordSvc,
@@ -80,12 +105,40 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+		DB:       db,
 		Auth:     authSvc,
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
 		User:     userSvc,
-		Rack:     rackSvc,
 		RBAC:     rbacSvc,
-		Cluster:  node.Cluster,
+		Identity: node.Identity,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	changePassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareChangePassword,
+		apiSvc.ChangePassword,
+	)
+	setPassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareSetPassword,
+		apiSvc.SetPassword,
+	)
+	createKey = bind.Write(binder, apiSvc.CreateKey)
+	retrieveKeys = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.KeyRetrieveRequest,
+	) (apiauth.KeyRetrieveResponse, error) {
+		return apiSvc.RetrieveKeys(ctx, snap, req)
+	})
+	retrieveSessions = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.SessionRetrieveRequest,
+	) (apiauth.SessionRetrieveResponse, error) {
+		return apiSvc.RetrieveSessions(ctx, snap, req)
+	})
+	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
+	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
 })

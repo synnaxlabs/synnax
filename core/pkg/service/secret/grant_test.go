@@ -42,10 +42,10 @@ var _ = Describe("Grants", func() {
 
 	Describe("Grant", func() {
 		It("Should let the rack read the secrets it names once", func(ctx SpecContext) {
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, key)).
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
+			Expect(e.svc.Resolve(ctx, rk, g, key)).
 				To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, key)).Error().To(SatisfyAll(
+			Expect(e.svc.Resolve(ctx, rk, g, key)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring(
 					"grant "+g.String()+" has ended or does not exist",
@@ -53,7 +53,7 @@ var _ = Describe("Grants", func() {
 			))
 		})
 		It("Should store the subject and the secrets", func(ctx SpecContext) {
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
 			Expect(storedGrants(ctx, e)).To(ConsistOf(SatisfyAll(
 				HaveField("Key", g),
 				HaveField("Subject", rk),
@@ -61,7 +61,7 @@ var _ = Describe("Grants", func() {
 			)))
 		})
 		It("Should return not found for a missing secret", func(ctx SpecContext) {
-			Expect(e.svc.Grant(ctx, nil, rk, key, uuid.New())).Error().
+			Expect(e.svc.Grant(ctx, e.db, rk, key, uuid.New())).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(storedGrants(ctx, e)).To(BeEmpty())
 		})
@@ -71,7 +71,7 @@ var _ = Describe("Grants", func() {
 					Type: resource.TypeUser,
 					Key:  uuid.New().String(),
 				}
-				Expect(e.svc.Grant(ctx, nil, user, key)).Error().
+				Expect(e.svc.Grant(ctx, e.db, user, key)).Error().
 					To(SatisfyAll(
 						BeAssignableToTypeOf(validate.PathError{}),
 						MatchError("subject: "+user.String()+" is not a rack"),
@@ -82,29 +82,29 @@ var _ = Describe("Grants", func() {
 
 	Describe("Resolve", func() {
 		It("Should deny a rack with no grant", func(ctx SpecContext) {
-			Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), key)).Error().To(SatisfyAll(
+			Expect(e.svc.Resolve(ctx, rk, uuid.Nil(), key)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring("has ended or does not exist")),
 			))
 		})
 		It("Should deny a secret the grant does not name", func(ctx SpecContext) {
 			other := e.createStored(ctx, "Token", "t")
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk, key))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, other.Base().Key)).Error().
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
+			Expect(e.svc.Resolve(ctx, rk, g, other.Base().Key)).Error().
 				To(SatisfyAll(
 					MatchError(access.ErrDenied),
 					MatchError(ContainSubstring(`rack:1 cannot read secret "Token"`)),
 				))
 		})
 		It("Should deny a grant for another rack", func(ctx SpecContext) {
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk2, key))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, key)).Error().To(SatisfyAll(
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk2, key))
+			Expect(e.svc.Resolve(ctx, rk, g, key)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring("grant is not for rack:1")),
 			))
 		})
 		It("Should return not found for a missing secret", func(ctx SpecContext) {
-			Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), uuid.New())).Error().
+			Expect(e.svc.Resolve(ctx, rk, uuid.Nil(), uuid.New())).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should refuse to resolve a file secret", func(ctx SpecContext) {
@@ -112,9 +112,11 @@ var _ = Describe("Grants", func() {
 				Base: secret.Base{Name: "Client key"},
 				Path: "/k.pem",
 			}}
-			Expect(e.svc.NewWriter(nil).Create(ctx, &s, nil)).To(Succeed())
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk, s.Base().Key))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, s.Base().Key)).Error().
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Create(ctx, &s, nil)
+			})).To(Succeed())
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, s.Base().Key))
+			Expect(e.svc.Resolve(ctx, rk, g, s.Base().Key)).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(`secret "Client key" is a file`)),
@@ -127,8 +129,8 @@ var _ = Describe("Grants", func() {
 			Expect(gorp.NewCreate[secret.Key, secret.Secret]().
 				Entry(&moved).
 				Exec(ctx, e.db)).To(Succeed())
-			g := MustSucceed(e.svc.Grant(ctx, nil, rk, other.Base().Key))
-			Expect(e.svc.Resolve(ctx, nil, rk, g, other.Base().Key)).Error().
+			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, other.Base().Key))
+			Expect(e.svc.Resolve(ctx, rk, g, other.Base().Key)).Error().
 				To(MatchError(ContainSubstring(`decrypt secret "Token"`)))
 		})
 	})

@@ -52,7 +52,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:  imexSvc,
 	}))
 	proj.Name = "test-project"
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

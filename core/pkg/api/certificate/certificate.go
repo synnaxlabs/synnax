@@ -11,20 +11,15 @@ package certificate
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -34,10 +29,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Certificate *certificate.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -50,7 +41,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Certificate = override.Nil(c.Certificate, other.Certificate)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -58,13 +48,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.certificate")
 	v.NotNil("certificate", c.Certificate)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service is the API for certificates.
 type Service struct {
-	access   *rbac.Service
 	internal *certificate.Service
 }
 
@@ -74,7 +62,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{access: cfg.RBAC, internal: cfg.Certificate}, nil
+	return &Service{internal: cfg.Certificate}, nil
 }
 
 type (
@@ -144,49 +132,13 @@ type CreateResponse struct {
 	Certificates []Certificate `json:"certificates" msgpack:"certificates"`
 }
 
-// Create creates the certificates, or replaces those whose key exists. It requires
-// create access on certificates, create access on secrets when a certificate carries a
-// private key, and update access on each certificate it replaces.
+// Create creates the certificates, or replaces those whose key exists. A private key is
+// saved as a secret that the certificate uses.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	objects := []resource.ID{{Type: resource.TypeCertificate}}
-	if lo.ContainsBy(
-		req.Certificates,
-		func(in Input) bool { return in.PrivateKey != "" },
-	) {
-		objects = append(objects, resource.ID{Type: resource.TypeSecret})
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: objects,
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	keys := lo.FilterMap(req.Certificates, func(in Input, _ int) (Key, bool) {
-		return in.Key, in.Key != uuid.Nil()
-	})
-	if len(keys) != 0 {
-		var replaced []Certificate
-		if err := s.internal.NewRetrieve().
-			Where(certificate.MatchKeys(keys...)).
-			Entries(&replaced).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return CreateResponse{}, err
-		}
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: certificate.ResourceIDsFromCertificates(replaced),
-		}); err != nil {
-			return CreateResponse{}, err
-		}
-	}
 	w := s.internal.NewWriter(tx)
 	res := CreateResponse{Certificates: make([]Certificate, len(req.Certificates))}
 	for i, in := range req.Certificates {
@@ -202,25 +154,30 @@ func (s *Service) Create(
 	return res, nil
 }
 
-// Retrieve returns the certificates the request selects. It requires retrieve access on
-// each of them.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the certificates that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, certificate.ResourceID)
+}
+
+// Retrieve returns the certificates that the request selects and that the subject can
+// retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Certificates))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Certificates))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: certificate.ResourceIDsFromCertificates(res.Certificates),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, certificate.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -234,20 +191,32 @@ type RenameRequest struct {
 	Key Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the certificate. It requires update access on it.
+// Rename renames the certificate.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{certificate.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+// DispatchRequest carries an action sequence to apply to a single certificate.
+// DispatchKey is a client-generated identifier for the batch, echoed on the broadcast
+// so
+// the sender recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[certificate.Key, certificate.Action]
+
+// Dispatch applies the action sequence to the target certificate atomically.
+// Subscribers to the certificate action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 // DeleteRequest selects the certificates to delete.
@@ -256,20 +225,12 @@ type DeleteRequest struct {
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the certificates and the secrets that hold their private keys. It
-// requires delete access on each certificate only, because a private key belongs to
-// its certificate.
+// Delete deletes the certificates, the secrets that hold their private keys, and their
+// expiry statuses.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: certificate.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

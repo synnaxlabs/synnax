@@ -145,7 +145,7 @@ describe("status", () => {
       );
     });
 
-    it("should settle each owned fetch on its own when one status is denied", async () => {
+    it("should leave out the owned statuses that the caller cannot retrieve", async () => {
       const owners = await Promise.all(
         [0, 1].map(async () =>
           channel.resourceID(
@@ -170,15 +170,11 @@ describe("status", () => {
         objects: [status.resourceID(granted.key)],
         actions: ["retrieve"],
       });
-      const [first, second] = await Promise.allSettled(
+      const [first, second] = await Promise.all(
         owners.map(async (owner) => await userClient.statuses.retrieveOwned([owner])),
       );
-      expect(first.status).toBe("fulfilled");
-      if (first.status === "fulfilled")
-        expect(first.value.map(({ key }) => key)).toEqual([granted.key]);
-      expect(second.status).toBe("rejected");
-      if (second.status === "rejected")
-        expect(AccessDeniedError.matches(second.reason)).toBe(true);
+      expect(first.map(({ key }) => key)).toEqual([granted.key]);
+      expect(second).toEqual([]);
     });
   });
 });

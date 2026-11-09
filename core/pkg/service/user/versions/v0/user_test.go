@@ -86,11 +86,6 @@ var _ = Describe("User", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.User{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the user resource identifier", func() {
 			k := uuid.New()

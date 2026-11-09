@@ -70,36 +70,43 @@ func (w Writer) Move(
 				validate.ErrValidation, "%q is not in the source directory", e.name,
 			)
 		}
+		if e.id.Type != resource.TypeArc {
+			continue
+		}
 		if err = w.validateEntry(ctx, to, e.id, e.name, e.identifier); err != nil {
 			return err
 		}
 	}
-	if len(dirKeys) > 0 {
-		if err = w.directories.NewWriter(w.tx).SetParent(
-			ctx, to, dirKeys...,
-		); err != nil {
+	for _, key := range dirKeys {
+		if err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
+			directory.SetPayload{Path: []string{"parent"}, Value: to},
+		)); err != nil {
 			return err
 		}
 	}
 	if len(arcKeys) == 0 {
 		return nil
 	}
+	var moved []Arc
 	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Arc](arcKeys...)).
 		Change(func(_ gorp.Context, a Arc) Arc {
 			b := a.Base()
 			b.Directory = &to
 			a.SetBase(b)
+			moved = append(moved, a)
 			return a
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	gorp.OnCommit(w.tx, func() {
-		for _, k := range arcKeys {
-			w.publish(ctx, k)
-		}
-	})
+	for _, a := range moved {
+		w.dispatcher.Attach(
+			w.tx,
+			a.Base().Key,
+			NewCreateAction(CreatePayload{Arc: a}),
+		)
+	}
 	return nil
 }
 
