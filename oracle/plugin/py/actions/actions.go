@@ -169,6 +169,7 @@ func payloadDocstring(a actionData) string {
 
 var templateFuncs = template.FuncMap{
 	"payloadDocstring": payloadDocstring,
+	"formatComment":    doc.FormatPyComment,
 	"actionDoc": func(target string) string {
 		return "# Action is a discriminated union for all " + target + " mutations."
 	},
@@ -184,6 +185,8 @@ from __future__ import annotations{{ .Imports }}
 {{- if .Target }}
 
 
+{{ with formatComment .Doc }}{{ . }}
+{{ end -}}
 {{ .Payload }} = {{ .Target }}
 {{- else }}
 

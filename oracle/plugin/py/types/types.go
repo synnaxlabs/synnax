@@ -2287,23 +2287,6 @@ func formatVariantDocstring(v unionVariantData) string {
 	return googleDocstring(v.Doc, nil)
 }
 
-// pyDocComment renders doc text as a Python line comment, capitalizing the first
-// letter (Python convention omits the identifier name) and prefixing every line
-// with "# ". It is used to document module-level aliases that cannot carry a
-// docstring, such as a discriminated union's Annotated alias.
-func pyDocComment(docText string) string {
-	if docText == "" {
-		return ""
-	}
-	r := []rune(docText)
-	docText = strings.ToUpper(string(r[0])) + string(r[1:])
-	lines := strings.Split(docText, "\n")
-	for i := range lines {
-		lines[i] = "# " + lines[i]
-	}
-	return strings.Join(lines, "\n")
-}
-
 // genericArg returns the Python type argument for a type parameter in Generic[...].
 func genericArg(tpd typeParamData) string {
 	return tpd.Name
@@ -2332,7 +2315,7 @@ var templateFuncs = template.FuncMap{
 	"formatGoogleDocstring":  formatGoogleDocstring,
 	"hasDocumentation":       hasDocumentation,
 	"formatVariantDocstring": formatVariantDocstring,
-	"pyDocComment":           pyDocComment,
+	"pyDocComment":           doc.FormatPyComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
 	"fieldName":              fieldName,

@@ -27,15 +27,20 @@ class CreatePayload(BaseModel):
     label: Label
 
 
+# Replaces the value at a path. It creates the absent objects on the path, and
+# does nothing when the path goes through a missing list entry.
 SetPayload = patch.Set
 
 
+# Removes an entry from a list or a field from an object.
 RemovePayload = patch.Remove
 
 
+# Adds an entry to a list. It does nothing when an entry with the same key exists.
 InsertPayload = patch.Insert
 
 
+# Moves an entry in a list. It does nothing when the entry is missing.
 MovePayload = patch.Move
 
 

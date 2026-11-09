@@ -392,6 +392,7 @@ func (f *formatter) formatAliasBody(ctx parser.IAliasBodyContext) {
 	f.currentIndent++
 	f.formatDomains(domains)
 	f.currentIndent--
+	f.writeIndent()
 	f.writeLine("}")
 }
 
@@ -548,7 +549,11 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	if tr := ctx.TypeRef(); tr != nil {
 		f.write(" = ")
 		f.formatTypeRef(tr)
-		f.newline()
+		if body := ctx.AliasBody(); body != nil {
+			f.formatAliasBody(body)
+		} else {
+			f.newline()
+		}
 		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 		return
 	}

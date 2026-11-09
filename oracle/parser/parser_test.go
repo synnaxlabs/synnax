@@ -276,15 +276,35 @@ var _ = Describe("Parser", func() {
 			Expect(actions[1].TypeRef()).To(BeNil())
 		})
 
-		It("Should reject an action alias with a body", func() {
-			_, diag := parser.Parse(`
+		It("Should parse the doc body of an action alias", func() {
+			schema := MustSucceed(parser.Parse(`
 				Schematic struct {
 					action Set = patch.Set {
 						@doc value "sets a value."
 					}
 				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().ActionDef(0)
+			Expect(action.TypeRef().GetText()).To(Equal("patch.Set"))
+			domains := action.AliasBody().AllDomain()
+			Expect(domains).To(HaveLen(1))
+			Expect(domains[0].IDENT().GetText()).To(Equal("doc"))
+			Expect(domains[0].DomainContent().GetText()).
+				To(Equal(`value"sets a value."`))
+		})
+
+		It("Should reject a field in the body of an action alias", func() {
+			_, diag := parser.Parse(`
+				Schematic struct {
+					action Set = patch.Set {
+						name string
+					}
+				}
 			`)
-			Expect(diag).To(MatchError(ContainSubstring("mismatched input '{'")))
+			Expect(diag).To(MatchError(ContainSubstring(
+				"extraneous input 'name' expecting {'}', '@', NEWLINE}",
+			)))
 			Expect(diag.Ok()).To(BeFalse())
 		})
 

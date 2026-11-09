@@ -892,6 +892,11 @@ func collectAction(
 			return action
 		}
 		action.Alias = collectTypeRef(tr, nil)
+		if body := def.AliasBody(); body != nil {
+			for _, d := range body.AllDomain() {
+				addDomain(action.Domains, collectDomain(c, d))
+			}
+		}
 		return action
 	}
 	if def.EXTENDS() != nil {
@@ -919,12 +924,7 @@ func collectAction(
 		action.Fields = append(action.Fields, field)
 	}
 	for _, d := range body.AllDomain() {
-		de := collectDomain(c, d)
-		if existing, ok := action.Domains[de.Name]; ok {
-			action.Domains[de.Name] = de.Merge(existing)
-		} else {
-			action.Domains[de.Name] = de
-		}
+		addDomain(action.Domains, collectDomain(c, d))
 	}
 	return action
 }
@@ -2159,8 +2159,9 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 }
 
 // finalizeActions flattens each action's extends clause, prepending the inherited
-// struct fields to the action's own fields, and gives each action alias the doc of its
-// struct. After this pass code generators consume Action.Fields and Domains unchanged.
+// struct fields to the action's own fields, and gives each action alias without a doc
+// the doc of its struct. After this pass code generators consume Action.Fields and
+// Domains unchanged.
 func finalizeActions(c *analysisCtx) {
 	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
@@ -2170,6 +2171,9 @@ func finalizeActions(c *analysisCtx) {
 		actions := typ.Actions()
 		for ai := range actions {
 			if actions[ai].IsAlias() {
+				if _, own := actions[ai].Domains["doc"]; own {
+					continue
+				}
 				target, _, _ := resolution.Dealias(actions[ai].Alias, c.table)
 				if d, ok := target.Domains["doc"]; ok {
 					actions[ai].Domains["doc"] = d

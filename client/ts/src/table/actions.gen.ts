@@ -192,28 +192,24 @@ export const eraseCellsPayloadZ = z.object({
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-/**
- * Set replaces the value at a path. It creates the absent objects on the path, and does
- * nothing when the path goes through a missing list entry.
- */
+/** Set replaces the value at a path in the table's cells. */
 export const setPayloadZ = patch.setZ;
 
 export type SetPayload = patch.Set;
 
-/** Remove removes an entry from a list or a field from an object. */
+/**
+ * Remove removes an entry from a list or a field from an object in the table's cells.
+ */
 export const removePayloadZ = patch.removeZ;
 
 export type RemovePayload = patch.Remove;
 
-/**
- * Insert adds an entry to a list. It does nothing when an entry with the same key
- * exists.
- */
+/** Insert adds an entry to a list in the table's cells. */
 export const insertPayloadZ = patch.insertZ;
 
 export type InsertPayload = patch.Insert;
 
-/** Move moves an entry in a list. It does nothing when the entry is missing. */
+/** Move moves an entry in a list in the table's cells. */
 export const movePayloadZ = patch.moveZ;
 
 export type MovePayload = patch.Move;

@@ -98,15 +98,23 @@ class SetConfigPayload(BaseModel):
     config: ElementConfig
 
 
+# Replaces the value at a path in the schematic's element configs. No-op when
+# no node or edge has the config's key.
 SetPayload = patch.Set
 
 
+# Removes an entry from a list or a field from an object in the schematic's
+# element configs. No-op when no node or edge has the config's key.
 RemovePayload = patch.Remove
 
 
+# Adds an entry to a list in the schematic's element configs. No-op when no
+# node or edge has the config's key.
 InsertPayload = patch.Insert
 
 
+# Moves an entry in a list in the schematic's element configs. No-op when no
+# node or edge has the config's key.
 MovePayload = patch.Move
 
 

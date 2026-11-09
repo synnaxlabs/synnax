@@ -154,18 +154,17 @@ type SetDirectoryPayload struct {
 	Directory uuid.UUID `json:"directory" msgpack:"directory"`
 }
 
-// SetPayload replaces the value at a path. It creates the absent objects on the path,
-// and does nothing when the path goes through a missing list entry.
+// SetPayload replaces the value at a path in the graph's node inputs.
 type SetPayload patch.Set
 
-// RemovePayload removes an entry from a list or a field from an object.
+// RemovePayload removes an entry from a list or a field from an object in the graph's
+// node inputs.
 type RemovePayload patch.Remove
 
-// InsertPayload adds an entry to a list. It does nothing when an entry with the same
-// key exists.
+// InsertPayload adds an entry to a list in the graph's node inputs.
 type InsertPayload patch.Insert
 
-// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+// MovePayload moves an entry in a list in the graph's node inputs.
 type MovePayload patch.Move
 
 // Action is a discriminated union for all Arc mutations. Type names

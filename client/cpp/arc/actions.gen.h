@@ -171,19 +171,17 @@ struct SetDirectoryPayload {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
-/// path, and does nothing when the path goes through a missing list entry.
+/// @brief SetPayload replaces the value at a path in the graph's node inputs.
 using SetPayload = ::x::patch::Set;
 
-/// @brief RemovePayload removes an entry from a list or a field from an object.
+/// @brief RemovePayload removes an entry from a list or a field from an object in the
+/// graph's node inputs.
 using RemovePayload = ::x::patch::Remove;
 
-/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
-/// same key exists.
+/// @brief InsertPayload adds an entry to a list in the graph's node inputs.
 using InsertPayload = ::x::patch::Insert;
 
-/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
-/// missing.
+/// @brief MovePayload moves an entry in a list in the graph's node inputs.
 using MovePayload = ::x::patch::Move;
 
 /// @brief Action is a discriminated union for all Arc mutations. Its JSON form is

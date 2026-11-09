@@ -3120,6 +3120,36 @@ Node union on variant {
 				},
 			)
 
+			It(
+				"Should keep an alias's own doc in place of its struct's doc",
+				func(ctx SpecContext) {
+					source := `
+					Set struct {
+						path string[]
+
+						@doc value "replaces the value at a path."
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set {
+							@doc value "replaces the value at a path in the cells."
+						}
+					}
+				`
+					table, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					action := findAction(table, "test.Container", "Set")
+					Expect(action.Alias.Name).To(Equal("test.Set"))
+					Expect(doc.Get(action.Domains)).
+						To(Equal("replaces the value at a path in the cells."))
+					set := MustBeOk(table.Get("test.Set"))
+					Expect(doc.Get(set.Domains)).
+						To(Equal("replaces the value at a path."))
+				},
+			)
+
 			It("Should reject an alias of a type that is not a struct", func(
 				ctx SpecContext,
 			) {

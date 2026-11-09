@@ -168,15 +168,19 @@ class EraseCellsPayload(BaseModel):
     template: CellConfig
 
 
+# Replaces the value at a path in the table's cells.
 SetPayload = patch.Set
 
 
+# Removes an entry from a list or a field from an object in the table's cells.
 RemovePayload = patch.Remove
 
 
+# Adds an entry to a list in the table's cells.
 InsertPayload = patch.Insert
 
 
+# Moves an entry in a list in the table's cells.
 MovePayload = patch.Move
 
 

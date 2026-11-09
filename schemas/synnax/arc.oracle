@@ -219,13 +219,24 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Set = patch.Set
+    action Set = patch.Set {
+        @doc value "replaces the value at a path in the graph's node inputs."
+    }
 
-    action Remove = patch.Remove
+    action Remove = patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the graph's node
+            inputs.
+        """
+    }
 
-    action Insert = patch.Insert
+    action Insert = patch.Insert {
+        @doc value "adds an entry to a list in the graph's node inputs."
+    }
 
-    action Move = patch.Move
+    action Move = patch.Move {
+        @doc value "moves an entry in a list in the graph's node inputs."
+    }
 
     @create
     @doc value     """

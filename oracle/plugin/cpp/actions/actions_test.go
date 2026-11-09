@@ -273,6 +273,35 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
+		It("Should write the own doc of an action alias", func(ctx SpecContext) {
+			loader.Add("schemas/patch", `
+				@cpp output "x/cpp/patch"
+
+				Set struct {
+					path string[]
+
+					@doc value "replaces the value at a path."
+				}
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/patch"
+
+				@cpp output "client/cpp/counter"
+
+				Counter struct {
+					key uuid
+
+					action Set = patch.Set {
+						@doc value "replaces the value at a path in the counter."
+					}
+				}
+			`, "counter", loader, p)
+			ExpectContent(resp, "actions.gen.h").ToContain(
+				"/// @brief SetPayload replaces the value at a path in the counter.\n" +
+					"using SetPayload = ::x::patch::Set;",
+			).ToNotContain("/// @brief SetPayload replaces the value at a path.\n")
+		})
+
 		It("Should leave an omitted field out of a payload", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
 				@cpp output "client/cpp/counter"

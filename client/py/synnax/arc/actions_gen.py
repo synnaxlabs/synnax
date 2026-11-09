@@ -145,15 +145,20 @@ class SetDirectoryPayload(BaseModel):
     directory: UUID
 
 
+# Replaces the value at a path in the graph's node inputs.
 SetPayload = patch.Set
 
 
+# Removes an entry from a list or a field from an object in the graph's node
+# inputs.
 RemovePayload = patch.Remove
 
 
+# Adds an entry to a list in the graph's node inputs.
 InsertPayload = patch.Insert
 
 
+# Moves an entry in a list in the graph's node inputs.
 MovePayload = patch.Move
 
 

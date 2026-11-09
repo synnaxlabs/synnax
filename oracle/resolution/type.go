@@ -263,7 +263,8 @@ type Action struct {
 	Extends []TypeRef
 	// Alias names the struct that an `action Name = Struct` declaration uses as its
 	// payload. Fields is then empty, and the analyzer copies the struct's doc into
-	// Domains. The zero TypeRef means the action declares its own payload.
+	// Domains when the action declares no doc of its own. The zero TypeRef means the
+	// action declares its own payload.
 	Alias TypeRef
 }
 
