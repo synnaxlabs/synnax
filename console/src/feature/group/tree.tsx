@@ -50,18 +50,13 @@ export const createTreeItems = (
   const retrieveChildren = async (
     props: Tree.ChildrenProps,
   ): Promise<resource.ID[]> => {
-    const windows = await Promise.all(
-      children(props).map(async (source) => {
-        let window = await source.retrieve();
-        while (window.more) window = await source.more();
-        return window;
-      }),
+    const resources = await Promise.all(
+      children(props).map(async (source) => await source.retrieveAll()),
     );
-    return windows.flatMap(({ resources }) => resources.map(({ id }) => id));
+    return resources.flat().map(({ id }) => id);
   };
 
-  // Ungroup reads every page of children from the Core, since the tree holds only the
-  // pages it shows.
+  // Ungroup reads children from the Core, since the tree holds only the pages it shows.
   const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
     name: "resources",
     verbs: {
