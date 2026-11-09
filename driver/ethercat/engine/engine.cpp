@@ -224,20 +224,6 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
     }
 }
 
-void Engine::apply_rt(const x::telem::TimeSpan period) const {
-    if (this->config.rt_handle) {
-        this->config.rt_handle->apply();
-        return;
-    }
-    x::thread::rt::Config rt_cfg = this->config.rt;
-    if (rt_cfg.enabled && !rt_cfg.has_timing()) {
-        rt_cfg.period = period;
-        rt_cfg.computation = period * 0.2;
-        rt_cfg.deadline = period * 0.8;
-    }
-    x::thread::rt::apply_config(rt_cfg);
-}
-
 void Engine::run() {
     const auto iface = this->master->interface_name();
     std::shared_ptr<const Schedule> sched;
@@ -268,6 +254,11 @@ void Engine::run() {
         }
     };
 
+    std::optional<x::thread::rt::Handle> rt;
+    if (this->config.rt_manager != nullptr) {
+        rt.emplace(this->config.rt_manager->allocate({.enabled = true}));
+        rt->apply();
+    }
     this->write_outputs(false);
     send();
     while (true) {
@@ -282,7 +273,6 @@ void Engine::run() {
             if (sched->rate != prev) {
                 LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
                           << sched->rate;
-                this->apply_rt(sched->rate.period());
                 std::vector<PhaseLock::Sync0> syncs;
                 for (const auto &regs: this->master->dc_sync())
                     if (regs.marks_data())

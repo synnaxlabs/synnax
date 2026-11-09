@@ -21,6 +21,7 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
@@ -185,6 +186,21 @@ protected:
         return static_cast<double>(in_phase) / static_cast<double>(frames.size());
     }
 };
+
+/// @brief it should hold an RT core while the bus runs and give it back when the bus
+/// stops.
+TEST_F(EngineTest, HoldsAnRTCoreOnlyWhileTheBusRuns) {
+    const auto rt = std::make_shared<x::thread::rt::Manager>();
+    if (rt->total_cores() == 0) GTEST_SKIP() << "the host has no RT cores";
+    Config cfg;
+    cfg.rt_manager = rt;
+    const auto engine = std::make_shared<Engine>(this->master, cfg);
+    EXPECT_EQ(rt->available_cores(), rt->total_cores());
+    auto reader = ASSERT_NIL_P(engine->open_reader({IN_I16}, x::telem::Rate(100), 1));
+    ASSERT_EVENTUALLY_EQ(rt->available_cores(), rt->total_cores() - 1);
+    reader.reset();
+    EXPECT_EQ(rt->available_cores(), rt->total_cores());
+}
 
 /// @brief it should decode 16-bit, 32-bit, 24-bit, and 4-bit input entries into samples
 /// of their data types.
@@ -1593,6 +1609,19 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
+}
+
+/// @brief it should take no RT core for a network that it only scans.
+TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
+    const auto rt = std::make_shared<x::thread::rt::Manager>();
+    if (rt->total_cores() == 0) GTEST_SKIP() << "the host has no RT cores";
+    auto master = std::make_shared<testutil::Master>("eth0");
+    master->add_slave(io_slave(0));
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure("eth0", master);
+    Pool pool(std::move(manager), NO_SLAVE_CONFIGS, rt);
+    ASSERT_NIL_P(pool.discover_slaves("eth0"));
+    EXPECT_EQ(rt->available_cores(), rt->total_cores());
 }
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
