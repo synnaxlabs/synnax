@@ -68,11 +68,11 @@ func PreProcess(
 	snap gorp.Snapshot,
 	cfg Config,
 ) (arc.Program, error) {
-	return preProcess(ctx, cfg, newResolver(snap, cfg))
-}
-
-func newResolver(snap gorp.Snapshot, cfg Config) arc.SymbolResolver {
-	return channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap))
+	return preProcess(
+		ctx,
+		cfg,
+		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+	)
 }
 
 func preProcess(
@@ -114,13 +114,32 @@ type Module struct {
 
 // Compile builds a full execution Module for the given calculated channel. The module
 // includes WASM bytecode, an execution graph with operation nodes, and the channel
-// dependencies the calculation reads from and writes to. It looks up channels in snap.
-func Compile(ctx context.Context, snap gorp.Snapshot, cfgs ...Config) (Module, error) {
+// dependencies the calculation reads from and writes to. It reads db as
+// channel.CompileConsistent describes.
+func Compile(ctx context.Context, db *gorp.DB, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
-	resolver := newResolver(snap, cfg)
+	return channel.CompileConsistent(ctx, db, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (Module, error) {
+		return compile(
+			ctx,
+			snap,
+			cfg,
+			cfg.ChannelService.NewCheckedResolver(snap, lookups),
+		)
+	})
+}
+
+func compile(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+	resolver arc.SymbolResolver,
+) (Module, error) {
 	preProcessed, err := preProcess(ctx, cfg, resolver)
 	if err != nil {
 		return Module{}, err

@@ -11,10 +11,12 @@ package ranger_test
 
 import (
 	"fmt"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -147,6 +149,28 @@ var _ = Describe("Ranger", func() {
 			).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
+		It(
+			"Should retrieve only the exact name of names that differ in case",
+			func(ctx SpecContext) {
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				}
+				upper := &ranger.Range{Name: "CaseRange", TimeRange: tr}
+				lower := &ranger.Range{Name: "caserange", TimeRange: tr}
+				Expect(svc.NewWriter(tx).Create(ctx, upper)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, lower)).To(Succeed())
+				var res []ranger.Range
+				Expect(
+					svc.NewRetrieve().
+						Where(ranger.MatchNames(upper.Name)).
+						Entries(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal(upper.Key))
+			},
+		)
 		It(
 			"Should retrieve any ranges that overlap a given time range",
 			func(ctx SpecContext) {
@@ -400,22 +424,32 @@ var _ = Describe("Ranger", func() {
 				Where(ranger.MatchNames("NopeRange")).
 				Exists(ctx, tx))).To(BeFalse())
 		})
-		It("Should apply Limit and Offset", func(ctx SpecContext) {
-			for i := range 5 {
+		It("Should page with Limit and After", func(ctx SpecContext) {
+			names := make([]string, 5)
+			created := make([]ranger.Key, 5)
+			for i := range names {
+				names[i] = fmt.Sprintf("PageRange%d", i)
 				r := &ranger.Range{
-					Name:      fmt.Sprintf("PageRange%d", i),
+					Name:      names[i],
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+				created[i] = r.Key
 			}
-			var results []ranger.Range
-			Expect(svc.NewRetrieve().
-				Where(ranger.MatchNames("PageRange0", "PageRange1", "PageRange2", "PageRange3", "PageRange4")).
-				Limit(2).
-				Offset(1).
-				Entries(&results).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(results).To(HaveLen(2))
+			page := func(q ranger.Retrieve) []ranger.Key {
+				var res []ranger.Range
+				Expect(q.Where(ranger.MatchNames(names...)).Limit(2).Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(
+					res,
+					func(r ranger.Range, _ int) ranger.Key { return r.Key },
+				)
+			}
+			first := page(svc.NewRetrieve())
+			second := page(svc.NewRetrieve().After(first[1]))
+			third := page(svc.NewRetrieve().After(second[1]))
+			Expect(third).To(HaveLen(1))
+			Expect(slices.Concat(first, second, third)).To(ConsistOf(created))
 		})
 		Describe("Search", func() {
 			It(

@@ -213,11 +213,13 @@ Assignment ::= Identifier '=' Expression
 
 A variable's kind is inferred from its initializer:
 
-- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
-  into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries. In a sequence or stage, only a literal or a float constant can be stateful;
-  `true` and `false` are literals. A float constant is `math.nan` or `math.inf`, with an
-  optional minus sign or `f32` or `f64` cast.
+- **Literal**: a held value (`gain := 6`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes it stateful, keeping its value across entries.
+- **Computed**: an expression that reads no channel (`start := time.now()`,
+  `gain := 2 * 3`). It runs once on each entry into its declaring scope, at the same
+  moment a literal resets, and the variable holds the result. A later `=` replaces the
+  value until the next entry. At the top level it runs once when the program starts.
+  With `$=` it runs once, on the first entry, and the value persists.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -315,17 +317,9 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, default to `f64`, and do not fit an integer type. Use them in expressions and in
-`func` bodies. On its own, with an optional minus sign or `f32` or `f64` cast, a
-constant can also be a function input value, a `$=` initializer in a sequence or stage,
-or a variable's value outside a function. Outside a function, an initializer that
-computes with a constant must also read a channel, as `scaled := raw * math.inf` does: a
-flow has no value to read for `limit := math.inf * 2.0`, so a flow that uses `limit`
-fails with
-`cannot use 'limit' in a flow: its initializer is not a compile-time constant`.
-`x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is
-always `false`, so each fails with error ARC2004: test with `math.is_nan(x)` or
-`not math.is_nan(x)`.
+`f64`, default to `f64`, and do not fit an integer type. `x != math.nan` is always
+`true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so each
+fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
 
 ```arc
 import math
@@ -421,8 +415,9 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 - Positionally by declaration order: `filter(50.0)` sets the first input;
   `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
-- Values must be literals, float constants such as `-math.inf`, or channel identifiers
-  (resolved at compile time).
+- With any expression: `trigger -> f(time.now())` passes the value computed when the
+  call fires. A channel name is not an input value; read it in an expression or pass it
+  to a `chan` input.
 
 ### Triggers
 
@@ -481,9 +476,6 @@ func counter() i64 {
     return count
 }
 ```
-
-In a function, a `$=` initializer can be any expression, such as `low f64 $= math.inf`.
-It runs on each call, but only the value from the first call is kept.
 
 ### Channel operations in functions
 

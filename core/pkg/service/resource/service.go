@@ -71,7 +71,6 @@ const (
 	// SearchQuery sets no Limit.
 	defaultSearchLimit = 100
 	maxSearchLimit     = 1000
-	maxSearchOffset    = 10000
 )
 
 // SearchQuery selects the resources that Service.Search returns.
@@ -84,8 +83,6 @@ type SearchQuery struct {
 	// Limit is the maximum number of resources to return, at most 1000. Zero returns
 	// at most 100.
 	Limit int
-	// Offset is the number of closest matches to skip, at most 10000.
-	Offset int
 	// Except, when non-nil, leaves out the resources whose IDs it returns true for.
 	// Search still fills each page with the resources that remain.
 	Except func(ID) bool
@@ -93,7 +90,7 @@ type SearchQuery struct {
 
 // Search returns the resources that match q, closest match first. For an empty term,
 // it lists the resources in order of type, then in the order of each Provider. Search
-// reads through snap. A limit or offset out of bounds, or a type with no Provider, is a
+// reads through snap. A limit out of bounds, or a type with no Provider, is a
 // validation error.
 func (s *Service) Search(
 	ctx context.Context,
@@ -103,8 +100,6 @@ func (s *Service) Search(
 	v := validate.New("resource.search")
 	v.GreaterThanEq("limit", q.Limit, 0)
 	v.LessThanEq("limit", q.Limit, maxSearchLimit)
-	v.GreaterThanEq("offset", q.Offset, 0)
-	v.LessThanEq("offset", q.Offset, maxSearchOffset)
 	for _, t := range q.Types {
 		s.validateType(v, "types", t)
 	}
@@ -126,15 +121,14 @@ func (s *Service) Search(
 		res, err := s.cfg.Providers[t].Search(ctx, snap, search.Query[ID]{
 			Term:   q.Term,
 			Except: q.Except,
-			Limit:  q.Offset + limit,
+			Limit:  limit,
 		})
 		if err != nil {
 			return nil, err
 		}
 		results = append(results, res)
 	}
-	ids := search.Merge(q.Offset+limit, results...).Keys
-	return s.retrieve(ctx, snap, ids[min(q.Offset, len(ids)):])
+	return s.retrieve(ctx, snap, search.Merge(limit, results...).Keys)
 }
 
 func (s *Service) list(
@@ -145,7 +139,7 @@ func (s *Service) list(
 ) ([]Resource, error) {
 	resources := make([]Resource, 0, limit)
 	for _, t := range s.types {
-		if len(resources) >= q.Offset+limit {
+		if len(resources) >= limit {
 			break
 		}
 		if len(q.Types) > 0 && !slices.Contains(q.Types, t) {
@@ -154,7 +148,7 @@ func (s *Service) list(
 		res, err := s.cfg.Providers[t].List(
 			ctx,
 			snap,
-			q.Offset+limit-len(resources),
+			limit-len(resources),
 			q.Except,
 		)
 		if err != nil {
@@ -162,7 +156,7 @@ func (s *Service) list(
 		}
 		resources = append(resources, res...)
 	}
-	return resources[min(q.Offset, len(resources)):], nil
+	return resources, nil
 }
 
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each

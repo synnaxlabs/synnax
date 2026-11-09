@@ -9,6 +9,7 @@
 
 export * from "@/platform/tree/children";
 export * from "@/platform/tree/CopyPropertiesContextMenuItem";
+export { createSearch } from "@/platform/tree/createSearch";
 export * from "@/platform/tree/createUseDelete";
 export * from "@/platform/tree/createUseRename";
 export * from "@/platform/tree/DefaultContextMenu";

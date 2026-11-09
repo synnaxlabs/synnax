@@ -208,12 +208,15 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 }
 
 // validateSpan returns query.ErrNotFound when the named span input is missing, and a
-// validation error when its value is not a telem.TimeSpan or, unless var-bound, is not
-// positive. The runtime guard covers the live values of var-bound inputs.
+// validation error when a compile-time value is not a positive telem.TimeSpan. A
+// var-bound input passes; the runtime guard covers its live values.
 func validateSpan(inputs types.Params, name string) error {
 	p, ok := inputs.Get(name)
 	if !ok {
 		return query.ErrNotFound
+	}
+	if p.Type.Kind == types.KindVarRef {
+		return nil
 	}
 	span, ok := p.Value.(telem.TimeSpan)
 	if !ok {
@@ -226,7 +229,7 @@ func validateSpan(inputs types.Params, name string) error {
 			p.Name,
 		)
 	}
-	if p.Type.Kind == types.KindVarRef || span > 0 {
+	if span > 0 {
 		return nil
 	}
 	return validate.PathedError(
