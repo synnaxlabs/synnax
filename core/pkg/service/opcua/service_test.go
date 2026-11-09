@@ -96,7 +96,7 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 50))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 25))
-			Expect(data["array_size"]).To(BeNumerically("==", 1))
+			Expect(data["sampling"]).To(Equal(map[string]any{"type": "unary"}))
 		})
 
 		It("Should apply write channel schema defaults to absent fields", func(

@@ -62,8 +62,7 @@ class TestOPCReadTask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
-                    "array_size": 1,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": True,
                     "channels": [
@@ -84,7 +83,7 @@ class TestOPCReadTask:
                     "device": "some-device-key",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": False,
                     "channels": [
@@ -120,8 +119,7 @@ class TestOPCReadTask:
                     "sample_rate": 10,
                     "data_saving_disabled": True,
                     "auto_start": True,
-                    "array_mode": True,
-                    "array_size": 1,
+                    "sampling": {"type": "array", "size": 1},
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
@@ -150,8 +148,7 @@ class TestOPCReadTask:
             device="some-device-key",
             sample_rate=10,
             stream_rate=5,
-            array_mode=False,
-            array_size=1,
+            sampling=sy.opcua.UnarySampling(),
             channels=[
                 sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",

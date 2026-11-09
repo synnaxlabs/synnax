@@ -106,6 +106,11 @@ var legacyReimportErrors = map[string]string{
 	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
 }
 
+// legacyReimportLossy holds the task types whose legacy rewrite drops a field the
+// current shape added, so an unversioned copy of a stored config does not round-trip.
+// OPC UA read stored array sampling as two flat fields.
+var legacyReimportLossy = set.New("opc_read")
+
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
 // variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
 // would apply to every variant of the task type. NI-DAQmx accepts one unit for each
@@ -161,6 +166,8 @@ var legacyCollapsed = map[string]string{
 	"cjc_source": "cjc",
 	"cjc_val":    "cjc",
 	"cjc_port":   "cjc",
+	"array_mode": "sampling",
+	"array_size": "sampling",
 }
 
 // legacyLifted maps a legacy config-level key to the list whose elements carry it in
@@ -659,6 +666,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
 				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
+				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
+					To(Equal(imported.Config))
+			} else if legacyReimportLossy.Contains(env.Type) {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {

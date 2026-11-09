@@ -87,8 +87,8 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, channels, sampleRate, streamRate } = value;
-    if (arrayMode) {
+    const { sampling, channels, sampleRate, streamRate } = value;
+    if (sampling.type === "array") {
       channels.forEach(({ disabled, field }, i) => {
         if (disabled || field === "") return;
         issues.push({
@@ -98,14 +98,7 @@ export const deployReadConfigZ = opcua.readConfigZ
           input: value,
         });
       });
-      if (!Number.isInteger(arraySize) || arraySize <= 0)
-        issues.push({
-          code: "custom",
-          message: "Array size must be a positive integer",
-          path: ["arraySize"],
-          input: value,
-        });
-      else if (sampleRate < arraySize)
+      if (sampleRate < sampling.size)
         issues.push({
           code: "custom",
           message: "Sample rate must be greater than or equal to the array size",

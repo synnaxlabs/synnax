@@ -60,7 +60,7 @@ describe("OPC UA Write Task Types", () => {
 describe("OPC UA Read Task Config Validation", () => {
   const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]) => ({
     device: "dev",
-    arrayMode: false,
+    sampling: { type: "unary" },
     sampleRate: 50,
     streamRate: 25,
     channels: channels.map((overrides, i) => ({
@@ -143,8 +143,7 @@ describe("OPC UA Read Task Config Validation", () => {
   it("should reject an array size larger than the sample rate", () => {
     const config = {
       ...createConfig([{}]),
-      arrayMode: true,
-      arraySize: 100,
+      sampling: { type: "array", size: 100 },
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -158,8 +157,7 @@ describe("OPC UA Read Task Config Validation", () => {
   it("should reject an enabled structure field channel in array mode", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse({
       ...createConfig([{ field: "Speed" }, { field: "Speed", disabled: true }, {}]),
-      arrayMode: true,
-      arraySize: 5,
+      sampling: { type: "array", size: 5 },
     });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toEqual([
@@ -173,16 +171,13 @@ describe("OPC UA Read Task Config Validation", () => {
   it("should reject a non-positive array size", () => {
     const config = {
       ...createConfig([{}]),
-      arrayMode: true,
-      arraySize: 0,
+      sampling: { type: "array", size: 0 },
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) =>
-        message.includes("Array size must be a positive integer"),
-      ),
-    ).toBe(true);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({ path: ["sampling", "size"] }),
+    ]);
   });
 
   it("should reject a stream rate outside of (0, 10000]", () => {
