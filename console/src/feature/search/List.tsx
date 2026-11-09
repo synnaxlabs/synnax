@@ -39,12 +39,15 @@ const ListItem = ({ items, ...props }: ListItemProps): ReactElement | null => {
   return <Item {...props} />;
 };
 
+const PAGE_SIZE = 20;
+
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
   const listItem = ({ key, ...props }: Base.ItemProps<string>) => (
     <ListItem key={key} {...props} items={items} />
   );
   const listProps = Resource.useList({
     query: { types: record.keys(items) },
+    pageSize: PAGE_SIZE,
   });
   return (
     <Palette.BaseList

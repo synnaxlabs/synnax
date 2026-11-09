@@ -12,6 +12,7 @@ package panel
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -21,21 +22,39 @@ func (CreatePayload) Handle(Panel) (Panel, error) {
 	return Panel{}, actions.CoreOnlyError("a panel create")
 }
 
-// Handle rejects a client dispatch. The Core moves a panel into a group through its
-// writer and emits this action itself.
-func (SetGroupPayload) Handle(Panel) (Panel, error) {
-	return Panel{}, actions.CoreOnlyError("a panel group change")
+// Handle applies the set to the panel's name.
+func (p SetPayload) Handle(state Panel) (Panel, error) {
+	return edit(state, patch.Set(p).Apply)
 }
 
-// Handle rejects a client dispatch. The Core moves a panel into a project through its
-// writer and emits this action itself.
-func (SetProjectPayload) Handle(Panel) (Panel, error) {
-	return Panel{}, actions.CoreOnlyError("a panel project change")
+// Handle applies the remove to the panel's name.
+func (p RemovePayload) Handle(state Panel) (Panel, error) {
+	return edit(state, patch.Remove(p).Apply)
 }
 
-// Handle replaces the panel's name.
-func (p RenamePayload) Handle(state Panel) (Panel, error) {
-	state.Name = p.Name
+// Handle applies the insert to the panel's name.
+func (p InsertPayload) Handle(state Panel) (Panel, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the panel's name.
+func (p MovePayload) Handle(state Panel) (Panel, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a panel that path actions edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// edit applies a path action to a copy of the panel's document. A document that gains a
+// member it does not declare, such as a path to the panel's group, is rejected.
+func edit(state Panel, apply func(map[string]any) error) (Panel, error) {
+	d, err := patch.Edit(document{Name: state.Name}, apply)
+	if err != nil {
+		return Panel{}, err
+	}
+	state.Name = d.Name
 	return state, nil
 }
 

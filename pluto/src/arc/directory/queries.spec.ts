@@ -81,27 +81,4 @@ describe("Arc.Directory", () => {
     });
     await expect(retrieveDirectories(d.key)).rejects.toSatisfy(NotFoundError.matches);
   });
-
-  it("should move an Arc into a directory with useMove", async () => {
-    const d = await client.arcs.directories.create({
-      parent: root.key,
-      name: uniqueName(),
-    });
-    const a = await client.arcs.create({
-      name: uniqueName(),
-      type: "automation",
-      source: { mode: "text" },
-    });
-    const destination = arc.directory.resourceID(d.key);
-    const { result } = renderHook(() => Arc.Directory.useMove(), { wrapper });
-    await act(async () => {
-      await result.current.updateAsync({
-        source: root,
-        destination,
-        ids: [arc.resourceID(a.key)],
-      });
-    });
-    const res = await client.arcs.retrieve({ key: a.key });
-    expect(res.directory).toBe(d.key);
-  });
 });

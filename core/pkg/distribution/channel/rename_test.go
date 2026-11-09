@@ -29,7 +29,7 @@ var _ = Describe("Rename", Ordered, func() {
 	})
 
 	It("Should rename the storage channel for a host key", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+		out := MustSucceed(n.CreateChannels(ctx, []channel.Channel{
 			{Name: "old-name", DataType: telem.TimestampT, IsIndex: true},
 		}))
 		key := out[0].Key()
@@ -40,7 +40,7 @@ var _ = Describe("Rename", Ordered, func() {
 		Expect(stored.Name).To(Equal("new-name"))
 	})
 	It("Should skip storage renames for a free channel", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+		out := MustSucceed(n.CreateChannels(ctx, []channel.Channel{
 			{
 				Name:        "free-rename",
 				DataType:    telem.Float32T,

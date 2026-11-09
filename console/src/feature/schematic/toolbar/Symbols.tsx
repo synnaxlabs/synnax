@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Group, Schematic } from "@synnaxlabs/pluto";
+import { Access, Flux, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { createContext, type ReactElement, use, useEffect, useState } from "react";
 import { z } from "zod";
@@ -239,14 +239,17 @@ const RemoteListEmptyContent = ({
 };
 
 const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const listData = Schematic.Symbol.useList({
+  const { data, getItem, subscribe, more, answered } = Schematic.Symbol.useList({
     query: { groups: [groupKey] },
   });
-  const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
-  useEffect(() => fetchMore(), [fetchMore]);
   const menuProps = Menu.useContextMenu();
   return (
-    <List.Frame<string, schematic.symbol.Symbol> {...listData}>
+    <List.Frame<string, schematic.symbol.Symbol>
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={more}
+    >
       <Menu.ContextMenu
         {...menuProps}
         menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
@@ -258,9 +261,7 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
           wrap
         >
           <List.Items
-            emptyContent={
-              listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
-            }
+            emptyContent={answered && <RemoteListEmptyContent groupKey={groupKey} />}
           >
             {remoteListItem}
           </List.Items>
@@ -454,11 +455,13 @@ const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
-  const remoteData = Group.useList({ query: Schematic.Symbol.GROUP_QUERY });
-  useEffect(
-    () => remoteData.retrieve(Schematic.Symbol.GROUP_QUERY),
-    [remoteData.retrieve],
-  );
+  // A tab strip cannot page, so it reads every group at once.
+  const remoteData = Flux.useList((client) => client.groups, {
+    name: "symbol groups",
+    query: Schematic.Symbol.GROUP_QUERY,
+    pageSize: 1000,
+  });
+  useEffect(() => remoteData.more(), []);
   const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
     second: remoteData,
@@ -502,9 +505,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
 const searchListItem = Component.renderProp(SearchListItem);
 
 const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement => {
-  const remote = Schematic.Symbol.useList({
-    query: { searchTerm },
-  });
+  const remote = Schematic.Symbol.useList();
   const staticData = List.useStaticData<string, Schematic.Node.Spec>({
     data: Schematic.Node.STATIC_SPECS,
   });
@@ -512,16 +513,12 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
     string,
     Schematic.Node.Spec | schematic.symbol.Symbol
   >({ first: staticData, second: remote });
-  const { retrieve: retrieveRemote } = remote;
-  const { retrieve: retrieveStatic } = staticData;
-  const { search } = List.usePager({
-    retrieve: (args) => {
-      retrieveRemote(args);
-      retrieveStatic(args);
-    },
-  });
-
-  useEffect(() => search(searchTerm), [search, searchTerm]);
+  const { search: searchRemote } = remote;
+  const { search: searchStatic } = staticData;
+  useEffect(() => {
+    searchRemote(searchTerm);
+    searchStatic(searchTerm);
+  }, [searchRemote, searchStatic, searchTerm]);
   return (
     <List.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
       data={data}

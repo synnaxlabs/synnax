@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type ListParams, useList } from "@/device/queries";
+import { type RetrieveMultipleQuery, useList } from "@/device/queries";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -69,25 +69,24 @@ export interface SelectSingleProps
       Select.SingleProps<device.Key, device.Device | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, device.Key, device.Device> {}
+    Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {}
 
 export const SelectSingle = ({
   filter,
   query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     filter,
     query,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
       resourceName="device"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Device />}

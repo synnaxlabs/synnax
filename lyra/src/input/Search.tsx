@@ -17,12 +17,14 @@ export interface SearchProps extends TextProps {}
 /**
  * A field that filters the content of a dialog. It takes focus when it mounts. Escape
  * goes on to the dialog, which closes, or first closes a dialog open inside it. A
- * {@link Text} field keeps Escape and only gives up focus.
+ * {@link Text} field keeps Escape and only gives up focus. Enter acts only on the
+ * dialog's hovered item.
  */
 export const Search = ({ onKeyDown, ...rest }: SearchProps): ReactElement => {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     onKeyDown?.(e);
-    if (e.key === "Escape") e.preventDefault();
+    // An Enter that closes the dialog must not also press the trigger it focuses.
+    if (e.key === "Escape" || e.key === "Enter") e.preventDefault();
   };
   return <Text autoFocus {...rest} onKeyDown={handleKeyDown} />;
 };

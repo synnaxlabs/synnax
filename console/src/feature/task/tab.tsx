@@ -88,7 +88,7 @@ export const TAB: Panel.Tab = {
   Name,
   Icon,
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.tasks.getCached(resource.key));
+    const corpse = query.requireCorpse(client.tasks.watch(resource.key).getCached());
     // The status goes with the instance, not the row: a restored task has
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });

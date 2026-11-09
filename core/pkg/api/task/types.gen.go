@@ -11,7 +11,51 @@
 
 package task
 
-import servicetask "github.com/synnaxlabs/synnax/pkg/service/task"
+import (
+	servicetask "github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// Cursor is a position in an order of tasks: the sort value and the key of a task.
+type Cursor struct {
+	// Key is the key of the task at the position.
+	Key servicetask.Key `json:"key" msgpack:"key"`
+	// Name is the name of the task at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that tasks can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the tasks by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of tasks.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
 
 // RetrieveRequest is a request to retrieve tasks.
 type RetrieveRequest struct {
@@ -19,12 +63,24 @@ type RetrieveRequest struct {
 	Where *servicetask.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the tasks that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the tasks. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the tasks strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most tasks to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching tasks to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the tasks a RetrieveRequest selects.

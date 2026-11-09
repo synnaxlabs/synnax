@@ -51,9 +51,30 @@ var _ = Describe("Records", func() {
 			Exec(ctx, db)).To(Succeed())
 		records := sigs.Records()
 		setSample := receiveSamples(sets)[0]
-		Expect(records[set.Key()](setSample)).To(Equal(testResource(e.Key)))
+		Expect(records[set.Key()].Of(setSample)).To(Equal(testResource(e.Key)))
 		deleteSample := receiveSamples(deletes)[0]
-		Expect(records[del.Key()](deleteSample)).To(Equal(testResource(e.Key)))
+		Expect(records[del.Key()].Of(deleteSample)).To(Equal(testResource(e.Key)))
+	})
+
+	It("Should mark only the delete channel of a table as deleted", func(
+		ctx SpecContext,
+	) {
+		setName, deleteName, actionName := nextName(), nextName(), nextName()
+		Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
+			Changes:    uuidTable.Changes,
+			Resource:   testResource[uuid.UUID],
+			SetName:    setName,
+			DeleteName: deleteName,
+		})).To(Succeed())
+		Expect(sigs.PublishActions(ctx, signals.ActionConfig[uuid.UUID, action]{
+			Name:     actionName,
+			Actions:  actions.NewState[uuid.UUID, action](db),
+			Resource: testResource[uuid.UUID],
+		})).To(Succeed())
+		records := sigs.Records()
+		Expect(records[retrieveChannel(ctx, deleteName).Key()].Deleted).To(BeTrue())
+		Expect(records[retrieveChannel(ctx, setName).Key()].Deleted).To(BeFalse())
+		Expect(records[retrieveChannel(ctx, actionName).Key()].Deleted).To(BeFalse())
 	})
 
 	It("Should find the entry of a numeric key delete sample", func(ctx SpecContext) {
@@ -64,7 +85,7 @@ var _ = Describe("Records", func() {
 			DeleteName:  deleteName,
 			SetDisabled: new(true),
 		})).To(Succeed())
-		recordOf := sigs.Records()[retrieveChannel(ctx, deleteName).Key()]
+		recordOf := sigs.Records()[retrieveChannel(ctx, deleteName).Key()].Of
 		Expect(recordOf(binary.LittleEndian.AppendUint32(nil, 42))).
 			To(Equal(testResource(uint32(42))))
 	})
@@ -77,7 +98,7 @@ var _ = Describe("Records", func() {
 			DeleteName:  deleteName,
 			SetDisabled: new(true),
 		})).To(Succeed())
-		recordOf := sigs.Records()[retrieveChannel(ctx, deleteName).Key()]
+		recordOf := sigs.Records()[retrieveChannel(ctx, deleteName).Key()].Of
 		Expect(recordOf([]byte("entry-key"))).To(Equal(testResource("entry-key")))
 	})
 
@@ -90,7 +111,7 @@ var _ = Describe("Records", func() {
 			SetName:    setName,
 			DeleteName: nextName(),
 		})).To(Succeed())
-		recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()]
+		recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()].Of
 		Expect(recordOf([]byte(`"custom"`))).To(Equal(testResource(key)))
 	})
 
@@ -110,13 +131,13 @@ var _ = Describe("Records", func() {
 		})
 
 		It("Should fail on a sample with no key", func(ctx SpecContext) {
-			recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()]
+			recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()].Of
 			Expect(recordOf([]byte(`{"name":"keyless"}`))).Error().
 				To(MatchError(ContainSubstring("sample has no key")))
 		})
 
 		It("Should fail on a sample that is not JSON", func(ctx SpecContext) {
-			recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()]
+			recordOf := sigs.Records()[retrieveChannel(ctx, setName).Key()].Of
 			Expect(recordOf([]byte("not json"))).Error().
 				To(MatchError(ContainSubstring("invalid character")))
 		})
@@ -134,7 +155,7 @@ var _ = Describe("Records", func() {
 			Key:     key,
 			Actions: []action{{Type: "rename", Payload: "next"}},
 		}))
-		recordOf := sigs.Records()[retrieveChannel(ctx, name).Key()]
+		recordOf := sigs.Records()[retrieveChannel(ctx, name).Key()].Of
 		Expect(recordOf(sample)).To(Equal(testResource(key)))
 	})
 
