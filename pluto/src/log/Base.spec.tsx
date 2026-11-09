@@ -118,6 +118,11 @@ describe("log/Base", () => {
       expect(screen.getByText("No log entries")).toBeDefined();
     });
 
+    it("should expose the log role", () => {
+      renderLog();
+      expect(screen.getByRole("log")).toBeDefined();
+    });
+
     it("should show the loading symbol only while loading", () => {
       setupAether({ empty: false, loading: true });
       const { rerender } = renderLog();
