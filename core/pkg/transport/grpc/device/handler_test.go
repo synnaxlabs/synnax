@@ -88,3 +88,50 @@ var _ = Describe("Retrieve", func() {
 		)))
 	})
 })
+
+var _ = Describe("Dispatch", func() {
+	var (
+		client   grpcdevice.DeviceDispatchServiceClient
+		received device.DispatchRequest
+	)
+
+	BeforeEach(func() {
+		client = grpcdevice.NewDeviceDispatchServiceClient(conn)
+		received = device.DispatchRequest{}
+		transport.DeviceDispatch.BindHandler(func(
+			_ context.Context,
+			req device.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+	})
+
+	It("Should decode each action from the JSON form that HTTP takes", func(
+		ctx SpecContext,
+	) {
+		MustSucceed(client.Exec(ctx, &grpcdevice.DispatchRequest{
+			Key:         "dev1",
+			DispatchKey: "dk",
+			Actions: [][]byte{[]byte(`{"type": "set", "set": {
+				"path": ["properties"],
+				"value": {"port": 2}
+			}}`)},
+		}))
+		Expect(received).To(Equal(device.DispatchRequest{
+			Key:         "dev1",
+			DispatchKey: "dk",
+			Actions: []svcdevice.Action{svcdevice.NewSetAction(svcdevice.SetPayload{
+				Path:  []string{"properties"},
+				Value: map[string]any{"port": 2.0},
+			})},
+		}))
+	})
+
+	It("Should reject an action that does not decode", func(ctx SpecContext) {
+		Expect(client.Exec(ctx, &grpcdevice.DispatchRequest{
+			Key:     "dev1",
+			Actions: [][]byte{[]byte(`{"type": 1}`)},
+		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+})

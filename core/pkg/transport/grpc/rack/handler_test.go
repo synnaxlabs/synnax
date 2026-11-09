@@ -107,3 +107,51 @@ var _ = Describe("Retrieve", func() {
 		)))
 	})
 })
+
+var _ = Describe("Dispatch", func() {
+	var (
+		client   grpcrack.RackDispatchServiceClient
+		received rack.DispatchRequest
+	)
+
+	BeforeEach(func() {
+		client = grpcrack.NewRackDispatchServiceClient(conn)
+		received = rack.DispatchRequest{}
+		transport.RackDispatch.BindHandler(func(
+			_ context.Context,
+			req rack.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+	})
+
+	It("Should decode each action from the JSON form that HTTP takes", func(
+		ctx SpecContext,
+	) {
+		MustSucceed(client.Exec(ctx, &grpcrack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: [][]byte{
+				[]byte(
+					`{"type": "set", "set": {"path": ["version"], "value": "0.50.0"}}`,
+				),
+			},
+		}))
+		Expect(received).To(Equal(rack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: []svcrack.Action{svcrack.NewSetAction(svcrack.SetPayload{
+				Path:  []string{"version"},
+				Value: "0.50.0",
+			})},
+		}))
+	})
+
+	It("Should reject an action that does not decode", func(ctx SpecContext) {
+		Expect(client.Exec(ctx, &grpcrack.DispatchRequest{
+			Key:     65537,
+			Actions: [][]byte{[]byte(`{"type": 1}`)},
+		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+})

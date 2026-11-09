@@ -37,6 +37,10 @@ service RangeSetEndService {
   rpc Exec(SetEndRequest) returns (google.protobuf.Empty) {}
 }
 
+service RangeDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty) {}
+}
+
 message DeleteRequest {
   repeated string keys = 1;
 }
@@ -63,4 +67,13 @@ message RenameRequest {
 message SetEndRequest {
   string key = 1;
   int64 end = 2;
+}
+
+// DispatchRequest applies actions to one range.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }

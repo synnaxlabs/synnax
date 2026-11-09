@@ -12,6 +12,8 @@
 package arc
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/crdt"
@@ -49,6 +51,8 @@ const (
 	ActionTypeDeleteChar = "delete_char"
 	// ActionTypeForgetChars is the Type of an Action that carries ForgetCharsPayload.
 	ActionTypeForgetChars = "forget_chars"
+	// ActionTypeSetDirectory is the Type of an Action that carries SetDirectoryPayload.
+	ActionTypeSetDirectory = "set_directory"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
 	ActionTypeSet = "set"
 	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
@@ -144,6 +148,12 @@ type ForgetCharsPayload struct {
 	IDs []crdt.ID `json:"ids" msgpack:"ids"`
 }
 
+// SetDirectoryPayload moves the Arc into the directory with the given key. The root
+// Arcs directory holds the Arcs at the top level.
+type SetDirectoryPayload struct {
+	Directory uuid.UUID `json:"directory" msgpack:"directory"`
+}
+
 // SetPayload replaces the value at a path in the graph's node inputs.
 type SetPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
@@ -191,6 +201,7 @@ type Action struct {
 	InsertChar      *InsertCharPayload      `json:"insert_char,omitzero" msgpack:"insert_char,omitempty"`
 	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitzero" msgpack:"delete_char,omitempty"`
 	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitzero" msgpack:"forget_chars,omitempty"`
+	SetDirectory    *SetDirectoryPayload    `json:"set_directory,omitzero" msgpack:"set_directory,omitempty"`
 	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
 	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
 	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
@@ -265,6 +276,11 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ForgetChars.Handle(state)
+		case ActionTypeSetDirectory:
+			if a.SetDirectory == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetDirectory.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
 				return state, union.MissingPayload(a.Type)
@@ -353,6 +369,11 @@ func NewDeleteCharAction(p DeleteCharPayload) Action {
 // NewForgetCharsAction wraps a ForgetCharsPayload in an Action envelope.
 func NewForgetCharsAction(p ForgetCharsPayload) Action {
 	return Action{Type: ActionTypeForgetChars, ForgetChars: &p}
+}
+
+// NewSetDirectoryAction wraps a SetDirectoryPayload in an Action envelope.
+func NewSetDirectoryAction(p SetDirectoryPayload) Action {
+	return Action{Type: ActionTypeSetDirectory, SetDirectory: &p}
 }
 
 // NewSetAction wraps a SetPayload in an Action envelope.

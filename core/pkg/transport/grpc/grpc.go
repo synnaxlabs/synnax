@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
@@ -155,10 +154,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// RENAME
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
-	t.RackDispatch = noop.UnaryServer[apirack.DispatchRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
-	t.DeviceDispatch = noop.UnaryServer[apidevice.DispatchRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 	t.ViewDispatch = noop.UnaryServer[view.DispatchRequest, struct{}]{}
@@ -167,7 +164,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
 
 	// RANGE
-	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
 	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 

@@ -36,11 +36,34 @@ const (
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
+	PathUserDispatch            = "/user/dispatch"
+	PathChannelDispatch         = "/channel/dispatch"
+	PathGroupDispatch           = "/group/dispatch"
+	PathRangeDispatch           = "/range/dispatch"
+	PathRangeKVDispatch         = "/range/kv/dispatch"
+	PathRangeAliasDispatch      = "/range/alias/dispatch"
+	PathProjectDispatch         = "/project/dispatch"
+	PathSchematicDispatch       = "/schematic/dispatch"
+	PathSchematicSymbolDispatch = "/schematic/symbol/dispatch"
+	PathLinePlotDispatch        = "/lineplot/dispatch"
+	PathPanelDispatch           = "/panel/dispatch"
+	PathLogDispatch             = "/log/dispatch"
+	PathTableDispatch           = "/table/dispatch"
+	PathLabelDispatch           = "/label/dispatch"
+	PathRackDispatch            = "/rack/dispatch"
+	PathTaskDispatch            = "/task/dispatch"
+	PathDeviceDispatch          = "/device/dispatch"
+	PathPolicyDispatch          = "/access/policy/dispatch"
+	PathRoleDispatch            = "/access/role/dispatch"
+	PathArcDispatch             = "/arc/dispatch"
+	PathArcDirectoryDispatch    = "/arc/directory/dispatch"
+	PathViewDispatch            = "/view/dispatch"
 )
 
 // batchRoutes returns the handler of each endpoint a batch accepts. Every handler does
-// all of its work in the transaction it receives. Channel create and delete stay out:
-// they write Cesium, outside the transaction.
+// all of its work in the transaction it receives, and runs the same checks it runs on
+// its own route. Channel create and delete stay out: they write Cesium, outside the
+// transaction.
 func (l *Layer) batchRoutes() batch.Routes {
 	return batch.Routes{
 		PathGroupCreate:             batch.Route(l.Group.Create),
@@ -65,5 +88,27 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),
+		PathUserDispatch:            batch.Route(l.User.Dispatch),
+		PathChannelDispatch:         batch.Route(l.Channel.Dispatch),
+		PathGroupDispatch:           batch.Route(l.Group.Dispatch),
+		PathRangeDispatch:           batch.Route(l.Range.Dispatch),
+		PathRangeKVDispatch:         batch.Route(l.KV.Dispatch),
+		PathRangeAliasDispatch:      batch.Route(l.Alias.Dispatch),
+		PathProjectDispatch:         batch.Route(l.Project.Dispatch),
+		PathSchematicDispatch:       batch.Route(l.Schematic.Dispatch),
+		PathSchematicSymbolDispatch: batch.Route(l.Symbol.Dispatch),
+		PathLinePlotDispatch:        batch.Route(l.LinePlot.Dispatch),
+		PathPanelDispatch:           batch.Route(l.Panel.Dispatch),
+		PathLogDispatch:             batch.Route(l.Log.Dispatch),
+		PathTableDispatch:           batch.Route(l.Table.Dispatch),
+		PathLabelDispatch:           batch.Route(l.Label.Dispatch),
+		PathRackDispatch:            batch.Route(l.Rack.Dispatch),
+		PathTaskDispatch:            batch.Route(l.Task.Dispatch),
+		PathDeviceDispatch:          batch.Route(l.Device.Dispatch),
+		PathPolicyDispatch:          batch.Route(l.Policy.Dispatch),
+		PathRoleDispatch:            batch.Route(l.Role.Dispatch),
+		PathArcDispatch:             batch.Route(l.Arc.Dispatch),
+		PathArcDirectoryDispatch:    batch.Route(l.Arc.DispatchDirectory),
+		PathViewDispatch:            batch.Route(l.View.Dispatch),
 	}
 }
