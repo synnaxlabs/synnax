@@ -91,8 +91,9 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // `@go imex body` adds an exported <Type>Ladder per type instead and deletes any
 // Export. It errors when a marked type has no version chain, when a bare marker shares
 // its package with another marked type, when body types in one package come from
-// different chains, when a version redeclares a type without its Migrate<Type> step, or
-// when a version package does not parse.
+// different chains, when a version redeclares a type without its Migrate<Type> step,
+// when an exported version's file marks no type @go imex, or when a version package
+// does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -248,7 +249,7 @@ func (p *Plugin) generatePackage(
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
 		path := versioning.VersionedPath(outputPath, k)
-		subject, err := versionSubject(ctx, req, targets, k)
+		subject, err := versionSubject(ctx, req, targets[0].livePath, k)
 		if err != nil {
 			return err
 		}
@@ -337,33 +338,30 @@ func (p *Plugin) generatePackage(
 	return nil
 }
 
-// versionSubject names the shapes version k exports, read from k's version file, so a
-// frozen package's output does not change when a later version adds or renames a type.
+// versionSubject names the @go imex shapes in version k of the chain at livePath. It
+// reads only k's version file, so a later version or a live change leaves vK unchanged.
 func versionSubject(
 	ctx context.Context,
 	req *plugin.Request,
-	targets []target,
+	livePath string,
 	k int,
 ) (string, error) {
-	var names []string
-	for _, t := range targets {
-		if !slices.Contains(t.exported, k) {
-			continue
-		}
-		surf, err := req.Versions.Surface(ctx, t.livePath, k)
-		if err != nil {
-			return "", err
-		}
-		def, ok := surf[t.typ.Name]
-		if !ok {
-			return "", errors.Newf(
-				"version %d of %s does not declare %s",
-				k, t.livePath, t.typ.QualifiedName,
-			)
-		}
-		names = append(names, naming.GetGoName(def.Type))
+	surf, err := req.Versions.Surface(ctx, livePath, k)
+	if err != nil {
+		return "", err
 	}
-	if len(names) == 1 {
+	var names []string
+	for _, def := range surf {
+		if domain.HasExprFromType(def.Type, "go", "imex") {
+			names = append(names, naming.GetGoName(def.Type))
+		}
+	}
+	switch len(names) {
+	case 0:
+		return "", errors.Newf(
+			"version %d of %s exports no @go imex type", k, livePath,
+		)
+	case 1:
 		return "the " + names[0] + " shape", nil
 	}
 	return "the shapes", nil

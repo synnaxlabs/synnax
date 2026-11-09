@@ -476,6 +476,18 @@ Symbol struct {
 			},
 		)
 
+		It(
+			"Should error when an exported version's file marks no type",
+			func(ctx SpecContext) {
+				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+					3: logChain(false),
+				})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"version 3 of schemas/synnax/log exports no @go imex type",
+				))
+			},
+		)
+
 		It("Should import the configured runtime package", func(ctx SpecContext) {
 			custom := imex.New(imex.Options{
 				FileNamePattern:    "imex.gen.go",
@@ -714,6 +726,40 @@ ReadConfig struct {
 					ExpectContent(after, v2Path).ToContain(
 						"// Version is the portable schema version of the shapes this " +
 							"package defines.",
+					)
+				},
+			)
+
+			It(
+				"Should keep a frozen version file when the live target set changes",
+				func(ctx SpecContext) {
+					const (
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+					)
+					chain := map[int]string{
+						1: configChain("\n\t@go imex body"),
+						2: "ReadConfig = v1.ReadConfig\n\nScanConfig = v1.ScanConfig\n",
+					}
+					both := MustSucceed(p.Generate(
+						configRequest(ctx, GinkgoT().TempDir(), chain),
+					))
+					readOnly := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead, chain,
+					)))
+					ExpectContent(both, v1Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+					Expect(MustContentOf(readOnly, v1Path)).To(
+						Equal(MustContentOf(both, v1Path)),
 					)
 				},
 			)
