@@ -71,12 +71,17 @@ const roles = new RoleClients(client);
 
 const GROUP_ITEMS: Tree.Items = { group: createGroupItem() };
 
+const toHit = (g: group.Group): Tree.Hit => ({
+  ...Tree.toResource("group")(g),
+  parent: g.parent ?? { type: g.scope, key: "" },
+});
+
 const useGroupMatches: Tree.UseMatches = (query) => [
   Tree.toMatches(
     Group.useResultList(
       query == null ? null : { searchTerm: query.term, limit: query.limit },
     ),
-    Tree.toResource("group"),
+    toHit,
   ),
 ];
 

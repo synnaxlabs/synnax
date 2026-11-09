@@ -79,12 +79,13 @@ export const useDragAndDrop = ({
       const dragged = selectedRef.current.filter((k) => !isMoreKey(k));
       const selectedItems = getResource(dragged).flatMap((res) => [
         Base.createHaulItem(resource.idToString(res.id)),
-        ...resolveItem(res.id.type).haulItems(res),
+        ...resolveItem(res.id.type).haulItems(res, client),
       ]);
       return startDrag(selectedItems);
     }
     const haulItems = resolveItem(resource.parseID(key).type).haulItems(
       getResource(key),
+      client,
     );
     startDrag([Base.createHaulItem(key), ...haulItems]);
   };

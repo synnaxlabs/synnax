@@ -27,6 +27,7 @@ import {
   type RetrieveMultipleQuery,
   type RetrieveQuery,
 } from "@/channel/aether/queries";
+import { resolveIcon } from "@/channel/resolveIcon";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 
@@ -123,6 +124,19 @@ export const useResultStatus: Flux.UseResult<
 export const useResultDataType = createResultSelector(
   ({ dataType }) => dataType,
   (a, b) => a.equals(b),
+);
+
+/**
+ * The icon of the channel, and whether it is internal or virtual. Compared by value: a
+ * status heartbeat is silenced.
+ */
+export const useResultKind = createResultSelector(
+  (ch) => ({
+    icon: resolveIcon(ch.payload),
+    internal: ch.internal,
+    virtual: ch.virtual,
+  }),
+  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
 );
 
 /** The stored range-scoped alias (undefined when unset) alongside the name. */

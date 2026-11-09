@@ -41,10 +41,15 @@ export interface SearchQuery {
   limit: number;
 }
 
+/** A match and the node that holds it. */
+export interface Hit extends Resource {
+  parent: resource.ID;
+}
+
 /** The matches one source found, in rank order. */
 export type Matches =
   | { variant: "loading" }
-  | { variant: "success"; resources: Resource[] }
+  | { variant: "success"; resources: Hit[] }
   | { variant: "error"; description?: string };
 
 /**
@@ -58,7 +63,7 @@ export interface UseMatches {
 /** Converts a Flux result into the matches of one source. */
 export const toMatches = <T extends state.State>(
   result: Flux.Result<T[]>,
-  convert: (item: T) => Resource,
+  convert: (item: T) => Hit,
 ): Matches => {
   if (result.variant === "success")
     return { variant: "success", resources: result.data.map(convert) };
@@ -86,7 +91,7 @@ export type PlacementResult =
 
 /** What a search places. */
 export interface PlacementQuery {
-  matches: Resource[];
+  matches: Hit[];
   root: resource.ID;
 }
 

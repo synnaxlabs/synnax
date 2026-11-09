@@ -21,7 +21,7 @@ import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const toResource = (ch: channel.Channel) => Tree.toResource("channel")(ch.payload);
+const toHit = (ch: channel.Channel) => Group.toHit("channel")(ch.payload);
 
 // Channels match by alias under the active range, as the tree shows them.
 const useChannelMatches: Tree.UseMatches = (query) => {
@@ -32,7 +32,7 @@ const useChannelMatches: Tree.UseMatches = (query) => {
       ? null
       : { searchTerm: query.term, rangeKey: activeRange?.key, limit: query.limit },
   );
-  return [...folders, Tree.toMatches(channels, toResource)];
+  return [...folders, Tree.toMatches(channels, toHit)];
 };
 
 const useSearch = Tree.createSearch({

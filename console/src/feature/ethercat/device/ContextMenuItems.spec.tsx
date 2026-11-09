@@ -73,9 +73,7 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
   const result = render(<div>{loaders}</div>, { wrapper });
   for (const k of keys) await screen.findByText(`loaded:${k}`);
-  const resources = devices.map((d) =>
-    createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
-  );
+  const resources = devices.map((d) => createDeviceResource(d));
   const props = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: resources.map((r) => r.id) }),

@@ -100,16 +100,11 @@ export const createState = (
   };
 };
 
-/** Builds a tree resource for the given id with an optional name and data payload. */
-export const createResource = (
-  id: resource.ID,
-  name: string,
-  data?: Record<string, unknown>,
-): Tree.Resource => ({
+/** Builds a tree resource for the given id and name. */
+export const createResource = (id: resource.ID, name: string): Tree.Resource => ({
   key: resource.idToString(id),
   id,
   name,
-  ...(data != null ? { data } : {}),
 });
 
 /** Lists the groups whose parent is the node. */

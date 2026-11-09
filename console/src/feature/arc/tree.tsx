@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
@@ -102,11 +103,19 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+interface TypeIconProps extends Icon.IconProps {
+  arcKey: arc.Key;
+}
+
+const TypeIcon = ({ arcKey, ...rest }: TypeIconProps): ReactElement | null => {
+  const { data: type } = Arc.useResultType({ key: arcKey });
+  if (type == null) return null;
+  const C = PlatformArc.TYPE_ICONS[type];
+  return <C {...rest} />;
+};
+
 const TreeItem = Tree.createItem({
-  icon: ({ data }) => {
-    const TypeIcon = PlatformArc.TYPE_ICONS[(data as Pick<arc.Arc, "type">).type];
-    return <TypeIcon />;
-  },
+  icon: ({ id }) => <TypeIcon arcKey={id.key} />,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
@@ -123,10 +132,6 @@ const useDeleteDirectory = Tree.createUseDelete({
   useUpdate: Arc.Directory.useDelete,
   convertKey: String,
 });
-
-// The root directory is the one directory that no directory holds.
-const isRootDirectory = ({ data }: Tree.Resource): boolean =>
-  data != null && (data as Partial<arc.directory.Directory>).parent == null;
 
 const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   const {
@@ -146,7 +151,6 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDeleteDirectory(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const isSingle = ids.length === 1;
-  const isRoot = isRootDirectory(state.getResource(firstID));
   return (
     <ContextMenu.Menu>
       {isSingle && hasCreatePermission && (
@@ -156,9 +160,7 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {isSingle && hasUpdatePermission && !isRoot && (
-        <ContextMenu.RenameItem onClick={rename} />
-      )}
+      {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
       <Menu.Divider />
       {isSingle && (
         <Link.CopyContextMenuItem
@@ -168,9 +170,7 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
         />
       )}
       <Menu.Divider />
-      {hasDeletePermission && !isRoot && (
-        <ContextMenu.DeleteItem onClick={handleDelete} />
-      )}
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>

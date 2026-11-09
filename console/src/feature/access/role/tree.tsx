@@ -27,25 +27,29 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) =>
+  await c.access.roles.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
-    state,
   } = props;
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = Tree.useResources(state, ids);
-  const hasInternal = resources.some((r) => r.data?.internal === true);
+  const roles = Access.Role.useMultiple({ keys: ids.map(({ key }) => key) });
+  const hasInternal = roles.some((r) => r.internal === true);
   return (
     <ContextMenu.Menu>
       {singleResource && hasUpdatePermission && !hasInternal && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       <Menu.Divider />
-      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      {singleResource && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && !hasInternal && (
         <ContextMenu.DeleteItem onClick={handleDelete} />

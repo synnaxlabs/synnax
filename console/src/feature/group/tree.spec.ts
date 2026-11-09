@@ -72,7 +72,7 @@ const createChannel = async (g: group.Key) =>
   });
 
 const groupResource = (g: group.Group) =>
-  createResource(group.resourceID(g.key), g.name, { ...g });
+  createResource(group.resourceID(g.key), g.name);
 
 const nodeKey = (g: group.Group) => resource.idToString(group.resourceID(g.key));
 
@@ -93,7 +93,7 @@ describe("group tree item", () => {
     expect(canDrop(`group:${uuid.create()}`)).toBe(true);
     expect(canDrop("channel:1")).toBe(true);
     expect(canDrop("device:d1")).toBe(false);
-    expect(Item.haulItems(res)).toEqual([res.id]);
+    expect(Item.haulItems(res, client)).toEqual([res.id]);
   });
 
   it("should refuse a rack into a group under a rack", () => {
