@@ -123,5 +123,18 @@ describe("status slice", () => {
       const state = Status.sliceStateZ.parse({ version: 0, favorites: [key] });
       expect(state.favorites).toEqual([key]);
     });
+
+    it("should save loaded state as version 1", () => {
+      const state = Status.sliceStateZ.parse({ version: 0, favorites: ["rack:1"] });
+      expect(state.version).toBe(1);
+    });
+
+    it("should keep every favorite of version 1 state", () => {
+      const state = Status.sliceStateZ.parse({
+        version: 1,
+        favorites: ["device:pump-1"],
+      });
+      expect(state.favorites).toEqual(["device:pump-1"]);
+    });
   });
 });

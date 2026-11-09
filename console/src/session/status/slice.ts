@@ -25,13 +25,16 @@ const migrateKey = (key: status.Key): status.Key => {
   return uuid.fromName(key, MOVED_NAMESPACE);
 };
 
-export const sliceStateZ = z.object({
-  version: z.literal(0).default(0),
-  favorites: status.keyZ
-    .array()
-    .default([])
-    .transform((keys) => keys.map(migrateKey)),
-});
+// Version 0 state was saved before the move, so only its keys are mapped.
+export const sliceStateZ = z
+  .object({
+    version: z.literal([0, 1]).default(0),
+    favorites: status.keyZ.array().default([]),
+  })
+  .transform(({ version, favorites }) => ({
+    version: 1 as const,
+    favorites: version === 0 ? favorites.map(migrateKey) : favorites,
+  }));
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
