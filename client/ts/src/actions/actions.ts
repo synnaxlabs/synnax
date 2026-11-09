@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch, type record } from "@synnaxlabs/x";
+import { caseconv, deep, patch, type record } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -92,6 +92,24 @@ export const applyEntryPath = <S extends object>(
   if (inverse.length === 0) return NO_OP_RESULT;
   return { inverse, targets: [path[root.length]] };
 };
+
+/**
+ * Lists a set of each field that differs between base and next. Each set holds the
+ * whole field, with its path and value in the snake_case form that the Core stores.
+ * @param schema - The schema of base and next, which names the keys that keep their
+ * case.
+ */
+export const diffFields = <F extends string>(
+  schema: z.ZodType,
+  base: Partial<Record<F, unknown>>,
+  next: Partial<Record<F, unknown>>,
+  fields: F[],
+): Array<{ type: "set"; set: patch.Set }> =>
+  fields.flatMap((field) => {
+    if (deep.equal(base[field], next[field])) return [];
+    const { path, convert } = caseconv.camelToSnakePath([field], { schema });
+    return [{ type: "set", set: { path, value: convert(next[field]), guards: [] } }];
+  });
 
 /**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
