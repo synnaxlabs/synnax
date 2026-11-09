@@ -25,6 +25,8 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
     baseInterval: TimeSpan.seconds(1),
     scale: 1.5,
   },
+  // An exhausted budget still throws, so a retry that succeeds is not a failure.
+  onRetry: () => {},
 };
 
 // A hook registered mid-test is silently dropped by vitest, so per-client afterAll
@@ -101,6 +103,29 @@ export const recordResponses = (
     return await res;
   });
   return responses;
+};
+
+/**
+ * Holds each request to target until release is called, so the Core does not get it.
+ * Call it inside a test: the hold ends when that test finishes.
+ */
+export const holdRequests = (
+  client: Synnax,
+  target: string,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const released = Promise.withResolvers<void>();
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) await released.promise;
+    return await send(...args);
+  });
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
+  return { release: () => released.resolve() };
 };
 
 /**

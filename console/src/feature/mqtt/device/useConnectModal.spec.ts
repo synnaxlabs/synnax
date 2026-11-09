@@ -63,7 +63,7 @@ describe("MQTT.Device.useConnectModal", () => {
   it("should show the default port and keep alive as placeholders", async () => {
     await renderConnectModal();
     expect(screen.getByPlaceholderText<HTMLInputElement>("1883").value).toBe("");
-    expect(screen.getByPlaceholderText<HTMLInputElement>("30").value).toBe("");
+    expect(screen.getByPlaceholderText<HTMLInputElement>("30s").value).toBe("");
   });
 
   it("should reveal the certificate fields and the TLS port when TLS is on", async () => {
@@ -128,10 +128,10 @@ describe("MQTT.Device.useConnectModal", () => {
     fireEvent.change(port, { target: { value: "70000" } });
     fireEvent.blur(port);
     await waitFor(() => expect(port.value).toBe("70000"));
-    const keepAlive = screen.getByPlaceholderText<HTMLInputElement>("30");
+    const keepAlive = screen.getByPlaceholderText<HTMLInputElement>("30s");
     fireEvent.change(keepAlive, { target: { value: "0" } });
     fireEvent.blur(keepAlive);
-    await waitFor(() => expect(keepAlive.value).toBe("0"));
+    await waitFor(() => expect(keepAlive.value).toBe("0s"));
     pressSaveTrigger();
     expect(await screen.findByText("Port must be 1 to 65535")).toBeTruthy();
     expect(screen.getByText("Keep alive must be 1 to 65535")).toBeTruthy();
@@ -147,6 +147,19 @@ describe("MQTT.Device.useConnectModal", () => {
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
+  it("should mark the device it connected as connected", async () => {
+    const { result, rack } = await renderConnectModal();
+    const scanner = await openScanner(client, rack.key);
+    fillHost();
+    pressSaveTrigger();
+    await scanner.answer({});
+    scanner.close();
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
   });
 
   it("should report a device it connected and leave an empty port unset", async () => {
@@ -174,14 +187,17 @@ describe("MQTT.Device.useConnectModal", () => {
     const { rack } = await renderConnectModal();
     const scanner = await openScanner(client, rack.key);
     fillHost();
-    for (const placeholder of ["1883", "30"]) {
+    for (const [placeholder, shown] of [
+      ["1883", "42"],
+      ["30s", "42s"],
+    ]) {
       const input = screen.getByPlaceholderText(placeholder);
       fireEvent.change(input, { target: { value: "42" } });
       fireEvent.blur(input);
-      await screen.findByDisplayValue("42");
+      await screen.findByDisplayValue(shown);
       fireEvent.change(input, { target: { value: "" } });
       fireEvent.blur(input);
-      await waitFor(() => expect(screen.queryByDisplayValue("42")).toBeNull());
+      await waitFor(() => expect(screen.queryByDisplayValue(shown)).toBeNull());
     }
     pressSaveTrigger();
     const cmd = await scanner.answer({});
@@ -234,6 +250,7 @@ describe("MQTT.Device.useConnectModal", () => {
     await renderEditModal(dev.key);
     await screen.findByDisplayValue(dev.name);
     pressSaveTrigger();
-    expect(await screen.findByText(/not found/i)).toBeTruthy();
+    const missing = `Found no task where rack = ${rack.key} and type = "mqtt_scan"`;
+    expect(await screen.findByText(new RegExp(missing))).toBeTruthy();
   });
 });

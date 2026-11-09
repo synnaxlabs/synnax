@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type destructor } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { context } from "@/context";
@@ -27,6 +28,10 @@ export interface ContextValue extends Pick<
   unregister: (key: string) => void;
   /** get resolves the element registered under key, if any. */
   get: (key: string) => HTMLElement | undefined;
+  /** notifyHosted tells the content under key that an Out attached or released it. */
+  notifyHosted: (key: string) => void;
+  /** subscribeHosted calls listener each time notifyHosted runs for key. */
+  subscribeHosted: (listener: () => void, key: string) => destructor.Destructor;
 }
 
 const [Base, useContext] = context.create<ContextValue>({
@@ -44,6 +49,7 @@ export interface ContextProps extends PropsWithChildren {}
  */
 export const Context = ({ children }: ContextProps): ReactElement => {
   const { notifyListeners, subscribe } = Store.useKeyedListeners<string>();
+  const hosted = Store.useKeyedListeners<string>();
   const nodesRef = useInitializerRef(() => new Map<string, HTMLElement>());
   const registry: ContextValue = {
     register: (key, el) => {
@@ -56,6 +62,8 @@ export const Context = ({ children }: ContextProps): ReactElement => {
     },
     get: (key) => nodesRef.current.get(key),
     subscribe,
+    notifyHosted: hosted.notifyListeners,
+    subscribeHosted: hosted.subscribe,
   };
   return <Base value={registry}>{children}</Base>;
 };

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <future>
 #include <thread>
 
@@ -177,5 +178,48 @@ TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
     control.stop();
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
     ASSERT_EQ(sink->opens.load(), 0);
+}
+
+namespace {
+/// @brief answers each open with the next scripted error.
+class ScriptedStreamerFactory final : public StreamerFactory {
+    std::vector<x::errors::Error> errors;
+
+public:
+    std::atomic<size_t> opens{0};
+
+    explicit ScriptedStreamerFactory(std::vector<x::errors::Error> errors):
+        errors(std::move(errors)) {}
+
+    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {nullptr, this->errors.at(this->opens.fetch_add(1))};
+    }
+};
+}
+
+/// @brief it should open the streamer again while the Core is unreachable, and stop on
+/// another error.
+TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
+    const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 5,
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 }

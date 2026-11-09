@@ -60,6 +60,22 @@ describe("Input.Numeric", () => {
       ]);
     });
 
+    it("should reset the value on a double click", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={2} onChange={onChange} resetValue={0} />);
+      fireEvent.doubleClick(dragButtonOf(c));
+      expect(onChange).toHaveBeenCalledWith(0);
+    });
+
+    it("should not reset the value on a double click while disabled", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={2} onChange={onChange} resetValue={0} disabled />,
+      );
+      fireEvent.doubleClick(dragButtonOf(c));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     describe("onlyChangeOnBlur", () => {
       it("should not emit while the drag is in progress", () => {
         const onChange = vi.fn();

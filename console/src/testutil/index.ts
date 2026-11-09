@@ -16,5 +16,6 @@ export * from "@/testutil/filePicker";
 export * from "@/testutil/fsAccess";
 export * from "@/testutil/kv";
 export * from "@/testutil/location";
+export * from "@/testutil/store";
 export * from "@/testutil/Synnax";
 export * from "@/testutil/testutil";

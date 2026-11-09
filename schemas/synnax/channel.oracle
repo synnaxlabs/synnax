@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
+import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/channel"
@@ -23,8 +26,8 @@ Key uint32 {
         key (first 12 bits) and a local key (last 20 bits), enabling distributed
         assignment while maintaining global uniqueness.
     """
-    @go hand
     @go output    "core/pkg/service/channel"
+    @key
     @ts to_number
 }
 
@@ -35,7 +38,6 @@ LocalKey uint20 {
         channel key within a node. Combined with a node.Key to form the global channel
         Key.
     """
-    @go hand
     @go output "core/pkg/service/channel"
     @py omit
 }
@@ -51,11 +53,21 @@ Name = string {
 }
 
 OperationType enum {
-    min        = "min"
-    max        = "max"
-    avg        = "avg"
-    none       = "none"
-    derivative = "derivative"
+    min        = "min" {
+        @doc value "keeps the lowest sample since the last reset."
+    }
+    max        = "max" {
+        @doc value "keeps the highest sample since the last reset."
+    }
+    avg        = "avg" {
+        @doc value "keeps the mean of the samples since the last reset."
+    }
+    none       = "none" {
+        @doc value "applies no aggregation."
+    }
+    derivative = "derivative" {
+        @doc value "computes the rate of change of the samples."
+    }
 
     @doc value """
         is the type of aggregation operation to apply to channel data over time.
@@ -96,7 +108,7 @@ Operation struct {
 Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
-        @index lookup
+        @index sorted
         @search
     }
     leaseholder node.Key            {
@@ -104,11 +116,9 @@ Channel struct {
             is the node that holds the lease for this channel and is authorized to
             accept writes.
         """
-        @filter
     }
     data_type   telem.DataType      {
         @doc value "is the data type of samples stored in this channel."
-        @filter
     }
     is_index    bool                {
         @doc value """
@@ -116,14 +126,12 @@ Channel struct {
             values (TIMESTAMP data type) written in ascending order, and are most
             commonly Unix nanosecond timestamps.
         """
-        @filter
     }
     local_key   LocalKey            {
         @doc value "is the locally-unique portion of this channel's key."
     }
     local_index LocalKey            {
-        @doc value    "is the locally-unique portion of the index channel's key."
-        @index lookup
+        @doc value "is the locally-unique portion of the index channel's key."
     }
     virtual     bool                {
         @doc value """
@@ -141,7 +149,6 @@ Channel struct {
         @doc value """
             is true if this is a system channel hidden from normal user queries.
         """
-        @filter
     }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
@@ -150,6 +157,48 @@ Channel struct {
         @doc value """
             is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
+        """
+    }
+    group       group.Key?          {
+        @doc value     "is the group the channel sits in, if any."
+        @group scope   channel
+        @ref kind      place
+        @ref on_delete detach
+    }
+
+    action Create {
+        channel Channel
+
+        @doc value """
+            replaces the channel with the given created state. Emitted by the Core when
+            a channel is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the channel."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the channel.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the channel."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the channel."
+    }
+
+    action Rename {
+        name Name
+
+        @doc value """
+            renames the channel. The Core also renames the channel's storage when the
+            transaction commits.
         """
     }
 
@@ -162,9 +211,9 @@ Channel struct {
     @go marshal
     @go migrate
     @go output     "core/pkg/service/channel"
-    @ontology type "channel"
     @pb
     @py hand
+    @resource type "channel"
     @retrieve
     @retrieve key  "Key"
     @ts hand
@@ -246,6 +295,11 @@ APIChannel struct {
     }
     status      Status?             {
         @doc value "is the current operational status of the channel."
+        @include
+    }
+    group       group.Key?          {
+        @cpp omit
+        @doc value "is the group the channel sits in, if any."
     }
 
     @cpp name      "Channel"
@@ -257,8 +311,36 @@ APIChannel struct {
     """
     @go name       "Channel"
     @go output     "core/pkg/api/channel"
-    @ontology type "channel"
     @pb name       "Channel"
     @py name       "Payload"
+    @resource type "channel"
     @ts name       "Payload"
+}
+
+Where filter Channel {
+    key
+    name
+    leaseholder
+    data_type
+    is_index
+    internal
+    virtual     bool        {
+        @doc value """
+            matches virtual channels that are not calculated, or every other channel
+            when false.
+        """
+    }
+    groups      group.Key[] {
+        @cpp omit
+        @doc value "matches the channels in any of the given groups."
+    }
+    grouped     bool        {
+        @cpp omit
+        @doc value "matches the channels in a group, or in no group when false."
+    }
+
+    @doc value         "is a filter that selects channels."
+    @go output         "core/pkg/service/channel"
+    @go request_output "core/pkg/api/channel"
+    @response type     APIChannel
 }

@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
@@ -84,6 +85,7 @@ func mockConfig(logger *alamos.Logger) driver.Config {
 		ParentDirname:   GinkgoT().TempDir(),
 		BinaryDirname:   GinkgoT().TempDir(),
 		Keys:            keys,
+		DB:              db,
 		RackKey:         rackKey,
 	}
 }
@@ -139,6 +141,7 @@ var _ = Describe("Open", func() {
 					Insecure:        new(true),
 					Address:         "localhost:9090",
 					Keys:            keys,
+					DB:              db,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -185,6 +188,7 @@ var _ = Describe("Open", func() {
 					Insecure:        new(true),
 					Address:         "localhost:9090",
 					Keys:            keys,
+					DB:              db,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -227,6 +231,7 @@ var _ = Describe("Open", func() {
 					Insecure:        new(true),
 					Address:         "localhost:9090",
 					Keys:            keys,
+					DB:              db,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -248,6 +253,7 @@ var _ = Describe("Open", func() {
 					Insecure:            new(true),
 					Address:             "localhost:9090",
 					Keys:                keys,
+					DB:                  db,
 					RackKey:             rackKey,
 					ParentDirname:       GinkgoT().TempDir(),
 					BinaryDirname:       GinkgoT().TempDir(),
@@ -268,6 +274,7 @@ var _ = Describe("Open", func() {
 					Insecure:        new(true),
 					Address:         "localhost:9090",
 					Keys:            keys,
+					DB:              db,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -303,17 +310,8 @@ var _ = Describe("Open", func() {
 			"Should fail to start when the binary is missing from the filesystem",
 			func(ctx SpecContext) {
 				logger, _ := newTestLogger()
-				Expect(driver.Open(ctx, driver.Config{
-					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-					FS:              fstest.MapFS{},
-					Insecure:        new(true),
-					Address:         "localhost:9090",
-					Keys:            keys,
-					RackKey:         rackKey,
-					ParentDirname:   GinkgoT().TempDir(),
-					BinaryDirname:   GinkgoT().TempDir(),
-					StartTimeout:    200 * time.Millisecond,
-					StopTimeout:     200 * time.Millisecond,
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					FS: fstest.MapFS{},
 				})).Error().To(MatchError(fs.ErrNotExist))
 			},
 		)
@@ -324,17 +322,8 @@ var _ = Describe("Open", func() {
 				logger, _ := newTestLogger()
 				blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
 				Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
-				Expect(driver.Open(ctx, driver.Config{
-					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-					FS:              mockFS,
-					Insecure:        new(true),
-					Address:         "localhost:9090",
-					Keys:            keys,
-					RackKey:         rackKey,
-					ParentDirname:   GinkgoT().TempDir(),
-					BinaryDirname:   filepath.Join(blocker, "sub"),
-					StartTimeout:    200 * time.Millisecond,
-					StopTimeout:     200 * time.Millisecond,
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					BinaryDirname: filepath.Join(blocker, "sub"),
 				})).Error().To(MatchError(syscall.ENOTDIR))
 			},
 		)
@@ -345,17 +334,8 @@ var _ = Describe("Open", func() {
 				logger, _ := newTestLogger()
 				blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
 				Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
-				Expect(driver.Open(ctx, driver.Config{
-					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-					FS:              mockFS,
-					Insecure:        new(true),
-					Address:         "localhost:9090",
-					Keys:            keys,
-					RackKey:         rackKey,
-					ParentDirname:   filepath.Join(blocker, "sub"),
-					BinaryDirname:   GinkgoT().TempDir(),
-					StartTimeout:    200 * time.Millisecond,
-					StopTimeout:     200 * time.Millisecond,
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					ParentDirname: filepath.Join(blocker, "sub"),
 				})).Error().To(MatchError(syscall.ENOTDIR))
 			},
 		)
@@ -401,7 +381,7 @@ var _ = Describe("Open", func() {
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
 			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
-				To(Equal(rackKey.OntologyID()))
+				To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
@@ -428,11 +408,13 @@ var _ = Describe("Open", func() {
 			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
 			first := readSavedKey(keyDir)
 			id := authenticate(ctx, first)
-			Expect(keys.NewWriter(nil).Delete(ctx, id.Credential)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return keys.NewWriter(tx).Delete(ctx, id.Credential)
+			})).To(Succeed())
 			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
 			second := readSavedKey(keyDir)
 			Expect(second).ToNot(Equal(first))
-			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.OntologyID()))
+			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should delete the API key it could not save", func(ctx SpecContext) {
@@ -443,8 +425,8 @@ var _ = Describe("Open", func() {
 			count := func() int {
 				GinkgoHelper()
 				return MustSucceed(keys.NewRetrieve().
-					Where(apikey.MatchSubjects(rackKey.OntologyID())).
-					Count(ctx, nil))
+					Where(apikey.MatchSubjects(rackKey.ResourceID())).
+					Count(ctx, db))
 			}
 			before := count()
 			Expect(driver.Open(ctx, driver.Config{
@@ -456,6 +438,7 @@ var _ = Describe("Open", func() {
 				BinaryDirname:   GinkgoT().TempDir(),
 				KeyDirname:      keyDir,
 				Keys:            keys,
+				DB:              db,
 				RackKey:         rackKey,
 			})).Error().To(MatchError(syscall.EISDIR))
 			Expect(count()).To(Equal(before))
@@ -664,6 +647,7 @@ var _ = Describe("restart", func() {
 			Insecure:        new(true),
 			Address:         "localhost:9090",
 			Keys:            keys,
+			DB:              db,
 			RackKey:         rackKey,
 			ParentDirname:   GinkgoT().TempDir(),
 			BinaryDirname:   GinkgoT().TempDir(),

@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -21,7 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -47,6 +49,10 @@ const (
 
 // ServiceConfig is the configuration for the framer API service.
 type ServiceConfig struct {
+	// DB opens the snapshots that access checks and channel lookups read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -63,12 +69,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Records maps each channel whose samples carry a record that only some subjects
-	// can read to the function that finds the record. A streamer sends such a sample
-	// only to a subject that can retrieve its record.
+	// Records maps each channel whose samples describe records to the Record that finds
+	// the record of a sample. A streamer sends such a sample only to a subject that can
+	// retrieve its record.
 	//
 	// [OPTIONAL]
-	Records map[channel.Key]RecordOf
+	Records map[channel.Key]signals.Record
 }
 
 var (
@@ -79,6 +85,7 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -90,6 +97,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.framer")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("rbac", c.RBAC)
@@ -97,10 +105,11 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
-	records  map[channel.Key]RecordOf
+	records  map[channel.Key]signals.Record
 	alamos.Instrumentation
 }
 
@@ -110,6 +119,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Framer,
 		channel:         cfg.Channel,
@@ -153,7 +163,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: framer.OntologyIDs(keys),
+		Objects: framer.ResourceIDs(keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -170,6 +180,15 @@ type ReadRequest struct {
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
+	// Latest reads only the newest Latest samples of each channel in Bounds, when it is
+	// above 0. A CSV or TDMS read takes the newest Latest rows of each index instead. A
+	// read cannot combine it with Earliest or Reduction.
+	Latest uint32 `json:"latest" msgpack:"latest"`
+	// Earliest reads only the oldest Earliest samples of each channel in Bounds, when
+	// it
+	// is above 0. A CSV or TDMS read takes the oldest Earliest rows of each index
+	// instead. A read cannot combine it with Latest or Reduction.
+	Earliest uint32 `json:"earliest" msgpack:"earliest"`
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It is
@@ -181,66 +200,114 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
+	// Bounds is the request's time range.
+	Bounds telem.TimeRange
 	// Reduction is the request's reduction.
 	Reduction telem.Reduction
-	// OpenIterator opens an iterator over keys within the read's bounds and under its
+	// Latest is the request's count of newest samples, or 0 to not limit the read to
+	// them.
+	Latest uint32
+	// Earliest is the request's count of oldest samples, or 0 to not limit the read to
+	// them.
+	Earliest uint32
+	// OpenIterator opens an iterator over keys within bounds and under the read's
 	// reduction. The caller must close it.
-	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
+	OpenIterator func(
+		ctx context.Context,
+		keys channel.Keys,
+		bounds telem.TimeRange,
+	) (*framer.Iterator, error)
 }
 
 // Read checks that the caller may read the channels in req, along with their index
 // channels when req sets TimestampsIncluded, and returns the response an encoder
 // reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
-	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
-		return ReadResponse{}, err
+	if req.Latest > 0 && req.Earliest > 0 {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take both latest and earliest",
+		)
 	}
-	var channels []channel.Channel
-	if err := s.channel.NewRetrieve().
-		Entries(&channels).
-		Where(channel.MatchKeys(req.Keys...)).
-		Exec(ctx, nil); err != nil {
-		return ReadResponse{}, err
+	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
+		return ReadResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest with a reduction",
+		)
 	}
-	var indexes []channel.Channel
-	if req.TimestampsIncluded {
-		var err error
-		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
-			return ReadResponse{}, err
+	subject := auth.GetSubject(ctx)
+	var channels, indexes []channel.Channel
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
+			return err
 		}
-	}
-	indexKeys := channel.KeysFromChannels(indexes)
-	// An encoder writes every index it receives, so an index the caller never named
-	// still needs its own check.
-	if len(indexKeys) > 0 {
-		if err := s.enforceRetrieve(ctx, indexKeys); err != nil {
-			return ReadResponse{}, err
+		if err = s.channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(req.Keys...)).
+			Exec(ctx, snap); err != nil {
+			return err
 		}
+		if !req.TimestampsIncluded {
+			return nil
+		}
+		if indexes, err = s.retrieveMissingIndexes(ctx, snap, channels); err != nil {
+			return err
+		}
+		// An encoder writes every index it receives, so an index the caller never named
+		// still needs its own check.
+		if indexKeys := channel.KeysFromChannels(indexes); len(indexKeys) > 0 {
+			return s.enforceRetrieve(ctx, snap, subject, indexKeys)
+		}
+		return nil
+	}); err != nil {
+		return ReadResponse{}, err
 	}
 	return ReadResponse{
 		Channels:  channels,
 		Indexes:   indexes,
+		Bounds:    req.Bounds,
 		Reduction: req.Reduction,
+		Latest:    req.Latest,
+		Earliest:  req.Earliest,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
+			bounds telem.TimeRange,
 		) (*framer.Iterator, error) {
 			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:      keys,
-				Bounds:    req.Bounds,
+				Bounds:    bounds,
 				Reduction: req.Reduction,
+				ChunkSize: int64(max(req.Latest, req.Earliest)),
 			})
 		},
 	}, nil
 }
 
-// enforceRetrieve reports whether the request's subject may retrieve every given
-// channel.
-func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error {
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+// enforceRetrieve reports whether subject may retrieve every given channel and every
+// channel the calculated ones among them read. It reads through snap.
+func (s *Service) enforceRetrieve(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	subject resource.ID,
+	keys channel.Keys,
+) error {
+	var calculated []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Where(channel.MatchCalculated()).
+		Entries(&calculated).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	inputs, err := s.channel.CalculationInputs(ctx, snap, calculated)
+	if err != nil {
+		return err
+	}
+	return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(keys),
+		Objects: framer.ResourceIDs(append(slices.Clone(keys), inputs...)),
 	})
 }
 
@@ -248,6 +315,7 @@ func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error 
 // are indexed by that is not already among them.
 func (s *Service) retrieveMissingIndexes(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	channels []channel.Channel,
 ) ([]channel.Channel, error) {
 	present := set.New(channel.KeysFromChannels(channels)...)
@@ -264,7 +332,7 @@ func (s *Service) retrieveMissingIndexes(
 	err := s.channel.NewRetrieve().
 		Entries(&indexes).
 		Where(channel.MatchKeys(missing.Unique()...)).
-		Exec(ctx, nil)
+		Exec(ctx, snap)
 	return indexes, err
 }
 
@@ -352,10 +420,8 @@ func (s *Service) openIterator(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.enforceRetrieve(ctx, snap, auth.GetSubject(ctx), req.Keys)
 	}); err != nil {
 		return nil, err
 	}
@@ -372,7 +438,7 @@ func (s *Service) openIterator(
 		Variant: framer.IteratorResponseVariantAck,
 		Ack:     true,
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(iter))
 	}
 	return iter, nil
 }
@@ -398,16 +464,28 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	if err != nil {
 		return err
 	}
+	records, err := s.newRecordSender(sCtx, subject, stream)
+	if err != nil {
+		return err
+	}
 	var (
-		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
-		sender   = &freightfluence.Sender[StreamerResponse]{
+		receiver = &freightfluence.TransformReceiver[StreamerRequest, StreamerRequest]{
+			Receiver: stream,
+			Transform: func(
+				ctx context.Context,
+				req StreamerRequest,
+			) (StreamerRequest, bool, error) {
+				return req, true, s.db.WithSnapshot(
+					ctx,
+					func(snap gorp.Snapshot) error {
+						return s.enforceRetrieve(ctx, snap, subject, req.Keys)
+					},
+				)
+			},
+		}
+		sender = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
-				StreamSender: recordSender{
-					StreamSender: stream,
-					ctx:          sCtx,
-					subject:      subject,
-					service:      s,
-				},
+				StreamSender: records,
 			},
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
@@ -436,17 +514,15 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 
 func (s *Service) openStreamer(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	stream StreamerStream,
 ) (framer.Streamer, StreamerRequest, error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, req, err
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.enforceRetrieve(ctx, snap, subject, req.Keys)
 	}); err != nil {
 		return nil, req, err
 	}
@@ -510,10 +586,10 @@ type WriterConfig struct {
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndex causes the server to generate timestamps for any index channel in the
 	// writer's Keys that is not provided in a given Write frame. The first sample in
-	// each Write call is stamped with the gateway Core's current time, and the
-	// remaining N-1 samples are spaced 1ns apart. A per-writer high-water mark
-	// guarantees the generated timestamps are strictly monotonic across Write calls and
-	// across user-provided timestamps for other index channels in the writer.
+	// each Write call is stamped with the Core's current time, and the remaining N-1
+	// samples are spaced 1ns apart. A per-writer high-water mark guarantees the
+	// generated timestamps are strictly monotonic across Write calls and across
+	// user-provided timestamps for other index channels in the writer.
 	AutoIndex bool `json:"auto_index" msgpack:"auto_index"`
 }
 
@@ -538,12 +614,11 @@ const (
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high-level API for writing segmented telemetry to a Synnax cluster.
-// The client is expected to send an initial request containing the keys of the channels
-// to write to. The server will acquire an exclusive lock on these channels. If the
-// channels are already locked, Write will return with an error. After sending the
-// initial request, the client is free to send segments. The server will route the
-// segments to the appropriate nodes in the cluster, persisting them to disk.
+// Write exposes a high-level API for writing segmented telemetry to a Core. The client
+// is expected to send an initial request containing the keys of the channels to write
+// to. The server will acquire an exclusive lock on these channels. If the channels are
+// already locked, Write will return with an error. After sending the initial request,
+// the client is free to send segments. The server will persist the segments to disk.
 //
 // If the client cancels the provided context, the server will immediately abort all
 // pending writes, release the locks, and return errors.Canceled.
@@ -634,7 +709,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 
 func (s *Service) openWriter(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	stream WriterStream,
 ) (framer.StreamWriter, error) {
 	req, err := stream.Receive()
@@ -642,10 +717,12 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: framer.OntologyIDs(req.Config.Keys),
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionCreate,
+			Objects: framer.ResourceIDs(req.Config.Keys),
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -675,7 +752,18 @@ func (s *Service) openWriter(
 		Command: framer.WriterCommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(w))
 	}
 	return w, nil
+}
+
+// release frees what an opened segment owns when the segment will never join a
+// pipeline. Its routines run on a canceled context only to release it.
+func release[I, O confluence.Value](seg confluence.Segment[I, O]) error {
+	sCtx, cancel := signal.Isolated()
+	seg.InFrom(confluence.NewStream[I]())
+	seg.OutTo(confluence.NewStream[O]())
+	cancel()
+	seg.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return errors.Skip(sCtx.Wait(), context.Canceled)
 }

@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep, record } from "@synnaxlabs/x";
+import { type deep, record, TimeSpan } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
@@ -162,14 +162,17 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   },
 });
 
-const MeasTimeField = Form.buildNumericField({
-  fieldProps: { label: "Measurement time (s)" },
-  inputProps: {},
-});
+const MeasTimeField = ({ path }: { path: deep.Target<number> }) => (
+  <Form.TimeSpanField path={path} label="Measurement time" unit={TimeSpan.SECOND} />
+);
+
+const COUNT_INPUT_PROPS = { bounds: { lower: 1, upper: Infinity } } as const;
+
+const INITIAL_COUNT_INPUT_PROPS = { bounds: { lower: 0, upper: Infinity } } as const;
 
 const DivisorField = Form.buildNumericField({
   fieldProps: { label: "Divisor" },
-  inputProps: {},
+  inputProps: COUNT_INPUT_PROPS,
 });
 
 // A device with no port list offers PFI0 to PFI15.
@@ -307,7 +310,7 @@ const DistPerPulseField = Form.buildNumericField({
 
 const PulsesPerRevField = Form.buildNumericField({
   fieldProps: { label: "Pulses / rev" },
-  inputProps: {},
+  inputProps: COUNT_INPUT_PROPS,
 });
 
 const ZIndexEnabledField: FC<{ path: deep.Target<boolean> }> = ({ path }) => (
@@ -470,7 +473,11 @@ const CHANNEL_FORMS: { [K in CIChannelType]: FC<FormProps<K>> } = {
       <ActiveEdgeField path={path.activeEdge} />
       <CountDirectionField path={path.countDirection} />
       <InputTerminalField path={path} />
-      <Form.NumericField path={path.initialCount} label="Initial count" />
+      <Form.NumericField
+        path={path.initialCount}
+        label="Initial count"
+        inputProps={INITIAL_COUNT_INPUT_PROPS}
+      />
     </>
   ),
   ci_period: PeriodForm,

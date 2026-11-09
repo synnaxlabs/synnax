@@ -13,6 +13,7 @@ import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
@@ -22,20 +23,22 @@ import { StatusIndicator } from "@/rack/StatusIndicator";
 export interface SelectSingleProps
   extends
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
-    Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
+    Omit<Flux.UseListParams<ListQuery, rack.Rack>, "name">,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.ItemsProps<rack.Key>, "emptyContent">,
     Pick<
       Select.SingleProps<rack.Key, rack.Payload | undefined>,
-      "preview" | "triggerProps"
+      "preview" | "triggerProps" | "dialogProps"
     > {}
 
 const ListItem = (props: List.ItemRenderProps<rack.Key>) => {
   const { itemKey } = props;
   const item = List.useItem<rack.Key, rack.Rack>(itemKey);
   return (
-    <Select.Item {...props} align="center" justify="between">
-      {item?.name}
+    <Select.Item {...props} align="center">
+      <Text.Text el="span" overflow="fade" grow>
+        {item?.name}
+      </Text.Text>
       <StatusIndicator status={item?.status} tooltipLocation="left" />
     </Select.Item>
   );
@@ -45,21 +48,20 @@ const listItemRenderProp = Component.renderProp(ListItem);
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery: { includeStatus: true, ...initialQuery },
+  const { data, getItem, subscribe, status, more, search } = useList({
+    query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<rack.Key, rack.Payload | undefined>
-      resourceName="Driver"
+      resourceName="driver"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Rack />}

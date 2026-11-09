@@ -133,12 +133,10 @@ echo GitHub CLI authentication verified
 rem Download artifacts from run: %REF_RUN_ID%
 echo Downloading artifacts from run: %REF_RUN_ID%
 
-rem Create binaries directory
-if not exist ".\binaries" mkdir ".\binaries"
-
 rem Download artifacts using GitHub CLI
 echo "Downloading synnax-core *-windows artifact..."
-"%gh_cmd%" run download %REF_RUN_ID% -p "synnax-core*windows" --dir .\binaries --repo synnaxlabs/synnax
+set "GH_REPO=synnaxlabs/synnax"
+"%ProgramFiles%\Git\bin\bash.exe" .github/scripts/download_run_artifacts.sh %REF_RUN_ID% "synnax-core*windows" binaries
 
 rem Check both exit code and if files were actually downloaded
 if %errorlevel% neq 0 (

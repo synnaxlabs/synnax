@@ -26,21 +26,18 @@ func autoMigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 		return Log{}, err
 	}
 	return Log{
-		Key:                    old.Key,
-		Name:                   old.Name,
-		Channels:               channels,
-		TimestampPrecision:     old.TimestampPrecision,
-		ChannelNamesHidden:     old.ChannelNamesHidden,
-		ReceiptTimestampHidden: old.ReceiptTimestampHidden,
+		Key:                old.Key,
+		Name:               old.Name,
+		Channels:           channels,
+		ChannelNamesHidden: old.ChannelNamesHidden,
 	}, nil
 }
 
 func autoMigrateChannelEntry(_ context.Context, old v2.ChannelEntry) (ChannelEntry, error) {
 	return ChannelEntry{
-		Channel:   old.Channel,
-		Color:     old.Color,
-		Notation:  old.Notation,
-		Alias:     old.Alias,
-		Timestamp: old.Timestamp,
+		Channel:  old.Channel,
+		Color:    old.Color,
+		Notation: old.Notation,
+		Alias:    old.Alias,
 	}, nil
 }

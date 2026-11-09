@@ -10,10 +10,15 @@
  */
 
 /* Stacked: one grid for every section, so every label shares the first column, which
-   fits the widest label, and every control fills the second. */
+   fits the widest label, and every control fills the rest. The four columns after the
+   second hold the later fields of rows, and are empty when no row uses them. The
+   second never shrinks below the first control of a row, so wide later fields make
+   the grid overflow instead of covering a label. */
 .lyra-form-sections.lyra--direction-y {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns:
+        var(--pluto-form-label-column, max-content) minmax(min-content, 1fr)
+        repeat(4, max-content);
     gap: 2.5rem 4rem;
     align-items: start;
     align-content: start;
@@ -32,6 +37,59 @@
     .lyra-form-section__body > :not(.lyra-input__item),
     .lyra-input__item:not(:has(> .lyra-input-label)) > * {
         grid-column: 1 / -1;
+    }
+
+    .lyra-input__item > .lyra-input-label + * {
+        grid-column: 2 / -1;
+    }
+
+    /* A number or a duration holds a short value, so it keeps its control width. */
+    .lyra-input__item
+        > .lyra-input-label
+        + *
+        > :is(
+            .lyra-input--numeric,
+            .lyra-input__container:has(> .lyra-input--numeric),
+            .lyra-time-editor.lyra--inline
+        ) {
+        width: var(--pluto-control-width);
+    }
+
+    /* A row (an x flex) of up to three fields stays on one line. The first label stays
+       in the label column. Each later field takes a label and control column pair at
+       the end, at its control width, so the later fields of all rows line up. */
+    .lyra-form-section__body > .lyra-flex.lyra--direction-x {
+        & > .lyra-input__item:first-child:nth-last-child(2) > .lyra-input-label + * {
+            grid-column: 2 / -3;
+        }
+
+        & > .lyra-input__item:first-child:nth-last-child(3) > .lyra-input-label + * {
+            grid-column: 2 / -5;
+        }
+
+        & > .lyra-input__item:nth-last-child(2):not(:first-child) {
+            & > .lyra-input-label {
+                grid-column: -5 / -4;
+            }
+
+            & > .lyra-input-label + * {
+                grid-column: -4 / -3;
+            }
+        }
+
+        & > .lyra-input__item:last-child:not(:first-child) {
+            & > .lyra-input-label {
+                grid-column: -3 / -2;
+            }
+
+            & > .lyra-input-label + * {
+                grid-column: -2 / -1;
+            }
+        }
+
+        & > .lyra-input__item:not(:first-child) > .lyra-input-label + * > * {
+            width: var(--pluto-control-width, auto);
+        }
     }
 }
 
@@ -119,7 +177,7 @@
         justify-content: flex-start;
     }
 
-    /* A row of fields inside a section dissolves; each field becomes a row. */
+    /* A row's fields become items of the section's grid. */
     .lyra-form-section__body
         > .lyra-flex:not(.lyra-input__item):has(> .lyra-input__item) {
         display: contents;

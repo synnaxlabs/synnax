@@ -9,12 +9,16 @@
 
 package user
 
-import "example.com/a/lib"
+import (
+	"example.com/a/lib"
+	"example.com/c/shallow"
+)
 
 func Run() (lib.Shape, lib.Op, lib.Color) {
 	var _ lib.DoExtra = lib.Outer{}
 	_ = lib.Big
 	lib.Used()
+	shallow.Run(lib.Pong{})
 	lib.Open(lib.Config{})
 	return lib.Square{}, lib.Op{}, lib.Red
 }

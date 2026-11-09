@@ -82,4 +82,20 @@
     &:hover .lyra-tree__item.lyra--show-rules::after {
         opacity: 1;
     }
+
+    /* The tree holds the focus for its items, so the selection carries the ring. With
+       no selected item mounted, the tree carries it. */
+    &:focus-visible {
+        outline: none;
+
+        &:not(:has(.lyra-tree__item.lyra--selected)) {
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: -1px;
+        }
+
+        & .lyra-tree__item.lyra--selected {
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: -1px;
+        }
+    }
 }

@@ -146,6 +146,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return;
             }
             devices = map_device_keys(devices_vec);
+            for (const auto &key: dev_keys)
+                if (!devices.contains(key)) {
+                    cfg.field_err(
+                        "device",
+                        "failed to retrieve devices for task: device " + key +
+                            " not found"
+                    );
+                    return;
+                }
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);

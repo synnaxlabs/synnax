@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -225,6 +226,48 @@ describe("Table", () => {
         rollback();
         expect(table.get("key1")).toEqual({ key: "key1", value: "original" });
         expect(table.get("key2")).toBeUndefined();
+      });
+
+      describe("under a key", () => {
+        interface Value {
+          value: string;
+        }
+        const table = () => new query.Table<string, Value>({ onError: noopError });
+
+        it("should write the value under the key", () => {
+          const t = table();
+          t.ingest("key1", { value: "fetched" });
+          expect(t.get("key1")).toEqual({ value: "fetched" });
+        });
+
+        it("should skip a key written after the stamp", async () => {
+          const t = table();
+          await t.track(async (since) => {
+            t.set("key1", { value: "renamed" });
+            t.ingest("key1", { value: "old" }, { since });
+            t.ingest("key2", { value: "fetched" }, { since });
+          });
+          expect(t.get("key1")).toEqual({ value: "renamed" });
+          expect(t.get("key2")).toEqual({ value: "fetched" });
+        });
+
+        it("should skip a deleted key", () => {
+          const t = table();
+          t.set("key1", { value: "original" });
+          t.delete("key1");
+          t.ingest("key1", { value: "old" });
+          expect(t.get("key1")).toBeUndefined();
+        });
+
+        it("should leave an existing value untouched under if-absent mode", () => {
+          const t = new query.Table<string, Value>({
+            onError: noopError,
+            hydrate: "if-absent",
+          });
+          t.set("key1", { value: "original" });
+          t.ingest("key1", { value: "replacement" });
+          expect(t.get("key1")).toEqual({ value: "original" });
+        });
       });
     });
 
@@ -1106,6 +1149,35 @@ describe("Table", () => {
       });
     });
 
+    describe("version", () => {
+      it("should move on every set, delete, and reset", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        const versions = [table.version()];
+        table.set("key1", { name: "a" });
+        versions.push(table.version());
+        table.delete("key1");
+        versions.push(table.version());
+        table.reset();
+        versions.push(table.version());
+        expect(new Set(versions).size).toBe(4);
+      });
+
+      it("should not move when the set value deep-equals the entry", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        table.set("key1", { name: "a" });
+        const version = table.version();
+        table.set("key1", { name: "a" });
+        expect(table.version()).toBe(version);
+      });
+
+      it("should move when a fetch ingests a new record", () => {
+        const table = new query.Table<string, { name: string }>({ onError: noopError });
+        const version = table.version();
+        table.ingest("key1", { name: "a" });
+        expect(table.version()).not.toBe(version);
+      });
+    });
+
     describe("Equality Silencing", () => {
       it("should not notify subscribers when the set value deep-equals the entry", () => {
         const table = new query.Table<string, { name: string }>({ onError: noopError });
@@ -1534,21 +1606,23 @@ describe("Table", () => {
       expect(table.get("a")).toEqual(item("a", "renamed"));
     });
 
-    it("should skip ingesting entries written after the given stamp", () => {
+    it("should skip ingesting entries written after the given stamp", async () => {
       const table = fetchTable(async () => []);
-      const since = table.stamp();
-      table.set([item("a", "renamed")]);
-      table.ingest([item("a", "old"), item("b", "fetched")], { since });
+      await table.track(async (since) => {
+        table.set([item("a", "renamed")]);
+        table.ingest([item("a", "old"), item("b", "fetched")], { since });
+      });
       expect(table.get("a")).toEqual(item("a", "renamed"));
       expect(table.get("b")).toEqual(item("b", "fetched"));
     });
 
-    it("should skip ingesting every entry after a reset past the stamp", () => {
+    it("should skip ingesting every entry after a reset past the stamp", async () => {
       const table = fetchTable(async () => []);
       table.set([item("a", "old-cluster")]);
-      const since = table.stamp();
-      table.reset();
-      table.ingest([item("a", "old-cluster"), item("b", "old-cluster")], { since });
+      await table.track(async (since) => {
+        table.reset();
+        table.ingest([item("a", "old-cluster"), item("b", "old-cluster")], { since });
+      });
       expect(table.keys()).toEqual([]);
     });
   });
@@ -1704,7 +1778,7 @@ describe("delete rollback", () => {
       .poll(() => onError.mock.calls[0]?.[0])
       .toEqual(
         expect.objectContaining({
-          message: "failed to fetch restored entries",
+          message: "failed to refetch entries",
           cause: expect.objectContaining({ message: "boom" }),
         }),
       );
@@ -1722,6 +1796,45 @@ describe("delete rollback", () => {
     await sleep.sleep(TimeSpan.milliseconds(10));
     expect(onError).not.toHaveBeenCalled();
     expect(table.get("k1")).toEqual(doc("a"));
+  });
+});
+
+describe("refetch", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (name: string): Doc => ({ key: "k1", name });
+
+  it("should not report an entry the Core no longer holds", async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn(async (): Promise<Doc[]> => []);
+    const table = new query.Table<string, Doc>({ onError, fetch });
+    table.set("k1", doc("a"));
+    table.refetch(["k1"]);
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(10));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should return from a fetch listener before its fetch lands", async () => {
+    let land: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () =>
+        await new Promise<Doc[]>((resolve) => {
+          land = resolve;
+        }),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    table.set("k1", doc("a"));
+    const listener = query
+      .createFetchListener<z.ZodString, string, Doc>("changes", z.string())
+      .bind(table);
+    expect(listener.onChange(["k1"])).toBeUndefined();
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    expect(table.get("k1")).toEqual(doc("a"));
+    land([doc("b")]);
+    await expect.poll(() => table.get("k1")).toEqual(doc("b"));
   });
 });
 
@@ -1840,6 +1953,102 @@ describe("Tombstones", () => {
     expect(table.get("k2")).toEqual({ key: "k2", name: "d" });
   });
 
+  it("should keep the tombstone on a stamped ingest", async () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    await table.track(async (since) => {
+      table.ingest({ key: "k1", name: "b" }, { since });
+    });
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  describe("revivable", () => {
+    const fetched = { key: "k1", name: "b" };
+
+    const newRevivable = () => {
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        revivable: true,
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      return table;
+    };
+
+    it("should restore a key deleted before the stamp", async () => {
+      const table = newRevivable();
+      table.mirrorDelete(["k1"]);
+      await table.track(async (since) => {
+        table.ingest(fetched, { since });
+      });
+      expect(table.status("k1")).toBe("present");
+      expect(table.get("k1")).toEqual(fetched);
+    });
+
+    it("should keep a key deleted after the stamp", async () => {
+      const table = newRevivable();
+      await table.track(async (since) => {
+        table.delete("k1");
+        table.ingest(fetched, { since });
+      });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep a key whose delete repeats after the stamp", async () => {
+      const table = newRevivable();
+      table.delete("k1");
+      await table.track(async (since) => {
+        table.delete("k1");
+        table.ingest(fetched, { since });
+      });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep a key deleted after the stamp when a later set rolls back", async () => {
+      const table = newRevivable();
+      await table.track(async (since) => {
+        table.delete("k1");
+        const rollback = table.set("k1", { key: "k1", name: "c" });
+        rollback();
+        table.ingest(fetched, { since });
+      });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep the tombstone on an ingest without a stamp", () => {
+      const table = newRevivable();
+      table.delete("k1");
+      table.ingest(fetched);
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+  });
+
+  describe("ingestDeletes", () => {
+    it("should tombstone an entry that a fetch found gone", async () => {
+      const table = newTable();
+      table.set("k1", { key: "k1", name: "a" });
+      await table.track(async (since) => table.ingestDeletes(["k1"], since));
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep an entry written after the stamp", async () => {
+      const table = newTable();
+      await table.track(async (since) => {
+        table.set("k1", { key: "k1", name: "a" });
+        table.ingestDeletes(["k1"], since);
+      });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+    });
+
+    it("should skip a key that the table does not hold", async () => {
+      const table = newTable();
+      const subscriber = vi.fn();
+      table.subscribe(subscriber);
+      await table.track(async (since) => table.ingestDeletes(["k1"], since));
+      expect(subscriber).not.toHaveBeenCalled();
+    });
+  });
+
   it("should keep a key deleted during its retrieve deleted", async () => {
     let release: (docs: Doc[]) => void = () => {};
     const fetch = vi.fn(
@@ -1902,6 +2111,171 @@ describe("Tombstones", () => {
   });
 });
 
+describe("mirror", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const newTable = () =>
+    new query.Table<string, Doc>({
+      onError: noopError,
+      fetch: async (keys) => keys.map((key) => ({ key, name: "a" })),
+    });
+  const newDeleted = () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    return table;
+  };
+
+  it("should skip a streamed set for a locally deleted key", () => {
+    const table = newDeleted();
+    const subscriber = vi.fn();
+    table.subscribe(subscriber);
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(subscriber).not.toHaveBeenCalled();
+  });
+
+  it("should skip a streamed set for a locally deleted key in a table without a fetch", () => {
+    const table = new query.Table<string, Doc>({ onError: noopError });
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a fetched value for a revivable key whose local delete is pending", async () => {
+    const table = new query.Table<string, Doc>({ onError: noopError, revivable: true });
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    await table.track(async (since) => {
+      table.ingest("k1", { key: "k1", name: "a" }, { since });
+    });
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  it("should apply a streamed set after the streamed delete", () => {
+    const table = newDeleted();
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should tombstone a held key on a streamed delete", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    expect(table.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should apply a streamed set to a key the stream deleted", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.mirrorDelete(["k1"]);
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set to a key deleted while absent", () => {
+    const table = newTable();
+    table.delete("k1");
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should skip a streamed set for a locally re-created key", () => {
+    const table = newDeleted();
+    table.set("k1", { key: "k1", name: "b" });
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should skip a streamed set after a failed re-create rolls back", () => {
+    const table = newDeleted();
+    table.set("k1", { key: "k1", name: "b" })();
+    table.mirrorSet("k1", { key: "k1", name: "a" });
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  it("should apply a streamed set after the delete is rolled back", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1")();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set after the pending deletes clear", () => {
+    const table = newDeleted();
+    table.clearPendingDeletes();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should apply a streamed set after a reset", () => {
+    const table = newDeleted();
+    table.reset();
+    table.mirrorSet("k1", { key: "k1", name: "b" });
+    expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  describe("keys the Core no longer holds", () => {
+    const newHeld = () => {
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        fetch: async () => [],
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      return table;
+    };
+
+    it("should apply a streamed set to a key a refresh found missing", async () => {
+      const table = newHeld();
+      await table.retrieve(["k1"], { refresh: true });
+      expect(table.status("k1")).toBe("tombstoned");
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a key a reconcile found missing", async () => {
+      const table = newHeld();
+      await table.reconcile();
+      expect(table.status("k1")).toBe("tombstoned");
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a key deleted during a reconcile", async () => {
+      let release: (docs: Doc[]) => void = () => {};
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        fetch: async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      const reconciling = table.reconcile();
+      table.delete("k1");
+      release([]);
+      await reconciling;
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+
+    it("should apply a streamed set to a deleted key in a table with no fetch once the stream reopens", () => {
+      const table = new query.Table<string, Doc>({ onError: noopError });
+      table.set("k1", { key: "k1", name: "a" });
+      table.delete("k1");
+      table.clearPendingDeletes();
+      table.mirrorSet("k1", { key: "k1", name: "b" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+    });
+  });
+});
+
 describe("reset", () => {
   interface Doc extends record.Keyed<string> {
     key: string;
@@ -1931,5 +2305,141 @@ describe("reset", () => {
     table.reset();
     table.set("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+});
+
+describe("trim", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string): Doc => ({ key, name: key });
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
+
+  it("should drop the least recently read entries first", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.get("a");
+    table.trim(table.size);
+    expect(table.trim(1)).toEqual(["b", "c"]);
+    expect(table.keys()).toEqual(["a"]);
+  });
+
+  it("should keep the entries a holder or a keyed subscriber needs", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.hold({ held: () => ["a"] });
+    table.subscribe(vi.fn(), "b");
+    table.trim(table.size);
+    expect(table.trim(0)).toEqual(["c"]);
+    expect(table.size).toBe(2);
+  });
+
+  it("should drop silently and tell each holder what dropped", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    const version = table.version();
+    table.trim(table.size);
+    table.trim(1);
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(table.version()).toBe(version);
+    expect(table.status("a")).toBe("unknown");
+    expect(drop).toHaveBeenCalledWith(new Set(["a"]));
+  });
+
+  it("should stop keeping entries once the holder releases them", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    const release = table.hold({ held: () => ["a"] });
+    release();
+    table.trim(table.size);
+    expect(table.trim(0)).toEqual(["a"]);
+  });
+
+  it("should keep the entries read or written since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.set(doc("c"));
+    table.get("a");
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
+  it("should keep the unchanged records a fetch ingests since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.ingest([doc("a"), doc("c")]);
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
+  it("should not let an older fetch restore a dropped entry", async () => {
+    const table = newTable();
+    await table.track(async (since) => {
+      table.set({ key: "a", name: "new" });
+      table.trim(table.size);
+      table.trim(0);
+      table.trim(0);
+      table.ingest([{ key: "a", name: "old" }], { since });
+    });
+    expect(table.get("a")).toBeUndefined();
+  });
+
+  it("should forget a dropped entry's stamp once no older fetch runs", async () => {
+    const table = newTable();
+    let stale = 0;
+    await table.track(async (since) => {
+      stale = since;
+      table.set({ key: "a", name: "new" });
+      table.trim(table.size);
+      table.trim(0);
+    });
+    table.trim(0);
+    table.ingest([{ key: "a", name: "old" }], { since: stale });
+    expect(table.get("a")).toEqual({ key: "a", name: "old" });
+  });
+
+  it("should forget a dropped entry's stamp once a failed fetch settles", async () => {
+    const table = newTable();
+    let stale = 0;
+    await expect(
+      table.track(async (since) => {
+        stale = since;
+        table.set({ key: "a", name: "new" });
+        table.trim(table.size);
+        table.trim(0);
+        throw new Error("fetch failed");
+      }),
+    ).rejects.toThrow("fetch failed");
+    table.trim(0);
+    table.ingest([{ key: "a", name: "old" }], { since: stale });
+    expect(table.get("a")).toEqual({ key: "a", name: "old" });
+  });
+
+  it("should keep a dropped entry's stamp while an older fetch runs", async () => {
+    const table = newTable();
+    let finishOlder = () => {};
+    const older = table.track(async (since) => {
+      await new Promise<void>((resolve) => (finishOlder = resolve));
+      table.ingest([{ key: "a", name: "old" }], { since });
+    });
+    table.set({ key: "a", name: "new" });
+    table.trim(table.size);
+    table.trim(0);
+    await table.track(async () => {});
+    table.trim(0);
+    finishOlder();
+    await older;
+    expect(table.get("a")).toBeUndefined();
+  });
+
+  it("should drop nothing at or under the size", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    expect(table.trim(1)).toEqual([]);
   });
 });

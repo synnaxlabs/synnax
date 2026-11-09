@@ -12,10 +12,10 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { uniqueRangeName } from "@/platform/range/testutil";
@@ -41,11 +41,13 @@ const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
 const item = Component.renderProp(RenderItem);
 
 const Inner = (): ReactElement => {
-  const listProps = Ranger.useList({
-    initialQuery: View.useContext().getInitialView().query,
+  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const listProps = Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: { where },
   });
   return (
-    <View.Form {...listProps}>
+    <View.Form {...listProps} onWhereChange={setWhere}>
       <View.Toolbar>
         <View.FilterMenu>
           <Menu.Item itemKey="only">Filter Option</Menu.Item>
@@ -75,7 +77,6 @@ const createView = async () =>
   await client.views.create({
     name: uniqueName("view"),
     type: "range",
-    query: {},
   });
 
 const renderHarness = async (as: Client = client): Promise<void> => {
@@ -194,7 +195,7 @@ describe("View permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [ranger.TYPE_ONTOLOGY_ID, view.TYPE_ONTOLOGY_ID],
+      retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
     });
 
   it("should leave the view read-only for a subject who cannot update views", async () => {
@@ -208,7 +209,7 @@ describe("View permissions", () => {
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
-    await renderHarness(await createSubject({ update: [view.TYPE_ONTOLOGY_ID] }));
+    await renderHarness(await createSubject({ update: [view.TYPE_RESOURCE_ID] }));
     await enableEditing();
     await screen.findByPlaceholderText("Search ranges...");
     expect(
@@ -218,7 +219,7 @@ describe("View permissions", () => {
 
   it("should withhold rename from a subject who cannot update views", async () => {
     const saved = await createView();
-    await renderHarness(await createSubject({ delete: [view.TYPE_ONTOLOGY_ID] }));
+    await renderHarness(await createSubject({ delete: [view.TYPE_RESOURCE_ID] }));
     fireEvent.contextMenu(await screen.findByText(saved.name));
     // Delete shares the selection the rename item needs, so its presence proves the
     // menu resolved before the absence below is read.
@@ -230,8 +231,8 @@ describe("View permissions", () => {
   it("should offer the view create button to a subject who may create views", async () => {
     await renderHarness(
       await createSubject({
-        update: [view.TYPE_ONTOLOGY_ID],
-        create: [view.TYPE_ONTOLOGY_ID],
+        update: [view.TYPE_RESOURCE_ID],
+        create: [view.TYPE_RESOURCE_ID],
       }),
     );
     await enableEditing();
@@ -247,7 +248,6 @@ describe("View permissions", () => {
       const { name } = await client.views.create({
         name: uniqueName("view"),
         type: "range",
-        query: {},
       });
       return name;
     };
@@ -256,8 +256,8 @@ describe("View permissions", () => {
       const name = await createView();
       await renderHarness(
         await createSubject({
-          update: [view.TYPE_ONTOLOGY_ID],
-          create: [view.TYPE_ONTOLOGY_ID],
+          update: [view.TYPE_RESOURCE_ID],
+          create: [view.TYPE_RESOURCE_ID],
         }),
       );
       await enableEditing();
@@ -275,7 +275,7 @@ describe("View permissions", () => {
 
     it("should offer the delete item to a subject who may delete views", async () => {
       const name = await createView();
-      await renderHarness(await createSubject({ delete: [view.TYPE_ONTOLOGY_ID] }));
+      await renderHarness(await createSubject({ delete: [view.TYPE_RESOURCE_ID] }));
       await openContextMenu(name);
       expect(await screen.findByText("Delete")).toBeTruthy();
     });

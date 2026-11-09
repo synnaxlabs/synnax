@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
@@ -64,6 +65,8 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+	// Group is the group the channel sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -72,6 +75,90 @@ func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Cursor is a position in an order of channels: the sort value and the key of a
+// channel.
+type Cursor struct {
+	// Key is the key of the channel at the position.
+	Key servicechannel.Key `json:"key" msgpack:"key"`
+	// Name is the name of the channel at the position, when the order sorts by it.
+	Name *servicechannel.Name `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that channels can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the channels by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of channels.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
+
+// RetrieveRequest is a request to retrieve channels.
+type RetrieveRequest struct {
+	// Where selects the channels to retrieve. An absent where selects all of them.
+	Where *servicechannel.Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the channels that match the term, closest match first.
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the channels. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the channels strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
+	// Limit is the most channels to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
+}
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Channels are the channels the request selects.
+	Channels []Channel `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }

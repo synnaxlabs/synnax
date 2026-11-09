@@ -141,7 +141,8 @@ func Variable(name string, constraint *Type) Type {
 // NumericConstraint returns a constraint accepting any numeric type.
 func NumericConstraint() Type { return Type{Kind: KindNumericConstant} }
 
-// IntegerConstraint returns a constraint accepting any integer type.
+// IntegerConstraint returns a constraint for integer literals, which can resolve to any
+// numeric type.
 func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 
 // FloatConstraint returns a constraint accepting any floating-point type.
@@ -270,5 +271,38 @@ func FromTelem(t telem.DataType) Type {
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}
+	}
+}
+
+// Zero returns the value a Param carries for the zero of t: 0 for numeric kinds,
+// "" for strings, false for bools. Returns nil when t has no scalar zero.
+func Zero(t Type) any {
+	switch t.Kind {
+	case KindU8:
+		return uint8(0)
+	case KindU16:
+		return uint16(0)
+	case KindU32:
+		return uint32(0)
+	case KindU64:
+		return uint64(0)
+	case KindI8:
+		return int8(0)
+	case KindI16:
+		return int16(0)
+	case KindI32:
+		return int32(0)
+	case KindI64:
+		return int64(0)
+	case KindF32:
+		return float32(0)
+	case KindF64:
+		return float64(0)
+	case KindString:
+		return ""
+	case KindBool:
+		return false
+	default:
+		return nil
 	}
 }

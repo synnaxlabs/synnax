@@ -169,6 +169,15 @@
         & .lyra-input__preview-value {
             padding: 0 0.5rem;
         }
+
+        /* A start icon takes the text's inset, and the text keeps clear of it. */
+        & .lyra-input__start-content {
+            padding-left: 0.5rem;
+        }
+
+        & .lyra-input__start-content + input {
+            padding-left: 1.5rem;
+        }
     }
 
     &.lyra-btn--preview .lyra-input__end-content {

@@ -151,8 +151,9 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
           padHelpText={false}
           inputProps={{
             type: "email",
-            autoComplete: "email",
-            disabled: invited != null,
+            autoComplete: "username",
+            // Password managers skip a disabled field.
+            readOnly: invited != null,
           }}
         />
         <Password />

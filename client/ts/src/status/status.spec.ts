@@ -11,17 +11,39 @@ import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
-import { group } from "@/group";
-import { NotFoundError } from "@/index";
-import { ontology } from "@/ontology";
-import { query } from "@/query";
+import { channel } from "@/channel";
+import { DataType, NotFoundError } from "@/index";
+import { type query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
+    it("should keep a set that lands before an older fetch", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "before" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.statuses.retrieve(s.key);
+      const { responded, release } = holdResponses(local, "/status/retrieve");
+      const fetching = local.statuses.retrieve({ key: { eq: s.key } });
+      await responded;
+      await client.statuses.set({ ...s, message: "after" });
+      await expect
+        .poll(() => expectLive(local.statuses.watch(s.key).getCached()).message)
+        .toBe("after");
+      release();
+      await fetching;
+      expect(expectLive(local.statuses.watch(s.key).getCached()).message).toBe("after");
+    });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
         name: "Test Status",
@@ -34,6 +56,13 @@ describe("Status", () => {
       expect(s.name).toBe("Test Status");
       expect(s.variant).toBe("info");
       expect(s.message).toBe("This is a test status");
+    });
+
+    it("should give a status with no key a UUID key", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "keyless" });
+      expect(z.uuid().safeParse(s.key).success).toBe(true);
+      const local = status.create({ variant: "info", message: "local" });
+      expect(z.uuid().safeParse(local.key).success).toBe(true);
     });
 
     it("should update an existing status", async () => {
@@ -83,31 +112,155 @@ describe("Status", () => {
       expect(statuses[1].key).toBe("batch-2");
     });
 
-    it("should set a status with a parent", async () => {
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "Parent Group",
+    it("should keep the stored labels on an update and ignore the carried ones", async () => {
+      const [held, carried] = await client.labels.create([
+        { name: "Held", color: color.construct("#0000FF") },
+        { name: "Carried", color: color.construct("#FF0000") },
+      ]);
+      const key = uuid.create();
+      await client.statuses.set({
+        key,
+        variant: "info",
+        message: "a",
+        labels: [held.key],
       });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
-      const s = await client.statuses.set(
+      let duringWrite: status.Status["labels"] | undefined;
+      const updated = await client.statuses.set(
+        { key, variant: "info", message: "b", labels: [carried.key] },
         {
-          name: "Child Status",
-          key: "child-status",
-          variant: "info",
-          message: "Status with parent",
-          time: TimeStamp.now(),
+          onOptimistic: () => {
+            duringWrite = client.statuses.store.get(key)?.labels;
+          },
         },
-        { parent: parentOntologyID },
+      );
+      expect(duringWrite).toEqual([held.key]);
+      expect(updated.labels).toEqual([held.key]);
+    });
+  });
+
+  describe("owner", () => {
+    const createOwner = async () =>
+      channel.resourceID(
+        (
+          await client.channels.create({
+            name: `owner_${id.create()}`,
+            dataType: DataType.FLOAT32,
+            virtual: true,
+          })
+        ).key,
       );
 
-      expect(s.key).toBe("child-status");
-
-      const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
+    it("should write an owned status to the status its owner holds", async () => {
+      const owner = await createOwner();
+      const first = await client.statuses.set({ owner, variant: "info", message: "a" });
+      const second = await client.statuses.set({
+        owner,
+        key: uuid.create(),
+        variant: "warning",
+        message: "b",
       });
+      expect(second.key).toEqual(first.key);
+      expect(second.message).toEqual("b");
+      expect(second.owner).toEqual(owner);
+    });
 
-      const statusResource = resources.find((r) => r.id.key === "child-status");
-      expect(statusResource).toBeDefined();
+    it("should keep the stored owner in the optimistic status of a set by key", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      let duringWrite: string | undefined;
+      await client.statuses.set(
+        { key: created.key, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = client.statuses.ownedBy(owner)?.key;
+          },
+        },
+      );
+      expect(duringWrite).toEqual(created.key);
+    });
+
+    it("should retrieve the statuses that resources own", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const res = await client.statuses.retrieve({ owners: [owner] });
+      expect(res.map(({ key }) => key)).toEqual([created.key]);
+    });
+
+    it("should find the cached status a resource owns", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(client.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should retrieve the statuses of several owners in one request", async () => {
+      const owners = await Promise.all([createOwner(), createOwner()]);
+      await Promise.all(
+        owners.map(
+          async (owner) =>
+            await client.statuses.set({ owner, variant: "info", message: "a" }),
+        ),
+      );
+      const local = createTestClient();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        owners.map(async (owner) => await local.statuses.retrieveOwned([owner])),
+      );
+      expect(res.map((statuses) => statuses.map((s) => s.owner))).toEqual(
+        owners.map((owner) => [owner]),
+      );
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
+    });
+
+    it("should not cache an owned status it holds no key for before the write commits", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const observer = createTestClient();
+      let duringWrite: status.Status | undefined;
+      const updated = await observer.statuses.set(
+        { owner, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = observer.statuses.ownedBy(owner);
+          },
+        },
+      );
+      expect(duringWrite).toBeUndefined();
+      expect(updated.key).toEqual(created.key);
+      expect(observer.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should replace a local status with the status the Core sets", async () => {
+      const owner = await createOwner();
+      const local = status.create({ owner, variant: "loading", message: "local" });
+      client.statuses.setLocal(local);
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(created.key).toEqual(local.key);
+      expect(client.statuses.ownedBy(owner)).toMatchObject({
+        key: created.key,
+        variant: "info",
+        message: "a",
+      });
     });
   });
 
@@ -126,7 +279,7 @@ describe("Status", () => {
       let duringWrite: query.Cached<status.Status> | undefined;
       await client.statuses.set(crude, {
         onOptimistic: () => {
-          duringWrite = client.statuses.getCached(crude.key as status.Key);
+          duringWrite = client.statuses.watch(crude.key as status.Key).getCached();
         },
       });
       expect(expectLive(duringWrite).message).toEqual(crude.message);
@@ -139,7 +292,7 @@ describe("Status", () => {
       await client.statuses.set([first, second], {
         onOptimistic: () => {
           duringWrite = [first, second].map(({ key }) =>
-            client.statuses.getCached(key as status.Key),
+            client.statuses.watch(key as status.Key).getCached(),
           );
         },
       });
@@ -154,9 +307,9 @@ describe("Status", () => {
       const created = await client.statuses.set({ variant: "info", message });
       expect(created.key).not.toHaveLength(0);
       expect(created.time.valueOf()).toBeGreaterThan(0n);
-      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
-        message,
-      );
+      expect(
+        expectLive(client.statuses.watch(created.key).getCached()).message,
+      ).toEqual(message);
     });
 
     it("should keep the details of a schema-parametrized status", async () => {
@@ -168,9 +321,9 @@ describe("Status", () => {
         {
           detailsSchema,
           onOptimistic: () => {
-            duringWrite = client.statuses.getCached(
-              crude.key as status.Key,
-            ) as query.Cached<status.Status<typeof detailsSchema>>;
+            duringWrite = client.statuses
+              .watch(crude.key as status.Key)
+              .getCached() as query.Cached<status.Status<typeof detailsSchema>>;
           },
         },
       );
@@ -186,7 +339,9 @@ describe("Status", () => {
           },
         }),
       ).rejects.toThrow("write failed");
-      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+      expect(
+        client.statuses.watch(crude.key as status.Key).getCached(),
+      ).toBeUndefined();
     });
 
     it("should leave no corpse behind when the write fails", async () => {
@@ -206,7 +361,7 @@ describe("Status", () => {
           },
         ),
       ).rejects.toThrow("write failed");
-      expect(observer.statuses.getCached(key)).toBeUndefined();
+      expect(observer.statuses.watch(key).getCached()).toBeUndefined();
       expect((await observer.statuses.retrieve(key)).message).toEqual(crude.message);
     });
 
@@ -223,9 +378,9 @@ describe("Status", () => {
           },
         ),
       ).rejects.toThrow("write failed");
-      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
-        created.message,
-      );
+      expect(
+        expectLive(client.statuses.watch(created.key).getCached()).message,
+      ).toEqual(created.message);
     });
   });
 
@@ -302,7 +457,6 @@ describe("Status", () => {
 
       const retrieved = await client.statuses.retrieve({
         key: "undefined-schema-test",
-        includeLabels: true,
         detailsSchema: undefined,
       });
       expect(Array.isArray(retrieved)).toBe(false);
@@ -328,9 +482,7 @@ describe("Status", () => {
         },
       ]);
 
-      const statuses = await client.statuses.retrieve({
-        keys: ["multi-1", "multi-2"],
-      });
+      const statuses = await client.statuses.retrieve(["multi-1", "multi-2"]);
 
       expect(statuses).toHaveLength(2);
       const keys = statuses.map((s) => s.key);
@@ -357,7 +509,7 @@ describe("Status", () => {
         .toBe(true);
     });
 
-    it("should paginate results", async () => {
+    it("should page with a limit and a cursor", async () => {
       const keys = [];
       for (let i = 0; i < 5; i++) {
         const key = `paginate-${i}-${Date.now()}`;
@@ -371,16 +523,12 @@ describe("Status", () => {
         });
       }
 
-      const page1 = await client.statuses.retrieve({
-        keys,
-        limit: 2,
-        offset: 0,
-      });
+      const page1 = await client.statuses.retrieve({ key: keys, limit: 2 });
 
       const page2 = await client.statuses.retrieve({
-        keys,
+        key: keys,
         limit: 2,
-        offset: 2,
+        after: { key: page1[1].key },
       });
 
       expect(page1).toHaveLength(2);
@@ -500,8 +648,7 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      const results = await client.statuses.retrieve({ keys }).catch(() => []);
-      expect(results).toHaveLength(0);
+      expect(await client.statuses.retrieve({ key: keys })).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -540,19 +687,19 @@ describe("Status", () => {
         message: "Test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+      await client.labels.label(status.resourceID(stat.key), [label1.key, label2.key], {
         replace: true,
       });
 
-      const retrievedStat = await client.statuses.retrieve({
-        key: stat.key,
-        includeLabels: true,
-      });
+      const local = createTestClient();
+      const retrievedStat = await local.statuses.retrieve({ key: stat.key });
       expect(retrievedStat.key).toEqual(stat.key);
-      expect(retrievedStat.labels).toHaveLength(2);
+      expect(retrievedStat.labels.toSorted()).toEqual(
+        [label1.key, label2.key].toSorted(),
+      );
     });
 
-    it("should update a subscribed hasLabels answer when labels change", async () => {
+    it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
         color: color.construct("#00FF00"),
@@ -575,25 +722,19 @@ describe("Status", () => {
           time: TimeStamp.now(),
         },
       ]);
-      await client.labels.label(status.ontologyID(member), [lbl.key]);
-      const params = { hasLabels: [lbl.key] };
-      const off = client.statuses.onChange(params, () => {});
+      await client.labels.label(status.resourceID(member), [lbl.key]);
+      const list = client.statuses.watch({ where: { labels: [lbl.key] } });
+      const off = list.onChange(() => {});
       try {
-        const initial = await client.statuses.retrieve(params);
-        expect(initial.map((s) => s.key)).toEqual([member]);
-        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        const initial = await list.retrieve();
+        expect(initial.records.map((s) => s.key)).toEqual([member]);
+        await client.labels.label(status.resourceID(joiner), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.statuses.getCached(params);
-            return query.isLive(cached) && cached.some((s) => s.key === joiner);
-          })
+          .poll(() => list.getCached()?.records.some((s) => s.key === joiner))
           .toBe(true);
-        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await client.labels.remove(status.resourceID(member), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.statuses.getCached(params);
-            return query.isLive(cached) && !cached.some((s) => s.key === member);
-          })
+          .poll(() => list.getCached()?.records.every((s) => s.key !== member))
           .toBe(true);
       } finally {
         off();
@@ -629,8 +770,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-        variants: ["error"],
+        key: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(1);
@@ -664,8 +805,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-        variants: ["info", "success"],
+        key: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+        variant: ["info", "success"],
       });
 
       expect(results).toHaveLength(2);
@@ -686,11 +827,111 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`],
-        variants: ["error"],
+        key: [`${prefix}-info`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(0);
+    });
+
+    it("should filter statuses by a flat filter", async () => {
+      const prefix = `variant-flat-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`];
+      await client.statuses.set(
+        (["info", "error"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({ key: keys, variant: "error" });
+
+      expect(results.map((s) => s.key)).toEqual([keys[1]]);
+    });
+
+    it("should return one status for a plain key beside other fields", async () => {
+      const key = `one-status-${id.create()}`;
+      await client.statuses.set({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+      });
+      const retrieved: status.Status = await client.statuses.retrieve({
+        key,
+        variant: "error",
+      });
+      expect(retrieved.key).toEqual(key);
+      await expect(client.statuses.retrieve({ key, variant: "info" })).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a plain key and a details schema", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-details-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 3 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key,
+        variant: "error",
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(3);
+      await expect(
+        client.statuses.retrieve({ key, variant: "info", detailsSchema }),
+      ).rejects.toThrow(
+        new NotFoundError(`Found no status where key = "${key}" and variant = "info"`),
+      );
+    });
+
+    it("should return one status for a key list that sets one", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const key = `one-option-${id.create()}`;
+      await client.statuses.set<typeof detailsSchema>({
+        name: "one",
+        key,
+        variant: "error",
+        message: "one",
+        time: TimeStamp.now(),
+        details: { count: 4 },
+      });
+      const retrieved = await client.statuses.retrieve({
+        key: [key],
+        one: true,
+        detailsSchema,
+      });
+      expect(retrieved.details.count).toEqual(4);
+    });
+
+    it("should filter statuses by a tree of filters", async () => {
+      const prefix = `variant-tree-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
+      await client.statuses.set(
+        (["info", "error", "success"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({
+        where: { key: { in: keys }, not: { variant: { eq: "error" } } },
+      });
+
+      expect(results.map((s) => s.key).sort()).toEqual([keys[0], keys[2]].sort());
     });
   });
 
@@ -807,6 +1048,15 @@ describe("fromException", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
     expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should leave out a toStatus() message that repeats the heading", () => {
+    const s = status.fromException(
+      new CustomError("boom"),
+      "Failed to parse task config",
+    );
+    expect(s.message).toBe("Failed to parse task config");
+    expect(s.description).toBe("the formatted breakdown");
   });
 
   it("should keep the error text when toStatus() gives no description", () => {

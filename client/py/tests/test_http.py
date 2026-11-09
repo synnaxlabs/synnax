@@ -11,6 +11,7 @@ import pytest
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -265,6 +266,54 @@ class TestHTTPReadTask:
         assert config.auto_start is False
         assert config.nan_fill_enabled is False
 
+    def test_read_field_optional_defaults_false(self) -> None:
+        """Test that a ReadField is not optional unless set."""
+        field = sy.http.ReadField(pointer="/value", channel=1)
+        assert field.optional is False
+        assert sy.http.ReadField(pointer="/value", channel=1, optional=True).optional
+
+    def test_read_field_fill_value_defaults_unset(self) -> None:
+        """Test that a ReadField has no fill value unless set."""
+        assert sy.http.ReadField(pointer="/value", channel=1).fill_value is None
+
+    @pytest.mark.parametrize("fill_value", [0, 1.5, "OFF", "", False])
+    def test_read_field_fill_value_reaches_the_payload(
+        self, fill_value: int | float | str | bool
+    ) -> None:
+        """Test that a fill value survives serialization, zero values included."""
+        task = sy.http.ReadTask(
+            device="dev-key",
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/data",
+                    fields=[
+                        sy.http.ReadField(
+                            pointer="/value",
+                            channel=1,
+                            optional=True,
+                            fill_value=fill_value,
+                        )
+                    ],
+                ),
+            ],
+        )
+        ep = obj(arr(task.to_payload().config, "endpoints")[0])
+        assert obj(arr(ep, "fields")[0])["fill_value"] == fill_value
+
+    def test_read_field_unset_fill_value_left_out_of_the_payload(self) -> None:
+        """Test that an unset fill value is left out, not sent as null."""
+        task = sy.http.ReadTask(
+            device="dev-key",
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/data",
+                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                ),
+            ],
+        )
+        ep = obj(arr(task.to_payload().config, "endpoints")[0])
+        assert "fill_value" not in obj(arr(ep, "fields")[0])
+
     def test_read_task_nan_fill_enabled(self) -> None:
         """Test that the ReadTask carries nan_fill_enabled into its config."""
         task = sy.http.ReadTask(device="dev-key", nan_fill_enabled=True)
@@ -292,7 +341,9 @@ class TestHTTPReadTask:
         assert "timestamp_format" not in field
         assert field["enum_values"] == []
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.http.ReadTask(
             name="test-http-read-task",
@@ -314,6 +365,7 @@ class TestHTTPReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-http-read-task",
             type="http_read",
@@ -578,7 +630,9 @@ class TestHTTPWriteTask:
         assert ep["query_params"] == []
         assert "time_format" not in obj(ep, "channel")
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.http.WriteTask(
             name="test-http-write-task",
@@ -596,6 +650,7 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-http-write-task",
             type="http_write",
@@ -603,7 +658,9 @@ class TestHTTPWriteTask:
         )
         sy.http.WriteTask(created)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.http.WriteTask(
             name="test-round-trip",
@@ -631,6 +688,7 @@ class TestHTTPWriteTask:
                 ),
             ],
         )
+        task_targets.attach(original.config)
         created = client.tasks.create(
             name="test-round-trip",
             type="http_write",

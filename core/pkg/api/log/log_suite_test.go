@@ -15,14 +15,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,39 +39,81 @@ func TestAPILog(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apilog.Service
-	proj   project.Project
+	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
+	// API layer binds them.
+	create     freighter.UnaryHandler[apilog.CreateRequest, apilog.CreateResponse]
+	del        freighter.UnaryHandler[apilog.DeleteRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apilog.DispatchRequest, struct{}]
+	setGroup   freighter.UnaryHandler[apilog.SetGroupRequest, struct{}]
+	setProject freighter.UnaryHandler[apilog.SetProjectRequest, struct{}]
+	retrieve   freighter.UnaryHandler[
+		apilog.RetrieveRequest,
+		apilog.RetrieveResponse,
+	]
+	proj project.Project
+	// author can do nothing until a spec grants it access.
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilog.NewService(apilog.ServiceConfig{
-		RBAC: svc.RBAC,
-		Log:  svc.Log,
+		Log: svc.Log,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	setProject = bind.Write(binder, apiSvc.SetProject)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	proj = project.Project{Name: "test-project"}
-	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Project.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
+		Name: "author",
+	}))
 })
 
-// newCreator creates a user that may create logs.
-func newCreator(ctx SpecContext) user.User {
+// newUser creates a user with no policies.
+func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
-		Actions: []access.Action{access.ActionCreate},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+}
+
+// newCreator creates a user that may create logs in the suite project.
+func newCreator(ctx SpecContext) user.User {
+	GinkgoHelper()
+	u := newUser(ctx)
+	grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{Type: resource.TypeLog})
+	grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
 	return u
+}
+
+// grant grants the action on the objects to the subject.
+func grant(
+	ctx SpecContext,
+	action access.Action,
+	subject resource.ID,
+	objects ...resource.ID,
+) {
+	GinkgoHelper()
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { access, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Role } from "@/feature/access/role";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -20,7 +21,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -30,9 +31,10 @@ const Content = (): ReactElement => {
         </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
-              <Icon.Add />
-            </Toolbar.Action>
+            <Toolbar.CreateAction
+              onClick={() => openRegister()}
+              tooltip="Create user"
+            />
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
@@ -43,14 +45,17 @@ const Content = (): ReactElement => {
   );
 };
 
-const Body = (): ReactElement => {
-  const groupID = User.useGroupID({});
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
-};
+const Body = (): ReactElement => (
+  <Tree.Tree
+    root={access.role.TYPE_RESOURCE_ID}
+    listRoot={Role.listTreeRoot}
+    emptyContent={<EmptyContent />}
+  />
+);
 
 const EmptyContent = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
-  const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No users"
@@ -68,5 +73,5 @@ export const TOOLBAR: Nav.Toolbar = {
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   trigger: ["U"],
-  useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(user.TYPE_RESOURCE_ID),
 };

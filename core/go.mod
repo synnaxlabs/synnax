@@ -1,11 +1,10 @@
 module github.com/synnaxlabs/synnax
 
-go 1.27.2
+go 1.27.3
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
 	github.com/synnaxlabs/arc => ../arc/go
-	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
 	github.com/synnaxlabs/gorp => ../gorp
@@ -29,19 +28,22 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/arc v0.0.0
-	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/gorp v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	github.com/tetratelabs/wazero v1.12.0
+	github.com/twmb/franz-go v1.22.1
+	github.com/twmb/franz-go/pkg/kadm v1.19.0
+	github.com/twmb/franz-go/pkg/kfake v0.0.0-20261007040850-d3792b34935a
 	github.com/uptrace/uptrace-go v1.47.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/protocol v1.0.1
 	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.61.0
+	golang.org/x/mod v0.42.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
@@ -109,6 +111,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.30 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
@@ -127,6 +130,7 @@ require (
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.76.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
@@ -154,7 +158,6 @@ require (
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect

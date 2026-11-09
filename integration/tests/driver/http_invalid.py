@@ -21,6 +21,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     DriverTask,
     assert_configure_rejected,
+    assert_create_refused,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -114,7 +115,8 @@ class HTTPInvalidConfig(SimulatorCase):
         self._assert_deploy_fails(task, "no enabled fields")
 
     def test_nonexistent_channel_key(self) -> None:
-        """Configure a read task with a Synnax channel key that doesn't exist."""
+        """Save a read task with a Synnax channel key that doesn't exist. The Core
+        refuses it before it reaches the driver."""
         self.log("Testing: Nonexistent Synnax channel key")
         task = sy.http.ReadTask(
             name="HTTP Invalid Channel Key Test",
@@ -134,7 +136,11 @@ class HTTPInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent channel key")
+        message = assert_create_refused(self.client, task, "nonexistent channel key")
+        assert "channel 999999999 does not exist" in message, (
+            f"Refusal should name the missing channel, got {message!r}"
+        )
+        self.log(f"  Correctly refused (nonexistent channel key): {message}")
 
     def test_invalid_json_pointer(self) -> None:
         """Start a read task with a JSON pointer that doesn't exist in the response."""

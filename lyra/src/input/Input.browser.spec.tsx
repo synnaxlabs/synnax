@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
-import { userEvent } from "vitest/browser";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { assert, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/styletest";
+import { Triggers } from "@/triggers";
 
 const renderInput = async (
   props: Partial<Input.TextProps> = {},
@@ -26,6 +29,10 @@ const renderInput = async (
 };
 
 const background = (el: Element): string => computed(el, "background-color");
+
+// The left edge of the text, past the input's own padding.
+const textStart = (input: Element): number =>
+  input.getBoundingClientRect().left + parseFloat(computed(input, "padding-left"));
 
 describe("Input", () => {
   it("should paint from the outlined rest tokens", async () => {
@@ -75,6 +82,54 @@ describe("Input", () => {
     );
   });
 
+  describe("start icon", () => {
+    const renderIconInputs = async () => {
+      const { getByPlaceholder } = await renderThemed(
+        <>
+          <Input.Text value="" onChange={() => {}} placeholder="text" variant="text" />
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="text icon"
+            variant="text"
+            startContent={<Icon.Search />}
+          />
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="outlined icon"
+            startContent={<Icon.Search />}
+          />
+        </>,
+      );
+      const parts = (placeholder: string) => {
+        const input = getByPlaceholder(placeholder, { exact: true }).element();
+        const box = input.closest(`.${CSS.B("input")}`)!;
+        const icon = box.querySelector("svg")?.getBoundingClientRect();
+        return { input, left: box.getBoundingClientRect().left, icon };
+      };
+      return {
+        text: parts("text"),
+        textIcon: parts("text icon"),
+        outlinedIcon: parts("outlined icon"),
+      };
+    };
+
+    it("should sit in a text variant where its text sits without one", async () => {
+      const { text, textIcon } = await renderIconInputs();
+      expect(textIcon.icon!.left - textIcon.left).toBe(
+        textStart(text.input) - text.left,
+      );
+    });
+
+    it("should keep a text variant's text as clear as an outlined one", async () => {
+      const { textIcon, outlinedIcon } = await renderIconInputs();
+      expect(textStart(textIcon.input) - textIcon.icon!.right).toBe(
+        textStart(outlinedIcon.input) - outlinedIcon.icon!.right,
+      );
+    });
+  });
+
   it("should stack above the packed button beside it", async () => {
     const { getByRole } = await renderThemed(
       <Input.Text value="" onChange={() => {}} placeholder="Name">
@@ -88,5 +143,68 @@ describe("Input", () => {
     expect(Number(computed(box, "z-index"))).toBeGreaterThan(
       Number(computed(button, "z-index")),
     );
+  });
+
+  describe("time editor", () => {
+    it("should close on Enter and give the focus to the trigger", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.DateTime
+            value={TimeStamp.now().nanoseconds}
+            onChange={() => {}}
+            aria-label="Start"
+          />
+        </Triggers.Provider>,
+      );
+      const trigger = page.getByRole("button", { name: "Start" }).element();
+      assert(trigger instanceof HTMLElement);
+      trigger.focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("textbox")).toHaveFocus();
+      await expect.element(page.getByRole("menuitem").first()).toBeVisible();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should stay closed after a click on a reading of an inline editor", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.TimeSpan
+            inline
+            value={TimeSpan.HOUR.nanoseconds}
+            onChange={() => {}}
+            aria-label="Period"
+          />
+        </Triggers.Provider>,
+      );
+      await userEvent.click(page.getByRole("textbox", { name: "Period" }));
+      const reading = page.getByRole("menuitem").first();
+      await expect.element(reading).toBeVisible();
+      await userEvent.click(reading);
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(page.getByRole("textbox", { name: "Period" }).element()).not.toBe(
+        document.activeElement,
+      );
+    });
+
+    it("should keep the edit when the field takes the focus back", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.TimeSpan
+            inline
+            value={TimeSpan.HOUR.nanoseconds}
+            onChange={() => {}}
+            aria-label="Period"
+          />
+        </Triggers.Provider>,
+      );
+      const field = page.getByRole("textbox", { name: "Period" });
+      await userEvent.click(field);
+      await userEvent.fill(field, "90s");
+      await userEvent.click(page.getByRole("dialog"), { position: { x: 1, y: 1 } });
+      await userEvent.click(field);
+      await expect.element(field).toHaveValue("90s");
+    });
   });
 });

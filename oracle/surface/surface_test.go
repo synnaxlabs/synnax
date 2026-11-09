@@ -100,6 +100,20 @@ widget.Valve!Rename.name string
 		},
 	)
 
+	It("Should write the actions of a union", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Valve union on type {
+	open {}
+
+	action Rename {
+		name string
+	}
+}
+`)).To(ContainSubstring(`widget.Valve action Rename
+widget.Valve!Rename.name string
+`))
+	})
+
 	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
 		Expect(report(ctx, `
 Method enum {

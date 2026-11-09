@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -119,6 +120,7 @@ func Analyze(
 			}
 		}
 		fn.Channels = funcScope.Channels
+		fn.Symbol = funcScope
 		g.Functions[i] = fn
 	}
 
@@ -149,6 +151,15 @@ func Analyze(
 		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		if fnSym.Kind != symbol.KindFunction || fnSym.Exec == symbol.ExecWASM {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' type '%s' is not a flow function",
+				n.Key,
+				nodeType,
+			))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
@@ -234,6 +245,14 @@ func Analyze(
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
 	}
+	for _, fn := range g.Functions {
+		if fn.Body.Raw != "" {
+			constant.Check(aCtx.Child(fn.Body.AST))
+		}
+	}
+	if !aCtx.Diagnostics.Ok() {
+		return ir.IR{}, aCtx.Diagnostics
+	}
 
 	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
 	// sequence constructs, so every node becomes a member of the root
@@ -251,12 +270,13 @@ func Analyze(
 		irRoot.Strata = []ir.Members{members}
 	}
 	out := ir.IR{
-		Functions: g.Functions,
-		Edges:     irEdges,
-		Nodes:     irNodes,
-		Symbols:   aCtx.Scope,
-		Root:      irRoot,
-		TypeMap:   aCtx.TypeMap,
+		Functions:  g.Functions,
+		Edges:      irEdges,
+		Nodes:      irNodes,
+		Symbols:    aCtx.Scope,
+		Root:       irRoot,
+		TypeMap:    aCtx.TypeMap,
+		FmtStrings: aCtx.FmtStrings,
 	}
 	if len(irNodes) > 0 {
 		if d := stratifier.Stratify(aCtx, &out, aCtx.Diagnostics); d != nil && !d.Ok() {

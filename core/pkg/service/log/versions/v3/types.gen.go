@@ -15,17 +15,35 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = v2.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
-type TimestampConfig = v2.TimestampConfig
+// TimestampConfig is how a timestamp channel shows its values.
+type TimestampConfig struct {
+	// Format is the format of the values of a timestamp channel.
+	Format telem.TimestampFormat `json:"format" msgpack:"format"`
+	// TimeZone is the time zone of the values of a timestamp channel.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TimestampConfig) Validate() error {
+	v := validate.New("TimestampConfig")
+	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
+	v.Ternaryf("time_zone", !t.TimeZone.IsValid(), "invalid time_zone: %v", t.TimeZone)
+	return v.Error()
+}
 
 // ChannelEntry is a per-channel display configuration entry within a log.
 type ChannelEntry struct {
@@ -35,13 +53,14 @@ type ChannelEntry struct {
 	Color color.Color `json:"color" msgpack:"color"`
 	// Notation is the numeric notation used to render samples.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of decimal digits to display. Absent shows each sample as
-	// it arrives; 17 is the maximum significant digits for a float64.
-	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Precision is the number of digits after the decimal point, from 0 to 17. Absent
+	// shows each sample as it arrives.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Alias is a human-readable alias displayed in place of the channel name.
 	Alias string `json:"alias" msgpack:"alias"`
-	// Timestamp is the per-channel timestamp display configuration.
-	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
+	// TimestampConfig formats the values of a timestamp channel. It has no effect on
+	// line times.
+	TimestampConfig TimestampConfig `json:"timestamp_config" msgpack:"timestamp_config"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -49,11 +68,11 @@ func (c *ChannelEntry) ApplyDefaults() {
 	if c.Notation == "" {
 		c.Notation = "standard"
 	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
+	if c.TimestampConfig.Format == "" {
+		c.TimestampConfig.Format = "preciseDate"
 	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
+	if c.TimestampConfig.TimeZone == "" {
+		c.TimestampConfig.TimeZone = "local"
 	}
 }
 
@@ -62,34 +81,47 @@ func (c *ChannelEntry) ApplyDefaults() {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.NonZero("channel", c.Channel)
 	if c.Precision != nil {
-		v.GreaterThanEq("precision", *c.Precision, 0)
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
-	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
+	v.MaxLength("alias", c.Alias, 64)
+	v.Exec(func() error { return validate.PathedError(c.TimestampConfig.Validate(), "timestamp_config") })
 	return v.Error()
 }
 
-// Log is a timestamped event and message logging component. Logs display chronological
-// records of events, system messages, and audit trails with filtering and formatting
-// capabilities.
+// Log is a visualization that shows the samples of its channels as text, one line per
+// sample, in time order.
 type Log struct {
 	// Key is the unique identifier for this log.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
-	// Channels are the channels displayed in this log, in order.
+	// Channels are the channels displayed in this log.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
-	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+	// TimestampsHidden is true when entry timestamps are hidden.
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+	// TimeZone is the time zone of the line times and day rows of the log.
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+	// Group is the group the log sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the log, if any. Exactly one of project and
+	// range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the log, if any. Exactly one of project and range is
+	// set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
+	if l.TimeZone == "" {
+		l.TimeZone = "local"
+	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
 	}
@@ -99,8 +131,8 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
+	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
-	v.GreaterThanEq("timestamp_precision", l.TimestampPrecision, 0)
 	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })

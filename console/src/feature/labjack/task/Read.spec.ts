@@ -64,9 +64,10 @@ const createDraft = async (
 
 describe("Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
+    await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No device selected")).toBeTruthy());
+    await screen.findByText("No device selected");
   });
 
   it("should prompt to configure an unconfigured device", async () => {
@@ -607,6 +608,61 @@ describe("Read ports", () => {
     );
   });
 
+  describe("negative channels", () => {
+    const savedNegChans = async (key: string) => {
+      const saved = await client.tasks.retrieve({
+        key,
+        schemas: LabJack.Task.READ_SCHEMAS,
+      });
+      return saved.config.channels.map((ch) =>
+        ch.type === "digital" ? null : ch.negChan,
+      );
+    };
+
+    it("should write the pair, then an absent negative channel for ground", async () => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2")],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN2"));
+      fireEvent.click(await findDialogTriggerByText("Ground"));
+      fireEvent.click(await screen.findByText("AIN3"));
+      await waitFor(async () => expect(await savedNegChans(draft.key)).toEqual([3]));
+      fireEvent.click(await findDialogTriggerByText("AIN3"));
+      fireEvent.click(await screen.findByText("Ground"));
+      await waitFor(async () =>
+        expect(await savedNegChans(draft.key)).toEqual([undefined]),
+      );
+    });
+
+    it("should show a stored negative channel that is not the pair as its own option", async () => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2", { negChan: 127 })],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN2"));
+      fireEvent.click(await findDialogTriggerByText("AIN127"));
+      fireEvent.click(await screen.findByText("AIN3"));
+      await waitFor(async () => expect(await savedNegChans(draft.key)).toEqual([3]));
+    });
+
+    it.each([
+      ["the pair of its new port", 3, 5],
+      ["an absent negative channel", undefined, undefined],
+    ])("should give a channel added on a port %s", async (_, negChan, expected) => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2", { negChan })],
+        LabJack.Device.T7_MODEL,
+      );
+      await openPorts();
+      fireEvent.contextMenu(cell("AIN4", "Analog inputs"));
+      fireEvent.click(await screen.findByText("Add channel"));
+      await waitFor(async () =>
+        expect(await savedNegChans(draft.key)).toEqual([negChan, expected]),
+      );
+    });
+  });
+
   it("should keep the ports of each type on their own terminals on a T7", async () => {
     await renderWith(
       [createAnalogReadChannel("AIN4"), createDigitalReadChannel("DIO4")],
@@ -670,7 +726,7 @@ describe("Read ports", () => {
     for (const [port, tooltip] of [
       ["AIN0", "AIN0: chan_a"],
       ["AIN1", "AIN1 is used by chan_b and chan_c"],
-      ["AIN2", "AIN2 is free"],
+      ["AIN2", "Add a channel on AIN2"],
     ]) {
       const target = cell(port, "Analog inputs");
       fireEvent.pointerOver(target, { pointerType: "mouse" });
@@ -679,17 +735,24 @@ describe("Read ports", () => {
     }
   });
 
-  it("should title the ports the MUX80 needs", async () => {
+  it("should split the Mux80 ports into a bank for each connector", async () => {
     await renderWith([createAnalogReadChannel("AIN0")], LabJack.Device.T7_MODEL);
     await openPorts();
-    const section = screen.getByRole("group", { name: "Analog inputs" });
-    expect(within(section).getByText("AIN (MUX80)")).toBeTruthy();
+    const section = within(screen.getByRole("group", { name: "Analog inputs" }));
     expect(
-      within(section).getByRole("group", { name: "AIN48 to AIN127" }),
-    ).toBeTruthy();
+      section.getAllByRole("group").map((g) => g.getAttribute("aria-label")),
+    ).toEqual([
+      "AIN0 to AIN13",
+      "AIN48 to AIN71",
+      "AIN72 to AIN95",
+      "AIN96 to AIN119",
+      "AIN120 to AIN127",
+    ]);
+    for (const connector of ["X3", "X4", "X5", "X2"])
+      expect(section.getByText(`AIN (Mux80 ${connector})`)).toBeTruthy();
   });
 
-  it("should lay a bank out in groups of sixteen ports, eight to a row", async () => {
+  it("should lay a bank out eight ports to a row", async () => {
     await renderWith([createAnalogReadChannel("AIN0")], LabJack.Device.T7_MODEL);
     await openPorts();
     const bank = (section: string, name: string) =>
@@ -699,15 +762,59 @@ describe("Read ports", () => {
         (g as HTMLElement).style.gridTemplateColumns,
         within(g as HTMLElement).getAllByRole("button").length,
       ]);
-    const mux = bank("Analog inputs", "AIN48 to AIN127");
-    expect(layout(mux)).toEqual(
-      Array(5).fill(["repeat(8, var(--pluto-port-cell))", 16]),
-    );
+    const x3 = bank("Analog inputs", "AIN48 to AIN71");
+    expect(layout(x3)).toEqual([["repeat(8, var(--pluto-port-width))", 24]]);
     expect(layout(bank("Digital inputs", "MIO0 to MIO2"))).toEqual([
-      ["repeat(3, var(--pluto-port-cell))", 3],
+      ["repeat(3, var(--pluto-port-width))", 3],
     ]);
-    const last = within(mux).getByRole("button", { name: "AIN127" });
-    expect([last.style.gridRow, last.style.gridColumn]).toEqual(["2", "8"]);
+    const last = within(x3).getByRole("button", { name: "AIN71" });
+    expect([last.style.gridRow, last.style.gridColumn]).toEqual(["3", "8"]);
+  });
+
+  describe("Mux80 tabs", () => {
+    const tab = (name: string) => screen.getByRole("button", { name });
+
+    it("should show only the connector of the channel's port", async () => {
+      await renderWith([createAnalogReadChannel("AIN100")], LabJack.Device.T7_MODEL);
+      fireEvent.click(await findChannelListItem("AIN100"));
+      await screen.findByRole("group", { name: "AIN96 to AIN119" });
+      expect(tab("X5 96–119").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.queryByRole("group", { name: "AIN48 to AIN71" })).toBeNull();
+    });
+
+    it("should move a channel to a port on another connector", async () => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN100")],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN100"));
+      fireEvent.click(await screen.findByRole("button", { name: "X3 48–71" }));
+      fireEvent.click(cell("AIN50", "AIN48 to AIN71"));
+      await waitFor(async () =>
+        expect(await savedPorts(draft.key)).toEqual([["analog", "AIN50"]]),
+      );
+      expect(tab("X3 48–71").getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("should open each channel on the connector of its own port", async () => {
+      await renderWith(
+        [createAnalogReadChannel("AIN0"), createAnalogReadChannel("AIN100")],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN100"));
+      fireEvent.click(await screen.findByRole("button", { name: "X3 48–71" }));
+      fireEvent.click(await findChannelListItem("AIN0"));
+      await screen.findByRole("group", { name: "AIN0 to AIN13" });
+      expect(tab("AIN 0–13").getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("should show every bank of ports that need no accessory", async () => {
+      await renderWith([createDigitalReadChannel("DIO0")], LabJack.Device.T7_MODEL);
+      fireEvent.click(await findChannelListItem("FIO0"));
+      await screen.findByRole("group", { name: "FIO0 to FIO7" });
+      expect(screen.getByRole("group", { name: "MIO0 to MIO2" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "FIO 0–7" })).toBeNull();
+    });
   });
 
   describe("disabled channels", () => {
@@ -812,7 +919,7 @@ describe("Read ports", () => {
 });
 
 describe("Read channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -821,5 +928,21 @@ describe("Read channel names", () => {
     await renderRead({ client, taskKey: draft.key });
     const item = await findChannelListItem(`${dev.properties.identifier}_AIN0`);
     expect(within(item).queryByText("No channel")).toBeNull();
+  });
+
+  it("should not mark a disabled channel on a port another channel uses as new", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogReadChannel("AIN0", { disabled: true, name: "spare" }),
+        createAnalogReadChannel("AIN0", { name: "main" }),
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    const main = await findChannelListItem("main");
+    expect(within(main).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const spare = await findChannelListItem("spare");
+    expect(within(spare).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

@@ -11,11 +11,13 @@ package task
 
 import (
 	"context"
+	"slices"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -24,18 +26,17 @@ import (
 // Retrieve is used to retrieve Task records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, Task]
-	search  *gorp.SearchIndex[Key, Task]
-	otg     *ontology.Ontology
-	configs config.Registry
-	entry   *Task
-	entries *[]Task
+	gorp      gorp.Retrieve[Key, Task]
+	indexes   indexes
+	configs   config.Registry
+	matchArcs func(arcs ...uuid.UUID) Filter
+	entry     *Task
+	entries   *[]Task
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
 // Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
-// r.otg, r.configs) to evaluate. Use Match to construct one from a closure.
+// r.indexes, r.configs) to evaluate. Use Match to construct one from a closure.
 //
 // Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the composition
 // helpers (Match / And / Or / Not) can be one-line wrappers around their gorp.*Bound
@@ -57,16 +58,6 @@ func Or(fs ...Filter) Filter { return gorp.OrBound(fs...) }
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter { return gorp.NotBound(f) }
 
-// Search filters the tasks to those whose name or type matches term, closest match
-// first. An empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
-}
-
 // MatchKeys returns a filter that restricts results to tasks whose key matches any of
 // the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
@@ -78,11 +69,37 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+// A draft on no rack matches the value 0.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
-			return lo.Contains(vals, e.Rack), nil
-		})
+		if !slices.Contains(vals, 0) {
+			return r.indexes.rack.Filter(vals...)
+		}
+		return gorp.Or(
+			r.indexes.rack.Filter(vals...),
+			r.indexes.rack.FilterHolding(false),
+		)
+	}
+}
+
+// MatchRanges returns a filter for tasks whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchArcs returns a filter for the tasks that run any of the Arcs with the given
+// keys.
+func MatchArcs(arcs ...uuid.UUID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		if r.matchArcs == nil {
+			return gorp.MatchKeysFunc[Key, Task](func(gorp.Context) ([]Key, error) {
+				return nil, errors.New("this task service cannot filter tasks by Arc")
+			})
+		}
+		return r.matchArcs(arcs...)(r)
 	}
 }
 
@@ -123,7 +140,7 @@ func MatchSnapshot(v bool) Filter {
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve so
-// service-bound filters can read from r.otg, r.configs, etc. To compose multiple
+// service-bound filters can read from r.indexes, r.configs, etc. To compose multiple
 // filters, chain Where calls or pass a combined filter via And / Or.
 func (r Retrieve) Where(filter Filter) Retrieve {
 	r.gorp = r.gorp.Where(filter(r))
@@ -148,9 +165,17 @@ func (r Retrieve) Entries(es *[]Task) Retrieve {
 // Limit sets the maximum number of tasks to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the tasks to return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no task as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 
@@ -174,7 +199,7 @@ func (r Retrieve) results() []*Task {
 // registered store or no stored record keep a nil Config.
 func (r Retrieve) composeConfigs(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	tasks []*Task,
 ) error {
 	for _, t := range tasks {
@@ -182,7 +207,7 @@ func (r Retrieve) composeConfigs(
 		if !ok {
 			continue
 		}
-		data, err := store.Read(ctx, tx, t.Key)
+		data, err := store.Read(ctx, snap, t.Key)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue
@@ -194,21 +219,21 @@ func (r Retrieve) composeConfigs(
 	return nil
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if err := r.gorp.Exec(ctx, tx); err != nil {
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	if err := r.gorp.Exec(ctx, snap); err != nil {
 		return err
 	}
-	return r.composeConfigs(ctx, tx, r.results())
+	return r.composeConfigs(ctx, snap, r.results())
 }
 
-// Count returns the number of tasks matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of tasks in snap that match the query. It panics when snap
+// is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any tasks match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any tasks in snap match the query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

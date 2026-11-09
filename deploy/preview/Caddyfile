@@ -1,1 +1,8 @@
+# Port 80 is closed, so certificates use the TLS-ALPN challenge on 443.
+{
+	cert_issuer acme {
+		disable_http_challenge
+	}
+}
+
 import /etc/caddy/sites/*.caddy

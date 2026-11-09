@@ -14,20 +14,41 @@ export {
   type TableConfig,
 } from "@/query/cache";
 export { Deleted } from "@/query/deleted";
-export { type DeriveWatch, deriveWatch } from "@/query/derived";
+export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
+export {
+  type List,
+  type ListQuery,
+  type Lists,
+  type ListsConfig,
+  MAX_SEARCH_LIMIT,
+  type Window,
+  type WindowHandler,
+} from "@/query/list";
 export {
   type Cached,
   type ChangeHandler,
   hash,
   isLive,
+  type Live,
   requireCorpse,
   type Retrieves,
+  type Space,
   type SpaceConfig,
-  type Watch,
-  watch,
+  type Trigger,
+  trigger,
 } from "@/query/query";
-export { keyListZ, Retriever, type RetrieverParams } from "@/query/retriever";
+export {
+  addressesOne,
+  dropOne,
+  keyListZ,
+  keysRequest,
+  keysRequestZ,
+  type OneInput,
+  type RequestInput,
+  Retriever,
+  type RetrieverParams,
+} from "@/query/retriever";
 export { type Listener } from "@/query/streamer";
 export {
   createDeleteListener,

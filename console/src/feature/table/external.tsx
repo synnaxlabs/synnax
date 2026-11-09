@@ -21,7 +21,7 @@ export * from "@/feature/table/search";
 export * from "@/feature/table/tree";
 export * from "@/platform/table/external";
 
-const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = table.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -35,8 +35,14 @@ const TAB: Panel.Tab = {
     <Icon.Table />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.tables.getCached(resource.key));
-    await client.tables.create(project, corpse);
+    const corpse = query.requireCorpse(client.tables.watch(resource.key).getCached());
+    // A restored record comes back in the project, as its range or group may be gone.
+    await client.tables.create({
+      ...corpse,
+      project,
+      range: undefined,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

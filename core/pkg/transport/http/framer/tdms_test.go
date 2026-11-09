@@ -985,6 +985,50 @@ var _ = Describe("TDMS", func() {
 			Expect(buf.Len()).To(BeZero())
 		})
 
+		It("Should encode the newest rows of a latest read", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float64T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				channels,
+				telem.NewSeriesV[float64](1, 2, 3),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Latest = 2
+			segments := parseTDMS(MustSucceed(framer.TDMSEncoder.Encode(ctx, res)))
+			Expect(decodeFloat64s(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, channels[0].Name),
+			))).To(Equal([]float64{2, 3}))
+		})
+
+		It("Should encode the oldest rows of an earliest read", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float64T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				channels,
+				telem.NewSeriesV[float64](1, 2, 3),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Earliest = 2
+			segments := parseTDMS(MustSucceed(framer.TDMSEncoder.Encode(ctx, res)))
+			Expect(decodeFloat64s(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, channels[0].Name),
+			))).To(Equal([]float64{1, 2}))
+		})
+
 		It("Should return an error for a data type with no TDMS form", func(
 			ctx SpecContext,
 		) {

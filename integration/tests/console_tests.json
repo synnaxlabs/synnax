@@ -5,17 +5,19 @@
       "sequence_name": "project",
       "tests": [
         { "case": "console/project/project" },
-        { "case": "console/project/ontology" },
+        { "case": "console/project/groups" },
         { "case": "console/pages/file_drop" },
-        { "case": "console/channel/ontology" },
+        { "case": "console/channel/groups" },
         { "case": "console/task/task_lifecycle" },
-        { "case": "console/channel/tree_virtualization" }
+        { "case": "console/channel/tree_virtualization" },
+        { "case": "console/channel/toolbar_search" }
       ]
     },
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
@@ -30,9 +32,11 @@
       "sequence_name": "pages",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/arc/graph_toolbar" },
         { "case": "console/arc/editor_scrollbar" },
+        { "case": "console/log/log_history" },
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },
@@ -60,6 +64,7 @@
       "sequence_name": "channel",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/channel/alias_synchronization" },
         { "case": "console/channel/channel_lifecycle" },
@@ -82,6 +87,7 @@
       "sequence_name": "user",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/user/register" },
         { "case": "console/user/assign_role" },
@@ -100,9 +106,9 @@
       "sequence_name": "cluster",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/cluster/connection_lifecycle" },
-        { "case": "console/cluster/cluster_switch" },
         { "case": "console/cluster/login_forms" }
       ]
     },
@@ -110,6 +116,7 @@
       "sequence_name": "other",
       "sequence_order": "asynchronous",
       "pool_size": 3,
+      "independent": true,
       "tests": [
         { "case": "console/documentation" },
         { "case": "console/layout/keyboard_shortcuts" },

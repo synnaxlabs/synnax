@@ -7,53 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Ranger } from "@synnaxlabs/pluto";
-import { state } from "@synnaxlabs/x";
+import { Flux } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
-import { searchAndClickNestedLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { createTestRange } from "@/platform/range/testutil";
 import {
+  awaitGranted,
   createConsoleWrapper,
   getIconButton,
-  getInputByNodePlaceholder,
-  queryIconButton,
   renderSuspended,
   selectTestProject,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const Harness = (): ReactElement => {
-  const { data, getItem, subscribe, retrieve, answered } = Ranger.useList({});
+interface HarnessProps {
+  keys: ranger.Key[];
+}
+
+const Harness = ({ keys }: HarnessProps): ReactElement => {
+  const { data, getItem, subscribe, more, answered } = Flux.useList((c) => c.ranges, {
+    name: "ranges",
+    query: { where: { key: { in: keys } } },
+  });
   return (
     <Range.List.List
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      retrieve={retrieve}
+      more={more}
       answered={answered}
-      enableSearch
-      enableFilters
-      enableAddButton
     />
   );
 };
 
-const renderList = async (as: Client = client): Promise<HTMLElement> => {
+const renderList = async (
+  keys: ranger.Key[],
+  as: Client = client,
+): Promise<HTMLElement> => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   const { container } = await renderSuspended(
     <>
-      <Harness />
+      <Harness keys={keys} />
       <Modals.Stack />
     </>,
     { wrapper },
@@ -61,52 +64,33 @@ const renderList = async (as: Client = client): Promise<HTMLElement> => {
   return container;
 };
 
-const showRange = async (container: HTMLElement): Promise<ranger.Range> => {
+interface ShowRangeParams {
+  as?: Client;
+  granted?: boolean;
+}
+
+const showRange = async ({
+  as = client,
+  granted = true,
+}: ShowRangeParams = {}): Promise<[HTMLElement, ranger.Range]> => {
   const rng = await createTestRange(client);
-  const input = await waitFor(() =>
-    getInputByNodePlaceholder(container, "Search Ranges..."),
-  );
-  fireEvent.change(input, { target: { value: rng.name } });
+  // The item draws its name again once the update grant lands, so a granted subject
+  // waits for the grant before the spec reads the item.
+  if (granted) await awaitGranted(as, ranger.resourceID(rng.key), "update");
+  const container = await renderList([rng.key], as);
   await within(container).findByText(rng.name);
-  return rng;
+  return [container, rng];
 };
 
 describe("range/list/List", () => {
-  it("narrows the list to ranges matching the search term", async () => {
-    const target = await createTestRange(client);
-    const other = await createTestRange(client);
-    await renderList();
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(document.body, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: target.name } });
-    await waitFor(() => {
-      expect(screen.getByText(target.name)).toBeTruthy();
-      expect(screen.queryByText(other.name)).toBeNull();
-    });
-  });
-
   it("offers Reload Console from a range's context menu", async () => {
-    const rng = await createTestRange(client);
-    await renderList();
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(document.body, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: rng.name } });
+    const [, rng] = await showRange();
     fireEvent.contextMenu(await screen.findByText(rng.name));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("opens the create range modal from the add button", async () => {
-    await renderList();
-    await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
-    fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save locally")).toBeTruthy();
-  });
-
   it("should end a range on the Core from its stage selector", async () => {
-    const container = await renderList();
-    const rng = await showRange(container);
+    const [container, rng] = await showRange();
     const item = within(container).getByLabelText(rng.name);
     fireEvent.click(getIconButton(item, "in-progress"));
     fireEvent.click(await screen.findByText("Complete"));
@@ -117,95 +101,39 @@ describe("range/list/List", () => {
   });
 });
 
-describe("range/list/SelectFilters", () => {
-  it("adds the chosen label to the request and resets pagination", async () => {
-    const label = await client.labels.create({
-      name: uniqueName("filter_label"),
-      color: "#E774D0",
-    });
-    const onRequestChange = vi.fn();
-    const { wrapper } = await createConsoleWrapper({ client });
-    await renderSuspended(
-      <Range.List.SelectFilters
-        request={{ offset: 25, limit: 25 }}
-        onRequestChange={onRequestChange}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(await screen.findByText("Filter"));
-    await searchAndClickNestedLabel(label.name);
-    await waitFor(() => expect(onRequestChange).toHaveBeenCalled());
-    const [setter] = onRequestChange.mock.calls[0] as [
-      state.SetArg<ranger.RetrieveRequest>,
-    ];
-    const next = state.executeSetter(setter, { offset: 25, limit: 25 });
-    expect(next.hasLabels).toEqual([label.key]);
-    expect(next.offset).toBe(0);
-    expect(next.limit).toBe(0);
-  });
-
-  it("renders the applied label filters as chips", async () => {
-    const label = await client.labels.create({
-      name: uniqueName("chip_label"),
-      color: "#E774D0",
-    });
-    const { wrapper } = await createConsoleWrapper({ client });
-    await renderSuspended(
-      <Range.List.Filters
-        request={{ hasLabels: [label.key] }}
-        onRequestChange={vi.fn()}
-      />,
-      { wrapper },
-    );
-    expect(await screen.findByText("Labels")).toBeTruthy();
-    expect(await screen.findByText(label.name)).toBeTruthy();
-  });
-});
-
 describe("range/list/List permissions", () => {
-  // A search that matches nothing is the only way to reach the empty state: the shared
-  // Core accumulates ranges across runs. The term shares no token with the test range
-  // names, which search matches word by word.
-  const showEmptyState = async (container: HTMLElement): Promise<void> => {
-    const rng = await createTestRange(client);
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(container, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: rng.name } });
-    await within(container).findByText(rng.name);
-    fireEvent.change(input, { target: { value: "qqqqzzzz" } });
+  const showEmptyState = async (as: Client): Promise<HTMLElement> => {
+    const container = await renderList([], as);
     await within(container).findByText("No ranges found", undefined, {
       timeout: 5000,
     });
+    return container;
   };
 
   it("should freeze the stage selector for a viewer", async () => {
-    const container = await renderList(await roles.get("Viewer"));
-    await showRange(container);
+    const [container] = await showRange({
+      as: await roles.get("Viewer"),
+      granted: false,
+    });
     expect(getIconButton(container, "in-progress").getAttribute("aria-disabled")).toBe(
       "true",
     );
   });
 
   it("should leave the stage selector live for an operator", async () => {
-    const container = await renderList(await roles.get("Operator"));
-    await showRange(container);
+    const [container] = await showRange({ as: await roles.get("Operator") });
     expect(
       getIconButton(container, "in-progress").getAttribute("aria-disabled"),
     ).toBeNull();
   });
 
-  it("should withhold both create affordances from a viewer", async () => {
-    const container = await renderList(await roles.get("Viewer"));
-    await showEmptyState(container);
+  it("should withhold the create action from a viewer", async () => {
+    const container = await showEmptyState(await roles.get("Viewer"));
     expect(within(container).queryByText("Create range")).toBeNull();
-    expect(queryIconButton(container, "add")).toBeNull();
   });
 
-  it("should offer both create affordances to an operator", async () => {
-    const container = await renderList(await roles.get("Operator"));
-    await showEmptyState(container);
+  it("should offer the create action to an operator", async () => {
+    const container = await showEmptyState(await roles.get("Operator"));
     expect(await within(container).findByText("Create range")).toBeTruthy();
-    expect(queryIconButton(container, "add")).toBeTruthy();
   });
 });

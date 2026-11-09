@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Portal } from "@/portal";
@@ -201,6 +201,40 @@ describe("Portal", () => {
           .getByRole("region", { name: "region b" })
           .contains(screen.getByText("content")),
       ).toBe(true);
+    });
+  });
+
+  describe("useAttached", () => {
+    const renderAttached = (hosted: { current: boolean }) =>
+      renderHook(Portal.useAttached, {
+        wrapper: ({ children }: PropsWithChildren) => (
+          <Portal.Context>
+            <Portal.In itemKey="tab">{children}</Portal.In>
+            {hosted.current && <Portal.Out itemKey="tab" />}
+          </Portal.Context>
+        ),
+      });
+
+    it("should be true outside an In", () => {
+      expect(renderHook(Portal.useAttached).result.current).toBe(true);
+    });
+
+    it("should turn true when an Out mounts after the In", () => {
+      const hosted = { current: false };
+      const { result, rerender } = renderAttached(hosted);
+      expect(result.current).toBe(false);
+      hosted.current = true;
+      rerender();
+      expect(result.current).toBe(true);
+    });
+
+    it("should turn false when its Out unmounts", () => {
+      const hosted = { current: true };
+      const { result, rerender } = renderAttached(hosted);
+      expect(result.current).toBe(true);
+      hosted.current = false;
+      rerender();
+      expect(result.current).toBe(false);
     });
   });
 

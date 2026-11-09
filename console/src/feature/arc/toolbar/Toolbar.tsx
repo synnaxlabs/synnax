@@ -20,7 +20,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, Arc } from "@synnaxlabs/pluto";
+import { Access, Arc, Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/arc/explorer";
@@ -36,7 +36,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No Arcs"
@@ -51,13 +51,15 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
-  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
+  const { data, getItem, subscribe, more, answered } = Flux.useList(
+    (client) => client.arcs,
+    { name: "Arcs", pageSize: 1000 },
+  );
 
   const { update: handleRename } = Arc.useRename();
 
   const handleEdit = (key: arc.Key) =>
-    openTab({ variant: "resource", resource: arc.ontologyID(key) });
+    openTab({ variant: "resource", resource: arc.resourceID(key) });
 
   const create = PlatformArc.useCreate();
 
@@ -83,7 +85,7 @@ const Content = () => {
             subscribe={subscribe}
             value={selected}
             onChange={setSelected}
-            onFetchMore={fetchMore}
+            onFetchMore={more}
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>
@@ -113,8 +115,8 @@ interface ActionsProps {
 
 const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();
-  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
@@ -124,9 +126,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create Arc automation" onClick={handleCreate}>
-          <Icon.Add />
-        </Toolbar.Action>
+        <Toolbar.CreateAction tooltip="Create Arc automation" onClick={handleCreate} />
       )}
     </Toolbar.Actions>
   );
@@ -140,7 +140,7 @@ export const TOOLBAR: Nav.Toolbar = {
   tooltip: "Arcs",
   sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
-  useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID),
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
@@ -151,7 +151,7 @@ interface ArcListItemProps extends List.ItemProps<arc.Key> {
 const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(arc.resourceID(itemKey));
   const handleRename = (name: string) => onRename({ key: itemKey, name });
   const handleDoubleClick = () => onEdit(itemKey);
   const captureDeploy = PlatformArc.useCaptureDeploy();

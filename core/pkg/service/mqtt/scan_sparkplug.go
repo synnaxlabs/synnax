@@ -159,7 +159,7 @@ func browseNodes(
 			nodes[topic.Node].Add(topic.Device)
 		}
 	})
-	client, disconnect, err := open(ctx, ins, opts)
+	client, disconnect, err := open(ctx, ins, paho.NewClient, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func browseTags(
 		default:
 		}
 	})
-	client, disconnect, err := open(ctx, ins, opts)
+	client, disconnect, err := open(ctx, ins, paho.NewClient, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,6 @@
 
 from synnax.user.client import Client
 from synnax.user.payload import New, User
-from synnax.user.types_gen import Key
+from synnax.user.types_gen import Cursor, Key, Order, Where, WhereInput
 
-__all__ = ["Client", "Key", "New", "User"]
+__all__ = ["Client", "Cursor", "Key", "New", "Order", "User", "Where", "WhereInput"]

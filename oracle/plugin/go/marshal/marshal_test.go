@@ -768,6 +768,25 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("array of a type param", func() {
+			It("Should encode each element through the type param codec", func() {
+				source := `
+				@go output "core/pkg/test"
+				@go marshal
+
+				Set struct<T> {
+					in T[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").ToContain(
+					"s.In = make([]T, n)",
+					"if m, ok := any(s.In[j]).(orc.SelfEncoder); ok {",
+					"if m, ok := any(&s.In[j]).(orc.SelfDecoder); ok {",
+				)
+			})
+		})
+
 		Context("marshal json_only on a type param field", func() {
 			It(
 				"Should always use JSON encoding without SelfEncoder/SelfDecoder type assertions",
@@ -1299,7 +1318,8 @@ var _ = Describe("Union Codecs", func() {
 					`w.String("valve")`,
 					`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
 					"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
-					"tag, err := r.String()",
+					"tag, err := r.StringBytes()",
+					"switch string(tag) {",
 					`case "tank":`,
 					"var v TankElementConfig",
 					"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
@@ -1566,6 +1586,25 @@ var _ = Describe("Recursive Codecs", func() {
 	)
 
 	It(
+		"Should populate one nested level of a recursive struct in test fixtures",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+
+			Node struct {
+				name     string
+				children Node[]
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToContain(`Children: []test.Node{test.Node{Name: "test_3", ` +
+					`Children: []test.Node{test.Node{}}}}`)
+		},
+	)
+
+	It(
 		"Should guard a recursive union and its cycle members with a depth limit",
 		func(ctx SpecContext) {
 			source := `
@@ -1590,7 +1629,7 @@ var _ = Describe("Recursive Codecs", func() {
 		return err
 	}
 	defer r.PopDepth()
-	tag, err := r.String()`,
+	tag, err := r.StringBytes()`,
 					`func (gc *GroupConfig) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -1771,11 +1810,11 @@ func (c rtConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (c *rtConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "tank":
 		var v rtConfigTank
 		if err := v.rtBase.DecodeOrc(r); err != nil {

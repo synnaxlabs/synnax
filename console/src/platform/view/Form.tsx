@@ -9,7 +9,6 @@
 
 import { type view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
@@ -19,34 +18,28 @@ import { FormContext, useContext } from "@/platform/view/context";
 
 const path = PView.formPath;
 
-export type Query = List.PagerParams;
+export interface FormProps<K extends record.Key, E extends record.Keyed<K>>
+  extends
+    PropsWithChildren,
+    Pick<
+      Flux.UseListReturn<K, E>,
+      "data" | "getItem" | "subscribe" | "answered" | "more" | "search"
+    > {
+  /** Called with the filter of the view each time the selected view changes it. */
+  onWhereChange: (where: view.View["where"]) => void;
+}
 
-export interface FormProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-  Q extends Query,
->
-  extends PropsWithChildren, Flux.UseListReturn<Q, K, E> {}
-
-export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends Query>({
+export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   children,
   data,
   getItem,
-  retrieve,
   subscribe,
   answered,
-}: FormProps<K, E, Q>): ReactElement | null => {
+  more,
+  search,
+  onWhereChange,
+}: FormProps<K, E>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
-  // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
-  // typing issues.
-  const pagerRetrieve = retrieve as List.UsePagerParams["retrieve"];
-  const { fetchMore, search } = List.usePager({
-    retrieve: pagerRetrieve,
-    pageSize: 50,
-  });
-  const updateQuery = (query: view.View["query"]) => {
-    pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
-  };
   const { form } = PView.useForm({
     query: null,
     initialValues: getInitialView(),
@@ -54,18 +47,18 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     beforeSave: async ({
       value,
     }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
-      const { key, query } = value();
+      const { key, where } = value();
       // if this is a static view we need to handle it here. Otherwise, the
       // useSetSynchronizer will handle it as it also needs to handle remote updates.
       if (key == null || !staticViews.includes(key)) return true;
-      updateQuery(query);
+      onWhereChange(where);
       return false;
     },
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
     if (view.key !== getField(path.key).value) return;
-    updateQuery(view.query);
+    onWhereChange(view.where);
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
@@ -79,7 +72,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
         subscribe={subscribe}
         onChange={setSelected}
         value={selected}
-        onFetchMore={fetchMore}
+        onFetchMore={more}
       >
         <FormContext value={contextValue}>{children}</FormContext>
       </Select.Frame>

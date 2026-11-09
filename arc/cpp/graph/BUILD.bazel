@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "graph",
@@ -23,5 +24,15 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/pb",
         "//x/cpp/spatial",
+    ],
+)
+
+cc_test(
+    name = "graph_test",
+    srcs = ["graph_test.cpp"],
+    deps = [
+        ":graph",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )

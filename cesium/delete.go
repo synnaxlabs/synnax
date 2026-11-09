@@ -63,6 +63,14 @@ func (cfg GCConfig) Validate() error {
 
 func keyToDirName(ch ChannelKey) string { return strconv.FormatUint(uint64(ch), 10) }
 
+func dirNameToKey(name string) (ChannelKey, error) {
+	key, err := strconv.ParseUint(name, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return ChannelKey(key), nil
+}
+
 // DeleteChannel deletes a channel by its key.
 //
 // This method returns an error if there are other channels depending on the current
@@ -201,7 +209,8 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the time range. DeleteTimeRange is
-// idempotent, but when the channel does not exist, it returns ErrChannelNotFound.
+// idempotent, but when the channel does not exist, it returns ErrChannelNotFound. It
+// deletes nothing and returns ctx.Err() if ctx is already canceled.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -209,6 +218,9 @@ func (db *DB) DeleteTimeRange(
 ) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))
@@ -277,6 +289,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	for i := range min(int(maxGoRoutine), len(pending)) {
 		sCtx.Go(func(ctx context.Context) error {
 			for uDB := range pending {
+				// A collection rewrites files and does not stop for ctx.
+				if ctx.Err() != nil {
+					return nil
+				}
 				if err := uDB.GarbageCollect(ctx); err != nil {
 					return err
 				}

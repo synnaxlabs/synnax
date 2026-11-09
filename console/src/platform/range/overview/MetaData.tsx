@@ -179,14 +179,16 @@ export interface MetaDataProps {
 
 const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 
+const NO_PAIRS: ranger.kv.Pair[] = [];
+
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
-  const { data, getItem, subscribe, retrieve, status } = Ranger.useListMetaData({
-    initialQuery: { rangeKey },
+  const result = Ranger.useResultMetaData({ rangeKey });
+  const { data, getItem } = List.useStaticData<string, ranger.kv.Pair>({
+    data: result.data ?? NO_PAIRS,
     sort,
   });
-  useEffect(() => retrieve({ rangeKey }), [rangeKey]);
-  if (status.variant === "error") return null;
+  if (result.variant === "error") return null;
   return (
     <Flex.Box y empty className={CSS.BE("range", "metadata")}>
       <Header.Header level="h4" borderColor={6}>
@@ -197,7 +199,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
+      <List.Frame<string, kv.Pair> data={data} getItem={getItem}>
         <CreateItem
           rangeKey={rangeKey}
           visible={newFormVisible}

@@ -17,6 +17,7 @@ package channel
 
 import (
 	context "context"
+	pb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -136,7 +137,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChannelRetrieveServiceClient interface {
-	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
+	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error)
 }
 
 type channelRetrieveServiceClient struct {
@@ -147,9 +148,9 @@ func NewChannelRetrieveServiceClient(cc grpc.ClientConnInterface) ChannelRetriev
 	return &channelRetrieveServiceClient{cc}
 }
 
-func (c *channelRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error) {
+func (c *channelRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrieveResponse)
+	out := new(pb.RetrieveResponse)
 	err := c.cc.Invoke(ctx, ChannelRetrieveService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func (c *channelRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveReq
 // All implementations should embed UnimplementedChannelRetrieveServiceServer
 // for forward compatibility.
 type ChannelRetrieveServiceServer interface {
-	Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
+	Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error)
 }
 
 // UnimplementedChannelRetrieveServiceServer should be embedded to have
@@ -171,7 +172,7 @@ type ChannelRetrieveServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedChannelRetrieveServiceServer struct{}
 
-func (UnimplementedChannelRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error) {
+func (UnimplementedChannelRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedChannelRetrieveServiceServer) testEmbeddedByValue() {}

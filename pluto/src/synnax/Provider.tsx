@@ -12,14 +12,8 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate, record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { record } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
@@ -48,22 +42,12 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
 }
 
-export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
-
-export const statusDetailsSchema = z.object({
-  type: z.string(),
-  oldServer: z.boolean(),
-  nodeVersion: z.string().optional(),
-  clientVersion: z.string(),
-});
 
 export const clockSkewDetailsSchema = z.object({
   type: z.string(),
   clockSkew: z.number(),
 });
-
-export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const addClockSkewStatus = (
   addStatus: Status.Adder,
@@ -87,26 +71,6 @@ const addClockSkewStatus = (
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
-
-const addVersionMismatchStatus = (
-  addStatus: Status.Adder,
-  status: connection.Status,
-): void => {
-  const oldServer =
-    status.details.nodeVersion == null ||
-    migrate.semVerOlder(status.details.nodeVersion, status.details.clientVersion);
-  addStatus<typeof statusDetailsSchema>({
-    variant: "warning",
-    message: "Incompatible Core version",
-    description: `Core version ${status.details.nodeVersion != null ? `${status.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${status.details.clientVersion}. Compatibility issues may arise.`,
-    details: {
-      type: SERVER_VERSION_MISMATCH,
-      oldServer,
-      nodeVersion: status.details.nodeVersion,
-      clientVersion: status.details.clientVersion,
-    },
-  });
-};
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
@@ -174,7 +138,6 @@ export const Provider = ({
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const versionWarned = useRef(false);
 
   const handleChange = (connStatus: connection.Status) => {
     const prev = ref.current.status;
@@ -184,14 +147,8 @@ export const Provider = ({
       reasonOf(prev) !== reasonOf(connStatus)
     )
       addStatus(connStatus);
-    if (connStatus.variant === "success") {
-      if (connStatus.details.clockSkewExceeded)
-        addClockSkewStatus(addStatus, connStatus);
-      if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
-        versionWarned.current = true;
-        addVersionMismatchStatus(addStatus, connStatus);
-      }
-    }
+    if (connStatus.variant === "success" && connStatus.details.clockSkewExceeded)
+      addClockSkewStatus(addStatus, connStatus);
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };
@@ -204,7 +161,6 @@ export const Provider = ({
       setState(ZERO_CONTEXT_VALUE);
       return;
     }
-    versionWarned.current = false;
     const heading = {
       message: "Failed to sync with Core",
       name: connParams.name ?? "",

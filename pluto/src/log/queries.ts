@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type log, type project } from "@synnaxlabs/client";
-import { compare, uuid, verbs } from "@synnaxlabs/x";
+import { compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -24,9 +24,10 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   log.Log
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.logs.retrieve(query),
-  onChange: ({ client, query }, handler) => client.logs.onChange(query, handler),
-  getCached: ({ client, query }) => client.logs.getCached(query),
+  retrieve: async ({ client, query }) => await client.logs.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.logs.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.logs.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -69,9 +70,11 @@ export const useIsHidingChannelNames = Scope.bindHook(
   createSelector(({ channelNamesHidden }) => channelNamesHidden),
 );
 
-export const useIsHidingReceiptTimestamp = Scope.bindHook(
-  createSelector(({ receiptTimestampHidden }) => receiptTimestampHidden),
+export const useIsHidingTimestamps = Scope.bindHook(
+  createSelector(({ timestampsHidden }) => timestampsHidden),
 );
+
+export const useTimeZone = Scope.bindHook(createSelector(({ timeZone }) => timeZone));
 
 export const {
   useDispatch,
@@ -98,14 +101,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
 });
 
 export interface CreateParams extends log.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.logs.create(data.project ?? uuid.ZERO, data, {
+    await client.logs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

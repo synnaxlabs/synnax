@@ -19,12 +19,9 @@ package kv
 import (
 	"context"
 	"io"
-	"iter"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -44,10 +41,10 @@ type Reader interface {
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
-	Set(ctx context.Context, key, value []byte, opts ...any) error
+	Set(ctx context.Context, key, value []byte) error
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
-	Delete(ctx context.Context, key []byte, opts ...any) error
+	Delete(ctx context.Context, key []byte) error
 }
 
 // ReadWriter is a read-writeable key-value store.
@@ -69,9 +66,6 @@ type Atomic interface {
 // own synchronization logic if they wish to use a Tx concurrently.
 type Tx interface {
 	ReadWriter
-	// NewReader returns an TxReader that can be used to iterate over the operations
-	// executed in the transaction.
-	NewReader() TxReader
 	// Commit persists the batch to the underlying DB. Commit will panic if called
 	// more than once.
 	Commit(ctx context.Context, opts ...any) error
@@ -82,28 +76,20 @@ type Tx interface {
 	Close() error
 }
 
+// OnApplied is a Commit option. The DB calls it once the commit's writes are visible to
+// reads, before Commit returns.
+type OnApplied func()
+
 // DB represents a general key-value store.
 type DB interface {
 	// Tx allows the DB to behave as a transaction, although all operations are directly
 	// executed without atomic guarantees.
 	Tx
 	Atomic
-	Observable
 	alamos.ReportProvider
 	io.Closer
 	Size() telem.Size
 }
-
-// Change represents a change to a key-value pair. The contents of Name and Value
-// should be considered read-only, and modifications to them may cause unexpected
-// behavior.
-type Change = change.Change[[]byte, []byte]
-
-// TxReader is used to read the operations in a transaction.
-type TxReader = iter.Seq[Change]
-
-// Observable allows the caller to observe changes to key-value pairs in the DB.
-type Observable = observe.Observable[TxReader]
 
 // WithTx executes a function with a transaction on the given DB. If the function
 // returns an error, the transaction will be rolled back. If the function returns

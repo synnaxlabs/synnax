@@ -24,8 +24,5 @@
 
     & > .pluto-legend-divider {
         grid-column: 1 / -1;
-        height: 1px;
-        background: var(--pluto-border-color);
-        border-radius: var(--pluto-border-radius);
     }
 }

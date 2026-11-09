@@ -14,8 +14,10 @@ export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
+export { batch } from "@/batch";
 export { channel } from "@/channel";
-export { Channel, isCalculated } from "@/channel/client";
+export { Channel } from "@/channel/client";
+export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   default as Synnax,
@@ -56,6 +58,7 @@ export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
 export { imex } from "@/imex";
+export { kafka } from "@/kafka";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
 export { license } from "@/license";
@@ -65,7 +68,6 @@ export { modbus } from "@/modbus";
 export { mqtt } from "@/mqtt";
 export { ni } from "@/ni";
 export { node } from "@/node";
-export { ontology } from "@/ontology";
 export { opcua } from "@/opcua";
 export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";
@@ -73,6 +75,7 @@ export { project } from "@/project";
 export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
+export { resource } from "@/resource";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";

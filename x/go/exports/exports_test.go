@@ -88,6 +88,17 @@ var _ = Describe("Check", func() {
 	)
 
 	It(
+		"Should keep a method that an interface deep in a dependency declares",
+		func(ctx SpecContext) {
+			findings := summarize(MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})))
+			Expect(findings).ToNot(ContainElement(HaveField("Name", "Ping")))
+		},
+	)
+
+	It(
 		"Should return an error when it cannot create the workspace",
 		func(ctx SpecContext) {
 			notDir := filepath.Join(GinkgoT().TempDir(), "file")
@@ -122,7 +133,7 @@ var _ = Describe("Check", func() {
 
 	It("Should load modules under a path with a space", func(ctx SpecContext) {
 		dir := filepath.Join(GinkgoT().TempDir(), "with space")
-		for _, m := range modules {
+		for _, m := range append(modules, "testdata/c") {
 			Expect(os.CopyFS(filepath.Join(dir, m), os.DirFS(m))).To(Succeed())
 		}
 		findings := MustSucceed(exports.Check(ctx, exports.Config{

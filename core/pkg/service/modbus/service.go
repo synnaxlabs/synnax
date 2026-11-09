@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -74,13 +75,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:                 cfg.DB,
+			References:         readConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_read",
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.ReadMigration},
+			Migrations:         []gorp.Migration{v2.ReadMigration, v3.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
+			PatchEntry:         (*ReadConfig).Patch,
+			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
 		},
@@ -90,6 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:                 cfg.DB,
+			References:         writeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_write",
 			LegacyVersion:      legacy.LastVersion,
@@ -97,6 +102,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Write,
 			Migrations:         []gorp.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
+			PatchEntry:         (*WriteConfig).Patch,
+			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
 		},
@@ -112,6 +119,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {

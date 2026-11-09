@@ -45,3 +45,8 @@ export const useSelectSelectedToolbarTab = createSelector(selectSelectedToolbarT
 const selectHold = (params: KeyedSelectorParams): boolean => selectState(params).hold;
 
 export const useSelectHold = createSelector(selectHold);
+
+const selectPosition = (params: KeyedSelectorParams): string =>
+  selectState(params).position;
+
+export const useSelectPosition = createSelector(selectPosition);

@@ -19,7 +19,7 @@ import { type ReactElement } from "react";
 import { Errors } from "@/platform/errors";
 import { View } from "@/platform/view";
 
-const path = deep.path<{ query: { hasLabels?: label.Key[] } }>();
+const path = deep.path<{ where?: { labels?: label.Key[] } }>();
 
 interface TagsProps {
   keys: label.Key[];
@@ -46,13 +46,15 @@ const Tags = ({ keys, onClose }: TagsProps): ReactElement => {
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField(path.query.hasLabels, {
+  const field = Form.useField(deep.present(path.where).labels, {
     optional: true,
   });
-  const hasLabels = field?.value;
-  if (field == null || hasLabels == null || hasLabels.length === 0) return null;
-  const handleClose = (key: label.Key) =>
-    field.onChange(hasLabels.filter((l) => l !== key));
+  const labels = field?.value;
+  if (field == null || labels == null || labels.length === 0) return null;
+  const handleClose = (key: label.Key) => {
+    const next = labels.filter((l) => l !== key);
+    field.onChange(next.length === 0 ? undefined : next);
+  };
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip>
@@ -60,7 +62,7 @@ export const Chips = (): ReactElement | null => {
         Labels
       </View.FilterChip>
       <Errors.SuspenseBoundary loading={null}>
-        <Tags keys={hasLabels} onClose={editable ? handleClose : undefined} />
+        <Tags keys={labels} onClose={editable ? handleClose : undefined} />
       </Errors.SuspenseBoundary>
     </Flex.Box>
   );

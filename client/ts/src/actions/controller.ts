@@ -21,6 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
 import { Table } from "@/query/table";
 
@@ -201,6 +202,12 @@ export interface ControllerParams<
    * Lets remote frames for never-cached documents ingest instead of drop.
    */
   createOf?: (action: Action) => State | undefined;
+  /**
+   * Returns whether an action changes a field that a list reads. A remote frame with
+   * such an action fetches a document the store does not hold, since a list may now
+   * admit it.
+   */
+  listed?: (action: Action) => boolean;
   coalesceWindow?: TimeSpan;
   stackCap?: number;
   /** Clock stamping entries for the coalesce window. Defaults to TimeStamp.now. */
@@ -221,7 +228,9 @@ interface Pending<Action> {
   actions: Action[];
   /** The epoch in which the send started. */
   epoch: number;
-  /** The actions the Core broadcasts for the dispatch. Undefined until it applies it. */
+  /**
+   * The actions the Core broadcasts for the dispatch. Undefined until it applies it.
+   */
   echo?: Action[];
 }
 
@@ -241,7 +250,9 @@ interface Applied<Action> {
 /** A queued edit and the actions it sends. */
 interface Queued<State, Action> {
   actions: Action[];
-  /** Reverts what the edit changed outside its pending entry, such as its undo entry. */
+  /**
+   * Reverts what the edit changed outside its pending entry, such as its undo entry.
+   */
   rollback: destructor.Destructor;
   /** Makes the edit again on the current document. Null when nothing is left to do. */
   remake: () => Made<State, Action> | null;
@@ -309,6 +320,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
+  // Documents fetched because a list may now admit them, each with whether a frame for
+  // it arrived during the fetch.
+  private readonly listing = new Map<Key, boolean>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -319,6 +333,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
       createOf: opts.createOf ?? (() => undefined),
+      listed: opts.listed ?? (() => false),
       coalesceWindow: opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW,
       stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
       now: opts.now ?? (() => TimeStamp.now()),
@@ -334,6 +349,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // dispatch bookkeeping goes with it.
     this.docs.subscribe((event) => {
       if (event.variant === "delete") this.drop(event.key);
+    });
+    // A doc with local edits or undo history must stay cached.
+    this.docs.hold({
+      held: () => [...this.rebases.keys(), ...this.queues.keys(), ...this.undos.keys()],
     });
     this.docs.intercept({
       base: (key) => (this.writing ? undefined : this.rebases.get(key)?.base),
@@ -579,12 +598,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // carries actions that the entry does not, such as fields the Core derives.
     const held = i === 0 && deep.equal(r.pending[0].actions, actions);
     if (i !== -1) r.pending.splice(i, 1);
-    if (!held) this.write(key, r);
+    if (held) this.docs.stampWrite(key);
+    else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets };
   }
 
-  /** Removes the pending entries with the dispatch keys, which the Core did not apply. */
+  /**
+   * Removes the pending entries with the dispatch keys, which the Core did not apply.
+   */
   private discard(key: Key, ...dispatchKeys: string[]): void {
     const r = this.rebases.get(key);
     if (r == null) return;
@@ -953,12 +975,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   /**
    * Apply a remote frame. The frame is dropped if its seq does not exceed the
    * high-water mark previously applied for this key. A frame for an uncached doc
-   * applies only when a create heads it. A frame whose dispatch key matches a pending
+   * applies only when a create heads it. Otherwise the doc is fetched when the frame
+   * changes a field that a list reads. A frame whose dispatch key matches a pending
    * entry is that entry's echo: it moves into the base, and the doc changes only if
    * other frames came first. Any other frame applies to the base, under the pending
    * entries, and marks its targets as remote-touched.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
+    // Until the fetch caches the doc, a frame only marks that the Core may answer from
+    // before it.
+    if (this.listing.has(key) && this.docs.get(key) == null) {
+      this.listing.set(key, true);
+      return;
+    }
     if (seq !== 0) {
       const last = this.lastAppliedSeq.get(key) ?? 0;
       if (seq <= last) return;
@@ -968,8 +997,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (doc == null) {
       // Anything but a create predates our knowledge of the doc, so it drops.
       const created = actions.length > 0 ? this.params.createOf(actions[0]) : undefined;
-      if (created == null) return;
-      this.docs.set(key, this.params.reduce(created, actions.slice(1)).next);
+      if (created != null) {
+        this.docs.set(key, this.params.reduce(created, actions.slice(1)).next);
+        return;
+      }
+      if (actions.some((action) => this.params.listed(action)))
+        void this.fetchListed(key);
       return;
     }
     const r = this.rebases.get(key);
@@ -981,6 +1014,36 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     }
     const { own, targets } = this.settle(key, r, dispatchKey, actions);
     if (!own) this.markRemoteTouched(key, targets);
+  }
+
+  /**
+   * Fetches a doc that a list may now admit. The Core may answer from before a frame
+   * that arrives during the fetch, so such a frame fetches the doc again. Never
+   * rejects.
+   */
+  private async fetchListed(key: Key): Promise<void> {
+    this.listing.set(key, false);
+    try {
+      for (let refresh = false; ; refresh = true) {
+        await this.docs.retrieve([key], { refresh });
+        if (this.listing.get(key) !== true) return;
+        this.listing.set(key, false);
+      }
+    } catch (exc) {
+      // A deleted or denied doc joins no list, and the reconcile after a reconnect
+      // fetches lists again.
+      if (
+        NotFoundError.matches(exc) ||
+        AccessDeniedError.matches(exc) ||
+        isConnectionError(exc)
+      )
+        return;
+      this.params.onError(
+        new Error("failed to fetch a listed document", { cause: exc }),
+      );
+    } finally {
+      this.listing.delete(key);
+    }
   }
 
   hasUndo(key: Key): boolean {

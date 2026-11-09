@@ -18,7 +18,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type ListParams, useList } from "@/device/queries";
+import { type RetrieveMultipleQuery, useList } from "@/device/queries";
+import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -34,13 +35,23 @@ const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
       justify="between"
       align="center"
     >
-      <Text.Text align="center">
+      <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
         <StatusIndicator status={status} />
-        <Text.Text el="span" overflow="fade">
+        <Text.Text
+          el="span"
+          overflow="fade"
+          className={CSS.BE("device", "list-item-label")}
+        >
           {name}
         </Text.Text>
       </Text.Text>
-      <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
+      <Text.Text
+        level="small"
+        color={9}
+        weight={450}
+        className={CSS.BE("device", "list-item-location")}
+        style={LOCATION_STYLE}
+      >
         {location}
       </Text.Text>
     </Select.Item>
@@ -51,34 +62,42 @@ const listItemRenderProp = Component.renderProp(ListItem);
 
 const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 
+const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
+
+const renderStatus = (entry: unknown): ReactElement | undefined =>
+  entry == null ? undefined : <StatusBadge status={(entry as device.Device).status} />;
+
 export interface SelectSingleProps
   extends
     Omit<
       Select.SingleProps<device.Key, device.Device | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, device.Key, device.Device> {}
+    Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {}
 
+/** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     filter,
-    initialQuery,
+    query,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
       resourceName="device"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Device />}
+      dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
       {...rest}
     >
       {listItemRenderProp}

@@ -254,7 +254,7 @@ var _ = Describe("C++ PB aliases", func() {
 				crate Crate<string>
 			}
 		`,
-			"auto [v, err] = Box<std::string>::from_proto(pb.crate());",
+			"auto [v, err] = string_box_from_proto(pb.crate());",
 		),
 		Entry("an alias of a struct", `
 			Panel struct {

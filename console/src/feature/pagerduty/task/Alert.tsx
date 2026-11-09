@@ -39,7 +39,7 @@ import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<AlertSchemas>>();
@@ -66,11 +66,13 @@ const ROUTING_KEY_INPUT_PROPS = {
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={INITIAL_RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["pagerduty"] } },
+};
 
 interface AlertDetailsProps {
   itemKey: string;
@@ -293,9 +295,10 @@ export const useCreateAlert = Task.createUseCreate({
   getInitialValues,
 });
 
-export const AlertSelectable = Selector.createSelectable({
+export const AlertSelectable: Selector.Selectable = {
   type: ALERT_TYPE,
   title: "PagerDuty alert task",
+  label: "Alert",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
-});
+};

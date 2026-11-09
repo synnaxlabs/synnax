@@ -14,11 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,16 +37,34 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
 		Expect(l.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 1}))
-		Expect(l.Channels[0].Precision).To(Equal(new(int32(2))))
+		Expect(l.Channels[0].Precision).To(Equal(new(uint8(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
-		Expect(l.TimestampPrecision).To(Equal(int32(1)))
-		Expect(l.ReceiptTimestampHidden).To(BeTrue())
+		Expect(l.TimestampPrecision).To(Equal(uint8(1)))
+		Expect(l.TimestampsHidden).To(BeTrue())
+	})
+
+	DescribeTable("Should keep one entry per channel on import",
+		func(ctx SpecContext, path string) {
+			keys := lo.Map(
+				decode(ctx, path).Channels,
+				func(e versions.ChannelEntry, _ int) channel.Key { return e.Channel },
+			)
+			Expect(keys).To(Equal([]channel.Key{4, 5}))
+		},
+		Entry("a v2 envelope", "testdata/import_v2_repeated_channels.json"),
+		Entry("a Console v0 state", "testdata/import_v0_state_repeated_channels.json"),
+	)
+
+	It("Should map the tz of a v2 envelope to time_zone", func(ctx SpecContext) {
+		l := decode(ctx, "testdata/import_v2.json")
+		Expect(l.Channels[0].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
+		Expect(l.Channels[1].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneLocal))
 	})
 
 	It("Should decode a v3 envelope", func(ctx SpecContext) {
 		l := decode(ctx, "testdata/import_v3.json")
 		Expect(l.Channels).To(HaveLen(2))
-		Expect(l.Channels[0].Precision).To(Equal(new(int32(2))))
+		Expect(l.Channels[0].Precision).To(Equal(new(uint8(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
 	})
 
@@ -55,11 +75,11 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels).To(HaveLen(2))
 		Expect(l.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
-		Expect(l.Channels[0].Precision).To(Equal(new(int32(2))))
+		Expect(l.Channels[0].Precision).To(Equal(new(uint8(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
 		// showX on the wire inverts into hideX on the current shape.
 		Expect(l.ChannelNamesHidden).To(BeFalse())
-		Expect(l.ReceiptTimestampHidden).To(BeTrue())
+		Expect(l.TimestampsHidden).To(BeTrue())
 	})
 
 	It("Should lift a Console v0 state of bare channel keys", func(ctx SpecContext) {

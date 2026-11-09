@@ -562,4 +562,170 @@ var _ = Describe("Inheritance", func() {
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
 	})
+
+	Describe("SharedBase", func() {
+		It("Should return the base every variant inherits", func(ctx SpecContext) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Payload struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base {
+					named Payload
+					builtin {
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+
+		It("Should return the base for a variant that adds a base of its own", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base {
+					builtin extends Extra {}
+				}
+			`, "Chan", "builtin")
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+
+		It("Should not return a base when a variant drops one of its fields", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Chan union on type extends Base {
+					analog {}
+					builtin {
+						-port
+					}
+				}
+			`, "Chan", "builtin")
+			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
+		})
+
+		It("Should not return a base when the union extends two", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {}
+				}
+			`, "Chan", "builtin")
+			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
+		})
+
+		It("Should not return a base absent from the language", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+				@cpp output "cpp/test"
+
+				Base struct {
+					port string = ""
+					@cpp omit
+				}
+
+				Chan union on type extends Base {
+					builtin {}
+				}
+			`, "Chan", "builtin")
+			Expect(resolver.SharedBase(form, "cpp", table)).To(BeZero())
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+	})
+
+	Describe("VariantFields", func() {
+		const source = `
+			@go output "pkg/test"
+
+			Base struct {
+				port string = ""
+			}
+
+			Gain struct {
+				gain float64 = 1
+			}
+
+			Chan union on type extends Base {
+				builtin {
+					units string = "c"
+				}
+				scaled Gain
+			}
+		`
+		// owned names each field with the type that declares it.
+		owned := func(fields []resolver.OwnedField) []string {
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Owner.Name + "." + f.Field.Name
+			}
+			return names
+		}
+
+		It("Should list the base fields before an inline payload", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "builtin")
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(
+				owned(fields),
+			).To(Equal([]string{"Base.port", "ChanBuiltinPayload.units"}))
+		})
+
+		It("Should list the base fields before a named payload", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "scaled")
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(owned(fields)).To(Equal([]string{"Base.port", "Gain.gain"}))
+		})
+
+		It("Should list only the base fields for a payload that does not resolve", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "scaled")
+			v.Type = resolution.TypeRef{Name: "test.Missing"}
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(owned(fields)).To(Equal([]string{"Base.port"}))
+		})
+	})
 })

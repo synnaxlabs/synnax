@@ -14,10 +14,13 @@
 #include <string>
 #include <type_traits>
 
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/date/date.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace x::json {
 
@@ -129,8 +132,13 @@ telem::SampleValue convert_float(const double v) {
     if constexpr (std::is_integral_v<T>) {
         if (v != std::trunc(v))
             throw std::runtime_error("value has a fractional component");
+        // The maximum of a 64-bit type rounds up to 2^digits as a double, so the
+        // bound is the exclusive 2^digits.
         if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
-            v > static_cast<double>(std::numeric_limits<T>::max()))
+            v >= std::ldexp(1.0, std::numeric_limits<T>::digits))
+            throw std::runtime_error("value is out of bounds");
+    } else if constexpr (std::is_same_v<T, float>) {
+        if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
             throw std::runtime_error("value is out of bounds");
     }
     return telem::SampleValue(static_cast<T>(v));
@@ -286,22 +294,37 @@ string_to_numeric(const std::string &str, const telem::DataType &target) {
     return number_to_numeric(parse_string_double(str), target);
 }
 
-telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
+int64_t nanoseconds_per_unit(const TimeFormat time_format) {
     switch (time_format) {
         case TimeFormat::UnixNanosecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v)));
+            return 1;
         case TimeFormat::UnixMicrosecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e3)));
+            return 1000;
         case TimeFormat::UnixMillisecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e6)));
+            return 1000000;
         case TimeFormat::UnixSecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e9)));
+            return 1000000000;
         case TimeFormat::ISO8601:
             throw std::runtime_error(
                 "numeric values cannot be converted with ISO 8601 format"
             );
     }
     throw std::runtime_error("unknown TimeFormat");
+}
+
+telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
+    const double ns = v * static_cast<double>(nanoseconds_per_unit(time_format));
+    if (std::isnan(ns) || ns < -std::ldexp(1.0, 63) || ns >= std::ldexp(1.0, 63))
+        throw std::runtime_error("value is out of bounds");
+    return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(ns)));
+}
+
+telem::SampleValue integer_to_timestamp(const int64_t v, TimeFormat time_format) {
+    const int64_t unit = nanoseconds_per_unit(time_format);
+    if (v > std::numeric_limits<int64_t>::max() / unit ||
+        v < std::numeric_limits<int64_t>::min() / unit)
+        throw std::runtime_error("value is out of bounds");
+    return telem::SampleValue(telem::TimeStamp(v * unit));
 }
 
 /// @brief performs the actual conversion, throwing on failure.
@@ -312,15 +335,23 @@ telem::SampleValue convert(
     const EnumMap *enum_values
 ) {
     if (target == telem::TIMESTAMP_T) {
+        if (value.is_number_unsigned()) {
+            const auto u = value.get<uint64_t>();
+            if (u > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+                throw std::runtime_error("value is out of bounds");
+            return integer_to_timestamp(static_cast<int64_t>(u), time_format);
+        }
+        if (value.is_number_integer())
+            return integer_to_timestamp(value.get<int64_t>(), time_format);
         if (value.is_number())
             return number_to_timestamp(value.get<double>(), time_format);
         if (value.is_string()) {
             if (time_format == TimeFormat::ISO8601)
                 return parse_rfc3339(value.get<std::string>());
-            return number_to_timestamp(
-                parse_string_double(value.get_ref<const std::string &>()),
-                time_format
-            );
+            const auto &str = value.get_ref<const std::string &>();
+            if (is_integer_string(str))
+                return integer_to_timestamp(parse_string_int64(str), time_format);
+            return number_to_timestamp(parse_string_double(str), time_format);
         }
         throw std::runtime_error("");
     }
@@ -328,6 +359,23 @@ telem::SampleValue convert(
     if (target == telem::STRING_T) {
         if (value.is_string()) return telem::SampleValue(value.get<std::string>());
         return telem::SampleValue(value.dump());
+    }
+
+    if (target == telem::JSON_T) return telem::SampleValue(value.dump());
+
+    if (target == telem::UUID_T || target == telem::BYTES_T) {
+        if (!value.is_string()) throw std::runtime_error("value is not a string");
+        const auto &str = value.get_ref<const std::string &>();
+        if (target == telem::BYTES_T) {
+            auto [bytes, err] = base64::decode_strict(str);
+            if (err) throw std::runtime_error(err.data);
+            return telem::SampleValue(std::move(bytes));
+        }
+        const auto [uuid, err] = uuid::UUID::parse(str);
+        if (err) throw std::runtime_error("not a valid UUID");
+        return telem::SampleValue(
+            std::string(reinterpret_cast<const char *>(uuid.data()), uuid.size())
+        );
     }
 
     if (value.is_boolean()) return number_to_numeric(value.get<bool>() ? 1 : 0, target);
@@ -376,7 +424,31 @@ bool check_to_sample_value(const telem::DataType &target) {
            target == telem::INT16_T || target == telem::INT8_T ||
            target == telem::UINT64_T || target == telem::UINT32_T ||
            target == telem::UINT16_T || target == telem::UINT8_T ||
-           target == telem::TIMESTAMP_T || target == telem::STRING_T;
+           target == telem::TIMESTAMP_T || target == telem::STRING_T ||
+           target == telem::JSON_T || target == telem::UUID_T ||
+           target == telem::BYTES_T;
+}
+
+namespace {
+/// @brief returns CONVERSION_ERROR if v has no JSON form of type target. A NaN never
+/// matches an enum value, because NaN breaks the ordering of the enum map.
+template<typename T>
+errors::Error check_float(const T v, const Type target, const bool has_enum) {
+    if (std::isnan(v)) {
+        if (target == Type::Number)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON number"};
+        if (target == Type::Boolean)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON boolean"};
+        if (has_enum) return {CONVERSION_ERROR, "NaN matches no enum value"};
+        return errors::NIL;
+    }
+    if (std::isinf(v) && target == Type::Number)
+        return {
+            CONVERSION_ERROR,
+            std::string(v > 0 ? "inf" : "-inf") + " is not a valid JSON number",
+        };
+    return errors::NIL;
+}
 }
 
 std::pair<nlohmann::json, errors::Error> from_sample_value(
@@ -394,6 +466,10 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return {nlohmann::json(), CONVERSION_ERROR};
             } else {
+                if constexpr (std::is_floating_point_v<T>) {
+                    if (auto err = check_float(v, target, enum_values != nullptr))
+                        return {nlohmann::json(), err};
+                }
                 if (enum_values != nullptr && target == Type::String) {
                     if (const auto it = enum_values->find(nlohmann::json(v));
                         it != enum_values->end())
@@ -424,6 +500,32 @@ errors::Error check_from_sample_value(const telem::DataType &type, Type target) 
         type == telem::UINT16_T || type == telem::UINT8_T)
         return errors::NIL;
     return CONVERSION_ERROR;
+}
+
+std::pair<nlohmann::json, errors::Error>
+from_series(const telem::Series &series, const int index) {
+    const auto &dt = series.data_type();
+    if (dt == telem::UUID_T)
+        return {series.at<uuid::UUID>(index).to_json(), errors::NIL};
+    if (dt == telem::BYTES_T)
+        return {base64::encode(series.at<std::string>(index)), errors::NIL};
+    if (dt == telem::JSON_T) {
+        const auto text = series.at<std::string>(index);
+        auto value = nlohmann::json::parse(text, nullptr, false);
+        if (value.is_discarded())
+            return {
+                nlohmann::json(),
+                errors::Error(CONVERSION_ERROR, "the sample is not valid JSON"),
+            };
+        return {std::move(value), errors::NIL};
+    }
+    return {
+        nlohmann::json(),
+        errors::Error(
+            CONVERSION_ERROR,
+            "cannot convert a " + dt.name() + " series sample to JSON"
+        ),
+    };
 }
 
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {

@@ -11,69 +11,129 @@ package status_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Status", Ordered, func() {
 	var (
+		store    kv.DB
 		db       *gorp.DB
 		svc      *status.Service
 		w        status.Writer
 		labelSvc *label.Service
-		otg      *ontology.Ontology
+		racks    *gorp.Table[rack.Key, rack.Rack]
 		tx       gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		// Like the Core on the node that leases each write, the indexes see only the
-		// writes made through their table.
-		db = DeferClose(gorp.Wrap(
-			memkv.New(),
-			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
-		))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{
+		store = memkv.New()
+		db = DeferClose(gorp.Wrap(store))
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
-		g := MustOpen(
-			group.OpenService(
-				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg},
-			),
-		)
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+			DB:   db,
+			Name: string(resource.TypeRack),
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Label:    labelSvc,
-			Group:    g,
+			DB: db,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+	openTx := func() {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func(ctx SpecContext) {
-		Expect(tx.Close()).To(Succeed())
+	}
+	createRack := func(ctx SpecContext, key rack.Key) resource.ID {
+		GinkgoHelper()
+		Expect(racks.NewCreate().
+			Entry(&rack.Rack{Key: key, Name: "Rack"}).
+			Exec(ctx, tx)).To(Succeed())
+		return key.ResourceID()
+	}
+	createLabel := func(ctx SpecContext, name string) label.Key {
+		GinkgoHelper()
+		l := &label.Label{Name: name}
+		Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+		return l.Key
+	}
+	retrieve := func(ctx SpecContext, key status.Key) status.Status[any] {
+		GinkgoHelper()
+		var s status.Status[any]
+		Expect(svc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&s).
+			Exec(ctx, tx)).To(Succeed())
+		return s
+	}
+	newStatus := func(key status.Key) status.Status[any] {
+		return status.Status[any]{
+			Key:     key,
+			Name:    "Status",
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		}
+	}
+
+	Describe("Msgpack storage", func() {
+		It(
+			"Should rename a status stored as msgpack, keeping every other field",
+			func(ctx SpecContext) {
+				type details struct {
+					Count int64 `json:"count" msgpack:"count"`
+				}
+				s := status.Status[details]{
+					Name:    "Before",
+					Key:     "rename-msgpack-key",
+					Variant: status.VariantSuccess,
+					Time:    telem.Now(),
+					Details: details{Count: 9007199254740993},
+				}
+				Expect(gorp.NewCreate[status.Key, status.Status[details]]().
+					Entry(&s).
+					Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
+					To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, s.Key)
+					})).To(Succeed())
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, s.Key, "After")
+				})).
+					To(Succeed())
+				var res status.Status[details]
+				Expect(svc.NewRetrieve[details]().
+					Where(status.MatchKeys[details](s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				expected := s
+				expected.Name = "After"
+				Expect(res).To(Equal(expected))
+			},
+		)
 	})
 
 	Describe("Writer", func() {
+		BeforeEach(openTx)
 		Describe("Set", func() {
 			It("Should create a new status", func(ctx SpecContext) {
 				s := &status.Status[any]{
@@ -109,36 +169,248 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(retrieved.Message).To(Equal("Updated message"))
 				Expect(retrieved.Variant).To(Equal(status.Variant("warning")))
 			})
-			Context("Parent Management", func() {
-				It("Should set a custom parent for the status", func(ctx SpecContext) {
-					parent := status.Status[any]{
-						Name:    "Parent Status",
-						Key:     "parent-key",
-						Variant: "info",
-						Message: "Parent status",
-						Time:    telem.Now(),
-					}
-					Expect(w.Set(ctx, &parent)).To(Succeed())
-
-					child := status.Status[any]{
-						Name:    "Child Status",
-						Key:     "child-key",
-						Variant: "info",
-						Message: "Child status",
-						Time:    telem.Now(),
-					}
-					Expect(
-						w.SetWithParent(ctx, &child, parent.OntologyID()),
-					).To(Succeed())
-
-					var res ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(child.OntologyID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entry(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(parent.OntologyID()))
+			It(
+				"Should assign a UUID key to a status with no key",
+				func(ctx SpecContext) {
+					s := newStatus("")
+					Expect(w.Set(ctx, &s)).To(Succeed())
+					MustSucceed(uuid.Parse(s.Key))
+				},
+			)
+			Context("Owner", func() {
+				It(
+					"Should write to the status the owner holds, whatever the key",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 1)
+						first := newStatus("")
+						first.Owner = &owner
+						Expect(w.Set(ctx, &first)).To(Succeed())
+						second := newStatus("other-key")
+						second.Owner = &owner
+						second.Message = "Updated"
+						Expect(w.Set(ctx, &second)).To(Succeed())
+						Expect(second.Key).To(Equal(first.Key))
+						Expect(retrieve(ctx, first.Key).Message).To(Equal("Updated"))
+						Expect(svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any]("other-key")).
+							Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+					},
+				)
+				It(
+					"Should keep the stored owner when a set has none",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 2)
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(HaveValue(Equal(owner)))
+						Expect(retrieve(ctx, s.Key).Owner).To(HaveValue(Equal(owner)))
+					},
+				)
+				It(
+					"Should keep the stored owner when an update carries another",
+					func(ctx SpecContext) {
+						held, other := createRack(ctx, 14), createRack(ctx, 15)
+						s := newStatus("")
+						s.Owner = &held
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						next.Owner = &other
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(HaveValue(Equal(held)))
+						Expect(retrieve(ctx, s.Key).Owner).To(HaveValue(Equal(held)))
+					},
+				)
+				It(
+					"Should give no owner to a stored status that has none",
+					func(ctx SpecContext) {
+						s := newStatus("")
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						next.Owner = new(createRack(ctx, 16))
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(BeNil())
+						Expect(retrieve(ctx, s.Key).Owner).To(BeNil())
+					},
+				)
+				It("Should reject an owner that does not exist", func(ctx SpecContext) {
+					s := newStatus("")
+					s.Owner = new(rack.Key(99).ResourceID())
+					err := w.Set(ctx, &s)
+					Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+					Expect(err).To(MatchError(
+						"owner: rack 99 does not exist: validation error",
+					))
 				})
+				It(
+					"Should reject an owner whose type cannot hold a status",
+					func(ctx SpecContext) {
+						s := newStatus("")
+						l := createLabel(ctx, "Owner")
+						s.Owner = new(label.ResourceID(l))
+						err := w.Set(ctx, &s)
+						Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+						Expect(err).To(MatchError(
+							"owner: status cannot reference label " + l.String() + ": validation error",
+						))
+					},
+				)
+				It(
+					"Should delete the status when its owner is deleted",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 3)
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						Expect(racks.NewDelete().
+							Where(gorp.MatchKeys[rack.Key, rack.Rack](3)).
+							Exec(ctx, tx)).To(Succeed())
+						Expect(svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any](s.Key)).
+							Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+						Expect(svc.Resources().Retrieve(
+							ctx, tx, []resource.ID{status.ResourceID(s.Key)},
+						)).To(BeEmpty())
+					},
+				)
+			})
+			Context("Labels", func() {
+				It("Should store the labels a create carries", func(ctx SpecContext) {
+					a := createLabel(ctx, "A")
+					s := newStatus("create-labels-key")
+					s.Labels = []label.Key{a}
+					Expect(w.Set(ctx, &s)).To(Succeed())
+					Expect(retrieve(ctx, "create-labels-key").Labels).
+						To(Equal([]label.Key{a}))
+				})
+				It(
+					"Should keep the stored labels on an update and ignore the carried ones",
+					func(ctx SpecContext) {
+						a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+						s := newStatus("update-labels-key")
+						s.Labels = []label.Key{a}
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus("update-labels-key")
+						next.Labels = []label.Key{b}
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Labels).To(Equal([]label.Key{a}))
+						Expect(retrieve(ctx, "update-labels-key").Labels).
+							To(Equal([]label.Key{a}))
+					},
+				)
+				It("Should reject a label that does not exist", func(ctx SpecContext) {
+					s := newStatus("missing-label-key")
+					missing := uuid.New()
+					s.Labels = []label.Key{missing}
+					err := w.Set(ctx, &s)
+					Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+					Expect(err).To(MatchError(
+						"labels: label " + missing.String() + " does not exist: validation error",
+					))
+				})
+				It(
+					"Should remove a deleted label from the statuses that hold it",
+					func(ctx SpecContext) {
+						a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+						s := newStatus("detach-key")
+						s.Labels = []label.Key{a, b}
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						Expect(labelSvc.NewWriter(tx).Delete(ctx, a)).To(Succeed())
+						Expect(
+							retrieve(ctx, "detach-key").Labels,
+						).To(Equal([]label.Key{b}))
+					},
+				)
+			})
+		})
+
+		Describe("AddLabels", func() {
+			It("Should add labels to a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("set-labels-key")
+				s.Labels = []label.Key{a}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.AddLabels(ctx, "set-labels-key", []label.Key{b})).
+					To(Succeed())
+				Expect(retrieve(ctx, "set-labels-key").Labels).To(ConsistOf(a, b))
+			})
+			It(
+				"Should return a not found error for a missing status",
+				func(ctx SpecContext) {
+					Expect(w.AddLabels(ctx, "missing-key", nil)).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
+		Describe("ReplaceLabels", func() {
+			It("Should replace the labels of a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("replace-labels-key")
+				s.Labels = []label.Key{a}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.ReplaceLabels(ctx, "replace-labels-key", []label.Key{b})).
+					To(Succeed())
+				Expect(
+					retrieve(ctx, "replace-labels-key").Labels,
+				).To(Equal([]label.Key{b}))
+			})
+			It(
+				"Should return a not found error for a missing status",
+				func(ctx SpecContext) {
+					Expect(w.ReplaceLabels(ctx, "missing-key", nil)).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
+		Describe("RemoveLabels", func() {
+			It("Should remove labels from a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("remove-labels-key")
+				s.Labels = []label.Key{a, b}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.RemoveLabels(ctx, "remove-labels-key", []label.Key{a})).
+					To(Succeed())
+				Expect(
+					retrieve(ctx, "remove-labels-key").Labels,
+				).To(Equal([]label.Key{b}))
+			})
+		})
+
+		Describe("RenameOwned", func() {
+			It("Should rename the status an owner holds", func(ctx SpecContext) {
+				owner := createRack(ctx, 4)
+				s := newStatus("")
+				s.Owner = &owner
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.RenameOwned(ctx, owner, "Renamed")).To(Succeed())
+				Expect(retrieve(ctx, s.Key).Name).To(Equal("Renamed"))
+			})
+			It(
+				"Should return a not found error for an owner with no status",
+				func(ctx SpecContext) {
+					Expect(w.RenameOwned(ctx, createRack(ctx, 5), "Renamed")).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
+		Describe("DeleteOwned", func() {
+			It("Should delete the status an owner holds", func(ctx SpecContext) {
+				owner := createRack(ctx, 11)
+				s := newStatus("")
+				s.Owner = &owner
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.DeleteOwned(ctx, owner)).To(Succeed())
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](s.Key)).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+			It("Should succeed for an owner with no status", func(ctx SpecContext) {
+				Expect(w.DeleteOwned(ctx, createRack(ctx, 12))).To(Succeed())
 			})
 		})
 
@@ -240,11 +512,10 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
-				err := svc.NewRetrieve[any]().
+				Expect(svc.NewRetrieve[any]().
 					Where(status.MatchKeys[any]("delete-key")).
 					Entry(&status.Status[any]{}).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func(ctx SpecContext) {
@@ -279,6 +550,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Retrieve", func() {
+		BeforeEach(openTx)
 		BeforeEach(func(ctx SpecContext) {
 			statuses := []status.Status[any]{
 				{
@@ -326,8 +598,7 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
+			openTx()
 		})
 
 		Describe("WhereKeys", func() {
@@ -355,23 +626,48 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("SkipMissingKeys", func() {
+			It("Should return not found for a missing key without it", func(
+				ctx SpecContext,
+			) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+
+			It("Should return the found statuses with it", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					SkipMissingKeys().
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+			})
+		})
+
+		Describe("After", func() {
+			It("Should resume strictly past the key", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-c", "retrieve-a", "retrieve-b")).
+					After("retrieve-a").
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(
+					HaveField("Key", "retrieve-b"),
+					HaveField("Key", "retrieve-c"),
+				))
+			})
+		})
+
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
 					svc.NewRetrieve[any]().Limit(2).Entries(&statuses).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(statuses).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(
-					svc.NewRetrieve[any]().
-						Offset(1).
-						Limit(2).
-						Entries(&statuses).
-						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
@@ -388,7 +684,7 @@ var _ = Describe("Status", Ordered, func() {
 							Entries(&statuses).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses).To(HaveLen(1))
 					Expect(statuses[0].Key).To(Equal("retrieve-a"))
 				},
 			)
@@ -548,22 +844,13 @@ var _ = Describe("Status", Ordered, func() {
 			It(
 				"Should retrieve statuses that have any of the provided labels",
 				func(ctx SpecContext) {
-					l := &label.Label{Name: "status-label-a"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
-					s := &status.Status[any]{
-						Key:     "labeled-status",
-						Name:    "Labeled",
-						Variant: status.VariantInfo,
-						Time:    telem.Now(),
-					}
-					Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-					Expect(
-						labelSvc.NewWriter(tx).
-							Label(ctx, s.OntologyID(), []label.Key{l.Key}),
-					).To(Succeed())
+					l := createLabel(ctx, "status-label-a")
+					s := newStatus("labeled-status")
+					s.Labels = []label.Key{l}
+					Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
-						Where(status.MatchLabels[any](l.Key)).
+						Where(status.MatchLabels[any](l)).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
 					keys := make([]status.Key, len(statuses))
@@ -588,6 +875,35 @@ var _ = Describe("Status", Ordered, func() {
 			)
 		})
 
+		Describe("MatchOwners", func() {
+			It("Should retrieve the statuses the owners hold", func(ctx SpecContext) {
+				a, b := createRack(ctx, 6), createRack(ctx, 7)
+				for _, owner := range []resource.ID{a, b} {
+					s := newStatus("")
+					s.Owner = &owner
+					Expect(w.Set(ctx, &s)).To(Succeed())
+				}
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](a)).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Owner).To(HaveValue(Equal(a)))
+			})
+			It(
+				"Should match nothing for an owner with no status",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(svc.NewRetrieve[any]().
+						Where(status.MatchOwners[any](createRack(ctx, 8))).
+						Entries(&statuses).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(statuses).To(BeEmpty())
+				},
+			)
+		})
+
 		Describe("Combinators", func() {
 			It("Should wrap a closure via Match", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -604,6 +920,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 
 	Describe("Generic Type Behavior", func() {
+		BeforeEach(openTx)
 		// This test suite documents how generic types work with Status[D] in gorp.
 		// All Status[D] types share the same gorp namespace because CustomTypeName()
 		// returns "Status" regardless of the type parameter D. This means:
@@ -759,6 +1076,93 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 
+	Describe("SetMissing", func() {
+		BeforeEach(openTx)
+		It(
+			"Should write a status for each owner that holds none",
+			func(ctx SpecContext) {
+				held, missing := createRack(ctx, 9), createRack(ctx, 10)
+				existing := newStatus("")
+				existing.Owner = &held
+				existing.Message = "Running"
+				Expect(w.Set(ctx, &existing)).To(Succeed())
+				backfill := []status.Status[any]{newStatus(""), newStatus("")}
+				backfill[0].Owner, backfill[1].Owner = &held, &missing
+				Expect(svc.SetMissing(ctx, tx, backfill)).To(Succeed())
+				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
+				key, _ := statusv2.MigrateKey(missing.String())
+				Expect(retrieve(ctx, key).Owner).To(Equal(&missing))
+			},
+		)
+	})
+
+	Describe("Writer in concurrent transactions", func() {
+		It(
+			"Should write one status for an owner that concurrent sets write",
+			func(ctx SpecContext) {
+				Expect(racks.NewCreate().
+					Entry(&rack.Rack{Key: 13, Name: "Rack"}).
+					Exec(ctx, db)).To(Succeed())
+				owner := rack.Key(13).ResourceID()
+				var wg sync.WaitGroup
+				for range 10 {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Set(ctx, &s)
+						})).To(Succeed())
+					})
+				}
+				wg.Wait()
+				var held []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](owner)).
+					Entries(&held).
+					Exec(ctx, db)).To(Succeed())
+				Expect(held).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should keep every label that concurrent adds write",
+			func(ctx SpecContext) {
+				s := newStatus("concurrent-labels-key")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Set(ctx, &s)
+				})).To(Succeed())
+				labels := make([]label.Key, 10)
+				for i := range labels {
+					l := &label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return labelSvc.NewWriter(tx).Create(ctx, l)
+					})).To(Succeed())
+					labels[i] = l.Key
+				}
+				var wg sync.WaitGroup
+				for _, l := range labels {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).AddLabels(
+								ctx,
+								s.Key,
+								[]label.Key{l},
+							)
+						})).To(Succeed())
+					})
+				}
+				wg.Wait()
+				var stored status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](s.Key)).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.Labels).To(ConsistOf(labels))
+			},
+		)
+	})
+
 	Describe("Observe", func() {
 		It("Should notify when a status is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
@@ -779,8 +1183,26 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It("Should return the status that a commit sets", func(ctx SpecContext) {
+			var keys []status.Key
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						keys = append(keys, ch.Key)
+					}
+				}),
+			)
+			s := newStatus("changes-test")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
+			Expect(keys).To(Equal([]status.Key{"changes-test"}))
+		})
+	})
+
 	Describe("Search", func() {
-		create := func(ctx SpecContext, key, name string) ontology.ID {
+		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
 			s := status.Status[any]{
 				Key:     key,
@@ -788,8 +1210,10 @@ var _ = Describe("Status", Ordered, func() {
 				Variant: "success",
 				Time:    telem.Now(),
 			}
-			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
-			return status.OntologyID(s.Key)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
+			return status.ResourceID(s.Key)
 		}
 
 		It(
@@ -797,19 +1221,25 @@ var _ = Describe("Status", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 0)).Keys).
-					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
-					To(Equal([]ontology.ID{b}))
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
+					To(Equal([]resource.ID{b, a}))
+				q.Limit = 1
+				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
-			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
-			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", 0)).Keys).
-				To(Equal([]ontology.ID{id}))
-			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", 0)).Keys).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(ctx, "c", "hydraulic")
+			})).To(Succeed())
+			q := search.Query[resource.ID]{Term: "hydraulic"}
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
+				To(Equal([]resource.ID{id}))
+			q = search.Query[resource.ID]{Term: "cryogenic"}
+			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 				To(BeEmpty())
 		})
 	})

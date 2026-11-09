@@ -57,6 +57,7 @@ class Reader:
         channels: channel.Params,
         *,
         reduction: Reduction | None = None,
+        timestamps_included: bool = False,
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
 
@@ -65,9 +66,15 @@ class Reader:
             is keyed by name.
         :param reduction: how the Core reduces the samples of each channel. Defaults to
             keeping every sample.
+        :param timestamps_included: also reads the index channels of the channels
+            that channels leaves out.
         :returns: the samples as a frame.
         """
-        adapter = ReadFrameAdapter(self._retriever, reduction=reduction)
+        adapter = ReadFrameAdapter(
+            self._retriever,
+            reduction=reduction,
+            timestamps_included=timestamps_included,
+        )
         adapter.update(channels)
         req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
         frame = Frame()

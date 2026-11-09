@@ -23,12 +23,11 @@ class Voltage(Analog):
         port (int): Physical port number
         min_val (float): Minimum voltage value
         max_val (float): Maximum voltage value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "Linear", "Map", "Table"
     """
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,

@@ -108,7 +108,7 @@ func RunBufGenerate(
 // bufOutputStamp returns a content-derived stamp covering every .pb.go and _grpc.pb.go
 // file under repoRoot. Same skip-list as bufInputStamp.
 func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
-	files, err := findPbGoFiles(repoRoot)
+	files, err := FindPbGoFiles(repoRoot)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +126,10 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})
@@ -174,7 +177,10 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 				return errors.Wrapf(err, "read %s", p)
 			}
 			h := sha256.Sum256(b)
-			rel, _ := filepath.Rel(repoRoot, p)
+			rel, err := filepath.Rel(repoRoot, p)
+			if err != nil {
+				return err
+			}
 			hashes[i] = rel + ":" + hex.EncodeToString(h[:])
 			return nil
 		})
@@ -216,10 +222,10 @@ func findProtoFiles(repoRoot string) ([]string, error) {
 	return walkExtensions(repoRoot, []string{".proto"}, nil)
 }
 
-// findPbGoFiles walks repoRoot for the .pb.go and _grpc.pb.go outputs `buf generate`
-// emits next to their .proto sources, skipping the same vendor / build / .git
-// directories findProtoFiles skips.
-func findPbGoFiles(repoRoot string) ([]string, error) {
+// FindPbGoFiles returns the paths of the .pb.go and _grpc.pb.go outputs `buf generate`
+// emits next to their .proto sources under repoRoot. It skips the same vendor, build,
+// and .git directories findProtoFiles skips.
+func FindPbGoFiles(repoRoot string) ([]string, error) {
 	return walkExtensions(repoRoot, []string{".go"}, func(name string) bool {
 		return strings.HasSuffix(name, ".pb.go") ||
 			strings.HasSuffix(name, "_grpc.pb.go")
@@ -288,7 +294,7 @@ func FormatBufOutputs(
 	formatters *format.Registry,
 	workers int,
 ) (int, error) {
-	files, err := findPbGoFiles(repoRoot)
+	files, err := FindPbGoFiles(repoRoot)
 	if err != nil {
 		return 0, errors.Wrap(err, "scan .pb.go files")
 	}

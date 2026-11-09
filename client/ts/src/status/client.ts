@@ -8,54 +8,69 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import {
+  array,
+  type destructor,
+  filter,
+  type record,
+  scheduler,
+  TimeSpan,
+  uuid,
+} from "@synnaxlabs/x";
 import z from "zod";
 
-import { AccessDeniedError } from "@/errors";
-import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { type batch } from "@/batch";
+import { type label } from "@/label";
 import { query } from "@/query";
-import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
-import { type Key, keyZ, type New, type Status, statusZ } from "@/status/types.gen";
+import { resource } from "@/resource";
+import { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME } from "@/status/payload";
+import {
+  type Key,
+  keyZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  type Status,
+  statusZ,
+} from "@/status/types.gen";
+import { LINES } from "@/status/where";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) =>
-  z.object({
-    parent: ontology.idZ.optional(),
-    statuses: statusZ({ details: detailsSchema }).array(),
-  });
-const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
-  detailsSchema?: DetailsSchema,
 ) => z.object({ statuses: statusZ({ details: detailsSchema }).array() });
+const setResZ = setReqZ;
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  includeLabels: z.boolean().optional(),
-  hasLabels: label.keyZ.array().optional(),
-  variants: z.string().array().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+export type RetrieveMultipleParams = RetrieveRequest;
+
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 const singleRetrieveParamsZ = z
-  .object({ key: keyZ, includeLabels: z.boolean().optional() })
-  .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
+  .strictObject({ key: keyZ })
+  .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+const isOneParams = (params: object): params is SingleRetrieveParams | OneParams =>
+  query.addressesOne(params);
+export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -66,17 +81,14 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
       .default(() => []),
   });
 
-export interface SetOptions extends query.WriteOptions {
-  parent?: ontology.ID;
-}
+const ownerOf = (s: Status): string | null =>
+  s.owner == null ? null : resource.idToString(s.owner);
 
-const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
+const OWNED_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
-  labels: label.Client;
 }
 
 export class Client extends query.Retriever<
@@ -89,70 +101,48 @@ export class Client extends query.Retriever<
   readonly type: string = "status";
   readonly store: query.Table<Key, Status>;
   private readonly cfg: ClientConfig;
+  private readonly owners: query.LookupIndex<Key, Status, string>;
   private readonly writeHandlers = new Set<(status: Status) => void>();
+  private readonly ownedFetches = new scheduler.Batcher<resource.ID[], Status[]>({
+    interval: OWNED_FETCH_DEBOUNCE,
+    exec: async (requests) =>
+      await this.store.track(async (since) => {
+        const owners = requests.flatMap(({ req }) => req);
+        const statuses = await this.execRetrieve({ where: { owners } });
+        this.store.ingest(statuses, { since });
+        requests.forEach(({ req, resolve }) => {
+          const wanted = new Set(resource.idToString(req));
+          resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
+        });
+      }),
+  });
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontology: ontologyClient, labels } = cfg;
-    const { relationships } = ontologyClient.cache;
+    const { cache } = cfg;
+    const owners = new query.LookupIndex<Key, Status, string>(ownerOf);
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) => await this.fetchThrough({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
-        query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
-          value: (changed, prev) => {
-            const next = { ...prev, ...changed };
-            const id = ontologyID(changed.key);
-            next.labels = label.cachedLabelsOf(ontologyClient.cache, labels.store, id);
-            return next;
-          },
-        }),
+        query.createSetListener(SET_CHANNEL_NAME, statusZ()),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
-    });
-    const composed = cache.derive<Key, Status, Status>({
-      name: "status.composed",
-      source: store,
-      compose: (record) => this.compose(record),
-      watch: [
-        query.deriveWatch(relationships, (event) => this.affectedKeys(event)),
-        query.deriveWatch(labels.store, (event) => this.statusesLabeledBy(event.key)),
-      ],
-    });
-    const single = cache.queries<Key, Status, Key, Status>({
-      name: "status",
-      table: composed,
-      fetch: async (key) => [(await this.fetchSingle(key)).key],
-      compose: (records) => records[0],
-      keyOf: (key) => key,
-      single: true,
+      indexes: [owners],
     });
     super(cache, {
       name: "status",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.fetchThrough(req),
-        matches: (status, req) => this.requestFilter(req)(status),
-        watch: [
-          query.watch(relationships, (event, _: RetrieveRequest) =>
-            this.affectedKeys(event),
-          ),
-          query.watch(labels.store, (event) => this.statusesLabeledBy(event.key)),
-        ],
-      },
-      compose: (record) => this.compose(record),
-      single: {
-        schema: z
-          .union([
-            z.strictObject({ key: keyZ, includeLabels: z.boolean().optional() }),
-            keyZ.transform((key) => ({ key })),
-          ])
-          .transform(({ key }) => key),
-        space: single,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (status, req) => matches(LINES, status, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.owners = owners;
     cache.listen({
       channel: SET_CHANNEL_NAME,
       schema: statusZ(),
@@ -162,27 +152,48 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
+    params: (SingleRetrieveParams | OneParams) & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
+  async retrieve(params: Key | SingleRetrieveParams | OneParams): Promise<Status>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | OneParams | FilterParams) & {
+          detailsSchema?: DetailsSchema;
+        }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isOneParams(rest);
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
     if (detailsSchema != null) {
-      const statuses = await this.execRetrieve<DetailsSchema>(params);
-      checkForMultipleOrNoResults("Status", params, statuses, isSingle);
+      const request = query.dropOne(rest);
+      const statuses = await this.execRetrieve(request, detailsSchema);
+      checkForMultipleOrNoResults(
+        "status",
+        retrieveParamsZ.parse(request),
+        statuses,
+        isSingle,
+      );
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
     return (await super.retrieve(rest)) as Status<DetailsSchema>[];
   }
 
+  /**
+   * Writes statuses to the Core. The Core writes an owned status to the status its
+   * owner holds, whatever key it carries. A create stores the labels a status carries,
+   * and an update keeps the stored labels: change them with the label client.
+   * @returns each status as the Core stores it.
+   */
   async set<DetailsSchema extends z.ZodType>(
     status: New<DetailsSchema>,
     opts?: SetOptions & { detailsSchema?: DetailsSchema },
@@ -195,25 +206,14 @@ export class Client extends query.Retriever<
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
-    // Filling the schema defaults up front gives every status a key, so the cache can
-    // hold it before the Core answers.
-    const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
-    const normalized = array
-      .toArray(statuses)
-      .map((status) => schema.parse(status)) as Status<DetailsSchema>[];
-    const apply = () => [this.store.set(normalized)];
+    const { endpoint, payload, apply } = this.setRequest(statuses, opts);
     const res = await query.optimistic({
-      rollbacks: apply(),
+      rollbacks: [apply()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
-          "/status/set",
-          {
-            statuses: normalized as z.input<
-              ReturnType<typeof setReqZ<DetailsSchema>>
-            >["statuses"],
-            parent: opts.parent,
-          },
+          endpoint,
+          payload,
           setReqZ(opts.detailsSchema),
           setResZ(opts.detailsSchema),
         ),
@@ -223,11 +223,42 @@ export class Client extends query.Retriever<
     return isMany ? created : created[0];
   }
 
+  /**
+   * Builds a request that writes statuses, as set does. Its cache write holds each
+   * status whose stored form the client can predict.
+   */
+  setRequest<DetailsSchema extends z.ZodType = z.ZodNever>(
+    statuses: New<DetailsSchema> | New<DetailsSchema>[],
+    opts: { detailsSchema?: DetailsSchema } = {},
+  ): batch.Request<z.input<ReturnType<typeof setReqZ<DetailsSchema>>>> & {
+    apply: () => destructor.Destructor;
+  } {
+    // Filling the schema defaults up front gives every status a key, so the cache can
+    // hold it before the Core answers. Status keys are UUIDs, not the short id that the
+    // schema default makes.
+    const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
+    const parsed = array.toArray(statuses).map(
+      (status) =>
+        schema.parse({
+          ...status,
+          key: status.key ?? uuid.create(),
+        }) as Status<DetailsSchema>,
+    );
+    const predicted = parsed.map((status) => this.predict(status));
+    const sent = predicted.map((status, i) => status ?? parsed[i]);
+    return {
+      endpoint: "/status/set",
+      payload: {
+        statuses: sent as z.input<
+          ReturnType<typeof setReqZ<DetailsSchema>>
+        >["statuses"],
+      },
+      apply: () => this.store.set(predicted.filter((status) => status != null)),
+    };
+  }
+
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -242,14 +273,22 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Changes the labels of the cached status under the key with update, and returns the
+   * rollback. It skips a status the cache does not hold.
+   */
+  relabel(
+    key: Key,
+    update: (labels: label.Key[]) => label.Key[],
+  ): destructor.Destructor {
+    return this.store.set(key, (p) =>
+      p == null ? undefined : { ...p, labels: update(p.labels) },
+    );
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.store.delete(keysArr),
-      this.cfg.ontology.cache.relationships.delete((r) =>
-        keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
-      ),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -297,137 +336,85 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Fetches the statuses that the resources own into the cache. Calls made in the same
+   * few milliseconds share one request.
+   * @returns the statuses the resources own.
+   */
+  async retrieveOwned(owners: resource.ID[]): Promise<Status[]> {
+    return await this.ownedFetches.enqueue(owners);
+  }
+
+  /**
+   * @returns the cached status that the resource owns, or undefined when the cache
+   * holds none.
+   */
+  ownedBy(owner: resource.ID): Status | undefined {
+    return this.owners.get(resource.idToString(owner))[0];
+  }
+
+  /**
+   * Keeps the status of each held record in the table from the cache's trim.
+   * @param owner - Returns the resource that a record key names.
+   */
+  holdOwned<K extends record.Key>(
+    table: { held: () => Iterable<K> },
+    owner: (key: K) => resource.ID,
+  ): void {
+    this.store.hold({
+      held: () =>
+        [...table.held()].flatMap((key) => this.ownedBy(owner(key))?.key ?? []),
+    });
+  }
+
+  /**
+   * @returns the keys of the owners of the given type whose status the event sets or
+   * deletes, or null when it touches none. An evicted status names no owner.
+   */
+  ownerKeys(
+    event: query.TableEvent<Key, Status>,
+    type: resource.Type,
+  ): string[] | null {
+    const changed =
+      event.variant === "set"
+        ? event.value
+        : this.store.getTombstone(event.key)?.corpse;
+    if (changed?.owner == null || changed.owner.type !== type) return null;
+    return [changed.owner.key];
+  }
+
+  /**
+   * @returns the status as the Core will store it, or null when the status has an
+   * owner and the cache does not hold the key of the status the owner holds.
+   */
+  private predict<D extends z.ZodType>(status: Status<D>): Status<D> | null {
+    let { key } = status;
+    if (status.owner != null) {
+      const held = this.ownedBy(status.owner);
+      if (held == null) return null;
+      key = held.key;
+    }
+    const prev = this.store.get(key);
+    return {
+      ...status,
+      key,
+      labels: prev?.labels ?? status.labels,
+      owner: status.owner ?? prev?.owner,
+    };
+  }
+
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    params: RetrieveParams & { detailsSchema?: DetailsSchema },
+    params: RetrieveParams | OneParams | FilterParams,
+    detailsSchema?: DetailsSchema,
   ): Promise<Status<DetailsSchema>[]> {
     const res = await this.cfg.unary.send(
       "/status/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
+      retrieveResponseZ<DetailsSchema>(detailsSchema),
     );
     return res.statuses as Status<DetailsSchema>[];
   }
-
-  /** Rebuilds a cached status with its cached labels attached. */
-  private compose(cached: Status): Status {
-    const labels = label.cachedLabelsOf(
-      this.cfg.ontology.cache,
-      this.cfg.labels.store,
-      ontologyID(cached.key),
-    );
-    return { ...cached, labels };
-  }
-
-  private writeThrough(status: Status): void {
-    if (this.store.status(status.key) === "tombstoned") return;
-    this.store.ingest(status);
-    if (status.labels == null) return;
-    this.cfg.labels.store.ingest(status.labels);
-    const id = ontologyID(status.key);
-    status.labels.forEach((l) => {
-      const rel: ontology.Relationship = {
-        from: id,
-        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(l.key),
-      };
-      this.cfg.ontology.cache.relationships.set(
-        ontology.relationshipToString(rel),
-        rel,
-      );
-    });
-  }
-
-  /** Fetches statuses and writes their included labels through the caches. */
-  private async fetchThrough(req: RetrieveRequest): Promise<Status[]> {
-    const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...req });
-    // One batch per table, so each table flushes once for the whole response.
-    this.store.batch(() =>
-      this.cfg.labels.store.batch(() =>
-        this.cfg.ontology.cache.relationships.batch(() =>
-          statuses.forEach((s) => this.writeThrough(s)),
-        ),
-      ),
-    );
-    return statuses;
-  }
-
-  private async fetchSingle(key: Key): Promise<Status> {
-    const statuses = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Status", key, statuses, true);
-    return statuses[0];
-  }
-
-  /**
-   * Fetches a labeled-by target the cache is missing so composition sees it.
-   * The fetched label lands in the label table, which recomposes answers.
-   */
-  private ensureLabel(rel: ontology.Relationship): void {
-    if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    this.cfg.labels.retrieve(rel.to.key).catch((exc: unknown) => {
-      // The relationship reaches callers who cannot read the label.
-      if (AccessDeniedError.matches(exc)) return;
-      this.cfg.cache.onError(new Error("failed to fetch status label", { cause: exc }));
-    });
-  }
-
-  /** Reports whether the status is labeled by the given label. */
-  private isLabeledBy(status: Key, labelKey: label.Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString({
-        from: ontologyID(status),
-        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(labelKey),
-      }),
-    );
-  }
-
-  /** Statuses whose labels the relationship event changes; backfills the label. */
-  private affectedKeys(
-    event: query.TableEvent<string, ontology.Relationship>,
-  ): Key[] | null {
-    const rel =
-      event.variant === "set" ? event.value : ontology.relationshipZ.parse(event.key);
-    if (
-      rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
-      rel.from.type !== "status"
-    )
-      return null;
-    if (event.variant === "set") this.ensureLabel(rel);
-    return [rel.from.key];
-  }
-
-  /** Returns the keys of cached statuses labeled by the given label. */
-  private statusesLabeledBy(labelKey: label.Key): Key[] {
-    return this.cfg.ontology.cache
-      .relationshipsTo(label.ontologyID(labelKey))
-      .filter(
-        (r) =>
-          r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-          r.from.type === "status",
-      )
-      .map((r) => r.from.key);
-  }
-
-  /**
-   * Client-side matching for a request: key sets, variants, and label
-   * membership via the relationship table. Server-computed shapes (search,
-   * limit/offset) never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (s: Status) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const variantSet = primitive.isNonZero(req.variants)
-      ? new Set(req.variants)
-      : undefined;
-    return (s) => {
-      if (keySet != null && !keySet.has(s.key)) return false;
-      if (variantSet != null && !variantSet.has(s.variant)) return false;
-      if (
-        primitive.isNonZero(req.hasLabels) &&
-        !req.hasLabels.some((key) => this.isLabeledBy(s.key, key))
-      )
-        return false;
-      return true;
-    };
-  }
 }
+
+export interface SetOptions extends query.WriteOptions {}

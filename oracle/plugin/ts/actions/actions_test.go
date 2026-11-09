@@ -67,6 +67,27 @@ var _ = Describe("TS Actions Plugin", func() {
 			})
 		})
 
+		Context("hand-written types", func() {
+			It("Should not emit an actions.gen.ts file", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Reset {
+						}
+
+						@ts hand
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				for _, f := range resp.Files {
+					Expect(f.Path).ToNot(HaveSuffix("actions.gen.ts"))
+				}
+			})
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave an omitted field out of an action payload", func(
 				ctx SpecContext,
@@ -90,6 +111,60 @@ var _ = Describe("TS Actions Plugin", func() {
 				resp := MustGenerate(ctx, source, "counter", loader, p)
 				ExpectContent(resp, "actions.gen.ts").
 					ToContain("export const setValuePayloadZ = z.object({", "value").
+					ToNotContain("secret")
+			})
+		})
+
+		Context("unions with actions", func() {
+			It("Should emit actions whose handlers take the union", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Base struct {
+						key  uuid
+						name string
+					}
+
+					Shape union on type extends Base {
+						circle {
+							radius float64
+						}
+						square {}
+
+						action Rename {
+							name string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").ToContain(
+					"export const renamePayloadZ = z.object({",
+					`| { type: "rename"; rename: RenamePayload }`,
+					"rename: (state: Draft<Shape>, payload: RenamePayload) => HandlerResult;",
+					"actions.createReduceAll<Shape, Action>((state, action) =>",
+				)
+			})
+
+			It("Should leave an omitted field out of a union action payload", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Shape union on type {
+						circle {}
+
+						action Rename {
+							name   string
+							secret bytes { @ts omit }
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain("export const renamePayloadZ = z.object({", "name").
 					ToNotContain("secret")
 			})
 		})
@@ -225,6 +300,31 @@ var _ = Describe("TS Actions Plugin", func() {
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
 							"export const dispatchResZ = actions.dispatchResZ(actionZ);",
+						)
+				},
+			)
+
+			It(
+				"Should bind scopedActionZ and dispatchReqZ to a retrieve key override",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						name string
+
+						action Tick {
+						}
+
+						@retrieve key "string"
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { Counter } from "@/counter/types.gen";`,
+							"export const scopedActionZ = actions.scopedZ(z.string(), actionZ);",
+							"export const dispatchReqZ = actions.dispatchReqZ(z.string(), actionZ);",
 						)
 				},
 			)

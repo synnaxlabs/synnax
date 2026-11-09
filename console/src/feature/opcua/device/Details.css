@@ -1,0 +1,45 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-opc-details {
+    flex-shrink: 0;
+    max-height: 40%;
+    border-top: var(--pluto-border);
+}
+
+/* The text lines up with the header title. */
+.console-opc-details__body {
+    min-height: 0;
+    overflow: auto;
+    padding: 1.5rem 1.5rem 2rem;
+}
+
+.console-opc-details__value {
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-opc-details__time {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* An answer for another node dims once the read takes long enough to notice. */
+@keyframes console-opc-details-stale {
+    to {
+        opacity: 0.5;
+    }
+}
+
+.console-opc-details__body--stale {
+    animation: console-opc-details-stale 150ms ease-out
+        var(--pluto-loading-delay, 300ms) forwards;
+}

@@ -10,7 +10,7 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -24,6 +24,7 @@ import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { useIsFixed } from "@/select/registry";
+import { preventEnterWhileOpen } from "@/select/use";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -91,7 +92,9 @@ export interface MultipleTriggerProps<
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
-/** @returns whether a drag carries at least one entry of the type not already selected. */
+/**
+ * @returns whether a drag carries at least one entry of the type not already selected.
+ */
 export const staticCanDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,
@@ -124,7 +127,7 @@ export const MultipleTrigger = <
   const value = useSelected<K>();
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
-  const { toggle, visible } = Dialog.useContext();
+  const { toggle, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, array.toArray(value), disabled);
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
@@ -154,6 +157,8 @@ export const MultipleTrigger = <
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
   const itemStatus = Input.useItemStatus({});
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void =>
+    preventEnterWhileOpen(e, visible);
 
   if (hideTags) {
     if (preview === true) return null;
@@ -162,6 +167,7 @@ export const MultipleTrigger = <
         variant={variant}
         aria-label={ariaLabel}
         className={className}
+        onKeyDown={handleKeyDown}
         {...dropProps}
         {...itemStatus}
       >
@@ -173,6 +179,10 @@ export const MultipleTrigger = <
 
   return (
     <Tag.Tags
+      // A ref that changes after mount never runs, so the box mounts again when the
+      // add button comes or goes.
+      key={showAddButton ? "add" : "box"}
+      ref={showAddButton ? undefined : triggerRef}
       full="x"
       // The chassis is a div, so it needs a role and a tab stop to act as a button.
       role="button"
@@ -181,6 +191,7 @@ export const MultipleTrigger = <
       onClick={() => {
         if (!showAddButton) toggle();
       }}
+      onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
@@ -219,7 +230,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button variant={variant} onClick={toggle}>
+        <Button.Button ref={triggerRef} variant={variant} onClick={toggle}>
           <Icon.Add color={9} />
         </Button.Button>
       )}

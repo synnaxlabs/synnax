@@ -11,26 +11,109 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/json.gen.h"
+#include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
+
+inline std::pair<::api::device::pb::OrderField, x::errors::Error>
+order_field_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::api::device::pb::OrderField> kMap = {
+        {ORDER_FIELD_NAME, ::api::device::pb::ORDER_FIELD_NAME},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OrderField value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+order_field_from_pb(::api::device::pb::OrderField pb) {
+    switch (pb) {
+        case ::api::device::pb::ORDER_FIELD_NAME:
+            return {ORDER_FIELD_NAME, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized OrderField protobuf value")};
+    }
+}
+
+inline std::pair<::service::device::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self);
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::device::pb::StringSet &pb);
+
+inline std::pair<::service::device::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self);
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::device::pb::RackKeySet &pb);
+
+inline std::pair<::service::device::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self) {
+    ::service::device::pb::StringSet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::device::pb::StringSet &pb) {
+    ::x::filter::Set<std::string> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::device::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self) {
+    ::service::device::pb::RackKeySet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::device::pb::RackKeySet &pb) {
+    ::x::filter::Set<::synnax::rack::Key> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
 
 inline std::pair<::service::device::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
     ::service::device::pb::StatusDetails pb;
     pb.set_rack(this->rack);
-    pb.set_device(this->device);
+    pb.set_connected(this->connected);
     if (this->data.has_value()) {
         auto [v, err] = x::json::to_struct(*this->data);
         if (err) return {{}, err};
@@ -43,7 +126,7 @@ inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = pb.rack();
-    cpp.device = pb.device();
+    cpp.connected = pb.connected();
     if (pb.has_data()) {
         auto [v, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
@@ -72,11 +155,7 @@ Device::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
-    if (this->parent.has_value()) {
-        auto [v, err] = this->parent->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_parent() = v;
-    }
+    if (this->parent.has_value()) pb.set_parent(*this->parent);
     return {pb, x::errors::NIL};
 }
 
@@ -100,11 +179,220 @@ Device::from_proto(const ::service::device::pb::Device &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
-    if (pb.has_parent()) {
-        auto [v, err] = ::synnax::ontology::ID::from_proto(pb.parent());
-        if (err) return {{}, err};
-        cpp.parent = v;
+    if (pb.has_parent()) cpp.parent = pb.parent();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::device::pb::Where, x::errors::Error>
+Where::to_proto() const {
+    ::service::device::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
     }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = string_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->name.has_value()) {
+        auto [v, err] = this->name->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_name() = v;
+    }
+    if (this->make.has_value()) {
+        auto [v, err] = this->make->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_make() = v;
+    }
+    if (this->model.has_value()) {
+        auto [v, err] = this->model->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_model() = v;
+    }
+    if (this->location.has_value()) {
+        auto [v, err] = this->location->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_location() = v;
+    }
+    if (this->rack.has_value()) {
+        auto [v, err] = rack_key_set_to_proto(*this->rack);
+        if (err) return {{}, err};
+        *pb.mutable_rack() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::device::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = string_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.name());
+        if (err) return {{}, err};
+        cpp.name = v;
+    }
+    if (pb.has_make()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.make());
+        if (err) return {{}, err};
+        cpp.make = v;
+    }
+    if (pb.has_model()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.model());
+        if (err) return {{}, err};
+        cpp.model = v;
+    }
+    if (pb.has_location()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.location());
+        if (err) return {{}, err};
+        cpp.location = v;
+    }
+    if (pb.has_rack()) {
+        auto [v, err] = rack_key_set_from_proto(pb.rack());
+        if (err) return {{}, err};
+        cpp.rack = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::device::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
+    ::api::device::pb::Cursor pb;
+    pb.set_key(this->key);
+    if (this->name.has_value()) pb.set_name(*this->name);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Cursor, x::errors::Error>
+Cursor::from_proto(const ::api::device::pb::Cursor &pb) {
+    Cursor cpp;
+    cpp.key = pb.key();
+    if (pb.has_name()) cpp.name = pb.name();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::device::pb::Order, x::errors::Error> Order::to_proto() const {
+    ::api::device::pb::Order pb;
+    {
+        auto [v, err] = order_field_to_pb(this->field);
+        if (err) return {{}, err};
+        pb.set_field(v);
+    }
+    pb.set_descending(this->descending);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Order, x::errors::Error>
+Order::from_proto(const ::api::device::pb::Order &pb) {
+    Order cpp;
+    {
+        auto [v, err] = order_field_from_pb(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.descending = pb.descending();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::device::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->order.has_value()) {
+        auto [v, err] = this->order->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_order() = v;
+    }
+    if (this->after.has_value()) {
+        auto [v, err] = this->after->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_after() = v;
+    }
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_include_status(this->include_status);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::device::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_order()) {
+        auto [v, err] = Order::from_proto(pb.order());
+        if (err) return {{}, err};
+        cpp.order = v;
+    }
+    if (pb.has_after()) {
+        auto [v, err] = Cursor::from_proto(pb.after());
+        if (err) return {{}, err};
+        cpp.after = v;
+    }
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.include_status = pb.include_status();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::device::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::device::pb::RetrieveResponse pb;
+    for (const auto &item: this->devices) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_devices() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::device::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    if (auto err = x::pb::from_proto_repeated<Device>(cpp.devices, pb.devices()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

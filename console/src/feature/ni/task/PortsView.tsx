@@ -37,6 +37,8 @@ const DEVICE_MENU_KEY = "device";
 
 const lineKey = (port: number, line: number): string => `${port}/${line}`;
 
+const LINES_PER_ROW = 8;
+
 interface DeviceSectionProps {
   device: Device;
   /** What the device's ports hold, such as "3 of 16 ports used". */
@@ -45,6 +47,8 @@ interface DeviceSectionProps {
   /** Adds a channel on the free cell with the key, or on the lowest free port. */
   onAdd: (cell?: string) => void;
   onRemove?: () => void;
+  /** The title on one line, for a map above a list. */
+  compact?: boolean;
   /** The device's grid, given the handler that opens the menu of a free cell. */
   children: (onContextMenu?: (e: MouseEvent) => void) => ReactNode;
 }
@@ -59,6 +63,7 @@ const DeviceSection = ({
   editable,
   onAdd,
   onRemove,
+  compact = false,
   children,
 }: DeviceSectionProps): ReactElement => {
   const menu = Menu.useContextMenu();
@@ -85,20 +90,34 @@ const DeviceSection = ({
   const open = editable ? menu.open : undefined;
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
-      <Flex.Box y gap="medium">
+      <Flex.Box y gap={compact ? "small" : "medium"}>
         <Flex.Box
-          y
-          gap="tiny"
+          x
+          justify="between"
+          align={compact ? "center" : "start"}
+          gap="small"
           className={Menu.CONTEXT_TARGET}
           data-menu-key={DEVICE_MENU_KEY}
           onContextMenu={open}
         >
-          <Text.Text level="p" weight={500} color={11}>
-            {device.model}
-          </Text.Text>
-          <Text.Text level="small" color={9} className={CSS.BE("ni-ports", "usage")}>
-            {`${device.location} · ${usage}`}
-          </Text.Text>
+          <Flex.Box
+            direction={compact ? "x" : "y"}
+            wrap={compact}
+            align={compact ? "center" : undefined}
+            gap={compact ? "small" : "tiny"}
+          >
+            <Text.Text
+              level={compact ? "small" : "p"}
+              weight={500}
+              color={compact ? 10 : 11}
+            >
+              {device.model}
+            </Text.Text>
+            <Text.Text level="small" color={9} className={CSS.BE("ni-ports", "usage")}>
+              {usage}
+            </Text.Text>
+          </Flex.Box>
+          <span className={CSS.BE("ni-ports", "location")}>{device.location}</span>
         </Flex.Box>
         {children(open)}
       </Flex.Box>
@@ -132,9 +151,8 @@ const DevicePorts = <C extends Task.Channel>({
   const ports = hardware == null ? [] : kind.ports(hardware);
   const claims = claimsOf(kind, channels, hardware);
   const names = ports.map(({ port }) => `${kind.prefix}${port}`);
-  const handleClick = (cell: Task.Port.Cell) => {
-    if (cell.channel != null) onSelect([cell.channel]);
-    else if (editable) onAdd(Number(cell.key));
+  const handleClick = ({ channel }: Task.Port.Cell) => {
+    if (channel != null) onSelect([channel]);
   };
   return (
     <DeviceSection
@@ -160,6 +178,7 @@ const DevicePorts = <C extends Task.Channel>({
               describe: Task.Port.describer(channels, (c) => kind.name(c, device)),
             })}
             onClick={handleClick}
+            onAdd={editable ? ({ key }) => onAdd(Number(key)) : undefined}
             onContextMenu={onContextMenu}
           />
         )
@@ -178,7 +197,7 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
   <PDevice.SelectSingle
     value={undefined}
     onChange={(key: device.Key) => onAdd(key)}
-    initialQuery={{ makes: [MAKE], racks: [rack] }}
+    query={{ where: { make: { eq: MAKE }, rack: { eq: rack } } }}
     filter={(d) =>
       d.make === MAKE && d.rack === rack && d.configured && !exclude.includes(d.key)
     }
@@ -282,9 +301,9 @@ export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
 }
 
 /**
- * A digital task's channels by line: one row of lines for each port of the device. A
- * click on a used line selects its channel, and a click on a free line adds a channel
- * on it.
+ * A digital task's channels by line, as a map above its list: the device's ports in a
+ * line, eight lines to a row. A click on a used line selects its channel, and a click
+ * on a free line adds a channel on it.
  */
 export const LinesView = <C extends DigitalChannel>({
   path,
@@ -316,25 +335,29 @@ export const LinesView = <C extends DigitalChannel>({
     Task.Port.cell({
       key: lineKey(port, line),
       labels: [String(line)],
-      row: 1,
-      column: line + 1,
+      row: Math.floor(line / LINES_PER_ROW) + 1,
+      column: (line % LINES_PER_ROW) + 1,
       ports: [lineName(port, line)],
       claims,
       selected,
       describe,
     });
-  const handleClick = ({ key, channel }: Task.Port.Cell) => {
+  const handleClick = ({ channel }: Task.Port.Cell) => {
     if (channel != null) onSelect([channel]);
-    else if (editable) add(parse(key));
   };
   const lines = ports.flatMap(({ port, lines: n }) =>
     Array.from({ length: n }, (_, line) => lineName(port, line)),
   );
   const used = Task.Port.usedCount(lines, claims);
   return (
-    <Flex.Box y empty className={CSS.B("ni-ports")}>
+    <Flex.Box
+      y
+      empty
+      className={CSS.cls(CSS.B("ni-ports"), CSS.BM("ni-ports", "compact"))}
+    >
       <DeviceSection
         device={device}
+        compact
         usage={
           hardware == null
             ? "No port list yet"
@@ -344,31 +367,25 @@ export const LinesView = <C extends DigitalChannel>({
         onAdd={(c) => add(c == null ? undefined : parse(c))}
       >
         {(onContextMenu) => (
-          <Flex.Box y gap="small">
+          <Task.Port.Rows>
             {ports.map(({ port, lines: n }) => (
-              <Flex.Box key={port} x align="center" gap="medium">
-                <Text.Text
-                  level="small"
-                  color={9}
-                  className={CSS.BE("ni-ports", "port")}
-                >
-                  {`port${port}`}
-                </Text.Text>
+              <Task.Port.Row key={port} label={`port${port}`}>
                 <Task.Port.Grid
                   label={`port${port} lines`}
                   groups={[
                     {
-                      key: "lines",
-                      columns: n,
+                      key: String(port),
+                      columns: Math.min(LINES_PER_ROW, n),
                       cells: Array.from({ length: n }, (_, line) => cell(port, line)),
                     },
                   ]}
                   onClick={handleClick}
+                  onAdd={editable ? ({ key }) => add(parse(key)) : undefined}
                   onContextMenu={onContextMenu}
                 />
-              </Flex.Box>
+              </Task.Port.Row>
             ))}
-          </Flex.Box>
+          </Task.Port.Rows>
         )}
       </DeviceSection>
     </Flex.Box>

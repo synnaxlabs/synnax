@@ -13,20 +13,26 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
-// Writer is used to create and delete aliases.
+// Writer is used to create, change, and delete aliases.
 type Writer struct {
-	tx        gorp.Tx
-	otg       *ontology.Ontology
-	otgWriter ontology.Writer
-	channel   *channel.Service
-	table     *gorp.Table[string, Alias]
+	tx         gorp.Tx
+	channel    *channel.Service
+	table      *gorp.Table[string, Alias]
+	dispatcher actions.Dispatcher[string, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Set sets an alias for the given channel on the specified range.
@@ -48,12 +54,31 @@ func (w Writer) Set(
 			ch,
 		)
 	}
-	if err := w.table.NewCreate().
-		Entry(&Alias{Range: rng, Channel: ch, Alias: al}).
+	a := Alias{Range: rng, Channel: ch, Alias: al}
+	if err = w.table.NewCreate().Entry(&a).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, a.GorpKey(), NewCreateAction(CreatePayload{Alias: a}))
+	return nil
+}
+
+// Apply applies acts to the alias with the given Gorp key and attaches them to the
+// transaction of w.
+func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[string, Alias](key)).
+		ChangeErr(func(_ gorp.Context, a Alias) (Alias, error) {
+			next, err := Reduce(a, acts...)
+			if err != nil {
+				return Alias{}, err
+			}
+			return next, nil
+		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineResources(ctx, OntologyID(rng, ch))
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // Delete deletes the alias for the given channel on the specified range.

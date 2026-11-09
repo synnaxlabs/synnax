@@ -15,6 +15,7 @@ import pytest
 import synnax as sy
 from tests.channel import RetrieveCounter
 from tests.proxy import Proxy
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 HOST = os.environ.get("SYNNAX_HOST", "localhost")
@@ -37,6 +38,12 @@ def client() -> sy.Synnax:
         password=PASSWORD,
         secure=False,
     )
+
+
+@pytest.fixture(scope="session")
+def empty_role(client: sy.Synnax) -> sy.Role:
+    """A role with no policies, for users that need no permissions."""
+    return client.access.roles.create(sy.Role(name="Empty"))
 
 
 @pytest.fixture
@@ -113,6 +120,11 @@ def virtual_channel(client: sy.Synnax) -> sy.Channel:
         virtual=True,
         data_type=sy.DataType.FLOAT64,
     )
+
+
+@pytest.fixture
+def task_targets(client: sy.Synnax) -> TaskTargets:
+    return TaskTargets(client)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

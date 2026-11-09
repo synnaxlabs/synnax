@@ -21,6 +21,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     DriverTask,
     assert_configure_rejected,
+    assert_create_refused,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -145,7 +146,8 @@ class ModbusInvalidConfig(SimulatorCase):
         self._assert_deploy_fails(task, "invalid rates")
 
     def test_nonexistent_channel_key(self) -> None:
-        """Configure a read task with a Synnax channel key that doesn't exist."""
+        """Save a read task with a Synnax channel key that doesn't exist. The Core
+        refuses it before it reaches the driver."""
         self.log("Testing: Nonexistent Synnax channel key")
         task = sy.modbus.ReadTask(
             name="Modbus Invalid Channel Key Test",
@@ -160,7 +162,11 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent channel key")
+        message = assert_create_refused(self.client, task, "nonexistent channel key")
+        assert "channel 999999999 does not exist" in message, (
+            f"Refusal should name the missing channel, got {message!r}"
+        )
+        self.log(f"  Correctly refused (nonexistent channel key): {message}")
 
     def test_invalid_address(self) -> None:
         """Start a read task with a register address the simulator doesn't serve."""
@@ -215,7 +221,7 @@ class ModbusInvalidConfig(SimulatorCase):
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
             channels=[
-                sy.modbus.HoldingRegisterReadChannel(
+                sy.modbus.HoldingRegisterStringReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_str_ch",
@@ -223,14 +229,13 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=STRING_START,
-                    data_type=sy.DataType.STRING,
-                    string_length=5,
+                    length=5,
                 ),
             ],
         )
         message = assert_start_rejected(self.client, task, "wide string")
         expected = (
-            "Failed to configure task: channels.0.string_length: needs 3 registers, "
+            "Failed to configure task: channels.0.length: needs 3 registers, "
             "but the device reads at most 2 per request"
         )
         assert message == expected, f"Rejection should be {expected!r}, got {message!r}"

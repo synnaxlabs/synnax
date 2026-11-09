@@ -82,7 +82,6 @@ TEST(TestReadChannelParse, testTCChan) {
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
-        {"neg_chan", 199},
         {"units", "K"},
         {"cjc_source", "TEMPERATURE_DEVICE_K"},
         {"cjc_slope", 1},
@@ -98,7 +97,7 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 3);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -109,23 +108,23 @@ TEST(TestReadChannelParse, testTCChan) {
 std::unique_ptr<InputChan> parse_thermocouple(
     const std::string &port,
     const std::string &cjc_source,
-    const int neg_chan = 199,
-    const std::string &units = "K"
+    const std::string &units = "K",
+    const std::optional<std::uint16_t> neg_chan = std::nullopt
 ) {
-    const x::json::json cfg{
+    x::json::json cfg{
         {"port", port},
         {"channel", 1},
         {"type", "thermocouple"},
         {"thermocouple_type", "K"},
-        {"neg_chan", neg_chan},
         {"units", units},
         {"cjc_source", cjc_source},
         {"cjc_slope", 1},
         {"cjc_offset", 0}
     };
+    if (neg_chan.has_value()) cfg["neg_chan"] = *neg_chan;
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
 }
 
@@ -140,8 +139,24 @@ std::unique_ptr<InputChan> parse_analog(const double range) {
     };
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
+}
+
+/// @brief it should read an analog channel with no negative channel against ground.
+TEST(TestReadChannelParse, testAIChanAbsentNegChanIsGround) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const auto *const ai = dynamic_cast<AIChan *>(chan.get());
+    ASSERT_NE(ai, nullptr);
+    ASSERT_EQ(ai->neg_chan, LJM_GND);
 }
 
 /// @brief it should reject an analog channel with a max voltage of zero.
@@ -158,6 +173,43 @@ TEST(TestReadChannelParse, testAIChanZeroRange) {
     ASSERT_EQ(p.errors->size(), 1);
     EXPECT_EQ(p.errors->at(0)["path"], "range");
     EXPECT_EQ(p.errors->at(0)["message"], "Max voltage must be greater than 0");
+}
+
+/// @brief it should reject an analog channel with an invalid scale.
+TEST(TestReadChannelParse, testAIChanInvalidScale) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+        {"scale", {{"type", "polynomial"}, {"coeffs", x::json::json::array()}}},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_EQ(p.errors->size(), 1);
+    EXPECT_EQ(p.errors->at(0)["path"], "scale.coeffs");
+}
+
+/// @brief it should reject a thermocouple channel with an invalid scale.
+TEST(TestReadChannelParse, testTCChanInvalidScale) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"thermocouple_type", "K"},
+        {"neg_chan", 1},
+        {"units", "C"},
+        {"cjc_source", "TEMPERATURE_DEVICE_K"},
+        {"cjc_slope", 1},
+        {"cjc_offset", 0},
+        {"scale",
+         {{"type", "table"}, {"pre_scaled_vals", {0, 1}}, {"scaled_vals", {0}}}},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_EQ(p.errors->size(), 2);
+    EXPECT_EQ(p.errors->at(0)["path"], "scale.pre_scaled_vals");
+    EXPECT_EQ(p.errors->at(1)["path"], "scale.scaled_vals");
 }
 
 /// @brief it should read an AIN CJC source on its own port, on every model.
@@ -212,7 +264,7 @@ TEST(TestReadChannelApply, testT8Thermocouple) {
 /// @brief it should turn off the thermocouple feature of the device, and set the
 /// thermocouple range and the negative channel on a T7.
 TEST(TestReadChannelApply, testT7Thermocouple) {
-    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", 3);
+    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", "K", 3);
     const auto dev = std::make_shared<device::Mock>();
     ASSERT_NIL(chan->apply(dev, T7));
     const std::map<std::string, double> expected{
@@ -269,11 +321,11 @@ std::pair<double, x::errors::Error> temperature(
 /// the channel.
 TEST(TestThermocoupleTemperature, testConvertsToUnits) {
     const device::Mock dev;
-    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "K");
+    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "K");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(kelvin, dev, 0.001, 300)), 325);
-    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "C");
+    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "C");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(celsius, dev, 0.001, 300)), 51.85);
-    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "F");
+    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "F");
     EXPECT_NEAR(ASSERT_NIL_P(temperature(fahrenheit, dev, 0.001, 300)), 125.33, 1e-9);
 }
 
@@ -390,21 +442,6 @@ TEST(TestReadChannelParse, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should derive the backlog threshold from the sample rate when the
-/// count is zero.
-TEST(TestBacklogWarnOnCount, testZeroDerivesFromSampleRate) {
-    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 0}};
-    auto p = x::json::Parser(cfg);
-    const auto count = parse_backlog_warn_on_count(
-        p,
-        "device_scan_backlog_warn_on_count",
-        x::telem::HERTZ * 50,
-        2
-    );
-    ASSERT_NIL(p.error());
-    ASSERT_EQ(count, 100);
-}
-
 /// @brief it should derive the backlog threshold when the count is absent.
 TEST(TestBacklogWarnOnCount, testAbsentDerivesFromSampleRate) {
     const auto cfg = x::json::json::object();
@@ -449,7 +486,6 @@ x::json::json basic_read_task_config() {
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
-               {"neg_chan", 199},
                {"units", "K"},
                {"cjc_source", "TEMPERATURE_DEVICE_K"},
                {"cjc_slope", 1},
@@ -524,7 +560,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->synnax_key, tc_ch.key);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -657,7 +693,6 @@ protected:
                   {"range", 0},
                   {"scale", {{"type", "none"}}},
                   {"thermocouple_type", "K"},
-                  {"neg_chan", 199},
                   {"units", "K"},
                   {"cjc_source", "TEMPERATURE_DEVICE_K"},
                   {"cjc_slope", 1},
@@ -999,7 +1034,6 @@ protected:
             {"type", "thermocouple"},
             {"scale", {{"type", "none"}}},
             {"thermocouple_type", "K"},
-            {"neg_chan", 199},
             {"units", "K"},
             {"cjc_source", cjc_source},
             {"cjc_slope", 1},
@@ -1040,7 +1074,7 @@ protected:
             .name = "my_device",
         };
         const auto create_err = this->client->devices.create(device);
-        EXPECT_FALSE(create_err) << create_err;
+        EXPECT_NIL(create_err);
         auto j = basic_read_task_config();
         j["device"] = device.key;
         j["channels"] = channels;

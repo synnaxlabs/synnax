@@ -57,9 +57,7 @@ export const PortField = <C extends Task.Channel>({
         <Task.Port.Grid
           label="Port"
           groups={portGroups}
-          onClick={(cell) => {
-            if (!preview) onChange(Number(cell.key));
-          }}
+          onMove={preview ? undefined : (cell) => onChange(Number(cell.key))}
         />
       )}
     </Form.Field>

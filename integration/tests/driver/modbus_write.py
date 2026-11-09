@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
 from examples.modbus import ModbusSim
 
@@ -120,10 +119,22 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
     task_name = "Modbus Write Word Order"
     command_values: list[list[float]] | None = [[1.5, 1.5], [1.5, 1.5]]
 
-    def create(self, *, device: sy.Device, **kwargs: Any) -> sy.modbus.WriteTask:
+    def create(
+        self,
+        *,
+        device: sy.Device,
+        task_name: str,
+        sample_rate: sy.Rate,
+        stream_rate: sy.Rate,
+    ) -> sy.modbus.WriteTask:
         sy.device.ensure_object(device.properties, "connection")["swap_words"] = True
         self.client.devices.create(device)
-        return super().create(device=device, **kwargs)
+        return super().create(
+            device=device,
+            task_name=task_name,
+            sample_rate=sample_rate,
+            stream_rate=stream_rate,
+        )
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:

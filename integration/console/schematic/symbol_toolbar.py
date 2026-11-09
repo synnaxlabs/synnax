@@ -9,8 +9,7 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 from console.layout import LayoutClient
@@ -159,9 +158,8 @@ class SymbolToolbar:
     def symbol_exists(self, name: str, *, select_group: str | None = None) -> bool:
         """Check if a symbol exists in the current group.
 
-        Args:
-            name: The symbol name to search for.
-            select_group: Optional group name to select before searching.
+        :param name: The symbol name to search for.
+        :param select_group: Optional group name to select before searching.
         """
         if select_group is not None:
             self.select_group(select_group)
@@ -278,12 +276,11 @@ class SymbolToolbar:
         This is the universal factory method for adding both built-in and custom
         symbols to the schematic canvas.
 
-        Args:
-            symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom Pump")
-            group: Symbol group name (ignored - kept for backward compatibility).
-
-        Returns:
-            The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
+        :param symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom
+            Pump")
+        :param group: Symbol group name (ignored - kept for backward compatibility).
+        :returns: The data-testid of the newly created symbol node (e.g.,
+            "rf__node-{uuid}")
         """
         self.notifications.close_all()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())

@@ -34,6 +34,14 @@
         }
     }
 
+    /* The item the keys rest on looks like the item the pointer rests on. */
+    &.lyra-btn:focus-visible {
+        --pluto-btn-bg: var(--pluto-hover-bg);
+        --pluto-btn-border-color: var(--pluto-hover-border-color);
+
+        outline: none;
+    }
+
     /* Menu items are rows: they speak the list selection tier, not the
        control-tier default. */
     &.lyra-btn.lyra--selected {

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -22,9 +21,9 @@ const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const visible = Session.Panel.useSelectIsTabVisible();
-  const channelKeys = Base.useChannelKeys();
-  const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
+  const hasChannels = Base.useChannelKeys().length > 0;
   const hold = Session.Log.useSelectHold();
+  const position = Session.Log.useSelectPosition();
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -36,12 +35,16 @@ const Internal: Panel.Content = () => {
   };
 
   const handleHold = (hold: boolean) => dispatch(Session.Log.setHold({ key, hold }));
+  const handleLeave = (position: string) =>
+    dispatch(Session.Log.setPosition({ key, position }));
 
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
       hold={hold}
       onHold={handleHold}
+      position={position}
+      onLeave={handleLeave}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action

@@ -7,23 +7,26 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import MultipleFoundError, NotFoundError
-from synnax.label.types_gen import Key, Label
-from synnax.ontology.payload import ID, CrudeID
-from x import color as color_
+from synnax.exceptions import ValidationError
+from synnax.label.types_gen import (
+    Cursor,
+    Key,
+    Label,
+    Order,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+    WhereInput,
+)
+from synnax.resource import ID, CrudeID
+from synnax.util import request_where, returns_one, sole
+from x import color as color_, filter
 from x.lists import normalize
-
-ONTOLOGY_TYPE = ID(type="label")
-
-
-def ontology_id(key: Key) -> ID:
-    """Returns the ontology ID of the label with the given key."""
-    return ID(key=str(key), type="label")
 
 
 class _CreateRequest(BaseModel):
@@ -32,21 +35,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     labels: list[Label]
-
-
-class _RetrieveRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    keys: list[Key] | None = None
-    names: list[str] | None = None
-    search_term: str | None = None
-    for_: ID | None = Field(default=None, alias="for")
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    labels: list[Label] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -85,8 +73,8 @@ class Client:
         self,
         labels: Label | list[Label] | None = None,
         *,
-        name: str = "",
-        color: color_.Crude = "",
+        name: str | None = None,
+        color: color_.Crude | None = None,
     ) -> Label | list[Label]:
         """Creates one or more labels. A label with the key of an existing label
         replaces it.
@@ -96,82 +84,138 @@ class Client:
         :param name: The name of the label to create when ``labels`` is omitted.
         :param color: The color of the label to create when ``labels`` is omitted.
         :returns: The created label, or a list of labels when ``labels`` is a list.
+        :raises ValidationError: If ``labels`` is omitted and ``name`` or ``color`` is
+            too.
         """
         is_single = not isinstance(labels, list)
         if labels is None:
+            if name is None or color is None:
+                raise ValidationError("A label needs a name and a color.")
             labels = Label(name=name, color=color_.Color(color))
         req = _CreateRequest(labels=normalize(labels))
         res = self._client.send("/label/create", req, _CreateResponse)
         return res.labels[0] if is_single else res.labels
 
     @overload
-    def retrieve(self, *, key: Key) -> Label: ...
-
-    @overload
-    def retrieve(self, *, name: str) -> Label: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Label: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        for_: CrudeID | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Label: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Label: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
+        one: Literal[False] = ...,
     ) -> list[Label]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
-        for_: CrudeID | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        order: Order | None = None,
+        after: Cursor | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> Label | list[Label]:
         """Retrieves labels from the Core. With no arguments, retrieves every label.
 
-        :param key: The key of a single label to retrieve.
-        :param name: The name of a single label to retrieve.
-        :param keys: The keys of the labels to retrieve.
-        :param names: The names of the labels to retrieve.
+        Each filter field takes a value, a list of values, or an operator, and a label
+        must match every field. A plain ``key`` or ``name`` returns one label.
+
+        :param key: Keeps labels with this key.
+        :param name: Keeps labels with this name.
+        :param and_: Keeps labels that match every filter in the list.
+        :param or_: Keeps labels that match any filter in the list.
+        :param not_: Keeps labels that do not match the filter.
+        :param where: A filter tree that the labels must also match.
+        :param keys: Keeps labels with one of these keys.
+        :param names: Keeps labels with one of these names.
         :param search_term: A fuzzy search term matched against label names.
-        :param for_: The ontology ID of a resource. Retrieves the labels on that
-            resource and ignores every other filter.
         :param limit: The maximum number of labels to retrieve.
-        :param offset: The number of labels to skip.
-        :returns: The label when ``key`` or ``name`` is provided, otherwise a list of
-            labels.
-        :raises NotFoundError: If a requested key does not exist, or if no label has
-            the given ``name``.
-        :raises MultipleFoundError: If more than one label has the given ``name``.
+        :param order: The order of the labels. Defaults to key order.
+        :param after: Retrieves the labels past this position in the order: the key of
+            the last label of the page before, and its value of the order field.
+        :param one: Returns one label for any filter.
+        :returns: One label for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of labels. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one label is wanted and none matches.
+        :raises MultipleFoundError: If one label is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one label is wanted
+            beside a limit or a cursor.
         """
-        is_single = key is not None or name is not None
-        req = _RetrieveRequest(
-            keys=normalize(key, keys) or None,
-            names=normalize(name, names) or None,
-            search_term=search_term,
-            for_=None if for_ is None else ID(for_),
-            limit=limit,
-            offset=offset,
+        single = returns_one(fields, one, limit=limit, after=after)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
         )
-        res = self._client.send("/label/retrieve", req, _RetrieveResponse)
-        if not is_single:
-            return res.labels
-        if len(res.labels) == 0:
-            raise NotFoundError(f"Label matching {key or name} not found")
-        if len(res.labels) > 1:
-            raise MultipleFoundError(f"Multiple labels named {name} found")
-        return res.labels[0]
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            order=order,
+            after=after,
+        )
+        res = self._client.send("/label/retrieve", req, RetrieveResponse)
+        return sole("label", req, res.labels) if single else res.labels
 
     def delete(self, keys: Key | list[Key]) -> None:
-        """Deletes one or more labels and removes them from every resource. Deleting
-        a label that does not exist is not an error.
+        """Deletes one or more labels and removes them from every range and status.
+        Deleting a label that does not exist is not an error.
 
         :param keys: A single label key or a list of keys to delete.
         """
@@ -180,20 +224,24 @@ class Client:
     def label(
         self, id: CrudeID, labels: Key | list[Key], *, replace: bool = False
     ) -> None:
-        """Adds labels to a resource.
+        """Adds labels to a range or a status.
 
-        :param id: The ontology ID of the resource to label.
+        :param id: The resource ID of the range or status to label.
         :param labels: A single label key or a list of keys to add.
-        :param replace: If true, removes every other label from the resource.
+        :param replace: If true, removes every other label from the range or status.
+        :raises ValidationError: If ``id`` names a resource that is not a range or a
+            status.
         """
         req = _SetRequest(id=ID(id), labels=normalize(labels), replace=replace)
         self._client.send("/label/set", req, Empty)
 
     def remove(self, id: CrudeID, labels: Key | list[Key]) -> None:
-        """Removes labels from a resource.
+        """Removes labels from a range or a status.
 
-        :param id: The ontology ID of the resource.
+        :param id: The resource ID of the range or status.
         :param labels: A single label key or a list of keys to remove.
+        :raises ValidationError: If ``id`` names a resource that is not a range or a
+            status.
         """
         req = _RemoveRequest(id=ID(id), labels=normalize(labels))
         self._client.send("/label/remove", req, Empty)

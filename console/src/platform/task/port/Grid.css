@@ -9,6 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* On :root, so a container of grids can size its columns to them. */
+:root {
+    --pluto-port-width: 4rem;
+    --pluto-port-height: round(3.3333rem, 1px);
+    --pluto-port-gap: 0.5rem;
+}
+
 .console-port-grid,
 .console-port-badge {
     /* Oklch mixing keeps the primary hue from going muddy at low strength. */
@@ -37,6 +44,11 @@
         var(--pluto-error-z) 15%,
         var(--pluto-gray-l1)
     );
+    --pluto-port-conflict-hover: color-mix(
+        in srgb,
+        var(--pluto-error-z) 25%,
+        var(--pluto-gray-l1)
+    );
     --pluto-port-conflict-border: color-mix(
         in srgb,
         var(--pluto-error-z) 65%,
@@ -45,8 +57,6 @@
 }
 
 .console-port-grid {
-    --pluto-port-cell: 24px;
-
     display: flex;
     flex-wrap: wrap;
     gap: 1.5rem 2rem;
@@ -54,8 +64,8 @@
 
 .console-port-grid__group {
     display: grid;
-    grid-auto-rows: 20px;
-    gap: 3px;
+    grid-auto-rows: var(--pluto-port-height);
+    gap: var(--pluto-port-gap);
 }
 
 .console-port-grid__cell {
@@ -96,8 +106,25 @@
     font-weight: 500;
 
     &:hover,
-    &[data-context-menu-open] {
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
         background: var(--pluto-port-used-hover);
+    }
+}
+
+/* A plus takes the place of the number under the pointer: a click adds a channel. */
+.console-port-grid__add {
+    display: none;
+    font-size: var(--pluto-small-size);
+}
+
+.console-port-grid__cell--addable:is(:hover, :focus-visible) {
+    > span {
+        display: none;
+    }
+
+    > .console-port-grid__add {
+        display: block;
     }
 }
 
@@ -106,10 +133,16 @@
     background: var(--pluto-port-conflict);
     color: var(--pluto-error-z);
     font-weight: 500;
+
+    &:hover,
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
+        background: var(--pluto-port-conflict-hover);
+    }
 }
 
 .console-port-grid__cell--paired {
-    padding: 2px 0;
+    padding: 0.25rem 0;
 
     > :last-child {
         font-weight: 400;
@@ -130,7 +163,8 @@
 
 .console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
     &:hover,
-    &[data-context-menu-open] {
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
         background: var(--pluto-port-disabled-hover);
     }
 }
@@ -141,9 +175,9 @@
     flex: none;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 20px;
-    padding: 0 4px;
+    min-width: var(--pluto-port-width);
+    height: var(--pluto-port-height);
+    padding: 0 0.75rem;
     border: var(--pluto-border-width) solid transparent;
     border-radius: var(--pluto-border-radius-tiny);
     font-family: var(--pluto-font-family);

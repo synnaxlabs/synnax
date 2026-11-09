@@ -11,15 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-from typing import override as _override
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -98,58 +95,20 @@ class RegisterBit(BaseModel):
         bit: Is the bit index, from 0 (least significant) to 15.
     """
 
-    bit: int = Field(le=15, default=0, ge=0)
+    bit: int = Field(default=0, ge=0, le=15)
 
 
-class CoilReadChannel(BaseReadChannel):
-    """Reads a single bit from a coil."""
+class RegisterString(BaseModel):
+    """Interprets consecutive 16-bit registers as a fixed-length string.
 
-    type: Literal["coil"] = "coil"
+    Attributes:
+        length: Is the number of characters, two to each register.
+        bytes_swapped: Is true when the two characters of each register are swapped.
+            When absent, the device's byte order applies.
+    """
 
-
-class DiscreteInputReadChannel(BaseReadChannel):
-    """Reads a single bit from a discrete input."""
-
-    type: Literal["discrete_input"] = "discrete_input"
-
-
-class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
-    """Reads a typed value from one or more holding registers."""
-
-    type: Literal["holding_register"] = "holding_register"
-    string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
-
-
-class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
-    """Reads a typed value from one or more input registers."""
-
-    type: Literal["input_register"] = "input_register"
-    string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
-
-
-class HoldingRegisterBitReadChannel(BaseReadChannel, RegisterBit):
-    """Reads one bit of a holding register."""
-
-    type: Literal["holding_register_bit"] = "holding_register_bit"
-
-
-class InputRegisterBitReadChannel(BaseReadChannel, RegisterBit):
-    """Reads one bit of an input register."""
-
-    type: Literal["input_register_bit"] = "input_register_bit"
-
-
-# Is a single Modbus read channel. The type field selects the register space the
-# channel reads from and the fields that accompany it.
-ReadChannel = Annotated[
-    CoilReadChannel
-    | DiscreteInputReadChannel
-    | HoldingRegisterReadChannel
-    | InputRegisterReadChannel
-    | HoldingRegisterBitReadChannel
-    | InputRegisterBitReadChannel,
-    Field(discriminator="type"),
-]
+    length: int = Field(ge=1, le=250)
+    bytes_swapped: bool | None = None
 
 
 class CoilWriteChannel(BaseWriteChannel):
@@ -178,20 +137,67 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.ReadConfig):
-    """Configures a Modbus read task.
+class CoilReadChannel(BaseReadChannel):
+    """Reads a single bit from a coil."""
 
-    Attributes:
-        device: Is the key of the device the task acquires from.
-        channels: Are the channels the task acquires.
-    """
+    type: Literal["coil"] = "coil"
 
-    device: device_.Key = ""
-    channels: list[ReadChannel] = Field(default_factory=list)
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+class DiscreteInputReadChannel(BaseReadChannel):
+    """Reads a single bit from a discrete input."""
+
+    type: Literal["discrete_input"] = "discrete_input"
+
+
+class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
+    """Reads a typed value from one or more holding registers."""
+
+    type: Literal["holding_register"] = "holding_register"
+
+
+class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
+    """Reads a typed value from one or more input registers."""
+
+    type: Literal["input_register"] = "input_register"
+
+
+class HoldingRegisterStringReadChannel(BaseReadChannel, RegisterString):
+    """Reads a string from consecutive holding registers."""
+
+    type: Literal["holding_register_string"] = "holding_register_string"
+
+
+class InputRegisterStringReadChannel(BaseReadChannel, RegisterString):
+    """Reads a string from consecutive input registers."""
+
+    type: Literal["input_register_string"] = "input_register_string"
+
+
+class HoldingRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of a holding register."""
+
+    type: Literal["holding_register_bit"] = "holding_register_bit"
+
+
+class InputRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of an input register."""
+
+    type: Literal["input_register_bit"] = "input_register_bit"
+
+
+# Is a single Modbus read channel. The type field selects the register space the
+# channel reads from and the fields that accompany it.
+ReadChannel = Annotated[
+    CoilReadChannel
+    | DiscreteInputReadChannel
+    | HoldingRegisterReadChannel
+    | InputRegisterReadChannel
+    | HoldingRegisterStringReadChannel
+    | InputRegisterStringReadChannel
+    | HoldingRegisterBitReadChannel
+    | InputRegisterBitReadChannel,
+    Field(discriminator="type"),
+]
 
 
 class WriteConfig(task.WriteConfig):
@@ -202,6 +208,22 @@ class WriteConfig(task.WriteConfig):
     """
 
     channels: list[WriteChannel] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(task.ReadConfig):
+    """Configures a Modbus read task.
+
+    Attributes:
+        device: Is the key of the device the task acquires from.
+        channels: Are the channels the task acquires.
+    """
+
+    device: device_.Key = ""
+    channels: list[ReadChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

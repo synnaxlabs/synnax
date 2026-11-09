@@ -9,7 +9,9 @@
 
 import { rack, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
+  createTestClientAs,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -34,14 +36,29 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   });
 };
 
+const expectPassword = async (username: string, password: string): Promise<void> => {
+  await expect
+    .poll(async () => {
+      try {
+        await createTestClientAs(username, password).auth.retrieveSessions();
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .toBe(true);
+};
+
 describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
@@ -59,11 +76,13 @@ describe("useModal", () => {
 
   it("should delete a key whose creation ends after the dialog closes", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -90,11 +109,13 @@ describe("useModal", () => {
 
   it("should show an error when deleting an unused key fails", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
-    const id = user.ontologyID(subject.key);
+    const id = user.resourceID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -124,7 +145,7 @@ describe("useModal", () => {
   it("should manage a rack's keys and offer no password", async () => {
     const client = createTestClient();
     const r = await client.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
@@ -138,7 +159,7 @@ describe("useModal", () => {
   it("should hide key actions the caller has no permission for", async () => {
     const owner = createTestClient();
     const r = await owner.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     const name = uniqueName("key");
     await owner.auth.createKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
@@ -152,10 +173,10 @@ describe("useModal", () => {
   it("should offer a rack key to a caller who may change the rack", async () => {
     const owner = createTestClient();
     const r = await owner.racks.create({ name: uniqueName("rack") });
-    const id = rack.ontologyID(r.key);
+    const id = rack.resourceID(r.key);
     const changer = await createTestClientWithGrants(owner, {
-      retrieve: [rack.TYPE_ONTOLOGY_ID],
-      update: [rack.TYPE_ONTOLOGY_ID],
+      retrieve: [rack.TYPE_RESOURCE_ID],
+      update: [rack.TYPE_RESOURCE_ID],
     });
     await openModal(useModal, { client: changer, params: { subject: id } });
     expect(await screen.findByText("Create key")).toBeTruthy();
@@ -171,28 +192,21 @@ describe("useModal", () => {
     await type("Current password", "test");
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
-    await expect
-      .poll(async () => {
-        try {
-          await createTestClient({
-            username,
-            password: "changed123",
-          }).auth.retrieveSessions();
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .toBe(true);
+    await expectPassword(username, "changed123");
   });
 
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
     const username = uniqueName("user");
-    const subject = await client.users.create({ username, password: "password123" });
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({
+      username,
+      password: "password123",
+      role,
+    });
     await openModal(useModal, {
       client,
-      params: { subject: user.ontologyID(subject.key) },
+      params: { subject: user.resourceID(subject.key) },
     });
     expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     await type("New password", "changed123");
@@ -200,18 +214,6 @@ describe("useModal", () => {
     expect(await screen.findByText("Successfully changed password")).toBeTruthy();
     await type("New password", "again");
     expect(screen.queryByText("Successfully changed password")).toBeNull();
-    await expect
-      .poll(async () => {
-        try {
-          await createTestClient({
-            username,
-            password: "changed123",
-          }).auth.retrieveSessions();
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .toBe(true);
+    await expectPassword(username, "changed123");
   });
 });

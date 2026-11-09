@@ -17,6 +17,7 @@ package ranger
 
 import (
 	context "context"
+	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -136,7 +137,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RangeRetrieveServiceClient interface {
-	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
+	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error)
 }
 
 type rangeRetrieveServiceClient struct {
@@ -147,9 +148,9 @@ func NewRangeRetrieveServiceClient(cc grpc.ClientConnInterface) RangeRetrieveSer
 	return &rangeRetrieveServiceClient{cc}
 }
 
-func (c *rangeRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error) {
+func (c *rangeRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrieveResponse)
+	out := new(pb.RetrieveResponse)
 	err := c.cc.Invoke(ctx, RangeRetrieveService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func (c *rangeRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveReque
 // All implementations should embed UnimplementedRangeRetrieveServiceServer
 // for forward compatibility.
 type RangeRetrieveServiceServer interface {
-	Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
+	Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error)
 }
 
 // UnimplementedRangeRetrieveServiceServer should be embedded to have
@@ -171,7 +172,7 @@ type RangeRetrieveServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRangeRetrieveServiceServer struct{}
 
-func (UnimplementedRangeRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error) {
+func (UnimplementedRangeRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedRangeRetrieveServiceServer) testEmbeddedByValue() {}

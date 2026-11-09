@@ -11,6 +11,7 @@ package lsp_test
 
 import (
 	"context"
+	"log"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,8 @@ func serve() protocol.Server {
 	GinkgoHelper()
 	serverSide, clientSide := net.Pipe()
 	served := make(chan error, 1)
-	go func() { served <- lsp.New().Serve(context.Background(), serverSide) }()
+	logger := log.New(GinkgoWriter, "", 0)
+	go func() { served <- lsp.New(logger).Serve(context.Background(), serverSide) }()
 	_, conn, server := protocol.NewClient(
 		context.Background(),
 		&MockClient{},
@@ -123,8 +125,8 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
-				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter",
+				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
+				"pb", "filter", "response", "include", "group",
 			))
 		})
 	})
@@ -146,7 +148,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "omit", "marshal", "wire", "to_any",
+				"output", "omit", "marshal", "wire", "to_any", "request_output",
 			))
 		})
 	})
@@ -161,12 +163,12 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Ontology Expression Completions", func() {
+	Describe("Resource Expression Completions", func() {
 		It(
-			"should return ontology expressions inside ontology domain",
+			"should return resource expressions inside resource domain",
 			func(ctx SpecContext) {
-				openDoc(ctx, "file:///ontology-domain.oracle", "  @ontology \n")
-				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 12)
+				openDoc(ctx, "file:///resource-domain.oracle", "  @resource \n")
+				list := completionFor(ctx, "file:///resource-domain.oracle", 0, 12)
 				Expect(labels(list.Items)).To(ContainElement("type"))
 			},
 		)
@@ -202,7 +204,7 @@ var _ = Describe("Completion", func() {
 
 var _ = Describe("Initialize", func() {
 	It("should return server capabilities", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		result := MustSucceed(server.Initialize(
 			context.Background(),
 			&protocol.InitializeParams{},
@@ -216,7 +218,7 @@ var _ = Describe("Initialize", func() {
 
 var _ = Describe("Initialized", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Initialized(
 			context.Background(),
 			&protocol.InitializedParams{},
@@ -226,7 +228,7 @@ var _ = Describe("Initialized", func() {
 
 var _ = Describe("Shutdown", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Shutdown(context.Background())).To(Succeed())
 	})
 })
@@ -342,6 +344,42 @@ var _ = Describe("Hover", func() {
 		hover := hoverAt(ctx, "file:///hover.oracle", 1, 10)
 		Expect(hover).ToNot(BeNil())
 		Expect(HoverContents(hover)).To(ContainSubstring("string"))
+	})
+
+	It("should tell the filter keyword from the @filter domain", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///filter.oracle", Version: 1,
+				Text: "Where filter Range {}\nname string @filter\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 0, 8))).
+			To(HavePrefix("**filter**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 1, 15))).
+			To(HavePrefix("**@filter**"))
+	})
+
+	It("should return no doc for the filter namespace", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///namespace.oracle", Version: 1,
+				Text: "name filter.String\n",
+			},
+		})).To(Succeed())
+		Expect(hoverAt(ctx, "file:///namespace.oracle", 0, 7)).To(BeNil())
+	})
+
+	It("should describe request_output and a key type", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///request.oracle", Version: 1,
+				Text: "@go request_output \"api\"\nKey uint32 @key\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 0, 6))).
+			To(HavePrefix("**request_output**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 1, 13))).
+			To(ContainSubstring("marks a key type"))
 	})
 
 	It("should return nil for unknown document", func(ctx SpecContext) {
@@ -477,6 +515,30 @@ var _ = Describe("SemanticTokensFull", func() {
 		),
 		Entry("enum member", "Kind enum {\n    uuid = 1\n}\n", uint32(1), uint32(4)),
 	)
+
+	DescribeTable(
+		"should color the filter soft keyword by position",
+		func(ctx SpecContext, text string, char uint32, expected string) {
+			openDoc(ctx, "file:///filter.oracle", text)
+			data := tokensFor(ctx, "file:///filter.oracle").Data
+			Expect(tokenTypeAt(ctx, data, 0, char)).To(Equal(expected))
+		},
+		Entry(
+			"after a definition name",
+			"Where filter Range {}\n",
+			uint32(6),
+			"keyword",
+		),
+		Entry("as a field name", "filter string\n", uint32(0), "property"),
+	)
+
+	It("should not color the filter schema in a field type as a keyword", func(
+		ctx SpecContext,
+	) {
+		openDoc(ctx, "file:///operator.oracle", "name filter.String\n")
+		data := tokensFor(ctx, "file:///operator.oracle").Data
+		Expect(tokenTypeAt(ctx, data, 0, 5)).ToNot(Equal("keyword"))
+	})
 
 	DescribeTable(
 		"should color a primitive in type position as a type",

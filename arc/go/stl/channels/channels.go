@@ -12,6 +12,7 @@ package channels
 import (
 	"context"
 	"slices"
+	"sort"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -192,6 +193,36 @@ type source struct {
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
 	channelIdx    int
 	highWaterMark telem.Alignment
+	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
+	// taken before the stage was entered and are dropped.
+	entryStamp telem.TimeStamp
+}
+
+// tail returns the samples of s from index from to the end.
+func tail(s telem.Series, from int) telem.Series {
+	offset := int64(from) * int64(s.DataType.Density())
+	if s.DataType.IsVariable() {
+		offset = 0
+		for range from {
+			_, n := telem.UnmarshalVariableSample(s.Data[offset:])
+			offset += int64(n)
+		}
+	}
+	return telem.Series{
+		TimeRange:         s.TimeRange,
+		DataType:          s.DataType,
+		Data:              s.Data[offset:],
+		Alignment:         s.Alignment + telem.Alignment(uint32(from)*s.Multiple()),
+		AlignmentMultiple: s.AlignmentMultiple,
+	}
+}
+
+// firstAtOrAfter returns the index of the first stamp in time at or after stamp, or
+// time.Len() when every stamp is earlier.
+func firstAtOrAfter(time telem.Series, stamp telem.TimeStamp) int {
+	return sort.Search(int(time.Len()), func(i int) bool {
+		return time.ValueAt[telem.TimeStamp](i) >= stamp
+	})
 }
 
 func (s *source) Init(node.Context) {}
@@ -215,11 +246,12 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset advances the high water mark to the current channel alignment and the entry
+// stamp to the current cycle, so a (re-)activated stage only responds to samples
+// taken and arriving after activation.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
+	s.entryStamp = ctx.Now
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
@@ -266,6 +298,15 @@ func (s *source) Next(ctx node.Context) {
 				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
 				timeSeries.Alignment = ser.Alignment
 				timeSeries.TimeRange = ser.TimeRange
+			}
+			first := firstAtOrAfter(timeSeries, s.entryStamp)
+			if first == int(ser.Len()) {
+				s.highWaterMark = ab.Upper
+				continue
+			}
+			if first > 0 {
+				ser = tail(ser, first)
+				timeSeries = tail(timeSeries, first)
 			}
 		}
 		*s.Output(0) = ser

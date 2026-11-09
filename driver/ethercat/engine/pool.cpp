@@ -14,9 +14,14 @@ namespace driver::ethercat::engine {
 
 Pool::Pool(
     std::unique_ptr<master::Manager> manager,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    SlaveConfigs slave_configs,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan start_timeout
 ):
-    manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
+    manager(std::move(manager)),
+    rt_manager(std::move(rt_manager)),
+    slave_configs(std::move(slave_configs)),
+    start_timeout(start_timeout) {}
 
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
@@ -37,22 +42,14 @@ Pool::acquire(const std::string &key) {
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;
-    if (this->rt_manager != nullptr) {
-        x::thread::rt::Config base_rt;
-        base_rt.enabled = true;
-        cfg.rt_handle = std::make_shared<x::thread::rt::Handle>(
-            this->rt_manager->allocate(base_rt)
-        );
-    }
-    auto eng = std::make_shared<Engine>(std::move(m), cfg);
+    cfg.slave_configs = [slave_configs = this->slave_configs, key] {
+        return slave_configs(key);
+    };
+    cfg.start_timeout = this->start_timeout;
+    cfg.rt_manager = this->rt_manager;
+    auto eng = std::make_shared<Engine>(key, std::move(m), cfg);
     this->engines[key] = eng;
     return {eng, x::errors::NIL};
-}
-
-bool Pool::is_active(const std::string &key) const {
-    std::lock_guard lock(this->mu);
-    const auto it = this->engines.find(key);
-    return it != this->engines.end() && it->second->running();
 }
 
 std::vector<slave::Health> Pool::health(const std::string &key) const {
@@ -66,23 +63,18 @@ std::vector<slave::Health> Pool::health(const std::string &key) const {
     return engine->health();
 }
 
-std::vector<slave::DiscoveryResult> Pool::get_slaves(const std::string &key) const {
-    std::shared_ptr<Engine> engine;
-    {
-        std::lock_guard lock(this->mu);
-        const auto it = this->engines.find(key);
-        if (it == this->engines.end()) return {};
-        engine = it->second;
-    }
-    return engine->slaves();
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Pool::discover(const std::string &key) {
+    auto [engine, err] = this->acquire(key);
+    if (err) return {{}, err};
+    return engine->discover();
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Pool::discover_slaves(const std::string &key) {
+Pool::rediscover(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
-    if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
-    return {engine->slaves(), x::errors::NIL};
+    return engine->rediscover();
 }
 
 }

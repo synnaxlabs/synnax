@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/role"
+import "schemas/x/filter"
+import "schemas/x/patch"
+
 @go output "core/pkg/service/user"
 @py output "client/py/synnax/user"
 @ts output "client/ts/src/user"
@@ -16,12 +20,13 @@ Key = uuid {
 }
 
 User struct {
-    key       Key    {
+    key       Key      {
         @doc value "is the unique identifier for this user."
         @key
     }
-    name      string {
+    name      string   {
         @doc value           "is the user's display name."
+        @index sorted
         @search
         @validate min_length 1
     }
@@ -32,15 +37,70 @@ User struct {
         """
         @filter
     }
+    role      role.Key {
+        @doc value         "is the role that grants the user its permissions."
+        @ref kind          place
+        @ref on_delete     restrict
+        @validate required
+    }
 
-    @doc value     """
-        is an account entity representing a person accessing the Synnax system. Users
-        can have roles assigned for permission management.
+    action Create {
+        user User
+
+        @doc value """
+            replaces the user with the given created state. Emitted by the Core when a
+            user is created; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the user."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the user.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the user."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the user."
+    }
+
+    action SetUsername {
+        username string
+
+        @doc value """
+            changes the username of the user's password. The Core refuses a username
+            that another user holds.
+        """
+    }
+
+    @doc value       """
+        is an account entity representing a person accessing the Synnax system. Each
+        user holds one role, which grants its permissions.
     """
     @go marshal
     @go migrate
-    @ontology type "user"
-    @retrieve
+    @resource type   "user"
+    @retrieve custom
+}
+
+Where filter User {
+    key
+    usernames string[]   {
+        @doc value "matches the users whose password has any of the given usernames."
+    }
+    roles     role.Key[] {
+        @doc value "matches the users that hold any of the given roles."
+    }
+
+    @doc value         "is a filter that selects users."
+    @go request_output "core/pkg/api/user"
 }
 
 New struct extends User {

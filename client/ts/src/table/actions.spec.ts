@@ -85,10 +85,26 @@ describe("table path actions", () => {
     expect(table.reduceAll(next, inverse).next).toEqual(state);
   });
 
-  it("should throw for a path outside the cells", () => {
-    expect(() => table.reduceAll(create(), [set(["name"], "Other")])).toThrow(
-      "name is not inside an entry of cells",
+  it("should throw for a path to the cells map", () => {
+    expect(() => table.reduceAll(create(), [set(["cells"], {})])).toThrow(
+      "cells is not inside an entry of cells",
     );
+  });
+
+  it("should set the name and return an inverse that restores it", () => {
+    const state = create();
+    const { next, inverse, targets } = table.reduceAll(state, [set(["name"], "Other")]);
+    expect(next.name).toEqual("Other");
+    expect(targets).toEqual(["name"]);
+    expect(table.reduceAll(next, inverse).next).toEqual(state);
+  });
+
+  it("should not classify a set of the name as a cell edit", () => {
+    expect(table.kindOf([set(["name"], "Other")])).toEqual("set");
+  });
+
+  it("should not classify a nested set outside the cells as a cell edit", () => {
+    expect(table.kindOf([set(["layout", "a"], 1)])).toEqual("set");
   });
 });
 
@@ -137,5 +153,35 @@ describe("table setChanged", () => {
     const a = table.setChanged({ key: "a", base, next: text("Flow") });
     const b = table.setChanged({ key: "b", base, next: text("Flow") });
     expect(table.kindOf([...a, ...b])).toEqual("transaction");
+  });
+});
+
+describe("group and project patches", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = table.tableZ.parse({ name: "Readings" });
+    expect(
+      table.reduceAll(doc, [table.set({ path: ["group"], value: G1 })]).next.group,
+    ).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = table.tableZ.parse({ name: "Readings", group: G1 });
+    expect(
+      table.reduceAll(doc, [table.remove({ key: "group" })]).next.group,
+    ).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = table.tableZ.parse({ name: "Readings", group: G1 });
+    const { next, inverse } = table.reduceAll(doc, [
+      table.set({ path: ["group"], value: G2 }),
+    ]);
+    expect(table.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should move the document into the project", () => {
+    const doc = table.tableZ.parse({ name: "Readings", project: G1 });
+    expect(
+      table.reduceAll(doc, [table.set({ path: ["project"], value: G2 })]).next.project,
+    ).toEqual(G2);
   });
 });

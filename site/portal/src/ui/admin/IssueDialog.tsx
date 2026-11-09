@@ -78,7 +78,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
           helpText="Register an organization under Organizations first."
         >
           {(p) => (
-            <Select.Simple<string> {...p} resourceName="Organization">
+            <Select.Simple<string> {...p} resourceName="organization">
               {teams.map(({ clerkOrgID, name }) => (
                 <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
                   {name}

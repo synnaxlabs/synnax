@@ -11,55 +11,32 @@ package ranger
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type (
-	Key   = ranger.Key
+	// Key is a unique identifier for a range.
+	Key = ranger.Key
+	// Range is a user-defined region of time.
 	Range = ranger.Range
 )
 
-func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(ranges))
-	for _, r := range ranges {
-		ids = append(ids, r.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
-		if r.Parent == nil {
-			continue
-		}
-		ids = append(ids, r.Parent.OntologyID())
-	}
-	return ids
-}
-
 // ServiceConfig is the configuration for the range API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Ranger stores and retrieves ranges.
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
 }
 
 var (
@@ -70,25 +47,19 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("ranger", c.Ranger)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *ranger.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -97,9 +68,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Ranger,
-		label:    cfg.Label,
 	}, nil
 }
 
@@ -115,18 +84,13 @@ type (
 	}
 )
 
+// Create creates the ranges. A range whose key exists is updated and keeps its stored
+// labels.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: rangeAccessOntologyIDs(req.Ranges),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Ranges); err != nil {
@@ -147,111 +111,59 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys                []ranger.Key    `json:"keys"                   msgpack:"keys"`
-		Names               []string        `json:"names"                  msgpack:"names"`
-		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
-		HasLabels           []label.Key     `json:"has_labels"             msgpack:"has_labels"`
-		OverlapsWith        telem.TimeRange `json:"overlaps_with"          msgpack:"overlaps_with"`
-		Limit               int             `json:"limit"                  msgpack:"limit"`
-		Offset              int             `json:"offset"                 msgpack:"offset"`
-		IncludeLabels       bool            `json:"include_labels"         msgpack:"include_labels"`
-		IncludeParent       bool            `json:"include_parent"         msgpack:"include_parent"`
-		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
-	}
-)
+var _ bind.Named = RetrieveRequest{}
 
+// Named implements bind.Named. It returns the ranges that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, ranger.ResourceID)
+}
+
+// Retrieve returns the ranges that req selects and that the subject can retrieve. A
+// child range passes only when the subject can also retrieve its parent, and a named
+// child with a denied parent fails the request with an access error.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		ranges          []Range
-		q               = s.internal.NewRetrieve().Entries(&ranges)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = req.SearchTerm != ""
-		hasOverlapsWith = !req.OverlapsWith.IsZero()
-		hasLabels       = len(req.HasLabels) > 0
-	)
-	if hasOverlapsWith {
-		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
-	}
-	if hasNames {
-		q = q.Where(ranger.MatchNames(req.Names...))
-	}
-	if hasKeys {
-		q = q.Where(ranger.MatchKeys(req.Keys...))
-	}
-	if hasLabels {
-		q = q.Where(ranger.MatchLabels(req.HasLabels...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err := q.Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	var res RetrieveResponse
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Ranges))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.IncludeLabels {
-		for i, r := range ranges {
-			if ranges[i].Labels, err = s.label.
-				RetrieveFor(ctx, r.OntologyID(), nil); err != nil {
-				return RetrieveResponse{}, err
-			}
+	named := req.Named()
+	if err = q.Where(ranger.Match(func(
+		_ gorp.Context,
+		_ ranger.Retrieve,
+		r *ranger.Range,
+	) (bool, error) {
+		if !snap.Allowed(r.ResourceID()) {
+			return false, nil
 		}
-	}
-	if req.IncludeParent {
-		for i, r := range ranges {
-			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			ranges[i].Parent = &ranger.Range{}
-			if err = s.
-				internal.
-				NewRetrieve().
-				Entry(ranges[i].Parent).
-				Where(ranger.MatchKeys(parentKey)).
-				Exec(ctx, nil); err != nil {
-				return RetrieveResponse{}, err
-			}
+		if r.Parent == nil {
+			return true, nil
 		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rangeAccessOntologyIDs(ranges),
-	}); err != nil {
+		parent := ranger.ResourceID(*r.Parent)
+		if snap.Allowed(parent) {
+			return true, nil
+		}
+		if slices.Contains(named, r.ResourceID()) {
+			return false, snap.Enforce(parent)
+		}
+		return false, nil
+	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Ranges: ranges}, nil
+	return res, nil
 }
 
 type RenameRequest struct {
@@ -259,21 +171,17 @@ type RenameRequest struct {
 	Key  ranger.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the range with the given key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	})
+	)
 }
 
 type SetEndRequest struct {
@@ -281,41 +189,32 @@ type SetEndRequest struct {
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 }
 
+// SetEnd sets the end of the time range of the range with the given key.
 func (s *Service) SetEnd(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetEndRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+	return struct{}{}, s.internal.NewWriter(tx).Apply(
+		ctx,
+		req.Key,
 		ranger.NewSetAction(ranger.SetPayload{
 			Path:  []string{"time_range", "end"},
 			Value: req.End,
 		}),
-	})
+	)
 }
 
 type DeleteRequest struct {
 	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the ranges with the given keys, the ranges nested in them, and the
+// records they own. A key that matches no range is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: ranger.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Unpack
+
 """
 Simulator lifecycle mixin.
 
@@ -27,8 +29,9 @@ from multiprocessing.process import BaseProcess
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
+from framework import resources
 from framework.hardware_case import HardwareCase
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
+from framework.test_case import Config
 
 
 class SimulatorCase(HardwareCase):
@@ -43,14 +46,13 @@ class SimulatorCase(HardwareCase):
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        sims = {resources.simulator(s.device_name) for s in cls.sim_classes}
+        return super().resources() | sims
+
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.sims = {}
 
     def setup(self) -> None:
@@ -71,8 +73,7 @@ class SimulatorCase(HardwareCase):
     def start_simulator(self, device_name: str | None = None) -> None:
         """Start (or restart) a simulator.
 
-        Args:
-            device_name: Target a specific sim. When None, restarts the primary sim.
+        :param device_name: Target a specific sim. When None, restarts the primary sim.
         """
         target = device_name or self.device_name
         old_sim = self.sims.get(target)
@@ -90,9 +91,8 @@ class SimulatorCase(HardwareCase):
     ) -> None:
         """Stop a simulator.
 
-        Args:
-            log: Whether to log cleanup.
-            device_name: Target a specific sim. When None, stops the primary sim.
+        :param log: Whether to log cleanup.
+        :param device_name: Target a specific sim. When None, stops the primary sim.
         """
         target = device_name or self.device_name
         sim = self.sims.get(target)

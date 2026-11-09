@@ -24,11 +24,11 @@ import (
 
 const renderFixture = `
 Key = uuid {
-	@key
 	@doc value "is the unique identifier."
 }
 
 Size uint32 {
+	@key
 	@go marshal flex
 }
 

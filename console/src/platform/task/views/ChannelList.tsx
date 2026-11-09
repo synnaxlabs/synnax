@@ -9,6 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/platform/button";
@@ -54,6 +55,35 @@ const Footer = ({ label, onAdd }: FooterProps) => {
   );
 };
 
+export interface UseAddProps<C extends Channel> {
+  path: deep.Path<C[]>;
+  createChannel?: (channels: C[]) => C | null;
+  onSelect: (keys: string[]) => void;
+  /** Skips selecting the new channel, since checkable lists select by checkbox. */
+  checkable?: boolean;
+}
+
+/**
+ * @returns a callback that appends a new channel to the list and selects it, or
+ * undefined when there is no createChannel.
+ */
+export const useAdd = <C extends Channel>({
+  path,
+  createChannel,
+  onSelect,
+  checkable = false,
+}: UseAddProps<C>): (() => void) | undefined => {
+  const ctx = Form.useContext();
+  const { push } = Form.useFieldList(path);
+  if (createChannel == null) return undefined;
+  return () => {
+    const channel = createChannel(ctx.get(path).value);
+    if (channel == null) return;
+    push(channel);
+    if (!checkable) onSelect([channel.key]);
+  };
+};
+
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
   "data" | "header" | "emptyContent" | "footer" | "remove" | "onDuplicate" | "resolve"
@@ -89,18 +119,9 @@ export const ChannelList = <C extends Channel>({
   ports,
   ...rest
 }: ChannelListProps<C>) => {
-  const ctx = Form.useContext();
   const { data, push, remove } = Form.useFieldList(path);
   const { onSelect, checkable = false } = rest;
-  const handleAdd =
-    createChannel == null
-      ? undefined
-      : () => {
-          const channel = createChannel(ctx.get(path).value);
-          if (channel == null) return;
-          push(channel);
-          if (!checkable) onSelect([channel.key]);
-        };
+  const handleAdd = useAdd({ path, createChannel, onSelect, checkable });
   const handleDuplicate =
     createChannels == null
       ? undefined

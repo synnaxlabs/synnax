@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Component } from "@/component";
+import { Dialog } from "@/dialog";
 import { Select } from "@/select";
+import { Triggers } from "@/triggers";
 
 describe("Select.Item", () => {
   it("should render a collection of buttons", () => {
@@ -81,7 +83,7 @@ describe("Select.Item", () => {
     );
   });
 
-  it("should space outlined buttons apart for the card variant", () => {
+  it("should space card buttons apart for the card variant", () => {
     const c = render(
       <Select.Buttons value={1} onChange={vi.fn()} variant="card">
         <Select.Item itemKey={1}>Option 1</Select.Item>
@@ -92,7 +94,7 @@ describe("Select.Item", () => {
     expect(group?.classList).toContain("lyra-select-btns--card");
     expect(group?.classList).not.toContain("lyra--pack");
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "lyra-btn--outlined",
+      "lyra-btn--card",
     );
   });
 
@@ -132,6 +134,75 @@ describe("Select.Item", () => {
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
       "lyra--selected",
     );
+  });
+
+  describe("keys", () => {
+    const pressArrowDownEnter = (
+      enableTriggers?: boolean,
+    ): ReturnType<typeof vi.fn> => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Buttons
+              value={undefined}
+              onChange={onChange}
+              allowNone
+              enableTriggers={enableTriggers}
+            >
+              <Select.Item itemKey={1}>Option 1</Select.Item>
+              <Select.Item itemKey={2}>Option 2</Select.Item>
+            </Select.Buttons>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => {
+        fireEvent.keyDown(window, { code: "ArrowDown" });
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      return onChange;
+    };
+
+    it("should select with the keys in an open dialog", () => {
+      expect(pressArrowDownEnter()).toHaveBeenCalled();
+    });
+
+    it("should ignore the keys when its triggers are disabled", () => {
+      expect(pressArrowDownEnter(false)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("disabled", () => {
+    it("should ignore a click on a button", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Select.Buttons value={1} onChange={onChange} disabled>
+          <Select.Item itemKey={1}>Option 1</Select.Item>
+          <Select.Item itemKey={2}>Option 2</Select.Item>
+        </Select.Buttons>,
+      );
+      fireEvent.click(c.getByText("Option 2"));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should ignore the keys", () => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <Dialog.Frame visible>
+            <Select.Buttons value={undefined} onChange={onChange} allowNone disabled>
+              <Select.Item itemKey={1}>Option 1</Select.Item>
+              <Select.Item itemKey={2}>Option 2</Select.Item>
+            </Select.Buttons>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => {
+        fireEvent.keyDown(window, { code: "ArrowDown" });
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   describe("preview", () => {

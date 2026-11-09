@@ -66,10 +66,11 @@ const renderAnalogWrite = async (
   return { ...rendered, draft };
 };
 
-const createConfig = (
-  channels: NI.Task.AOChannel[],
-  device = "placeholder_device",
-) => ({ ...NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}), device, channels });
+const createConfig = (channels: NI.Task.AOChannel[], device = "") => ({
+  ...NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}),
+  device,
+  channels,
+});
 
 describe("AnalogWrite", () => {
   it("should render the detail form for every channel type as it is selected", async () => {
@@ -271,7 +272,7 @@ describe("AnalogWrite", () => {
 });
 
 describe("AnalogWrite channel names", () => {
-  it("should show the names configuring gives each channel in the list", async () => {
+  it("should show the names deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     const { identifier } = dev.properties;
     await renderAnalogWrite(

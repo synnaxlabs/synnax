@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
@@ -38,13 +39,17 @@ type TimeRange struct {
 	End TimeStamp `json:"end" msgpack:"end"`
 }
 
+// WindowType is the "variant" value that selects a variant of Window.
 type WindowType string
 
 const (
+	// DynamicWindowType is a rolling window.
 	DynamicWindowType WindowType = "dynamic"
-	StaticWindowType  WindowType = "static"
+	// StaticWindowType is a fixed window.
+	StaticWindowType WindowType = "static"
 )
 
+// WindowVariant is implemented by every Window variant.
 type WindowVariant interface {
 	isWindowVariant()
 }
@@ -129,7 +134,11 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.StaticWindow
 	default:
-		return errors.Newf("Window: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Window: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -151,13 +160,22 @@ type DataType string
 type TimestampFormat string
 
 const (
-	TimestampFormatISO         TimestampFormat = "ISO"
-	TimestampFormatISODate     TimestampFormat = "ISODate"
-	TimestampFormatTime        TimestampFormat = "time"
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = "ISO"
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = "ISODate"
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = "time"
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
-	TimestampFormatDate        TimestampFormat = "date"
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = "date"
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
-	TimestampFormatDateTime    TimestampFormat = "dateTime"
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = "dateTime"
 )
 
 // IsValid reports whether t is one of the defined TimestampFormat
@@ -175,8 +193,10 @@ func (t TimestampFormat) IsValid() bool {
 type TimeZone string
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = "local"
-	TimeZoneUTC   TimeZone = "UTC"
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = "UTC"
 )
 
 // IsValid reports whether t is one of the defined TimeZone

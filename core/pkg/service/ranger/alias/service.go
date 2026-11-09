@@ -11,23 +11,17 @@ package alias
 
 import (
 	"context"
-	"io"
-	"iter"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
-	xiter "github.com/synnaxlabs/x/iter"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -39,14 +33,13 @@ type ParentRetriever interface {
 	RetrieveParentKey(
 		ctx context.Context,
 		key ranger.Key,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 	) (ranger.Key, error)
 }
 
 // ServiceConfig is the configuration for opening the alias.Service.
 type ServiceConfig struct {
 	DB              *gorp.DB
-	Ontology        *ontology.Ontology
 	Channel         *channel.Service
 	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
@@ -59,7 +52,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.alias")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("parent_retriever", c.ParentRetriever)
 	return v.Error()
@@ -69,7 +61,6 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ParentRetriever = override.Nil(c.ParentRetriever, other.ParentRetriever)
@@ -78,10 +69,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
-	closer xio.MultiCloser
-	table  *gorp.Table[string, Alias]
-	search *gorp.SearchIndex[string, Alias]
-	cfg    ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[string, Alias]
+	search  *gorp.SearchIndex[string, Alias]
+	indexes indexes
+	cfg     ServiceConfig
+	state   *actions.State[string, Action]
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
@@ -90,24 +83,39 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{
+		cfg:     cfg,
+		search:  newSearchIndex(),
+		indexes: newIndexes(),
+		state:   actions.NewState[string, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         []gorp.Index[string, Alias]{s.search},
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_alias_set"
-		signalsCfg.DeleteName = "sy_range_alias_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
+			Changes:    s.table.Changes,
+			Resource:   resourceID,
+			SetKey:     signals.UnmarshalEntryKey[string, Alias],
+			SetName:    "sy_range_alias_set",
+			DeleteName: "sy_range_alias_delete",
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[string, Action]{
+			Name:     "sy_range_alias_action_set",
+			Actions:  s.state,
+			Resource: resourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -117,84 +125,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create and delete aliases.
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[string, Action] { return s.state }
+
+// NewWriter opens a new Writer to create, change, and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		channel:   s.cfg.Channel,
-		table:     s.table,
+		tx:         tx,
+		channel:    s.cfg.Channel,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // NewReader opens a new Reader to retrieve aliases.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 	return Reader{
-		tx:              gorp.OverrideTx(s.cfg.DB, tx),
+		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}
-}
-
-// ontology.Service implementation
-
-var _ ontology.Service = (*Service)(nil)
-
-type change = xchange.Change[string, Alias]
-
-// Type implements ontology.Service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
-
-// RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(
-	ctx context.Context,
-	key string,
-	tx gorp.Tx,
-) (ontology.Resource, error) {
-	rangeKey, channelKey, err := parseGorpKey(key)
-	if err != nil {
-		return ontology.Resource{}, err
-	}
-	var res Alias
-	if err = s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, Alias](Alias{Range: rangeKey, Channel: channelKey}.GorpKey())).
-		Entry(&res).
-		Exec(ctx, tx); err != nil {
-		return ontology.Resource{}, err
-	}
-	return newResource(res), nil
-}
-
-func translateChange(c change) ontology.Change {
-	return ontology.Change{
-		Variant: c.Variant,
-		Key:     OntologyID(c.Value.Range, c.Value.Channel).String(),
-		Value:   newResource(c.Value),
-	}
-}
-
-// OnChange implements ontology.Service.
-func (s *Service) OnChange(
-	f func(context.Context, iter.Seq[ontology.Change]),
-) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Alias]) {
-		f(ctx, xiter.Map(reader, translateChange))
-	}
-	return s.table.Observe().OnChange(handleChange)
-}
-
-// Search implements ontology.Service.
-func (s *Service) Search(
-	ctx context.Context,
-	tx gorp.Tx,
-	term string,
-	limit int,
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, limit, ontologyID)
-}
-
-// ontologyID returns the ontology ID of the alias with the given gorp key.
-func ontologyID(key string) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: key}
 }

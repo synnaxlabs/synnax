@@ -11,15 +11,32 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from synnax.ontology.payload import ID
+from synnax.resource import ID
+from x import filter
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of roles.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Role(BaseModel):
@@ -45,8 +62,91 @@ class Role(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="role")
+class Where(BaseModel):
+    """Is a filter that selects roles.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        internal: Selects by internal.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    internal: filter.Bool | None = None
 
 
-def ontology_id(key: Key) -> ID:
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "internal": filter.BoolInput,
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of roles: the sort value and the key of a role.
+
+    Attributes:
+        key: Is the key of the role at the position.
+        name: Is the name of the role at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the roles a RetrieveRequest selects.
+
+    Attributes:
+        roles: Are the roles the request selects.
+    """
+
+    roles: list[Role] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve roles.
+
+    Attributes:
+        where: Selects the roles to retrieve. An absent where selects all of them.
+        search_term: Keeps the roles that match the term, closest match first.
+        order: Sorts the roles. An absent order sorts them by key.
+        after: Starts the roles strictly past this position in their order.
+        limit: Is the most roles to return.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="role")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="role", key=str(key))

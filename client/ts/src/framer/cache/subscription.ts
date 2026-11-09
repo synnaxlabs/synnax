@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { deep, type destructor } from "@synnaxlabs/x";
+import { deep, type destructor, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
@@ -50,10 +50,12 @@ export class Handle implements Subscription {
   }
 
   value(key: channel.Key): Snapshot {
-    const consumer = this.consumers.get(key);
-    if (consumer == null)
-      throw new UnexpectedError(`channel ${key} is not in the subscription`);
-    return consumer.value();
+    return this.consumer(key).value();
+  }
+
+  timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    const consumer = this.consumer(key);
+    return consumer instanceof Latest ? consumer.timeAt(alignment) : null;
   }
 
   update(request: SubscribeRequest): void {
@@ -105,6 +107,13 @@ export class Handle implements Subscription {
     this.consumers.forEach((c) => c.close());
     this.consumers.clear();
     this.handlers.clear();
+  }
+
+  private consumer(key: channel.Key): Points | Latest {
+    const consumer = this.consumers.get(key);
+    if (consumer == null)
+      throw new UnexpectedError(`channel ${key} is not in the subscription`);
+    return consumer;
   }
 
   private readonly notify = (): void => {

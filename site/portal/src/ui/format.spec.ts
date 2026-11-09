@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Event, type License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
-import { describeEvent, standing, statusOf } from "@/ui/format";
+import { clock, describeEvent, expiry, standing, statusOf } from "@/ui/format";
 
 const licenseOf = (overrides: Partial<License>): License => ({
   ...LICENSE,
@@ -86,6 +86,33 @@ describe("format.standing", () => {
       capacity: 0,
       nextExpiry: null,
     });
+  });
+});
+
+describe("format.clock", () => {
+  const EVENING = new Date("2026-11-06T03:30:00Z");
+
+  it("should read the day in its time zone", () => {
+    expect(clock("America/Denver").date(EVENING)).toBe("2026-11-05");
+    expect(clock("UTC").date(EVENING)).toBe("2026-11-06");
+  });
+
+  it("should read nothing for no date", () => {
+    expect(clock("UTC").date(null)).toBe("");
+  });
+
+  it("should read the time in its time zone and name the zone", () => {
+    expect(clock("America/Denver").dateTime(EVENING)).toBe("2026-11-05 20:30 MST");
+    expect(clock("America/Denver").dateTime(new Date("2026-07-01T14:05:00Z"))).toBe(
+      "2026-07-01 08:05 MDT",
+    );
+    expect(clock("UTC").dateTime(EVENING)).toBe("2026-11-06 03:30 UTC");
+  });
+});
+
+describe("format.expiry", () => {
+  it("should read the UTC day the terms set", () => {
+    expect(expiry(new Date("2027-03-01T00:00:00Z"))).toBe("2027-03-01");
   });
 });
 

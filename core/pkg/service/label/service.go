@@ -15,12 +15,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -34,15 +31,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is the ontology service that the label service will use to manage
-	// resources and relationships between other objects.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create and manage a root group for holding all labels.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -55,8 +43,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("label")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
@@ -64,19 +50,17 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Label]
-	search *gorp.SearchIndex[Key, Label]
-	state  *actions.State[Key, Action]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Label]
+	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -88,21 +72,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		search: newSearchIndex(),
-		state:  actions.NewState[Key, Action](cfg.DB),
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Label]{s.search},
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -110,57 +94,30 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close must be called when the service is no longer needed to prevent resource leaks.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// Observe returns an observable that notifies callers of changes to label entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Label]] {
-	return s.table.Observe()
-}
-
-// ObserveActions returns an observable of the actions that Dispatch and Writer emit.
-// Handlers run synchronously after the transaction that applied the actions commits.
-func (s *Service) ObserveActions() observe.Observable[actions.Scoped[Key, Action]] {
-	return s.state
-}
-
-// Dispatch applies the actions atomically to the label with the given key. Dispatches
-// for the same label run one at a time, each in its own transaction, and the actions
-// are broadcast after the commit. dispatchKey is carried onto the broadcast so the
-// sender recognizes its echo. Dispatch returns an error wrapping validate.ErrValidation
-// when an action is a create or the result fails to decode or validate, and an error
-// wrapping query.ErrNotFound when no label has the key.
-func (s *Service) Dispatch(
+// Changes returns the changes that c made to labels.
+func (s *Service) Changes(
 	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.NewWriter(tx).apply(ctx, key, acts)
-		},
-	)
+	c gorp.Commit,
+) gorp.TxReader[Key, Label] {
+	return s.table.Changes(ctx, c)
 }
+
+// Actions returns the action batches that Dispatch and Writer attach to their
+// transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTx: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
 
-// NewWriter opens a new Writer to create, update, and delete labels. If tx is not nil
-// the writer will use it, otherwise it will execute operations directly against the
-// underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete labels in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otg:        s.cfg.Ontology.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

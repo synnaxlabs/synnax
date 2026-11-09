@@ -143,7 +143,7 @@ struct Pairing {
     /// @brief the DAQmx product types of the family, without the "NI " prefix.
     std::vector<std::string> types;
     /// @brief the distance from a positive port to its negative port.
-    std::int32_t offset = 0;
+    std::uint32_t offset = 0;
 };
 
 const std::vector<Pairing> PAIRINGS = {
@@ -177,7 +177,7 @@ const std::string DIFF = ::synnax::ni::TERMINAL_CONFIG_DIFF;
 /// @brief a physical channel or port and the number at the end of its name.
 struct Port {
     std::string name;
-    std::int32_t number = 0;
+    std::uint32_t number = 0;
 };
 
 template<typename T>
@@ -202,11 +202,11 @@ std::vector<std::string> split(const std::string &list) {
 }
 
 /// @brief returns the number at the end of a name, such as 3 for Dev1/ai3.
-std::optional<std::int32_t> number_of(const std::string &name) {
+std::optional<std::uint32_t> number_of(const std::string &name) {
     const auto digits = name.find_last_not_of("0123456789");
     const auto start = digits == std::string::npos ? 0 : digits + 1;
     if (start == name.size()) return std::nullopt;
-    std::int32_t number = 0;
+    std::uint32_t number = 0;
     const char *end = name.data() + name.size();
     const auto [ptr, ec] = std::from_chars(name.data() + start, end, number);
     if (ec != std::errc{} || ptr != end) return std::nullopt;
@@ -503,7 +503,7 @@ read_counters(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
 
 x::errors::Error
 read_digital_ports(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
-    std::map<std::int32_t, DigitalPort> by_number;
+    std::map<std::uint32_t, DigitalPort> by_number;
     const auto read = [&](const int32 attribute,
                           const int32 width_attribute,
                           const bool input) -> x::errors::Error {
@@ -520,7 +520,7 @@ read_digital_ports(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &
                 return width_err;
             auto &digital = by_number[port.number];
             digital.port = port.number;
-            digital.lines = std::max(digital.lines, static_cast<std::int32_t>(lines));
+            digital.lines = std::max(digital.lines, static_cast<std::uint8_t>(lines));
             if (input)
                 digital.input = true;
             else

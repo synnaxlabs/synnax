@@ -9,6 +9,7 @@
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
@@ -26,6 +27,7 @@ export const NETWORK: PlatformDevice.Network[] = [
   OPCUA.Device.NETWORK,
   Modbus.Device.NETWORK,
   HTTP.Device.NETWORK,
+  ...(FLAGS.kafka ? [Kafka.Device.NETWORK] : []),
   ...(FLAGS.mqtt ? [MQTT.Device.NETWORK] : []),
 ];
 

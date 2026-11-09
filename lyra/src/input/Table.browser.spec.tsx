@@ -69,6 +69,20 @@ const rounded = (): string =>
     "border-top-left-radius",
   );
 
+/** @returns the table, in a container wider than its columns. */
+const renderWide = async (widths: (number | undefined)[]): Promise<HTMLTableElement> =>
+  (
+    await renderThemed(
+      <div style={{ width: "2000px" }}>
+        <Input.Table value={[widths.map((_, i) => i)]} onChange={() => {}}>
+          {widths.map((width, i) => (
+            <Input.TableColumn key={i} name={`Column ${i}`} width={width} />
+          ))}
+        </Input.Table>
+      </div>,
+    )
+  ).container.querySelector("table")!;
+
 describe("Input.Table", () => {
   it("should hold the remove button as far off the box as a row label", async () => {
     const { container } = await renderThemed(
@@ -131,6 +145,20 @@ describe("Input.Table", () => {
       const cell = frame.closest("td")!;
       expect(frame.getBoundingClientRect().width).toBeCloseTo(cell.clientWidth);
       expect(frame.getBoundingClientRect().height).toBeCloseTo(cell.clientHeight);
+    });
+  });
+
+  describe("width", () => {
+    it("should keep declared column widths in a wider container", async () => {
+      const table = await renderWide([10, 12]);
+      expect(table.getBoundingClientRect().width).toBe(
+        parseFloat(computed(table, "min-width")),
+      );
+    });
+
+    it("should fill a wider container when a column has no width", async () => {
+      const table = await renderWide([10, undefined]);
+      expect(table.getBoundingClientRect().width).toBe(2000);
     });
   });
 });

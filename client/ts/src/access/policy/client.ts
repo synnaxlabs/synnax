@@ -8,48 +8,50 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Policy,
   policyZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
 } from "@/access/policy/types.gen";
-import { ontology } from "@/ontology";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/access/policy/where.gen";
 import { query } from "@/query";
+import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  subjects: ontology.idZ.array().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
-  internal: z.boolean().optional(),
-});
-
-const listRetrieveParamsZ = z.union([
-  z
-    .object({ for: ontology.idZ })
-    .transform(({ for: forId }) => ({ subjects: [forId] })),
-  z
-    .object({ for: ontology.idZ.array() })
-    .transform(({ for: forIds }) => ({ subjects: forIds })),
-  retrieveRequestZ,
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
-const retrieveMultiParamsZ = listRetrieveParamsZ.or(query.keyListZ(keyZ));
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResZ = z.object({ policies: policyZ.array().default(() => []) });
+// The roles of a subject live on the subject, so only the Core can check subjects.
+const LINES: Lines = {
+  subjects: null,
+  roles: ({ role }, roles) => roles.includes(role),
+};
 
 const singleCreateParamsZ = policyZ.transform((p) => ({ policies: [p] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -65,30 +67,22 @@ const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-/**
- * Query fields only the server can evaluate: policy records do not carry
- * their subjects, so subject membership cannot be checked locally.
- */
-const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
-
-/**
- * Client-side matching for a request: key sets and the internal flag. Server-computed
- * shapes (subjects, pagination) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => {
-    if (keySet != null && !keySet.has(p.key)) return false;
-    if (req.internal != null && p.internal !== req.internal) return false;
-    return true;
-  };
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
+  /** Holds the roles of users, so a role change refetches the policies of a user. */
+  users: user.Client;
 }
+
+/** @returns whether any subjects line of where names the user with the given key. */
+const namesUser = (where: Where | undefined, key: user.Key): boolean =>
+  where != null &&
+  (where.subjects?.some(
+    ({ type, key: k }) => type === user.TYPE_RESOURCE_ID.type && k === key,
+  ) === true ||
+    where.and?.some((w) => namesUser(w, key)) === true ||
+    where.or?.some((w) => namesUser(w, key)) === true ||
+    namesUser(where.not, key));
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
   private readonly cfg: ClientConfig;
@@ -98,7 +92,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, policyZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -108,10 +102,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       name: "policy",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (policy, req) => requestFilter(req)(policy),
-        serverFields: SERVER_FIELDS,
+        matches: (policy, req) => matches(LINES, policy, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
+        triggers: [
+          query.trigger(cfg.users.store, ({ key }, req: RetrieveRequest) =>
+            namesUser(req.where, key) ? "refetch" : null,
+          ),
+        ],
       },
     });
     this.cfg = cfg;
@@ -134,11 +134,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = ontologyID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ids),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -151,17 +147,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve(key);
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -172,31 +162,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     rename();
   }
 
-  /**
-   * Retrieves every policy governing the subject, warming the role links of
-   * the subject and its policies so role reads resolve from the cache.
-   */
-  async retrieveForSubject(subject: ontology.ID): Promise<Policy[]> {
-    const policies = await this.retrieve({ for: subject });
-    const { parents } = this.cfg.ontology;
-    const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
-    if (policies.length > 0)
-      warms.push(
-        parents.retrieve({
-          ids: policies.map((p) => ontologyID(p.key)),
-          types: ["role"],
-        }),
-      );
-    await Promise.all(warms);
-    return policies;
-  }
-
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {
     const res = await this.cfg.unary.send(
       "/access/policy/retrieve",
       params,
       retrieveRequestZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.policies;
   }

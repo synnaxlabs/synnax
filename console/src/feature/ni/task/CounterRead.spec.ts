@@ -42,7 +42,7 @@ const createChannel = (
     ...NI.Task.createCIChannel(type),
     key: id.create(),
     port,
-    device: "placeholder_device",
+    device: "",
     ...overrides,
   }) as NI.Task.CIChannel;
 
@@ -124,7 +124,7 @@ describe("CounterRead", () => {
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
     );
-    await waitFor(() => expect(screen.getByText("Measurement time (s)")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Measurement time")).toBeTruthy());
     expect(screen.queryByText("Divisor")).toBeNull();
   });
 
@@ -133,7 +133,29 @@ describe("CounterRead", () => {
       createConfig([createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" })]),
     );
     await waitFor(() => expect(screen.getByText("Divisor")).toBeTruthy());
-    expect(screen.queryByText("Measurement time (s)")).toBeNull();
+    expect(screen.queryByText("Measurement time")).toBeNull();
+  });
+
+  it("should clamp the divisor to at least 1", async () => {
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr", divisor: 7 }),
+      ]),
+    );
+    const input = await screen.findByDisplayValue("7");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("1"));
+  });
+
+  it("should clamp the initial count to at least 0", async () => {
+    await renderCounterRead(
+      createConfig([createChannel("ci_edge_count", 0, { initialCount: 9 })]),
+    );
+    const input = await screen.findByDisplayValue("9");
+    fireEvent.change(input, { target: { value: "-4" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("0"));
   });
 
   it("should swap the channel to the newly selected type", async () => {
@@ -361,7 +383,7 @@ describe("CounterRead ports", () => {
 });
 
 describe("CounterRead channel names", () => {
-  it("should show the name configuring gives each channel in the list", async () => {
+  it("should show the name deploying gives each channel in the list", async () => {
     const dev = await createNIDevice(client);
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 1, { device: dev.key })]),

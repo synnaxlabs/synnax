@@ -10,8 +10,8 @@
 import { array } from "@synnaxlabs/x";
 
 import { type Action } from "@/access/action/types.gen";
-import { type Policy } from "@/access/policy/types.gen";
-import { type ontology } from "@/ontology";
+import { type Policy, resourceID } from "@/access/policy/types.gen";
+import { type resource } from "@/resource";
 
 /**
  * Request represents an access control request to check if a subject
@@ -19,24 +19,35 @@ import { type ontology } from "@/ontology";
  */
 export interface Request {
   /** The subject making the request (typically a user) */
-  subject: ontology.ID;
+  subject: resource.ID;
   /** The action being requested */
   action: Action;
   /** The objects being accessed */
-  objects: ontology.ID | ontology.ID[];
+  objects: resource.ID | resource.ID[];
 }
+
+const sameID = (a: resource.ID, b: resource.ID): boolean =>
+  a.type === b.type && a.key === b.key;
+
+const retrievesOwn = (
+  subject: resource.ID,
+  obj: resource.ID,
+  policies: Policy[],
+): boolean =>
+  sameID(obj, subject) || policies.some(({ key }) => sameID(obj, resourceID(key)));
 
 /**
  * Checks if a request is allowed based on the provided policies.
  * This is the client-side equivalent of the Go allowRequest function.
  *
  * @param req - The access request to check
- * @param policies - The policies to check against
+ * @param policies - The policies of the subject's roles
  * @returns true if the request is allowed, false otherwise
  *
  * @remarks
  * This function implements the following logic:
  * - For each requested object, check if any policy allows the action
+ * - A subject can always retrieve its own record and the policies of its roles
  * - A policy allows an action if:
  *   1. The policy's actions include the requested action or "all"
  *   2. The policy's objects include the requested object, either:
@@ -48,14 +59,17 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
   const objs = array.toArray(req.objects);
   const { action } = req;
   for (const requestedObj of objs) {
+    if (action === "retrieve" && retrievesOwn(req.subject, requestedObj, policies))
+      continue;
     let allowed = false;
 
     for (const policy of policies) {
       const actionAllowed = policy.actions.includes(action);
       if (!actionAllowed) continue;
 
-      // Check if any object in the policy matches the requested object
-      // Type-level match: empty key means the policy applies to all instances of this type
+      // Check if any object in the policy matches the requested object.
+      // Type-level match: empty key means the policy applies to all instances of this
+      // type.
       for (const policyObj of policy.objects)
         if (policyObj.key === "") {
           if (policyObj.type === requestedObj.type) {

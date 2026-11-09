@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { deep, verbs } from "@synnaxlabs/x";
+import { deep, type optional, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -16,18 +16,6 @@ import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "view";
-const PLURAL_RESOURCE_NAME = "views";
-
-export type ListQuery = view.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, view.Key, view.View>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
-  onChange: ({ client, query }, handler) => client.views.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
-  getCached: ({ client, query }) => client.views.getCached(query),
-});
 
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
@@ -48,18 +36,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const formSchema = z.discriminatedUnion("type", [
+export type FormValues =
+  optional.Optional<view.RangeView, "key"> | optional.Optional<view.StatusView, "key">;
+
+// TypeScript cannot name the recursive where types inside an inferred schema type, so
+// the schema carries its value type by hand.
+export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
   view.rangeViewZ.partial({ key: true }),
   view.statusViewZ.partial({ key: true }),
 ]);
 
-export const formPath = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<FormValues>();
 
-const ZERO_VALUES: z.infer<typeof formSchema> = {
-  name: "",
-  type: "range",
-  query: { hasLabels: [] },
-};
+const ZERO_VALUES: FormValues = { name: "", type: "range" };
 export type FormQuery = view.RetrieveSingleParams;
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
@@ -68,7 +57,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const cached = client.views.getCached(key);
+    const cached = client.views.watch(key).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset }) => {
@@ -76,7 +65,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     reset(updated);
   },
   mountListeners: ({ client, query: { key }, reset }) =>
-    client.views.onChange(key, (result) => {
+    client.views.watch(key).onChange((result) => {
       if (query.isLive(result)) reset(result);
     }),
 });

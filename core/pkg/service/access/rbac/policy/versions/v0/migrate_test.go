@@ -19,7 +19,7 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,11 +45,11 @@ var _ = Describe("Migration", func() {
 		})).To(Succeed())
 	}
 
-	newLegacy := func(subjects ...ontology.ID) v0.Policy {
+	newLegacy := func(subjects ...resource.ID) v0.Policy {
 		return v0.Policy{
 			Key:      uuid.New(),
 			Subjects: subjects,
-			Objects:  []ontology.ID{{Type: "schematic"}},
+			Objects:  []resource.ID{{Type: "schematic"}},
 			Actions:  []access.Action{"all"},
 		}
 	}
@@ -57,13 +57,13 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should extract legacy policies into the KV mapping and delete them",
 		func(ctx SpecContext) {
-			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
-			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+			u1 := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+			u2 := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)
 			modern := v0.Policy{
 				Key:     uuid.New(),
-				Objects: []ontology.ID{{Type: "label"}},
+				Objects: []resource.ID{{Type: "label"}},
 				Actions: []access.Action{"retrieve"},
 			}
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
@@ -76,7 +76,7 @@ var _ = Describe("Migration", func() {
 			Expect(mappings).To(HaveLen(2))
 			byUser := make(map[string][]v0.Policy, len(mappings))
 			for _, m := range mappings {
-				byUser[m.UserOntologyID.String()] = m.Policies
+				byUser[m.UserResourceID.String()] = m.Policies
 			}
 			Expect(byUser[u1.String()]).To(ConsistOf(shared, single))
 			Expect(byUser[u2.String()]).To(ConsistOf(shared))
@@ -102,7 +102,7 @@ var _ = Describe("Migration", func() {
 			Expect(db.Set(
 				ctx, []byte("sy_rbac_migration_performed"), []byte{1},
 			)).To(Succeed())
-			legacy := newLegacy(ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"})
+			legacy := newLegacy(resource.ID{Type: resource.TypeUser, Key: "u1"})
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
 				Entry(&legacy).Exec(ctx, legacyDB)).To(Succeed())
 			run(ctx)
@@ -147,18 +147,18 @@ var _ = Describe("Legacy mappings", func() {
 			Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
 		})
 		It("Should read the persisted mapping", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"}
-			writeMapping(ctx, []v0.LegacyUserMapping{{UserOntologyID: id}})
+			id := resource.ID{Type: resource.TypeUser, Key: "u1"}
+			writeMapping(ctx, []v0.LegacyUserMapping{{UserResourceID: id}})
 			got := MustSucceed(v0.ReadLegacyMappings(ctx, db))
 			Expect(got).To(HaveLen(1))
-			Expect(got[0].UserOntologyID).To(Equal(id))
+			Expect(got[0].UserResourceID).To(Equal(id))
 		})
 	})
 
 	Describe("DeleteLegacyMappings", func() {
 		It("Should remove the persisted mapping", func(ctx SpecContext) {
 			writeMapping(ctx, []v0.LegacyUserMapping{{
-				UserOntologyID: ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"},
+				UserResourceID: resource.ID{Type: resource.TypeUser, Key: "u1"},
 			}})
 			Expect(v0.DeleteLegacyMappings(ctx, db)).To(Succeed())
 			Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())

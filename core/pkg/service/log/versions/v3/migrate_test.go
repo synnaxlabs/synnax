@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,15 +25,65 @@ import (
 )
 
 var _ = Describe("Migration", func() {
+	defaulted := func(e v3.ChannelEntry) v3.ChannelEntry {
+		e.ApplyDefaults()
+		return e
+	}
+
+	DescribeTable("Should map the v2 tz to time_zone",
+		func(ctx SpecContext, tz, expected telem.TimeZone) {
+			got := MustSucceed(v3.MigrateChannelEntry(ctx, v2.ChannelEntry{
+				Timestamp: v2.TimestampConfig{
+					Format: telem.TimestampFormatISO,
+					Tz:     tz,
+				},
+			}))
+			Expect(got.TimestampConfig).To(Equal(v3.TimestampConfig{
+				Format:   telem.TimestampFormatISO,
+				TimeZone: expected,
+			}))
+		},
+		Entry("Should keep UTC", telem.TimeZoneUTC, telem.TimeZoneUTC),
+		Entry("Should keep local", telem.TimeZoneLocal, telem.TimeZoneLocal),
+		Entry("Should fill an empty zone", telem.TimeZone(""), telem.TimeZoneLocal),
+	)
+
 	DescribeTable("MigrateChannelEntry",
-		func(ctx SpecContext, precision int32, expected *int32) {
+		func(ctx SpecContext, precision int32, expected *uint8) {
 			old := v2.ChannelEntry{Channel: 1, Precision: precision}
 			Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Precision).
 				To(Equal(expected))
 		},
-		Entry("Should drop the auto precision sentinel", int32(-1), nil),
-		Entry("Should keep a zero precision", int32(0), new(int32(0))),
-		Entry("Should keep a set precision", int32(4), new(int32(4))),
+		Entry("Should drop the auto precision sentinel", int32(-1), (*uint8)(nil)),
+		Entry("Should keep a zero precision", int32(0), new(uint8(0))),
+		Entry("Should keep a set precision", int32(4), new(uint8(4))),
+		Entry("Should clamp a precision past the maximum", int32(40), new(uint8(17))),
+	)
+
+	It("Should fill empty display fields with their defaults", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateChannelEntry(ctx, v2.ChannelEntry{Channel: 1}))
+		Expect(got.Validate()).To(Succeed())
+	})
+
+	It("Should keep an alias of 64 characters", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 64)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(old.Alias))
+	})
+
+	It("Should cut a long alias on a character boundary", func(ctx SpecContext) {
+		old := v2.ChannelEntry{Alias: strings.Repeat("😀", 65)}
+		Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Alias).
+			To(Equal(strings.Repeat("😀", 64)))
+	})
+	DescribeTable("Should clamp the timestamp precision",
+		func(ctx SpecContext, old int32, expected uint8) {
+			got := MustSucceed(v3.MigrateLog(ctx, v2.Log{TimestampPrecision: old}))
+			Expect(got.TimestampPrecision).To(Equal(expected))
+		},
+		Entry("Should raise a negative value to 0", int32(-1), uint8(0)),
+		Entry("Should keep a value in range", int32(2), uint8(2)),
+		Entry("Should lower a value past 3", int32(9), uint8(3)),
 	)
 
 	It("Should lift every channel entry of a log", func(ctx SpecContext) {
@@ -46,17 +97,35 @@ var _ = Describe("Migration", func() {
 		got := MustSucceed(v3.MigrateLog(ctx, old))
 		Expect(got.Name).To(Equal("log"))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
-			{Channel: 1},
-			{Channel: 2, Precision: new(int32(5))},
+			defaulted(v3.ChannelEntry{Channel: 1}),
+			defaulted(v3.ChannelEntry{Channel: 2, Precision: new(uint8(5))}),
+		}))
+	})
+
+	It("Should drop channel 0 and keep the first entry of a channel", func(
+		ctx SpecContext,
+	) {
+		got := MustSucceed(v3.MigrateLog(ctx, v2.Log{
+			Channels: []v2.ChannelEntry{
+				{Channel: 0, Alias: "placeholder", Precision: -1},
+				{Channel: 1, Alias: "first", Precision: -1},
+				{Channel: 2, Precision: -1},
+				{Channel: 1, Alias: "second", Precision: -1},
+			},
+		}))
+		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
+			defaulted(v3.ChannelEntry{Channel: 1, Alias: "first"}),
+			defaulted(v3.ChannelEntry{Channel: 2}),
 		}))
 	})
 
 	It("Should lift stored logs and keep every other field", func(ctx SpecContext) {
 		stored := v2.Log{
-			Key:                uuid.New(),
-			Name:               "log",
-			TimestampPrecision: 2,
-			ChannelNamesHidden: true,
+			Key:                    uuid.New(),
+			Name:                   "log",
+			TimestampPrecision:     2,
+			ChannelNamesHidden:     true,
+			ReceiptTimestampHidden: true,
 			Channels: []v2.ChannelEntry{
 				{
 					Channel:   7,
@@ -85,16 +154,21 @@ var _ = Describe("Migration", func() {
 			Where(gorp.MatchKeys[uuid.UUID, v3.Log](stored.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Name).To(Equal(stored.Name))
-		Expect(got.TimestampPrecision).To(Equal(stored.TimestampPrecision))
+		Expect(got.TimestampPrecision).To(Equal(uint8(stored.TimestampPrecision)))
 		Expect(got.ChannelNamesHidden).To(BeTrue())
+		Expect(got.TimestampsHidden).To(BeTrue())
+		Expect(got.TimeZone).To(BeEquivalentTo(telem.TimeZoneLocal))
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
-				Channel:   7,
-				Notation:  notation.NotationScientific,
-				Alias:     "pressure",
-				Timestamp: stored.Channels[0].Timestamp,
+				Channel:  7,
+				Notation: notation.NotationScientific,
+				Alias:    "pressure",
+				TimestampConfig: v3.TimestampConfig{
+					Format:   telem.TimestampFormatPreciseDate,
+					TimeZone: telem.TimeZoneUTC,
+				},
 			},
-			{Channel: 8, Precision: new(int32(3))},
+			defaulted(v3.ChannelEntry{Channel: 8, Precision: new(uint8(3))}),
 		}))
 	})
 })

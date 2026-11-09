@@ -11,25 +11,38 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
 struct Range;
+struct Where;
+struct Cursor;
+struct Order;
+struct RetrieveResponse;
+struct RetrieveRequest;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
+constexpr const char *ORDER_FIELD_TIME_RANGE_START = "time_range_start";
 
 using Key = x::uuid::UUID;
 
@@ -46,12 +59,11 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces.
     std::optional<::x::color::Color> color;
-    /// @brief labels contains optional labels attached to this range for categorization
-    /// and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
-    /// @brief parent is an optional parent range for hierarchical organization. Ranges
-    /// can be nested within other ranges.
-    x::mem::indirect<Range> parent;
+    /// @brief labels are the keys of the labels attached to the range.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief parent is the key of the range this range is nested in. Empty for a
+    /// top-level range.
+    std::optional<Key> parent;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -64,9 +76,164 @@ struct Range {
     ranger::kv::Client kv;
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("range", "");
+/// @brief Where is a filter that selects ranges.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief overlaps matches ranges whose time range overlaps the given range.
+    std::optional<::x::telem::TimeRange> overlaps;
+    /// @brief labels matches ranges that have any of the given labels.
+    ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief parents matches the ranges nested in any of the given ranges.
+    ::x::filter::List<Key> parents;
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("range", key.to_string());
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ranger::pb::Where;
+    [[nodiscard]] std::pair<::service::ranger::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::ranger::pb::Where &pb);
+};
+
+/// @brief Cursor is a position in an order of ranges: the sort value and the key of a
+/// range.
+struct Cursor {
+    /// @brief key is the key of the range at the position.
+    Key key;
+    /// @brief name is the name of the range at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
+    /// @brief time_range_start is the time range start of the range at the position,
+    /// when the order sorts by it.
+    std::optional<::x::telem::TimeStamp> time_range_start;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::Cursor;
+    [[nodiscard]] std::pair<::api::ranger::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::ranger::pb::Cursor &pb);
+};
+
+/// @brief Order is a sort of ranges.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::Order;
+    [[nodiscard]] std::pair<::api::ranger::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::ranger::pb::Order &pb);
+};
+
+/// @brief RetrieveResponse holds the ranges a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief ranges are the ranges the request selects.
+    std::vector<Range> ranges;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the ranges. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the ranges strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+};
+
+/// @brief RetrieveRequest is a request to retrieve ranges.
+struct RetrieveRequest {
+    /// @brief where selects the ranges to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the ranges that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the ranges. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the ranges strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most ranges to return.
+    std::optional<std::uint32_t> limit;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
+};
+
+const synnax::resource::ID TYPE_RESOURCE_ID("range", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("range", key.to_string());
 }
 }

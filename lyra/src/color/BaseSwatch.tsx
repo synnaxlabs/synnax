@@ -46,6 +46,7 @@ export const BaseSwatch = ({
   onChange,
   className,
   draggable = true,
+  disabled,
   style,
   ...rest
 }: BaseSwatchProps): ReactElement => {
@@ -54,7 +55,7 @@ export const BaseSwatch = ({
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {
     const [k] = filterHaulItems(items);
-    return onChange != null && k != null && k.key !== hex;
+    return disabled !== true && onChange != null && k != null && k.key !== hex;
   };
   const { startDrag, ...haulProps } = Haul.useDragAndDrop({
     type: "color_swatch",
@@ -73,6 +74,7 @@ export const BaseSwatch = ({
         className,
       )}
       square
+      disabled={disabled}
       draggable={draggable}
       onDragStart={() => startDrag([createHaulItem(hex)])}
       style={{

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
+import { record } from "@synnaxlabs/x";
 
 import {
   AES128_SHA256_RSAOAEP_SECURITY_POLICY,
@@ -18,6 +19,15 @@ import {
   type SecurityPolicy,
 } from "@/feature/opcua/device/types";
 
+/** The names of the security policies other than None. */
+export const SECURITY_POLICY_NAMES: Record<Exclude<SecurityPolicy, "None">, string> = {
+  [BASIC256_SHA256_SECURITY_POLICY]: "Basic 256-bit with SHA-256",
+  [AES128_SHA256_RSAOAEP_SECURITY_POLICY]: "AES 128-bit with SHA-256",
+  [AES256_SHA256_RSAPSS_SECURITY_POLICY]: "AES 256-bit with SHA-256",
+  [BASIC256_SECURITY_POLICY]: "Basic 256-bit (deprecated)",
+  [BASIC128_RSA15_SECURITY_POLICY]: "Basic 128-bit RSA (deprecated)",
+};
+
 export interface SelectSecurityPolicyProps extends Omit<
   Select.SingleSimpleProps<SecurityPolicy>,
   "resourceName" | "children"
@@ -26,20 +36,10 @@ export interface SelectSecurityPolicyProps extends Omit<
 /** Selects a security policy other than None. */
 export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
   <Select.Simple<SecurityPolicy> resourceName="security policy" {...props}>
-    <Select.Item itemKey={BASIC256_SHA256_SECURITY_POLICY}>
-      Basic 256-bit with SHA-256
-    </Select.Item>
-    <Select.Item itemKey={AES128_SHA256_RSAOAEP_SECURITY_POLICY}>
-      AES 128-bit with SHA-256
-    </Select.Item>
-    <Select.Item itemKey={AES256_SHA256_RSAPSS_SECURITY_POLICY}>
-      AES 256-bit with SHA-256
-    </Select.Item>
-    <Select.Item itemKey={BASIC256_SECURITY_POLICY}>
-      Basic 256-bit (deprecated)
-    </Select.Item>
-    <Select.Item itemKey={BASIC128_RSA15_SECURITY_POLICY}>
-      Basic 128-bit RSA (deprecated)
-    </Select.Item>
+    {record.entries(SECURITY_POLICY_NAMES).map(([policy, name]) => (
+      <Select.Item key={policy} itemKey={policy}>
+        {name}
+      </Select.Item>
+    ))}
   </Select.Simple>
 );

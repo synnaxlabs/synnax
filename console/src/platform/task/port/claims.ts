@@ -97,6 +97,7 @@ export const cell = ({
     disabled: all.length > 0 && all.every((c) => c.disabled),
     selected: all.some((c) => selected.includes(c.channel)),
     channel: (all.find((c) => !c.disabled) ?? all[0])?.channel,
+    channels: holders.map(({ channel }) => channel),
     tooltip,
   };
 };

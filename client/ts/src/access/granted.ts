@@ -7,29 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
-
 import { type Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
-import { ontology } from "@/ontology";
-import { query } from "@/query";
+import { type query } from "@/query";
+import { type resource } from "@/resource";
+import { user } from "@/user";
 
 /** A permission question: may the subject apply the action to the objects? */
 export interface GrantedQuery {
-  objects: ontology.ID | ontology.ID[];
+  objects: resource.ID | resource.ID[];
   action: Action;
 }
 
+/** The user a question asks about. Its role selects the policies that answer it. */
+export interface Grantee extends Pick<user.User, "key" | "role"> {}
+
 interface Verdict {
-  subject: string;
+  role: string;
   policies: policy.Policy[];
   verdict: boolean;
-}
-
-interface SubjectEntry {
-  key: string;
-  query: { for: ontology.ID };
 }
 
 export interface GrantedConfig {
@@ -38,77 +35,79 @@ export interface GrantedConfig {
 
 /**
  * The cached read surface for permission checks, answering {@link GrantedQuery}
- * questions against the subject's cached policies. Snapshot reads memoize the
- * verdict per query object, so render-hot callers pay a policy evaluation only
- * when the policies actually change.
+ * questions against the cached policies of the grantee's role. Snapshot reads memoize
+ * the verdict per query object, so render-hot callers pay a policy evaluation only when
+ * the policies actually change.
  */
 export class Granted {
   private readonly policies: policy.Client;
-  private readonly subjects = new Map<string, SubjectEntry>();
+  private readonly queries = new Map<string, policy.RetrieveMultipleParams>();
   private readonly verdicts = new WeakMap<GrantedQuery, Verdict>();
 
   constructor(cfg: GrantedConfig) {
     this.policies = cfg.policies;
   }
 
-  // A subject's entry holds its canonical key and a stable `{ for }` query, so
-  // repeat reads stringify once and stay on the retriever's normalization memo.
-  private subjectFor(subject: ontology.ID): SubjectEntry {
-    const key = ontology.idToString(subject);
-    let held = this.subjects.get(key);
+  // A stable query per role keeps repeat reads on the retriever's memo.
+  private queryFor({ role }: Grantee): policy.RetrieveMultipleParams {
+    let held = this.queries.get(role);
     if (held == null) {
-      held = { key, query: { for: subject } };
-      this.subjects.set(key, held);
+      held = { roles: [role] };
+      this.queries.set(role, held);
     }
     return held;
   }
 
-  /** Fetches the subject's policies and answers the question. */
-  async retrieve(subject: ontology.ID, q: GrantedQuery): Promise<boolean> {
-    const policies = await this.policies.retrieveForSubject(subject);
+  private evaluate(
+    grantee: Grantee,
+    q: GrantedQuery,
+    policies: policy.Policy[],
+  ): boolean {
+    const subject: resource.ID = user.resourceID(grantee.key);
     return allowRequest({ subject, objects: q.objects, action: q.action }, policies);
   }
 
-  /**
-   * Subscribes to the verdict, firing only when it flips: policy churn that
-   * cannot change the answer never reaches the handler.
-   */
-  onChange(
-    subject: ontology.ID,
-    q: GrantedQuery,
-    handler: (granted: boolean) => void,
-  ): destructor.Destructor {
-    const { query: policiesQuery } = this.subjectFor(subject);
-    const evaluate = (policies: policy.Policy[]): boolean =>
-      allowRequest({ subject, objects: q.objects, action: q.action }, policies);
-    const cached = this.policies.getCached(policiesQuery);
-    let prev = query.isLive(cached) ? evaluate(cached) : undefined;
-    return this.policies.onChange(policiesQuery, (result) => {
-      if (!query.isLive(result)) return;
-      const next = evaluate(result);
-      if (next === prev) return;
-      prev = next;
-      handler(next);
-    });
+  /** Fetches the policies of the grantee's role and answers the question. */
+  async retrieve(grantee: Grantee, q: GrantedQuery): Promise<boolean> {
+    return await this.watch(grantee, q).retrieve();
   }
 
   /**
-   * Returns the cached verdict, or undefined when the subject's policies are
-   * not cached. Repeat calls with the same query object skip the policy
-   * evaluation until the cached policies change.
+   * Returns the live verdict. Its handlers fire only when the verdict flips: policy
+   * churn that cannot change the answer never reaches them. Repeat cached reads with
+   * the same query object skip the policy evaluation until the cached policies change.
    */
-  getCached(subject: ontology.ID, q: GrantedQuery): boolean | undefined {
-    const { key: subjectKey, query: policiesQuery } = this.subjectFor(subject);
-    const cached = this.policies.getCached(policiesQuery);
-    if (!query.isLive(cached)) return undefined;
+  watch(grantee: Grantee, q: GrantedQuery): query.Live<boolean> {
+    const policies = this.policies.watch(this.queryFor(grantee));
+    const verdictOf = (window: query.Window<policy.Policy, unknown> | undefined) =>
+      window == null ? undefined : this.verdict(grantee, q, window.records);
+    return {
+      retrieve: async (options) =>
+        this.verdict(grantee, q, (await policies.retrieve(options)).records),
+      getCached: () => verdictOf(policies.getCached()),
+      onChange: (handler) => {
+        let prev = verdictOf(policies.getCached());
+        return policies.onChange((window) => {
+          const next = verdictOf(window);
+          if (next == null || next === prev) return;
+          prev = next;
+          handler(next);
+        });
+      },
+    };
+  }
+
+  private verdict(
+    grantee: Grantee,
+    q: GrantedQuery,
+    policies: policy.Policy[],
+  ): boolean {
+    const { role } = grantee;
     const held = this.verdicts.get(q);
-    if (held != null && held.policies === cached && held.subject === subjectKey)
+    if (held != null && held.policies === policies && held.role === role)
       return held.verdict;
-    const verdict = allowRequest(
-      { subject, objects: q.objects, action: q.action },
-      cached,
-    );
-    this.verdicts.set(q, { subject: subjectKey, policies: cached, verdict });
+    const verdict = this.evaluate(grantee, q, policies);
+    this.verdicts.set(q, { role, policies, verdict });
     return verdict;
   }
 }

@@ -7,20 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/labjack/task/SelectWriteChannelType.css";
-
 import { Select } from "@synnaxlabs/lyra/select";
 
 import { type WriteChannelType } from "@/feature/labjack/task/types";
-import { CSS } from "@/platform/css";
 
-export interface SelectWriteChannelTypeProps extends Select.ButtonsProps<WriteChannelType> {}
+const TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
+
+export interface SelectWriteChannelTypeProps extends Omit<
+  Select.SingleSimpleProps<WriteChannelType>,
+  "resourceName" | "children"
+> {}
 
 export const SelectWriteChannelType = (props: SelectWriteChannelTypeProps) => (
-  <Select.Buttons {...props}>
-    <Select.Item itemKey="analog" className={CSS.BE("labjack-write-type", "ao")}>
-      Analog
-    </Select.Item>
+  <Select.Simple<WriteChannelType>
+    resourceName="channel type"
+    allowNone={false}
+    triggerProps={TRIGGER_PROPS}
+    {...props}
+  >
+    <Select.Item itemKey="analog">Analog</Select.Item>
     <Select.Item itemKey="digital">Digital</Select.Item>
-  </Select.Buttons>
+  </Select.Simple>
 );

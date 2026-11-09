@@ -10,7 +10,6 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { log } from "@/log";
 import { project } from "@/project";
@@ -59,18 +58,17 @@ describe("Project", () => {
         })
         .toEqual(names);
     });
-    test("omit missing keys when ignoring not found", async () => {
+    test("throw a NotFoundError for a missing key in a key list", async () => {
       const proj = await client.projects.create({ name: "survivor" });
-      const res = await client.projects.retrieve({
-        keys: [proj.key, uuid.create()],
-        ignoreNotFoundError: true,
-      });
-      expect(res.map(({ key }) => key)).toEqual([proj.key]);
-    });
-    test("throw on a missing key when not ignoring not found", async () => {
-      await expect(client.projects.retrieve({ keys: [uuid.create()] })).rejects.toThrow(
-        NotFoundError,
+      const missing = uuid.create();
+      await expect(client.projects.retrieve([proj.key, missing])).rejects.toThrow(
+        new NotFoundError(`project with key ${missing} not found`),
       );
+    });
+    test("omit missing keys from a filter on keys", async () => {
+      const proj = await client.projects.create({ name: "survivor" });
+      const res = await client.projects.retrieve({ key: [proj.key, uuid.create()] });
+      expect(res.map(({ key }) => key)).toEqual([proj.key]);
     });
   });
   describe("export", () => {
@@ -83,18 +81,18 @@ describe("Project", () => {
 
     test("export documents and panels as a zip bundle", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
-      const l = await client.logs.create(proj.key, { name: "Metrics Log" });
+      const l = await client.logs.create({ project: proj.key, name: "Metrics Log" });
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
-        parent: project.ontologyID(proj.key),
+        project: proj.key,
         root: {
           variant: "leaf",
           tabs: [
             {
               key: uuid.create(),
               variant: "resource",
-              resource: log.ontologyID(l.key),
+              resource: log.resourceID(l.key),
             },
           ],
         },
@@ -109,23 +107,19 @@ describe("Project", () => {
     test("grouped members export into directories", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
       const g = await client.groups.create({
-        parent: project.ontologyID(proj.key),
+        parent: project.resourceID(proj.key),
         name: "Propulsion",
       });
-      const l = await client.logs.create(proj.key, { name: "Pressure" });
-      await client.ontology.moveChildren(
-        project.ontologyID(proj.key),
-        group.ontologyID(g.key),
-        log.ontologyID(l.key),
-      );
+      const l = await client.logs.create({ project: proj.key, name: "Pressure" });
+      await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const archive = await download(proj.key);
       expect(archive).toContain("Propulsion/Pressure.json");
     });
 
     test("suffixes the second of two members taking one file name", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
-      await client.logs.create(proj.key, { name: "Pressure" });
-      await client.logs.create(proj.key, { name: "pressure" });
+      await client.logs.create({ project: proj.key, name: "Pressure" });
+      await client.logs.create({ project: proj.key, name: "pressure" });
       const archive = await download(proj.key);
       expect(archive).toContain("Pressure.json");
       expect(archive).toContain("pressure (1).json");
@@ -134,18 +128,18 @@ describe("Project", () => {
   describe("import", () => {
     test("imports an exported bundle back as a fresh project", async () => {
       const src = await client.projects.create({ name: `import-${id.create()}` });
-      const l = await client.logs.create(src.key, { name: "Metrics" });
+      const l = await client.logs.create({ project: src.key, name: "Metrics" });
       await client.panels.create({
         key: uuid.create(),
         name: "Controls",
-        parent: project.ontologyID(src.key),
+        project: src.key,
         root: {
           variant: "leaf",
           tabs: [
             {
               key: uuid.create(),
               variant: "resource",
-              resource: log.ontologyID(l.key),
+              resource: log.resourceID(l.key),
             },
           ],
         },
@@ -157,36 +151,33 @@ describe("Project", () => {
       });
       expect(imported.key).not.toEqual(src.key);
       expect(imported.name).toEqual(src.name);
-      const children = await client.ontology.retrieveChildren(
-        project.ontologyID(imported.key),
-      );
-      expect(children.map(({ name }) => name).sort()).toEqual(["Controls", "Metrics"]);
+      const logs = await client.logs.retrieve({ projects: [imported.key] });
+      const panels = await client.panels.retrieve({ projects: [imported.key] });
+      expect([...logs, ...panels].map(({ name }) => name).sort()).toEqual([
+        "Controls",
+        "Metrics",
+      ]);
     });
 
     test("recreates group directories as groups", async () => {
       const src = await client.projects.create({ name: `import-${id.create()}` });
       const g = await client.groups.create({
-        parent: project.ontologyID(src.key),
+        parent: project.resourceID(src.key),
         name: "Propulsion",
       });
-      const l = await client.logs.create(src.key, { name: "Pressure" });
-      await client.ontology.moveChildren(
-        project.ontologyID(src.key),
-        group.ontologyID(g.key),
-        log.ontologyID(l.key),
-      );
+      const l = await client.logs.create({ project: src.key, name: "Pressure" });
+      await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
       const stream = await client.projects.export(src.key, { encoding: "JSON" });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
       const imported = await client.projects.import(bundle, {
         fileName: `${src.name}.zip`,
       });
-      const children = await client.ontology.retrieveChildren(
-        project.ontologyID(imported.key),
-      );
-      expect(children).toHaveLength(1);
-      expect(children[0].name).toEqual("Propulsion");
-      const grandChildren = await client.ontology.retrieveChildren(children[0].id);
-      expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+      const groups = await client.groups.retrieve({
+        parents: [project.resourceID(imported.key)],
+      });
+      expect(groups.map(({ name }) => name)).toEqual(["Propulsion"]);
+      const logs = await client.logs.retrieve({ groups: [groups[0].key] });
+      expect(logs.map(({ name }) => name)).toEqual(["Pressure"]);
     });
 
     test("rejects a bundle without a manifest", async () => {

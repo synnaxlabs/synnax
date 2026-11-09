@@ -17,7 +17,11 @@ import "github.com/synnaxlabs/x/notation/versions/v0"
 type Notation = v0.Notation
 
 const (
-	NotationStandard    Notation = v0.NotationStandard
-	NotationScientific  Notation = v0.NotationScientific
+	// NotationStandard renders a plain decimal number.
+	NotationStandard Notation = v0.NotationStandard
+	// NotationScientific renders a mantissa below 10 and an exponent.
+	NotationScientific Notation = v0.NotationScientific
+	// NotationEngineering renders a mantissa below 1000 and an exponent that is a
+	// multiple of 3.
 	NotationEngineering Notation = v0.NotationEngineering
 )

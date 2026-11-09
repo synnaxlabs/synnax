@@ -86,10 +86,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:                 cfg.DB,
+			References:         readConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               ReadTaskType,
 			Ladder:             versions.ReadConfigLadder,
 			SetEntryKey:        (*ReadConfig).SetKey,
+			PatchEntry:         (*ReadConfig).Patch,
+			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
 		},
@@ -99,10 +102,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:                 cfg.DB,
+			References:         writeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               WriteTaskType,
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
+			PatchEntry:         (*WriteConfig).Patch,
+			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
 		},
@@ -116,6 +122,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:               ScanTaskType,
 			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {
@@ -124,10 +132,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Edge, err = config.OpenService(
 		ctx, config.ServiceConfig[EdgeConfig]{
 			DB:                 cfg.DB,
+			References:         edgeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
 			Type:               EdgeTaskType,
 			Ladder:             versions.EdgeConfigLadder,
 			SetEntryKey:        (*EdgeConfig).SetKey,
+			PatchEntry:         (*EdgeConfig).Patch,
+			HashEntry:          (*EdgeConfig).HashContent,
 			ApplyEntryDefaults: (*EdgeConfig).ApplyDefaults,
 			ValidateEntry:      (*EdgeConfig).Validate,
 		},

@@ -26,3 +26,13 @@
         right: 0;
     }
 }
+
+/* Inset by the list's own padding, so the option lines up with its rows. */
+.console-line-plot__x-time {
+    padding: 1rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+.console-line-plot__x-time-badge {
+    margin-left: auto;
+}

@@ -25,14 +25,11 @@ def assert_eventually(
     exception. Both are swallowed and retried until the deadline, at which
     point the final exception from condition is propagated unchanged.
 
-    Args:
-        condition: Callable invoked on each poll. Its return value is ignored.
-        timeout: Maximum total time, in seconds, to wait. Defaults to 5.0.
-        interval: Delay, in seconds, between retries. Defaults to 0.1.
-
-    Raises:
-        Whatever exception condition raises on its final attempt after the
-        timeout has elapsed. Most commonly AssertionError.
+    :param condition: Callable invoked on each poll. Its return value is ignored.
+    :param timeout: Maximum total time, in seconds, to wait. Defaults to 5.0.
+    :param interval: Delay, in seconds, between retries. Defaults to 0.1.
+    :raises Exception: Whatever condition raises on its final attempt after the timeout
+        elapses, most commonly AssertionError.
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

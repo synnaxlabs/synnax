@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/label"
+import "schemas/synnax/ranger"
 import "schemas/synnax/status"
+import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/view"
 @py output "client/py/synnax/view"
@@ -18,31 +20,65 @@ Key = uuid {
     @doc value "is a unique identifier for a saved view configuration."
 }
 
-View union on type extends Base {
+Type enum {
+    range  = "range"
+    status = "status"
+
+    @doc value "names the resource that a view lists."
+}
+
+View union on type Type extends Base {
     range {
-        query RangeQuery {
-            @doc value "filters the ranges the view shows."
+        where ranger.Where? {
+            @doc value "selects the ranges the view shows. An absent where shows all."
         }
 
         @doc value "is a saved view of ranges."
     }
     status {
-        query StatusQuery {
-            @doc value "filters the statuses the view shows."
+        where status.Where? {
+            @doc value "selects the statuses the view shows. An absent where shows all."
         }
 
         @doc value "is a saved view of statuses."
     }
 
+    action Create {
+        view View
+
+        @doc value """
+            replaces the view with the given created state. Emitted by the Core when a
+            view is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the view."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the view.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the view."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the view."
+    }
+
     @create
-    @doc value       """
+    @doc value     """
         is a saved, named filter over a list of resources. The type selects the resource
-        the view lists and the shape of its query.
+        the view lists and the shape of its where.
     """
     @go marshal
     @go migrate
-    @ontology type   "view"
-    @retrieve custom
+    @resource type "view"
+    @retrieve
 }
 
 Base struct {
@@ -52,6 +88,8 @@ Base struct {
     }
     name string {
         @doc value         "is a human-readable name for the view."
+        @index sorted
+        @search
         @validate required
     }
 
@@ -59,23 +97,11 @@ Base struct {
     @go marshal
 }
 
-RangeQuery struct {
-    has_labels label.Key[] = [] {
-        @doc value "restricts the view to ranges carrying any of these labels."
-    }
+Where filter View {
+    key
+    name
+    type
 
-    @doc value  "filters the ranges shown by a range view."
-    @go marshal
-}
-
-StatusQuery struct {
-    has_labels label.Key[] = [] {
-        @doc value "restricts the view to statuses carrying any of these labels."
-    }
-    variants   status.Variant[] = [] {
-        @doc value "restricts the view to statuses of these variants."
-    }
-
-    @doc value  "filters the statuses shown by a status view."
-    @go marshal
+    @doc value         "is a filter that selects views."
+    @go request_output "core/pkg/api/view"
 }

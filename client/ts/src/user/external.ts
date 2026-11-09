@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/user/actions.gen";
 export {
   Client,
   DELETE_CHANNEL_NAME,
   type KeyRetrieveRequest,
-  ontologyID,
+  resourceID,
   type RetrieveParams,
-  type RetrieveRequest,
   SET_CHANNEL_NAME,
-  TYPE_ONTOLOGY_ID,
+  TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
 } from "@/user/client";
 export * from "@/user/current";
 export * from "@/user/types.gen";

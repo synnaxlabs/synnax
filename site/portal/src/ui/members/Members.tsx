@@ -30,11 +30,11 @@ import {
 } from "@/server/directory";
 import { invitationPath } from "@/shell";
 import { post, reload } from "@/ui/api";
-import { date } from "@/ui/format";
 import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
+import { useClock } from "@/ui/useClock";
 
 const path = deep.path<z.infer<typeof inviteSchema>>();
 
@@ -175,7 +175,7 @@ const Entry = ({
       </Text.Text>
       {editable ? (
         <Select.Simple<string>
-          resourceName="Role"
+          resourceName="role"
           value={m.role}
           onChange={changeRole.run}
           disabled={changeRole.loading}
@@ -217,6 +217,7 @@ interface SentProps {
 }
 
 const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement => {
+  const clock = useClock();
   const path = `/api/organizations/${organization.key}`;
   const resend = useAction(async () => {
     await post(`${path}/invite`, { email: inv.email, role: inv.role });
@@ -242,7 +243,7 @@ const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement =
         {roleName(inv.role)}
       </Text.Text>
       <Text.Text level="p" color={10} status={expired ? "error" : undefined}>
-        {expired ? "Expired" : date(inv.expiresAt)}
+        {expired ? "Expired" : clock.date(inv.expiresAt)}
       </Text.Text>
       <Flex.Box x justify="end" gap="tiny">
         <Button.Copy
@@ -328,7 +329,7 @@ const InviteContent = ({ organization }: InviteDialogProps): ReactElement => {
       </Form.Field>
       <Form.Field path={path.role} label="Role">
         {(p) => (
-          <Select.Simple<string> {...p} resourceName="Role">
+          <Select.Simple<string> {...p} resourceName="role">
             {ROLES.map(({ key, name }) => (
               <Select.Item key={key} itemKey={key}>
                 {name}

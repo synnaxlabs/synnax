@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
 import "schemas/x/text"
@@ -22,12 +26,20 @@ Key = uuid {
 }
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "aligns content to the start."
+    }
+    center  = "center" {
+        @doc value "aligns content to the center."
+    }
+    end     = "end" {
+        @doc value "aligns content to the end."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content to fill the available space."
+    }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 CellConfig union on variant {
@@ -177,6 +189,7 @@ Table struct {
     }
     name    string                  {
         @doc value         "is a human-readable name for the table."
+        @index sorted
         @search
         @validate required
     }
@@ -194,6 +207,28 @@ Table struct {
         """
         @ts preserve_keys
     }
+    group   group.Key?              {
+        @doc value     "is the group the table sits in, if any."
+        @group scope   project
+        @ref kind      place
+        @ref on_delete detach
+    }
+    project project.Key?            {
+        @doc value     """
+            is the project that owns the table, if any. Exactly one of project and range
+            is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
+    }
+    range   ranger.Key?             {
+        @doc value     """
+            is the range that owns the table, if any. Exactly one of project and range
+            is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
+    }
 
     action Create {
         table Table
@@ -202,12 +237,6 @@ Table struct {
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
         """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the table."
     }
 
     action AddRow {
@@ -344,12 +373,12 @@ Table struct {
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the table's cells."
+        @doc value "replaces the value at a path in the table."
     }
 
     action Remove extends patch.Remove {
         @doc value """
-            removes an entry from a list or a field from an object in the table's cells.
+            removes an entry from a list or a field from an object in the table.
         """
     }
 
@@ -370,6 +399,25 @@ Table struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "table"
+    @resource type "table"
     @retrieve
+}
+
+Where filter Table {
+    key
+    groups   group.Key[]   {
+        @doc value "matches the tables in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the tables in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the tables owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the tables owned by any of the given ranges."
+    }
+
+    @doc value         "is a filter that selects tables."
+    @go request_output "core/pkg/api/table"
 }

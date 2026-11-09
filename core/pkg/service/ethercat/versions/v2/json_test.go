@@ -15,8 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("JSON", func() {
@@ -55,6 +58,20 @@ var _ = Describe("JSON", func() {
 			Expect(json.Unmarshal([]byte(`[{"type": "manual"}]`), &decoded)).
 				To(MatchError(ContainSubstring(`ReadChannel: unknown type "manual"`)))
 		})
+
+		DescribeTable("Should report an invalid type as a validation error",
+			func(ctx SpecContext, data string) {
+				var decoded v2.ReadChannel
+				err := xjson.Codec.Decode(ctx, []byte(data), &decoded)
+				Expect(err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("ReadChannel: unknown type")),
+				))
+				Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+			},
+			Entry("unknown", `{"type": "manual"}`),
+			Entry("missing", `{"key": "a"}`),
+		)
 	})
 
 	Describe("WriteChannel", func() {

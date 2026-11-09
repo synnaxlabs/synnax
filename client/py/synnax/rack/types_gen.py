@@ -11,28 +11,100 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax import group as group_, status as status_
+from synnax.access import role as role_
+from synnax.resource import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
 
-class StatusDetails(BaseModel):
-    """Contains rack-specific status details.
+
+OrderField = Literal["name"]
+
+Status: TypeAlias = status_.Status
+
+
+class Where(BaseModel):
+    """Is a filter that selects racks.
 
     Attributes:
-        rack: Is the key of the rack this status pertains to.
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        embedded: Selects by embedded.
+        integrations: Selects by integrations.
+        groups: Matches the racks in any of the given groups.
+        grouped: Matches the racks in a group, or in no group when false.
     """
 
-    rack: Key = Field(ge=0, le=4294967295)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    embedded: filter.Bool | None = None
+    integrations: filter.Contains[str] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-Status: TypeAlias = status_.Status[StatusDetails]
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "embedded": filter.BoolInput,
+        "integrations": filter.ContainsInput[str],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of racks: the sort value and the key of a rack.
+
+    Attributes:
+        key: Is the key of the rack at the position.
+        name: Is the name of the rack at the position, when the order sorts by it.
+    """
+
+    key: Key = Field(ge=0, le=4294967295)
+    name: str | None = None
+
+
+class Order(BaseModel):
+    """Is a sort of racks.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Base(BaseModel):
@@ -48,6 +120,10 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+        role: Is the role that grants the rack its permissions.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -55,30 +131,83 @@ class Base(BaseModel):
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
+    group: group_.Key | None = None
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-class Rack(Base):
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve racks.
+
+    Attributes:
+        where: Selects the racks to retrieve. An absent where selects all of them.
+        search_term: Keeps the racks that match the term, closest match first.
+        order: Sorts the racks. An absent order sorts them by key.
+        after: Starts the racks strictly past this position in their order.
+        limit: Is the most racks to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
+
+
+class Rack(BaseModel):
     """Contains parameters for creating a new rack.
 
     Attributes:
         key: Is the composite identifier for this rack.
+        name: Is a human-readable name for the rack.
         embedded: Is true if this rack is embedded within the Synnax server process.
+        status: Is the current operational status of the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g.,
+            "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+            integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+        role: Is the role that grants the rack its permissions.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
+    name: str
     embedded: bool = Field(default=False, exclude=True)
+    status: Status | None = None
+    integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
+    group: group_.Key | None = None
+    role: role_.Key | None = Field(default=None, exclude=True)
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="rack")
+class RetrieveResponse(BaseModel):
+    """Holds the racks a RetrieveRequest selects.
+
+    Attributes:
+        racks: Are the racks the request selects.
+    """
+
+    racks: list[Base] = Field(default_factory=list)
 
 
-def ontology_id(key: Key) -> ID:
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="rack")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="rack", key=str(key))

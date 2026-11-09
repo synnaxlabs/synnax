@@ -11,15 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeAlias
-from typing import override as _override
+from typing import Any, Generic, Literal, TypeAlias, TypedDict, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from typing_extensions import TypeVar
 
-from synnax import label
-from x import telem
+from synnax import label, resource
+from synnax.resource import ID
+from x import filter, telem
+from x.filter import shorthand
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 
@@ -36,19 +37,37 @@ VARIANT_DISABLED: Literal["disabled"] = "disabled"
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Details = TypeVar("Details", default=JsonValue)
 
 Key: TypeAlias = str
 
 
+class Order(BaseModel):
+    """Is a sort of statuses.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Status(BaseModel, Generic[Details]):
     """Is a standardized message used to communicate state across the Synnax platform.
     Statuses support different severity variants and can carry component-specific
-    details. A status is uniquely identified by a key and may carry a human-readable
-    name and labels for categorization and filtering.
+    details. A status is uniquely identified by a key, may name the resource that owns
+    it, and may carry a human-readable name and labels.
 
     Attributes:
-        key: Is a unique identifier for this status, auto-generated if not provided.
+        key: Is a unique identifier for this status. The Core assigns a UUID when a
+            status has no key and its owner holds no status.
         name: Is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         variant: Indicates the severity of the status. One of success, info, warning,
@@ -61,7 +80,9 @@ class Status(BaseModel, Generic[Details]):
             enough.
         time: Is the timestamp when the status was created.
         details: Contains optional component-specific custom details for the status.
-        labels: Contains optional labels for categorization and filtering.
+        labels: Are the keys of the labels attached to the status.
+        owner: Is the resource the status reports on, such as a task, device, or rack.
+            An owner holds at most one status. Empty for a status that no resource owns.
     """
 
     key: Key = Field(default_factory=lambda: str(uuid4()))
@@ -75,8 +96,107 @@ class Status(BaseModel, Generic[Details]):
         le=9223372036854775807,
     )
     details: Details | None = None
-    labels: list[label.Label] | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    owner: resource.ID | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Where(BaseModel):
+    """Is a filter that selects statuses.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        variant: Selects by variant.
+        labels: Matches statuses that have any of the given labels.
+        owners: Matches the statuses that the given resources own.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    variant: filter.Set[Variant] | None = None
+    labels: list[label.Key] | None = None
+    owners: list[resource.ID] | None = None
+
+    @field_validator("labels", "owners", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "variant": filter.SetInput[Variant],
+        "labels": label.Key | list[label.Key],
+        "owners": resource.ID | list[resource.ID],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of statuses: the sort value and the key of a status.
+
+    Attributes:
+        key: Is the key of the status at the position.
+        name: Is the name of the status at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the statuses a RetrieveRequest selects.
+
+    Attributes:
+        statuses: Are the statuses the request selects.
+    """
+
+    statuses: list[Status[JsonValue]] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve statuses.
+
+    Attributes:
+        where: Selects the statuses to retrieve. An absent where selects all of them.
+        search_term: Keeps the statuses that match the term, closest match first.
+        order: Sorts the statuses. An absent order sorts them by key.
+        after: Starts the statuses strictly past this position in their order.
+        limit: Is the most statuses to return.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="status")
+
+
+def resource_id(key: Key) -> ID:
+    return ID(type="status", key=str(key))

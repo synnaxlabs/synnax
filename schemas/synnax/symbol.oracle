@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/x/color"
+import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/schematic/symbol"
@@ -111,16 +114,51 @@ Spec struct {
 }
 
 Symbol struct {
-    key  Key = create {
+    key   Key = create {
         @doc value "is the unique identifier for this symbol."
         @key
     }
-    name string {
+    name  string     {
         @doc value           "is a human-readable name for the symbol."
+        @index sorted
+        @search
         @validate min_length 1
     }
-    data Spec   {
+    data  Spec       {
         @doc value "is the complete symbol specification."
+    }
+    group group.Key? {
+        @doc value     "is the group the symbol sits in, if any."
+        @group scope   schematic_symbol
+        @ref kind      place
+        @ref on_delete detach
+    }
+
+    action Create {
+        symbol Symbol
+
+        @doc value """
+            replaces the symbol with the given created state. Emitted by the Core when a
+            symbol is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the symbol."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the symbol.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the symbol."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the symbol."
     }
 
     @create
@@ -130,5 +168,19 @@ Symbol struct {
     """
     @go imex
     @go marshal
-    @ontology type "schematic_symbol"
+    @resource type "schematic_symbol"
+    @retrieve
+}
+
+Where filter Symbol {
+    key
+    groups  group.Key[] {
+        @doc value "matches the symbols in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the symbols in a group, or in no group when false."
+    }
+
+    @doc value         "is a filter that selects schematic symbols."
+    @go request_output "core/pkg/api/schematic/symbol"
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
+import { channel, DataType, query, type ranger } from "@synnaxlabs/client";
 import {
   array,
   control,
@@ -27,7 +27,9 @@ import {
   type RetrieveMultipleQuery,
   type RetrieveQuery,
 } from "@/channel/aether/queries";
+import { resolveIcon } from "@/channel/resolveIcon";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -98,12 +100,10 @@ export const ZERO_FORM_VALUES: z.infer<
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =
   Flux.createRetrieve<RetrieveQuery, channel.Channel>(retrieveDefinition);
 
-/** The channel's range-scoped alias when one is set, its name otherwise. */
-export const useAlias = createSelector(({ alias, name }) =>
-  primitive.isNonZero(alias) ? alias : name,
-);
-
-/** {@link useAlias} with the result contract: fetch on cold, never throw. */
+/**
+ * The channel's range-scoped alias when one is set, its name otherwise. Fetches on cold
+ * and never throws.
+ */
 export const useResultAlias = createResultSelector(({ alias, name }) =>
   primitive.isNonZero(alias) ? alias : name,
 );
@@ -124,6 +124,19 @@ export const useResultStatus: Flux.UseResult<
 export const useResultDataType = createResultSelector(
   ({ dataType }) => dataType,
   (a, b) => a.equals(b),
+);
+
+/**
+ * The icon of the channel, and whether it is internal or virtual. Compared by value: a
+ * status heartbeat is silenced.
+ */
+export const useResultKind = createResultSelector(
+  (ch) => ({
+    icon: resolveIcon(ch.payload),
+    internal: ch.internal,
+    virtual: ch.virtual,
+  }),
+  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
 );
 
 /** The stored range-scoped alias (undefined when unset) alongside the name. */
@@ -147,7 +160,7 @@ const getCachedFormValues = ({
   client,
   query: { key, rangeKey },
 }: Flux.RetrieveParams<FormQuery>) => {
-  const cached = client.channels.getCached({ key, rangeKey });
+  const cached = client.channels.watch({ key, rangeKey }).getCached();
   return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
@@ -168,7 +181,7 @@ const formMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof formSchema | typeof calculatedFormSchema
 >["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) =>
-  client.channels.onChange({ key, rangeKey }, (result) => {
+  client.channels.watch({ key, rangeKey }).onChange((result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
   });
 
@@ -195,28 +208,38 @@ export const useCalculatedForm = Flux.createForm<
   mountListeners: formMountListeners,
 });
 
-export type ListQuery = channel.RetrieveOptions & {
-  searchTerm?: string;
-  rangeKey?: string;
-  internal?: boolean;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = channel.RetrieveMultipleParams;
 
-const DEFAULT_LIST_PARAMS: ListQuery = {
-  internal: false,
-};
+const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
+  ...query,
+  where: { internal: { eq: false }, ...query.where },
+});
 
-export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
+/**
+ * Lists the channels that are not internal, unless the query sets `where.internal`. A
+ * query's `rangeKey` resolves the aliases of channels outside the list too.
+ */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, channel.Channel>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<channel.Key, channel.Channel> =>
+  Flux.useList((client) => client.channels, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : normalizeListQuery(query ?? {}),
+    itemQuery: (key) => ({ key, rangeKey: query?.rangeKey }),
+  });
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  channel.Channel[]
+>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
-    await client.channels.retrieve(key, { rangeKey }),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
-    client.channels.onChange({ key, rangeKey }, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  normalizeQuery: normalizeListQuery,
+  ...flux.listReads(({ client, query }) => client.channels.watch(query)),
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
@@ -284,11 +307,4 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
     });
     return data;
   },
-});
-
-type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
-  name: "channel group",
-  retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

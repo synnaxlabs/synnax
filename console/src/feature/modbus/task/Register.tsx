@@ -13,6 +13,11 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
+import {
+  MENU_PROPS,
+  Option,
+  SHADOW_TRIGGER_PROPS,
+} from "@/feature/modbus/device/Option";
 import { type Channel, type ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
@@ -23,6 +28,14 @@ export const REGISTERS: Record<ReadChannelType, { name: string; description: str
     discrete_input: { name: "Discrete input", description: "Bit, read only" },
     input_register: { name: "Input register", description: "Word, read only" },
     holding_register: { name: "Holding register", description: "Word, read and write" },
+    input_register_string: {
+      name: "Input register string",
+      description: "Characters, read only",
+    },
+    holding_register_string: {
+      name: "Holding register string",
+      description: "Characters, read and write",
+    },
     input_register_bit: {
       name: "Input register bit",
       description: "Bit of a word, read only",
@@ -42,11 +55,17 @@ const SHAPES: Record<"bit" | "word", [outer: string, inner: string]> = {
   word: ["M2 6h9v12H2zM13 6h9v12h-9z", "M4 8v8h5V8zM15 8v8h5V8z"],
 };
 
-const WORD_TYPES = new Set<ReadChannelType>(["input_register", "holding_register"]);
+const WORD_TYPES = new Set<ReadChannelType>([
+  "input_register",
+  "holding_register",
+  "input_register_string",
+  "holding_register_string",
+]);
 
 const READ_ONLY_TYPES = new Set<ReadChannelType>([
   "discrete_input",
   "input_register",
+  "input_register_string",
   "input_register_bit",
 ]);
 
@@ -69,30 +88,6 @@ export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
     </svg>
   );
 };
-
-/** Lets a menu grow to fit the descriptions beside the option names. */
-export const MENU_PROPS = { className: CSS.BE("modbus", "menu") };
-
-/** A quiet trigger that shows a picked option without its description. */
-export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  variant: "shadow",
-  className: CSS.BE("modbus", "trigger"),
-};
-
-export interface OptionProps {
-  glyph: ReactElement;
-  name: string;
-  description: string;
-}
-
-/** A menu option: a glyph, a name, and a description that the trigger hides. */
-export const Option = ({ glyph, name, description }: OptionProps): ReactElement => (
-  <>
-    {glyph}
-    <span>{name}</span>
-    <span className={CSS.BE("modbus", "option-description")}>{description}</span>
-  </>
-);
 
 /** The schema of each register type that a task's channels can take. */
 export type ChannelSchemas<C extends Channel> = Record<C["type"], z.ZodType<C>>;

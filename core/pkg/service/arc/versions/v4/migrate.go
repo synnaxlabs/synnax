@@ -11,31 +11,52 @@ package v4
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 )
 
-// MigrateArc lifts a v3 Arc, rewriting its text from the grammar that wrote inputs in
-// braces and triggers in parens. A stored Arc carries its text as a document and an
-// exported one as raw; either way the result carries a fresh document and no raw.
-func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
-	a, err := autoMigrateArc(ctx, old)
-	if err != nil {
-		return Arc{}, err
+// MigrateArc lifts a v3 Arc, keeping only the body its mode selects. A blank mode, from
+// files written before modes, is graph. Text is rewritten from the grammar that wrote
+// inputs in braces and triggers in parens; a stored Arc carries it as a document and an
+// exported one as raw, and either way the result carries a fresh document and no raw.
+// Every Arc stored before v4 is an automation.
+func MigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
+	b := Base{Key: old.Key, Name: old.Name}
+	if old.Mode != v3.ModeText {
+		b.Source.Variant = GraphSource{Graph: old.Graph}
+		return Arc{Variant: AutomationArc{Base: b}}, nil
 	}
-	raw := a.Text.Raw
-	if len(a.Text.Doc.Inserts) > 0 {
-		raw = a.Text.Materialize().Raw
+	t := old.Text
+	raw := t.Raw
+	if len(t.Doc.Inserts) > 0 {
+		raw = t.Materialize().Raw
 	}
-	if raw == "" {
-		return a, nil
+	if raw != "" {
+		t.Doc = text.Create(SwapBrackets(raw))
+		t.Raw = ""
 	}
-	a.Text.Doc = text.Create(SwapBrackets(raw))
-	a.Text.Raw = ""
-	return a, nil
+	b.Source.Variant = TextSource{Text: t}
+	return Arc{Variant: AutomationArc{Base: b}}, nil
 }
 
 // Migration rewrites the text of every stored Arc for the bracket swap.
 var Migration = migrate.NewEntry("v61_swap_brackets", MigrateArc)
+
+// NewRootMigration returns the migration that puts every stored Arc in no directory
+// into the directory root.
+func NewRootMigration(root uuid.UUID) gorp.Migration {
+	return migrate.NewEntry(
+		"v61_arcs_root_directory",
+		func(_ context.Context, a Arc) (Arc, error) {
+			if b := a.Base(); b.Directory == nil {
+				b.Directory = &root
+				a.SetBase(b)
+			}
+			return a, nil
+		},
+	)
+}

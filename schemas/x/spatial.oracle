@@ -13,10 +13,18 @@
 @ts output  "x/ts/src/spatial"
 
 OuterLocation enum {
-    top    = "top"
-    right  = "right"
-    bottom = "bottom"
-    left   = "left"
+    top    = "top" {
+        @doc value "is the top edge of the container."
+    }
+    right  = "right" {
+        @doc value "is the right edge of the container."
+    }
+    bottom = "bottom" {
+        @doc value "is the bottom edge of the container."
+    }
+    left   = "left" {
+        @doc value "is the left edge of the container."
+    }
 
     @doc value """
         is a position indicator for elements anchored to the outer edge of a container.
@@ -41,30 +49,46 @@ XY struct {
 }
 
 Direction enum {
-    x = "x"
-    y = "y"
+    x = "x" {
+        @doc value "is the horizontal axis."
+    }
+    y = "y" {
+        @doc value "is the vertical axis."
+    }
 
     @doc value "is a 2D axis direction."
 }
 
 XLocation enum {
-    left  = "left"
-    right = "right"
+    left  = "left" {
+        @doc value "is the left edge of the container."
+    }
+    right = "right" {
+        @doc value "is the right edge of the container."
+    }
 
     @doc value "is a horizontal-axis location at the left or right edge."
     @pb
 }
 
 YLocation enum {
-    top    = "top"
-    bottom = "bottom"
+    top    = "top" {
+        @doc value "is the top edge of the container."
+    }
+    bottom = "bottom" {
+        @doc value "is the bottom edge of the container."
+    }
 
     @doc value "is a vertical-axis location at the top or bottom edge."
 }
 
 StickyUnit enum {
-    px      = "px"
-    decimal = "decimal"
+    px      = "px" {
+        @doc value "measures the coordinate in pixels."
+    }
+    decimal = "decimal" {
+        @doc value "measures the coordinate as a decimal fraction of the container."
+    }
 
     @doc value """
         is the measurement unit for a sticky coordinate, either pixels or a decimal
@@ -150,18 +174,30 @@ AngularDirection enum {
 }
 
 CenterLocation enum {
-    center = "center"
+    center = "center" {
+        @doc value "is the center of the container."
+    }
 
     @doc value "is a location at the center of a container."
     @go omit
 }
 
 Location enum {
-    top    = "top"
-    right  = "right"
-    bottom = "bottom"
-    left   = "left"
-    center = "center"
+    top    = "top" {
+        @doc value "is the top edge of the container."
+    }
+    right  = "right" {
+        @doc value "is the right edge of the container."
+    }
+    bottom = "bottom" {
+        @doc value "is the bottom edge of the container."
+    }
+    left   = "left" {
+        @doc value "is the left edge of the container."
+    }
+    center = "center" {
+        @doc value "is the center of the container."
+    }
 
     @doc value """
         is a position indicator covering the four outer edges of a container and its
@@ -202,8 +238,12 @@ Alignment enum {
 }
 
 Order enum {
-    first = "first"
-    last  = "last"
+    first = "first" {
+        @doc value "is the first position in the sequence."
+    }
+    last  = "last" {
+        @doc value "is the last position in the sequence."
+    }
 
     @doc value "is a positional ordering indicator for elements in a sequence."
 }

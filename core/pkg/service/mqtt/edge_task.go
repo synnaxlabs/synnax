@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -142,8 +141,10 @@ func (h edgeHealth) err() error {
 type edgeNode struct {
 	ins alamos.Instrumentation
 	// broker is the key of the broker device, whose edits the edge node follows.
-	broker  device.Key
-	devices *device.Service
+	broker    device.Key
+	db        *gorp.DB
+	devices   *device.Service
+	newClient clientFactory
 	// command is the topic of the NCMD messages to the edge node.
 	command   string
 	tags      map[channel.Key][]publishedTag
@@ -152,6 +153,9 @@ type edgeNode struct {
 	task      task.Task
 	authority control.Authority
 	edge      *sparkplug.Edge
+	// clock stamps commands in rising order across runs, since two writes at one
+	// timestamp conflict. Only the writeCommands of the open session uses it.
+	clock telem.MonoClock
 	// mu guards the sequence, which continues from one run to the next, and the state
 	// of the current run. A sequenced publish encodes its message and hands it to the
 	// client under mu, so messages leave the client in sequence order. The wait for the
@@ -278,10 +282,12 @@ func (n *edgeNode) brokerConfig(
 	current clientConfig,
 ) (clientConfig, bool, error) {
 	var dev device.Device
-	if err := n.devices.NewRetrieve().
-		Where(device.MatchKeys(n.broker)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := n.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return n.devices.NewRetrieve().
+			Where(device.MatchKeys(n.broker)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return clientConfig{}, false, err
 	}
 	props, err := parseProperties(dev)
@@ -311,7 +317,7 @@ func (e *edgeSession) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Key != e.broker {
+		if ch.Kind == gorp.ChangeDelete || ch.Key != e.broker {
 			continue
 		}
 		select {
@@ -372,7 +378,8 @@ func (e *edgeSession) run(ctx context.Context, settle func()) {
 
 func (e *edgeSession) connect(ctx context.Context, settle func()) {
 	reconnect(ctx, e.ins, reconnectHooks{
-		options: func(lost chan<- error) *paho.ClientOptions {
+		newClient: e.newClient,
+		options: func() *paho.ClientOptions {
 			will, err := e.death()
 			if err != nil {
 				e.ins.L.DPanic("failed to encode the NDEATH message", zap.Error(err))
@@ -383,8 +390,7 @@ func (e *edgeSession) connect(ctx context.Context, settle func()) {
 			return newClientOptions(cfg).
 				SetBinaryWill(will.Topic, will.Payload, will.QoS, will.Retained).
 				SetOrderMatters(true).
-				SetDefaultPublishHandler(e.onMessage).
-				SetConnectionLostHandler(reportLost(lost))
+				SetDefaultPublishHandler(e.onMessage)
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
 			defer e.endSession()
@@ -594,7 +600,7 @@ func (e *edgeSession) writeCommand(ctx context.Context, cmd sparkplug.Command) e
 	var (
 		fr   framer.Frame
 		keys channel.Keys
-		now  = telem.Now()
+		now  = e.clock.Now()
 	)
 	for _, m := range cmd.Metrics {
 		t, ok := e.byName[m.Name]

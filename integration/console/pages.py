@@ -13,15 +13,14 @@ import re
 import tempfile
 from typing import TypeVar
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 import synnax as sy
 from console.base import ResourceClient
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage, PageType
+from console.page import ConsolePage, PageType, page_label
 from console.plot import Plot
 from console.project import ProjectClient
 from framework.utils import read_json_object, resolve_channel_placeholders
@@ -217,7 +216,9 @@ class PagesClient(ResourceClient):
         except PlaywrightTimeoutError:
             add_btn.dispatch_event("click")
             layout_selector.wait_for(state="visible", timeout=15000)
-        type_btn = self.layout.page.get_by_role("button", name=page_type).first
+        type_btn = self.layout.page.get_by_role(
+            "button", name=page_label(page_type)
+        ).first
         type_btn.wait_for(state="visible", timeout=5000)
         type_btn.click()
 
@@ -232,7 +233,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
 
-        self.layout.command_palette(f"Create {page_type}")
+        self.layout.command_palette(f"Create {page_label(page_type)}")
         return self._handle_new_page(page_type, name)
 
     def _handle_new_page(
@@ -243,10 +244,10 @@ class PagesClient(ResourceClient):
         :returns: Tuple of (pane_locator, tab_locator, page_id).
         """
         modal_was_open = self.layout.is_modal_open()
-        tab_name: str = page_type
+        tab_name = page_label(page_type)
 
         if modal_was_open:
-            tab_name = name if name is not None else page_type
+            tab_name = name if name is not None else tab_name
             name_input = self.layout.page.get_by_role("textbox", name="Name")
             name_input.fill(tab_name)
             name_input.press("ControlOrMeta+Enter")
@@ -261,10 +262,10 @@ class PagesClient(ResourceClient):
             page_tab = self.layout.get_tab(name)
 
         pluto_labels = {
-            "Log": ".pluto-log",
-            "Line plot": ".pluto-line-plot",
-            "Schematic": ".pluto-schematic",
-            "Table": ".pluto-table",
+            "log": "role=log",
+            "lineplot": ".pluto-line-plot",
+            "schematic": ".pluto-schematic",
+            "table": ".pluto-table",
         }
         pluto_label = pluto_labels.get(page_type, "")
         if pluto_label:
@@ -621,34 +622,34 @@ class PagesClient(ResourceClient):
         self.ctx_menu.action(last, f"Snapshot to {range_name}")
         self.layout.close_left_toolbar()
 
-    def copy(self, name: str, new_name: str) -> None:
-        """Make a copy of a page via context menu.
+    def duplicate(self, name: str, new_name: str) -> None:
+        """Duplicate a page via context menu.
 
-        :param name: Name of the page to copy.
-        :param new_name: Name for the new copy.
+        :param name: Name of the page to duplicate.
+        :param new_name: Name for the duplicate.
         """
         self.expand_active()
         page_item = self.get(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, "Copy")
+        self.ctx_menu.action(page_item, "Duplicate")
 
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.get(new_name).wait_for(state="visible", timeout=5000)
         self.layout.close_left_toolbar()
 
-    def copy_many(self, names: list[str]) -> None:
-        """Copy multiple pages via context menu.
+    def duplicate_many(self, names: list[str]) -> None:
+        """Duplicate multiple pages via context menu.
 
-        Each copy gets a " (copy)" suffix automatically.
+        Each duplicate gets a " (copy)" suffix automatically.
 
-        :param names: List of page names to copy.
+        :param names: List of page names to duplicate.
         """
         if not names:
             return
         self.expand_active()
         last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
-        self.ctx_menu.action(last, "Copy")
+        self.ctx_menu.action(last, "Duplicate")
         for name in names:
             copy_name = f"{name} (copy)"
             self.get(copy_name).wait_for(state="visible", timeout=5000)

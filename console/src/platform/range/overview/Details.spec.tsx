@@ -81,15 +81,13 @@ describe("Range.Details", () => {
     await renderDetails(range.key);
     await screen.findByDisplayValue(range.name, {});
     await waitForStreamLive(client.connection);
-    await createTestClient().labels.label(range.ontologyID, [remote.key]);
+    await createTestClient().labels.label(range.resourceID, [remote.key]);
     await screen.findByText(remote.name);
     fireEvent.click(getIconButton(screen.getByLabelText("Labels"), "add"));
     await searchAndClickLabelOption(added.name);
     await waitFor(async () => {
-      const labels = await client.labels.retrieve({ for: range.ontologyID });
-      expect(labels.map(({ key }) => key).sort()).toEqual(
-        [added.key, remote.key].sort(),
-      );
+      const { labels } = await createTestClient().ranges.retrieve(range.key);
+      expect(labels.toSorted()).toEqual([added.key, remote.key].toSorted());
     });
   });
 
@@ -99,13 +97,13 @@ describe("Range.Details", () => {
       { name: uniqueName("removed"), color: "#FF0000" },
       { name: uniqueName("kept"), color: "#00FF00" },
     ]);
-    await client.labels.label(range.ontologyID, [removed.key, kept.key]);
+    await client.labels.label(range.resourceID, [removed.key, kept.key]);
     await renderDetails(range.key);
     await screen.findByText(removed.name);
     fireEvent.click(findTagCloseButton(removed.name));
     await waitFor(async () => {
-      const labels = await client.labels.retrieve({ for: range.ontologyID });
-      expect(labels.map(({ key }) => key)).toEqual([kept.key]);
+      const { labels } = await createTestClient().ranges.retrieve(range.key);
+      expect(labels).toEqual([kept.key]);
     });
   });
 
@@ -114,7 +112,7 @@ describe("Range.Details", () => {
     const child = await client.ranges.create({
       name: uniqueRangeName("child"),
       timeRange: new TimeRange(1, 2),
-      parent,
+      parent: parent.key,
     });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
@@ -135,7 +133,7 @@ describe("Range.Details", () => {
       const panelKey = Session.Panel.selectSelected(store.getState());
       expect(panelKey).toBeDefined();
       const doc = await client.panels.retrieve(panelKey as string);
-      const tab = panel.findTabByResource(doc.root, ranger.ontologyID(parent.key));
+      const tab = panel.findTabByResource(doc.root, ranger.resourceID(parent.key));
       expect(tab).not.toBeNull();
     });
   });

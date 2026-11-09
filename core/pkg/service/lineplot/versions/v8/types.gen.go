@@ -15,7 +15,9 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -28,15 +30,43 @@ type Key = v7.Key
 type TickType = v7.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v7.TickTypeLinear
-	TickTypeTime   TickType = v7.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v7.TickTypeTime
+)
+
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation = v7.Aggregation
+
+const (
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = v7.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
+	AggregationAverage Aggregation = v7.AggregationAverage
+)
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail = v7.Detail
+
+const (
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = v7.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
+	DetailMedium Detail = v7.DetailMedium
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = v7.DetailHigh
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v7.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v7.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v7.XAxisKeyX2
 )
 
@@ -44,9 +74,13 @@ const (
 type YAxisKey = v7.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v7.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v7.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v7.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v7.YAxisKeyY4
 )
 
@@ -54,11 +88,17 @@ const (
 type AxisKey = v7.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v7.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v7.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v7.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v7.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v7.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v7.AxisKeyY4
 )
 
@@ -161,6 +201,14 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
+	// Group is the group the line plot sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the line plot, if any. Exactly one of project
+	// and range is set.
+	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the line plot, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -192,22 +240,3 @@ func (l LinePlot) Validate() error {
 	}
 	return v.Error()
 }
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation = v7.Aggregation
-
-const (
-	AggregationMinMax  Aggregation = v7.AggregationMinMax
-	AggregationAverage Aggregation = v7.AggregationAverage
-)
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail = v7.Detail
-
-const (
-	DetailLow    Detail = v7.DetailLow
-	DetailMedium Detail = v7.DetailMedium
-	DetailHigh   Detail = v7.DetailHigh
-)
