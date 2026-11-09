@@ -19,7 +19,7 @@ from x import filter
 from x.testutil import assert_eventually
 
 
-def basic_device(rack: int, n: int) -> sy.Device:
+def basic_device(rack: sy.rack.Key, n: int) -> sy.Device:
     key = str(uuid4())
     return sy.Device(
         key=key,
@@ -142,7 +142,7 @@ class TestDevice:
             or_=[
                 device.Where(name=filter.String(eq=devs[0].name)),
                 device.Where(
-                    key=filter.Set[str](eq=devs[1].key),
+                    key=filter.Set[device.Key](eq=devs[1].key),
                     model=filter.String(regex="^test"),
                 ),
             ]

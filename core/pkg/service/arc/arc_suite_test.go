@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,7 +46,6 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db         *gorp.DB
 	svc        *arc.Service
-	writer     arc.Writer
 	groupSvc   *group.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
@@ -69,20 +69,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		HostProvider:        testutil.NewStaticHostProvider(1),
+		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(
+			racktestutil.CreateDriverRole(ctx, db, roleSvc),
+		),
 	}))
 	imexSvc = imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -99,7 +101,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	testRack = &rack.Rack{Name: "Test Rack"}
-	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, testRack)
+	})).To(Succeed())
 	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:                  db,
 		Table:               arcTable,
@@ -113,7 +117,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		TaskSyncDebounce:    5 * telem.Millisecond,
 		Now:                 func() telem.TimeStamp { return arcClock() },
 	}))
-	writer = svc.NewWriter(nil)
 })
 
 // rootDirectory returns the directory that holds every Arc.
@@ -157,4 +160,16 @@ func graphOf(b arc.Base) graph.Graph {
 	src, ok := b.Source.Variant.(arc.GraphSource)
 	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
 	return src.Graph
+}
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key arc.Key,
+	dispatchKey string,
+	acts []arc.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+	})
 }

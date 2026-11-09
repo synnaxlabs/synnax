@@ -49,7 +49,7 @@ class _CreateResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class Automation(AutomationPayload):
@@ -150,6 +150,7 @@ class Client:
         *,
         key: Key,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -165,6 +166,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: str,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -180,6 +182,7 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: filter.StringInput = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -197,6 +200,7 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
+        directories: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -230,6 +234,7 @@ class Client:
 
         :param key: Keeps Arcs with this key.
         :param name: Keeps Arcs with this name.
+        :param directories: Keeps Arcs in any of these directories.
         :param and_: Keeps Arcs that match every filter in the list.
         :param or_: Keeps Arcs that match any filter in the list.
         :param not_: Keeps Arcs that do not match the filter.

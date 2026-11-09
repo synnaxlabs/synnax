@@ -14,6 +14,7 @@
 package api
 
 import (
+	"context"
 	"slices"
 
 	"github.com/samber/lo"
@@ -27,6 +28,7 @@ import (
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -53,8 +55,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
@@ -82,7 +82,7 @@ type Transport struct {
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
-	UserSetRoles       freighter.UnaryServer[user.SetRolesRequest, struct{}]
+	UserSetRole        freighter.UnaryServer[user.SetRoleRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
@@ -289,6 +289,7 @@ type Layer struct {
 	Status       *status.Service
 	ImEx         *imex.Service
 	Batch        *batch.Service
+	binder       *bind.Service
 	config       config.LayerConfig
 }
 
@@ -302,8 +303,8 @@ func (l *Layer) BindTo(t Transport) {
 		rec      = recovery.Middleware(l.config.Instrumentation)
 		gate     = license.Middleware(l.config.Service.License)
 		restrict = restrictMiddleware(
+			l.config.Distribution.DB,
 			l.config.Service.Resource,
-			l.config.Service.Task,
 			l.config.Service.RBAC,
 		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
@@ -351,7 +352,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
-		t.UserSetRoles,
+		t.UserSetRole,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -542,36 +543,54 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
-	)
+	t.AuthChangePassword.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareChangePassword,
+		l.Auth.ChangePassword,
+	))
 	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
-	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
-	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
-	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
-	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
+	t.AuthSessionRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.SessionRetrieveRequest,
+	) (auth.SessionRetrieveResponse, error) {
+		return l.Auth.RetrieveSessions(ctx, snap, req)
+	}))
+	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
+	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
+	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.KeyRetrieveRequest,
+	) (auth.KeyRetrieveResponse, error) {
+		return l.Auth.RetrieveKeys(ctx, snap, req)
+	}))
+	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareSetPassword,
+		l.Auth.SetPassword,
+	))
 
 	// LICENSE
-	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseRetrieve.BindHandler(bind.Read(l.binder, l.License.Retrieve))
 	t.LicenseActivate.BindHandler(l.License.Activate)
 	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
-	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
+	t.UserRename.BindHandler(bind.Write(l.binder, l.User.Rename))
+	t.UserChangeUsername.BindHandler(bind.Write(l.binder, l.User.ChangeUsername))
+	t.UserCreate.BindHandler(
+		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
 	)
-	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
-	t.UserRetrieve.BindHandler(l.User.Retrieve)
-	t.UserSetRoles.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.SetRoles))
+	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
+	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
+	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
-	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
 	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
@@ -580,221 +599,188 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
+	// Frame delete changes Cesium data, not Gorp records, so it checks its own access.
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
-	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
+	t.ControlRetrieve.BindHandler(bind.Read(l.binder, l.Control.Retrieve))
 
 	// RESOURCE
-	t.ResourceSearch.BindHandler(l.Resource.Search)
-	t.ResourceRetrieve.BindHandler(l.Resource.Retrieve)
+	t.ResourceSearch.BindHandler(bind.Read(l.binder, l.Resource.Search))
+	t.ResourceRetrieve.BindHandler(bind.Read(l.binder, l.Resource.Retrieve))
 
 	// GROUP
-	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
-	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
-	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
-	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
-	t.GroupRetrieveAncestors.BindHandler(l.Group.RetrieveAncestors)
+	t.GroupCreate.BindHandler(bind.Write(l.binder, l.Group.Create))
+	t.GroupDelete.BindHandler(bind.Write(l.binder, l.Group.Delete))
+	t.GroupRename.BindHandler(bind.Write(l.binder, l.Group.Rename))
+	t.GroupRetrieve.BindHandler(bind.Read(l.binder, l.Group.Retrieve))
+	t.GroupRetrieveAncestors.BindHandler(bind.Read(l.binder, l.Group.RetrieveAncestors))
 
 	// GROUP MEMBERSHIP
-	t.GroupSetParent.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.SetParent))
-	t.ChannelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.SetGroup))
-	t.DeviceSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.SetGroup))
-	t.RackSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.SetGroup))
-	t.ProjectSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.SetGroup))
-	t.SchematicSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetGroup),
-	)
-	t.SchematicSymbolSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.SetGroup),
-	)
-	t.LinePlotSetGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetGroup),
-	)
-	t.LogSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.SetGroup))
-	t.TableSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.SetGroup))
-	t.PanelSetGroup.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.SetGroup))
+	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
+	t.ChannelSetGroup.BindHandler(bind.Write(l.binder, l.Channel.SetGroup))
+	t.DeviceSetGroup.BindHandler(bind.Write(l.binder, l.Device.SetGroup))
+	t.RackSetGroup.BindHandler(bind.Write(l.binder, l.Rack.SetGroup))
+	t.ProjectSetGroup.BindHandler(bind.Write(l.binder, l.Project.SetGroup))
+	t.SchematicSetGroup.BindHandler(bind.Write(l.binder, l.Schematic.SetGroup))
+	t.SchematicSymbolSetGroup.BindHandler(bind.Write(l.binder, l.Symbol.SetGroup))
+	t.LinePlotSetGroup.BindHandler(bind.Write(l.binder, l.LinePlot.SetGroup))
+	t.LogSetGroup.BindHandler(bind.Write(l.binder, l.Log.SetGroup))
+	t.TableSetGroup.BindHandler(bind.Write(l.binder, l.Table.SetGroup))
+	t.PanelSetGroup.BindHandler(bind.Write(l.binder, l.Panel.SetGroup))
 
 	// PROJECT MEMBERSHIP
-	t.SchematicSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.SetProject),
-	)
-	t.LinePlotSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.LinePlot.SetProject),
-	)
-	t.LogSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Log.SetProject),
-	)
-	t.TableSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Table.SetProject),
-	)
-	t.PanelSetProject.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Panel.SetProject),
-	)
+	t.SchematicSetProject.BindHandler(bind.Write(l.binder, l.Schematic.SetProject))
+	t.LinePlotSetProject.BindHandler(bind.Write(l.binder, l.LinePlot.SetProject))
+	t.LogSetProject.BindHandler(bind.Write(l.binder, l.Log.SetProject))
+	t.TableSetProject.BindHandler(bind.Write(l.binder, l.Table.SetProject))
+	t.PanelSetProject.BindHandler(bind.Write(l.binder, l.Panel.SetProject))
 
 	// BATCH
-	t.Batch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Batch.Exec))
+	t.Batch.BindHandler(bind.Write(l.binder, l.Batch.Exec))
 
 	// RANGE
-	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
-	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
-	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
-	t.RangeRename.BindHandler(l.Range.Rename)
-	t.RangeSetEnd.BindHandler(l.Range.SetEnd)
-	t.RangeDispatch.BindHandler(l.Range.Dispatch)
+	t.RangeRetrieve.BindHandler(bind.Read(l.binder, l.Range.Retrieve))
+	t.RangeCreate.BindHandler(bind.Write(l.binder, l.Range.Create))
+	t.RangeDelete.BindHandler(bind.Write(l.binder, l.Range.Delete))
+	t.RangeRename.BindHandler(bind.Write(l.binder, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(bind.Write(l.binder, l.Range.SetEnd))
+	t.RangeDispatch.BindHandler(bind.Write(l.binder, l.Range.Dispatch))
 
 	// KV
-	t.KVGet.BindHandler(l.KV.Get)
-	t.KVSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Set))
-	t.KVDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.KV.Delete))
+	t.KVGet.BindHandler(bind.Read(l.binder, l.KV.Get))
+	t.KVSet.BindHandler(bind.Write(l.binder, l.KV.Set))
+	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 
 	// ALIAS
-	t.AliasSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Set))
-	t.AliasResolve.BindHandler(l.Alias.Resolve)
-	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
-	t.AliasList.BindHandler(l.Alias.List)
-	t.AliasDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Delete))
+	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
+	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
+	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
+	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
+	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
 
 	// PROJECT
-	t.ProjectCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Create))
-	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
-	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
-	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
-	t.ProjectExport.BindHandler(l.Project.Export)
-	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
+	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
+	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
+	t.ProjectRetrieve.BindHandler(bind.Read(l.binder, l.Project.Retrieve))
+	t.ProjectRename.BindHandler(bind.Write(l.binder, l.Project.Rename))
+	t.ProjectExport.BindHandler(bind.Read(l.binder, l.Project.Export))
+	t.ProjectImport.BindHandler(bind.Write(l.binder, l.Project.Import))
 
 	// SCHEMATIC
-	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
-	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
-	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
+	t.SchematicCreate.BindHandler(bind.Write(l.binder, l.Schematic.Create))
+	t.SchematicRetrieve.BindHandler(bind.Read(l.binder, l.Schematic.Retrieve))
+	t.SchematicDelete.BindHandler(bind.Write(l.binder, l.Schematic.Delete))
+	t.SchematicDispatch.BindHandler(bind.Write(l.binder, l.Schematic.Dispatch))
+	t.SchematicCopy.BindHandler(bind.Write(l.binder, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
+	t.SchematicSymbolCreate.BindHandler(bind.Write(l.binder, l.Symbol.Create))
+	t.SchematicSymbolRetrieve.BindHandler(bind.Read(l.binder, l.Symbol.Retrieve))
+	t.SchematicSymbolDelete.BindHandler(bind.Write(l.binder, l.Symbol.Delete))
+	t.SchematicSymbolRename.BindHandler(bind.Write(l.binder, l.Symbol.Rename))
+	t.SchematicSymbolExportGroup.BindHandler(
+		bind.Read(l.binder, l.Symbol.ExportGroup),
 	)
-	t.SchematicSymbolRetrieve.BindHandler(l.Symbol.Retrieve)
-	t.SchematicSymbolDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
-	)
-	t.SchematicSymbolRename.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
-	)
-	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
 	t.SchematicSymbolImportGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
+		bind.Write(l.binder, l.Symbol.ImportGroup),
 	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
+		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
-	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
-	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
+	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
+	t.LinePlotDispatch.BindHandler(bind.Write(l.binder, l.LinePlot.Dispatch))
+	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
+	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
 	// PANEL
-	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
-	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
-	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
-	t.PanelDispatch.BindHandler(l.Panel.Dispatch)
+	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
+	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
+	t.PanelDelete.BindHandler(bind.Write(l.binder, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(bind.Write(l.binder, l.Panel.Dispatch))
 
 	// LOG
-	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))
-	t.LogRetrieve.BindHandler(l.Log.Retrieve)
-	t.LogDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Delete))
-	t.LogDispatch.BindHandler(l.Log.Dispatch)
+	t.LogCreate.BindHandler(bind.Write(l.binder, l.Log.Create))
+	t.LogRetrieve.BindHandler(bind.Read(l.binder, l.Log.Retrieve))
+	t.LogDelete.BindHandler(bind.Write(l.binder, l.Log.Delete))
+	t.LogDispatch.BindHandler(bind.Write(l.binder, l.Log.Dispatch))
 
 	// TABLE
-	t.TableCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Create))
-	t.TableRetrieve.BindHandler(l.Table.Retrieve)
-	t.TableDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Table.Delete))
-	t.TableDispatch.BindHandler(l.Table.Dispatch)
+	t.TableCreate.BindHandler(bind.Write(l.binder, l.Table.Create))
+	t.TableRetrieve.BindHandler(bind.Read(l.binder, l.Table.Retrieve))
+	t.TableDelete.BindHandler(bind.Write(l.binder, l.Table.Delete))
+	t.TableDispatch.BindHandler(bind.Write(l.binder, l.Table.Dispatch))
 
 	// LABEL
-	t.LabelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Create))
-	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
-	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
-	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
-	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
-	t.LabelDispatch.BindHandler(l.Label.Dispatch)
+	t.LabelCreate.BindHandler(bind.Write(l.binder, l.Label.Create))
+	t.LabelRetrieve.BindHandler(bind.Read(l.binder, l.Label.Retrieve))
+	t.LabelDelete.BindHandler(bind.Write(l.binder, l.Label.Delete))
+	t.LabelAdd.BindHandler(bind.Write(l.binder, l.Label.Add))
+	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
+	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
 	// RACK
-	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
-	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
-	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
-	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
+	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
+	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
+	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
+	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
 
 	// TASK
-	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
-	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
-	t.TaskDelete.BindHandler(l.Task.Delete)
-	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
-	t.TaskRename.BindHandler(l.Task.Rename)
-	t.TaskDispatch.BindHandler(l.Task.Dispatch)
+	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
+	t.TaskRetrieve.BindHandler(bind.Read(l.binder, l.Task.Retrieve))
+	t.TaskDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Task.PrepareDelete, l.Task.Delete),
+	)
+	t.TaskCopy.BindHandler(bind.Write(l.binder, l.Task.Copy))
+	t.TaskRename.BindHandler(bind.Write(l.binder, l.Task.Rename))
+	t.TaskDispatch.BindHandler(bind.Write(l.binder, l.Task.Dispatch))
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
-	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
-	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
-	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
+	t.DeviceCreate.BindHandler(bind.Write(l.binder, l.Device.Create))
+	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
+	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
+	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
 
 	// ACCESS
-	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Create),
-	)
-	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Policy.Delete),
-	)
-	t.AccessRetrievePolicy.BindHandler(l.Policy.Retrieve)
-	t.AccessCreateRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Create),
-	)
-	t.AccessDeleteRole.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Role.Delete),
-	)
-	t.AccessRetrieveRole.BindHandler(l.Role.Retrieve)
+	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
+	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
+	t.AccessRetrievePolicy.BindHandler(bind.Read(l.binder, l.Policy.Retrieve))
+	t.AccessCreateRole.BindHandler(bind.Write(l.binder, l.Role.Create))
+	t.AccessDeleteRole.BindHandler(bind.Write(l.binder, l.Role.Delete))
+	t.AccessRetrieveRole.BindHandler(bind.Read(l.binder, l.Role.Retrieve))
 
 	// STATUS
-	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
-	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
-	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
-	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
-	t.StatusSetByKeyOrName.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
-	)
+	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
+	t.StatusRetrieve.BindHandler(bind.Read(l.binder, l.Status.Retrieve))
+	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
+	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
+	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW
-	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
-	t.ViewRetrieve.BindHandler(l.View.Retrieve)
-	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
-	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
+	t.ViewCreate.BindHandler(bind.Write(l.binder, l.View.Create))
+	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
+	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
+	t.ViewRename.BindHandler(bind.Write(l.binder, l.View.Rename))
 
 	// ARC
-	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
-	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
-	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
-	t.ArcDispatch.BindHandler(l.Arc.Dispatch)
-	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
-	t.ArcRetrieveDirectory.BindHandler(l.Arc.RetrieveDirectories)
-	t.ArcCreateDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.CreateDirectory),
-	)
-	t.ArcRenameDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.RenameDirectory),
-	)
-	t.ArcDeleteDirectory.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Arc.DeleteDirectory),
-	)
-	t.ArcMove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Move))
+	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
+	t.ArcDelete.BindHandler(bind.Write(l.binder, l.Arc.Delete))
+	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
+	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
+	t.ArcUpdateTask.BindHandler(bind.Write(l.binder, l.Arc.UpdateTask))
+	t.ArcRetrieveDirectory.BindHandler(bind.Read(l.binder, l.Arc.RetrieveDirectories))
+	t.ArcCreateDirectory.BindHandler(bind.Write(l.binder, l.Arc.CreateDirectory))
+	t.ArcRenameDirectory.BindHandler(bind.Write(l.binder, l.Arc.RenameDirectory))
+	t.ArcDeleteDirectory.BindHandler(bind.Write(l.binder, l.Arc.DeleteDirectory))
+	t.ArcMove.BindHandler(bind.Write(l.binder, l.Arc.Move))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ImEx.Import))
-	t.ImExExport.BindHandler(l.ImEx.Export)
+	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
+	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -805,22 +791,28 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{config: cfg}
+	if l.binder, err = bind.NewService(bind.ServiceConfig{
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
 		User:     cfg.Service.User,
-		Rack:     cfg.Service.Rack,
 		RBAC:     cfg.Service.RBAC,
-		Cluster:  cfg.Distribution.Cluster,
+		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
+		DB:       cfg.Distribution.DB,
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -836,16 +828,16 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Framer, err = framer.NewService(framer.ServiceConfig{
 		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.Distribution.DB,
 		Framer:          cfg.Service.Framer,
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
-		Records: map[svcchannel.Key]framer.RecordOf{
-			cfg.Service.Task.ActionChannelKey(): svctask.ActionRecord,
-		},
+		Records:         cfg.Service.Signals.Records(),
 	}); err != nil {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
@@ -855,17 +847,17 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Control, err = control.NewService(control.ServiceConfig{
 		Control: cfg.Service.Control,
-		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(connectivity.ServiceConfig{
-		Cluster: cfg.Distribution.Cluster,
-		License: cfg.Service.License,
+		Identity: cfg.Distribution.Identity,
+		License:  cfg.Service.License,
 	}); err != nil {
 		return nil, err
 	}
 	if l.License, err = license.NewService(license.ServiceConfig{
+		DB:      cfg.Distribution.DB,
 		RBAC:    cfg.Service.RBAC,
 		License: cfg.Service.License,
 	}); err != nil {
@@ -873,61 +865,51 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Resource, err = apiresource.NewService(apiresource.ServiceConfig{
 		Resource: cfg.Service.Resource,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Range, err = ranger.NewService(ranger.ServiceConfig{
-		RBAC:   cfg.Service.RBAC,
 		Ranger: cfg.Service.Ranger,
 	}); err != nil {
 		return nil, err
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
-		RBAC: cfg.Service.RBAC,
-		KV:   cfg.Service.KV,
+		KV: cfg.Service.KV,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Group: cfg.Service.Group,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Project, err = project.NewService(project.ServiceConfig{
-		RBAC:    cfg.Service.RBAC,
 		Project: cfg.Service.Project,
 		Bundle:  cfg.Service.Bundle,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(schematic.ServiceConfig{
-		RBAC:      cfg.Service.RBAC,
 		Schematic: cfg.Service.Schematic,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
 		Symbol: cfg.Service.Schematic.Symbol,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
 		LinePlot: cfg.Service.LinePlot,
-		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Panel, err = panel.NewService(panel.ServiceConfig{
-		RBAC:  cfg.Service.RBAC,
 		Panel: cfg.Service.Panel,
 	}); err != nil {
 		return nil, err
@@ -936,7 +918,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Label:  cfg.Service.Label,
 		Ranger: cfg.Service.Ranger,
 		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -945,7 +926,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
-		Auth:   cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -966,26 +946,23 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Log, err = log.NewService(log.ServiceConfig{
-		Log:  cfg.Service.Log,
-		RBAC: cfg.Service.RBAC,
+		Log: cfg.Service.Log,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Table, err = table.NewService(table.ServiceConfig{
 		Table: cfg.Service.Table,
-		RBAC:  cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Status, err = status.NewService(status.ServiceConfig{
 		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.Arc, err = arc.NewService(arc.ServiceConfig{
+		DB:              cfg.Distribution.DB,
 		Instrumentation: cfg.Instrumentation,
-		RBAC:            cfg.Service.RBAC,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
 	}); err != nil {
@@ -993,13 +970,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		ImEx: cfg.Service.ImEx,
-		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

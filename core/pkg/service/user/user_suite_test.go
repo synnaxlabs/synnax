@@ -26,9 +26,12 @@ import (
 var (
 	db          *gorp.DB
 	svc         *user.Service
-	writer      user.Writer
 	passwordSvc *password.Service
 	roleSvc     *role.Service
+	// member is a role for the users that specs create.
+	member role.Key
+	// owner is the role of the root user.
+	owner role.Key
 )
 
 func TestUser(t *testing.T) {
@@ -46,16 +49,35 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
+	}))
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		member = createRole(ctx, tx, "member")
+		owner = createRole(ctx, tx, "owner")
+		return nil
+	})).To(Succeed())
 	MustSucceed2(
 		user.ProvisionRoot(
 			ctx,
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "suite-root", Password: "p"},
+			owner,
 		),
 	)
-	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB: db,
-	}))
-	writer = svc.NewWriter(nil)
 })
+
+// createRole creates a role named name in tx and returns its key.
+func createRole(ctx SpecContext, tx gorp.Tx, name string) role.Key {
+	GinkgoHelper()
+	r := role.Role{Name: name}
+	Expect(roleSvc.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())
+	return r.Key
+}
+
+// hash hashes plaintext with svc.
+func hash(svc *password.Service, plaintext string) password.Hash {
+	GinkgoHelper()
+	return MustSucceed(svc.Hash(plaintext))
+}

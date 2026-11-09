@@ -1006,11 +1006,12 @@ Channel struct {
 				Expect(report.Findings[0].Path).
 					To(Equal("schemas/synnax/versions/channel/v1.oracle"))
 				Expect(report.Findings[0].Message).To(ContainSubstring(want))
-				Expect(report.Findings[0].FixHint).To(ContainSubstring("restate"))
+				Expect(report.Findings[0].FixHint).
+					To(Equal("the Go alias uses v0's rules: restate the rule in v0"))
 			},
 			Entry("on a validate rule", validate, "", "",
 				"v1 aliases Entry from v0, but the live @validate on "+
-					"Entry.min_val differs from v0's"),
+					"Entry.min_val does not match v0's"),
 			Entry("on a default group", group, "", "",
 				"the live @default on Entry.min_val"),
 			Entry("on a Go method rule", "", "", fields,
@@ -1028,5 +1029,93 @@ Channel struct {
 			report := run(analyzeLive(live(validate+group, validate, "")))
 			Expect(report.Findings).To(BeEmpty())
 		})
+
+		DescribeTable("Should check the rules of a dependency a frozen definer pins",
+			func(labelRules string, want []string) {
+				write("schemas/synnax/versions/label/v0.oracle", `
+Label struct {
+	key uuid @key
+	name string {`+labelRules+`
+	}
+
+	@go marshal
+}
+`)
+				write("schemas/synnax/label.oracle", `
+@go output "core/pkg/service/label"
+
+Label struct {
+	key uuid @key
+	name string {
+		@validate required
+	}
+}
+`)
+				write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/label/v0"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+
+	@go marshal
+}
+`)
+				write("schemas/synnax/versions/channel/v1.oracle", `
+Entry = v0.Entry
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+
+	@go marshal
+}
+`)
+				write("schemas/synnax/channel.oracle", `
+import "schemas/synnax/label"
+
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+}
+`)
+				loader := analyzer.NewStandardFileLoader(root)
+				table, diag := analyzer.Analyze(
+					GinkgoT().Context(),
+					[]string{"schemas/synnax/label", "schemas/synnax/channel"},
+					loader,
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				chains := MustSucceed(versions.Discover(root))
+				report := run(&pipeline.Result{
+					Resolutions: table,
+					Chains:      chains,
+					Versions:    versions.NewResolver(chains, loader),
+				})
+				messages := make([]string, len(report.Findings))
+				for i, f := range report.Findings {
+					messages[i] = f.Path + ": " + f.Message
+				}
+				Expect(messages).To(Equal(want))
+			},
+			Entry("when the dependency's version file lacks a live rule", "",
+				[]string{"schemas/synnax/versions/label/v0.oracle: " +
+					"schemas/synnax/channel v0 pins schemas/synnax/label v0, but " +
+					"the live @validate on Label.name does not match v0's"}),
+			Entry("when the dependency's version file restates it",
+				"\n\t\t@validate required", []string{}),
+		)
 	})
 })

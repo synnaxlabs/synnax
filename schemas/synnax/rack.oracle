@@ -70,12 +70,15 @@ Rack struct {
     group        group.Key? {
         @cpp omit
         @doc value     "is the group the rack sits in, if any."
+        @ref kind      place
         @ref on_delete detach
     }
-    roles        role.Key[] = [] {
+    role         role.Key   {
         @cpp omit
-        @doc value     "are the roles that grant the rack its permissions."
-        @ref on_delete detach
+        @doc value     "is the role that grants the rack its permissions."
+        @pb omit
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @cpp includes    "client/cpp/task/task.h"
@@ -98,12 +101,6 @@ Where filter Rack {
     name
     embedded
     integrations
-    host_is_node bool        {
-        @doc value """
-            matches racks on the Core that serves the request, or racks on other Cores
-            when false.
-        """
-    }
     groups       group.Key[] {
         @cpp omit
         @doc value "matches the racks in any of the given groups."
@@ -119,7 +116,7 @@ Where filter Rack {
 
 New struct extends Rack {
     -embedded
-    -roles
+    -role
     key = 0
 
     @cpp omit

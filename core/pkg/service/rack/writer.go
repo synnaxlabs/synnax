@@ -25,7 +25,6 @@ import (
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
 type Writer struct {
-	svc *Service
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
@@ -39,16 +38,6 @@ type Writer struct {
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
 }
 
 // resolveStatus returns the status to persist for r. The owner selects the status, so a
@@ -97,14 +86,10 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key does
 // not exist, a new rack will be created with the Driver role. An existing rack keeps
-// its group and roles. A status provided on the rack replaces the stored status. With
+// its group and role. A status provided on the rack replaces the stored status. With
 // no provided status, the stored status stays and takes the rack's name, and only a
 // rack with no stored status gets the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
-}
-
-func (w Writer) create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey(ctx)
@@ -125,9 +110,9 @@ func (w Writer) create(ctx context.Context, r *Rack) error {
 	}
 	if err == nil {
 		r.Group = existing.Group
-		r.Roles = existing.Roles
+		r.Role = existing.Role
 	} else {
-		r.Roles = []role.Key{w.driverRole}
+		r.Role = w.driverRole
 		if err = group.CheckMember(
 			ctx,
 			w.tx,
@@ -149,12 +134,10 @@ func (w Writer) create(ctx context.Context, r *Rack) error {
 
 // SetGroup moves the racks with keys into g, or out of their group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := group.CheckMember(ctx, w.tx, g, resource.TypeRack, nil); err != nil {
-			return err
-		}
-		return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
-	})
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeRack, nil); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they

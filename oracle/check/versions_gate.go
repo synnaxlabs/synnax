@@ -811,12 +811,7 @@ func checkAliasedRules(
 		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 		return
 	}
-	live := make(map[string]resolution.Type)
-	for _, t := range res.Resolutions.Types {
-		if t.FilePath == livePath+".oracle" {
-			live[t.Name] = t
-		}
-	}
+	definers := make(map[int]*versions.File)
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		def := surf[name]
 		if def.Version == current {
@@ -827,44 +822,107 @@ func checkAliasedRules(
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return
 		}
-		frozen := []resolution.Type{def.Type}
-		if u, isUnion := def.Type.Form.(resolution.UnionForm); isUnion {
-			for _, v := range u.Variants {
-				if payload, ok := v.Type.Resolve(definer.Table); v.Inline && ok {
-					frozen = append(frozen, payload)
-				}
-			}
+		definers[def.Version] = definer
+		for _, rule := range rulesDrift(
+			res, livePath, def.Type, definer.Table, true,
+		) {
+			r.fail(Finding{
+				Path:     path,
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"%s v%d aliases %s from v%d, but the live %s does not match v%d's",
+					livePath, current, name, def.Version, rule, def.Version,
+				),
+				FixHint: fmt.Sprintf(
+					"the Go alias uses v%d's rules: restate the rule in v%d",
+					def.Version, def.Version,
+				),
+			})
 		}
-		for _, ft := range frozen {
-			lt, ok := live[ft.Name]
-			if !ok {
+	}
+	// A frozen definer's package calls into each dependency it pins through the
+	// dependency's version file, so a live-only rule there never runs either.
+	checked := make(set.Set[string])
+	for _, v := range slices.Sorted(maps.Keys(definers)) {
+		for _, depLive := range slices.Sorted(maps.Keys(definers[v].Pins)) {
+			pv := definers[v].Pins[depLive]
+			depChain, ok := resolver.Chains()[depLive]
+			if !ok || pv != depChain.Current() {
 				continue
 			}
-			for _, rule := range ruleDrift(lt, ft) {
-				r.fail(Finding{
-					Path:     path,
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"%s v%d aliases %s from v%d, but the live %s differs from "+
-							"v%d's",
-						livePath, current, name, def.Version, rule, def.Version,
-					),
-					FixHint: fmt.Sprintf(
-						"the Go alias uses v%d's rules: redeclare %s in v%d, or "+
-							"restate the rule in v%d",
-						def.Version, name, current, def.Version,
-					),
-				})
+			if ended, err := resolver.Ended(ctx, depLive); err != nil || ended {
+				continue
+			}
+			depFile, err := resolver.File(ctx, depLive, pv)
+			if err != nil {
+				r.fail(
+					Finding{Path: path, Severity: SeverityError, Message: err.Error()},
+				)
+				return
+			}
+			for _, t := range depFile.Defined {
+				key := depLive + "." + t.Name
+				if t.Synthetic || checked.Contains(key) {
+					continue
+				}
+				checked.Add(key)
+				for _, rule := range rulesDrift(
+					res, depLive, t, depFile.Table, false,
+				) {
+					r.fail(Finding{
+						Path:     depChain.FilePath(pv) + ".oracle",
+						Severity: SeverityError,
+						Message: fmt.Sprintf(
+							"%s v%d pins %s v%d, but the live %s does not match v%d's",
+							livePath, v, depLive, pv, rule, pv,
+						),
+						FixHint: fmt.Sprintf(
+							"frozen %s v%d calls %s's v%d rules: restate the rule "+
+								"in %s v%d",
+							livePath, v, depLive, pv, depLive, pv,
+						),
+					})
+				}
 			}
 		}
 	}
 }
 
+// rulesDrift describes every rule that differs between livePath's live declaration
+// of def and def itself, including the inline variant payloads of a union. goRules
+// includes the @go method rules, which only an alias of def carries.
+func rulesDrift(
+	res *pipeline.Result,
+	livePath string,
+	def resolution.Type,
+	table *resolution.Table,
+	goRules bool,
+) []string {
+	frozen := []resolution.Type{def}
+	if u, isUnion := def.Form.(resolution.UnionForm); isUnion {
+		for _, v := range u.Variants {
+			if payload, ok := v.Type.Resolve(table); v.Inline && ok {
+				frozen = append(frozen, payload)
+			}
+		}
+	}
+	var drift []string
+	for _, ft := range frozen {
+		for _, t := range res.Resolutions.Types {
+			if t.FilePath == livePath+".oracle" && t.Name == ft.Name {
+				drift = append(drift, ruleDrift(t, ft, goRules)...)
+				break
+			}
+		}
+	}
+	return drift
+}
+
 // ruleDrift describes every rule that differs between the live and frozen
 // declarations of one type.
-func ruleDrift(live, frozen resolution.Type) []string {
+func ruleDrift(live, frozen resolution.Type, goRules bool) []string {
 	var drift []string
-	if goRulesKey(live) != goRulesKey(frozen) {
+	if goRules && goRulesKey(live) != goRulesKey(frozen) {
 		drift = append(drift, "@go method rules on "+live.Name)
 	}
 	lf, ok := live.Form.(resolution.StructForm)

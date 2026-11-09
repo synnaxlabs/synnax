@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/search"
@@ -24,7 +25,10 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each user by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Patrick Star"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Patrick Star", Role: member}),
+		)
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{u.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: u.ResourceID(), Name: "Patrick Star"}}))
 	})
@@ -32,7 +36,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypeUser, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -42,7 +46,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no user", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Sandy Cheeks", Role: member}),
+		)
 		missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
 			ctx,
@@ -53,7 +60,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each user by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		u := MustSucceed(svc.NewWriter(tx).Create(ctx, user.User{Name: "Sandy Cheeks"}))
+		u := MustSucceed(
+			svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "Sandy Cheeks", Role: member}),
+		)
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: u.ResourceID(), Name: u.Name},
 		))
@@ -119,11 +129,18 @@ var _ = Describe("Resource", func() {
 	Describe("Search", func() {
 		DescribeTable("Should search users by each word of their name",
 			func(ctx SpecContext, term string) {
-				created := MustSucceed(writer.Create(ctx, user.User{
-					Name: "Persephone Quintarelli",
-				}))
+				var created user.User
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					created, err = svc.NewWriter(tx).Create(ctx, user.User{
+						Name: "Persephone Quintarelli",
+						Role: member,
+					})
+					return err
+				})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, created.Key)
+					})).To(Succeed())
 				})
 				q := search.Query[resource.ID]{Term: term, Limit: 10}
 				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).

@@ -119,7 +119,7 @@ export interface Placement {
 /**
  * Places each resource under its groups, reading the group of a member and the parent
  * of a group. A resource outside the root gets no path.
- * @param groups holds every group above the resources.
+ * @param groups - holds every group above the resources.
  */
 export const placeInGroups = (
   resources: Resource[],

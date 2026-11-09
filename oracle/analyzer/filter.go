@@ -103,7 +103,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 			}
 		}
 		for _, d := range body.AllDomain() {
-			addDomain(domains, collectDomain(d))
+			addDomain(domains, collectDomain(c, d))
 		}
 	}
 	lo.Must0(c.table.Add(resolution.Type{
@@ -121,7 +121,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 func collectFilterLine(
 	c *analysisCtx, filterName string, def parser.IFieldDefContext,
 ) (resolution.Field, bool) {
-	field := collectField(def, nil)
+	field := collectField(c, def, nil)
 	var problem string
 	switch {
 	case field.Optional:

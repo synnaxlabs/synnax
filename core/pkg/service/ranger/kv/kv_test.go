@@ -50,10 +50,7 @@ var _ = Describe("KV", Ordered, func() {
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	It("Should be able to store key-value pairs in a range", func(ctx SpecContext) {
@@ -69,6 +66,50 @@ var _ = Describe("KV", Ordered, func() {
 			kvSvc.NewWriter(tx).
 				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
 		).To(Succeed())
+	})
+
+	It("Should retrieve key-value pairs through a snapshot", func(ctx SpecContext) {
+		r := &ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var pairs []kv.Pair
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			pairs, err = kvSvc.NewReader(snap).GetMany(ctx, r.Key, []string{"key"})
+			return err
+		})).To(Succeed())
+		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
+	})
+
+	It("Should list key-value pairs through a snapshot", func(ctx SpecContext) {
+		r := &ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var pairs []kv.Pair
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			pairs, err = kvSvc.NewReader(snap).List(ctx, r.Key)
+			return err
+		})).To(Succeed())
+		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
 	})
 
 	It(
@@ -174,5 +215,23 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		}))
+	})
+})
+
+var _ = Describe("RangeOf", func() {
+	It("Should return the range of a pair key", func() {
+		rng := uuid.New()
+		key := kv.Pair{Range: rng, Key: "k<--->v"}.GorpKey()
+		Expect(kv.RangeOf(key)).To(Equal(rng))
+	})
+
+	It("Should return a validation error for a key whose range is not a UUID", func() {
+		Expect(kv.RangeOf("range<--->k")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"%q is not the key of a range key-value pair",
+				"range<--->k",
+			)),
+		))
 	})
 })

@@ -90,7 +90,7 @@ var _ = Describe("@ref", func() {
 		"Should register a reference to the key of another resource",
 		func(ctx SpecContext) {
 			resp := MustGenerate(ctx, device(`
-			rack rack.Key @ref on_delete restrict
+			rack rack.Key @ref on_delete restrict @ref kind use
 		`), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain(
@@ -111,11 +111,40 @@ var _ = Describe("@ref", func() {
 		},
 	)
 
+	DescribeTable(
+		"Should declare the kind of a reference",
+		func(ctx SpecContext, field, kind string) {
+			resp := MustGenerate(ctx, device(field), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain("Kind:     gorp." + kind + ",")
+		},
+		Entry("a place on a key", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      place
+				}
+			}`, "Place"),
+		Entry("a use on an array", `labels label.Key[] {
+				@ref {
+					on_delete detach
+					kind      use
+				}
+			}`, "Use"),
+		Entry("a use on resource IDs", `owner resource.ID? {
+				@ref {
+					on_delete cascade
+					types     rack
+					kind      use
+				}
+			}`, "Use"),
+	)
+
 	It("Should register an optional reference to its own type", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
 			parent Key? {
 				@ref {
 					on_delete cascade
+					kind      use
 					acyclic
 				}
 			}
@@ -130,9 +159,95 @@ var _ = Describe("@ref", func() {
 			)
 	})
 
+	Describe("union record", func() {
+		union := func(dep, variant string) string {
+			return `
+				import "schemas/` + dep + `"
+
+				@go output "core/pkg/service/device"
+
+				Base struct {
+					key uuid @key
+				}
+
+				Device union on kind extends Base {
+					physical {
+						` + variant + `
+					}
+					virtual {}
+					@resource type "device"
+					@retrieve
+				}
+			`
+		}
+
+		It(
+			"Should register a reference that a variant of the union holds",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, union("rack", `
+					rack rack.Key? @ref on_delete restrict @ref kind use
+				`), "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"func (i indexes) references() []gorp.Reference[uuid.UUID, Device]",
+						`Name:     "rack",`,
+						`Table:    "rack",`,
+						"OnDelete: gorp.Restrict,",
+						"switch v1 := e.Variant.(type) {",
+						"case PhysicalDevice:",
+						"if v1.Rack != nil {",
+					).
+					ToNotContain("case VirtualDevice:")
+			},
+		)
+
+		It(
+			"Should write the variant back after a detach clears its reference",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, union("label", `
+					tag label.Key? @ref on_delete detach @ref kind use
+				`), "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"OnDelete: gorp.Detach,",
+					"case PhysicalDevice:",
+					"v2.Tag = nil",
+					"e.Variant = v2",
+				)
+			},
+		)
+
+		It(
+			"Should reject a variant reference that collides with the search index",
+			func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					import "schemas/rack"
+
+					@go output "core/pkg/service/device"
+
+					Base struct {
+						key  uuid   @key
+						name string @search
+					}
+
+					Device union on kind extends Base {
+						physical {
+							search rack.Key? @ref on_delete restrict @ref kind use
+						}
+						virtual {}
+						@resource type "device"
+						@retrieve
+					}
+				`, "device", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@ref field search collides with the search index",
+				)))
+			},
+		)
+	})
+
 	It("Should detach a deleted target from an array", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
-			labels label.Key[] @ref on_delete detach
+			labels label.Key[] @ref on_delete detach @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
@@ -152,7 +267,7 @@ var _ = Describe("@ref", func() {
 
 	It("Should detach an optional field and write it", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
-			shelf rack.Key? @ref on_delete detach
+			shelf rack.Key? @ref on_delete detach @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
@@ -182,18 +297,26 @@ var _ = Describe("@ref", func() {
 					"func setSpare(",
 				)
 		},
-		Entry("an integer key", `spare rack.Key = 0 @ref on_delete detach`, "0"),
-		Entry("a string key", `spare Key = "" @ref on_delete detach`, `""`),
+		Entry(
+			"an integer key",
+			`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
+			"0",
+		),
+		Entry(
+			"a string key",
+			`spare Key = "" @ref on_delete detach @ref kind use`,
+			`""`,
+		),
 		Entry(
 			"a UUID key",
-			`spare label.Key = "" @ref on_delete detach`,
+			`spare label.Key = "" @ref on_delete detach @ref kind use`,
 			"(label.Key{})",
 		),
 	)
 
 	It("Should always hold the target of a required field", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
-			rack rack.Key @ref on_delete cascade
+			rack rack.Key @ref on_delete cascade @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
 			ToNotContain("func MatchHasRack", "func setRack", "if e.Rack ==")
@@ -206,6 +329,7 @@ var _ = Describe("@ref", func() {
 			owner resource.ID? {
 				@ref {
 					on_delete cascade
+					kind      use
 					types     rack device
 					unique
 				}
@@ -234,33 +358,40 @@ var _ = Describe("@ref", func() {
 		},
 		Entry("without on_delete", `rack rack.Key @ref`,
 			"@ref field rack needs on_delete cascade, restrict, or detach"),
+		Entry("without a kind", `rack rack.Key @ref on_delete restrict`,
+			"@ref field rack needs kind place or use"),
 		Entry(
 			"detaching a required field",
-			`rack rack.Key @ref on_delete detach`,
+			`rack rack.Key @ref on_delete detach @ref kind use`,
 			"@ref field rack needs to be optional, an array, or zero by default to detach",
 		),
 		Entry(
 			"detaching a field with a default that is not zero",
-			`rack rack.Key = 4 @ref on_delete detach`,
+			`rack rack.Key = 4 @ref on_delete detach @ref kind use`,
 			"@ref field rack needs to be optional, an array, or zero by default to detach",
 		),
-		Entry("to a key that no resource holds", `count uint32 @ref on_delete restrict`,
-			"@ref field count needs the key type of a resource, not uint32"),
+		Entry(
+			"to a key that no resource holds",
+			`count uint32 @ref on_delete restrict @ref kind use`,
+			"@ref field count needs the key type of a resource, not uint32",
+		),
 		Entry("naming types on a key", `rack rack.Key {
 				@ref {
 					on_delete restrict
+					kind      use
 					types     rack
 				}
 			}`,
 			"@ref field rack can name types only when it holds resource IDs"),
 		Entry(
 			"to resource IDs without types",
-			`owner resource.ID @ref on_delete cascade`,
+			`owner resource.ID @ref on_delete cascade @ref kind use`,
 			"@ref field owner needs types to name the resource types it may reference",
 		),
 		Entry("to an unknown resource type", `owner resource.ID {
 				@ref {
 					on_delete cascade
+					kind      use
 					types     rock
 				}
 			}`,
@@ -268,29 +399,58 @@ var _ = Describe("@ref", func() {
 		Entry("acyclic across types", `rack rack.Key? {
 				@ref {
 					on_delete cascade
+					kind      use
 					acyclic
 				}
 			}`,
 			"@ref field rack can be acyclic only when it references its own type"),
 		Entry("with an index", `rack rack.Key {
 				@ref on_delete restrict
+				@ref kind use
 				@index lookup
 			}`,
 			"@ref field rack has its own index and filter, so it cannot carry @index"),
 		Entry("with a filter", `rack rack.Key {
 				@ref on_delete restrict
+				@ref kind use
 				@filter
 			}`,
 			"@ref field rack has its own index and filter, so it cannot carry @index"),
 		Entry("with an unknown expression", `rack rack.Key? {
 				@ref {
 					on_delete cascade
+					kind      use
 					uniqe
 				}
 			}`,
 			"@ref field rack has unknown expression uniqe"),
+		Entry("with an unknown kind", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      spot
+				}
+			}`,
+			"@ref field rack needs kind place or use"),
+		Entry(
+			"with a kind on the on_delete line",
+			`rack rack.Key @ref on_delete restrict kind use`,
+			"@ref field rack needs one value for on_delete, not 3",
+		),
+		Entry("with two kinds", `rack rack.Key {
+				@ref {
+					on_delete restrict
+					kind      use place
+				}
+			}`,
+			"@ref field rack needs one value for kind, not 2"),
+		Entry(
+			"with a flag before another flag",
+			`rack rack.Key @ref acyclic unique`,
+			"@ref field rack needs no value for acyclic, not 1",
+		),
 		Entry("named search", `search rack.Key {
 				@ref on_delete restrict
+				@ref kind use
 			}
 			name string @search`,
 			"@ref field search collides with the search index"),
@@ -321,7 +481,7 @@ var _ = Describe("@ref", func() {
 					key string {
 						@key
 					}
-					rack  rack.Key @ref on_delete restrict
+					rack  rack.Key @ref on_delete restrict @ref kind use
 					shelf shelf.Shelf?
 					@resource type "device"
 					@retrieve
@@ -342,7 +502,7 @@ var _ = Describe("@ref", func() {
 			@go output "core/pkg/service/device"
 
 			Config struct {
-				rack rack.Key @ref on_delete restrict
+				rack rack.Key @ref on_delete restrict @ref kind use
 			}
 		`, "device", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
@@ -378,10 +538,11 @@ var _ = Describe("@ref", func() {
 			"Should generate only the indexes of a generic type over any",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, status(`
-				labels label.Key[] @ref on_delete detach
+				labels label.Key[] @ref on_delete detach @ref kind use
 				owner resource.ID? {
 					@ref {
 						on_delete cascade
+						kind      use
 						types     label
 						unique
 					}
@@ -413,7 +574,7 @@ var _ = Describe("@ref", func() {
 				@go output "core/pkg/service/alias"
 
 				Alias struct {
-					tag  label.Key @ref on_delete cascade
+					tag  label.Key @ref on_delete cascade @ref kind use
 					name string
 
 					@retrieve indexes
@@ -443,7 +604,7 @@ var _ = Describe("@ref", func() {
 			},
 			Entry(
 				"a generic type with a generated Retrieve",
-				`labels label.Key[] @ref on_delete detach`,
+				`labels label.Key[] @ref on_delete detach @ref kind use`,
 				"@retrieve",
 				"core/pkg/service/status: status.Status: a generic @retrieve type needs @retrieve indexes",
 			),
@@ -520,7 +681,7 @@ var _ = Describe("@ref", func() {
 
 		It("Should skip a zero key and reset it on detach", func(ctx SpecContext) {
 			generate(ctx, "", `
-				rack rack.Key = 0 @ref on_delete restrict
+				rack rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 				ToContain(
 					"func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
@@ -541,16 +702,32 @@ var _ = Describe("@ref", func() {
 				)
 		})
 
+		It("Should declare the kind of a nested reference", func(ctx SpecContext) {
+			generate(ctx, `
+				Inner struct {
+					channel channel.Key = 0 {
+						@ref {
+							on_delete restrict
+							kind      use
+						}
+					}
+				}
+			`, `
+				inner Inner
+			`).
+				ToContain(`Name:     "inner.channel",`, "Kind:     gorp.Use,")
+		})
+
 		It("Should reset a zero string key", func(ctx SpecContext) {
 			generate(ctx, "", `
-				entry kv.Key = "" @ref on_delete restrict
+				entry kv.Key = "" @ref on_delete restrict @ref kind use
 			`).
 				ToContain(`if e.Entry != "" {`, `e.Entry = ""`)
 		})
 
 		It("Should reset a zero UUID key to its composite zero", func(ctx SpecContext) {
 			generate(ctx, "", `
-				tag label.Key = "" @ref on_delete restrict
+				tag label.Key = "" @ref on_delete restrict @ref kind use
 			`).
 				ToContain("if e.Tag != (label.Key{}) {", "e.Tag = label.Key{}")
 		})
@@ -558,7 +735,7 @@ var _ = Describe("@ref", func() {
 		It("Should reach a key through a nested struct", func(ctx SpecContext) {
 			generate(ctx, `
 				Inner struct {
-					channel channel.Key = 0 @ref on_delete restrict
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
 			`, `
 				inner Inner
@@ -575,7 +752,7 @@ var _ = Describe("@ref", func() {
 		It("Should reach a key through an optional struct", func(ctx SpecContext) {
 			generate(ctx, `
 				Inner struct {
-					channel channel.Key = 0 @ref on_delete restrict
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
 			`, `
 				inner Inner?
@@ -586,7 +763,7 @@ var _ = Describe("@ref", func() {
 		It("Should range over an array of structs", func(ctx SpecContext) {
 			generate(ctx, `
 				Entry struct {
-					channel channel.Key = 0 @ref on_delete restrict
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
 			`, `
 				entries Entry[]
@@ -606,7 +783,7 @@ var _ = Describe("@ref", func() {
 			func(ctx SpecContext) {
 				generate(ctx, `
 				Base struct {
-					channel channel.Key = 0 @ref on_delete restrict
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
 				Channel union on type extends Base {
 					coil {}
@@ -638,7 +815,7 @@ var _ = Describe("@ref", func() {
 						topic string
 					}
 					sparkplug {
-						channel channel.Key = 0 @ref on_delete restrict
+						channel channel.Key = 0 @ref on_delete restrict @ref kind use
 					}
 				}
 			`, `
@@ -654,7 +831,7 @@ var _ = Describe("@ref", func() {
 			func(ctx SpecContext) {
 				generate(ctx, `
 				Alert struct {
-					tag label.Key @ref on_delete detach
+					tag label.Key @ref on_delete detach @ref kind use
 					component string
 				}
 			`, `
@@ -676,7 +853,7 @@ var _ = Describe("@ref", func() {
 		It("Should detach a key from a nested array of keys", func(ctx SpecContext) {
 			generate(ctx, `
 				Axes struct {
-					y1 channel.Key[] @ref on_delete detach
+					y1 channel.Key[] @ref on_delete detach @ref kind use
 				}
 			`, `
 				axes Axes
@@ -694,13 +871,14 @@ var _ = Describe("@ref", func() {
 					owner resource.ID? {
 						@ref {
 							on_delete detach
+							kind      use
 							types     rack
 						}
 					}
 				}
 			`, `
 				inner Inner
-				rack  rack.Key = 0 @ref on_delete restrict
+				rack  rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 				ToContain(
 					`Name:     "inner.owner",`,
@@ -716,7 +894,7 @@ var _ = Describe("@ref", func() {
 			"Should leave out Detach when a required key has no array",
 			func(ctx SpecContext) {
 				generate(ctx, "", `
-				rack rack.Key @ref on_delete restrict
+				rack rack.Key @ref on_delete restrict @ref kind use
 			`).
 					ToContain(`targets = append(targets, e.Rack)`).
 					ToNotContain("Detach:")
@@ -732,10 +910,38 @@ var _ = Describe("@ref", func() {
 				}
 			`, `
 				tree Node
-				rack rack.Key = 0 @ref on_delete restrict
+				rack rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 					ToContain(`Name:     "rack",`).
 					ToNotContain("tree.")
+			},
+		)
+
+		It(
+			"Should generate the references that the variants of a union hold",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					import "schemas/rack"
+
+					@go output "core/pkg/service/modbus"
+
+					Base struct {
+						key uuid @key
+					}
+
+					ReadConfig union on kind extends Base {
+						serial {
+							rack rack.Key = 0 @ref on_delete restrict @ref kind use
+						}
+						tcp {}
+						@retrieve references
+					}
+				`, "modbus", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig]",
+					`Name:     "rack",`,
+					"case SerialReadConfig:",
+				)
 			},
 		)
 
@@ -747,11 +953,11 @@ var _ = Describe("@ref", func() {
 					key uuid {
 						@key
 					}
-					rack rack.Key = 0 @ref on_delete restrict
+					rack rack.Key = 0 @ref on_delete restrict @ref kind use
 					@retrieve references
 				}
 			`, `
-				rack rack.Key = 0 @ref on_delete restrict
+				rack rack.Key = 0 @ref on_delete restrict @ref kind use
 			`), "modbus", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func readConfigReferences()",
@@ -772,7 +978,7 @@ var _ = Describe("@ref", func() {
 			Entry(
 				"a recursive type that holds a reference",
 				`Node struct {
-					rack     rack.Key = 0 @ref on_delete restrict
+					rack     rack.Key = 0 @ref on_delete restrict @ref kind use
 					children Node[]
 				}`,
 				`tree Node`,
@@ -781,7 +987,7 @@ var _ = Describe("@ref", func() {
 			Entry(
 				"detaching a required key outside an array",
 				`Inner struct {
-					rack rack.Key @ref on_delete detach
+					rack rack.Key @ref on_delete detach @ref kind use
 				}`,
 				`inner Inner`,
 				"@ref field inner.rack needs to be optional, an array, or zero by "+
@@ -793,6 +999,7 @@ var _ = Describe("@ref", func() {
 				`rack rack.Key? {
 					@ref {
 						on_delete cascade
+						kind      use
 						acyclic
 					}
 				}`,
@@ -804,10 +1011,34 @@ var _ = Describe("@ref", func() {
 				"union variants that give one field different references",
 				`Channel union on type {
 					coil {
-						channel channel.Key = 0 @ref on_delete restrict
+						channel channel.Key = 0 @ref on_delete restrict @ref kind use
 					}
 					register {
-						channel channel.Key = 0 @ref on_delete detach
+						channel channel.Key = 0 @ref on_delete detach @ref kind use
+					}
+				}`,
+				`channels Channel[]`,
+				"@ref field channels.channel declares different references in its "+
+					"variants",
+			),
+			Entry(
+				"union variants that give one field different kinds",
+				`Channel union on type {
+					coil {
+						channel channel.Key = 0 {
+							@ref {
+								on_delete restrict
+								kind      use
+							}
+						}
+					}
+					register {
+						channel channel.Key = 0 {
+							@ref {
+								on_delete restrict
+								kind      place
+							}
+						}
 					}
 				}`,
 				`channels Channel[]`,
@@ -826,6 +1057,7 @@ var _ = Describe("@ref", func() {
 					parent Key? {
 						@ref {
 							on_delete cascade
+							kind      use
 							acyclic
 						}
 					}
@@ -846,7 +1078,7 @@ var _ = Describe("@ref", func() {
 				inner Inner[]
 			`)+`
 				Inner struct {
-					rack rack.Key @ref on_delete detach
+					rack rack.Key @ref on_delete detach @ref kind use
 				}
 			`, "device", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(

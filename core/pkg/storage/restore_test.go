@@ -157,9 +157,12 @@ var _ = Describe("Restore", func() {
 		Expect(storage.OpenLayer(
 			ctx,
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
-		)).Error().To(MatchError(ContainSubstring(
-			"The restore of backup %s did not finish", name,
-		)))
+		)).Error().To(And(
+			beRefused(),
+			MatchError(
+				ContainSubstring("The restore of backup %s did not finish", name),
+			),
+		))
 		Expect(os.RemoveAll(filepath.Dir(blocked))).To(Succeed())
 		MustSucceed(newBackups(dir).Restore(name))
 		openAt(ctx, dir, "0.59.0")

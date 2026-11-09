@@ -121,7 +121,8 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different input/output types
+      // Exclude status, internal, snapshot when updating - these have different
+      // input/output types
       const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
       const updated = await client.tasks.create({
         ...taskFields,
@@ -253,7 +254,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const retrieved = await createTestClient().tasks.retrieve({
-        where: { key: { in: [created.key, uuid.create()] } },
+        key: [created.key, uuid.create()],
       });
       expect(retrieved.map(({ key }) => key)).toEqual([created.key]);
     });
@@ -429,51 +430,41 @@ describe("Task", async () => {
       });
 
       it("should retrieve tasks by rack", async () => {
-        const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
-        });
+        const result = await client.tasks.retrieve({ rack: testRack.key });
         expect(result.length).toBeGreaterThanOrEqual(3);
         expect(result.every((t) => t.rack === testRack.key)).toBe(true);
       });
 
       it("should retrieve tasks by multiple keys", async () => {
         const keysToQuery = testTasks.slice(0, 2).map((t) => t.key);
-        const result = await client.tasks.retrieve({
-          where: { key: { in: keysToQuery } },
-        });
+        const result = await client.tasks.retrieve({ key: keysToQuery });
         expect(result).toHaveLength(2);
         expect(result.map((t) => t.key).sort()).toEqual(keysToQuery.sort());
       });
 
       it("should retrieve tasks by multiple names", async () => {
         const namesToQuery = ["sensor_task1", "actuator_task1"];
-        const result = await client.tasks.retrieve({
-          where: { name: { in: namesToQuery } },
-        });
+        const result = await client.tasks.retrieve({ name: namesToQuery });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((t) => namesToQuery.includes(t.name))).toBe(true);
       });
 
       it("should retrieve tasks by types", async () => {
-        const result = await client.tasks.retrieve({
-          where: { type: { in: ["pagerduty_alert"] } },
-        });
+        const result = await client.tasks.retrieve({ type: ["pagerduty_alert"] });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
       });
 
       it("should retrieve tasks by multiple types", async () => {
         const typesToQuery = ["pagerduty_alert", "labjack_scan"];
-        const result = await client.tasks.retrieve({
-          where: { type: { in: typesToQuery } },
-        });
+        const result = await client.tasks.retrieve({ type: typesToQuery });
         expect(result.length).toBeGreaterThanOrEqual(4);
         expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
       it("should support pagination with limit and offset", async () => {
         const firstPage = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           limit: 2,
           offset: 0,
         });
@@ -481,7 +472,7 @@ describe("Task", async () => {
 
         if (firstPage.length === 2) {
           const secondPage = await client.tasks.retrieve({
-            where: { rack: { eq: testRack.key } },
+            rack: testRack.key,
             limit: 2,
             offset: 2,
           });
@@ -496,7 +487,8 @@ describe("Task", async () => {
 
       it("should support combined filters", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key }, type: { in: ["pagerduty_alert"] } },
+          rack: testRack.key,
+          type: ["pagerduty_alert"],
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -505,7 +497,8 @@ describe("Task", async () => {
         await expect
           .poll(async () => {
             const tasks = await client.tasks.retrieve({
-              where: { rack: { eq: testRack.key }, type: { in: ["pagerduty_alert"] } },
+              rack: testRack.key,
+              type: ["pagerduty_alert"],
               includeStatus: true,
             });
             return tasks.every((t) => t.status !== undefined);
@@ -514,15 +507,14 @@ describe("Task", async () => {
       });
 
       it("should handle empty results gracefully", async () => {
-        const result = await client.tasks.retrieve({
-          where: { type: { in: ["nonexistent_type"] } },
-        });
+        const result = await client.tasks.retrieve({ type: ["nonexistent_type"] });
         expect(result).toEqual([]);
       });
 
       it("should combine rack and type filters", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: secondRack.key }, type: { in: ["labjack_scan"] } },
+          rack: secondRack.key,
+          type: ["labjack_scan"],
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
@@ -546,7 +538,7 @@ describe("Task", async () => {
 
       it("should retrieve tasks with includeStatus in request object", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -554,7 +546,7 @@ describe("Task", async () => {
         await expect
           .poll(async () => {
             const tasks = await client.tasks.retrieve({
-              where: { rack: { eq: testRack.key } },
+              rack: testRack.key,
               includeStatus: true,
             });
             return tasks.every((t) => t.status !== undefined);
@@ -575,15 +567,11 @@ describe("Task", async () => {
           true,
         );
 
-        const snapshotOnlyResult = await client.tasks.retrieve({
-          where: { snapshot: { eq: true } },
-        });
+        const snapshotOnlyResult = await client.tasks.retrieve({ snapshot: true });
         expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
         expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
 
-        const regularOnlyResult = await client.tasks.retrieve({
-          where: { snapshot: { eq: false } },
-        });
+        const regularOnlyResult = await client.tasks.retrieve({ snapshot: false });
         expect(regularOnlyResult.some((t) => t.key === regularTask.key)).toBe(true);
         expect(regularOnlyResult.every((t) => t.snapshot === false)).toBe(true);
       });
@@ -596,11 +584,9 @@ describe("Task", async () => {
         });
 
         const result = await client.tasks.retrieve({
-          where: {
-            rack: { eq: testRack.key },
-            type: { in: ["pagerduty_alert"] },
-            snapshot: { eq: false },
-          },
+          rack: testRack.key,
+          type: ["pagerduty_alert"],
+          snapshot: false,
         });
 
         expect(result.some((t) => t.key === task1.key)).toBe(true);
@@ -630,9 +616,7 @@ describe("Task", async () => {
 
     it("should exclude internal tasks by default", async () => {
       const allTasks = await client.tasks.list();
-      const internalTasks = await client.tasks.retrieve({
-        where: { internal: { eq: true } },
-      });
+      const internalTasks = await client.tasks.retrieve({ internal: true });
       const allTaskKeys = allTasks.map((t) => t.key);
       const internalTaskKeys = internalTasks.map((t) => t.key);
       expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
@@ -664,7 +648,7 @@ describe("Task", async () => {
       const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
       expect(snap.range).toEqual(rng.key);
       expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
-      const inRange = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
       expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
     });
   });
@@ -764,7 +748,7 @@ describe("Task", async () => {
       });
       await expect(
         client.tasks.dispatch(t.key, task.set({ path: ["type"], value: "arc" })),
-      ).rejects.toThrow('unknown object member name "type"');
+      ).rejects.toThrow("[type]: the path names no editable field");
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
@@ -1077,10 +1061,7 @@ describe("Task", async () => {
         schemas,
       );
 
-      const retrieved = await client.tasks.retrieve({
-        where: { key: { in: [t1.key, t2.key] } },
-        schemas,
-      });
+      const retrieved = await client.tasks.retrieve({ key: [t1.key, t2.key], schemas });
       expect(retrieved).toHaveLength(2);
       expect(retrieved[0].config.routingKey).toBe("rk-100");
       expect(retrieved[1].config.routingKey).toBe("rk-200");
@@ -1500,7 +1481,7 @@ describe("Task", async () => {
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      await local.tasks.retrieve({ where: { key: { in: [held.key, unheld.key] } } });
+      await local.tasks.retrieve({ key: [held.key, unheld.key] });
       // A reconnect empties the status table while the task stays known.
       local.statuses.store.delete(statusKeyOf(unheldOwner));
       const heldKey = statusKeyOf(heldOwner);
