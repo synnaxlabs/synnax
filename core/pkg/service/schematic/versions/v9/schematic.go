@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Schematic{}
 // GorpKey implements gorp.Entry.
 func (s Schematic) GorpKey() Key { return s.Key }
 
-// SetOptions implements gorp.Entry.
-func (Schematic) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the schematic.
 func (s Schematic) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeSchematic, Key: s.Key.String()}

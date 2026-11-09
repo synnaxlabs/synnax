@@ -141,7 +141,7 @@ export const {
   retryUnreachable: true,
   retrieve: async ({ client }) =>
     await client.access.policies.retrieve({
-      where: { subjects: [await retrieveSubject(client)] },
+      subjects: [await retrieveSubject(client)],
     }),
   onChange: ({ client }, handler) =>
     subscribeForCurrent(

@@ -15,6 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -34,24 +37,45 @@ func TestAPICertificate(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apicertificate.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// The handlers run the routes as the API layer binds them.
+	create freighter.UnaryHandler[
+		apicertificate.CreateRequest,
+		apicertificate.CreateResponse,
+	]
+	retrieve freighter.UnaryHandler[
+		apicertificate.RetrieveRequest,
+		apicertificate.RetrieveResponse,
+	]
+	rename   freighter.UnaryHandler[apicertificate.RenameRequest, struct{}]
+	del      freighter.UnaryHandler[apicertificate.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apicertificate.DispatchRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apicertificate.NewService(apicertificate.ServiceConfig{
+	apiSvc := MustSucceed(apicertificate.NewService(apicertificate.ServiceConfig{
 		Certificate: svc.Certificate,
-		RBAC:        svc.RBAC,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	rename = bind.Write(binder, apiSvc.Rename)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 })
 
 // createUser creates a user whose role allows nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
@@ -65,5 +89,7 @@ func grant(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

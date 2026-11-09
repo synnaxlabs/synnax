@@ -12,9 +12,6 @@ package v1
 // GorpKey implements gorp.Entry.
 func (s Status[Details]) GorpKey() Key { return s.Key }
 
-// SetOptions implements gorp.Entry.
-func (Status[Details]) SetOptions() []any { return nil }
-
 // CustomTypeName implements types.CustomTypeName to match the Gorp key prefix stored
 // statuses were written under.
 func (Status[Details]) CustomTypeName() string { return "Status" }

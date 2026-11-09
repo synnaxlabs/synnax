@@ -10,5 +10,5 @@
 import { group } from "@/group";
 import { type Lines } from "@/rack/where.gen";
 
-/** The typed lines of a rack Where. Only the Core can check hostIsNode. */
-export const LINES: Lines = { ...group.MEMBER_LINES, hostIsNode: null };
+/** The typed lines of a rack Where. */
+export const LINES: Lines = { ...group.MEMBER_LINES };

@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -23,13 +24,21 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer creates, renames, and deletes certificates.
+// Writer creates, changes, and deletes certificates.
 type Writer struct {
-	tx       gorp.Tx
-	table    *gorp.Table[Key, Certificate]
-	now      func() telem.TimeStamp
-	secrets  secret.Writer
-	statuses status.Writer
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Certificate]
+	now        func() telem.TimeStamp
+	secrets    secret.Writer
+	statuses   status.Writer
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates the certificate, or replaces the one with the same key, and writes its
@@ -39,7 +48,8 @@ type Writer struct {
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
 // value of the certificate's key secret. Without one, a replacement keeps the old key
 // only when the public key is unchanged. A file certificate takes no privateKey, and
-// replacing a stored certificate with one deletes the old key secret.
+// replacing a stored certificate with one deletes the old key secret. The commit
+// carries a create action that holds the certificate.
 func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
@@ -91,6 +101,7 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 	if err = w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Certificate: *c}))
 	if orphanedKey != nil {
 		if err = w.secrets.Delete(ctx, *orphanedKey); err != nil {
 			return err
@@ -152,27 +163,40 @@ func (w Writer) prepareStored(
 	return c, nil
 }
 
-// Rename renames the certificate with the given key and its expiry status. It returns
-// query.ErrNotFound if no certificate has the key, and a validation error if name is
-// empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	var renamed Certificate
+// Apply applies the actions to the certificate with the given key, rewrites its expiry
+// status, and attaches the actions to the transaction of w, so its commit broadcasts
+// them with the dispatch key of w. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create or the result fails to validate,
+// and an error wrapping query.ErrNotFound when no certificate has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var next Certificate
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Certificate](key)).
 		ChangeErr(func(_ gorp.Context, c Certificate) (Certificate, error) {
-			base := c.Base()
-			base.Name = name
-			c.SetBase(base)
-			renamed = c
-			if err := renamed.Validate(); err != nil {
+			var err error
+			if next, err = Reduce(c, acts...); err != nil {
 				return Certificate{}, err
 			}
-			return renamed, nil
+			if err = next.Validate(); err != nil {
+				return Certificate{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.writeStatus(ctx, renamed)
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return w.writeStatus(ctx, next)
+}
+
+// Rename renames the certificate with the given key and its expiry status by applying
+// a set of the name.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }
 
 // Delete deletes the certificates with the given keys, the secrets that hold their

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
@@ -33,7 +32,7 @@ const (
 
 var _ = Describe("Publisher", Serial, func() {
 	var (
-		obs       observe.Observer[[]change.Change[[]byte, struct{}]]
+		obs       observe.Observer[[]signals.Change]
 		cfg       signals.ObservablePublisherConfig
 		streamer  framer.Streamer
 		requests  confluence.Inlet[framer.StreamerRequest]
@@ -43,9 +42,9 @@ var _ = Describe("Publisher", Serial, func() {
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  nodeFramer,
 		}))
-		obs = observe.New[[]change.Change[[]byte, struct{}]]()
+		obs = observe.New[[]signals.Change]()
 		cfg = signals.ObservablePublisherConfig{
 			SetChannel: channel.Channel{
 				Name:     publisherSetChannelName,
@@ -61,12 +60,12 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		).To(Succeed())
 		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
@@ -85,10 +84,7 @@ var _ = Describe("Publisher", Serial, func() {
 	})
 	It("Should correctly propagate a change", func(ctx SpecContext) {
 		uid := uuid.New()
-		obs.Notify(ctx, []change.Change[[]byte, struct{}]{{
-			Variant: change.VariantSet,
-			Key:     uid[:],
-		}})
+		obs.Notify(ctx, []signals.Change{{Sample: uid[:]}})
 		var streamRes framer.StreamerResponse
 		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&streamRes))
 		Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.SetChannel.Key()))
@@ -96,9 +92,20 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
 	It(
+		"Should propagate a deleted change to the delete channel",
+		func(ctx SpecContext) {
+			uid := uuid.New()
+			obs.Notify(ctx, []signals.Change{{Sample: uid[:], Deleted: true}})
+			var streamRes framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&streamRes))
+			Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.DeleteChannel.Key()))
+			Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
+		},
+	)
+	It(
 		"Should not send an empty frame if an empty list of changes is provided",
 		func(ctx SpecContext) {
-			obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
+			obs.Notify(ctx, []signals.Change{})
 			Expect(responses.Outlet()).ToNot(Receive())
 		},
 	)

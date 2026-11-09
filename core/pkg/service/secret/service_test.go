@@ -68,8 +68,15 @@ func newEnv(ctx SpecContext) *env {
 func (e *env) createStored(ctx SpecContext, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
-	Expect(e.svc.NewWriter(nil).Create(ctx, &s, []byte(value))).To(Succeed())
+	Expect(e.write(ctx, func(w secret.Writer) error {
+		return w.Create(ctx, &s, []byte(value))
+	})).To(Succeed())
 	return s
+}
+
+// write runs fn with a writer on a new transaction.
+func (e *env) write(ctx context.Context, fn func(secret.Writer) error) error {
+	return e.db.WithTx(ctx, func(tx gorp.Tx) error { return fn(e.svc.NewWriter(tx)) })
 }
 
 func (e *env) retrieve(ctx SpecContext, key secret.Key) secret.Secret {
@@ -78,7 +85,7 @@ func (e *env) retrieve(ctx SpecContext, key secret.Key) secret.Secret {
 	Expect(e.svc.NewRetrieve().
 		Where(secret.MatchKeys(key)).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return s
 }
 
@@ -93,8 +100,8 @@ var _ = Describe("Service", func() {
 				Expect(e.svc.Close()).To(Succeed())
 				e.svc = MustOpen(openService(ctx, e, key))
 				rk := rack.Key(1).ResourceID()
-				g := MustSucceed(e.svc.Grant(ctx, nil, rk, s.Base().Key))
-				Expect(e.svc.Resolve(ctx, nil, rk, g, s.Base().Key)).To(Equal(
+				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, s.Base().Key))
+				Expect(e.svc.Resolve(ctx, rk, g, s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
 				))
 			},
@@ -137,7 +144,7 @@ var _ = Describe("Service", func() {
 				g.Expect(e.svc.NewRetrieve().
 					Search("routing").
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				g.Expect(found).To(HaveLen(1))
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Routing key"))
@@ -149,7 +156,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				e := newEnv(ctx)
 				s := e.createStored(ctx, "Password", "hunter2")
-				Expect(e.svc.Uses(ctx, nil, s.Base().Key)).To(BeEmpty())
+				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).To(BeEmpty())
 			},
 		)
 	})
