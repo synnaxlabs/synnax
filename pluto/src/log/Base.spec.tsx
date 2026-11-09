@@ -11,12 +11,12 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
+import { box, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, useSeek } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -79,8 +79,9 @@ const setupAether = (overrides: Record<string, unknown> = {}) => {
   const setState = vi.fn();
   const state = { ...DEFAULT_STATE, ...overrides };
   const selectedLines = vi.fn(async () => LINES);
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines }]);
-  return { setState, state, selectedLines };
+  const seek = vi.fn();
+  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines, seek }]);
+  return { setState, state, selectedLines, seek };
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
@@ -340,6 +341,44 @@ describe("log/Base", () => {
       fireEvent.keyDown(document.body, { code: "KeyH" });
       fireEvent.keyUp(document.body, { code: "KeyH" });
       expect(onHold).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useSeek", () => {
+    const TIME = TimeStamp.seconds(42);
+    const SeekButton = (): ReactElement => {
+      const seek = useSeek();
+      return <button onClick={() => seek(TIME)}>Seek</button>;
+    };
+
+    it("should pause the log, then seek the worker to the time", () => {
+      const { setState, state, seek } = setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      render(
+        <Base onHold={onHold}>
+          <SeekButton />
+        </Base>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(screen.getByText("Seek"));
+      expect(onHold).toHaveBeenCalledWith(true);
+      const last = setState.mock.calls.at(-1)?.[0];
+      expect(typeof last === "function" ? last(state).scrolling : undefined).toBe(true);
+      expect(seek).toHaveBeenCalledWith(TIME.valueOf().toString());
+    });
+
+    it("should only seek a log that is already paused", () => {
+      const { seek } = setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      render(
+        <Base onHold={onHold}>
+          <SeekButton />
+        </Base>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(screen.getByText("Seek"));
+      expect(onHold).not.toHaveBeenCalled();
+      expect(seek).toHaveBeenCalledWith(TIME.valueOf().toString());
     });
   });
 

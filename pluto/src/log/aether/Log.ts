@@ -79,6 +79,8 @@ export interface Line extends z.infer<typeof lineZ> {}
 export const methodsZ = {
   /** Returns the selected lines at the time of the call. */
   selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+  /** Moves a paused view to a time, a decimal count of nanoseconds. */
+  seek: z.function({ input: z.tuple([z.string()]), output: z.void() }),
 };
 
 /**
@@ -769,7 +771,7 @@ export class Log
   // evicted anchor maps to the oldest entry.
   private reanchor(): void {
     const { start, end, scroll } = this.anchors;
-    if (this.seeking != null && this.state.scrolling) this.seek(this.seeking);
+    if (this.seeking != null && this.state.scrolling) this.reach(this.seeking);
     else if (scroll != null && this.state.scrolling) {
       const offset = Math.max(
         this.calcMinOffset(this.internal.lineHeight),
@@ -799,7 +801,7 @@ export class Log
 
   // Waits at the oldest entry while older pages can still reach the time. When no
   // stored sample does, the view stays there. Entries that share the time all show.
-  private seek(time: bigint): void {
+  private reach(time: bigint): void {
     const { lineHeight, telem } = this.internal;
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
@@ -817,6 +819,18 @@ export class Log
     }
     this.seeking = null;
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
+  }
+
+  seek(time: string): void {
+    const t = BigInt(time);
+    const { telem } = this.internal;
+    this.seeking = t;
+    this.scrollState = { ...ZERO_SCROLLBACK, scrollRef: this.state.wheelPos };
+    telem.wrapped.seek?.(new TimeStamp(t));
+    this.entries = telem.value().data;
+    this.reanchor();
+    this.loadNearEdges();
+    if (this.state.visible) this.requestRender();
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
