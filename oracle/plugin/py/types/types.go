@@ -1037,6 +1037,8 @@ func processField(
 		} else {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 		}
+	} else if absentIsNull(field, table) {
+		fieldConstraints = append(fieldConstraints, "default=None")
 	}
 
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
@@ -1055,7 +1057,14 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		return false
 	}
 	_, isCollection := resolution.CollectionKind(field.Type, table)
-	return !isCollection
+	return !isCollection && !absentIsNull(field, table)
+}
+
+// absentIsNull reports whether field reads an absent key as null. An any field holds
+// null, and the JSON codec drops null fields, so the model must accept its own output.
+func absentIsNull(field resolution.Field, table *resolution.Table) bool {
+	return field.Default == nil && field.Type.Name != "Array" &&
+		resolution.PrimitiveBase(field.Type, table) == "any"
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend
