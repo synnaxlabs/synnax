@@ -54,6 +54,65 @@ describe("Editable", () => {
     });
   });
 
+  describe("maxLength", () => {
+    const renderField = (maxLength?: number): HTMLElement => {
+      const c = render(
+        <Editable value="abc" onChange={vi.fn()} maxLength={maxLength} />,
+      );
+      const text = c.getByText("abc");
+      fireEvent.dblClick(text);
+      return text;
+    };
+
+    it("should drop characters typed past the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcd";
+      window.getSelection()?.collapse(text.firstChild, 4);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should drop only the characters inserted before the caret", () => {
+      const text = renderField(3);
+      text.textContent = "aXYbc";
+      window.getSelection()?.collapse(text.firstChild, 3);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+      expect(window.getSelection()?.focusOffset).toBe(1);
+    });
+
+    it("should find the caret inside pasted markup", () => {
+      const text = renderField(3);
+      text.innerHTML = "a<b>XY</b>bc";
+      window.getSelection()?.collapse(text.querySelector("b")?.firstChild ?? null, 2);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should drop a whole emoji rather than half of one", () => {
+      const text = renderField(3);
+      text.textContent = "abc🚀";
+      window.getSelection()?.collapse(text.firstChild, 5);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should keep the start of text pasted over the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcdefgh";
+      window.getSelection()?.collapse(text.firstChild, 8);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should leave text alone without a limit", () => {
+      const text = renderField();
+      text.textContent = "abcdefgh";
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abcdefgh");
+    });
+  });
+
   describe("entering edit mode", () => {
     it("should enter edit mode on double-click", () => {
       const c = render(<Editable value="Hello" onChange={vi.fn()} />);
@@ -215,6 +274,45 @@ describe("Editable", () => {
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Escape" });
       expect(text.innerText).toBe("Hello");
+    });
+  });
+
+  describe("focus", () => {
+    const renderWithList = () => {
+      const c = render(
+        <div tabIndex={0} data-testid="list">
+          <Editable value="Hello" onChange={vi.fn()} />
+        </div>,
+      );
+      const list = c.getByTestId("list");
+      list.focus();
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      expect(document.activeElement).toBe(text);
+      return { list, text };
+    };
+
+    it("should give the focus back when Enter commits", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should give the focus back when Escape reverts", () => {
+      const { list, text } = renderWithList();
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Escape" });
+      expect(document.activeElement).toBe(list);
+    });
+
+    it("should blur when nothing held the focus before the edit", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 

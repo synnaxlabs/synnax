@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/flux/dispatch";
+export * from "@/flux/document";
 export * from "@/flux/errors";
 export * from "@/flux/form";
 export * from "@/flux/list";

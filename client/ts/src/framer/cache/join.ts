@@ -62,6 +62,9 @@ const spansOf = (runs: Run[], pos: number, end: number): Span[] =>
       };
     });
 
+// Returns true when the streamed series starts at the first sample a writer wrote.
+const startsRun = (s: Series): boolean => offsetOf(s.alignment) === 0;
+
 // A held series takes its Core alignment past every block alignment, so the x and y of
 // a waiting join still pair.
 const HELD_ALIGNMENT = 1n << 62n;
@@ -478,6 +481,7 @@ export class Joins {
         this.store.append(
           this.store.raw(j.index, block),
           piece(s, at, to, s, at, block, offset + at - from),
+          at === 0 && startsRun(s),
         );
       if (fresh.length > 0) im.fresh = false;
       j.remember({ series: s, runs });
@@ -542,7 +546,7 @@ export class Joins {
     { series: times, runs }: Mapped,
     pos: number,
   ): boolean {
-    const pieces: Array<{ block: RawBlock; p: Series }> = [];
+    const pieces: Array<{ block: RawBlock; p: Series; newRun: boolean }> = [];
     for (const span of spansOf(runs, pos, pos + s.length)) {
       const block = this.store.raw(m.key, span.block);
       let { from, offset } = span;
@@ -559,11 +563,12 @@ export class Joins {
       pieces.push({
         block,
         p: piece(s, from - pos, to - pos, times, from, span.block, offset),
+        newRun: from === pos && startsRun(s),
       });
     }
     if (pieces.length === 0) return true;
     if (this.store.retainDataType(m.key, s.dataType)) return false;
-    pieces.forEach(({ block, p }) => this.store.append(block, p));
+    pieces.forEach(({ block, p, newRun }) => this.store.append(block, p, newRun));
     m.fresh = false;
     return true;
   }

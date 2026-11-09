@@ -21,7 +21,7 @@ import (
 // fails when two parents promote the same name, because Go rejects an ambiguous
 // promoted name both as a selector and as a composite literal key.
 func CanEmbed(form resolution.StructForm, table *resolution.Table) bool {
-	if !resolver.CanUseInheritance(form, table) {
+	if !resolver.CanUseInheritance(form, "go", table) {
 		return false
 	}
 	promoted := make(set.Set[string])

@@ -15,10 +15,12 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // gnode constructs a graph node at the given coordinates.
@@ -38,17 +40,80 @@ func gedge(key, srcNode, srcParam, tgtNode, tgtParam string) graph.Edge {
 
 // withGraph builds an Arc whose graph holds the given nodes and edges.
 func withGraph(nodes graph.Nodes, edges graph.Edges) arc.Arc {
-	return arc.Arc{Graph: graph.Graph{Nodes: nodes, Edges: edges}}
+	return newAutomation(arc.Base{Source: arc.Source{
+		Variant: arc.GraphSource{Graph: graph.Graph{Nodes: nodes, Edges: edges}},
+	}})
+}
+
+// withInputs returns a whose graph holds inputs.
+func withInputs(a arc.Arc, inputs map[string]msgpack.EncodedJSON) arc.Arc {
+	b := a.Base()
+	g := graphOf(b)
+	g.Inputs = inputs
+	b.Source.Variant = arc.GraphSource{Graph: g}
+	a.SetBase(b)
+	return a
 }
 
 var _ = Describe("Reducer", func() {
+	Describe("Mode", func() {
+		textArc := newAutomation(
+			arc.Base{Source: arc.Source{Variant: arc.TextSource{}}},
+		)
+		graphArc := withGraph(nil, nil)
+
+		DescribeTable(
+			"Should reject a graph action on a text Arc",
+			func(action arc.Action) {
+				Expect(arc.Reduce(textArc, action)).Error().
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry(
+				"SetNode",
+				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("n1", 0, 0)}),
+			),
+			Entry("SetNodePosition", arc.NewSetNodePositionAction(
+				arc.SetNodePositionPayload{Key: "n1"},
+			)),
+			Entry("SetNodeInputs", arc.NewSetNodeInputsAction(
+				arc.SetNodeInputsPayload{Key: "n1"},
+			)),
+			Entry(
+				"RemoveNode",
+				arc.NewRemoveNodeAction(arc.RemoveNodePayload{Key: "n1"}),
+			),
+			Entry("AddEdge", arc.NewAddEdgeAction(
+				arc.AddEdgePayload{Edge: gedge("e1", "a", "out", "b", "in")},
+			)),
+			Entry(
+				"RemoveEdge",
+				arc.NewRemoveEdgeAction(arc.RemoveEdgePayload{Key: "e1"}),
+			),
+			Entry("ReconnectEdge", arc.NewReconnectEdgeAction(
+				arc.ReconnectEdgePayload{Key: "e1"},
+			)),
+		)
+
+		DescribeTable("Should reject a text action on a graph Arc",
+			func(action arc.Action) {
+				Expect(arc.Reduce(graphArc, action)).Error().
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("InsertChar", arc.NewInsertCharAction(arc.InsertCharPayload{})),
+			Entry("DeleteChar", arc.NewDeleteCharAction(arc.DeleteCharPayload{})),
+			Entry("ForgetChars", arc.NewForgetCharsAction(
+				arc.ForgetCharsPayload{IDs: []crdt.ID{{}}},
+			)),
+		)
+	})
+
 	Describe("Rename", func() {
 		It("Should replace the module name", func() {
 			out := MustSucceed(arc.Reduce(
-				arc.Arc{Name: "old"},
+				newAutomation(arc.Base{Name: "old"}),
 				arc.NewRenameAction(arc.RenamePayload{Name: "new"}),
 			))
-			Expect(out.Name).To(Equal("new"))
+			Expect(out.Base().Name).To(Equal("new"))
 		})
 	})
 
@@ -61,7 +126,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(
-				out.Graph.Nodes,
+				graphOf(out.Base()).Nodes,
 			).To(Equal(graph.Nodes{gnode("n1", 0, 0), gnode("n2", 1, 2)}))
 		})
 		It("Should replace an existing node in place, preserving slice index", func() {
@@ -74,8 +139,8 @@ var _ = Describe("Reducer", func() {
 					Node: gnode("n2", 9, 9),
 				})),
 			)
-			Expect(out.Graph.Nodes).To(HaveLen(3))
-			Expect(out.Graph.Nodes[1]).To(Equal(gnode("n2", 9, 9)))
+			Expect(graphOf(out.Base()).Nodes).To(HaveLen(3))
+			Expect(graphOf(out.Base()).Nodes[1]).To(Equal(gnode("n2", 9, 9)))
 		})
 	})
 
@@ -91,8 +156,12 @@ var _ = Describe("Reducer", func() {
 					}),
 				),
 			)
-			Expect(out.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 100, Y: 200}))
-			Expect(out.Graph.Nodes[1].Position).To(Equal(spatial.XY{X: 5, Y: 5}))
+			Expect(
+				graphOf(out.Base()).Nodes[0].Position,
+			).To(Equal(spatial.XY{X: 100, Y: 200}))
+			Expect(
+				graphOf(out.Base()).Nodes[1].Position,
+			).To(Equal(spatial.XY{X: 5, Y: 5}))
 		})
 		It("Should be a no-op when the key does not match any node", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
@@ -105,14 +174,14 @@ var _ = Describe("Reducer", func() {
 					}),
 				),
 			)
-			Expect(out.Graph.Nodes).To(Equal(graph.Nodes{gnode("n1", 0, 0)}))
+			Expect(graphOf(out.Base()).Nodes).To(Equal(graph.Nodes{gnode("n1", 0, 0)}))
 		})
 	})
 
 	Describe("SetNodeInputs", func() {
 		It("Should merge the configuration into the existing entry", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
+			state = withInputs(state, map[string]msgpack.EncodedJSON{"n1": {"gain": 1}})
 			out := MustSucceed(
 				arc.Reduce(state, arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
 					Key:    "n1",
@@ -120,14 +189,17 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(
-				out.Graph.Inputs["n1"],
+				graphOf(out.Base()).Inputs["n1"],
 			).To(Equal(msgpack.EncodedJSON{"gain": 1, "offset": 2}))
 		})
 		It(
 			"Should overwrite fields present in both the existing and payload configs",
 			func() {
 				state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-				state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
+				state = withInputs(
+					state,
+					map[string]msgpack.EncodedJSON{"n1": {"gain": 1}},
+				)
 				out := MustSucceed(
 					arc.Reduce(
 						state,
@@ -137,7 +209,9 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Graph.Inputs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 5}))
+				Expect(
+					graphOf(out.Base()).Inputs["n1"],
+				).To(Equal(msgpack.EncodedJSON{"gain": 5}))
 			},
 		)
 		It("Should write the configuration even when no node has the key", func() {
@@ -149,7 +223,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(
-				out.Graph.Inputs["ghost"],
+				graphOf(out.Base()).Inputs["ghost"],
 			).To(Equal(msgpack.EncodedJSON{"offset": 2}))
 		})
 	})
@@ -169,21 +243,21 @@ var _ = Describe("Reducer", func() {
 						gedge("e2", "n2", "out", "n3", "in"),
 					},
 				)
-				state.Graph.Inputs = map[string]msgpack.EncodedJSON{
+				state = withInputs(state, map[string]msgpack.EncodedJSON{
 					"n2": {"type": "stage"},
 					"n3": {"type": "stage"},
-				}
+				})
 				out := MustSucceed(
 					arc.Reduce(state, arc.NewRemoveNodeAction(arc.RemoveNodePayload{
 						Key: "n2",
 					})),
 				)
 				Expect(
-					out.Graph.Nodes,
+					graphOf(out.Base()).Nodes,
 				).To(Equal(graph.Nodes{gnode("n1", 0, 0), gnode("n3", 2, 2)}))
-				Expect(out.Graph.Edges).To(BeEmpty())
-				Expect(out.Graph.Inputs).ToNot(HaveKey("n2"))
-				Expect(out.Graph.Inputs).To(HaveKey("n3"))
+				Expect(graphOf(out.Base()).Edges).To(BeEmpty())
+				Expect(graphOf(out.Base()).Inputs).ToNot(HaveKey("n2"))
+				Expect(graphOf(out.Base()).Inputs).To(HaveKey("n3"))
 			},
 		)
 		It("Should keep unrelated edges intact", func() {
@@ -197,7 +271,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(
-				out.Graph.Edges,
+				graphOf(out.Base()).Edges,
 			).To(Equal(graph.Edges{gedge("e1", "n1", "out", "n3", "in")}))
 		})
 		It("Should be a no-op when the key does not match any node", func() {
@@ -210,8 +284,8 @@ var _ = Describe("Reducer", func() {
 					Key: "ghost",
 				})),
 			)
-			Expect(out.Graph.Nodes).To(Equal(state.Graph.Nodes))
-			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
+			Expect(graphOf(out.Base()).Nodes).To(Equal(graphOf(state.Base()).Nodes))
+			Expect(graphOf(out.Base()).Edges).To(Equal(graphOf(state.Base()).Edges))
 		})
 	})
 
@@ -223,8 +297,10 @@ var _ = Describe("Reducer", func() {
 					Edge: gedge("e2", "b", "o", "c", "i"),
 				})),
 			)
-			Expect(out.Graph.Edges).To(HaveLen(2))
-			Expect(out.Graph.Edges[1]).To(Equal(gedge("e2", "b", "o", "c", "i")))
+			Expect(graphOf(out.Base()).Edges).To(HaveLen(2))
+			Expect(
+				graphOf(out.Base()).Edges[1],
+			).To(Equal(gedge("e2", "b", "o", "c", "i")))
 		})
 		It(
 			"Should be a no-op when an edge with the same source and target exists",
@@ -235,7 +311,7 @@ var _ = Describe("Reducer", func() {
 						Edge: gedge("e2", "a", "o", "b", "i"),
 					})),
 				)
-				Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
+				Expect(graphOf(out.Base()).Edges).To(Equal(graphOf(state.Base()).Edges))
 			},
 		)
 	})
@@ -252,7 +328,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(
-				out.Graph.Edges,
+				graphOf(out.Base()).Edges,
 			).To(Equal(graph.Edges{gedge("e2", "b", "o", "c", "i")}))
 		})
 		It("Should be a no-op when no edge matches the key", func() {
@@ -262,7 +338,7 @@ var _ = Describe("Reducer", func() {
 					Key: "missing",
 				})),
 			)
-			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
+			Expect(graphOf(out.Base()).Edges).To(Equal(graphOf(state.Base()).Edges))
 		})
 	})
 
@@ -282,7 +358,7 @@ var _ = Describe("Reducer", func() {
 					),
 				)
 				Expect(
-					out.Graph.Edges,
+					graphOf(out.Base()).Edges,
 				).To(Equal(graph.Edges{gedge("e1", "a", "o", "c", "i")}))
 			},
 		)
@@ -295,7 +371,7 @@ var _ = Describe("Reducer", func() {
 					Target: ir.Handle{Node: "c", Param: "i"},
 				})),
 			)
-			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
+			Expect(graphOf(out.Base()).Edges).To(Equal(graphOf(state.Base()).Edges))
 		})
 	})
 
@@ -312,9 +388,9 @@ var _ = Describe("Reducer", func() {
 					arc.AddEdgePayload{Edge: gedge("e2", "op", "out", "sink", "in")},
 				),
 			}
-			out := MustSucceed(arc.Reduce(arc.Arc{}, actions...))
-			Expect(out.Graph.Nodes).To(HaveLen(3))
-			Expect(out.Graph.Edges).To(HaveLen(2))
+			out := MustSucceed(arc.Reduce(withGraph(nil, nil), actions...))
+			Expect(graphOf(out.Base()).Nodes).To(HaveLen(3))
+			Expect(graphOf(out.Base()).Edges).To(HaveLen(2))
 		})
 		It("Should converge to the final position after a drag storm", func() {
 			state := withGraph(graph.Nodes{gnode("n", 0, 0)}, nil)
@@ -329,7 +405,9 @@ var _ = Describe("Reducer", func() {
 				)
 			}
 			out := MustSucceed(arc.Reduce(state, actions...))
-			Expect(out.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 29, Y: 58}))
+			Expect(
+				graphOf(out.Base()).Nodes[0].Position,
+			).To(Equal(spatial.XY{X: 29, Y: 58}))
 		})
 		It("Should leave state untouched when given an empty action list", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
@@ -338,11 +416,14 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should return state unchanged when Type is unrecognized", func() {
+		It("Should error and leave state unchanged when Type is unrecognized", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			Expect(
-				MustSucceed(arc.Reduce(state, arc.Action{Type: "totally_made_up"})),
-			).To(Equal(state))
+			out, err := arc.Reduce(state, arc.Action{Type: "made_up"})
+			Expect(err).To(SatisfyAll(
+				MatchError(union.ErrUnknownVariant),
+				MatchError(ContainSubstring("made_up")),
+			))
+			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
@@ -375,8 +456,90 @@ var _ = Describe("Reducer", func() {
 				SetNodePosition: &pos,
 				AddEdge:         &edge,
 			}))
-			Expect(out.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
-			Expect(out.Graph.Edges).To(BeEmpty())
+			Expect(
+				graphOf(out.Base()).Nodes[0].Position,
+			).To(Equal(spatial.XY{X: 50, Y: 60}))
+			Expect(graphOf(out.Base()).Edges).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("Path actions", func() {
+	var state arc.Arc
+	BeforeEach(func() {
+		state = withInputs(
+			withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil),
+			map[string]msgpack.EncodedJSON{"n1": {"type": "constant", "value": 1.0}},
+		)
+		b := state.Base()
+		b.Name = "Press"
+		state.SetBase(b)
+	})
+	set := func(path []string, value any) arc.Action {
+		return arc.NewSetAction(arc.SetPayload{Path: path, Value: value})
+	}
+
+	Describe("SetPayload", func() {
+		It("Should set a field of a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(
+				state,
+				set([]string{"graph", "inputs", "n1", "value"}, 2.0),
+			))
+			Expect(graphOf(next.Base()).Inputs["n1"]).To(Equal(
+				msgpack.EncodedJSON{"type": "constant", "value": 2.0},
+			))
+			Expect(graphOf(next.Base()).Nodes).To(Equal(graphOf(state.Base()).Nodes))
+		})
+
+		DescribeTable("Should reject", func(path []string, value any) {
+			Expect(arc.Reduce(state, set(path, value))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the path is not inside an entry of")),
+			))
+		},
+			Entry("a path outside the node inputs", []string{"name"}, "Other"),
+			Entry("a path to the graph's nodes", []string{"graph", "nodes"}, nil),
+		)
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should remove a field from a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(state, arc.NewRemoveAction(arc.RemovePayload{
+				Path: []string{"graph", "inputs", "n1"},
+				Key:  "value",
+			})))
+			Expect(graphOf(next.Base()).Inputs["n1"]).To(Equal(
+				msgpack.EncodedJSON{"type": "constant"},
+			))
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should add an entry to a list in a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(state, arc.NewInsertAction(arc.InsertPayload{
+				Path:  []string{"graph", "inputs", "n1", "channels"},
+				Value: map[string]any{"key": "a"},
+			})))
+			Expect(graphOf(next.Base()).Inputs["n1"]["channels"]).To(Equal(
+				[]any{map[string]any{"key": "a"}},
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should move an entry in a list in a node's inputs", func() {
+			graphOf(state.Base()).Inputs["n1"]["channels"] = []any{
+				map[string]any{"key": "a"},
+				map[string]any{"key": "b"},
+			}
+			next := MustSucceed(arc.Reduce(state, arc.NewMoveAction(arc.MovePayload{
+				Path: []string{"graph", "inputs", "n1", "channels"},
+				Key:  "b",
+			})))
+			Expect(graphOf(next.Base()).Inputs["n1"]["channels"]).To(Equal([]any{
+				map[string]any{"key": "b"},
+				map[string]any{"key": "a"},
+			}))
 		})
 	})
 })

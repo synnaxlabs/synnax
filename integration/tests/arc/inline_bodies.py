@@ -601,14 +601,13 @@ class InlineBodies(ArcCase):
 
         self.log("Holding race_cond high; first stage must keep blocking")
         self.writer.write("race_cond", 100.0)
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 hold: nothing may change
         blocked = self.read_tlm("race_first_out")
         if blocked != 1:
             self.fail(
                 f"race_first_out={blocked} while race_cond=100; the inline stage "
                 "should still be blocking the sequence"
             )
-            return
 
         self.log("Dropping race_cond low; condition exit should win the race")
         self.writer.write("race_cond", 10.0)
@@ -625,7 +624,6 @@ class InlineBodies(ArcCase):
                 f"second stage exited in {elapsed:.2f}s but wait{{2s}} should not "
                 "fire before ~2s; the condition exit may have fired spuriously"
             )
-            return
 
     def _verify_reentry_deactivation(self) -> None:
         self.log("Activating re-entry/deactivation cycle via trigger_6")
@@ -643,7 +641,7 @@ class InlineBodies(ArcCase):
 
         self.log("Exit stage must be deactivated; its write must not re-apply")
         self.writer.write("reentry_exit_out", 0)
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 hold: nothing may change
         exit_out = self.read_tlm("reentry_exit_out")
         if exit_out != 0:
             self.fail(
@@ -651,4 +649,3 @@ class InlineBodies(ArcCase):
                 "stage; the exit stage's write is still applying, so the stage did "
                 "not fully deactivate on the backward transition"
             )
-            return

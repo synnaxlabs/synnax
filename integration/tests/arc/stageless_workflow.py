@@ -111,20 +111,18 @@ class StagelessWorkflow(ArcCase):
             "wait{500ms} to elapse without advancing"
         )
         self.writer.write("sw_pressure", 10.0)
-        sy.sleep(1)
+        sy.sleep(1)  # noqa: TID251 hold: nothing may change
         a_value = self.read_tlm("sw_a")
         if a_value is None:
             self.fail(
                 "sw_a has no buffered value; cannot verify gate held. "
                 "Streamer did not deliver any reading after trigger."
             )
-            return
         if a_value != 1:
             self.fail(
                 f"sw_a={a_value} after wait elapsed but expression gate "
                 "should still be blocking; sequence should not have advanced"
             )
-            return
         self.log("Sequence correctly held at expression gate")
 
         self.log("Driving sw_pressure=75 (above gate threshold)")

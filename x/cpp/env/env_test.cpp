@@ -35,6 +35,28 @@ protected:
     }
 };
 
+/// @brief it should reject an integer that does not fit its type, not truncate it.
+TEST_F(XEnvTest, RejectOutOfRangeInteger) {
+    set("TEST_OUT_OF_RANGE", "74626");
+    Parser parser;
+    EXPECT_EQ(parser.field("TEST_OUT_OF_RANGE", static_cast<uint16_t>(100)), 100);
+    EXPECT_EQ(
+        parser.error().data,
+        "TEST_OUT_OF_RANGE: failed to convert TEST_OUT_OF_RANGE: value is not an "
+        "integer in range"
+    );
+    unset("TEST_OUT_OF_RANGE");
+}
+
+/// @brief it should reject an integer followed by other text.
+TEST_F(XEnvTest, RejectIntegerWithTrailingText) {
+    set("TEST_TRAILING", "9090abc");
+    Parser parser;
+    EXPECT_EQ(parser.field("TEST_TRAILING", static_cast<uint16_t>(100)), 100);
+    EXPECT_FALSE(parser.ok());
+    unset("TEST_TRAILING");
+}
+
 /// @brief it should load string values from environment variables.
 TEST_F(XEnvTest, LoadString) {
     EXPECT_EQ(load("TEST_STRING", std::string("default")), "hello");

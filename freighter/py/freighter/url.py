@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from functools import reduce
+from typing import override
 from urllib.parse import urljoin, urlsplit
 
 _DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443}
@@ -90,6 +91,7 @@ class URL:
     def _child_prefix(self, path: str) -> str:
         return reduce(urljoin, [self.path, _format_path(path)])
 
+    @override
     def __str__(self) -> str:
         return self.stringify()
 

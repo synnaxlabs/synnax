@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const path = deep.path<{ units?: string }>();
 
 export const UnitsField = (props: Partial<Form.TextFieldProps>): ReactElement => (
   <Form.TextField
-    path="units"
+    path={path.units}
     label="Units"
     align="start"
     padHelpText={false}

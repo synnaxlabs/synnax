@@ -19,13 +19,24 @@ const { GL_ENUMS } = canvasTest;
 
 /** Stands in for a transferred canvas, which jsdom does not provide. */
 class FakeCanvas extends EventTarget {
-  width = 0;
   height = 0;
+  private _width = 0;
   private readonly context: unknown;
+  private readonly calls: canvasTest.Call[];
 
-  constructor(context: unknown) {
+  constructor(context: unknown, calls: canvasTest.Call[] = []) {
     super();
     this.context = context;
+    this.calls = calls;
+  }
+
+  get width(): number {
+    return this._width;
+  }
+
+  set width(value: number) {
+    this._width = value;
+    this.calls.push({ op: "set:width", args: [value] });
   }
 
   getContext(): unknown {
@@ -46,8 +57,8 @@ const mount = (os: runtime.OS = "macOS") => {
   stack.driver.update(path, canvas.Canvas.TYPE, {
     bootstrap: true,
     glCanvas,
-    lower2dCanvas: new FakeCanvas(recorder.lower2d),
-    upper2dCanvas: new FakeCanvas(recorder.upper2d),
+    lower2dCanvas: new FakeCanvas(recorder.lower2d, recorder.lower2d.calls),
+    upper2dCanvas: new FakeCanvas(recorder.upper2d, recorder.upper2d.calls),
     region: box.construct(0, 0, 100, 100),
     dpr: 1,
     os,
@@ -62,7 +73,7 @@ const mount = (os: runtime.OS = "macOS") => {
     return event;
   };
   const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
-  return { renderCtx, calls, returns, statuses, count, lose, restore };
+  return { renderCtx, recorder, calls, returns, statuses, count, lose, restore };
 };
 
 const glRequest = () => ({
@@ -81,6 +92,18 @@ describe("render.Context", () => {
     for (const teardown of teardowns) teardown();
     teardowns.length = 0;
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  describe("resize", () => {
+    it("should forget the 2D canvas state that the size change cleared", () => {
+      const { renderCtx, recorder } = mount();
+      renderCtx.lower2d.font = "12px mono";
+      renderCtx.resize(box.construct(0, 0, 200, 200), 1);
+      recorder.clear();
+      renderCtx.lower2d.font = "12px mono";
+      expect(recorder.lower2d.calls).toEqual([{ op: "set:font", args: ["12px mono"] }]);
+    });
   });
 
   describe("when the WebGL context is lost", () => {
@@ -174,6 +197,56 @@ describe("render.Context", () => {
       m.restore();
       vi.advanceTimersToNextFrame();
       expect(req.render).toHaveBeenCalledOnce();
+    });
+
+    it("should give each 2D canvas a new bitmap at the device pixel ratio", () => {
+      const { renderCtx, recorder, lose, restore } = mount();
+      renderCtx.resize(box.construct(0, 0, 100, 100), 2);
+      lose();
+      recorder.clear();
+      restore();
+      [recorder.lower2d, recorder.upper2d].forEach(({ calls }) =>
+        expect(calls).toEqual([
+          { op: "set:width", args: [0] },
+          { op: "set:width", args: [200] },
+          { op: "reset", args: [] },
+          { op: "scale", args: [2, 2] },
+        ]),
+      );
+    });
+
+    it("should rebuild the 2D canvases when the GL restore fails", () => {
+      const { recorder, returns, lose, restore } = mount("Windows");
+      lose();
+      returns.createProgram = () => null;
+      recorder.clear();
+      restore();
+      expect(recorder.lower2d.calls).toContainEqual({ op: "reset", args: [] });
+    });
+
+    it("should call each 2D restore handler when the GL restore fails", () => {
+      const { renderCtx, returns, lose, restore } = mount("Windows");
+      const handler = vi.fn();
+      const stop = renderCtx.on2DRestore(handler);
+      lose();
+      returns.createProgram = () => null;
+      restore();
+      expect(handler).toHaveBeenCalledOnce();
+      stop();
+      lose();
+      restore();
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    it("should build new text atlases", () => {
+      const { renderCtx, lose, restore } = mount();
+      canvasTest.atlasSurface();
+      const props = { font: "12px mono", textColor: "#ffffff" };
+      const atlas = renderCtx.lower2d.atlasRegistry.get(props);
+      lose();
+      restore();
+      expect(renderCtx.lower2d.atlasRegistry.get(props)).not.toBe(atlas);
+      expect(renderCtx.upper2d.atlasRegistry.get(props)).not.toBe(atlas);
     });
 
     it("should replace the error status with a success status", () => {

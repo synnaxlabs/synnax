@@ -7,33 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
-  binary,
+  color,
   DataType,
   id,
   math,
   TimeRange,
   TimeSpan,
   TimeStamp,
-  url,
   uuid,
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
-import { NotFoundError } from "@/errors";
-import { framer } from "@/framer";
-import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { NotFoundError, type Synnax } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   spyOnSend,
-  TEST_CORE_ADDRESS,
+  waitForStreamLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -137,15 +132,64 @@ describe("range", () => {
         name: "My New Parent Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.ranges.create({
+      const child = await client.ranges.create({
         name: "My New Child Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
-      const children = await client.ontology.children.retrieve({
-        ids: parentRange.ontologyID,
+      expect(child.parent).toEqual(parentRange.key);
+      const children = await client.ranges.retrieve({ parents: [parentRange.key] });
+      expect(children.map(({ key }) => key)).toEqual([child.key]);
+      const retrieved = await client.ranges.retrieve(parentRange.key);
+      expect((await retrieved.retrieveChildren()).map(({ key }) => key)).toEqual([
+        child.key,
+      ]);
+    });
+    it("should create a range with labels", async () => {
+      const lbl = await client.labels.create({ name: "Created", color: "#E774D0" });
+      const rng = await client.ranges.create({
+        name: "Labeled",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        labels: [lbl.key],
       });
-      expect(children).toHaveLength(1);
+      expect(rng.labels).toEqual([lbl.key]);
+    });
+    it("should keep the stored labels of a range that is created again", async () => {
+      const [held, carried] = await client.labels.create([
+        { name: "Held", color: "#E774D0" },
+        { name: "Carried", color: "#E774D0" },
+      ]);
+      const rng = await client.ranges.create({
+        name: "Labeled",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        labels: [held.key],
+      });
+      const again = await client.ranges.create({
+        ...rng.payload,
+        labels: [carried.key],
+      });
+      expect(again.labels).toEqual([held.key]);
+    });
+    it("should keep a label change that arrives before the create reply", async () => {
+      const lbl = await client.labels.create({ name: "Late", color: "#E774D0" });
+      const rng = await client.ranges.create({
+        name: "Created again",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/create");
+      const creating = local.ranges.create(rng.payload);
+      await responded;
+      await client.labels.label(rng.resourceID, [lbl.key]);
+      await expect
+        .poll(() => expectLive(local.ranges.getCached(rng.key)).labels)
+        .toContain(lbl.key);
+      release();
+      await creating;
+      expect(expectLive(local.ranges.getCached(rng.key)).labels).toContain(lbl.key);
     });
   });
 
@@ -186,6 +230,27 @@ describe("range", () => {
       const retrieved = await client.ranges.retrieve(range.key);
       expect(retrieved.key).toEqual(range.key);
       expect(retrieved.timeRange).toEqual(range.timeRange);
+    });
+    it("should retrieve a range by a key object", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({ name: "Key Object Range", timeRange });
+      const retrieved = await client.ranges.retrieve({ key: range.key });
+      expect(retrieved.key).toEqual(range.key);
+    });
+    it("should retrieve ranges by a flat filter", async () => {
+      const prefix = `flat-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const [labeled] = await client.ranges.create([
+        { name: `${prefix}-labeled`, timeRange },
+        { name: `${prefix}-plain`, timeRange },
+      ]);
+      const lbl = await client.labels.create({ name: prefix, color: "#E774D0" });
+      await labeled.addLabel(lbl.key);
+      const retrieved = await client.ranges.retrieve({
+        name: { startsWith: prefix },
+        labels: lbl.key,
+      });
+      expect(retrieved.map((r) => r.key)).toEqual([labeled.key]);
     });
     it("should retrieve a range by name", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
@@ -230,7 +295,7 @@ describe("range", () => {
       const childRange = await client.ranges.create({
         name: "My New Child Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
       const parent = await childRange.retrieveParent();
       expect(parent?.key).toEqual(parentRange.key);
@@ -282,12 +347,31 @@ describe("range", () => {
         color: "#E774D0",
       });
       await rng.addLabel(label.key);
-      const newRange = await client.ranges.retrieve({
-        keys: [rng.key],
-        includeLabels: true,
+      const newRange = await createTestClient().ranges.retrieve(rng.key);
+      expect(newRange.labels).toEqual([label.key]);
+      expect(await newRange.retrieveLabels()).toEqual([label]);
+    });
+
+    it("should retrieve labels added after the range was created", async () => {
+      const rng = await client.ranges.create({
+        name: "Labeled later",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      expect(newRange[0].labels).toHaveLength(1);
-      expect(newRange[0].labels?.[0]).toEqual(label);
+      const label = await client.labels.create({ name: "Later", color: "#E774D0" });
+      await rng.addLabel(label.key);
+      expect(await rng.retrieveLabels()).toEqual([label]);
+    });
+
+    it("should remove a label from the range", async () => {
+      const label = await client.labels.create({ name: "Removed", color: "#E774D0" });
+      const rng = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        labels: [label.key],
+      });
+      await rng.removeLabel(label.key);
+      const newRange = await createTestClient().ranges.retrieve(rng.key);
+      expect(newRange.labels).toEqual([]);
     });
   });
 
@@ -301,12 +385,48 @@ describe("range", () => {
         name: "My New One Second Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
-      const newParent = await client.ranges.retrieve({
-        keys: [child.key],
-        includeParent: true,
+      await client.ranges.dispatch(
+        child.key,
+        ranger.set({ path: ["parent"], value: parent.key }),
+      );
+      const stored = await createTestClient().ranges.retrieve(child.key);
+      expect(stored.parent).toEqual(parent.key);
+      expect((await stored.retrieveParent())?.key).toEqual(parent.key);
+    });
+
+    it("should retrieve a parent set after the range was created", async () => {
+      const parent = await client.ranges.create({
+        name: "Parent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      expect(newParent[0].parent).toEqual(parent.payload);
+      const child = await client.ranges.create({
+        name: "Child",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.dispatch(
+        child.key,
+        ranger.set({ path: ["parent"], value: parent.key }),
+      );
+      expect((await child.retrieveParent())?.key).toEqual(parent.key);
+    });
+
+    it("should remove the parent of the range", async () => {
+      const parent = await client.ranges.create({
+        name: "Parent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const child = await client.ranges.create({
+        name: "Child",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parent.key,
+      });
+      await client.ranges.dispatch(
+        child.key,
+        ranger.remove({ path: [], key: "parent" }),
+      );
+      expect(expectLive(client.ranges.getCached(child.key)).parent).toBeUndefined();
+      const stored = await createTestClient().ranges.retrieve(child.key);
+      expect(stored.parent).toBeUndefined();
     });
   });
 
@@ -326,6 +446,43 @@ describe("range", () => {
         const resolved = await rng.resolveAlias("myalias");
         expect(resolved).toEqual(ch.key);
       });
+
+      it("should reject an alias named after an object member", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const resolve = rng.resolveAlias("constructor");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
+      });
+
+      it("should reject a channel name that matches no channel", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = id.create();
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
+      });
+
+      it("should read a name pattern as an exact channel name", async () => {
+        const prefix = `alias_${id.create()}`;
+        await client.channels.create([
+          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
+          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = `${prefix}_.*`;
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
+      });
     });
     describe("deleteAlias", () => {
       it("should remove an alias for the range", async () => {
@@ -340,7 +497,14 @@ describe("range", () => {
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
-        expect(await rng.resolveAlias("myalias")).toBeUndefined();
+        const resolve = rng.resolveAlias("myalias");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
+        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
+        await expect(retrieve).rejects.toThrow(NotFoundError);
+        await expect(retrieve).rejects.toThrow(
+          `alias not found matching channel ${ch.key}`,
+        );
       });
     });
     describe("list", () => {
@@ -400,18 +564,19 @@ describe("range", () => {
         expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
       });
 
-      it("should restore the range's children entry when the write fails", async () => {
+      it("should restore the range in its parent's children when the write fails", async () => {
         const parent = await createRange();
         const child = await client.ranges.create({
           name: `optimistic-child-${id.create()}`,
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-          parent: { key: parent.key },
+          parent: parent.key,
         });
-        expect(await client.ranges.children.retrieve(parent.key)).toHaveLength(1);
+        const children = { parents: [parent.key] };
+        expect(await client.ranges.retrieve(children)).toHaveLength(1);
         await expect(
           client.ranges.delete(child.key, { onOptimistic: fail }),
         ).rejects.toBe(WRITE_FAILED);
-        const cached = expectLive(client.ranges.children.getCached(parent.key));
+        const cached = expectLive(client.ranges.getCached(children));
         expect(cached.map((c) => c.key)).toEqual([child.key]);
       });
     });
@@ -638,6 +803,44 @@ describe("cached reads", () => {
     });
   });
 
+  describe("writes during a fetch", () => {
+    const cachedName = (c: Synnax, key: ranger.Key): string | undefined => {
+      const cached = c.ranges.getCached(key);
+      return query.isLive(cached) ? cached.name : undefined;
+    };
+
+    const expectRenameKept = async (
+      fetch: (local: Synnax, rng: ranger.Range) => Promise<unknown>,
+    ) => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = fetch(local, rng);
+      await responded;
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.ranges.rename(rng.key, renamed);
+      await expect.poll(() => cachedName(local, rng.key)).toBe(renamed);
+      release();
+      await fetching;
+      expect(cachedName(local, rng.key)).toBe(renamed);
+    };
+
+    it("keeps a change that streams in during a search", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve({ searchTerm: rng.name }),
+      );
+    });
+
+    it("keeps a change that streams in during a retrieve by name", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve(rng.name),
+      );
+    });
+  });
+
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const rng = await createRange();
@@ -685,6 +888,21 @@ describe("cached reads", () => {
       }
     });
 
+    it("delivers the delete of a nested range that a remote delete cascades to", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.onChange(child.key, vi.fn());
+      try {
+        await client.ranges.retrieve(child.key);
+        await remote.ranges.delete(parent.key);
+        await expect
+          .poll(() => query.Deleted.matches(client.ranges.getCached(child.key)))
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+
     it("serves a record recreated while nothing subscribed to its delete", async () => {
       const rng = await createRange();
       const off = client.ranges.onChange(rng.key, () => {});
@@ -710,7 +928,7 @@ describe("cached reads", () => {
       }
     });
 
-    it("delivers remote label attachments through composition", async () => {
+    it("delivers a remote label attachment", async () => {
       const rng = await createRange();
       const lbl = await remote.labels.create({
         name: `qry-label-${id.create()}`,
@@ -719,16 +937,34 @@ describe("cached reads", () => {
       const off = client.ranges.onChange(rng.key, vi.fn());
       try {
         await client.ranges.retrieve(rng.key);
-        await remote.labels.label(rng.ontologyID, [lbl.key]);
+        await remote.labels.label(rng.resourceID, [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(rng.key);
-            return (
-              query.isLive(cached) &&
-              (cached.labels ?? []).some((l) => l.key === lbl.key)
-            );
+            return query.isLive(cached) && cached.labels.includes(lbl.key);
           })
           .toBe(true);
+      } finally {
+        off();
+      }
+    });
+
+    it("drops a deleted label from the cached ranges that hold it", async () => {
+      const [kept, deleted] = await client.labels.create([
+        { name: `qry-kept-${id.create()}`, color: "#E774D0" },
+        { name: `qry-deleted-${id.create()}`, color: "#E774D0" },
+      ]);
+      const rng = await createRange(client, { labels: [kept.key, deleted.key] });
+      const off = client.ranges.onChange(rng.key, vi.fn());
+      try {
+        await client.ranges.retrieve(rng.key);
+        await remote.labels.delete(deleted.key);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.getCached(rng.key);
+            return query.isLive(cached) && cached.labels;
+          })
+          .toEqual([kept.key]);
       } finally {
         off();
       }
@@ -738,15 +974,16 @@ describe("cached reads", () => {
   describe("children", () => {
     it("retrieves children and appends a remotely created child while subscribed", async () => {
       const parent = await createRange();
-      const child = await createRange(client, { parent: { key: parent.key } });
-      const off = client.ranges.children.onChange(parent.key, vi.fn());
+      const child = await createRange(client, { parent: parent.key });
+      const params = { parents: [parent.key] };
+      const off = client.ranges.onChange(params, vi.fn());
       try {
-        const children = await client.ranges.children.retrieve(parent.key);
+        const children = await client.ranges.retrieve(params);
         expect(children.map((c) => c.key)).toContain(child.key);
-        const second = await createRange(remote, { parent: { key: parent.key } });
+        const second = await createRange(remote, { parent: parent.key });
         await expect
           .poll(() => {
-            const cached = client.ranges.children.getCached(parent.key);
+            const cached = client.ranges.getCached(params);
             return query.isLive(cached) && cached.some((c) => c.key === second.key);
           })
           .toBe(true);
@@ -758,22 +995,13 @@ describe("cached reads", () => {
     it("pages children with limit and offset in a stable order", async () => {
       const parent = await createRange();
       await Promise.all(
-        Array.from({ length: 5 }, () =>
-          createRange(client, { parent: { key: parent.key } }),
-        ),
+        Array.from({ length: 5 }, () => createRange(client, { parent: parent.key })),
       );
-      const all = await client.ranges.children.retrieve(parent.key);
+      const parents = [parent.key];
+      const all = await client.ranges.retrieve({ parents });
       expect(all).toHaveLength(5);
-      const first = await client.ranges.children.retrieve({
-        key: parent.key,
-        limit: 3,
-        offset: 0,
-      });
-      const second = await client.ranges.children.retrieve({
-        key: parent.key,
-        limit: 3,
-        offset: 3,
-      });
+      const first = await client.ranges.retrieve({ parents, limit: 3, offset: 0 });
+      const second = await client.ranges.retrieve({ parents, limit: 3, offset: 3 });
       expect(first).toHaveLength(3);
       expect(second).toHaveLength(2);
       const paged = [...first, ...second].map((r) => r.key).sort();
@@ -783,20 +1011,20 @@ describe("cached reads", () => {
     it("sends the page bounds to the cluster instead of fetching every child", async () => {
       const parent = await createRange();
       await Promise.all(
-        Array.from({ length: 3 }, () =>
-          createRange(client, { parent: { key: parent.key } }),
-        ),
+        Array.from({ length: 3 }, () => createRange(client, { parent: parent.key })),
       );
-      const spy = vi.spyOn(client.ontology.children, "retrieve");
+      const send = spyOnSend(client);
       try {
-        const page = await client.ranges.children.retrieve({
-          key: parent.key,
-          limit: 2,
-        });
+        const page = await client.ranges.retrieve({ parents: [parent.key], limit: 2 });
         expect(page).toHaveLength(2);
-        expect(spy).toHaveBeenCalledWith(expect.objectContaining({ limit: 2 }));
+        expect(send).toHaveBeenCalledWith(
+          "/range/retrieve",
+          expect.objectContaining({ where: { parents: [parent.key] }, limit: 2 }),
+          expect.anything(),
+          expect.anything(),
+        );
       } finally {
-        spy.mockRestore();
+        send.mockRestore();
       }
     });
   });
@@ -804,163 +1032,93 @@ describe("cached reads", () => {
   describe("parent", () => {
     it("retrieves the parent of a child range", async () => {
       const parent = await createRange();
-      const child = await createRange(client, { parent: { key: parent.key } });
+      const child = await createRange(client, { parent: parent.key });
       const res = await client.ranges.retrieveParent(child.key);
       expect(res?.key).toEqual(parent.key);
-      const cached = client.ranges.parent.getCached(ranger.ontologyID(child.key));
-      expect(expectLive(cached)?.key).toEqual(parent.key);
+      expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(parent.key);
+      expect(expectLive(client.ranges.parent.getCached(child.key))?.key).toEqual(
+        parent.key,
+      );
+    });
+
+    it("throws a NotFoundError for a range that does not exist", async () => {
+      await expect(client.ranges.retrieveParent(uuid.create())).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("moves a subscribed parent answer when the child moves", async () => {
+      const [first, second] = await Promise.all([createRange(), createRange()]);
+      const child = await createRange(client, { parent: first.key });
+      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      try {
+        expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(
+          first.key,
+        );
+        await client.ranges.dispatch(
+          child.key,
+          ranger.set({ path: ["parent"], value: second.key }),
+        );
+        await expect
+          .poll(() => {
+            const cached = client.ranges.parent.getCached(child.key);
+            return query.isLive(cached) ? cached?.key : undefined;
+          })
+          .toEqual(second.key);
+      } finally {
+        off();
+      }
+    });
+
+    it("updates a subscribed parent answer when the parent is renamed", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      try {
+        await client.ranges.parent.retrieve(child.key);
+        const name = `renamed-${id.create()}`;
+        await client.ranges.rename(parent.key, name);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.parent.getCached(child.key);
+            return query.isLive(cached) ? cached?.name : undefined;
+          })
+          .toEqual(name);
+      } finally {
+        off();
+      }
     });
   });
 
-  describe("hasLabels membership", () => {
+  describe("labels membership", () => {
     it("admits a newly labeled range and evicts an unlabeled one", async () => {
       const lbl = await client.labels.create({
         name: `qry-lbl-${id.create()}`,
         color: "#FF0000",
       });
       const labeled = await createRange();
-      await client.labels.label(ranger.ontologyID(labeled.key), [lbl.key]);
+      await client.labels.label(ranger.resourceID(labeled.key), [lbl.key]);
       const handler = vi.fn();
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = client.ranges.onChange(params, handler);
       try {
         const initial = await client.ranges.retrieve(params);
         expect(initial.map((r) => r.key)).toEqual([labeled.key]);
         const late = await createRange();
-        await client.labels.label(ranger.ontologyID(late.key), [lbl.key]);
+        await client.labels.label(ranger.resourceID(late.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(params);
             return query.isLive(cached) && cached.some((r) => r.key === late.key);
           })
           .toBe(true);
-        await client.labels.remove(ranger.ontologyID(labeled.key), [lbl.key]);
+        await client.labels.remove(ranger.resourceID(labeled.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.ranges.getCached(params);
             return query.isLive(cached) && cached.every((r) => r.key !== labeled.key);
           })
           .toBe(true);
-      } finally {
-        off();
-      }
-    });
-  });
-
-  describe("filtered answer links", () => {
-    // A remote range's parent and label links often arrive before the range itself.
-    // Fetching the range to recheck it would send a request per remote create.
-    it("does not fetch an unseen range when its links arrive first", async () => {
-      const past = TimeStamp.now().sub(TimeSpan.days(3650));
-      const barrier = await createRange(remote, {
-        timeRange: new TimeRange(past, past.add(TimeSpan.seconds(1))),
-      });
-      const local = createTestClient();
-      await local.connect();
-      const parent = await createRange(local);
-      const lbl = await local.labels.create({
-        name: `qry-lbl-${id.create()}`,
-        color: "#FF0000",
-      });
-      const params = { overlapsWith: parent.timeRange, limit: 100 };
-      const off = local.ranges.onChange(params, vi.fn());
-      try {
-        await local.ranges.retrieve(params);
-        const send = spyOnSend(local);
-        const unseen = uuid.create();
-        const links: ontology.Relationship[] = [
-          {
-            from: ranger.ontologyID(parent.key),
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: ranger.ontologyID(unseen),
-          },
-          {
-            from: ranger.ontologyID(unseen),
-            type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-            to: label.ontologyID(lbl.key),
-          },
-        ];
-        links.forEach((rel) =>
-          local.ontology.cache.relationships.set(
-            ontology.relationshipToString(rel),
-            rel,
-          ),
-        );
-        local.labels.store.set(lbl.key, { ...lbl, name: `${lbl.name}-renamed` });
-        // Rides the same fetch batch as any recheck fetch, so those have been sent. The
-        // client also follows other specs' changes, so it may fetch unrelated ranges.
-        await local.ranges.retrieve(barrier.key);
-        const fetched = send.mock.calls.flatMap(([target, req]) =>
-          target === "/range/retrieve"
-            ? ((req as ranger.RetrieveRequest).keys ?? [])
-            : [],
-        );
-        expect(fetched).toContain(barrier.key);
-        expect(fetched).not.toContain(unseen);
-      } finally {
-        off();
-      }
-    });
-
-    it("does not fetch an unseen range when a label query loses its link", async () => {
-      const past = TimeStamp.now().sub(TimeSpan.days(3650));
-      const barrier = await createRange(remote, {
-        timeRange: new TimeRange(past, past.add(TimeSpan.seconds(1))),
-      });
-      const local = createTestClient();
-      await local.connect();
-      const lbl = await local.labels.create({
-        name: `qry-lbl-${id.create()}`,
-        color: "#FF0000",
-      });
-      const unseen = uuid.create();
-      const rel: ontology.Relationship = {
-        from: ranger.ontologyID(unseen),
-        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(lbl.key),
-      };
-      const { relationships } = local.ontology.cache;
-      relationships.set(ontology.relationshipToString(rel), rel);
-      const params = { hasLabels: [lbl.key] };
-      const off = local.ranges.onChange(params, vi.fn());
-      try {
-        await local.ranges.retrieve(params);
-        const send = spyOnSend(local);
-        relationships.delete(ontology.relationshipToString(rel));
-        // Rides the same fetch batch as any recheck fetch, so those have been sent. The
-        // client also follows other specs' changes, so it may fetch unrelated ranges.
-        await local.ranges.retrieve(barrier.key);
-        const fetched = send.mock.calls.flatMap(([target, req]) =>
-          target === "/range/retrieve"
-            ? ((req as ranger.RetrieveRequest).keys ?? [])
-            : [],
-        );
-        expect(fetched).toContain(barrier.key);
-        expect(fetched).not.toContain(unseen);
-      } finally {
-        off();
-      }
-    });
-
-    it("fetches an unseen range when a label adds it to a label query", async () => {
-      const lbl = await remote.labels.create({
-        name: `qry-lbl-${id.create()}`,
-        color: "#FF0000",
-      });
-      const rng = await createRange(remote);
-      const local = createTestClient();
-      await local.connect();
-      const params = { hasLabels: [lbl.key] };
-      const off = local.ranges.onChange(params, vi.fn());
-      try {
-        expect(await local.ranges.retrieve(params)).toEqual([]);
-        await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
-        await expect
-          .poll(() => {
-            const cached = local.ranges.getCached(params);
-            return query.isLive(cached) && cached.map((r) => r.key);
-          })
-          .toEqual([rng.key]);
       } finally {
         off();
       }
@@ -1020,93 +1178,131 @@ describe("store", () => {
   });
 });
 
-describe("write-through", () => {
-  const LABELS_PER_RANGE = 3;
-  const BATCH = 50;
+describe("dispatch", () => {
+  beforeAll(async () => {
+    await client.connect();
+    await remote.connect();
+  });
+  const rename = (value: string) => ranger.set({ path: ["name"], value });
 
-  const createDetachedClient = () => {
-    const makeRange = () => ({
-      key: uuid.create(),
-      name: "range",
-      timeRange: { start: 0, end: 1 },
-      labels: Array.from({ length: LABELS_PER_RANGE }, () => ({
-        key: uuid.create(),
-        name: "label",
-        color: "#000000",
-      })),
-      parent: { key: uuid.create(), name: "parent", timeRange: { start: 0, end: 1 } },
-    });
-    const unary: UnaryClient = {
-      use: () => {},
-      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
-        target: string,
-        req: z.input<RQ> | z.infer<RQ>,
-        _reqZ: RQ,
-        resZ: RS,
-      ): Promise<z.infer<RS>> => {
-        if (target !== "/range/retrieve") return resZ.parse({});
-        // Key fetches are parent backfills; echo bare ranges so the cache settles
-        // without growing the label or relationship tables.
-        const { keys } = req as ranger.RetrieveRequest;
-        if (keys != null)
-          return resZ.parse({
-            ranges: keys.map((key) => ({
-              key,
-              name: "parent",
-              timeRange: { start: 0, end: 1 },
-            })),
-          });
-        return resZ.parse({ ranges: Array.from({ length: BATCH }, makeRange) });
-      },
-    };
-    const cache = new query.Cache({ openStreamer: null, onError: () => {} });
-    const ontologyClient = new ontology.Client({ unary, cache });
-    const labels = new label.Client({ unary, cache, ontology: ontologyClient });
-    const coreURL = new url.URL(TEST_CORE_ADDRESS);
-    const frameClient = new framer.Client({
-      stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
-      unary,
-      file: new HTTPClient(coreURL, binary.JSON_CODEC),
-      retrieveChannels: async () => [],
-    });
-    const ranges = new ranger.Client({
-      unary,
-      cache,
-      labels,
-      ontology: ontologyClient,
-      framer: frameClient,
-      channels: async () => [],
-    });
-    return { ranges, labels, relationships: ontologyClient.cache.relationships };
-  };
-
-  let window = 0;
-  const fetchBatch = async (ranges: ranger.Client) =>
-    await ranges.retrieve({
-      overlapsWith: new TimeRange({
-        start: TimeStamp.seconds(window * 1e3),
-        end: TimeStamp.seconds(window++ * 1e3 + 1),
-      }),
-    });
-
-  it("should not scan the relationships table when writing a fetch through", async () => {
-    const { ranges, relationships } = createDetachedClient();
-    expect(await fetchBatch(ranges)).toHaveLength(BATCH);
-    const spy = vi.spyOn(relationships, "get");
-    await fetchBatch(ranges);
-    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
-    spy.mockRestore();
+  it("should store the actions and keep them in the cached range", async () => {
+    const rng = await createRange();
+    const end = rng.timeRange.end.add(TimeSpan.seconds(9));
+    expect(
+      await client.ranges.dispatch(rng.key, [
+        rename("Cold flow"),
+        ranger.set({ path: ["timeRange", "end"], value: end.valueOf() }),
+      ]),
+    ).toBe(true);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.name).toBe("Cold flow");
+    expect(stored.timeRange.end).toEqual(end);
+    const cached = expectLive(client.ranges.getCached(rng.key));
+    expect(cached.name).toBe("Cold flow");
+    expect(cached.timeRange.end).toEqual(end);
   });
 
-  it("should flush the label and relationship tables once per fetch", async () => {
-    const { ranges, labels, relationships } = createDetachedClient();
-    await fetchBatch(ranges);
-    let relationshipFlushes = 0;
-    let labelFlushes = 0;
-    relationships.subscribeBatch(() => relationshipFlushes++);
-    labels.store.subscribeBatch(() => labelFlushes++);
-    await fetchBatch(ranges);
-    expect(relationshipFlushes).toBe(1);
-    expect(labelFlushes).toBe(1);
+  it("should keep a dispatch that lands before an older fetch", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    await local.ranges.retrieve(rng.key);
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    const fetching = local.ranges.retrieve({ name: [rng.name] });
+    await responded;
+    await remote.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => expectLive(local.ranges.getCached(rng.key)).name)
+      .toBe("Cold flow");
+    release();
+    await fetching;
+    expect(expectLive(local.ranges.getCached(rng.key)).name).toBe("Cold flow");
+  });
+
+  it("should return false without a send when the range is not cached", async () => {
+    const rng = await createRange(remote);
+    const fresh = createTestClient();
+    const send = spyOnSend(fresh);
+    expect(await fresh.ranges.dispatch(rng.key, rename("Cold flow"))).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("should drop actions the Core refuses from the cached range", async () => {
+    const rng = await createRange();
+    await expect(
+      client.ranges.dispatch(rng.key, [
+        rename("Cold flow"),
+        ranger.set({ path: ["timeRange", "start"], value: "0" }),
+      ]),
+    ).rejects.toThrow("time_range.start");
+    const cached = expectLive(client.ranges.getCached(rng.key));
+    expect(cached.name).toBe(rng.name);
+    expect(cached.timeRange).toEqual(rng.timeRange);
+  });
+
+  it("should throw for an action the range cannot hold without a send", async () => {
+    const rng = await createRange();
+    const send = spyOnSend(client);
+    await expect(
+      client.ranges.dispatch(rng.key, ranger.set({ path: ["key"], value: "k" })),
+    ).rejects.toThrow("Failed to parse range");
+    expect(send).not.toHaveBeenCalled();
+    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
+  });
+
+  it("should reopen a range with an end that a number cannot hold", async () => {
+    const rng = await createRange();
+    const { start } = rng.timeRange.numeric;
+    expect(
+      await client.ranges.dispatch(
+        rng.key,
+        ranger.set({
+          path: ["timeRange"],
+          value: { start, end: TimeStamp.MAX.nanoseconds },
+        }),
+      ),
+    ).toBe(true);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.end).toEqual(TimeStamp.MAX);
+  });
+
+  it("should send a transaction as one dispatch", async () => {
+    const rng = await createRange();
+    const send = spyOnSend(client);
+    const tx = client.ranges.beginTransaction(rng.key);
+    tx.add(rename("Cold flow"));
+    tx.add(ranger.set({ path: ["color"], value: "#ff0000" }));
+    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe("Cold flow");
+    expect(await tx.commit()).toBe(true);
+    expect(
+      send.mock.calls.filter(([target]) => target === "/range/dispatch"),
+    ).toHaveLength(1);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.name).toBe("Cold flow");
+    expect(stored.color).toEqual(color.construct("#ff0000"));
+  });
+
+  it("applies another client's dispatch to a cached range", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    await client.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => {
+        const cached = remote.ranges.getCached(rng.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe("Cold flow");
+  });
+
+  it("ingests a range that another client creates", async () => {
+    const rng = await createRange(remote);
+    await expect
+      .poll(() => {
+        const cached = client.ranges.getCached(rng.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe(rng.name);
   });
 });

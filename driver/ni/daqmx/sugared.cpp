@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstdlib>
+
 #include "driver/ni/daqmx/sugared.h"
 
 namespace driver::ni::daqmx {
@@ -24,9 +27,23 @@ parse_error(const std::shared_ptr<API> &dmx, const Status status) {
     if (status == 0) return x::errors::NIL;
     const auto err_msg = get_error_msg(dmx);
     return x::errors::Error{
-        CRITICAL_ERROR.sub(std::to_string(status).substr(1)),
+        CRITICAL_ERROR.sub(std::to_string(std::abs(status))),
         err_msg
     };
+}
+
+/// @brief reads an attribute with two calls. Given no buffer, DAQmx returns the size
+/// that the value needs as a positive status.
+template<typename T, typename Read>
+std::pair<std::vector<T>, x::errors::Error>
+read_sized(const std::shared_ptr<API> &dmx, const Read &read) {
+    const Status size = read(nullptr, 0);
+    if (size < 0) return {{}, parse_error(dmx, size)};
+    std::vector<T> buf(static_cast<std::size_t>(size));
+    if (size == 0) return {std::move(buf), x::errors::NIL};
+    if (const auto err = parse_error(dmx, read(buf.data(), static_cast<uInt32>(size))))
+        return {{}, err};
+    return {std::move(buf), x::errors::NIL};
 }
 
 x::errors::Error SugaredAPI::process_error(const int32 status) const {
@@ -5225,5 +5242,40 @@ x::errors::Error SugaredAPI::CreateAIVoltageRMSChan(
         units,
         customScaleName
     ));
+}
+
+std::pair<std::string, x::errors::Error>
+SugaredAPI::GetDeviceAttributeString(const char deviceName[], const int32 attribute) {
+    auto [buf, err] = read_sized<char>(this->dmx, [&](char value[], const uInt32 size) {
+        return this->dmx->GetDeviceAttributeString(deviceName, attribute, value, size);
+    });
+    if (err) return {"", err};
+    return {std::string(buf.begin(), std::ranges::find(buf, '\0')), x::errors::NIL};
+}
+
+std::pair<std::vector<float64>, x::errors::Error>
+SugaredAPI::GetDeviceAttributeDoubleArray(
+    const char deviceName[],
+    const int32 attribute
+) {
+    return read_sized<float64>(this->dmx, [&](float64 value[], const uInt32 size) {
+        return this->dmx
+            ->GetDeviceAttributeDoubleArray(deviceName, attribute, value, size);
+    });
+}
+
+std::pair<std::vector<int32>, x::errors::Error>
+SugaredAPI::GetPhysicalChanAttributeInt32Array(
+    const char physicalChannel[],
+    const int32 attribute
+) {
+    return read_sized<int32>(this->dmx, [&](int32 value[], const uInt32 size) {
+        return this->dmx->GetPhysicalChanAttributeInt32Array(
+            physicalChannel,
+            attribute,
+            value,
+            size
+        );
+    });
 }
 }

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -24,8 +25,9 @@ describe("arc", () => {
         actions: [],
       });
       const a: arc.New = {
-        name: "test",
-        mode: "text",
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
       };
       const randomArc = await client.arcs.create(a);
       await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toSatisfy(
@@ -36,12 +38,13 @@ describe("arc", () => {
     it("should allow the caller to retrieve arcs with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: ["retrieve"],
       });
       const randomArc = await client.arcs.create({
-        name: "test",
-        mode: "text",
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
       });
       const retrieved = await userClient.arcs.retrieve(randomArc.key);
       expect(retrieved.key).toBe(randomArc.key);
@@ -49,40 +52,45 @@ describe("arc", () => {
     });
 
     it("should allow the caller to create arcs with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [arc.ontologyID("")],
-        actions: ["create"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [arc.resourceID("")], actions: ["create"] },
+        { name: "test", objects: [arc.directory.resourceID("")], actions: ["update"] },
+      ]);
       await userClient.arcs.create({
-        name: "test",
-        mode: "text",
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
       });
     });
 
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: [],
       });
       await expect(
         userClient.arcs.create({
-          name: "test",
-          mode: "text",
+          name: id.create(),
+          type: "automation",
+          source: { mode: "text" },
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete arcs with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [arc.ontologyID("")],
-        actions: ["delete", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [arc.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [arc.directory.resourceID("")], actions: ["update"] },
+      ]);
       const randomArc = await client.arcs.create({
-        name: "test",
-        mode: "text",
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
       });
       await userClient.arcs.delete(randomArc.key);
       await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(
@@ -93,12 +101,13 @@ describe("arc", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID("")],
+        objects: [arc.resourceID("")],
         actions: [],
       });
       const randomArc = await client.arcs.create({
-        name: "test",
-        mode: "text",
+        name: id.create(),
+        type: "automation",
+        source: { mode: "text" },
       });
       await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

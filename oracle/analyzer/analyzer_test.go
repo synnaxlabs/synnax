@@ -11,6 +11,7 @@ package analyzer_test
 
 import (
 	"slices"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,6 +47,123 @@ var _ = Describe("Analyzer", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
+	})
+
+	Describe("Qualified type references", func() {
+		It("Should reject a namespace the file does not import", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					channel channel.Key
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
+		})
+
+		It("Should reject a name that a loaded import does not hold", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = `
+				Gradient struct {
+					stops int32
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+
+		It("Should not bind a filter name to a local type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					key filter.Key
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := entry.Form.(resolution.StructForm).Fields[0]
+			Expect(field.Type.Name).To(Equal("filter.Key"))
+		})
+
+		It("Should keep a warning for an import with no loaded types", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = ""
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+	})
+
+	Describe("Repeated field domain expressions", func() {
+		DescribeTable(
+			"Should reject an expression that a field declares twice",
+			func(ctx SpecContext, field string) {
+				source := `
+					Entry struct {
+						` + field + `
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"field value declares @validate max twice",
+				))
+			},
+			Entry("on two lines", `value int32 {
+				@validate max 10
+				@validate max 20
+			}`),
+			Entry("inline and on a line", `value int32 @validate max 10 {
+				@validate max 20
+			}`),
+			Entry("in one block", `value int32 {
+				@validate {
+					max 10
+					max 20
+				}
+			}`),
+		)
+
+		It("Should merge different expressions on two lines", func(ctx SpecContext) {
+			source := `
+				Entry struct {
+					value int32 {
+						@validate min 1
+						@validate max 20
+					}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := MustBeOk(entry.Form.(resolution.StructForm).Field("value"))
+			Expect(field.Domains["validate"].Expressions).To(HaveExactElements(
+				HaveField("Name", "min"),
+				HaveField("Name", "max"),
+			))
+		})
 	})
 
 	Describe("Retired version tag", func() {
@@ -188,6 +306,27 @@ Entry struct {
 			diag := analyzeAt(ctx, `
 Entry struct {
 	key uuid @key
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"actions are live-owned",
+			))
+		})
+
+		It("Should reject an action declared in a union in a version file", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry union on type {
+	a {}
 
 	action Rename {
 		name string
@@ -613,6 +752,92 @@ Node union on variant {
 		)
 
 		It(
+			"Should allow a struct to extend a parent omitted in its language",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Record struct {
+					key    uint32
+					secret string
+					@ts omit
+				}
+				Shape struct extends Record {
+					-secret
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should allow a struct to extend a parent with no output in its language",
+			func(ctx SpecContext) {
+				source := `
+				Record struct {
+					key uint32
+					@go output "out"
+				}
+				Shape struct extends Record {
+					@py output "py/out"
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should reject an inherited field whose type is omitted in the language",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Hash struct {
+					value string
+					@ts omit
+				}
+				Record struct {
+					key  uint32
+					hash Hash
+					@ts omit
+				}
+				Shape struct extends Record {}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Shape generates for ts but field hash references " +
+						"test.Hash, which is omitted in ts",
+				))
+			},
+		)
+
+		It(
+			"Should allow removing an inherited field whose type is omitted",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Hash struct {
+					value string
+					@ts omit
+				}
+				Record struct {
+					key  uint32
+					hash Hash
+					@ts omit
+				}
+				Shape struct extends Record {
+					-hash
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
 			"Should allow an enum placed beside a same-file struct's output",
 			func(ctx SpecContext) {
 				source := `
@@ -682,6 +907,26 @@ Node union on variant {
 			`
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should keep an output alive through the actions of a union",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "ts/out"
+				Entry union on type {
+					a {}
+
+					action Rename {
+						name string
+					}
+
+					@ts omit
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
@@ -809,6 +1054,116 @@ Node union on variant {
 					}
 				}
 			`, "test.Entry.value is omitted in every language test.Entry generates in"),
+		)
+	})
+
+	Describe("Length rules", func() {
+		DescribeTable(
+			"Should reject a length rule on a field that is not a string",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry.value has a length rule, but its type is not a string",
+				))
+			},
+			Entry("a uuid with max_length", `
+				Entry struct {
+					value uuid { @validate max_length 64 }
+				}
+			`),
+			Entry("a uuid with min_length 1", `
+				Entry struct {
+					value uuid { @validate min_length 1 }
+				}
+			`),
+			Entry("a number", `
+				Entry struct {
+					value int32 { @validate min_length 2 }
+				}
+			`),
+			Entry("an array of strings", `
+				Entry struct {
+					value string[] { @validate max_length 64 }
+				}
+			`),
+			Entry("an alias of uuid", `
+				Key = uuid
+				Entry struct {
+					value Key { @validate max_length 64 }
+				}
+			`),
+			Entry("an override of an inherited uuid field", `
+				Parent struct {
+					value uuid
+				}
+				Entry struct extends Parent {
+					value? { @validate max_length 64 }
+				}
+			`),
+		)
+
+		DescribeTable(
+			"Should accept a length rule on a string field",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a string", `
+				Entry struct {
+					value string {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`),
+			Entry("an alias of string", `
+				Name = string
+				Entry struct {
+					value Name { @validate max_length 64 }
+				}
+			`),
+			Entry("an override of an inherited string field", `
+				Parent struct {
+					value string
+				}
+				Entry struct extends Parent {
+					value? { @validate max_length 64 }
+				}
+			`),
+		)
+	})
+
+	Describe("Number literals", func() {
+		hugeFloat := "1" + strings.Repeat("0", 400) + ".0"
+		DescribeTable("Should reject a literal that does not fit in 64 bits",
+			func(ctx SpecContext, source, message string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("an array size", `
+				Entry struct {
+					data uint8[99999999999999999999]
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an enum value", `
+				Size enum {
+					large = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an integer default", `
+				Entry struct {
+					count int64 = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("a float default", `
+				Entry struct {
+					ratio float64 = `+hugeFloat+`
+				}
+			`, "number "+hugeFloat+" does not fit in a float64"),
 		)
 	})
 
@@ -2093,9 +2448,72 @@ Node union on variant {
 				}
 			`
 			table, diag := Analyze(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
+			Expect(diag.Flat().Errors()).To(HaveExactElements(
+				HaveField("Message", "struct Self cannot extend itself"),
+			))
 		})
+
+		It("Should report circular inheritance under a union", func(ctx SpecContext) {
+			source := `
+				A struct extends B {
+					a string
+				}
+				B struct extends A {
+					b string
+				}
+				U union on variant extends A {
+					x {}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				"circular inheritance detected: struct A",
+			))
+		})
+
+		DescribeTable(
+			"Should report circular inheritance in an imported struct",
+			func(ctx SpecContext, source string) {
+				loader.Add("schemas/cycle", `
+					A struct extends B {
+						a string
+					}
+					B struct extends A {
+						b string
+					}
+				`)
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"circular inheritance detected: struct A",
+				))
+			},
+			Entry("as a union base", `
+				import "schemas/cycle"
+
+				U union on variant extends cycle.A {
+					x {}
+				}
+			`),
+			Entry("as a variant payload", `
+				import "schemas/cycle"
+
+				U union on variant {
+					x cycle.A
+				}
+			`),
+			Entry("as an action base", `
+				import "schemas/cycle"
+
+				Schematic struct {
+					key uuid
+
+					action Rename extends cycle.A {}
+				}
+			`),
+		)
 
 		It("Should error on non-existent parent struct", func(ctx SpecContext) {
 			source := `
@@ -2670,6 +3088,109 @@ Node union on variant {
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
+			},
+		)
+	})
+
+	Describe("Union Actions", func() {
+		It("Should collect and resolve the actions of a union", func(ctx SpecContext) {
+			source := `
+				Base struct {
+					key uuid
+				}
+
+				Point struct {
+					x float64
+				}
+
+				Shape union on type extends Base {
+					circle {
+						radius float64
+					}
+					square {}
+
+					action Rename {
+						name string
+					}
+
+					action Place {
+						at Point
+					}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			actions := table.MustGet("test.Shape").Actions()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].Name).To(Equal("Rename"))
+			Expect(actions[1].Name).To(Equal("Place"))
+			Expect(actions[1].Fields[0].Type.Name).To(Equal("test.Point"))
+		})
+
+		It(
+			"Should flatten an extended struct's fields into a union action",
+			func(ctx SpecContext) {
+				source := `
+				Named struct {
+					name string
+				}
+
+				Shape union on type {
+					circle {}
+
+					action Rename extends Named {
+						extra int32
+					}
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				action := table.MustGet("test.Shape").Actions()[0]
+				names := make([]string, len(action.Fields))
+				for i, f := range action.Fields {
+					names[i] = f.Name
+				}
+				Expect(names).To(Equal([]string{"name", "extra"}))
+			},
+		)
+
+		It(
+			"Should error when a union action extends a non-struct type",
+			func(ctx SpecContext) {
+				source := `
+				Kind enum {
+					a = "a"
+				}
+
+				Shape union on type {
+					circle {}
+
+					action Apply extends Kind {}
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
+			},
+		)
+
+		It(
+			"Should point an action in an inline variant to the union body",
+			func(ctx SpecContext) {
+				source := `
+				Shape union on type {
+					circle {
+						action Grow {
+							by float64
+						}
+					}
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"declare actions in the union body",
+				))
 			},
 		)
 	})

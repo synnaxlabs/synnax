@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import cast
 
 import pytest
@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import obj
+from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 
@@ -208,7 +209,9 @@ class TestLabJackReadTask:
                 scale=sy.labjack.NoneScale(type="none"),
             )
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.labjack.ReadTask(
             name="test-labjack-read-task",
@@ -234,6 +237,7 @@ class TestLabJackReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
@@ -383,7 +387,9 @@ class TestLabJackWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.labjack.WriteTask(
             name="test-labjack-write-task",
@@ -408,6 +414,7 @@ class TestLabJackWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
@@ -415,7 +422,9 @@ class TestLabJackWriteTask:
         )
         sy.labjack.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.labjack.WriteTask(
             name="test-round-trip",
@@ -443,6 +452,7 @@ class TestLabJackWriteTask:
             ],
         )
 
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="labjack_write",
@@ -471,28 +481,49 @@ class TestLabJackWriteTask:
 
 
 @pytest.mark.labjack
+class TestLabJackDevice:
+    """Tests for the LabJack device constructor."""
+
+    def test_key_is_serial_number(self) -> None:
+        """Should key the device by its serial number, as the Driver's scanner does."""
+        device = sy.labjack.Device(model=sy.labjack.T8, serial_number=480010003)
+        assert device.key == "480010003"
+        assert device.make == "LabJack"
+        assert device.model == "LJM_dtT8"
+
+    def test_invalid_model(self) -> None:
+        """Should reject a model that Synnax does not support."""
+        with pytest.raises(ValueError, match="Invalid model 'LJM_dtDIGIT'"):
+            sy.labjack.Device(
+                model=cast(sy.labjack.SUPPORTED_MODELS, "LJM_dtDIGIT"),
+                serial_number=1,
+            )
+
+
+@pytest.mark.labjack
 class TestLabJackDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
-    def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
+    @pytest.fixture
+    def device(self, client: sy.Synnax) -> Iterator[sy.labjack.Device]:
+        """A T7 on the embedded rack, deleted after the test."""
+        dev = sy.labjack.Device(
+            model=sy.labjack.T7,
+            serial_number=470000001,
+            name="Test LabJack T7",
+            location="LJM_ctUSB",
+            rack=client.racks.retrieve_embedded_rack().key,
+        )
+        client.devices.create(dev)
+        yield dev
+        client.devices.delete(keys=[dev.key])
+
+    def test_read_task_updates_device_properties(
+        self, client: sy.Synnax, device: sy.labjack.Device
+    ) -> None:
         """Test that configuring a ReadTask updates device properties with channel
         mappings.
         """
-        # Create a rack
-        rack = client.racks.retrieve_embedded_rack()
-
-        # Create a device
-        device = sy.labjack.Device(
-            model=sy.labjack.T7,
-            identifier="ANY",
-            name="Test LabJack T7",
-            location="USB",
-            rack=rack.key,
-            connection_type="ANY",
-        )
-
-        client.devices.create(device)
-
         # Create channels
         suffix = random_name()
         time_ch = client.channels.create(
@@ -509,6 +540,12 @@ class TestLabJackDevicePropertyUpdates:
 
         ch2 = client.channels.create(
             name=f"fio4_{suffix}",
+            data_type=sy.DataType.UINT8,
+            index=time_ch.key,
+        )
+
+        ch3 = client.channels.create(
+            name=f"mio1_{suffix}",
             data_type=sy.DataType.UINT8,
             index=time_ch.key,
         )
@@ -532,6 +569,11 @@ class TestLabJackDevicePropertyUpdates:
                     port="FIO4",
                     channel=ch2.key,
                 ),
+                sy.labjack.DigitalReadChannel(
+                    type="digital",
+                    port="MIO1",
+                    channel=ch3.key,
+                ),
             ],
         )
 
@@ -542,36 +584,15 @@ class TestLabJackDevicePropertyUpdates:
         updated_device = client.devices.retrieve(key=device.key)
         props = updated_device.properties
 
-        # Verify read.channels mapping exists
-        assert "read" in props
-        assert "channels" in obj(props, "read")
+        assert obj(props, "AI", "channels") == {"AIN0": ch1.key}
+        assert obj(props, "DI", "channels") == {"DIO4": ch2.key, "DIO21": ch3.key}
 
-        # Verify port -> channel key mapping
-        channels = obj(props, "read", "channels")
-        assert "AIN0" in channels
-        assert channels["AIN0"] == ch1.key
-        assert "FIO4" in channels
-        assert channels["FIO4"] == ch2.key
-
-    def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
+    def test_write_task_updates_device_properties(
+        self, client: sy.Synnax, device: sy.labjack.Device
+    ) -> None:
         """Test that configuring a WriteTask updates device properties with channel
         mappings.
         """
-        # Create a rack
-        rack = client.racks.retrieve_embedded_rack()
-
-        # Create a device
-        device = sy.labjack.Device(
-            model=sy.labjack.T7,
-            identifier="ANY",
-            name="Test LabJack Write T7",
-            location="USB",
-            rack=rack.key,
-            connection_type="ANY",
-        )
-
-        client.devices.create(device)
-
         suffix = random_name()
 
         # Create command and state channels
@@ -639,13 +660,9 @@ class TestLabJackDevicePropertyUpdates:
         updated_device = client.devices.retrieve(key=device.key)
         props = updated_device.properties
 
-        # Verify write.channels mapping exists
-        assert "write" in props
-        assert "channels" in obj(props, "write")
-
-        # Verify port -> state_channel key mapping
-        channels = obj(props, "write", "channels")
-        assert "DAC0" in channels
-        assert channels["DAC0"] == dac0_state.key
-        assert "FIO4" in channels
-        assert channels["FIO4"] == fio4_state.key
+        assert obj(props, "AO", "channels") == {
+            "DAC0": {"command": dac0_cmd.key, "state": dac0_state.key}
+        }
+        assert obj(props, "DO", "channels") == {
+            "DIO4": {"command": fio4_cmd.key, "state": fio4_state.key}
+        }

@@ -48,13 +48,38 @@ cc_test(
 )
 
 cc_library(
+    name = "sii",
+    srcs = ["sii.cpp"],
+    hdrs = ["sii.h"],
+    deps = [
+        "//driver/ethercat/dc",
+        "//driver/ethercat/pdo",
+        "//driver/ethercat/telem",
+    ],
+)
+
+cc_test(
+    name = "sii_test",
+    srcs = ["sii_test.cpp"],
+    deps = [
+        ":sii",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
         "@platforms//os:macos": ["api_darwin.cpp"],
+        "@platforms//os:windows": ["api_windows.cpp"],
         "//conditions:default": ["api_noop.cpp"],
     }),
     hdrs = ["api.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/errors",
@@ -62,15 +87,32 @@ cc_library(
         "//x/cpp/errors",
     ] + select({
         "@platforms//os:macos": [":bpf"],
+        "@platforms//os:windows": [":util"],
         "//conditions:default": [],
     }),
+)
+
+cc_test(
+    name = "api_windows_test",
+    srcs = ["api_windows_test.cpp"],
+    linkopts = ["/DEFAULTLIB:iphlpapi.lib"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_library(
     name = "soem_mock_api",
     hdrs = ["mock_api.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
-    deps = [":soem_api"],
+    deps = [
+        ":soem_api",
+        "//x/cpp/binary",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
+    ],
 )
 
 cc_library(
@@ -79,14 +121,21 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
+        ":sii",
         ":soem_api",
         ":util",
+        "//driver/ethercat/coe",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/master",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
+        "//x/cpp/binary",
+        "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
         "@abseil-cpp//absl/log",
     ],
 )
@@ -99,6 +148,8 @@ cc_test(
         ":soem_mock_api",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/master:contract",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

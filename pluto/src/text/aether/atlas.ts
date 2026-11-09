@@ -166,4 +166,9 @@ export class AtlasRegistry {
     this.atlases.set(key, atlas);
     return atlas;
   }
+
+  /** Drops every atlas, so that the next {@link get} draws its glyphs again. */
+  clear(): void {
+    this.atlases.clear();
+  }
 }

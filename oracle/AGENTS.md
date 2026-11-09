@@ -34,7 +34,7 @@ or generator logic and schemas disagree.
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `hand`,
+  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`,
   `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
   declaration carries `@go marshal`; references never pull a codec in.
   `@go marshal hand` marks hand-written codec methods: nothing generates, references
@@ -63,13 +63,13 @@ or generator logic and schemas disagree.
   into an ended chain; `oracle migrate` refuses it; declare members in a new version
   file to revive it. Example: arc `Program` ended at v1 — arc v0 records embed its v0
   bytes, and arc v1+ resolve the live shape at read time.
-- **Imports split on the persistence boundary.** A stored reference (part of the
-  record's persisted bytes, e.g. a range's color) imports a pinned version file
-  (`import "schemas/x/versions/color/v0"`). A resolved reference (read-time materialized
-  `@go marshal omit` fields, e.g. a task's status) imports the dependency's live schema
-  and always resolves its current surface. A live schema may import only its own
-  resource's versions directory. The `versions` gate enforces placement, and fails the
-  current surface on any stored pin lagging its dependency chain's current version.
+- **Version files pin every versioned dependency.** A stored reference (a range's color)
+  and a `@go marshal omit` field (a task's status) both import a pinned version file
+  (`import "schemas/x/versions/color/v0"`), and the version package resolves them there.
+  Only a chainless or ended dependency (arc's Program) imports its live schema. A live
+  schema may import only its own resource's versions directory. The `versions` gate
+  enforces placement, and fails the current surface on any stored pin lagging its
+  dependency chain's current version.
 - **Change workflow**: mint a new version only when the change makes the stored bytes on
   disk different from what a shipped release wrote. Every other change, including one to
   a shipped version, edits the current vN file in place: an unshipped version, an
@@ -86,18 +86,30 @@ or generator logic and schemas disagree.
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
   generated import. A frozen type that the current version aliases also gets the live
-  `@validate` rules and `@go to_any` marker (a generated `ToAny` that copies a generic
-  struct into its `any` instantiation), since the current package's alias runs the
-  frozen methods. Hand-written frozen definer files are marked `@go hand` in their
-  version file; hand-ness is version-local — an aliased member whose definer is an older
-  version still generates in the current package as a backward alias. `migrate.gen.go`
-  is a pure function of the two adjacent version files; hand-written transforms live in
+  `@validate` rules, `@go fields`, `@go imports`, and `@go to_any` marker (a generated
+  `ToAny` that copies a generic struct into its `any` instantiation), since the current
+  package's alias is the frozen type. A mint leaves the demoted package's generated
+  files byte-identical: current and frozen packages keep the version file's declaration
+  order, declare every member it records even when the live file marks it `@go omit`,
+  and resolve every dependency reference at the version it pins, never at the root. A
+  version package therefore reaches only declarations its version files fix, so it
+  compiles and stands still until a version file changes. The one exception is a type
+  the new version redeclares: it stops being the live one, so the demoted package loses
+  the type's live `@validate` and `@default` rules, `@go fields`, `@go imports`, and
+  `@go to_any`. To keep them, restate them in the version file that defines the type. A
+  frozen package also reads a pinned dependency type's rules from its version file only,
+  so a live-only rule on that type (label's `name`) drops the frozen package's
+  `Validate` call into it. Restate such a rule in the dependency's version file too.
+  Hand-written frozen definer files are marked `@go hand` in their version file;
+  hand-ness is version-local — an aliased member whose definer is an older version still
+  generates in the current package as a backward alias. `migrate.gen.go` is a pure
+  function of the two adjacent version files; hand-written transforms live in
   `migrate.go` (renames and cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
-  resolve their references at read time. A transient shape change never requires a mint,
-  because it does not change the stored bytes.
+  resolve their references at the pinned version. A transient shape change never
+  requires a mint, because it does not change the stored bytes.
 - `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
   files across the versions tree: a `Version imex.Version` constant in every
   `versions/vK` package the Core has exported (from the earliest version file carrying
@@ -130,11 +142,18 @@ not, whether the schema itself can tell.
   client forgets a rule, but cannot forget a shape.
 - **`X?`**: the field applies only in some cases, and the deciding fact is outside the
   message, such as a channel data type. No schema can settle it, so absence is the
-  honest encoding.
+  honest encoding. On the wire, an absent field is left out of the JSON, never sent as
+  `null`.
 
 Never fake absence with a value. No `none` enum member, no empty string meaning "not
 applicable". A sentinel claims the question was answered when it was not, and it makes
 the "did you forget" check impossible to write.
+
+One exception exists for `@ref`: a scalar with a zero default (`= 0`, `= ""`) holds no
+target while it is zero, because stored task configs use zero for "none". Give a new
+reference `X?` instead. A `detach` reference needs `X?`, an array, or a zero default. A
+required field in an array element also detaches: the detach drops the element. The same
+rules hold for top-level and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
@@ -146,6 +165,19 @@ a declared enum already names the same set, borrow it:
 every language, the variant constants are the enum's members, and no `<Union>Type` is
 emitted. The enum must be a string enum whose values are exactly the variant names; the
 analyzer rejects a variant without a member and a member without a variant.
+
+## Union bases
+
+When a union extends one base struct and every variant inherits it, Oracle generates
+accessors for the base: `Base()` and `SetBase(b)` on the Go wrapper, and a read-only
+`base(const U&)` in the C++ namespace. Never write these by hand. A union with no base,
+with two or more bases, or with a variant that drops a base field (`-port`) gets none.
+
+- `Base()` returns the zero base when `Variant` is nil. A nil variant is valid decoded
+  input (`null`), and readers such as validators must not crash on it.
+- `SetBase` panics when `Variant` is nil. There is no variant to hold the base, and a
+  dropped write would lose data with no error.
+- C++ has no nil case, because a `std::variant` always holds an alternative.
 
 ## Default groups
 
@@ -180,7 +212,9 @@ when most types need it, declare it file-level and omit the exceptions.
 
 - `@<lang> omit`: the type does not exist in that language. References to it from
   generating types are analyzer errors; a language output whose types are all omitted is
-  an analyzer error (remove the output).
+  an analyzer error (remove the output). One exception: a live `@go omit` on a member
+  that a version file records only keeps it out of the root package. Its `versions/vN`
+  package still declares it.
 - `@<lang> hand`: the type exists, hand-written at the declared output path. No
   declaration is generated, but references resolve to it, pb translators generate
   against it, and it anchors the language output.
@@ -192,6 +226,16 @@ when most types need it, declare it file-level and omit the exceptions.
 - Go has no field-level omit. `@go marshal omit` keeps a field out of the codec;
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
+
+## Path actions
+
+`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
+path actions may edit. A path to any other field fails, so a Core-owned field such as
+`labels` gets no tag. Go generates a `Patch` method for the document and for every
+struct that a `@patch` field reaches, in the version package that declares the struct. A
+struct with a hand-written Go JSON decoder, such as `color.Color`, declares
+`@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
+runs the decoder.
 
 ## Rules
 

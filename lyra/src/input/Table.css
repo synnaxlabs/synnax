@@ -9,13 +9,29 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A table wider than its container scrolls. */
+.lyra-input__table-scroll {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
 /* A ruled grid. The data cells join into one box with shared lines. Row labels and
    remove buttons sit outside it. */
 .lyra-input__table {
     width: 100%;
+
+    /* The table takes the width its columns need, past which its container scrolls. */
+    min-width: var(--pluto-input-table-width);
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+
+    --pluto-input-table-gutter-width: 5rem;
+    --pluto-input-table-action-width: 5rem;
+    --pluto-input-table-width: calc(
+        var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
+    );
 
     /* Inner lines are separators. The outer edge is a control border, as on inputs. */
     --pluto-table-line: var(--pluto-gray-l6);
@@ -25,6 +41,23 @@
     --pluto-table-cell-radius: calc(
         var(--pluto-border-radius-tiny) - var(--pluto-border-width)
     );
+
+    &:has(> colgroup > .lyra-input__table-gutter) {
+        --pluto-input-table-width: calc(
+            var(--pluto-input-table-columns-width) +
+                var(--pluto-input-table-action-width) +
+                var(--pluto-input-table-gutter-width)
+        );
+    }
+
+    /* Columns that all declare a width keep it, so the table does not stretch. */
+    &.lyra--sized {
+        width: var(--pluto-input-table-width);
+    }
+
+    & .lyra-input__table-action {
+        width: var(--pluto-input-table-action-width);
+    }
 
     & th,
     & td {
@@ -46,8 +79,13 @@
 
     & th:last-child,
     & td:last-child {
-        width: 5rem;
+        width: var(--pluto-input-table-action-width);
         text-align: center;
+    }
+
+    /* Matches the gutter's gap, so the remove button clears the box edge. */
+    & tbody td:last-child {
+        padding-left: 1rem;
     }
 
     /* Headings sit over the cell text, which shadow inputs inset. */
@@ -56,7 +94,7 @@
     }
 
     & .lyra-input__table-gutter {
-        width: 5rem;
+        width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
 
         & > .lyra-text {
@@ -104,7 +142,9 @@
         background: var(--pluto-fill-rest);
     }
 
-    & tbody .lyra-input__container {
+    /* A cell's content fills it, whether a bare input or a container. */
+    & tbody td:not(:last-child) > * {
+        width: 100%;
         border-radius: 0;
     }
 
@@ -112,7 +152,7 @@
     & tbody tr:last-child > :nth-last-child(2) {
         border-bottom-right-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-bottom-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -121,7 +161,7 @@
     &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
         border-top-right-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-top-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -135,7 +175,7 @@
         ) {
         border-bottom-left-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-bottom-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -156,7 +196,7 @@
         ) {
         border-top-left-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-top-left-radius: var(--pluto-table-cell-radius);
         }
     }

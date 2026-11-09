@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
-import { type Form } from "@synnaxlabs/lyra/form";
-import { array, type optional, verbs, zod } from "@synnaxlabs/x";
+import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
+import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -85,11 +84,17 @@ export interface KeyParams {
 
 export const useName = createSelector(({ name }) => name);
 
+export const useRange = createSelector(({ range }) => range);
+
 export type ListQuery = task.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
+  normalizeQuery: (query) => ({
+    ...BASE_QUERY,
+    ...query,
+    where: { internal: { eq: false }, ...query.where },
+  }),
   retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
@@ -136,7 +141,6 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
 
 export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
   schemas: S;
-  initialValues: InitialValues<S>;
 }
 
 export interface InitialValues<
@@ -146,88 +150,28 @@ export interface InitialValues<
   "key" | "rack" | "internal" | "snapshot" | "configHash"
 > {}
 
-export type FormQuery = {
-  key: task.Key;
-};
-
-export const toFormValues = <S extends task.Schemas = task.Schemas>(
-  t: InitialValues<S>,
-): z.infer<FormSchema<S>> => ({
-  key: t.key,
-  name: t.name,
-  rack: t.rack ?? 0,
-  type: t.type,
-  config: t.config,
-  configHash: t.configHash ?? "",
-  status: t.status,
-  snapshot: t.snapshot ?? false,
-});
-
-const RESET_OPTIONS: Form.SetOptions = { markTouched: false };
-
+/** Builds the hook for a task's form. */
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
-  initialValues,
-}: CreateFormParams<S>) => {
-  const schema = createFormSchema(schemas);
-  const actualInitialValues = toFormValues(initialValues);
-  return Flux.createForm<FormQuery, FormSchema<S>>({
+}: CreateFormParams<S>) =>
+  Flux.createDocumentForm<task.Key, task.Task, FormSchema<S>>({
     name: RESOURCE_NAME,
-    schema,
-    initialValues: actualInitialValues,
-    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-    retrieve: async ({ client, query: q }) =>
-      toFormValues((await client.tasks.retrieve({ ...q, schemas })).payload),
-    getCached: ({ client, query: q }) => {
-      const cached = client.tasks.getCached(q);
-      if (!query.isLive(cached) || cached.status == null) return undefined;
-      const parsed = task.payloadZ(schemas).safeParse(cached.payload);
-      if (!parsed.success) return undefined;
-      return toFormValues(parsed.data as task.Payload<S>);
-    },
-    update: async ({ client, ...form }) => {
-      const value = form.value();
-      // The status is never written back. It belongs to the Driver, and the copy
-      // held here is behind the Core whenever a newer one is still in flight, so
-      // sending it would overwrite the report of a deploy this save just issued.
-      const created = await client.tasks.create(
-        {
-          key: value.key,
-          rack: value.rack,
-          name: value.name,
-          type: value.type,
-          config: value.config,
-          snapshot: value.snapshot,
-        },
-        schemas,
-      );
-      // Only server-assigned fields are reset from the response: resetting an
-      // edited field would clobber edits typed while this save was in flight.
-      form.set("key", created.key, RESET_OPTIONS);
-      form.set("configHash", created.configHash, RESET_OPTIONS);
-      form.setCurrentStateAsInitialValues();
-    },
-    mountListeners: ({ client, query: { key }, set }) =>
-      client.tasks.onChange(key, (result) => {
-        if (!query.isLive(result)) return;
-        // Metadata only: config changes come solely from this form's own
-        // saves, and resetting it would clobber in-flight autosave edits.
-        const payload = result.payload as task.Payload<S>;
-        set("name", payload.name, RESET_OPTIONS);
-        set("rack", payload.rack, RESET_OPTIONS);
-        set("snapshot", payload.snapshot, RESET_OPTIONS);
-        set("configHash", payload.configHash, RESET_OPTIONS);
-        if (result.status != null)
-          set(
-            "status",
-            zod.parse(task.statusZ(z.unknown().optional()), result.status, {
-              label: "task status",
-            }),
-            RESET_OPTIONS,
-          );
-      }),
+    schema: createFormSchema(schemas),
+    domain: (client) => client.tasks,
+    useEnsure,
+    // The cache holds every task untyped. Parsing would cost a full parse on each
+    // change, so the form's schema checks each field as it is written instead.
+    toValues: ({ payload }) => ({
+      key: payload.key,
+      name: payload.name,
+      rack: payload.rack,
+      type: payload.type as z.infer<S["type"]>,
+      config: payload.config as z.infer<S["config"]>,
+      configHash: payload.configHash ?? "",
+      status: payload.status,
+      snapshot: payload.snapshot ?? false,
+    }),
   });
-};
 
 export type DeleteParams = task.Key | task.Key[];
 
@@ -246,21 +190,22 @@ export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
 export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  /** The range the snapshots sit in. */
+  range: ranger.Key;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { tasks: taskPairs, parentID } = data;
-    const tasks = await Promise.all(
+    const { tasks, range } = data;
+    await Promise.all(
       array
-        .toArray(taskPairs)
-        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
+        .toArray(tasks)
+        .map(({ key, name }) =>
+          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
+        ),
     );
-    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
-    await client.ontology.addChildren(parentID, ...otgIDs);
     return data;
   },
 });
@@ -307,7 +252,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ keys, includeStatus: true });
+    await client.tasks.retrieve({ key: keys, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },

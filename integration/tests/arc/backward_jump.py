@@ -91,19 +91,17 @@ class BackwardJump(ArcCase):
             "bj_press_cmd would flip back to 1."
         )
         self.writer.write("bj_start_cmd", 1)
-        sy.sleep(2.0)
+        sy.sleep(2.0)  # noqa: TID251 hold: nothing may change
         held_value = self.read_tlm("bj_press_cmd")
         if held_value is None:
             self.fail(
                 "bj_press_cmd has no buffered value; cannot verify guard. "
                 "Streamer did not deliver any reading after the re-fire."
             )
-            return
         if held_value != 0:
             self.fail(
                 f"bj_press_cmd={held_value} after re-firing start_cmd from "
                 "hold. The no-re-entry guard regressed: the runtime "
                 "re-entered pressurize when it should have stayed in hold."
             )
-            return
         self.log("Guard held: sequence stayed in hold as expected")

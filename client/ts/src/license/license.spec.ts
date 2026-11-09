@@ -10,9 +10,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { connection } from "@/connection";
-import { AccessDeniedError, InvalidLicenseError } from "@/errors";
+import { AccessDeniedError, InvalidLicenseError } from "@/index";
+import { label } from "@/label";
 import { license } from "@/license";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -96,7 +96,7 @@ describe("license", () => {
     it("should read the license with a retrieve grant on its ID", async () => {
       const granted = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [license.ONTOLOGY_ID],
+        objects: [license.RESOURCE_ID],
         actions: ["retrieve"],
       });
       await expect(granted.license.retrieve()).resolves.toBeDefined();
@@ -105,7 +105,7 @@ describe("license", () => {
     it("should deny the license without a grant on its ID", async () => {
       const denied = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ontology.ROOT_ID],
+        objects: [label.TYPE_RESOURCE_ID],
         actions: ["retrieve"],
       });
       await expect(denied.license.retrieve()).rejects.toThrow(AccessDeniedError);

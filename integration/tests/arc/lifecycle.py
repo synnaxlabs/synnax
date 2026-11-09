@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -132,7 +132,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         "lifecycle_log",
         "signal_stage_log",
     ]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
     collect_notifications = True
 
     def setup(self) -> None:
@@ -208,7 +208,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  #  > 2 * time.wait{250ms}
+        sy.sleep(0.501)  # noqa: TID251 hold, > 2 * time.wait{250ms}
         self.wait_for_eq("signal_stage_log", "yield")
 
         # Confirm a fresh start signal correctly re-enters start.
@@ -232,7 +232,6 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.open(self.new_name)
 
         self.log("Re-deploying with new name")
-        assert self.rack is not None
         self.console.arc.select_rack(self.rack.name)
         self.console.arc.deploy()
 

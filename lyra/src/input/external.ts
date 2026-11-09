@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/input/Auto";
 export * from "@/input/Checkbox";
 export * from "@/input/DragButton";
 export * from "@/input/HelpText";

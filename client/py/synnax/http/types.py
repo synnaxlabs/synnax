@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from typing import Any, override
 from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
@@ -112,6 +112,7 @@ class ReadTask(
         for ep in self.config.endpoints:
             task.assign_keys(ep.fields)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)
@@ -166,6 +167,7 @@ class WriteTask(
         for ep in self.config.endpoints:
             task.assign_keys(ep.fields)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)
@@ -230,8 +232,8 @@ class Device(device.Device):
         auth: dict[str, Any] | None = None,
         health_check: HealthCheck | None = None,
         name: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = True,
     ):
         if not key:

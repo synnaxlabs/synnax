@@ -205,7 +205,7 @@ describe("DynamicCache", () => {
             ]),
           );
           // The next series does not fit, so the full buffer is flushed at the end of
-          // the series it holds, and the new one starts where its own data starts.
+          // the series it holds, and the new one starts there.
           const { flushed } = cache.write(
             new MultiSeries([
               stamped([3, 4], TimeStamp.seconds(12).range(TimeStamp.seconds(14)), 2n),
@@ -215,6 +215,71 @@ describe("DynamicCache", () => {
             TimeStamp.seconds(10).range(TimeStamp.seconds(12)),
           );
           expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(12));
+        });
+
+        describe("runs", () => {
+          // Returns the capacity of each buffer the writes of the lengths allocate.
+          const capacitiesOf = (cache: Dynamic, lengths: number[]): number[] => {
+            const capacities: number[] = [];
+            let alignment = 0n;
+            lengths.forEach((length) => {
+              const series = f32(new Array<number>(length).fill(1)).reAlign(alignment);
+              const { allocated } = cache.write(new MultiSeries([series]));
+              capacities.push(...allocated.series.map((s) => s.capacity));
+              alignment += BigInt(length);
+            });
+            return capacities;
+          };
+
+          it("should double a run's buffers up to the configured size", () => {
+            const cache = new Dynamic({ dynamicBufferSize: 400 });
+            cache.startRun();
+            expect(capacitiesOf(cache, new Array<number>(8).fill(100))).toEqual([
+              100, 200, 400, 400,
+            ]);
+          });
+
+          it("should hold a first series that outgrows the small buffer whole", () => {
+            const cache = new Dynamic({ dynamicBufferSize: 1000 });
+            cache.startRun();
+            expect(capacitiesOf(cache, [150, 150, 300])).toEqual([150, 300, 600]);
+          });
+
+          it("should never exceed a configured size below the small buffer", () => {
+            const cache = new Dynamic({ dynamicBufferSize: 8 });
+            cache.startRun();
+            expect(capacitiesOf(cache, [8])).toEqual([8]);
+          });
+
+          it("should keep growing a run's buffers across a flush", () => {
+            const cache = new Dynamic({ dynamicBufferSize: 400 });
+            cache.startRun();
+            capacitiesOf(cache, [100]);
+            cache.flush();
+            expect(capacitiesOf(cache, [100])).toEqual([200]);
+          });
+
+          it("should use the configured size when no run started", () => {
+            const cache = new Dynamic({ dynamicBufferSize: 400 });
+            expect(capacitiesOf(cache, [100])).toEqual([400]);
+          });
+        });
+
+        it("should keep a rotation touching the buffer it follows", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+          cache.write(
+            new MultiSeries([
+              stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+            ]),
+          );
+          const { flushed } = cache.write(
+            new MultiSeries([
+              stamped([3, 4], TimeStamp.seconds(13).range(TimeStamp.seconds(15)), 2n),
+            ]),
+          );
+          expect(cache.leadingBuffer?.timeRange.start).toEqual(
+            flushed.series[0].timeRange.end,
+          );
         });
 
         it("should start a rotation after a trim where the flushed buffer ends", () => {
@@ -381,6 +446,40 @@ describe("DynamicCache", () => {
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
         expect(cache.length).toBe(9);
+      });
+      describe("maxBufferSize", () => {
+        // Writes one sample a millisecond, and returns the capacity of each buffer
+        // allocated before and after the 100th write.
+        const capacities = (maxBufferSize: number): [number[], number[]] => {
+          let now = TimeStamp.seconds(1);
+          const cache = new Dynamic({
+            dynamicBufferSize: TimeSpan.minutes(1),
+            maxBufferSize,
+            now: () => now,
+          });
+          const out: [number[], number[]] = [[], []];
+          for (let i = 0; i < 1000; i++) {
+            now = now.add(TimeSpan.milliseconds(1));
+            const { allocated } = cache.write(
+              new MultiSeries([f32([i]).reAlign(BigInt(i))]),
+            );
+            out[i < 100 ? 0 : 1].push(...allocated.series.map((s) => s.capacity));
+          }
+          return out;
+        };
+
+        it("should cap each buffer a span sizes", () => {
+          const [young, rated] = capacities(500);
+          expect(young.length).toBeGreaterThan(0);
+          expect(rated.length).toBeGreaterThan(0);
+          [...young, ...rated].forEach((c) => expect(c).toBeLessThanOrEqual(500));
+        });
+
+        it("should cap each buffer below the minimum size", () => {
+          const [young, rated] = capacities(40);
+          expect(rated.length).toBeGreaterThan(0);
+          [...young, ...rated].forEach((c) => expect(c).toBe(40));
+        });
       });
     });
   });

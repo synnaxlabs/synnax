@@ -87,6 +87,95 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").
+				ToContain(
+					"std::optional<std::vector<Where>> and_;",
+					"std::optional<std::vector<Where>> or_;",
+					"x::mem::indirect<Where> not_;",
+				).
+				ToNotContain("x::mem::indirect<std::vector<Where>>")
+		})
+
+		It("Should type filter lines to take plain values", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+
+				Thing struct {
+					key  uint32
+					name string
+				}
+
+				Where filter Thing {
+					key
+					name
+					tags   string[]
+					active bool
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				`#include "x/cpp/filter/field.h"`,
+				"::x::filter::Field<::x::filter::Ordered<std::uint32_t>> key;",
+				"::x::filter::Field<::x::filter::String> name;",
+				"::x::filter::List<std::string> tags;",
+				"std::optional<bool> active;",
+			)
+		})
+
+		It("Should combine filters with &&, ||, and !", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"friend Where operator&&(Where a, Where b) {",
+				"w.and_->push_back(std::move(a));",
+				"friend Where operator||(Where a, Where b) {",
+				"w.or_->push_back(std::move(b));",
+				"friend Where operator!(Where a) {",
+				"w.not_ = std::move(a);",
+			)
+		})
+
+		It("Should give a retrieve request its options", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").ToContain(
+				"struct RetrieveOptions {\n"+
+					"    /// @brief limit is the most things to return.\n"+
+					"    std::optional<std::uint32_t> limit;\n"+
+					"    /// @brief offset is the number of matching things to skip.\n"+
+					"    std::uint32_t offset = 0;\n"+
+					"};",
+				"static RetrieveRequest\n"+
+					"    from(Where where, const RetrieveOptions &options = {}) {\n"+
+					"        return {\n"+
+					"            .where = std::move(where),\n"+
+					"            .limit = options.limit,\n"+
+					"            .offset = options.offset,\n"+
+					"        };\n"+
+					"    }",
+			)
+		})
+
+		It("Should not combine a struct that is not a filter", func(ctx SpecContext) {
+			source := `
+				@cpp output "out"
+
+				Thing struct {
+					name string?
+				}
+			`
+			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("std::optional<std::string> name;").
+				ToNotContain("operator&&", "x/cpp/filter/field.h")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `
@@ -472,6 +561,93 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`std::string name = "";`))
 			},
 		)
+
+		Context("parent omitted in C++", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/pkg/service/auth"
+				@cpp output "client/cpp/auth"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct AIChan : public Base {",
+							"std::uint32_t key",
+							"std::string name",
+							"double rate",
+						).
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"struct Shape {",
+						"std::uint32_t key",
+						"std::string name",
+						"std::string secret",
+						"double rate",
+					).
+					ToNotContain("struct Record")
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape {", "std::string name").
+					ToNotContain("secret", "struct Record")
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape : public Record {")
+			})
+		})
 
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
@@ -2134,7 +2310,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+	It("Should emit resource helpers for a union", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2152,18 +2328,18 @@ var _ = Describe("C++ Union Generation", func() {
 					size int32
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
-				`return synnax::ontology::ID("view", key.to_string());`,
+				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
+				`return synnax::resource::ID("view", key.to_string());`,
 			)
 	})
 
-	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+	It("Should type union resource helpers by a primitive key", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -2176,12 +2352,12 @@ var _ = Describe("C++ Union Generation", func() {
 					name string
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
-			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+			ToContain(`resource_id(const x::uuid::UUID& key)`)
 	})
 
 	It(
@@ -2333,6 +2509,105 @@ var _ = Describe("C++ Union Generation", func() {
 					`using AIChannel = std::variant<AIVoltageChannel>;`,
 				)
 		},
+	)
+
+	It(
+		"Should emit a base accessor for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					"[[nodiscard]] inline const BaseAIChan& " +
+						"base(const AIChannel& value) {\n" +
+						"    return std::visit([](const auto& v) -> const BaseAIChan& " +
+						"{ return v; }, value);\n}",
+				).
+				ToNotContain("base(AIChannel& value)")
+		},
+	)
+
+	It(
+		"Should qualify the base accessor type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@cpp output "x/cpp/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@cpp output "client/cpp/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "ni/types.gen.h").
+				ToContain(
+					"inline const ::x::common::BaseAIChan& " +
+						"base(const AIChannel& value)",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not emit a base accessor without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain("using AIChannel = std::variant<").
+				ToNotContain(" base(")
+		},
+		Entry("no base", `
+			@cpp output "out"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`),
+		Entry("two bases", `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@cpp output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
 	)
 
 	It(

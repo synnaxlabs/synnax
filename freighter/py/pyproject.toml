@@ -62,6 +62,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.ruff.lint.isort]
 known-first-party = ["freighter", "alamos", "x"]
+combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.12"
@@ -76,6 +77,7 @@ enable_error_code = [
     "mutable-override",
     "deprecated",
     "unused-awaitable",
+    "explicit-override",
 ]
 
 [tool.pydantic-mypy]

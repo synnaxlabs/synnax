@@ -14,16 +14,17 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,14 +38,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
+	// RBAC checks the read access that a create response needs.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Ontology stores the relationships between resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var (
@@ -58,7 +55,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -68,15 +64,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	device   *device.Service
-	status   *status.Service
-	ontology *ontology.Ontology
+	access *rbac.Service
+	device *device.Service
+	status *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -85,10 +79,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		device:   cfg.Device,
-		status:   cfg.Status,
-		access:   cfg.RBAC,
-		ontology: cfg.Ontology,
+		device: cfg.Device,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
@@ -101,140 +94,115 @@ type (
 	}
 )
 
+// Create creates or updates the devices. The response holds the status of each device
+// that the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
-	}); err != nil {
+	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
+	if err := s.attachReadableStatuses(ctx, tx, req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
-	Keys           []device.Key `json:"keys"             msgpack:"keys"`
-	Names          []string     `json:"names"            msgpack:"names"`
-	Makes          []string     `json:"makes"            msgpack:"makes"`
-	Models         []string     `json:"models"           msgpack:"models"`
-	Locations      []string     `json:"locations"        msgpack:"locations"`
-	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
-	Limit          int          `json:"limit"            msgpack:"limit"`
-	Offset         int          `json:"offset"           msgpack:"offset"`
-	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
-	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices []device.Device,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range devices {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []resource.ID{devices[i].ResourceID()},
+		})
+		// Create access does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			devices[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, devices[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	devices []device.Device,
+) error {
+	statuses, err := s.status.Join[device.StatusDetails](
+		ctx,
+		snap,
+		device.ResourceIDsFromDevices(devices),
+	)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		devices[i].Status = st
+	}
+	return nil
 }
 
+// DispatchRequest carries an action sequence to apply to a single device. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[device.Key, device.Action]
+
+// Dispatch applies the action sequence to the target device atomically. Subscribers to
+// the device action channel receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.device.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+}
+
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the devices that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, device.ResourceID)
+}
+
+// Retrieve returns the devices that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch    = len(req.SearchTerm) > 0
-		hasKeys      = len(req.Keys) > 0
-		hasNames     = len(req.Names) > 0
-		hasMakes     = len(req.Makes) > 0
-		hasLimit     = req.Limit > 0
-		hasOffset    = req.Offset > 0
-		hasLocations = len(req.Locations) > 0
-		hasModels    = len(req.Models) > 0
-		hasRacks     = len(req.Racks) > 0
-	)
-	q := s.device.NewRetrieve()
-	if hasKeys {
-		q = q.Where(device.MatchKeys(req.Keys...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasNames {
-		q = q.Where(device.MatchNames(req.Names...))
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if hasMakes {
-		q = q.Where(device.MatchMakes(req.Makes...))
-	}
-	if hasLocations {
-		q = q.Where(device.MatchLocations(req.Locations...))
-	}
-	if hasModels {
-		q = q.Where(device.MatchModels(req.Models...))
-	}
-	if hasRacks {
-		q = q.Where(device.MatchRacks(req.Racks...))
-	}
 	var res RetrieveResponse
-	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
-
-	if req.IncludeStatus {
-		ids := device.OntologyIDsFromDevices(res.Devices)
-		statuses := make([]device.Status, 0, len(res.Devices))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
-			return RetrieveResponse{}, err
-		}
-		statusByKey := make(map[status.Key]*device.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			res.Devices[i].Status = statusByKey[id.String()]
-		}
-	}
-
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(res.Devices),
-	}); err != nil {
+	q, err := ApplyRetrieve(req, s.device.NewRetrieve().Entries(&res.Devices))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.ErrNotFound)
+	if err := q.Where(bind.Filter(snap, device.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.IncludeParent {
-		for i, d := range res.Devices {
-			var parent ontology.Resource
-			err := s.ontology.NewRetrieve().
-				WhereIDs(d.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Limit(1).
-				ExcludeFieldData(true).
-				Entry(&parent).
-				Exec(ctx, nil)
-			if err != nil {
-				if !errors.Is(err, query.ErrNotFound) {
-					return RetrieveResponse{}, err
-				}
-				continue
-			}
-			pid := ontology.ID(parent.ID)
-			res.Devices[i].Parent = &pid
+	if req.IncludeStatus {
+		if err := s.attachStatuses(ctx, snap, res.Devices); err != nil {
+			return RetrieveResponse{}, err
 		}
-	}
-	if retErr != nil {
-		return RetrieveResponse{}, retErr
 	}
 	return res, nil
 }
@@ -247,19 +215,12 @@ type RenameRequest struct {
 	Key device.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the device. It requires update access on it.
+// Rename renames the device and its status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{device.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -267,18 +228,12 @@ type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the devices, their statuses, and the devices they hold.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: device.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.device.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k); err != nil {
@@ -286,4 +241,19 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
+}
+
+// SetGroupRequest moves devices into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []device.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the devices with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

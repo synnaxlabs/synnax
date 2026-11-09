@@ -53,7 +53,6 @@ span.lyra-text {
     &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
-        display: block;
         animation-name: text-fade;
         animation-timing-function: linear;
         animation-timeline: scroll(self x);
@@ -89,6 +88,11 @@ span.lyra-text {
         &.lyra-text--line-clamp {
             text-overflow: ellipsis;
         }
+
+        /* Ellipsis needs a block container. */
+        &.lyra-text--overflow-fade {
+            display: block;
+        }
     }
 }
 
@@ -110,4 +114,9 @@ span.lyra-text {
             linear-gradient(to right, black calc(100% - 2.25rem), transparent) bottom /
                 100% 1lh no-repeat;
     }
+}
+
+.lyra-text__mark {
+    background: none;
+    color: var(--pluto-primary-z);
 }

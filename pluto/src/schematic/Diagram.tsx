@@ -43,7 +43,9 @@ const useConfig = <T extends ElementConfig>(
   const handleChange = (partial: Partial<T>) => {
     const current = configRef.current;
     if (current == null) return;
-    dispatch(schematic.setConfig({ key, config: { ...current, ...partial } }));
+    dispatch(
+      schematic.setChanged({ key, base: current, next: { ...current, ...partial } }),
+    );
   };
   return [config as T | undefined, handleChange];
 };
@@ -120,8 +122,9 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };
 
-  // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
-  // skipping frames where no node geometry or zoom changed (panning, selection, hover).
+  // Coalesce React Flow's many per-interaction store updates into one recompute per
+  // frame, skipping frames where no node geometry or zoom changed (panning, selection,
+  // hover).
   const frameRef = useRef<number | null>(null);
   const geometryRef = useRef("");
   useEffect(() => {

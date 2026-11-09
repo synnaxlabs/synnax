@@ -17,7 +17,8 @@
 #   scripts/fix.sh <file...>  the files given
 #
 # A missing formatter is skipped with a warning. With --staged, a partially staged file
-# has its staged copy fixed and staged, and its working copy fixed but not staged.
+# has its staged copy fixed and staged, and its working copy fixed but not staged. A
+# fixer that fails on the working copy does not fail the run.
 
 set -euo pipefail
 
@@ -86,8 +87,9 @@ fix() {
     if [ ${#py[@]} -gt 0 ]; then
         if command -v uv > /dev/null; then
             local ruff=(uv run --quiet --frozen --package synnax-scripts ruff)
-            "${ruff[@]}" check --quiet --select I --fix --exit-zero -- "${py[@]}"
-            "${ruff[@]}" format --quiet -- "${py[@]}"
+            "${ruff[@]}" check --quiet --force-exclude --select I --fix --exit-zero \
+                -- "${py[@]}"
+            "${ruff[@]}" format --quiet --force-exclude -- "${py[@]}"
         else
             skip "uv" "Python"
         fi
@@ -143,5 +145,5 @@ done < <(paste <(echo "$BEFORE") <(echo "$AFTER"))
 if [ ${#PARTIAL[@]} -gt 0 ]; then
     trap - EXIT
     restore
-    fix "${PARTIAL[@]}"
+    fix "${PARTIAL[@]}" || true
 fi

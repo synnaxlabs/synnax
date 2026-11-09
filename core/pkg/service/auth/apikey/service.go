@@ -15,15 +15,16 @@ package apikey
 import (
 	"context"
 	"crypto/subtle"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -76,6 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, APIKey]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -88,12 +90,12 @@ func (s *Service) Close() error { return s.table.Close() }
 
 // NewRetrieve opens a query for stored API keys.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{svc: s, tx: tx}
 }
 
 // Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, and a
@@ -118,10 +120,9 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
 	var k APIKey
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&k).
-		Exec(ctx, nil); err != nil {
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&k).Exec(ctx, snap)
+	}); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return auth.Identity{}, auth.ErrInvalidCredentials
 		}
@@ -130,14 +131,20 @@ func (s *Service) Authenticate(
 	if subtle.ConstantTimeCompare(k.Hash, hash) != 1 {
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
-	return auth.Identity{Subject: k.Subject, Credential: k.Key}, nil
+	return auth.Identity{
+		Subject:    k.Subject,
+		Credential: k.Key,
+		Version:    k.Created,
+	}, nil
 }
 
-// DeleteFor implements [auth.Authenticator].
-func (s *Service) DeleteFor(
+// Version implements [auth.Authenticator]. An API key keeps one version for life.
+func (s *Service) Version(
 	ctx context.Context,
-	tx gorp.Tx,
-	subjects ...ontology.ID,
-) error {
-	return s.NewWriter(tx).deleteFor(ctx, subjects...)
+	snap gorp.Snapshot,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	var k APIKey
+	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, snap)
+	return k.Created, err
 }

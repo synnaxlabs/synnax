@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, type ontology } from "@synnaxlabs/client";
+import { type group, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -20,39 +20,63 @@ export interface CreateParams extends group.CreateParams {}
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ data, client }) => {
-    const { parent } = data;
-    const res = await client.groups.create(data);
-    return { ...res, parent };
-  },
+  update: async ({ data, client }) => await client.groups.create(data),
 });
 
-export type ListQuery = {
-  parent?: ontology.ID;
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = group.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => {
-    const { parent } = query;
-    if (parent == null) return [];
-    return await client.groups.retrieve({ ...query, parent });
-  },
+  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.groups.retrieve(key),
-  onChange: ({ client, query }, handler) => {
-    const { parent } = query;
-    if (parent == null) return () => {};
-    return client.groups.onChange({ ...query, parent }, handler);
-  },
-  getCached: ({ client, query }) => {
-    const { parent } = query;
-    if (parent == null) return undefined;
-    return client.groups.getCached({ ...query, parent });
-  },
+  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
+  getCached: ({ client, query }) => client.groups.getCached(query),
   onChangeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  group.Group[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
+  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
+  getCached: ({ client, query }) => client.groups.getCached(query),
+});
+
+export type RetrieveAncestorsQuery = { keys: group.Key[] };
+
+const getCachedAncestry = (
+  client: Synnax,
+  keys: group.Key[],
+): group.Group[] | undefined => {
+  const groups = client.groups.getCached(keys);
+  const ancestors = client.groups.getCachedAncestors(keys);
+  if (!query.isLive(groups) || ancestors == null) return undefined;
+  return [...groups, ...ancestors];
+};
+
+/**
+ * Retrieves the groups with the keys and every group above them. A rename or a move of
+ * one of them updates the answer.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  RetrieveAncestorsQuery,
+  group.Group[]
+>({
+  name: "group ancestors",
+  retrieve: async ({ client, query: { keys } }) => {
+    const [groups, ancestors] = await Promise.all([
+      client.groups.retrieve(keys),
+      client.groups.retrieveAncestors(keys),
+    ]);
+    return [...groups, ...ancestors];
+  },
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.groups.onAncestorsChange(keys, () =>
+      handler(getCachedAncestry(client, keys)),
+    ),
+  getCached: ({ client, query: { keys } }) => getCachedAncestry(client, keys),
 });
 
 export interface DeleteParams {

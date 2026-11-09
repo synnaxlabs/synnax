@@ -21,7 +21,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
-import { createCore, createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState, keychainAccount } from "@/session/core/testutil";
 import { renderHookWithConsole } from "@/testutil";
 
 describe("Core.useLogout", () => {
@@ -46,11 +46,7 @@ describe("Core.useLogout", () => {
     expect(Session.Core.selectSelectedKey(state)).toBeUndefined();
     expect(Session.Core.selectState(state, core.key)?.password).toBe("");
     await waitFor(() => expect(client.auth.authenticated).toBe(false));
-    await waitFor(() =>
-      expect(deleted).toEqual([
-        { account: `http://synnax@localhost:9090#${core.key}` },
-      ]),
-    );
+    await waitFor(() => expect(deleted).toEqual([{ account: keychainAccount(core) }]));
     const other = createTestClient();
     const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
     expect(keys).not.toContain(session.key);
@@ -72,11 +68,7 @@ describe("Core.useLogout", () => {
       preloadedState: createCoreState([core], core.key),
     });
     act(() => result.current());
-    await waitFor(() =>
-      expect(deleted).toEqual([
-        { account: `http://synnax@localhost:9090#${core.key}` },
-      ]),
-    );
+    await waitFor(() => expect(deleted).toEqual([{ account: keychainAccount(core) }]));
   });
 
   it("should forget the token before the Core ends the session", async () => {
@@ -96,10 +88,6 @@ describe("Core.useLogout", () => {
       preloadedState: createCoreState([core], core.key),
     });
     act(() => result.current());
-    await waitFor(() =>
-      expect(deleted).toEqual([
-        { account: `http://synnax@localhost:9090#${core.key}` },
-      ]),
-    );
+    await waitFor(() => expect(deleted).toEqual([{ account: keychainAccount(core) }]));
   });
 });

@@ -9,10 +9,12 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
+from itertools import islice
 from types import UnionType
 from typing import (
     Any,
@@ -24,6 +26,7 @@ from typing import (
     get_args,
     get_origin,
     overload,
+    override,
 )
 
 import numpy as np
@@ -63,11 +66,18 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
         return _encode_variable([json.dumps(d).encode("utf-8") for d in samples])
     if data_type == DataType.STRING:
         return _encode_variable([str(d).encode("utf-8") for d in samples])
+    if data_type == DataType.TIMESTAMP:
+        return np.array([TimeStamp(d) for d in samples], dtype=np.int64).tobytes()
     if data_type == DataType.UUID:
         uuids = [d for d in samples if isinstance(d, uuid.UUID)]
         if len(uuids) != len(samples):
             raise TypeError("[Series] - a UUID series accepts only UUIDs")
         return b"".join(d.bytes for d in uuids)
+    if data_type == DataType.BYTES:
+        parts = [d for d in samples if isinstance(d, bytes)]
+        if len(parts) != len(samples):
+            raise TypeError("[Series] - a bytes series accepts only bytes")
+        return _encode_variable(parts)
     return np.array(samples, dtype=data_type.np).tobytes()
 
 
@@ -311,9 +321,11 @@ class Series(ArrayOperators, Generic[T]):
         if data_type is not None:
             data_type = DataType(data_type)
         align = None if alignment is None else Alignment(alignment)
-        if isinstance(data, (TimeStamp, int, float, np.number, np.bool_)):
+        if isinstance(
+            data, (TimeStamp, int, float, np.number, np.bool_, np.datetime64)
+        ):
             data_type = data_type or DataType(data)
-            data_ = np.array([data], dtype=data_type.np).tobytes()
+            data_ = _encode_samples([data], data_type)
         elif isinstance(data, Series):
             data_type = data_type or data.data_type
             data_ = data.data
@@ -337,15 +349,21 @@ class Series(ArrayOperators, Generic[T]):
                     "converted to a Series"
                 )
             data_type = data_type or data.data_type
-        elif isinstance(data, pd.Series):
-            if data_type is None:
-                if not isinstance(data.dtype, np.dtype):
-                    raise TypeError(f"Cannot convert {data.dtype} to DataType")
-                data_type = DataType(data.dtype)
-            data_ = data.to_numpy(dtype=data_type.np).tobytes()
-        elif isinstance(data, np.ndarray):
-            data_type = data_type or DataType(data.dtype)
-            data_ = data.astype(data_type.np).tobytes()
+        elif isinstance(data, (pd.Series, np.ndarray)):
+            if isinstance(data, pd.Series) and isinstance(
+                data.dtype, pd.DatetimeTZDtype
+            ):
+                data = data.dt.tz_convert(None)
+            if data_type is None and not isinstance(data.dtype, np.dtype):
+                raise TypeError(f"Cannot convert {data.dtype} to DataType")
+            arr = data.to_numpy() if isinstance(data, pd.Series) else data
+            data_type = data_type or DataType(arr.dtype)
+            if arr.dtype.kind == "M":
+                arr = arr.astype("datetime64[ns]")
+            if data_type.has_np:
+                data_ = arr.astype(data_type.np).tobytes()
+            else:
+                data_ = _encode_samples(arr.tolist(), data_type)
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             data_ = _encode_samples(data, data_type)
@@ -418,6 +436,7 @@ class Series(ArrayOperators, Generic[T]):
             f"{sample_type.__name__}"
         )
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -456,17 +475,53 @@ class Series(ArrayOperators, Generic[T]):
         """
         return self.__array__(dtype=dtype, copy=copy)
 
-    def __getitem__(self, index: int) -> T:
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Series[T]: ...
+
+    def __getitem__(self, index: int | slice) -> T | Series[T]:
+        if isinstance(index, slice):
+            return self._slice(index)
         if index < 0 and self.data_type.is_variable:
             index += len(self)
         return self._codec.get(self.data, index)
 
+    def _slice(self, index: slice) -> Series[T]:
+        start, stop, step = index.indices(len(self))
+        if step < 1:
+            raise ValueError(
+                "[Series] - a slice step must be positive, as a Series needs "
+                "increasing alignments"
+            )
+        if self.data_type.is_variable:
+            view = memoryview(self.data)
+            data = b"".join(
+                view[s - _VARIABLE_LENGTH_PREFIX_SIZE : e]
+                for s, e in islice(_variable_spans(self.data), start, stop, step)
+            )
+        else:
+            density = int(self.data_type.density)
+            samples = np.frombuffer(self.data, np.uint8).reshape(-1, density)
+            data = samples[start:stop:step].tobytes()
+        sliced = copy.copy(self)
+        sliced.data = data
+        sliced.alignment = Alignment(
+            int(self.alignment) + start * self.alignment_multiple
+        )
+        sliced.alignment_multiple = self.alignment_multiple * step
+        sliced._len_cache = None
+        return sliced
+
     def __iter__(self) -> Iterator[T]:
         return self._codec.iter(self.data)
 
+    @override
     def __str__(self) -> str:
         return str(list(self))
 
+    @override
     def __repr__(self) -> str:
         return (
             f"Series(data_type={self.data_type!r}, len={len(self)}, "
@@ -528,7 +583,15 @@ def to_int(value: SampleValue) -> int:
 
 
 CrudeSample: TypeAlias = (
-    np.number | np.bool_ | str | uuid.UUID | dict[str, Any] | float | int | TimeStamp
+    np.number
+    | np.bool_
+    | np.datetime64
+    | str
+    | uuid.UUID
+    | dict[str, Any]
+    | float
+    | int
+    | TimeStamp
 )
 """A single sample that a Series can be built from."""
 
@@ -541,9 +604,11 @@ CrudeSeries: TypeAlias = (
     | list[int]
     | list[bool]
     | list[str]
+    | list[bytes]
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]
+    | list[np.datetime64]
     | CrudeSample
 )
 
@@ -584,6 +649,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
         """
         return MultiSeries([s.as_(sample_type) for s in self.series])
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -664,6 +730,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
         for s in self.series:
             yield from s
 
+    @override
     def __str__(self) -> str:
         return str(list(self))
 

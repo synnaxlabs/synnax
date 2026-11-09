@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import LoadCurrentSimDAQ
+from examples.simulators import LoadCurrentSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair
@@ -57,7 +57,7 @@ class LoadCurrent(ArcCase):
     start_cmd_channel = "start_load_current_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["load_current", "flag", "lc_tick_count"]
-    sim_daq_class = LoadCurrentSimDAQ
+    sim_daq_class: type[SimDAQ] | None = LoadCurrentSimDAQ
 
     def setup(self) -> None:
         create_indexed_pair(self.client, "lc_tick_count", data_type=sy.DataType.UINT8)
@@ -75,7 +75,7 @@ class LoadCurrent(ArcCase):
         self.log("load_current crossed 50, wait timer should now be running")
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
-        sy.sleep(500 * sy.TimeSpan.MILLISECOND)
+        sy.sleep(500 * sy.TimeSpan.MILLISECOND)  # noqa: TID251 hold: nothing may change
         self.wait_for_eq("flag", 1, timeout=0)
         self.log("flag remains 1 during wait period")
 

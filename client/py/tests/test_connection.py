@@ -13,6 +13,8 @@ import sys
 import time
 import weakref
 
+import pytest
+
 import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
@@ -184,6 +186,33 @@ class TestChecker:
         )
         assert checker.state.client_server_compatible is False
         checker.stop()
+
+    def test_embedded_version_warning_pins_the_core_minor(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should tell a user of an older client which client matches Synnax
+        Desktop.
+        """
+        mock = MockUnaryClient(responses=[_make_response(node_version="0.61.2")])
+        checker = Checker(client=mock, client_version="0.60.0", embedded=True)
+        checker.stop()
+        assert caplog.messages == [
+            "Synnax Desktop runs Core version 0.61.2, which does not match client "
+            'version 0.60.0. Run pip install "synnax~=0.61.0".'
+        ]
+
+    def test_embedded_version_warning_offers_a_desktop_update(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should offer a Synnax Desktop update to a user of a newer client."""
+        mock = MockUnaryClient(responses=[_make_response(node_version="0.59.0")])
+        checker = Checker(client=mock, client_version="0.60.0", embedded=True)
+        checker.stop()
+        assert caplog.messages == [
+            "Synnax Desktop runs Core version 0.59.0, which does not match client "
+            "version 0.60.0. Update Synnax Desktop, or run pip install "
+            '"synnax~=0.59.0".'
+        ]
 
     def test_version_compatible(self) -> None:
         """Should report compatible versions when major.minor matches."""

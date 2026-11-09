@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
@@ -60,10 +61,25 @@ const (
 	writeKey       = "write"
 )
 
-// PreProcess compiles the channel's expression to discover channel references
-// and infer output types without building the full execution graph.
-func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
-	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
+// PreProcess compiles the channel's expression to discover channel references and infer
+// output types without building the full execution graph. It looks up channels in snap.
+func PreProcess(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+) (arc.Program, error) {
+	return preProcess(
+		ctx,
+		cfg,
+		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+	)
+}
+
+func preProcess(
+	ctx context.Context,
+	cfg Config,
+	resolver arc.SymbolResolver,
+) (arc.Program, error) {
 	ana := channel.NewCalculationAnalyzer(resolver, parser.Config{
 		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
 	})
@@ -98,13 +114,33 @@ type Module struct {
 
 // Compile builds a full execution Module for the given calculated channel. The module
 // includes WASM bytecode, an execution graph with operation nodes, and the channel
-// dependencies the calculation reads from and writes to.
-func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
+// dependencies the calculation reads from and writes to. It reads db as
+// channel.CompileConsistent describes.
+func Compile(ctx context.Context, db *gorp.DB, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
-	preProcessed, err := PreProcess(ctx, cfg)
+	return channel.CompileConsistent(ctx, db, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (Module, error) {
+		return compile(
+			ctx,
+			snap,
+			cfg,
+			cfg.ChannelService.NewCheckedResolver(snap, lookups),
+		)
+	})
+}
+
+func compile(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+	resolver arc.SymbolResolver,
+) (Module, error) {
+	preProcessed, err := preProcess(ctx, cfg, resolver)
 	if err != nil {
 		return Module{}, err
 	}
@@ -176,7 +212,6 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 	}
 
-	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
 	for k, v := range calcFn.Channels.Read {
 		sym, err := resolver.Resolve(ctx, v)
 		if err != nil {
@@ -198,7 +233,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	deps, err := runtime.NewDependencies(ctx, cfg.ChannelService, program)
+	deps, err := runtime.NewDependencies(ctx, snap, cfg.ChannelService, program)
 	if err != nil {
 		return Module{}, err
 	}

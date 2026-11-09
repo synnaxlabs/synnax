@@ -12,33 +12,29 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { binary } from "@synnaxlabs/x";
+import { binary, type deep } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
 export interface DetailsHeaderProps {
-  path: string;
-  disabled?: boolean;
+  /** The form path of the selected item, or null when nothing is selected. */
+  path: deep.Target<unknown> | null;
   /** Names the selected item; shown in place of "Details" while one is selected. */
   children?: ReactNode;
   /** Rendered before the title. */
   start?: ReactNode;
 }
 
-export const DetailsHeader = ({
-  path,
-  disabled = false,
-  children,
-  start,
-}: DetailsHeaderProps) => {
+export const DetailsHeader = ({ path, children, start }: DetailsHeaderProps) => {
   const { get } = Form.useContext();
-  const getText = () => binary.JSON_CODEC.encodeString(get(path).value);
+  const text =
+    path == null ? "" : () => binary.JSON_CODEC.encodeString(get(path).value);
   return (
     <Header.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
         {start}
-        {disabled || children == null ? (
+        {path == null || children == null ? (
           <Header.Title weight={500} wrap={false} color={10}>
             Details
           </Header.Title>
@@ -56,12 +52,12 @@ export const DetailsHeader = ({
       </Flex.Box>
       <Header.Actions>
         <Button.Copy
-          disabled={disabled}
+          disabled={path == null}
           tooltip="Copy details as JSON"
           tooltipLocation="left"
           variant="text"
           size="small"
-          text={getText}
+          text={text}
           successMessage="Copied details to clipboard"
           textColor={9}
         >

@@ -39,8 +39,6 @@ class API {
         decltype(&LJM_eStreamStop) eStreamStop;
         decltype(&LJM_eWriteAddress) eWriteAddress;
         decltype(&LJM_eWriteAddresses) eWriteAddresses;
-        decltype(&LJM_StartInterval) StartInterval;
-        decltype(&LJM_CleanInterval) CleanInterval;
         decltype(&LJM_eWriteName) eWriteName;
         decltype(&LJM_NamesToAddresses) NamesToAddresses;
         decltype(&LJM_ErrorToString) ErrorToString;
@@ -50,8 +48,9 @@ class API {
         decltype(&LJM_Close) Close;
         decltype(&LJM_eReadNames) eReadNames;
         decltype(&LJM_eReadName) eReadName;
-        decltype(&LJM_WaitForNextInterval) WaitForNextInterval;
         decltype(&LJM_eStreamStart) eStreamStart;
+        decltype(&LJM_TCVoltsToTemp) TCVoltsToTemp;
+        decltype(&LJM_ReadLibraryConfigS) ReadLibraryConfigS;
     };
 
     /// @brief Shared library handle.
@@ -72,12 +71,6 @@ public:
         );
         func_ptrs.eWriteAddresses = reinterpret_cast<decltype(&LJM_eWriteAddresses)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteAddresses"))
-        );
-        func_ptrs.StartInterval = reinterpret_cast<decltype(&LJM_StartInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_StartInterval"))
-        );
-        func_ptrs.CleanInterval = reinterpret_cast<decltype(&LJM_CleanInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_CleanInterval"))
         );
         func_ptrs.eWriteName = reinterpret_cast<decltype(&LJM_eWriteName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteName"))
@@ -106,15 +99,18 @@ public:
         func_ptrs.eReadNames = reinterpret_cast<decltype(&LJM_eReadNames)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eReadNames"))
         );
-        func_ptrs
-            .WaitForNextInterval = reinterpret_cast<decltype(&LJM_WaitForNextInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_WaitForNextInterval"))
-        );
         func_ptrs.eReadName = reinterpret_cast<decltype(&LJM_eReadName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eReadName"))
         );
         func_ptrs.eStreamStart = reinterpret_cast<decltype(&LJM_eStreamStart)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamStart"))
+        );
+        func_ptrs.TCVoltsToTemp = reinterpret_cast<decltype(&LJM_TCVoltsToTemp)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_TCVoltsToTemp"))
+        );
+        func_ptrs
+            .ReadLibraryConfigS = reinterpret_cast<decltype(&LJM_ReadLibraryConfigS)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_ReadLibraryConfigS"))
         );
     }
 
@@ -157,15 +153,6 @@ public:
     ) const {
         return this->func_ptrs
             .eWriteAddresses(dev_handle, num_frames, addrs, types, values, error_addr);
-    }
-
-    [[nodiscard]] LJM_ERROR_RETURN
-    start_interval(const int interval_handle, const int microseconds) const {
-        return this->func_ptrs.StartInterval(interval_handle, microseconds);
-    }
-
-    [[nodiscard]] LJM_ERROR_RETURN clean_interval(const int interval_handle) const {
-        return this->func_ptrs.CleanInterval(interval_handle);
     }
 
     [[nodiscard]] LJM_ERROR_RETURN
@@ -246,11 +233,6 @@ public:
         return this->func_ptrs.eReadName(dev_handle, name, value);
     }
 
-    [[nodiscard]] LJM_ERROR_RETURN
-    wait_for_next_interval(const int interval_handle, int *skipped_intervals) const {
-        return this->func_ptrs.WaitForNextInterval(interval_handle, skipped_intervals);
-    }
-
     [[nodiscard]] LJM_ERROR_RETURN e_stream_start(
         const int dev_handle,
         const int scans_per_read,
@@ -260,6 +242,20 @@ public:
     ) const {
         return this->func_ptrs
             .eStreamStart(dev_handle, scans_per_read, num_addrs, scan_list, scan_rate);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN tc_volts_to_temp(
+        const int tc_type,
+        const double tc_volts,
+        const double cj_temp_k,
+        double *tc_temp_k
+    ) const {
+        return this->func_ptrs.TCVoltsToTemp(tc_type, tc_volts, cj_temp_k, tc_temp_k);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN
+    read_library_config(const char *parameter, double *value) const {
+        return this->func_ptrs.ReadLibraryConfigS(parameter, value);
     }
 };
 }

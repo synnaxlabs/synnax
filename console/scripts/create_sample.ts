@@ -18,17 +18,16 @@ import { readFileSync } from "node:fs";
 import { Synnax } from "@synnaxlabs/client";
 
 import { create } from "../src/feature/project/sample.ts";
-import { RECENT_KEY } from "../src/session/range/slice.ts";
 import { parse } from "./coreURL.ts";
 
 const client = new Synnax({
-  ...parse(process.argv[2] ?? "9090"),
+  ...parse(process.argv[2] ?? process.env.SYNNAX_PORT ?? "9090"),
   username: "synnax",
   password: "seldon",
 });
 const read = (name: string): string =>
   readFileSync(new URL(`../src/feature/project/${name}`, import.meta.url), "utf8");
-await create(client, RECENT_KEY, {
+await create(client, {
   simulator: read("sampleSimulator.arc"),
   sequence: read("sampleSequence.arc"),
 });

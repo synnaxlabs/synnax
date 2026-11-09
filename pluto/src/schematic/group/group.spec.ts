@@ -527,9 +527,10 @@ describe("group", () => {
     it("should target a selected member's immediate group", () => {
       const result = ungroupActions(["s6"], forest);
       expect(result?.actions).toEqual([
-        schematic.setConfig({
-          key: "mid1",
-          config: { ...forest.mid1, members: ["s6", "s7", "s2", "s3"] },
+        schematic.set({
+          path: ["configs", "mid1", "members"],
+          value: ["s6", "s7", "s2", "s3"],
+          guards: [{ path: ["configs", "mid1", "variant"], value: "group_box" }],
         }),
         schematic.removeNode({ key: "inner1" }),
       ]);
@@ -556,9 +557,10 @@ describe("group", () => {
     it("should promote a removed middle group's members into its parent", () => {
       const result = ungroupActions(withMembers(["mid1"], forest), forest);
       expect(result?.actions).toEqual([
-        schematic.setConfig({
-          key: "outer",
-          config: { ...forest.outer, members: ["inner1", "s2", "s3", "mid2", "s1"] },
+        schematic.set({
+          path: ["configs", "outer", "members"],
+          value: ["inner1", "s2", "s3", "mid2", "s1"],
+          guards: [{ path: ["configs", "outer", "variant"], value: "group_box" }],
         }),
         schematic.removeNode({ key: "mid1" }),
       ]);

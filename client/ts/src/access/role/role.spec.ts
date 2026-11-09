@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   type BuiltInRole,
@@ -50,6 +50,15 @@ describe("role", () => {
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.description).toBe(created.description);
+    });
+
+    it("should retrieve a role by its name", async () => {
+      const created = await client.access.roles.create({
+        name: `named-role-${id.create()}`,
+        description: "test",
+      });
+      const retrieved = await client.access.roles.retrieve(created.name);
+      expect(retrieved.key).toBe(created.key);
     });
 
     it("should filter by internal flag when retrieving roles", async () => {
@@ -93,24 +102,42 @@ describe("role", () => {
         NotFoundError,
       );
     });
-  });
 
-  describe("assign", () => {
-    it("should allow the caller to assign a role to a user", async () => {
-      const role = await client.access.roles.create({
-        name: "test",
-        description: "test",
+    it("should delete the role's policies", async () => {
+      const doomed = await client.access.roles.create({
+        name: `doomed-${id.create()}`,
       });
-      const username = id.create();
+      const p = await client.access.policies.create({
+        role: doomed.key,
+        name: "doomed",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      await client.access.roles.delete(doomed.key);
+      // A client with an empty cache reads what the Core stores.
+      const fresh = createTestClient();
+      await expect(fresh.access.policies.retrieve(p.key)).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should refuse to delete a role that a user holds", async () => {
+      const held = await client.access.roles.create({ name: `held-${id.create()}` });
       const u = await client.users.create({
-        username,
+        username: id.create(),
         password: "test",
-        name: "test",
+        role: held.key,
       });
-      await client.access.roles.assign({
-        user: u.key,
-        role: role.key,
-      });
+      await expect(client.access.roles.delete(held.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete role ${held.name} because user ${u.name} ` +
+            "uses it as its role: validation error",
+        ),
+      );
+      expect(expectLive(client.access.roles.getCached(held.key)).key).toEqual(held.key);
+      const fresh = createTestClient();
+      expect((await fresh.access.roles.retrieve(held.key)).key).toEqual(held.key);
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(held.key);
     });
   });
 
@@ -119,10 +146,10 @@ describe("role", () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
       const { key } = await viewer.users.current.retrieve();
-      const subject = user.ontologyID(key);
+      const subject = user.resourceID(key);
       const granted = async (action: Action) =>
         await viewer.access.granted.retrieve(subject, {
-          objects: channel.TYPE_ONTOLOGY_ID,
+          objects: channel.TYPE_RESOURCE_ID,
           action,
         });
       await expect(granted("create")).resolves.toBe(false);
@@ -177,7 +204,7 @@ describe("cached reads", () => {
       const a = await createRole();
       const b = await createRole();
       await client.access.roles.retrieve(b.key);
-      const res = await client.access.roles.retrieve({ keys: [a.key, b.key] });
+      const res = await client.access.roles.retrieve([a.key, b.key]);
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
     });
   });

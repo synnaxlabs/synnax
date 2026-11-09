@@ -24,6 +24,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
+    "synnax-scripts-common",
     "types-psutil>=7.2.2.20260906,<8",
     "types-pyyaml>=6.0.12.20260906,<7",
 ]
@@ -52,6 +53,9 @@ select = [
     "PT",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
 
 [tool.mypy]
 strict = true

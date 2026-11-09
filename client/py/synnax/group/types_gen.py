@@ -11,34 +11,123 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax import resource
+from synnax.resource import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
 
 class Group(BaseModel):
-    """Is a named collection container for organizing related resources. Groups provide
-    hierarchical organization through the ontology system.
+    """Is a named folder that holds records of the types its scope allows. A group sits
+    in its parent, or at the top of its tree when it has none.
 
     Attributes:
         key: Is the unique identifier for this group.
         name: Is a human-readable name for the group.
+        scope: Is the type of resource the group's tree holds. It stays the same down a
+            chain of groups.
+        parent: Is the group, project, or rack the group sits in, if any.
     """
 
     key: Key
     name: str
+    scope: resource.Type
+    parent: resource.ID | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="group")
+class Where(BaseModel):
+    """Is a filter that selects groups.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        scope: Selects by scope.
+        parents: Matches the groups that sit in any of the given resources.
+        nested: Matches the groups that sit in a parent, or the top groups when false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    scope: filter.Set[resource.Type] | None = None
+    parents: list[resource.ID] | None = None
+    nested: bool | None = None
+
+    @field_validator("parents", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-def ontology_id(key: Key) -> ID:
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "scope": filter.SetInput[resource.Type],
+        "parents": resource.ID | list[resource.ID],
+        "nested": bool,
+    },
+    total=False,
+)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the groups a RetrieveRequest selects.
+
+    Attributes:
+        groups: Are the groups the request selects.
+    """
+
+    groups: list[Group] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve groups.
+
+    Attributes:
+        where: Selects the groups to retrieve. An absent where selects all of them.
+        search_term: Keeps the groups that match the term, closest match first.
+        limit: Is the most groups to return.
+        offset: Is the number of matching groups to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="group")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="group", key=str(key))

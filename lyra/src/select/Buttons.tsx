@@ -14,9 +14,11 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { Input } from "@/input";
 import { Frame, type FrameProps } from "@/select/Frame";
 import { ButtonsContext, type ButtonsVariant } from "@/select/scope";
 import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
 
 export interface ButtonsProps<K extends record.Key = record.Key>
   extends
@@ -31,6 +33,8 @@ export interface ButtonsProps<K extends record.Key = record.Key>
       | "overscan"
       | "onFetchMore"
     > {
+  /** Whether the buttons ignore clicks and keys. */
+  disabled?: boolean;
   /** Whether to render the buttons flat and inert, for use inside a preview. */
   preview?: boolean;
   /**
@@ -56,6 +60,8 @@ export const Buttons = <K extends record.Key = record.Key>({
   onChange,
   allowNone,
   multiple,
+  enableTriggers,
+  disabled,
   preview = false,
   variant = "text",
   className,
@@ -69,27 +75,46 @@ export const Buttons = <K extends record.Key = record.Key>({
     multiple,
     value,
     onChange,
+    enableTriggers: disabled === true ? false : enableTriggers,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
-  const ctx = { preview, variant };
+  const itemStatus = Input.useItemStatus({});
+  const ctx = {
+    disabled,
+    preview,
+    variant,
+    status: itemStatus.status,
+    "aria-invalid": itemStatus["aria-invalid"],
+    "aria-describedby": itemStatus["aria-describedby"],
+  };
   const text = variant === "text";
   const card = variant === "card";
+  const group = (
+    <Flex.Box
+      x
+      pack={variant === "outlined"}
+      gap={text ? "tiny" : card ? "medium" : undefined}
+      className={CSS.cls(
+        className,
+        CSS.B("select-btns"),
+        CSS.BM("select-btns", variant),
+      )}
+      {...rest}
+    >
+      {preview && isEmpty ? <Text.Text color={8}>None</Text.Text> : children}
+    </Flex.Box>
+  );
   return (
     <Frame<K, record.Keyed<K>> closeDialogOnSelect={false} {...selectionProps}>
       <ButtonsContext value={ctx}>
-        <Flex.Box
-          x
-          pack={variant === "outlined"}
-          gap={text ? "tiny" : card ? "medium" : undefined}
-          className={CSS.cls(
-            className,
-            CSS.B("select-btns"),
-            CSS.BM("select-btns", variant),
-          )}
-          {...rest}
-        >
-          {preview && isEmpty ? <Text.Text color={8}>None</Text.Text> : children}
-        </Flex.Box>
+        {itemStatus.tooltip == null ? (
+          group
+        ) : (
+          <Tooltip.Dialog hide={itemStatus.hideTooltip}>
+            {itemStatus.tooltip}
+            {group}
+          </Tooltip.Dialog>
+        )}
       </ButtonsContext>
     </Frame>
   );

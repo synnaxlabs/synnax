@@ -8,22 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep, primitive } from "@synnaxlabs/x";
+import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type role } from "@/access/role";
+import { group } from "@/group";
 import { query } from "@/query";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  ontologyID,
   type Payload,
   payloadZ,
+  resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Status,
   statusZ,
 } from "@/rack/types.gen";
+import { LINES } from "@/rack/where";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -31,46 +37,33 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  integration: z.string().optional(),
-  searchTerm: z.string().optional(),
-  embedded: z.boolean().optional(),
-  hostIsNode: z.boolean().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
   z
-    .object({
-      key: keyZ,
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .transform(({ key, includeStatus }): RetrieveRequest => ({
+      where: { key: { eq: key } },
+      includeStatus,
+    })),
   z
-    .object({
-      name: z.string(),
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .transform(({ name, includeStatus }): RetrieveRequest => ({
+      where: { name: { eq: name } },
+      includeStatus,
+    })),
 ]);
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveParamsZ = retrieveReqZ;
+export type RetrieveMultipleParams = RetrieveRequest;
 
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
-
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 type SingleQuery =
   { key: Key; includeStatus?: boolean } | { name: string; includeStatus?: boolean };
@@ -81,9 +74,6 @@ const createResZ = z.object({ racks: payloadZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -102,42 +92,11 @@ const singleQueryZ = z
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
-/**
- * Client-side matching for a request: key and name sets and payload-held
- * flags. Server-computed shapes (search, pagination, host resolution) never
- * reach this filter; they refetch instead.
- */
-const requestFilter = (
-  req: RetrieveRequest,
-): ((r: Omit<Payload, "status">) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  return (r) => {
-    if (keySet != null && !keySet.has(r.key)) return false;
-    if (nameSet != null && !nameSet.has(r.name)) return false;
-    if (req.integration != null && !r.integrations.includes(req.integration))
-      return false;
-    if (req.embedded != null && r.embedded !== req.embedded) return false;
-    return true;
-  };
-};
-
-// Rack statuses live in the status table under the "rack:<key>" status key.
-const affectedRackKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "rack") return null;
-  const parsed = keyZ.safeParse(Number(key));
-  return parsed.success ? [parsed.data] : null;
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   tasks: task.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
-  ontology: ontology.Client;
+  statuses: status.Client;
 }
 
 export class Client extends query.Retriever<
@@ -146,16 +105,23 @@ export class Client extends query.Retriever<
   Omit<Payload, "status">,
   Rack,
   RetrieveSingleParams,
-  SingleQuery
+  SingleQuery,
+  Key | string
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  /** Builds requests that move racks between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedRackKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "rack")?.map(Number) ?? null;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
-      fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
+      fetch: async (keys) =>
+        (await this.fetchThrough(query.keysRequest(keys))).map(stripStatus),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: ({ status: _, ...rack }) => rack,
@@ -163,7 +129,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // Composed rows always carry status; includeStatus only gates fetch flags.
+    // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Payload, "status">, Rack>({
       name: "rack.composed",
       source: store,
@@ -177,17 +143,20 @@ export class Client extends query.Retriever<
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
       keyOf: (q) => ("key" in q ? q.key : null),
+      // The stream and status-free fetches cache racks with no status.
+      covers: (r, q) => q.includeStatus !== true || r.status != null,
       matches: (r, q) => ("key" in q ? r.key === q.key : r.name === q.name),
       single: true,
     });
     super(cache, {
       name: "rack",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (r, req) => requestFilter(req)(r),
-        serverFields: SERVER_FIELDS,
+        matches: (r, req) => matches(LINES, r, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {
             if (q.includeStatus !== true) return null;
@@ -201,14 +170,14 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -224,10 +193,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -241,12 +207,17 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statuses.store.stamp();
     const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
       createResZ,
     );
+    res.racks.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statuses.store.ingest(st, { since });
+    });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
     return isSingle ? sugared[0] : sugared;
@@ -259,8 +230,18 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
+        ({ key, name, role, status, integrations, embedded, version, group: g }) =>
+          new Rack(
+            key,
+            name,
+            role,
+            this.cfg.tasks,
+            status,
+            integrations,
+            embedded,
+            version,
+            g,
+          ),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -272,18 +253,9 @@ export class Client extends query.Retriever<
     return this.sugar({ ...cached, status: st });
   }
 
-  // Only the "rack:<key>" row is the rack's status. Task statuses name their rack in
-  // their details, and matching on that would let them take the rack's status over.
   private statusOf(key: Key): Status | undefined {
-    const parsed = statusZ.safeParse(this.cfg.statusStore.get(statusKey(key)));
+    const parsed = statusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
     return parsed.success ? parsed.data : undefined;
-  }
-
-  private writeThrough(racks: Payload[]): void {
-    this.store.ingest(racks.map(stripStatus));
-    racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st);
-    });
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Payload[]> {
@@ -291,14 +263,19 @@ export class Client extends query.Retriever<
       "/rack/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.racks;
   }
 
-  private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
+  private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
+    const since = this.store.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
     const racks = await this.execRetrieve(req);
-    this.writeThrough(racks);
+    this.store.ingest(racks.map(stripStatus), { since });
+    racks.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
+    });
     return racks;
   }
 
@@ -307,12 +284,17 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Rack", q, racks, true);
+      checkForMultipleOrNoResults(
+        "rack",
+        { where: { key: { eq: q.key } } },
+        racks,
+        true,
+      );
       return this.sugar(racks[0]);
     }
-    const racks = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Rack", q, racks, true);
-    this.writeThrough(racks);
+    const racks = await this.fetchThrough(q);
+    const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
+    checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }
@@ -323,22 +305,31 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  version?: string;
+  group?: group.Key;
+  role: role.Key;
   private readonly tasks: task.Client;
 
   constructor(
     key: Key,
     name: string,
+    role: role.Key,
     taskClient: task.Client,
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    version?: string,
+    groupKey?: group.Key,
   ) {
     this.key = key;
     this.name = name;
+    this.role = role;
     this.tasks = taskClient;
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.version = version;
+    this.group = groupKey;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -370,8 +361,9 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      version: this.version,
+      group: this.group,
+      role: this.role,
     };
   }
 }
-
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

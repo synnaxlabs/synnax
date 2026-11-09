@@ -7,15 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import random
 import re
-from typing import Any, Literal
+from typing import Literal
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 from console.base import ResourceClient
+from framework.utils import read_json_object
 
 
 class TaskClient(ResourceClient):
@@ -30,11 +30,8 @@ class TaskClient(ResourceClient):
     def get_item(self, name: str) -> Locator:
         """Get a task item locator from the task toolbar.
 
-        Args:
-            name: Name of the task.
-
-        Returns:
-            Locator for the task item.
+        :param name: Name of the task.
+        :returns: Locator for the task item.
         """
         title = self.layout.page.locator(".console-task__title p").filter(
             has_text=re.compile(f"^{re.escape(name)}$")
@@ -61,9 +58,8 @@ class TaskClient(ResourceClient):
     def wait_for_state(self, name: str, state: Literal["running", "stopped"]) -> None:
         """Wait for a task to reach the expected running state in the UI.
 
-        Args:
-            name: Name of the task.
-            state: Expected state - "running" or "stopped".
+        :param name: Name of the task.
+        :param state: Expected state - "running" or "stopped".
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -78,9 +74,8 @@ class TaskClient(ResourceClient):
 
         Uses inline text edit (Text.MaybeEditable), not a modal dialog.
 
-        Args:
-            old_name: Current name of the task.
-            new_name: New name for the task.
+        :param old_name: Current name of the task.
+        :param new_name: New name for the task.
         """
         self.show_toolbar()
         item = self.get_item(old_name)
@@ -97,8 +92,7 @@ class TaskClient(ResourceClient):
     def delete(self, name: str) -> None:
         """Delete a task via context menu in the task toolbar.
 
-        Args:
-            name: Name of the task to delete.
+        :param name: Name of the task to delete.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -110,8 +104,7 @@ class TaskClient(ResourceClient):
     def delete_many(self, names: list[str]) -> None:
         """Delete multiple tasks via multi-select and context menu.
 
-        Args:
-            names: Names of the tasks to delete.
+        :param names: Names of the tasks to delete.
         """
         if not names:
             return
@@ -121,14 +114,11 @@ class TaskClient(ResourceClient):
         for name in names:
             self.get_item(name).wait_for(state="hidden", timeout=5000)
 
-    def export(self, name: str) -> dict[str, Any]:
+    def export(self, name: str) -> dict[str, JsonValue]:
         """Export a task via context menu in the task toolbar.
 
-        Args:
-            name: Name of the task to export.
-
-        Returns:
-            The exported JSON content as a dictionary.
+        :param name: Name of the task to export.
+        :returns: The exported JSON content as a dictionary.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -140,18 +130,13 @@ class TaskClient(ResourceClient):
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def copy_link(self, name: str) -> str:
         """Copy a link to a task via context menu.
 
-        Args:
-            name: Name of the task.
-
-        Returns:
-            The copied link from clipboard.
+        :param name: Name of the task.
+        :returns: The copied link from clipboard.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -165,8 +150,7 @@ class TaskClient(ResourceClient):
 
         Waits for the task to reach the running state before returning.
 
-        Args:
-            name: Name of the task to start.
+        :param name: Name of the task to start.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -181,8 +165,7 @@ class TaskClient(ResourceClient):
 
         Waits for the task to reach the stopped state before returning.
 
-        Args:
-            name: Name of the task to stop.
+        :param name: Name of the task to stop.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -197,8 +180,7 @@ class TaskClient(ResourceClient):
 
         Waits for all tasks to reach the running state before returning.
 
-        Args:
-            names: Names of the tasks to start.
+        :param names: Names of the tasks to start.
         """
         if not names:
             return
@@ -212,8 +194,7 @@ class TaskClient(ResourceClient):
 
         Waits for all tasks to reach the stopped state before returning.
 
-        Args:
-            names: Names of the tasks to stop.
+        :param names: Names of the tasks to stop.
         """
         if not names:
             return
@@ -226,8 +207,7 @@ class TaskClient(ResourceClient):
         """Disable data saving for a single task. No-op if already disabled or
         unsupported (e.g. write tasks).
 
-        Args:
-            name: Name of the task.
+        :param name: Name of the task.
         """
         self._toggle_data_saving(name, enable=False)
 
@@ -235,8 +215,7 @@ class TaskClient(ResourceClient):
         """Enable data saving for a single task. No-op if already enabled or
         unsupported (e.g. write tasks).
 
-        Args:
-            name: Name of the task.
+        :param name: Name of the task.
         """
         self._toggle_data_saving(name, enable=True)
 
@@ -266,16 +245,14 @@ class TaskClient(ResourceClient):
     def disable_data_saving_many(self, names: list[str]) -> None:
         """Disable data saving for multiple tasks via multi-select and context menu.
 
-        Args:
-            names: Names of the tasks.
+        :param names: Names of the tasks.
         """
         self._toggle_data_saving_many(names, enable=False)
 
     def enable_data_saving_many(self, names: list[str]) -> None:
         """Enable data saving for multiple tasks via multi-select and context menu.
 
-        Args:
-            names: Names of the tasks.
+        :param names: Names of the tasks.
         """
         self._toggle_data_saving_many(names, enable=True)
 
@@ -289,8 +266,7 @@ class TaskClient(ResourceClient):
     def open_config(self, name: str) -> None:
         """Open a task's configuration via context menu or double-click (random).
 
-        Args:
-            name: Name of the task to open.
+        :param name: Name of the task to open.
         """
         self.show_toolbar()
         item = self.get_item(name)
@@ -304,9 +280,8 @@ class TaskClient(ResourceClient):
     def snapshot(self, names: list[str], *, range_name: str) -> None:
         """Snapshot tasks to the active range via context menu.
 
-        Args:
-            names: Names of the tasks to snapshot.
-            range_name: Name of the active range.
+        :param names: Names of the tasks to snapshot.
+        :param range_name: Name of the active range.
         """
         if not names:
             return

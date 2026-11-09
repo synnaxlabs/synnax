@@ -224,7 +224,8 @@ class ViewLifecycle(ConsoleCase):
             for v in self.client.views.retrieve(search_term=view_b)
             if v.name == view_b
         ]
-        assert len(saved) == 1 and len(saved[0].query.has_labels) > 0, (
+        where = saved[0].where if len(saved) == 1 else None
+        assert where is not None and where.labels, (
             f"'{view_b}' should be saved to the server with its label filter"
         )
 

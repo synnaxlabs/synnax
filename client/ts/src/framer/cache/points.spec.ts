@@ -23,7 +23,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, ValidationError } from "@/errors";
+import { type framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
@@ -39,7 +39,7 @@ import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
-import { type PointsLimit } from "@/framer/subscription";
+import { AccessDeniedError, ValidationError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -52,8 +52,16 @@ const BREAKER: breaker.Config = {
   baseInterval: TimeSpan.milliseconds(10),
   maxInterval: TimeSpan.milliseconds(50),
 };
-const RAW: PointsLimit = { variant: "points", count: EXACT, aggregation: "min_max" };
-const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
+const RAW: framer.PointsLimit = {
+  variant: "points",
+  count: EXACT,
+  aggregation: "min_max",
+};
+const TILED: framer.PointsLimit = {
+  variant: "points",
+  count: 100,
+  aggregation: "min_max",
+};
 
 // Returns true when the range is one whole tile of the grid.
 const isTile = (tr: TimeRange): boolean => {
@@ -115,7 +123,11 @@ const createPoints = (
     breaker: pointsBreaker,
   };
   const open = new Set<Points>();
-  const subscribe = (key: channel.Key, window: Window, limit: PointsLimit): Points => {
+  const subscribe = (
+    key: channel.Key,
+    window: Window,
+    limit: framer.PointsLimit,
+  ): Points => {
     const points: Points = new Points(props, key, window, limit, () =>
       setTimeout(() => {
         if (open.has(points)) points.value();
@@ -184,7 +196,7 @@ describe("Points", () => {
         level,
         index: tileIndex(START.add(span.mult(2)), level),
       });
-      const limitAt = (end: TimeStamp): PointsLimit => ({
+      const limitAt = (end: TimeStamp): framer.PointsLimit => ({
         ...TILED,
         view: new TimeRange(end.sub(span), end),
       });
@@ -370,6 +382,182 @@ describe("Points", () => {
         const ranges = reduced.map((tr) => `${tr.start.valueOf()}/${tr.end.valueOf()}`);
         expect(new Set(ranges).size).toBe(ranges.length);
       } finally {
+        await close();
+      }
+    });
+  });
+
+  describe("high rate", () => {
+    const LIVE_SAMPLES = 2 ** 14;
+
+    // Returns the raw samples the store holds of the channel near the clock.
+    const heldSamples = (store: Store, key: channel.Key, now: TimeStamp): number => {
+      let sum = 0;
+      for (let i = rawIndex(now) - 2; i <= rawIndex(now); i++)
+        store
+          .findRaw(key, i)
+          ?.seriesIn(TimeRange.MAX)
+          .forEach((s) => (sum += s.length));
+      return sum;
+    };
+
+    // Returns the largest span inside the snapshot that no series draws.
+    const largestGap = (points: Points): bigint => {
+      const sorted = points
+        .value()
+        .series.series.map((s) => s.timeRange)
+        .sort((a, b) => TimeRange.sort(a, b));
+      let end = sorted[0].end.valueOf();
+      let gap = 0n;
+      for (const tr of sorted.slice(1)) {
+        const start = tr.start.valueOf();
+        if (start - end > gap) gap = start - end;
+        if (tr.end.valueOf() > end) end = tr.end.valueOf();
+      }
+      return gap;
+    };
+
+    it("should keep the held and drawn samples bounded", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      const { store, joins, subscribe, close } = createPoints(core, undefined, {
+        liveSamples: LIVE_SAMPLES,
+      });
+      const span = TimeSpan.seconds(30);
+      const window = dynamicWindow(span);
+      const keys = [core.index.key, core.data[0].key];
+      const points = keys.map((key) => subscribe(key, window, TILED));
+      try {
+        await expect.poll(() => keys.every((k) => joins.joined(k)), POLL).toBe(true);
+        for (let i = 0; i < 200; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        await expect
+          .poll(() => points.every((p) => p.value().status.variant === "success"), POLL)
+          .toBe(true);
+        for (const key of keys)
+          expect(heldSamples(store, key, core.now())).toBeLessThanOrEqual(LIVE_SAMPLES);
+        const floor = store.floor(core.index.key);
+        expect(floor).toBeDefined();
+        points.forEach((p) => {
+          const { series } = p.value();
+          expect(series.length).toBeLessThanOrEqual(LIVE_SAMPLES);
+          expect(series.series[0].timeRange.start.valueOf()).toBeLessThanOrEqual(
+            core.now().sub(span).add(TimeSpan.seconds(1)).valueOf(),
+          );
+          const raw = series.series.filter((s) =>
+            s.timeRange.start.equals(floor!.start),
+          );
+          expect(raw).toHaveLength(1);
+        });
+        // A pair reads its tiles together, so their spans match.
+        const [x, y] = points.map((p) =>
+          p
+            .value()
+            .series.series.filter((s) => !s.timeRange.end.after(floor!.start))
+            .map((s) => s.timeRange.toString()),
+        );
+        expect(x.length).toBeGreaterThan(0);
+        expect(y).toEqual(x);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should draw the samples the store drops until their tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      let stalled = false;
+      const stalls: Array<() => void> = [];
+      const { joins, store, subscribe, close } = createPoints(
+        core,
+        async (tr, keys, reduction) => {
+          if (reduction != null && stalled)
+            await new Promise<void>((resolve) => stalls.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+        { liveSamples: LIVE_SAMPLES },
+      );
+      const key = core.index.key;
+      const points = subscribe(key, dynamicWindow(TimeSpan.seconds(30)), TILED);
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        for (let i = 0; i < 100; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        stalled = true;
+        const kept = store.floor(key)?.kept;
+        for (let i = 0; i < 100; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        expect(store.floor(key)?.kept?.after(kept!)).toBe(true);
+        expect(largestGap(points)).toBeLessThanOrEqual(
+          TimeSpan.milliseconds(10).valueOf(),
+        );
+      } finally {
+        stalls.forEach((resolve) => resolve());
+        await close();
+      }
+    });
+
+    it("should move past the samples of a floor once its tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(2000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      let stalls: Array<{ tr: TimeRange; resolve: () => void }> = [];
+      let stalled = false;
+      const { joins, store, subscribe, close } = createPoints(
+        core,
+        async (tr, keys, reduction) => {
+          if (reduction != null && stalled)
+            await new Promise<void>((resolve) => stalls.push({ tr, resolve }));
+          return core.read(tr, keys, reduction);
+        },
+        { liveSamples: LIVE_SAMPLES },
+      );
+      const key = core.index.key;
+      const points = subscribe(key, dynamicWindow(TimeSpan.seconds(30)), TILED);
+      // Lands the tiles of each floor once the floor after it moves, so the tiles of
+      // the newest floor are always missing.
+      const release = (): void => {
+        const kept = store.floor(key)?.kept;
+        if (kept == null) return;
+        const landed = stalls.filter(({ tr }) => !tr.end.after(kept));
+        stalls = stalls.filter((s) => !landed.includes(s));
+        landed.forEach(({ resolve }) => resolve());
+      };
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        stalled = true;
+        for (let i = 0; i < 300; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          release();
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        const kept = store.floor(key)!.kept!;
+        const before = points
+          .value()
+          .series.series.filter((s) => s.timeRange.start.before(kept))
+          .reduce((sum, s) => sum + s.length, 0);
+        expect(before).toBeLessThan(LIVE_SAMPLES);
+        expect(largestGap(points)).toBeLessThanOrEqual(
+          TimeSpan.milliseconds(10).valueOf(),
+        );
+      } finally {
+        stalled = false;
+        stalls.forEach(({ resolve }) => resolve());
         await close();
       }
     });

@@ -10,7 +10,7 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { historyChangeZ } from "@/framer/types.gen";
+import { framer } from "@/framer";
 import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -37,7 +37,7 @@ describe("history changes", () => {
       while (change == null) {
         const lists = (await streamer.read())
           .get("sy_history_change")
-          .parseJSON(historyChangeZ.array());
+          .parseJSON(framer.historyChangeZ.array());
         change = lists.flat().find((c) => c.key === index.key);
       }
       expect(change.timeRange).toEqual(

@@ -14,10 +14,10 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
+import { group } from "@/group";
 import {
   aggregationZ,
   axisKeyZ,
-  customRangeZ,
   detailZ,
   keyZ,
   type LinePlot,
@@ -29,6 +29,8 @@ import {
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -46,6 +48,26 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
+/**
+ * SetGroup moves the line plot into a group, or out of its group when group is empty.
+ * Emitted by the Core when it moves the line plot; clients never dispatch it.
+ */
+export const setGroupPayloadZ = z.object({
+  group: group.keyZ.optional(),
+});
+
+export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
+
+/**
+ * SetProject moves the line plot into a project. Emitted by the Core when it moves the
+ * line plot; clients never dispatch it.
+ */
+export const setProjectPayloadZ = z.object({
+  project: project.keyZ,
+});
+
+export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /** SetTitleVisible sets whether the plot title is shown above the plot. */
 export const setTitleVisiblePayloadZ = z.object({
@@ -120,51 +142,34 @@ export const setXChannelPayloadZ = z.object({
 export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
 
 /**
- * AddRange appends the range key to the ranges array bound to the x-axis named by
- * axis_key. No-op when the range is already present.
+ * AddRange appends the range reference to the plot's ranges. No-op when an equal
+ * reference is already present.
  */
 export const addRangePayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  range: z.string(),
+  range: ranger.refZ,
 });
 
 export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
 
 /**
- * RemoveRange removes the range key from the x-axis named by axis_key. No-op when the
- * range is not present.
+ * RemoveRange removes the reference equal to range from the plot's ranges. No-op when
+ * no reference is equal.
  */
 export const removeRangePayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  range: z.string(),
+  range: ranger.refZ,
 });
 
 export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;
 
 /**
- * SetRanges replaces the entire set of range keys bound to the x-axis named by axis_key
- * with ranges. Ranges absent from the new set are removed and their lines dropped;
- * ranges not previously present are added. Existing ranges keep their line styling.
+ * SetRanges replaces the plot's range references with ranges, such as when the user
+ * edits a window. Lines style channels, so they are unaffected.
  */
 export const setRangesPayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  ranges: z
-    .string()
-    .array()
-    .default(() => []),
+  ranges: ranger.refZ.array().default(() => []),
 });
 
 export type SetRangesPayload = z.infer<typeof setRangesPayloadZ>;
-
-/**
- * SetCustomRange sets the window the "custom" range key resolves to. A null custom
- * clears the window.
- */
-export const setCustomRangePayloadZ = z.object({
-  custom: zod.nullToUndefined(customRangeZ),
-});
-
-export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;
 
 /** SetAxisLabel sets the label rendered along the axis identified by key. */
 export const setAxisLabelPayloadZ = z.object({
@@ -364,6 +369,8 @@ export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
+  | { type: "set_group"; setGroup: SetGroupPayload }
+  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "set_title_visible"; setTitleVisible: SetTitleVisiblePayload }
   | { type: "set_title_level"; setTitleLevel: SetTitleLevelPayload }
   | { type: "set_legend_hidden"; setLegendHidden: SetLegendHiddenPayload }
@@ -375,7 +382,6 @@ export type Action =
   | { type: "add_range"; addRange: AddRangePayload }
   | { type: "remove_range"; removeRange: RemoveRangePayload }
   | { type: "set_ranges"; setRanges: SetRangesPayload }
-  | { type: "set_custom_range"; setCustomRange: SetCustomRangePayload }
   | { type: "set_axis_label"; setAxisLabel: SetAxisLabelPayload }
   | {
       type: "set_axis_label_direction";
@@ -404,6 +410,8 @@ export type Action =
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
+  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
+  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({
     type: z.literal("set_title_visible"),
     setTitleVisible: setTitleVisiblePayloadZ,
@@ -427,10 +435,6 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("add_range"), addRange: addRangePayloadZ }),
   z.object({ type: z.literal("remove_range"), removeRange: removeRangePayloadZ }),
   z.object({ type: z.literal("set_ranges"), setRanges: setRangesPayloadZ }),
-  z.object({
-    type: z.literal("set_custom_range"),
-    setCustomRange: setCustomRangePayloadZ,
-  }),
   z.object({ type: z.literal("set_axis_label"), setAxisLabel: setAxisLabelPayloadZ }),
   z.object({
     type: z.literal("set_axis_label_direction"),
@@ -495,6 +499,20 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
     label: "line plot rename action payload",
+  }),
+});
+
+export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
+  type: "set_group",
+  setGroup: zod.parse(setGroupPayloadZ, payload, {
+    label: "line plot set_group action payload",
+  }),
+});
+
+export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
+  type: "set_project",
+  setProject: zod.parse(setProjectPayloadZ, payload, {
+    label: "line plot set_project action payload",
   }),
 });
 
@@ -582,15 +600,6 @@ export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action =>
   type: "set_ranges",
   setRanges: zod.parse(setRangesPayloadZ, payload, {
     label: "line plot set_ranges action payload",
-  }),
-});
-
-export const setCustomRange = (
-  payload: z.input<typeof setCustomRangePayloadZ>,
-): Action => ({
-  type: "set_custom_range",
-  setCustomRange: zod.parse(setCustomRangePayloadZ, payload, {
-    label: "line plot set_custom_range action payload",
   }),
 });
 
@@ -780,6 +789,8 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 export interface Handlers {
   create: (state: Draft<LinePlot>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
+  setGroup: (state: Draft<LinePlot>, payload: SetGroupPayload) => HandlerResult;
+  setProject: (state: Draft<LinePlot>, payload: SetProjectPayload) => HandlerResult;
   setTitleVisible: (
     state: Draft<LinePlot>,
     payload: SetTitleVisiblePayload,
@@ -806,10 +817,6 @@ export interface Handlers {
   addRange: (state: Draft<LinePlot>, payload: AddRangePayload) => HandlerResult;
   removeRange: (state: Draft<LinePlot>, payload: RemoveRangePayload) => HandlerResult;
   setRanges: (state: Draft<LinePlot>, payload: SetRangesPayload) => HandlerResult;
-  setCustomRange: (
-    state: Draft<LinePlot>,
-    payload: SetCustomRangePayload,
-  ) => HandlerResult;
   setAxisLabel: (state: Draft<LinePlot>, payload: SetAxisLabelPayload) => HandlerResult;
   setAxisLabelDirection: (
     state: Draft<LinePlot>,
@@ -870,6 +877,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
+      case "set_group":
+        return handlers.setGroup(state, action.setGroup);
+      case "set_project":
+        return handlers.setProject(state, action.setProject);
       case "set_title_visible":
         return handlers.setTitleVisible(state, action.setTitleVisible);
       case "set_title_level":
@@ -892,8 +903,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.removeRange(state, action.removeRange);
       case "set_ranges":
         return handlers.setRanges(state, action.setRanges);
-      case "set_custom_range":
-        return handlers.setCustomRange(state, action.setCustomRange);
       case "set_axis_label":
         return handlers.setAxisLabel(state, action.setAxisLabel);
       case "set_axis_label_direction":
@@ -942,3 +951,5 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
+
+export const dispatchResZ = actions.dispatchResZ(actionZ);

@@ -18,64 +18,49 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/labjack"
 
 TemperatureUnits enum {
-    celsius    = "C"
-    fahrenheit = "F"
-    kelvin     = "K"
+    celsius    = "C" {
+        @doc value "is degrees Celsius."
+    }
+    fahrenheit = "F" {
+        @doc value "is degrees Fahrenheit."
+    }
+    kelvin     = "K" {
+        @doc value "is kelvins."
+    }
 
     @doc value "are the engineering units for a temperature measurement."
 }
 
 ThermocoupleType enum {
-    j = "J"
-    k = "K"
-    n = "N"
-    r = "R"
-    s = "S"
-    t = "T"
-    b = "B"
-    e = "E"
-    c = "C"
+    j = "J" {
+        @doc value "pairs iron with copper-nickel."
+    }
+    k = "K" {
+        @doc value "pairs nickel-chromium with nickel-aluminum."
+    }
+    n = "N" {
+        @doc value "pairs nickel-chromium-silicon with nickel-silicon-magnesium."
+    }
+    r = "R" {
+        @doc value "pairs platinum-13% rhodium with platinum."
+    }
+    s = "S" {
+        @doc value "pairs platinum-10% rhodium with platinum."
+    }
+    t = "T" {
+        @doc value "pairs copper with copper-nickel."
+    }
+    b = "B" {
+        @doc value "pairs platinum-30% rhodium with platinum-6% rhodium."
+    }
+    e = "E" {
+        @doc value "pairs nickel-chromium with copper-nickel."
+    }
+    c = "C" {
+        @doc value "pairs tungsten-5% rhenium with tungsten-26% rhenium."
+    }
 
     @doc value "selects the thermocouple alloy type."
-}
-
-Scale union on type {
-    linear {
-        slope  float64 = 1 {
-            @doc value "is the multiplier applied to the raw value."
-        }
-        offset float64 = 0 {
-            @doc value "is the offset added after scaling."
-        }
-
-        @doc value "maps raw values to engineering units with a slope and offset."
-    }
-    map {
-        pre_scaled_min float64 = 0 {
-            @default group "pre_scaled"
-            @doc value     "is the lower bound of the raw input range."
-        }
-        pre_scaled_max float64 = 1 {
-            @default group "pre_scaled"
-            @doc value     "is the upper bound of the raw input range."
-        }
-        scaled_min     float64 = 0 {
-            @default group "scaled"
-            @doc value     "is the lower bound of the scaled output range."
-        }
-        scaled_max     float64 = 1 {
-            @default group "scaled"
-            @doc value     "is the upper bound of the scaled output range."
-        }
-
-        @doc value "maps a raw range linearly onto a scaled range."
-    }
-    none {
-        @doc value "applies no scaling; the raw value is used directly."
-    }
-
-    @doc value  "determines how raw sensor values are transformed to engineering units."
-    @go marshal
 }
 
 BaseReadChannel struct {
@@ -90,7 +75,9 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     port     string = "" {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
@@ -104,7 +91,10 @@ ReadChannel union on type extends BaseReadChannel {
     analog {
         port     string = "AIN0"
         range    float64 = 10 {
-            @doc value "is the upper bound of the voltage input range, in Volts."
+            @doc value """
+                is the largest voltage magnitude the channel reads, in Volts. The
+                channel uses the smallest range of the device that covers it.
+            """
         }
         neg_chan int32 = 199 {
             @doc value """
@@ -112,7 +102,7 @@ ReadChannel union on type extends BaseReadChannel {
                 selects single-ended.
             """
         }
-        scale    Scale = none {
+        scale    task.Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -139,8 +129,9 @@ ReadChannel union on type extends BaseReadChannel {
         cjc_source        string = "TEMPERATURE_DEVICE_K" {
             @doc value """
                 selects the cold-junction-compensation source: the device sensor
-                ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN
-                port (e.g. 'AIN2').
+                ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the
+                thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on a
+                T8), or an AIN port (e.g. 'AIN2').
             """
         }
         cjc_slope         float64 = 1 {
@@ -152,7 +143,7 @@ ReadChannel union on type extends BaseReadChannel {
         units             TemperatureUnits = kelvin {
             @doc value "are the units of the temperature measurement."
         }
-        scale             Scale = none {
+        scale             task.Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -175,10 +166,14 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -214,7 +209,9 @@ WriteChannel union on type extends BaseWriteChannel {
 
 ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     channels                          ReadChannel[] {
         @doc value "are the channels the task acquires."
@@ -232,10 +229,12 @@ ReadConfig struct extends task.ReadConfig {
         """
     }
 
-    @doc value  "configures a LabJack read task."
-    @go imex    body
+    @doc value           "configures a LabJack read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -247,10 +246,12 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  "configures a LabJack write task."
-    @go imex    body
+    @doc value           "configures a LabJack write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -265,4 +266,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

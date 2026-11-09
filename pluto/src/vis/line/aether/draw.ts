@@ -27,6 +27,8 @@ export interface DrawOperation {
   xOffset: number;
   yOffset: number;
   count: number;
+  /** The time span the op draws: where its x and y series overlap. */
+  span: TimeRange;
 }
 
 export const buildDrawOperations = (
@@ -43,6 +45,10 @@ export const buildDrawOperations = (
       xOffset: Number((start - x.alignment) / mult),
       yOffset: Number((start - y.alignment) / mult),
       count: Number((end - start) / mult),
+      span: new TimeRange(
+        TimeStamp.max(x.timeRange.start, y.timeRange.start),
+        TimeStamp.min(x.timeRange.end, y.timeRange.end),
+      ),
     });
   });
   return ops;
@@ -85,28 +91,23 @@ const nonFiniteVertices = (
   return vertices;
 };
 
-/** @returns the time span an op draws: where its x and y series overlap. */
-const opSpan = ({ x, y }: DrawOperation): TimeRange =>
-  new TimeRange(
-    TimeStamp.max(x.timeRange.start, y.timeRange.start),
-    TimeStamp.min(x.timeRange.end, y.timeRange.end),
-  );
+/** @returns true when b starts in time where a ends, so a line may join them. */
+export const touching = (a: DrawOperation, b: DrawOperation): boolean =>
+  a.span.end.equals(b.span.start);
 
 /**
  * @returns interleaved decimal x and y of the segments joining each op to the next in
- * time, leaving out any segment with a non-finite end. Ops whose time spans overlap
- * are not joined: they hold the same span twice, so a joining segment would run back in
- * time.
+ * time, leaving out any segment with a non-finite end. Only ops that touch in time
+ * join. Time between two ops holds no samples, and ops that overlap hold the same span
+ * twice, so a joining segment would run back in time.
  */
 export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
   const vertices: number[] = [];
-  const spans = ops
-    .map((op) => ({ op, span: opSpan(op) }))
-    .sort((a, b) => TimeStamp.sort(a.span.start, b.span.start));
-  for (let i = 1; i < spans.length; i++) {
-    const { op: a, span: aSpan } = spans[i - 1];
-    const { op: b, span: bSpan } = spans[i];
-    if (bSpan.start.before(aSpan.end)) continue;
+  const sorted = ops.toSorted((a, b) => TimeStamp.sort(a.span.start, b.span.start));
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1];
+    const b = sorted[i];
+    if (!touching(a, b)) continue;
     const last = Math.max(a.count - 1, 0);
     const segment = [
       s.x.pos(Number(a.x.at(a.xOffset + last, true))),

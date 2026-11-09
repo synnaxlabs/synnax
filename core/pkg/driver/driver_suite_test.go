@@ -19,10 +19,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var mockFS fs.FS
+var (
+	db     *gorp.DB
+	mockFS fs.FS
+	keys   *apikey.Service
+)
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -53,7 +62,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
 	return []byte(dir)
-}, func(dir []byte) {
+}, func(ctx SpecContext, dir []byte) {
 	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB:   db,
+		Name: string(resource.TypeRack),
+	}))
+	r := rack.Rack{Key: rackKey, Name: "driver"}
+	Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+	keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 })

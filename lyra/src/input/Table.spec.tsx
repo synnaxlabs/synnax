@@ -20,6 +20,15 @@ const COLUMNS = [
   <Input.TableColumn key="scaled" name="Scaled" />,
 ];
 
+// Reads only 0x-prefixed text, so a decimal paste is refused.
+const parseHex = (text: string): number | null =>
+  text.startsWith("0x") ? Number.parseInt(text.slice(2), 16) : null;
+
+const HEX_COLUMNS = [
+  <Input.TableColumn key="hex" name="Hex" parse={parseHex} />,
+  <Input.TableColumn key="raw" name="Raw" />,
+];
+
 interface RenderOptions {
   value?: Input.TableCell[][];
   preview?: boolean;
@@ -27,6 +36,7 @@ interface RenderOptions {
   rowLabel?: (index: number) => string;
   resourceName?: string;
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
+  onRemove?: (index: number) => void;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -79,10 +89,10 @@ const marked = (input: HTMLInputElement): boolean =>
 const hoverTip = (input: HTMLInputElement): string | null => {
   vi.useFakeTimers();
   try {
-    const td = input.closest("td");
-    if (td == null) throw new Error("The input is not in a cell");
-    td.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
-    fireEvent.pointerOver(td, { pointerType: "mouse" });
+    const frame = input.closest<HTMLElement>(".lyra-input");
+    if (frame == null) throw new Error("The input has no frame");
+    frame.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
+    fireEvent.pointerOver(frame, { pointerType: "mouse" });
     act(() => {
       vi.advanceTimersByTime(2000);
     });
@@ -190,6 +200,20 @@ describe("Input.Table", () => {
       [1, 10],
       [3, 30],
     ]);
+  });
+
+  it("should pass the removed row's index to onRemove in place of onChange", () => {
+    const onRemove = vi.fn();
+    const onChange = renderTable({
+      value: [
+        [1, 10],
+        [2, 20],
+      ],
+      onRemove,
+    });
+    fireEvent.click(removeButton(1));
+    expect(onRemove).toHaveBeenCalledExactlyOnceWith(1);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should hide the add and remove buttons in preview", () => {
@@ -372,6 +396,15 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should build the rows that a paste adds with createRow", () => {
+      const onChange = renderTable({ createRow: () => [7, 70] });
+      paste(cell("Raw", "1"), "1\t10\n2");
+      expect(onChange).toHaveBeenCalledWith([
+        [1, 10],
+        [2, 70],
+      ]);
+    });
+
     it("should anchor the paste on the focused cell", () => {
       const onChange = renderTable();
       paste(cell("Scaled", "1"), "11\n21");
@@ -451,10 +484,40 @@ describe("Input.Table", () => {
       expect(marked(cell("Scaled", "1"))).toBe(false);
     });
 
-    it("should name the text that did not parse in the cell's tooltip", () => {
+    it("should name the text and the column of a refused cell in its tooltip", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       paste(cell("Raw", "1"), "5\tabc");
-      expect(hoverTip(cell("Scaled", "1"))).toBe('"abc" is not a number');
+      expect(hoverTip(cell("Scaled", "1"))).toBe(
+        '"abc" is not a valid value for Scaled',
+      );
+    });
+
+    it("should call an unnamed column 'this column' in a refused cell's tooltip", () => {
+      render(
+        <Stateful initial={[[1]]}>{[<Input.TableColumn key="value" />]}</Stateful>,
+      );
+      paste(screen.getByLabelText("1"), "1\nabc");
+      expect(hoverTip(screen.getByLabelText("2"))).toBe(
+        '"abc" is not a valid value for this column',
+      );
+    });
+
+    it("should read a pasted cell with its column's parse", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[[0, 0]]} onChange={onChange}>
+          {HEX_COLUMNS}
+        </Input.Table>,
+      );
+      paste(cell("Hex", "1"), "0x10\t5");
+      expect(onChange).toHaveBeenCalledWith([[16, 5]]);
+    });
+
+    it("should name the column whose parse refused a pasted cell", () => {
+      render(<Stateful initial={[[0, 0]]}>{HEX_COLUMNS}</Stateful>);
+      paste(cell("Hex", "1"), "16\t5");
+      expect(cell("Hex", "1").value).toBe("0");
+      expect(hoverTip(cell("Hex", "1"))).toBe('"16" is not a valid value for Hex');
     });
 
     it("should keep a first row in which a number parses", () => {
@@ -582,7 +645,45 @@ describe("Input.Table", () => {
     });
   });
 
+  describe("in an item", () => {
+    it("should not mark its cells with the item's status", () => {
+      render(
+        <Input.Item label="Coefficients" status="error" helpText="Too few">
+          <Input.Table value={[[1, 10]]} onChange={vi.fn()}>
+            {COLUMNS}
+          </Input.Table>
+        </Input.Item>,
+      );
+      expect(marked(cell("Raw", "1"))).toBe(false);
+      expect(hoverTip(cell("Raw", "1"))).toBeNull();
+    });
+  });
+
   describe("columns", () => {
+    const renderWidths = () =>
+      render(
+        <Input.Table value={[[1, 2]]} onChange={vi.fn()}>
+          <Input.TableColumn name="Raw" width={10} />
+          <Input.TableColumn name="Scaled" />
+        </Input.Table>,
+      );
+
+    it("should give a column the width it declares", () => {
+      const { container } = renderWidths();
+      const widths = Array.from(container.querySelectorAll("col")).map(
+        (col) => col.style.width,
+      );
+      expect(widths).toEqual(["10rem", "", ""]);
+    });
+
+    it("should size the table to fit every column", () => {
+      const { container } = renderWidths();
+      const table = container.querySelector("table");
+      expect(table?.style.getPropertyValue("--pluto-input-table-columns-width")).toBe(
+        "26rem",
+      );
+    });
+
     const renderMixed = (value: Input.TableCell[][] = [["on", 1]]) => {
       const onChange = vi.fn();
       render(

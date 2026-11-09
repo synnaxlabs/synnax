@@ -11,21 +11,50 @@
 
 package table
 
-import "github.com/synnaxlabs/x/union"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/union"
+)
 
 const (
-	ActionTypeCreate     = "create"
-	ActionTypeRename     = "rename"
-	ActionTypeAddRow     = "add_row"
-	ActionTypeRemoveRow  = "remove_row"
-	ActionTypeAddCol     = "add_col"
-	ActionTypeRemoveCol  = "remove_col"
-	ActionTypeResizeRow  = "resize_row"
-	ActionTypeResizeCol  = "resize_col"
-	ActionTypeMoveRow    = "move_row"
-	ActionTypeMoveCol    = "move_col"
-	ActionTypeSetCell    = "set_cell"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
+	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
+	ActionTypeAddRow = "add_row"
+	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
+	ActionTypeRemoveRow = "remove_row"
+	// ActionTypeAddCol is the Type of an Action that carries AddColPayload.
+	ActionTypeAddCol = "add_col"
+	// ActionTypeRemoveCol is the Type of an Action that carries RemoveColPayload.
+	ActionTypeRemoveCol = "remove_col"
+	// ActionTypeResizeRow is the Type of an Action that carries ResizeRowPayload.
+	ActionTypeResizeRow = "resize_row"
+	// ActionTypeResizeCol is the Type of an Action that carries ResizeColPayload.
+	ActionTypeResizeCol = "resize_col"
+	// ActionTypeMoveRow is the Type of an Action that carries MoveRowPayload.
+	ActionTypeMoveRow = "move_row"
+	// ActionTypeMoveCol is the Type of an Action that carries MoveColPayload.
+	ActionTypeMoveCol = "move_col"
+	// ActionTypeSetCell is the Type of an Action that carries SetCellPayload.
+	ActionTypeSetCell = "set_cell"
+	// ActionTypeEraseCells is the Type of an Action that carries EraseCellsPayload.
 	ActionTypeEraseCells = "erase_cells"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -37,6 +66,18 @@ type CreatePayload struct {
 // RenamePayload renames the table.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the table into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the table; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the table into a project. Emitted by the Core when it moves
+// the table; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // AddRowPayload inserts a row with the given key at the given index. Three flows:
@@ -139,12 +180,45 @@ type EraseCellsPayload struct {
 	Template CellConfig `json:"template" msgpack:"template"`
 }
 
+// SetPayload replaces the value at a path in the table's cells.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the table's
+// cells.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the table's cells.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the table's cells.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
 // Action is a discriminated union for all Table mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
 	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup   *SetGroupPayload   `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject *SetProjectPayload `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
 	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
@@ -155,12 +229,15 @@ type Action struct {
 	MoveCol    *MoveColPayload    `json:"move_col,omitzero" msgpack:"move_col,omitempty"`
 	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
 	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
+	Set        *SetPayload        `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove     *RemovePayload     `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert     *InsertPayload     `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move       *MovePayload       `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state Table, actions ...Action) (Table, error) {
 	var err error
@@ -176,6 +253,16 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeAddRow:
 			if a.AddRow == nil {
 				return state, union.MissingPayload(a.Type)
@@ -226,8 +313,28 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.EraseCells.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
@@ -244,6 +351,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewAddRowAction wraps a AddRowPayload in an Action envelope.
@@ -294,4 +411,24 @@ func NewSetCellAction(p SetCellPayload) Action {
 // NewEraseCellsAction wraps a EraseCellsPayload in an Action envelope.
 func NewEraseCellsAction(p EraseCellsPayload) Action {
 	return Action{Type: ActionTypeEraseCells, EraseCells: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

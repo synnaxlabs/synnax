@@ -80,6 +80,11 @@ export const activationFor = async (
   return { activation: act, ...found };
 };
 
+/** isAdmin returns whether a user is staff or an admin of the given team. */
+export const isAdmin = (org: Organization, session: Session): boolean =>
+  session.staff ||
+  session.teams.some((t) => t.clerkOrgID === org.clerkOrgID && t.role === ADMIN_ROLE);
+
 export const requireStaff = (session: Session): void => {
   if (!session.staff) throw forbidden("Staff only");
 };

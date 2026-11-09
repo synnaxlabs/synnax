@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import os
 from pathlib import Path
 
@@ -17,9 +18,16 @@ from synnax.config.file import File
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 
-__all__ = ["Cluster", "Clusters", "File", "default_clusters"]
+__all__ = [
+    "Cluster",
+    "Clusters",
+    "File",
+    "default_clusters",
+    "load_desktop_options",
+]
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
+DESKTOP_FILE_PATH = CONFIG_FILE_PATH / "desktop.json"
 
 
 def default_clusters() -> Clusters:
@@ -27,17 +35,39 @@ def default_clusters() -> Clusters:
     return Clusters(File(config_dir=CONFIG_FILE_PATH), keyring.get_keyring())
 
 
-def load_options() -> Options | None:
-    """Loads the connection parameters from a configuration file.
-    :return: The options to connect to a Synnax server.
+def load_desktop_options(path: Path = DESKTOP_FILE_PATH) -> Options | None:
+    """Loads the options that Synnax Desktop saved for scripts on this computer.
+
+    :param path: The file Synnax Desktop writes.
+    :returns: The options, or None if Synnax Desktop has saved none.
     """
-    cluster = default_clusters().get()
-    return None if cluster is None else cluster.options
+    try:
+        raw = json.loads(path.read_text())
+    except FileNotFoundError:
+        return None
+    return Options.model_validate(raw)
 
 
-NO_OPTIONS_MSG = """No options provided and no configuration file was found. Please
-                    provide options or login via the CLI  using the `sy login`
-                    command."""
+def _saved_by_desktop(opts: Options, path: Path) -> bool:
+    if not opts.api_key:
+        return False
+    try:
+        return opts == load_desktop_options(path)
+    except (ValueError, OSError):
+        # The file changes only the advice of errors, so a broken one must not break
+        # a connection that names its Core.
+        return False
+
+
+NO_OPTIONS_MSG = (
+    "No connection parameters were given and none are saved. Open Synnax Desktop, "
+    "log in with `sy login`, or give a host and a port."
+)
+
+DESKTOP_NOT_RUNNING_MSG = (
+    "Synnax Desktop is not running. Open it and try again. To connect to another "
+    "Core, give a host and a port."
+)
 
 
 def try_load_options_if_none_provided(
@@ -49,15 +79,30 @@ def try_load_options_if_none_provided(
     secure: bool = False,
     ca_cert: str | None = None,
     api_key: str = "",
-) -> Options:
+    clusters: Clusters | None = None,
+    desktop_file: Path = DESKTOP_FILE_PATH,
+) -> tuple[Options, bool]:
+    """Returns the given options, or, without a host, the options that `sy login`
+    saved, then those that Synnax Desktop saved.
+
+    :param clusters: The saved logins. Defaults to those of the current user.
+    :param desktop_file: The file where Synnax Desktop saves its options.
+    :returns: The options, and whether they are the options Synnax Desktop saved.
+    :raises ValidationError: If an API key has no host, or nothing is saved.
+    """
     if len(host) == 0:
         if api_key:
             raise ValidationError("give a host with an API key")
-        opts = load_options()
+        if clusters is None:
+            clusters = default_clusters()
+        cluster = clusters.get()
+        if cluster is not None:
+            return cluster.options, False
+        opts = load_desktop_options(desktop_file)
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
-        return opts
-    return Options(
+        return opts, True
+    opts = Options(
         host=host,
         port=port,
         username=username,
@@ -66,3 +111,4 @@ def try_load_options_if_none_provided(
         secure=secure,
         ca_cert=ca_cert,
     )
+    return opts, _saved_by_desktop(opts, desktop_file)

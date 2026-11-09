@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <mutex>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -61,12 +62,23 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+        auto [arc_data, arc_err] = client->arcs.retrieve(
             cfg.arc_key,
-            synnax::arc::RetrieveOptions{.compile = true}
+            synnax::arc::RetrieveOptions{.include_program = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        if (!arc_data.program.has_value())
+        const auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
+        if (automation == nullptr)
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "Modules cannot be deployed independently. Import \"" +
+                        synnax::arc::base(arc_data).name +
+                        "\" from an automation instead."
+                )
+            };
+        if (!automation->program.has_value())
             return {
                 std::move(cfg),
                 x::errors::Error(
@@ -74,7 +86,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
                     "The Arc program is not compiled."
                 )
             };
-        cfg.program = *arc_data.program;
+        cfg.program = *automation->program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -284,7 +296,6 @@ public:
                 writer_factory,
                 synnax::framer::WriterConfig{
                     .channels = task->runtime->write_channels,
-                    .start = x::telem::TimeStamp::now(),
                     .authorities = std::move(initial_authorities),
                     .subject =
                         x::control::Subject{
@@ -296,8 +307,7 @@ public:
                 std::move(source),
                 x::breaker::default_config("arc_acquisition"),
                 "arc_acquisition",
-                /* err_on_unauthorized */ false,
-                /* open_eagerly */ true
+                /* err_on_unauthorized */ false
             );
         }
         if (!task->runtime->read_channels.empty()) {
@@ -319,7 +329,6 @@ public:
     /// @brief starts the task. A task whose runtime is already running is not
     /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        const auto start = x::telem::TimeStamp::now();
         if (!this->runtime->start()) {
             std::lock_guard lock(this->state_mu);
             if (this->opening)
@@ -329,7 +338,7 @@ public:
             return false;
         }
         auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start(start);
+        if (this->acquisition) acq_started = this->acquisition->start();
         if (!this->control) {
             std::lock_guard lock(this->state_mu);
             this->state.send_start(cmd_key);

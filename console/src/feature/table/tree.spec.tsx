@@ -9,8 +9,8 @@
 
 import {
   NotFoundError,
-  ontology,
   project as clientProject,
+  resource,
   table as clientTable,
   type table,
 } from "@synnaxlabs/client";
@@ -20,6 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Project } from "@/feature/project";
 import { Table } from "@/feature/table";
 import { client, createPreloadedState, project } from "@/feature/table/testutil";
 import { Modals } from "@/platform/modals";
@@ -30,8 +31,9 @@ import {
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderLiveTree,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
@@ -50,7 +52,7 @@ const CORE = createCore("test");
 const Item = Table.TREE_ITEMS.table;
 
 const createTable = async (): Promise<table.Table> =>
-  await client.tables.create(await project(), { name: uniqueName("table") });
+  await client.tables.create({ project: await project(), name: uniqueName("table") });
 
 interface SetupParams {
   tables: table.Table[];
@@ -59,7 +61,7 @@ interface SetupParams {
 }
 
 const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) => {
-  const ids = tables.map((t) => clientTable.ontologyID(t.key));
+  const ids = tables.map((t) => clientTable.resourceID(t.key));
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(tables[0].key),
@@ -74,7 +76,7 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   const { wrapper } = await createConsoleWrapper({ client, store });
   const Menu = Item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
-  const itemID = List.itemNameID(ontology.idToString(ids[0]));
+  const itemID = List.itemNameID(resource.idToString(ids[0]));
   render(
     <>
       <Menu {...props} />
@@ -86,7 +88,7 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   return { store, props, itemID };
 };
 
-describe("table/ontology", () => {
+describe("table/tree", () => {
   describe("TreeContextMenu", () => {
     it("renders single-selection items once permissions resolve", async () => {
       const t = await createTable();
@@ -169,10 +171,10 @@ describe("table/ontology", () => {
   describe("onSelect", () => {
     it("retrieves the table and opens it as a tab when double-clicked", async () => {
       const t = await createTable();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
-        root: clientProject.ontologyID(await project()),
-        items: Table.TREE_ITEMS,
+        root: clientProject.resourceID(await project()),
+        items: { ...Project.TREE_ITEMS, ...Table.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(t.name));
       const tab = await resolveFocusedTab(store, client);
@@ -183,7 +185,7 @@ describe("table/ontology", () => {
 
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
-      const id = clientTable.ontologyID("11111111-1111-1111-1111-111111111111");
+      const id = clientTable.resourceID("11111111-1111-1111-1111-111111111111");
       const items = Item.haulItems(createResource(id, "My Table"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");

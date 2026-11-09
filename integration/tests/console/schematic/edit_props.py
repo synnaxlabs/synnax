@@ -9,8 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Button, Symbol, Value
-from console.schematic.schematic import PropertyDict, Schematic
+from console.schematic import Button, Properties, Schematic, Symbol, Value
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
@@ -48,7 +47,7 @@ def assert_properties(
     )
 
 
-def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
+def assert_symbol_properties(symbol: Symbol, expected_props: Properties) -> None:
     """Assert the symbol properties match expected values."""
     actual_props = symbol.get_properties()
     assert actual_props == expected_props, (
@@ -108,7 +107,7 @@ class EditProps(ConsoleCase):
         assert schematic.get_control_status() is True, (
             "Control status mismatch! Expected: True"
         )
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 
@@ -123,7 +122,7 @@ class EditProps(ConsoleCase):
         )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert schematic.control_legend_visible is False, (
+        assert schematic.control_legend_visible() is False, (
             "Control legend should not be visible"
         )
 
@@ -139,7 +138,7 @@ class EditProps(ConsoleCase):
         value = schematic.create_symbol(
             Value(label=f"{self.name}_uptime", channel_name=f"{self.name}_uptime")
         )
-        default_props: PropertyDict = {
+        default_props: Properties = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
             "precision": 2,
@@ -150,7 +149,7 @@ class EditProps(ConsoleCase):
         assert_symbol_properties(value, default_props)
 
         self.log("1.2 Edited")
-        expected_edited_props: PropertyDict = {
+        expected_edited_props: Properties = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
             "precision": 4,
@@ -170,7 +169,7 @@ class EditProps(ConsoleCase):
         value.delete()
 
         self.log("1.3 Non-Default")
-        non_default_props: PropertyDict = {
+        non_default_props: Properties = {
             "channel": f"{self.name}_state",
             "notation": "engineering",
             "precision": 7,
@@ -200,11 +199,11 @@ class EditProps(ConsoleCase):
             Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
 
-        expected_default_props: PropertyDict = {
+        expected_default_props: Properties = {
             "channel": CHANNEL_NAME,
             "activation_delay": 0,
             "show_control_chip": True,
-            "mode": "Fire",
+            "mode": "fire",
         }
         assert_symbol_properties(button, expected_default_props)
 
@@ -212,24 +211,24 @@ class EditProps(ConsoleCase):
         button.set_properties(
             channel_name=CHANNEL_NAME,
             show_control_chip=False,
-            mode="Momentary",
+            mode="momentary",
         )
         # Momentary hides the activation delay field: the hold is the
         # actuation, so no delay applies and the property is not read back.
-        expected_edited_props: PropertyDict = {
+        expected_edited_props: Properties = {
             "channel": CHANNEL_NAME,
             "show_control_chip": False,
-            "mode": "Momentary",
+            "mode": "momentary",
         }
         assert_symbol_properties(button, expected_edited_props)
         button.delete()
 
         self.log("2.3 Non-Default")
-        non_default_props: PropertyDict = {
+        non_default_props: Properties = {
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,
-            "mode": "Pulse",
+            "mode": "pulse",
         }
         non_default_button = schematic.create_symbol(
             Button(
@@ -237,7 +236,7 @@ class EditProps(ConsoleCase):
                 channel_name=CHANNEL_NAME,
                 activation_delay=2.3,
                 show_control_chip=True,
-                mode="Pulse",
+                mode="pulse",
             )
         )
         assert_symbol_properties(non_default_button, non_default_props)

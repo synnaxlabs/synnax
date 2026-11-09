@@ -7,20 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot } from "@synnaxlabs/client";
+import { type channel, DataType, lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
-import { Range } from "@/platform/range";
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-const SEARCH_OPTIONS: channel.RetrieveOptions = {
-  notDataTypes: ["string", "json", "uuid"],
-  internal: false,
-  virtual: false,
+const SEARCH_QUERY: Channel.ListQuery = {
+  where: {
+    not: { dataType: { in: [DataType.STRING, DataType.JSON, DataType.UUID] } },
+    virtual: false,
+  },
 };
 
 export interface YAxisChannelSelectProps extends Omit<
@@ -43,7 +46,7 @@ export const YAxisChannelSelect = ({
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
         onChange={handleChange}
         full="x"
         location="top"
@@ -58,6 +61,33 @@ export interface XAxisChannelSelectProps extends Omit<
 > {
   axisKey: lineplot.XAxisKey;
 }
+
+const BADGE_CLASS = CSS.BE("line-plot", "x-time-badge");
+
+// Key 0 means no X channel: each Y channel plots against its own index channel.
+const TIME_OPTION = (
+  <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
+    <Select.Item<channel.Key>
+      itemKey={0}
+      textValue="Time"
+      label={
+        <>
+          Time
+          <Input.AutoBadge className={BADGE_CLASS} />
+        </>
+      }
+    >
+      <Icon.Time />
+      <Text.Text>
+        Time
+        <Input.AutoBadge className={BADGE_CLASS} />
+      </Text.Text>
+      <Select.ItemDescription>
+        Automatically uses each channel's time. Best for most needs.
+      </Select.ItemDescription>
+    </Select.Item>
+  </Flex.Box>
+);
 
 export const XAxisChannelSelect = ({
   axisKey,
@@ -74,32 +104,12 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        query={{ ...SEARCH_QUERY, rangeKey }}
+        variant="floating"
         location="top"
+        icon={<Icon.Time />}
+        footer={TIME_OPTION}
       />
     </Input.Item>
-  );
-};
-
-export interface XAxisRangeSelectProps extends Omit<
-  Range.SelectMultipleInputItemProps,
-  "value" | "onChange"
-> {
-  axisKey: lineplot.XAxisKey;
-}
-
-export const XAxisRangeSelect = ({
-  axisKey,
-  ...rest
-}: XAxisRangeSelectProps): ReactElement => {
-  const value = LinePlot.useXAxisRanges({ axisKey });
-  const dispatch = LinePlot.useSingleDispatch();
-  const handleChange = (ranges: string[]) =>
-    dispatch(lineplot.setRanges({ axisKey, ranges }));
-  return (
-    <Flex.Box x grow>
-      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
-      {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput />}
-    </Flex.Box>
   );
 };

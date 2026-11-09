@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import cast, overload
+from typing import cast, overload, override
 
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ import synnax.channel.payload as channel
 from freighter import (
     EOF,
     AsyncStream,
-    AsyncWebsocketClient,
+    AsyncStreamClient,
     Stream,
     Unreachable,
     WebsocketClient,
@@ -90,9 +90,11 @@ class _Liveness:
 
 
 class _WSStreamerCodec(WSCodec):
+    @override
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
@@ -160,7 +162,7 @@ class Streamer:
             pass
 
     @overload
-    def read(self, *, timeout: float | int | TimeSpan) -> Frame | None:
+    def read(self, *, timeout: CrudeTimeSpan) -> Frame | None:
         """Reads the next frame of telemetry from the streamer with a timeout. If no
         frame is received within the timeout, this method will return None. If an error
         occurs while reading the frame, an exception will be raised.
@@ -168,8 +170,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. This can be a float or integer representing the number
         of seconds, or a synnax TimeSpan object.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         """
 
     @overload
@@ -179,7 +181,7 @@ class Streamer:
         raised.
         """
 
-    def read(self, *, timeout: float | None = None) -> Frame | None:
+    def read(self, *, timeout: CrudeTimeSpan | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is
         provided, this method will wait for the specified amount of time for a frame to
         be received. If no frame is received within the timeout, this method will return
@@ -191,8 +193,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. If no timeout is provided, this method will block until a
         frame is received.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         :raises Unreachable: If keep-alives were flowing and then no response arrives,
         across reads, for the keep-alive deadline: the connection is presumed dead.
         """
@@ -234,7 +236,7 @@ class Streamer:
             )
         )
 
-    def close(self, *, timeout: float | int | TimeSpan | None = None) -> None:
+    def close(self, *, timeout: CrudeTimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
@@ -286,13 +288,13 @@ class AsyncStreamer:
     """
 
     _stream: AsyncStream[_Request, _Response]
-    _client: AsyncWebsocketClient
+    _client: AsyncStreamClient
     _adapter: ReadFrameAdapter
 
     def __init__(
         self,
         *,
-        client: AsyncWebsocketClient,
+        client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int,
         throttle_rate: float = 0,

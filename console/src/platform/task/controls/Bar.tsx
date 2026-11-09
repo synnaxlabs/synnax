@@ -18,7 +18,8 @@ import { StartStopButton } from "@/platform/task/controls/StartStopButton";
 import { Status } from "@/platform/task/controls/Status";
 
 export interface BarProps extends Flex.BoxProps {
-  status: status.Status;
+  /** Absent for a task with no status. */
+  status?: status.Status;
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
@@ -32,6 +33,8 @@ export interface BarProps extends Flex.BoxProps {
   startStopVariant?: status.Variant;
   /** Rendered inside the action row, before the deploy controls. */
   extraActions?: ReactNode;
+  /** The task's settings, first in the action row. They show when the actions hide. */
+  settings?: ReactNode;
   onDeploy: () => void;
   onStop: () => void;
 }
@@ -49,6 +52,7 @@ export const Bar = ({
   fallbackMessage,
   startStopVariant,
   extraActions,
+  settings,
   onDeploy,
   onStop,
   ...props
@@ -65,20 +69,25 @@ export const Bar = ({
         onToggle={handleToggle}
         fallbackMessage={fallbackMessage}
       />
-      {!hideActions && (
+      {(!hideActions || settings != null) && (
         <Actions>
-          {extraActions}
-          <RedeployButton
-            visible={drifted}
-            onClick={onDeploy}
-            disabled={disabled || startStopVariant === "loading"}
-          />
-          <StartStopButton
-            running={running}
-            onClick={handleStartStop}
-            disabled={disabled}
-            statusVariant={startStopVariant}
-          />
+          {settings}
+          {!hideActions && (
+            <>
+              {extraActions}
+              <RedeployButton
+                visible={drifted}
+                onClick={onDeploy}
+                disabled={disabled || startStopVariant === "loading"}
+              />
+              <StartStopButton
+                running={running}
+                onClick={handleStartStop}
+                disabled={disabled}
+                statusVariant={startStopVariant}
+              />
+            </>
+          )}
         </Actions>
       )}
     </Frame>

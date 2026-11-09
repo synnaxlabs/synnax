@@ -13,6 +13,9 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -20,41 +23,93 @@ import (
 )
 
 const (
-	ActionTypeCreate                = "create"
-	ActionTypeRename                = "rename"
-	ActionTypeSetTitleVisible       = "set_title_visible"
-	ActionTypeSetTitleLevel         = "set_title_level"
-	ActionTypeSetLegendHidden       = "set_legend_hidden"
-	ActionTypeSetLegendPosition     = "set_legend_position"
-	ActionTypeAddChannel            = "add_channel"
-	ActionTypeRemoveChannel         = "remove_channel"
-	ActionTypeSetChannels           = "set_channels"
-	ActionTypeSetXChannel           = "set_x_channel"
-	ActionTypeAddRange              = "add_range"
-	ActionTypeRemoveRange           = "remove_range"
-	ActionTypeSetRanges             = "set_ranges"
-	ActionTypeSetCustomRange        = "set_custom_range"
-	ActionTypeSetAxisLabel          = "set_axis_label"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
+	// ActionTypeSetTitleVisible is the Type of an Action that carries
+	// SetTitleVisiblePayload.
+	ActionTypeSetTitleVisible = "set_title_visible"
+	// ActionTypeSetTitleLevel is the Type of an Action that carries
+	// SetTitleLevelPayload.
+	ActionTypeSetTitleLevel = "set_title_level"
+	// ActionTypeSetLegendHidden is the Type of an Action that carries
+	// SetLegendHiddenPayload.
+	ActionTypeSetLegendHidden = "set_legend_hidden"
+	// ActionTypeSetLegendPosition is the Type of an Action that carries
+	// SetLegendPositionPayload.
+	ActionTypeSetLegendPosition = "set_legend_position"
+	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
+	ActionTypeAddChannel = "add_channel"
+	// ActionTypeRemoveChannel is the Type of an Action that carries
+	// RemoveChannelPayload.
+	ActionTypeRemoveChannel = "remove_channel"
+	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
+	ActionTypeSetChannels = "set_channels"
+	// ActionTypeSetXChannel is the Type of an Action that carries SetXChannelPayload.
+	ActionTypeSetXChannel = "set_x_channel"
+	// ActionTypeAddRange is the Type of an Action that carries AddRangePayload.
+	ActionTypeAddRange = "add_range"
+	// ActionTypeRemoveRange is the Type of an Action that carries RemoveRangePayload.
+	ActionTypeRemoveRange = "remove_range"
+	// ActionTypeSetRanges is the Type of an Action that carries SetRangesPayload.
+	ActionTypeSetRanges = "set_ranges"
+	// ActionTypeSetAxisLabel is the Type of an Action that carries SetAxisLabelPayload.
+	ActionTypeSetAxisLabel = "set_axis_label"
+	// ActionTypeSetAxisLabelDirection is the Type of an Action that carries
+	// SetAxisLabelDirectionPayload.
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
-	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
-	ActionTypeSetAxisBounds         = "set_axis_bounds"
-	ActionTypeSetAxisTickSpacing    = "set_axis_tick_spacing"
-	ActionTypeSetAxisType           = "set_axis_type"
-	ActionTypeSetLineLabel          = "set_line_label"
-	ActionTypeSetLineColor          = "set_line_color"
-	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
-	ActionTypeSetLineAggregation    = "set_line_aggregation"
-	ActionTypeSetLineDetail         = "set_line_detail"
-	ActionTypeSetLine               = "set_line"
-	ActionTypeSetRule               = "set_rule"
-	ActionTypeSetRuleLabel          = "set_rule_label"
-	ActionTypeSetRuleColor          = "set_rule_color"
-	ActionTypeSetRuleAxis           = "set_rule_axis"
-	ActionTypeSetRuleLineWidth      = "set_rule_line_width"
-	ActionTypeSetRuleLineDash       = "set_rule_line_dash"
-	ActionTypeSetRuleUnits          = "set_rule_units"
-	ActionTypeSetRulePosition       = "set_rule_position"
-	ActionTypeRemoveRule            = "remove_rule"
+	// ActionTypeSetAxisLabelLevel is the Type of an Action that carries
+	// SetAxisLabelLevelPayload.
+	ActionTypeSetAxisLabelLevel = "set_axis_label_level"
+	// ActionTypeSetAxisBounds is the Type of an Action that carries
+	// SetAxisBoundsPayload.
+	ActionTypeSetAxisBounds = "set_axis_bounds"
+	// ActionTypeSetAxisTickSpacing is the Type of an Action that carries
+	// SetAxisTickSpacingPayload.
+	ActionTypeSetAxisTickSpacing = "set_axis_tick_spacing"
+	// ActionTypeSetAxisType is the Type of an Action that carries SetAxisTypePayload.
+	ActionTypeSetAxisType = "set_axis_type"
+	// ActionTypeSetLineLabel is the Type of an Action that carries SetLineLabelPayload.
+	ActionTypeSetLineLabel = "set_line_label"
+	// ActionTypeSetLineColor is the Type of an Action that carries SetLineColorPayload.
+	ActionTypeSetLineColor = "set_line_color"
+	// ActionTypeSetLineStrokeWidth is the Type of an Action that carries
+	// SetLineStrokeWidthPayload.
+	ActionTypeSetLineStrokeWidth = "set_line_stroke_width"
+	// ActionTypeSetLineAggregation is the Type of an Action that carries
+	// SetLineAggregationPayload.
+	ActionTypeSetLineAggregation = "set_line_aggregation"
+	// ActionTypeSetLineDetail is the Type of an Action that carries
+	// SetLineDetailPayload.
+	ActionTypeSetLineDetail = "set_line_detail"
+	// ActionTypeSetLine is the Type of an Action that carries SetLinePayload.
+	ActionTypeSetLine = "set_line"
+	// ActionTypeSetRule is the Type of an Action that carries SetRulePayload.
+	ActionTypeSetRule = "set_rule"
+	// ActionTypeSetRuleLabel is the Type of an Action that carries SetRuleLabelPayload.
+	ActionTypeSetRuleLabel = "set_rule_label"
+	// ActionTypeSetRuleColor is the Type of an Action that carries SetRuleColorPayload.
+	ActionTypeSetRuleColor = "set_rule_color"
+	// ActionTypeSetRuleAxis is the Type of an Action that carries SetRuleAxisPayload.
+	ActionTypeSetRuleAxis = "set_rule_axis"
+	// ActionTypeSetRuleLineWidth is the Type of an Action that carries
+	// SetRuleLineWidthPayload.
+	ActionTypeSetRuleLineWidth = "set_rule_line_width"
+	// ActionTypeSetRuleLineDash is the Type of an Action that carries
+	// SetRuleLineDashPayload.
+	ActionTypeSetRuleLineDash = "set_rule_line_dash"
+	// ActionTypeSetRuleUnits is the Type of an Action that carries SetRuleUnitsPayload.
+	ActionTypeSetRuleUnits = "set_rule_units"
+	// ActionTypeSetRulePosition is the Type of an Action that carries
+	// SetRulePositionPayload.
+	ActionTypeSetRulePosition = "set_rule_position"
+	// ActionTypeRemoveRule is the Type of an Action that carries RemoveRulePayload.
+	ActionTypeRemoveRule = "remove_rule"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -66,6 +121,18 @@ type CreatePayload struct {
 // RenamePayload renames the line plot.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the line plot into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the line plot; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the line plot into a project. Emitted by the Core when it
+// moves the line plot; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // SetTitleVisiblePayload sets whether the plot title is shown above the plot.
@@ -118,33 +185,22 @@ type SetXChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// AddRangePayload appends the range key to the ranges array bound to the x-axis named
-// by axis_key. No-op when the range is already present.
+// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
+// reference is already present.
 type AddRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// RemoveRangePayload removes the range key from the x-axis named by axis_key. No-op
-// when the range is not present.
+// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
+// when no reference is equal.
 type RemoveRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// SetRangesPayload replaces the entire set of range keys bound to the x-axis named by
-// axis_key with ranges. Ranges absent from the new set are removed and their lines
-// dropped; ranges not previously present are added. Existing ranges keep their line
-// styling.
+// SetRangesPayload replaces the plot's range references with ranges, such as when the
+// user edits a window. Lines style channels, so they are unaffected.
 type SetRangesPayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Ranges  []string `json:"ranges" msgpack:"ranges"`
-}
-
-// SetCustomRangePayload sets the window the "custom" range key resolves to. A null
-// custom clears the window.
-type SetCustomRangePayload struct {
-	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -293,6 +349,8 @@ type Action struct {
 	Type                  string                        `json:"type" msgpack:"type"`
 	Create                *CreatePayload                `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename                *RenamePayload                `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup              *SetGroupPayload              `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject            *SetProjectPayload            `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitzero" msgpack:"set_title_visible,omitempty"`
 	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitzero" msgpack:"set_title_level,omitempty"`
 	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitzero" msgpack:"set_legend_hidden,omitempty"`
@@ -304,7 +362,6 @@ type Action struct {
 	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
 	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
-	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitzero" msgpack:"set_custom_range,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
@@ -328,10 +385,9 @@ type Action struct {
 	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitzero" msgpack:"remove_rule,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 	var err error
@@ -347,6 +403,16 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeSetTitleVisible:
 			if a.SetTitleVisible == nil {
 				return state, union.MissingPayload(a.Type)
@@ -402,11 +468,6 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
-		case ActionTypeSetCustomRange:
-			if a.SetCustomRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetCustomRange.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -513,7 +574,7 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 			}
 			state, err = a.RemoveRule.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
@@ -530,6 +591,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.
@@ -585,11 +656,6 @@ func NewRemoveRangeAction(p RemoveRangePayload) Action {
 // NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
 func NewSetRangesAction(p SetRangesPayload) Action {
 	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
-}
-
-// NewSetCustomRangeAction wraps a SetCustomRangePayload in an Action envelope.
-func NewSetCustomRangeAction(p SetCustomRangePayload) Action {
-	return Action{Type: ActionTypeSetCustomRange, SetCustomRange: &p}
 }
 
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.

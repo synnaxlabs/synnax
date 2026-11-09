@@ -45,7 +45,8 @@ describe("label resolution", () => {
   });
 
   it("should read to the millisecond across seconds", () => {
-    const now = TimeStamp.now().nanoseconds;
+    // A label drops a fraction of zero, so a whole-second now keeps `fraction` in it.
+    const now = TimeStamp.now().truncate(TimeSpan.SECOND).nanoseconds;
     render(
       <Ranger.Timeline
         value={{ start: now - 15 * SECOND + fraction, end: now }}

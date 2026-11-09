@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack, task } from "@synnaxlabs/client";
+import { device, rack, task } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -171,11 +171,10 @@ export const configured = (
 
 /** rackStatus returns the status a Driver writes for its rack while it runs. */
 export const rackStatus = ({ key, name }: { key: rack.Key; name: string }) => ({
-  key: `rack:${key}`,
+  owner: rack.resourceID(key),
   name,
   variant: "success" as const,
   message: "Driver is running",
-  details: { rack: key },
 });
 
 /** deviceStatus returns the status a Driver on `rackKey` writes for a found device. */
@@ -184,11 +183,11 @@ export const deviceStatus = (
   { key, name }: { key: string; name: string },
   message = "Device present",
 ) => ({
-  key: `device:${key}`,
+  owner: device.resourceID(key),
   name,
   variant: "success" as const,
   message,
-  details: { rack: rackKey, device: key },
+  details: { rack: rackKey },
 });
 
 /**
@@ -201,12 +200,11 @@ export const taskStatus = (
   running: boolean,
   cmd?: string,
 ) => ({
-  key: task.statusKey(t.key),
+  owner: task.resourceID(t.key),
   name: t.name,
   variant: "success" as const,
   message: running ? "Started task" : "Stopped task",
   details: {
-    task: t.key,
     running,
     ...(cmd != null && { cmd }),
     configHash: t.configHash,
@@ -217,6 +215,13 @@ export const taskStatus = (
 export interface DriverOptions extends ConnectionOptions {
   /** Devices to create on the embedded rack, with a status for each. */
   devices?: SimulatedDevice[];
+  /**
+   * Integrations the embedded rack claims. Saving them clears the rack's embedded flag,
+   * so a later `racks.retrieve({ embedded: true })` finds nothing.
+   */
+  integrations?: string[];
+  /** Types of the scanner tasks to create on the embedded rack. */
+  scanners?: string[];
   /** Interval between "Driver is running" heartbeats. */
   periodMs?: number;
 }
@@ -233,17 +238,36 @@ export interface DriverFixture {
  * `--no-driver`. It creates the devices on the embedded rack, writes the rack's "Driver
  * is running" status every `periodMs`, and answers each start and stop command with the
  * status the real Driver writes on success. Nothing reads or writes hardware, so read
- * tasks produce no samples. The rack claims no integrations, so the Modbus, OPC UA, and
- * HTTP connect dialogs find no Driver.
+ * tasks produce no samples. The connect dialogs find no Driver for an integration that
+ * the rack does not claim.
  */
 export const simulatedDriver = async ({
   devices = [],
+  integrations = [],
+  scanners = [],
   periodMs = 1000,
   ...opts
 }: DriverOptions = {}): Promise<DriverFixture> => {
   const client = connect(opts);
   const [embedded] = await client.racks.retrieve({ embedded: true });
+  if (integrations.length > 0)
+    await client.racks.create({
+      key: embedded.key,
+      name: embedded.name,
+      integrations,
+    });
   await client.statuses.set(rackStatus(embedded));
+
+  if (scanners.length > 0)
+    await client.tasks.create(
+      scanners.map((type) => ({
+        name: type,
+        type,
+        rack: embedded.key,
+        internal: true,
+        config: {},
+      })),
+    );
 
   if (devices.length > 0)
     await client.devices.create(

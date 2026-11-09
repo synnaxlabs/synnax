@@ -182,34 +182,6 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
-    it("should fail to parse a task with duplicate ports on the same device", () => {
-      expect(
-        z.validate(NI.Task.deployCounterReadConfigZ, {
-          ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
-          streamRate: 25,
-          sampleRate: 1000,
-          channels: [
-            { ...NI.Task.createCIChannel(), key: "0", device: "Dev1", port: 0 },
-            { ...NI.Task.createCIChannel(), key: "1", device: "Dev1", port: 0 },
-          ],
-        }),
-      ).toEqual(false);
-    });
-
-    it("should properly parse a task with the same ports on different devices", () => {
-      expect(
-        z.validate(NI.Task.counterReadConfigZ, {
-          ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
-          streamRate: 25,
-          sampleRate: 1000,
-          channels: [
-            { ...NI.Task.createCIChannel(), key: "0", device: "Dev1", port: 0 },
-            { ...NI.Task.createCIChannel(), key: "1", device: "Dev2", port: 0 },
-          ],
-        }),
-      ).toEqual(true);
-    });
-
     it("should fail to parse a task with sample rate less than stream rate", () => {
       expect(
         z.validate(NI.Task.deployCounterReadConfigZ, {
@@ -388,16 +360,24 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
-    // NOTE: This test is commented out because the validation for "at least one enabled channel"
-    // is handled in the C++ driver code, not in the TypeScript schema. Disabled channels are
-    // filtered out during task configuration. This matches the behavior of Analog Read and Digital Read tasks.
+    // NOTE: This test is commented out because the validation for "at least one enabled
+    // channel" is handled in the C++ driver code, not in the TypeScript schema.
+    // Disabled channels are filtered out during task configuration. This matches the
+    // behavior of Analog Read and Digital Read tasks.
     // it("should fail to parse a task with no enabled channels", () => {
     //   expect(
     //     z.validate(NI.Task.counterReadConfigZ, {
     //       ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
     //       streamRate: 25,
     //       sampleRate: 1000,
-    //       channels: [{ ...NI.Task.createCIChannel(), key: "0", device: "Dev1", enabled: false }],
+    //       channels: [
+    //         {
+    //           ...NI.Task.createCIChannel(),
+    //           key: "0",
+    //           device: "Dev1",
+    //           enabled: false,
+    //         },
+    //       ],
     //     }),
     //   ).toEqual(false);
     // });

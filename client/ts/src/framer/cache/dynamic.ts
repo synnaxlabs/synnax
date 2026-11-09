@@ -40,11 +40,16 @@ export interface DynamicProps {
   now?: () => TimeStamp;
   /** Flushes every buffer as the same object, never as a right-sized copy. */
   compactionDisabled?: boolean;
+  /**
+   * The most samples a buffer sized by a span holds.
+   * @default 1e6
+   */
+  maxBufferSize?: number;
 }
 
 // Bounds for dynamically calculated buffer sizes.
 const MIN_SIZE = 100;
-const MAX_SIZE = 1e6;
+const DEFAULT_MAX_SIZE = 1e6;
 // Size used until enough writes have arrived to estimate a rate.
 const DEF_SIZE = 1e4;
 const MAX_DEF_WRITES = 100;
@@ -97,6 +102,8 @@ export class Dynamic {
   private avgRate: number = 0;
   private timeOfLastWrite: TimeStamp;
   private totalWrites: number = 0;
+  /** The most samples the next buffer of a young run holds. */
+  private runSize = Infinity;
   private readonly now: () => TimeStamp;
 
   constructor(props: DynamicProps) {
@@ -105,8 +112,14 @@ export class Dynamic {
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
       compactionDisabled = false,
+      maxBufferSize = DEFAULT_MAX_SIZE,
     } = props;
-    this.props = { dynamicBufferSize, instrumentation, compactionDisabled };
+    this.props = {
+      dynamicBufferSize,
+      instrumentation,
+      compactionDisabled,
+      maxBufferSize,
+    };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -174,13 +187,14 @@ export class Dynamic {
 
   /**
    * @returns the sample capacity for a buffer that must hold the given series whole:
-   * the configured size, or the series' own size when that is larger.
+   * the configured size or a young run's smaller size, or the series' own size when
+   * that is larger.
    */
   private capacityFor(source: Series): number {
     const required = source.dataType.isVariable
       ? Math.ceil(source.byteLength.valueOf() / VARIABLE_DT_MULTIPLIER)
       : source.length;
-    return Math.max(this.nextBufferSize(), required);
+    return Math.max(Math.min(this.nextBufferSize(), this.runSize), required);
   }
 
   // Unstamped series (virtual channels, writes without an in-frame index) fall back
@@ -194,8 +208,10 @@ export class Dynamic {
     source: Series,
     start: TimeStamp | null,
   ): Series {
+    const capacity = this.capacityFor(source);
+    this.runSize = Math.max(this.runSize, capacity * 2);
     this.curr = this.allocate(
-      this.capacityFor(source),
+      capacity,
       source.alignment,
       start ?? this.allocStart(source),
       source,
@@ -254,7 +270,6 @@ export class Dynamic {
       }
 
     let curr = this.curr;
-    let trimmed = false;
     if (curr != null) {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
@@ -264,7 +279,6 @@ export class Dynamic {
         // the cache with overlapping series. sub() is zero-copy.
         if (overlap >= series.length) return;
         series = series.sub(overlap);
-        trimmed = true;
       } else if (overlap < 0) {
         this.flushCurr(res);
         curr = null;
@@ -277,11 +291,8 @@ export class Dynamic {
       // a guess lands outside the data whenever samples are irregular.
       if (fits(curr, series)) curr.write(series);
       else {
-        const end = this.flushCurr(res);
-        // A trimmed series keeps the whole frame's start, which is earlier than the
-        // samples it still holds. Those samples begin where the buffer they were
-        // trimmed against ends, so the next buffer starts there.
-        if (trimmed) rotationStart = end;
+        // The next buffer holds the same run of samples, so it touches this one.
+        rotationStart = this.flushCurr(res);
         curr = null;
       }
 
@@ -305,11 +316,19 @@ export class Dynamic {
   }
 
   private nextBufferSize(): number {
-    const { dynamicBufferSize } = this.props;
+    const { dynamicBufferSize, maxBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
-    if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
+    if (this.totalWrites < MAX_DEF_WRITES) return Math.min(DEF_SIZE, maxBufferSize);
     const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
-    return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
+    return Math.round(Math.min(Math.max(size, MIN_SIZE), maxBufferSize));
+  }
+
+  /**
+   * Starts a run of samples. The run's first buffer is small, and each buffer after it
+   * doubles up to the configured size, so a short run holds little memory.
+   */
+  startRun(): void {
+    this.runSize = MIN_SIZE;
   }
 
   /**

@@ -11,12 +11,10 @@ package view
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/config"
@@ -29,12 +27,6 @@ import (
 type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Views.
 	DB *gorp.DB
-	// Ontology will be used to create relationships between views (parent-child) and
-	// with other resources within the Synnax cluster.
-	Ontology *ontology.Ontology
-	// Group is used to create the top level "Views" group that will be the default
-	// parent of all views.
-	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
 	alamos.Instrumentation
@@ -46,8 +38,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -56,8 +46,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("view.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
@@ -65,50 +53,50 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting views. It also provides
 // mechanisms for listening to changes in views.
 type Service struct {
-	cfg    ServiceConfig
-	group  group.Group
-	table  *gorp.Table[Key, View]
-	search *gorp.SearchIndex[Key, View]
-	closer xio.MultiCloser
+	cfg     ServiceConfig
+	table   *gorp.Table[Key, View]
+	indexes indexes
+	closer  xio.MultiCloser
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
 // service is ready for use and must be closed by calling Close to prevent resource
 // leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{search: newSearchIndex()}
+	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
+	s.state = actions.NewState[Key, Action](s.cfg.DB)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Views",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
-		Indexes:         []gorp.Index[Key, View]{s.search},
-		Migrations:      versions.NewMigrations(s.cfg.Ontology),
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = s.cfg.Signals.PublishFromGorp(
+	if err = s.cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, View]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_view_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -119,24 +107,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // and Retrieve(s)).
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete views. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will
-// execute all operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete views in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
-		table:     s.table,
+		tx:         tx,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // NewRetrieve opens a new Retrieve query to fetch views from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }

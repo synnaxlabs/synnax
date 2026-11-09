@@ -9,7 +9,7 @@
 
 import base64
 import json
-from typing import Annotated, Protocol, TypeVar
+from typing import Annotated, Protocol, TypeVar, override
 
 import msgpack
 from pydantic import BaseModel, BeforeValidator, PlainSerializer
@@ -63,9 +63,11 @@ class Codec(Protocol):
 class MessagePackCodec(Codec):
     """A MessagePack implementation of Codec."""
 
+    @override
     def content_type(self) -> str:
         return "application/msgpack"
 
+    @override
     def encode(self, payload: BaseModel) -> bytes:
         packed = msgpack.packb(payload.model_dump(by_alias=True))
         if not isinstance(packed, bytes):
@@ -74,6 +76,7 @@ class MessagePackCodec(Codec):
             )
         return packed
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(msgpack.unpackb(data))
 
@@ -81,11 +84,14 @@ class MessagePackCodec(Codec):
 class JSONCodec(Codec):
     """A JSON implementation of Codec."""
 
+    @override
     def content_type(self) -> str:
         return "application/json"
 
+    @override
     def encode(self, payload: BaseModel) -> bytes:
         return payload.model_dump_json(by_alias=True, exclude_none=True).encode()
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(json.loads(data.decode()))

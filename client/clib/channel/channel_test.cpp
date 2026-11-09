@@ -21,9 +21,10 @@ constexpr int32_t OK = 0;
 
 SynnaxClient *open_test_client(SynnaxError *err) {
     SynnaxClient *client = nullptr;
+    const auto cfg = test_client_config();
     synnax_client_open(
-        "localhost",
-        9090,
+        cfg.host.c_str(),
+        cfg.port,
         "synnax",
         "seldon",
         nullptr,

@@ -20,15 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	db            *gorp.DB
-	svc           *channel.Service
-	channelWriter channel.Writer
+	db  *gorp.DB
+	svc *channel.Service
 )
 
 func TestChannel(t *testing.T) {
@@ -38,34 +36,30 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
-// group, label, and status services the channel service depends on.
-func serviceConfig(ctx context.Context, node testutil.Node) channel.ServiceConfig {
+// serviceConfig builds a channel ServiceConfig for the node on db, opening the group,
+// label, and status services the channel service depends on. It also returns the group
+// service.
+func serviceConfig(
+	ctx context.Context,
+	node testutil.Node,
+	db *gorp.DB,
+) (channel.ServiceConfig, *group.Service) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: db,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Group:    groupSvc,
-		Ontology: otg,
-		Label:    labelSvc,
+		DB: db,
 	}))
 	return channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
-	}
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}, groupSvc
 }
 
 // openService opens a channel service for the node and creates the node's internal
@@ -76,20 +70,18 @@ func openService(
 	ctx context.Context,
 	node testutil.Node,
 	cfgs ...channel.ServiceConfig,
-) (*channel.Service, *ontology.Ontology) {
+) *channel.Service {
 	GinkgoHelper()
-	cfg := serviceConfig(ctx, node)
-	channelSvc := MustOpen(channel.OpenService(
+	cfg, _ := serviceConfig(ctx, node, node.DB)
+	return MustOpen(channel.OpenService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,
 	))
-	return channelSvc, cfg.Ontology
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	svc, _ = openService(ctx, node)
-	channelWriter = svc.NewWriter(nil)
+	svc = openService(ctx, node)
 })

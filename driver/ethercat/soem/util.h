@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -70,6 +71,22 @@ is_wired_interface(const std::string &name, const std::string &description) {
     for (const auto part: description_parts)
         if (d.contains(part)) return false;
     return true;
+}
+
+/// @brief returns the braced adapter GUID in an Npcap interface name, such as
+/// "{C5F5B5FA-0000-0000-0000-000000000000}" in
+/// "\Device\NPF_{C5F5B5FA-0000-0000-0000-000000000000}".
+/// @returns std::nullopt when name is not the name of an Npcap adapter.
+inline std::optional<std::string> adapter_guid(const std::string &name) {
+    constexpr std::string_view prefix = "\\Device\\NPF_";
+    constexpr size_t guid_length = 38;
+    if (!name.starts_with(prefix)) return std::nullopt;
+    auto guid = name.substr(prefix.size());
+    if (guid.size() != guid_length || guid.front() != '{' || guid.back() != '}')
+        return std::nullopt;
+    for (const unsigned char c: std::string_view(guid).substr(1, guid_length - 2))
+        if (std::isxdigit(c) == 0 && c != '-') return std::nullopt;
+    return guid;
 }
 
 }

@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { type text } from "@synnaxlabs/x";
+import { deep, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -20,6 +21,8 @@ import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Gauge as VisGauge } from "@/vis/gauge";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
+
+const path = deep.path<schematic.GaugeNodeConfig>();
 
 export const colorFallbacks = {
   strokeColor: VisGauge.colorFallback,
@@ -35,9 +38,9 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
-  if (v === "small") set("barWidth", 4);
-  else if (v === "h5") set("barWidth", 8);
-  else set("barWidth", 10);
+  if (v === "small") set(path.barWidth, 4);
+  else if (v === "h5") set(path.barWidth, 8);
+  else set(path.barWidth, 10);
 };
 
 export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
@@ -45,16 +48,16 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
-          <Label.Form path="label" />
+          <Label.Form path={path.label} />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField
-            path="strokeColor"
+            path={path.strokeColor}
             label="Stroke"
             fallback={colorFallbacks.strokeColor}
           />
-          <Base.Field<text.Level>
-            path="level"
+          <Base.Field
+            path={path.level}
             label="Size"
             padHelpText={false}
             onChange={handleLevelChange}
@@ -64,7 +67,7 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
             )}
           </Base.Field>
           <Base.NumericField
-            path="barWidth"
+            path={path.barWidth}
             label="Bar width"
             padHelpText={false}
             inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
@@ -72,13 +75,13 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         </Base.Section>
         <Base.Section title="Range">
           <Form.UnitsField />
-          <Form.BoundsFields path="bounds" padHelpText={false} />
+          <Form.BoundsFields path={path.bounds} padHelpText={false} />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <Base.Sections x>
-        <Value.TelemForm path="" />
+        <Value.TelemForm />
       </Base.Sections>
     </Tabs.Content>
   </Properties.Tabs>

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type label, ranger } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -24,6 +27,10 @@ import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = Ranger.formPath;
+const created = Ranger.createFormPath;
+const pair = Ranger.kvPairFormPath;
 
 const client = createTestClient();
 
@@ -141,25 +148,8 @@ describe("queries", () => {
       });
     });
 
-    it("should handle includeLabels parameter", async () => {
-      const testRange = await client.ranges.create({
-        name: "labeledRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-
-      const { result } = renderHook(() => Ranger.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedRange = result.current.getItem(testRange.key);
-      expect(retrievedRange?.key).toEqual(testRange.key);
-    });
-
-    it("should handle includeParent parameter", async () => {
+    it("should hold the label keys and the parent key of a range", async () => {
+      const lbl = await client.labels.create({ name: "listed", color: "#FF0000" });
       const parentRange = await client.ranges.create({
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
@@ -167,24 +157,20 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "childRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
+        labels: [lbl.key],
       });
-
-      const { result } = renderHook(() => Ranger.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Ranger.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ includeParent: true }, { signal: controller.signal });
+        result.current.retrieve(
+          { where: { key: { in: [childRange.key] } } },
+          { signal: controller.signal },
+        );
       });
-      await waitFor(() =>
-        expect(
-          result.current.variant,
-          `${result.current.status.message}:${result.current.status.description}`,
-        ).toEqual("success"),
-      );
-
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
       const retrievedChild = result.current.getItem(childRange.key);
-      expect(retrievedChild?.key).toEqual(childRange.key);
+      expect(retrievedChild?.labels).toEqual([lbl.key]);
+      expect(retrievedChild?.parent).toEqual(parentRange.key);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -197,12 +183,15 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Ranger.useList({ query: { where: { key: { in: keys } } } }),
+        {
+          wrapper,
+        },
+      );
       act(() => {
         result.current.retrieve(
-          { limit: 2, offset: 1, keys },
+          { limit: 2, offset: 1, where: { key: { in: keys } } },
           { signal: controller.signal },
         );
       });
@@ -290,14 +279,14 @@ describe("queries", () => {
         name: "Filter Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(r.key), [label.key]);
+      await client.labels.label(ranger.resourceID(r.key), [label.key]);
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        () => Ranger.useList({ query: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -311,7 +300,7 @@ describe("queries", () => {
       });
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -321,10 +310,10 @@ describe("queries", () => {
         name: "Labeled Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
+      await client.labels.label(ranger.resourceID(r3.key), [label.key]);
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -351,7 +340,7 @@ describe("queries", () => {
       expect(retrievedRange?.color).toEqual(color.construct("#E774D0"));
     });
 
-    it("should update range when a label is deleted", async () => {
+    it("should update a range when a label is removed from it", async () => {
       const label1 = await client.labels.create({
         name: "labelToDelete",
         color: "#FF0000",
@@ -364,7 +353,7 @@ describe("queries", () => {
         name: "rangeWithLabels",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.labels.label(ranger.ontologyID(testRange.key), [
+      await client.labels.label(ranger.resourceID(testRange.key), [
         label1.key,
         label2.key,
       ]);
@@ -373,21 +362,44 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const rangeBeforeDelete = result.current.getItem(testRange.key);
-      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label1.key);
-      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+      expect(rangeBeforeDelete?.labels).toContain(label1.key);
+      expect(rangeBeforeDelete?.labels).toContain(label2.key);
 
-      await client.labels.remove(testRange.ontologyID, [label1.key]);
+      await client.labels.remove(testRange.resourceID, [label1.key]);
 
       await waitFor(() => {
         const rangeAfterDelete = result.current.getItem(testRange.key);
-        expect(rangeAfterDelete?.labels?.map((l) => l.key)).not.toContain(label1.key);
-        expect(rangeAfterDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+        expect(rangeAfterDelete?.labels).toEqual([label2.key]);
       });
+    });
+
+    it("should update a range when a label it holds is deleted", async () => {
+      const [kept, deleted] = await client.labels.create([
+        { name: "labelToKeep", color: "#00FF00" },
+        { name: "labelToDelete", color: "#FF0000" },
+      ]);
+      const testRange = await client.ranges.create({
+        name: "rangeWithLabels",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        labels: [kept.key, deleted.key],
+      });
+      const { result } = renderHook(() => Ranger.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve(
+          { where: { key: { in: [testRange.key] } } },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await client.labels.delete(deleted.key);
+      await waitFor(() =>
+        expect(result.current.getItem(testRange.key)?.labels).toEqual([kept.key]),
+      );
     });
 
     it("should handle ranges with different time spans", async () => {
@@ -428,12 +440,12 @@ describe("queries", () => {
       const child1 = await client.ranges.create({
         name: "child1",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
       const child2 = await client.ranges.create({
         name: "child2",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -461,11 +473,11 @@ describe("queries", () => {
           client.ranges.create({
             name: `pagedChild${i}`,
             timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-            parent: parentRange,
+            parent: parentRange.key,
           }),
         ),
       );
-      const spy = vi.spyOn(client.ranges.children, "retrieve");
+      const spy = vi.spyOn(client.ranges, "retrieve");
       try {
         const { result } = renderHook(() => Ranger.useListChildren(), { wrapper });
         act(() => {
@@ -476,7 +488,11 @@ describe("queries", () => {
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toHaveLength(2);
-        expect(spy).toHaveBeenCalledWith({ key: parentRange.key, limit: 2, offset: 0 });
+        expect(spy).toHaveBeenCalledWith({
+          parents: [parentRange.key],
+          limit: 2,
+          offset: 0,
+        });
       } finally {
         spy.mockRestore();
       }
@@ -491,7 +507,7 @@ describe("queries", () => {
         name: "testChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
         color: "#00FF00",
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -554,7 +570,7 @@ describe("queries", () => {
       const newChild = await client.ranges.create({
         name: "newChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       await waitFor(() => {
@@ -571,7 +587,7 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "originalChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -603,7 +619,7 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "childToDelete",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -635,12 +651,12 @@ describe("queries", () => {
       const parentRange = await client.ranges.create({
         name: "parent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
-        parent: grandparentRange,
+        parent: grandparentRange.key,
       });
       const childRange = await client.ranges.create({
         name: "child",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
@@ -682,7 +698,7 @@ describe("queries", () => {
         const child = await client.ranges.create({
           name: `level1_child_${i}`,
           timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
-          parent: rootRange,
+          parent: rootRange.key,
         });
         children.push(child);
       }
@@ -737,6 +753,47 @@ describe("queries", () => {
         await result.current.updateAsync(rng.key);
       });
       expect(order).toEqual([`optimistic:${rng.key}`, "success"]);
+    });
+  });
+
+  describe("useSetTimeRange", () => {
+    const start = TimeStamp.seconds(1_700_000_000);
+    const createRange = async (name: string) =>
+      await client.ranges.create({
+        name,
+        timeRange: start.spanRange(TimeSpan.seconds(1)),
+      });
+
+    it("should set the time range of a range", async () => {
+      const rng = await createRange("set_time_range_hook");
+      const timeRange = start.spanRange(TimeSpan.seconds(5));
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: timeRange.numeric,
+          }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(timeRange);
+    });
+
+    it("should reject an end before the start", async () => {
+      const rng = await createRange("set_time_range_hook_reversed");
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: { start: rng.timeRange.end.nanoseconds, end: start.nanoseconds },
+          }),
+        ).toBe(false);
+      });
+      expect(result.current.status.description).toContain(
+        "time_range.start cannot be after time_range.end",
+      );
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(rng.timeRange);
     });
   });
 
@@ -828,18 +885,18 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", () => {
+  describe("useCreateForm", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       act(() => {
-        result.current.form.set("name", "newFormRange");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("color", "#FF0000");
+        result.current.form.set(created.name, "newFormRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.color, color.construct("#FF0000"));
         result.current.save({ signal: controller.signal });
       });
 
@@ -863,14 +920,14 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       act(() => {
-        result.current.form.set("name", "labeledRange");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("labels", [label1.key, label2.key]);
+        result.current.form.set(created.name, "labeledRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.labels, [label1.key, label2.key]);
         result.current.save({ signal: controller.signal });
       });
 
@@ -888,14 +945,14 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       act(() => {
-        result.current.form.set("name", "childRange");
-        result.current.form.set("timeRange", childTimeRange.numeric);
-        result.current.form.set("parent", parentRange.key);
+        result.current.form.set(created.name, "childRange");
+        result.current.form.set(created.timeRange, childTimeRange.numeric);
+        result.current.form.set(created.parent, parentRange.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -906,253 +963,8 @@ describe("queries", () => {
       });
     });
 
-    it("should retrieve and edit existing range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const existingRange = await client.ranges.create({
-        name: "existingRange",
-        timeRange,
-        color: "#FFFF00",
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: existingRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("existingRange");
-      expect(result.current.form.value().color).toEqual(color.construct("#FFFF00"));
-      expect(result.current.form.value().timeRange).toEqual(timeRange.numeric);
-
-      act(() => {
-        result.current.form.set("name", "editedRange");
-        result.current.form.set("color", "#00FFFF");
-        result.current.save({ signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("editedRange");
-        expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
-      });
-    });
-
-    it("should keep the form's label order after a save", async () => {
-      const [lo, hi] = (
-        await Promise.all(
-          ["orderLabel1", "orderLabel2"].map((name) =>
-            client.labels.create({ name, color: "#FF00FF" }),
-          ),
-        )
-      )
-        .map((l) => l.key)
-        .sort();
-      const rng = await client.ranges.create({
-        name: "labelOrderRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
-      });
-      const { result } = renderHook(() => Ranger.useForm({ query: { key: rng.key } }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      for (const labels of [[hi], [hi, lo]])
-        await act(async () => {
-          result.current.form.set("labels", labels);
-          await result.current.saveAsync({ signal: controller.signal });
-        });
-      await act(async () => {
-        await client.ranges.rename(rng.key, "renamedLabelOrderRange");
-      });
-      await waitFor(() =>
-        expect(result.current.form.value().name).toEqual("renamedLabelOrderRange"),
-      );
-      expect(result.current.form.value().labels).toEqual([hi, lo]);
-    });
-
-    it("should retrieve range with existing labels", async () => {
-      const label1 = await client.labels.create({
-        name: "existingLabel1",
-        color: color.construct("#FF00FF"),
-      });
-      const label2 = await client.labels.create({
-        name: "existingLabel2",
-        color: color.construct("#FFFF00"),
-      });
-
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(8));
-      const existingRange = await client.ranges.create({
-        name: "rangeWithLabels",
-        timeRange,
-      });
-
-      await act(async () => {
-        await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: existingRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("rangeWithLabels");
-      expect(result.current.form.value().labels).toEqual(
-        expect.arrayContaining([label1.key, label2.key]),
-      );
-    });
-
-    it("should retrieve range with parent relationship", async () => {
-      const parentRange = await client.ranges.create({
-        name: "parentForRetrieval",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
-      });
-      const childRange = await client.ranges.create({
-        name: "childForRetrieval",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
-        parent: parentRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: childRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("childForRetrieval");
-      expect(result.current.form.value().parent).toEqual(parentRange.key);
-    });
-
-    it("should update form when range is updated externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(7));
-      const testRange = await client.ranges.create({
-        name: "externalUpdate",
-        timeRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.value().name).toEqual("externalUpdate");
-
-      await client.ranges.rename(testRange.key, "externallyUpdated");
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("externallyUpdated");
-      });
-    });
-
-    it("should update form when labels are added externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(4));
-      const testRange = await client.ranges.create({
-        name: "labelUpdateTest",
-        timeRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const initialLabels = result.current.form.value().labels;
-
-      const newLabel = await act(async () => {
-        const newLabel = await client.labels.create({
-          name: "externalLabel",
-          color: "#FF5500",
-        });
-        await client.labels.label(testRange.ontologyID, [newLabel.key]);
-        return newLabel;
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().labels).toHaveLength(
-          initialLabels.length + 1,
-        );
-        expect(result.current.form.value().labels).toContain(newLabel.key);
-      });
-    });
-
-    it("should update form when labels are removed externally", async () => {
-      const label1 = await client.labels.create({
-        name: "labelToRemove",
-        color: "#AA0000",
-      });
-      const label2 = await client.labels.create({
-        name: "labelToKeep",
-        color: "#00AA00",
-      });
-
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(6));
-      const testRange = await client.ranges.create({
-        name: "labelRemovalTest",
-        timeRange,
-      });
-
-      await client.labels.label(testRange.ontologyID, [label1.key, label2.key]);
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        const labels = result.current.form.value().labels;
-        expect(labels).toContain(label1.key);
-        expect(labels).toContain(label2.key);
-      });
-
-      await client.labels.remove(testRange.ontologyID, [label1.key]);
-
-      await waitFor(() => {
-        const labels = result.current.form.value().labels;
-        expect(labels).not.toContain(label1.key);
-        expect(labels).toContain(label2.key);
-      });
-    });
-
-    it("should update form when parent is changed externally", async () => {
-      const originalParent = await client.ranges.create({
-        name: "originalParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
-      });
-      const newParent = await client.ranges.create({
-        name: "newParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
-      });
-      const childRange = await client.ranges.create({
-        name: "childForParentChange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
-        parent: originalParent,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: childRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.value().parent).toEqual(originalParent.key);
-
-      await client.ontology.moveChildren(
-        originalParent.ontologyID,
-        newParent.ontologyID,
-        childRange.ontologyID,
-      );
-
-      await waitFor(() => {
-        expect(result.current.form.value().parent).toEqual(newParent.key);
-      });
-    });
-
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -1174,18 +986,18 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
 
       act(() => {
-        result.current.form.set("name", "complexRange");
-        result.current.form.set("timeRange", complexTimeRange.numeric);
-        result.current.form.set("parent", parentRange.key);
-        result.current.form.set("labels", [label.key]);
-        result.current.form.set("color", color.construct("#654321"));
+        result.current.form.set(created.name, "complexRange");
+        result.current.form.set(created.timeRange, complexTimeRange.numeric);
+        result.current.form.set(created.parent, parentRange.key);
+        result.current.form.set(created.labels, [label.key]);
+        result.current.form.set(created.color, color.construct("#654321"));
         result.current.save({ signal: controller.signal });
       });
 
@@ -1201,13 +1013,13 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       act(() => {
-        result.current.form.set("name", "timeRangeTest");
-        result.current.form.set("timeRange", initialTimeRange.numeric);
+        result.current.form.set(created.name, "timeRangeTest");
+        result.current.form.set(created.timeRange, initialTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1217,7 +1029,7 @@ describe("queries", () => {
 
       const modifiedTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(20));
       act(() => {
-        result.current.form.set("timeRange", modifiedTimeRange.numeric);
+        result.current.form.set(created.timeRange, modifiedTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1238,16 +1050,16 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
       act(() => {
-        result.current.form.set("name", "parentChangeTest");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("parent", parent1.key);
+        result.current.form.set(created.name, "parentChangeTest");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.parent, parent1.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1256,7 +1068,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("parent", parent2.key);
+        result.current.form.set(created.parent, parent2.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1266,35 +1078,26 @@ describe("queries", () => {
     });
   });
 
-  describe("useKVPairForm", () => {
-    it("should not write back a pair deleted while an autosave was pending", async () => {
+  describe("useCreateKVPairForm", () => {
+    it("should set the pair on the range when it saves", async () => {
       const rng = await client.ranges.create({
-        name: "kv_delete_race",
+        name: "kv_create",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await rng.kv.set("test_key", "initial");
-      // The metadata list warms this answer space in production.
-      await client.ranges.kv.retrieve(rng.key);
       const { result } = renderHook(
         () =>
-          Ranger.useKVPairForm({
-            query: { rangeKey: rng.key, key: "test_key" },
-            autoSave: true,
-            // Holds the save open long enough for the delete to overtake it.
-            autoSaveDebounce: TimeSpan.milliseconds(500),
-            initialValues: { key: "test_key", value: "initial", range: rng.key },
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.form.set("value", "edited");
+        result.current.form.set(pair.key, "operator");
+        result.current.form.set(pair.value, "Ada");
       });
-      await act(async () => {
-        await rng.kv.delete("test_key");
-      });
-      await expectAlways(async () => {
-        expect(await rng.kv.list()).not.toHaveProperty("test_key");
-      }, 800);
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.kv.get("operator")).toBe("Ada");
     });
   });
 
@@ -1305,8 +1108,8 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
 
-      // Warm the flux store (range + labels + parent relationship) through the
-      // async retrieve path so the composed cache fast-path can resolve.
+      // Warm the flux store through the async retrieve path so the cache fast-path can
+      // resolve.
       const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
         wrapper,
       });
@@ -1335,5 +1138,128 @@ describe("queries", () => {
       expect(utils.queryByTestId("fallback")).toBeNull();
       expect(utils.queryByTestId("name")?.textContent).toBe("cached_fastpath");
     });
+  });
+});
+
+describe("useLabels", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    await waitForStreamLive(client.connection);
+  });
+
+  const keysOf = (labels: label.Label[] | undefined) =>
+    labels?.map(({ key }) => key).toSorted();
+
+  it("should resolve the labels of a range and follow its label edits", async () => {
+    const [first, second] = await client.labels.create([
+      { name: "first", color: "#FF0000" },
+      { name: "second", color: "#00FF00" },
+    ]);
+    const rng = await client.ranges.create({
+      name: "labeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [first.key],
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(keysOf(result.current)).toEqual([first.key]));
+    await client.labels.label(rng.resourceID, [second.key]);
+    await waitFor(() =>
+      expect(keysOf(result.current)).toEqual([first.key, second.key].toSorted()),
+    );
+  });
+
+  it("should show the new name of a label the range holds", async () => {
+    const lbl = await client.labels.create({ name: "original", color: "#FF0000" });
+    const rng = await client.ranges.create({
+      name: "labeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [lbl.key],
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(result.current?.[0]?.name).toEqual("original"));
+    await client.labels.create({ ...lbl, name: "renamed" });
+    await waitFor(() => expect(result.current?.[0]?.name).toEqual("renamed"));
+  });
+
+  it("should answer a range with no labels with an empty list", async () => {
+    const rng = await client.ranges.create({
+      name: "unlabeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(result.current).toEqual([]));
+  });
+});
+
+describe("useForm", () => {
+  const formClient = createTestClient();
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client: formClient });
+    await waitForStreamLive(formClient.connection);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const createRange = async (): Promise<ranger.Range> =>
+    await client.ranges.create({
+      name: "Hot fire",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+    });
+
+  const renderForm = async (key: ranger.Key) =>
+    await renderHookSuspended(() => Ranger.useForm({ query: { key } }), { wrapper });
+
+  it("should show the cached range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    expect(result.current.form.value()).toEqual({
+      name: "Hot fire",
+      timeRange: rng.timeRange.numeric,
+    });
+  });
+
+  it("should send an edit to the name as a path action", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set(path.name, "Cold flow"));
+    expect(result.current.form.get(path.name).value).toBe("Cold flow");
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(send.mock.calls.map(([target]) => target)).toContain("/range/dispatch");
+    expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe("Cold flow");
+  });
+
+  it("should send an edit to the time range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const next = rng.timeRange.start.spanRange(TimeSpan.minutes(10));
+    act(() => result.current.form.set(path.timeRange, next.numeric));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.numeric).toEqual(next.numeric);
+  });
+
+  it("should hold a time range that ends before it starts", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const { start, end } = rng.timeRange.numeric;
+    act(() => result.current.form.set(path.timeRange, { start: end, end: start }));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.numeric).toEqual(rng.timeRange.numeric);
+  });
+
+  it("should show a rename from another client and keep the time range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const timeRange = result.current.form.get(path.timeRange).value;
+    await act(async () => {
+      await client.ranges.rename(rng.key, "Cold flow");
+    });
+    await waitFor(() => expect(result.current.form.value().name).toBe("Cold flow"));
+    expect(result.current.form.get(path.timeRange).value).toBe(timeRange);
   });
 });

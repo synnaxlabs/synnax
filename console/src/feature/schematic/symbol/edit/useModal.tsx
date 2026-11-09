@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { ontology, type schematic } from "@synnaxlabs/client";
+import { type group, type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -34,10 +34,13 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
+const path = Schematic.Symbol.formPath;
+
 export interface ModalParams {
   /** When provided, the modal edits the existing symbol with this key. */
   symbolKey?: Schematic.Symbol.FormQuery["key"];
-  parent?: ontology.ID;
+  /** The group a new symbol joins. */
+  group?: group.Key;
   scale?: number;
   /// createKey, when set on a create-mode open, forces the new symbol to be
   /// persisted under this key. Used by the missing-symbol re-link flow so
@@ -52,7 +55,7 @@ const DEFAULT_REGION_KEY = "default";
 
 const Editor = ({
   symbolKey,
-  parent,
+  group,
   createKey,
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
@@ -63,7 +66,7 @@ const Editor = ({
     initialValues: {
       key: createKey,
       name: "",
-      parent: parent ?? ontology.ROOT_ID,
+      group,
       data: {
         svg: "",
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -78,15 +81,12 @@ const Editor = ({
   });
   const [selectedState, setSelectedState, selectedStateRef] =
     useCombinedStateAndRef<string>("base");
-  const [selectedRegion, setSelectedRegion, selectedRegionRef] = useCombinedStateAndRef<
-    string | undefined
-  >(DEFAULT_REGION_KEY);
+  const [selectedRegion, setSelectedRegion, selectedRegionRef] =
+    useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addNewRegion = () => {
-    const currentState = form.get<schematic.symbol.State>(
-      `data.states.${selectedStateRef.current}`,
-    ).value;
+    const currentState = form.get(path.data.states[selectedStateRef.current]).value;
     const newRegion: schematic.symbol.Region = {
       key: `reg-${id.create()}`,
       name: `Region ${currentState.regions.length + 1}`,
@@ -95,7 +95,7 @@ const Editor = ({
       fillColor: color.setAlpha(theme.colors.gray.l10, 0),
     };
 
-    form.set(`data.states.${selectedStateRef.current}.regions`, [
+    form.set(path.data.states[selectedStateRef.current].regions, [
       ...currentState.regions,
       newRegion,
     ]);
@@ -103,54 +103,53 @@ const Editor = ({
   };
 
   const addNewHandle = () => {
-    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
+    const currentHandles = form.get(path.data.handles).value;
     const newHandle: schematic.symbol.Handle = {
       key: `handle-${id.create()}`,
       position: { x: 0.5, y: 0.5 },
       orientation: "left",
     };
-    form.set("data.handles", [...currentHandles, newHandle]);
+    form.set(path.data.handles, [...currentHandles, newHandle]);
     setSelectedHandle(newHandle.key);
   };
 
   const handleHandlePlace = (handleKey: string, position: xy.XY) => {
-    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
+    const currentHandles = form.get(path.data.handles).value;
     const handleIndex = currentHandles.findIndex((h) => h.key === handleKey);
 
     if (handleIndex !== -1) {
       const updatedHandles = [...currentHandles];
       updatedHandles[handleIndex] = { ...updatedHandles[handleIndex], position };
-      form.set("data.handles", updatedHandles);
+      form.set(path.data.handles, updatedHandles);
     }
   };
 
   const handleElementClick = (selector: string) => {
     const currentState = selectedStateRef.current;
     const currentRegion = selectedRegionRef.current;
-    const regionPath = `data.states.${currentState}.regions.${currentRegion}`;
-    const region = form.get<schematic.symbol.Region>(regionPath).value;
+    const regions = path.data.states[currentState].regions;
+    const regionPath = regions[currentRegion];
+    const region = form.get(regionPath).value;
     const hasSelector = region.selectors.includes(selector);
     if (hasSelector) {
       const updatedSelectors = region.selectors.filter((s) => s !== selector);
       form.set(regionPath, { ...region, selectors: updatedSelectors });
     } else {
-      const allRegions = form.get<schematic.symbol.Region[]>(
-        `data.states.${currentState}.regions`,
-      ).value;
+      const allRegions = form.get(regions).value;
       allRegions.forEach((r, index) => {
         if (!r.selectors.includes(selector)) return;
         const updatedRegion = {
           ...r,
           selectors: r.selectors.filter((s) => s !== selector),
         };
-        form.set(`data.states.${currentState}.regions.${index}`, updatedRegion);
+        form.set(regions[index], updatedRegion);
       });
       const updatedSelectors = [...region.selectors, selector];
       form.set(regionPath, { ...region, selectors: updatedSelectors });
     }
   };
   const hasSVG =
-    Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
+    Form.useFieldValue(path.data.svg, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
@@ -177,7 +176,7 @@ const Editor = ({
               >
                 <Flex.Box className={CSS.BE("schematic", "name")}>
                   <Form.TextField
-                    path="name"
+                    path={path.name}
                     inputProps={{
                       placeholder: "Symbol name",
                       variant: "text",
@@ -221,8 +220,8 @@ const Editor = ({
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "properties")}>
-                    <Form.Field<number>
-                      path="data.scale"
+                    <Form.Field
+                      path={path.data.scale}
                       helpText="Sets the default scale when added to a schematic"
                     >
                       {({ onChange, value }) => (
@@ -235,8 +234,8 @@ const Editor = ({
                         />
                       )}
                     </Form.Field>
-                    <Form.SwitchField
-                      path="data.strokeScaled"
+                    <Form.CheckboxField
+                      path={path.data.strokeScaled}
                       label="Scale stroke"
                       align="start"
                     />
@@ -244,7 +243,7 @@ const Editor = ({
                 </Flex.Box>
               </Flex.Box>
             )}
-            <Form.Field<string> path="data.svg" showLabel={false} showHelpText={false}>
+            <Form.Field path={path.data.svg} showLabel={false} showHelpText={false}>
               {({ onChange }) => (
                 <Preview
                   selectedState={selectedState}

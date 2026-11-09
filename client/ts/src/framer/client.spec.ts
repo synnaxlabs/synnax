@@ -11,8 +11,8 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { id, TimeRange, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { UnsupportedError } from "@/errors";
-import { Client } from "@/framer/client";
+import { framer } from "@/framer";
+import { UnsupportedError } from "@/index";
 import { createTestClient, secondsLinspace, TEST_CORE_ADDRESS } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -23,7 +23,7 @@ describe("Client", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
       const transport = new Transport(new url.URL(TEST_CORE_ADDRESS));
       const retries: Error[] = [];
-      const unreachable = new Client({
+      const unreachable = new framer.Client({
         stream: transport.stream,
         unary: transport.unary,
         file: transport.file,
@@ -117,12 +117,6 @@ describe("Client", () => {
       const read = client.read(TimeRange.MAX, calc.key);
       await expect(read).rejects.toThrow(UnsupportedError);
       await expect(read).rejects.toThrow(/cannot open iterator on virtual channel/);
-    });
-  });
-  describe("retrieveGroup", () => {
-    it("should correctly retrieve the main channel group", async () => {
-      const group = await client.channels.retrieveGroup();
-      expect(group.name).toEqual("Channels");
     });
   });
   describe("readLatestN", () => {

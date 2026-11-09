@@ -16,8 +16,7 @@ import {
 import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { paramsZ } from "@/channel/payload";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
@@ -55,10 +54,13 @@ export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
-  channels: paramsZ,
+  channels: channel.paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.uint32().default(1),
-  /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
+  /**
+   * Optional throttle rate in Hz to limit the rate of frames sent to the client.
+   * Defaults to 0 (no throttling).
+   */
   throttleRate: Rate.z.default(new Rate(0)),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
@@ -71,7 +73,9 @@ const intermediateStreamerConfigZ = z.object({
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
-  paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
+  channel.paramsZ.transform((channels) =>
+    intermediateStreamerConfigZ.parse({ channels }),
+  ),
 );
 
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */
@@ -142,7 +146,7 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
     );
-    stream.send({
+    await stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
@@ -266,17 +270,23 @@ class BaseStreamer implements Streamer {
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.adapter.advance();
-    this.stream.send({
+    const sent = this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,
       ackRequested: waitForAck,
     });
-    if (!waitForAck) return;
+    if (!waitForAck) return await sent;
+    // Queued before send can wait, so a read that fails meanwhile rejects it.
     const ack = Promise.withResolvers<void>();
     this.pendingAcks.push(ack);
-    await ack.promise;
+    const unsent = sent.catch((err: unknown) => {
+      const i = this.pendingAcks.indexOf(ack);
+      if (i !== -1) this.pendingAcks.splice(i, 1);
+      throw errors.fromUnknown(err);
+    });
+    await Promise.all([unsent, ack.promise]);
   }
 
   close(): void {

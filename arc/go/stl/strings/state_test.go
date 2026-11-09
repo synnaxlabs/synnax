@@ -222,57 +222,6 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("Reset", func() {
-		It("Should remove both transient and literal strings", func() {
-			th := s.Create("transient")
-			ch := s.CreateLiteral("literal")
-			s.Reset()
-			_, tok := s.Get(th)
-			_, cok := s.Get(ch)
-			Expect(tok).To(BeFalse())
-			Expect(cok).To(BeFalse())
-		})
-
-		It("Should reset literal counter so literal handles restart", func() {
-			h1 := s.CreateLiteral("first")
-			s.Reset()
-			h2 := s.CreateLiteral("second")
-			Expect(h2).To(Equal(h1))
-		})
-
-		It("Should reset transient counter", func() {
-			s.Create("a")
-			s.Create("b")
-			s.Reset()
-			h := s.Create("c")
-			Expect(h).To(Equal(uint32(1)))
-		})
-
-		It("Should allow full reuse after reset", func() {
-			s.Create("a")
-			s.CreateLiteral("b")
-			s.Reset()
-			th := s.Create("c")
-			ch := s.CreateLiteral("d")
-			Expect(MustBeOk(s.Get(th))).To(Equal("c"))
-			Expect(MustBeOk(s.Get(ch))).To(Equal("d"))
-		})
-
-		It("Should be safe to call on empty state", func() {
-			Expect(func() { s.Reset() }).ToNot(Panic())
-		})
-
-		It("Should be safe to call multiple times", func() {
-			s.Create("a")
-			s.CreateLiteral("b")
-			s.Reset()
-			s.Reset()
-			s.Reset()
-			h := s.Create("c")
-			Expect(h).To(Equal(uint32(1)))
-		})
-	})
-
 	Describe("Lifecycle", func() {
 		It("Should handle repeated clear-create cycles", func() {
 			for cycle := range 10 {

@@ -1,0 +1,17 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" width="30" height="22" viewBox="0 0 30 22">
+  <rect width="30" height="22" rx="5" fill="#e5484d" />
+  <path
+        fill="#1f2328"
+        d="M8.78 15.2V6.68H11.48Q12.36 6.68 13.03 7.02Q13.7 7.35 14.08 7.95Q14.45 8.55 14.45 9.38Q14.45 10.2 14.08 10.8Q13.7 11.4 13.03 11.73Q12.36 12.06 11.48 12.06H10.27V15.2ZM10.27 10.7H11.33Q12.13 10.7 12.52 10.36Q12.91 10.02 12.91 9.38Q12.91 8.72 12.52 8.38Q12.13 8.05 11.33 8.05H10.27ZM18.6 15.39Q17.65 15.39 16.97 14.85Q16.28 14.31 15.92 13.32Q15.55 12.32 15.55 10.95Q15.55 9.57 15.92 8.58Q16.28 7.58 16.97 7.03Q17.65 6.49 18.6 6.49Q19.56 6.49 20.24 7.03Q20.92 7.58 21.28 8.58Q21.65 9.57 21.65 10.95Q21.65 12.32 21.28 13.32Q20.92 14.31 20.24 14.85Q19.56 15.39 18.6 15.39ZM18.6 14.05Q19.08 14.05 19.42 13.69Q19.75 13.34 19.93 12.64Q20.11 11.95 20.11 10.95Q20.11 10 19.96 9.34L17.69 13.58Q17.74 13.64 17.8 13.69Q18.13 14.05 18.6 14.05ZM19.51 8.31Q19.46 8.24 19.42 8.19Q19.08 7.83 18.6 7.83Q18.13 7.83 17.79 8.19Q17.45 8.55 17.27 9.24Q17.09 9.93 17.09 10.95Q17.09 11.88 17.24 12.54Z"
+    />
+</svg>

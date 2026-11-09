@@ -9,28 +9,26 @@
 
 import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { analyzeParams, paramsZ } from "@/channel/payload";
-import { QueryError, ValidationError } from "@/errors";
+import { channel } from "@/channel";
+import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
-/** Fetches channel payloads, throwing a {@link QueryError} when any is missing. */
+/** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
 const retrieveRequired = async (
   retrieve: ChannelRetriever,
-  channels: channel.Params,
+  channels: ReturnType<typeof channel.analyzeParams>["normalized"],
 ): Promise<channel.Payload[]> => {
-  const { normalized } = analyzeParams(channels);
-  const results = await retrieve(normalized);
-  const notFound: (channel.Key | channel.Name)[] = [];
-  normalized.forEach((v) => {
-    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
-  });
+  const results = await retrieve(channels);
+  const found = new Set<channel.Key | channel.Name>();
+  results.forEach(({ key, name }) => found.add(key).add(name));
+  const notFound = channels.filter((v) => !found.has(v));
   if (notFound.length > 0)
-    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+    throw new NotFoundError(`channels not found matching ${JSON.stringify(notFound)}`);
   return results;
 };
 
@@ -63,8 +61,8 @@ export class ReadAdapter {
    * @returns true when the keys changed.
    */
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = analyzeParams(channels);
-    const fetched = await this.retrieveChannels(normalized);
+    const { variant, normalized } = channel.analyzeParams(channels);
+    const fetched = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = fetched.map((c) => c.key);
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
@@ -75,13 +73,7 @@ export class ReadAdapter {
       this.keys = new Set(normalized);
       return true;
     }
-    const a = new Map<channel.Key, string>();
-    this.adapter = a;
-    normalized.forEach((name) => {
-      const channel = fetched.find((channel) => channel.name === name);
-      if (channel == null) throw new Error(`Channel ${name} not found`);
-      a.set(channel.key, channel.name);
-    });
+    this.adapter = new Map(fetched.map((c) => [c.key, c.name]));
     this.keys = new Set(this.adapter.keys());
     return true;
   }
@@ -147,7 +139,7 @@ export class WriteAdapter {
   }
 
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = paramsZ.parse(data);
+    const arrParams = channel.paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
     );
@@ -155,7 +147,8 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const results = await retrieveRequired(this.retrieveChannels, channels);
+    const { normalized } = channel.analyzeParams(channels);
+    const results = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
@@ -181,7 +174,8 @@ export class WriteAdapter {
     else cached = this.byKey.get(ch.key);
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
-    if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
+    const where = channel.singleWhere(typeof ch === "object" ? ch.key : ch);
+    checkForMultipleOrNoResults("channel", { where }, res, true);
     return res[0];
   }
 

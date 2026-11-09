@@ -213,35 +213,47 @@ time.interval(1s) -> valve`),
 	)
 
 	// A document mid-edit can hold many open brackets. The rewrite must stay linear in
-	// the token count, so a broken program cannot stall the upgrade. Doubling the input
-	// doubles a linear rewrite's time and quadruples a quadratic one on any runner.
+	// the token count, so a broken program cannot stall the upgrade. Growing the input
+	// 32 times grows a linear rewrite's time about 32 times and a quadratic one's by
+	// hundreds, so the bound holds against a noisy runner.
 	DescribeTable("Should stay linear on brackets that never close",
 		func(unit, want string, n int) {
 			Expect(v4.SwapBrackets(strings.Repeat(unit, n))).
 				To(Equal(strings.Repeat(want, n)))
-			Expect(growth(unit, n)).To(BeNumerically("<", 3))
+			Expect(growth(unit, n)).To(BeNumerically("<", 3*growthFactor))
 		},
-		Entry("open braces", "{", "{", 25_000),
+		Entry("open braces", "{", "{", 250),
 		// Literals lex fast, so they lengthen a scan past each header at little cost.
 		Entry("declarations with no body",
-			"func f(0,0,0,0,0,0,0,0,0,0) ", "func f() {0,0,0,0,0,0,0,0,0,0} ", 2_000),
+			"func f(0,0,0,0,0,0,0,0,0,0) ", "func f() {0,0,0,0,0,0,0,0,0,0} ", 150),
 	)
 })
 
-// growth returns how many times longer SwapBrackets takes on 2n copies of unit than on
-// n. Each size keeps its fastest of three runs, since a busy runner only adds time.
+const growthFactor = 32
+
+// measured is the least time that perCall measures over. It is many times the 16 ms
+// tick of the Windows clock, so one tick changes the result little.
+const measured = 100 * time.Millisecond
+
+// growth returns how many times longer SwapBrackets takes on growthFactor*n copies of
+// unit than on n.
 func growth(unit string, n int) float64 {
-	small, large := strings.Repeat(unit, n), strings.Repeat(unit, 2*n)
-	fastSmall, fastLarge := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
-	for range 3 {
-		fastSmall = min(fastSmall, elapsed(small))
-		fastLarge = min(fastLarge, elapsed(large))
-	}
-	return float64(fastLarge) / float64(fastSmall)
+	small, large := strings.Repeat(unit, n), strings.Repeat(unit, growthFactor*n)
+	return float64(perCall(large)) / float64(perCall(small))
 }
 
-func elapsed(src string) time.Duration {
-	start := time.Now()
-	v4.SwapBrackets(src)
-	return time.Since(start)
+// perCall returns the time of one SwapBrackets call on src, averaged over calls that
+// take at least measured in all. It keeps the fastest of three averages, since a busy
+// runner only adds time.
+func perCall(src string) time.Duration {
+	fastest := time.Duration(math.MaxInt64)
+	for range 3 {
+		var calls time.Duration
+		start := time.Now()
+		for ; time.Since(start) < measured; calls++ {
+			v4.SwapBrackets(src)
+		}
+		fastest = min(fastest, time.Since(start)/calls)
+	}
+	return fastest
 }

@@ -17,6 +17,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/errors",
         "//driver/opcua/connection",
         "//driver/opcua/types",
         "//x/cpp/errors",

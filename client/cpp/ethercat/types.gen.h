@@ -86,6 +86,9 @@ struct EntryReadChannel : public BaseReadChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
+    /// channel writes to a float Synnax channel.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     static EntryReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -109,6 +112,14 @@ using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
+
 /// @brief EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
 struct EntryWriteChannel : public BaseWriteChannel {
     std::string type = "entry";
@@ -118,6 +129,9 @@ struct EntryWriteChannel : public BaseWriteChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief stop_value is the value the entry takes when the task stops. The bus
+    /// sends it before the slaves leave OP.
+    double stop_value = 0;
 
     static EntryWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -140,6 +154,14 @@ using WriteChannel = std::variant<EntryWriteChannel, UnresolvedWriteChannel>;
 
 WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteChannel &base(const WriteChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseWriteChannel & { return v; },
+        value
+    );
+}
 
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.

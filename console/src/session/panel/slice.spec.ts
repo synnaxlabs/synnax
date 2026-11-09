@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { combineReducers } from "@reduxjs/toolkit";
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { deep, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
+import { createMinimalStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -23,7 +24,7 @@ const rootReducer = combineReducers({
 type TestState = ReturnType<typeof rootReducer>;
 
 const createStore = () =>
-  configureStore({
+  createMinimalStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
   });
@@ -240,7 +241,7 @@ describe("Panel Slice", () => {
     });
 
     it("should leave a no-op re-selection referentially unchanged", () => {
-      const store = configureStore({
+      const store = createMinimalStore({
         reducer: rootReducer,
         middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
       });
@@ -415,7 +416,7 @@ describe("Panel Slice", () => {
     // Cross-window echoes of the action re-apply against already-converged state, so
     // an in-invariant selection must not churn its reference.
     it("should leave a consistent selection referentially unchanged", () => {
-      const store = configureStore({
+      const store = createMinimalStore({
         reducer: rootReducer,
         middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
       });

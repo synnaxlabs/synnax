@@ -11,14 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -39,6 +37,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -66,6 +65,7 @@ class BaseWriteChannel(BaseModel):
     state_channel_name: str = ""
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -73,6 +73,7 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -84,6 +85,7 @@ class EntryReadChannel(BaseReadChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
 
 class UnresolvedReadChannel(BaseReadChannel):
@@ -110,6 +112,7 @@ class EntryWriteChannel(BaseWriteChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    stop_value: float = 0
 
 
 class UnresolvedWriteChannel(BaseWriteChannel):
@@ -139,6 +142,7 @@ class ReadConfig(task.ReadConfig):
 
     channels: list[ReadChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -157,5 +161,6 @@ class WriteConfig(task.PersistConfig):
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

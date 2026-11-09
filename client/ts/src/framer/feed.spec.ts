@@ -9,6 +9,7 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
+  DataType,
   dynamicWindow,
   id,
   Rate,
@@ -22,14 +23,8 @@ import {
 import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
-import { type FeedOptions } from "@/framer/feed";
-import { type Frame } from "@/framer/frame";
-import {
-  type LatestRequest,
-  type PointsRequest,
-  type Subscription,
-} from "@/framer/subscription";
+import { type framer } from "@/framer";
+import { UnexpectedError, UnsupportedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -42,7 +37,7 @@ afterAll(async () => await feed.close());
 const POLL = { timeout: 10000, interval: 50 };
 const START = TimeStamp.seconds(1_000_000);
 
-const OPTIONS: FeedOptions = {
+const OPTIONS: framer.FeedOptions = {
   batchDebounce: TimeSpan.milliseconds(5),
   removalDelay: TimeSpan.ZERO,
   breaker: {
@@ -73,22 +68,25 @@ const createClock = (): (() => TimeStamp) => {
   };
 };
 
-const raw = (keys: channel.Key[], window: Window): PointsRequest => ({
+const raw = (keys: channel.Key[], window: Window): framer.PointsRequest => ({
   keys,
   window,
   limit: { variant: "points", count: EXACT, aggregation: "min_max" },
 });
 
-const latest = (keys: channel.Key[], count = 1): LatestRequest => ({
+const latest = (keys: channel.Key[], count = 1): framer.LatestRequest => ({
   keys,
   limit: { variant: "latest", count },
 });
 
-const valuesOf = (sub: Subscription, key: channel.Key): number[] =>
+const valuesOf = (sub: framer.Subscription, key: channel.Key): number[] =>
   Array.from(sub.value(key).series) as number[];
 
 /** Returns the samples of the channel once the subscription loads them. */
-const loaded = async (sub: Subscription, key: channel.Key): Promise<number[]> => {
+const loaded = async (
+  sub: framer.Subscription,
+  key: channel.Key,
+): Promise<number[]> => {
   await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
   return valuesOf(sub, key);
 };
@@ -336,6 +334,51 @@ describe("Feed", () => {
     }
   });
 
+  describe("firstTime", () => {
+    const createIndex = async (): Promise<channel.Channel> =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+    it("should return the oldest first time of the indexes", async () => {
+      const [a, b] = await Promise.all([createIndex(), createIndex()]);
+      const older = TimeStamp.seconds(100);
+      const newer = TimeStamp.seconds(200);
+      await client.write(older, a.key, [older, older.add(TimeSpan.SECOND)]);
+      await client.write(newer, b.key, [newer]);
+      const first = await feed.firstTime([a.key, b.key]);
+      expect(first?.valueOf()).toBe(older.valueOf());
+    });
+
+    it("should return the first time of a data channel, not of its index", async () => {
+      const index = await createIndex();
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const start = TimeStamp.seconds(400);
+      const stamps = [0, 1, 2, 3].map((i) => start.add(TimeSpan.seconds(i)));
+      await client.write(start, index.key, stamps);
+      await client.write(stamps[2], data.key, [1, 2]);
+      expect((await feed.firstTime([data.key]))?.valueOf()).toBe(stamps[2].valueOf());
+    });
+
+    it("should skip an index with no samples", async () => {
+      const [a, b] = await Promise.all([createIndex(), createIndex()]);
+      const start = TimeStamp.seconds(300);
+      await client.write(start, a.key, [start]);
+      expect((await feed.firstTime([a.key, b.key]))?.valueOf()).toBe(start.valueOf());
+    });
+
+    it("should return null when no index has samples", async () => {
+      const index = await createIndex();
+      expect(await feed.firstTime([index.key])).toBeNull();
+    });
+  });
+
   it("should throw when a closed feed subscribes", async () => {
     const closed = client.openFeed();
     await closed.close();
@@ -349,7 +392,7 @@ describe("Feed", () => {
     const direct = core.openFeed({
       ...OPTIONS,
       fetchTimeout: TimeSpan.milliseconds(20),
-      readRemote: async () => await new Promise<Frame>(() => {}),
+      readRemote: async () => await new Promise<framer.Frame>(() => {}),
     });
     const key = core.index.key;
     const tr = new TimeRange(START, START.add(TimeSpan.seconds(1)));
@@ -415,6 +458,31 @@ describe("Feed", () => {
         expect(calls).toEqual([[a, b], [b]]);
       } finally {
         subs.forEach(({ sub }) => sub.close());
+        await direct.close();
+      }
+    });
+
+    it("should load a subscription without times when the index read fails", async () => {
+      const core = createCore();
+      const direct = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (keys.includes(core.index.key)) throw new UnsupportedError("no access");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const [a] = core.data.map((ch) => ch.key);
+      const timed = direct.subscribe(latest([a]));
+      timed.timeAt(a, 0n);
+      const plain = direct.subscribe(latest([a]));
+      try {
+        await loaded(plain, a);
+        await loaded(timed, a);
+        expect(plain.value(a).series.length).toBeGreaterThan(0);
+        expect(timed.value(a).series.length).toBeGreaterThan(0);
+      } finally {
+        timed.close();
+        plain.close();
         await direct.close();
       }
     });

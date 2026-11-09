@@ -11,14 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
@@ -122,6 +120,7 @@ class BaseWriteField(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     pointer: str = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -129,6 +128,7 @@ class BaseWriteField(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -140,6 +140,10 @@ class ReadField(BaseModel):
         key: Uniquely identifies the field within the endpoint.
         name: Is the human-readable field name.
         disabled: Is true when the field is excluded from polling.
+        optional: Is true when a missing value is normal for this field. The task writes
+            fill_value, or NaN on a float channel, and sends no warning.
+        fill_value: Is the value written when an optional field is missing, typed by the
+            channel. Unset writes NaN, which needs a float channel.
         channel: Is the Synnax channel the extracted value is written to.
         pointer: Is the JSON Pointer to the value within the response body.
         data_type: Is the data type of the extracted value.
@@ -151,12 +155,15 @@ class ReadField(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
+    optional: bool = False
+    fill_value: JsonValue | None = None
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -235,6 +242,7 @@ class ReadEndpoint(BaseModel):
     fields: list[ReadField] = Field(default_factory=list)
     index: str = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -262,6 +270,7 @@ class WriteEndpoint(BaseModel):
     channel: ChannelField = Field(default_factory=lambda: ChannelField())
     fields: list[WriteField] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -284,6 +293,7 @@ class ReadConfig(task.PersistConfig):
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -300,5 +310,6 @@ class WriteConfig(task.StartConfig):
     device: device_.Key = ""
     endpoints: list[WriteEndpoint] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

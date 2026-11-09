@@ -21,7 +21,7 @@ import {
   DisconnectedError,
   ExpiredLicenseError,
   MissingLicenseError,
-} from "@/errors";
+} from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
 import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
@@ -162,6 +162,13 @@ describe("connection", () => {
       const info = createInfo({ nodeVersion: "1.0.0" });
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
+    });
+
+    it("should treat a Core on another patch as compatible", () => {
+      const config = createConfig({ clientVersion: "1.2.0" });
+      const info = createInfo({ nodeVersion: "1.2.3" });
+      const status = apply(config, { type: "check.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
     });
 
     it("should treat a 0.0 build on either side as compatible", () => {
@@ -474,6 +481,30 @@ describe("connection", () => {
       expect(reasonOf(replaced)).toBeUndefined();
     });
 
+    it("should store the session key on auth success", () => {
+      const status = apply(createConfig(), { type: "auth.success", session: "a" });
+      expect(status.details.authenticated).toBe(true);
+      expect(status.details.session).toEqual("a");
+    });
+
+    it("should clear the session key on auth failure", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.success", session: "a" },
+        { type: "auth.failure", error: new AuthError("session ended") },
+      );
+      expect(status.details.session).toBeUndefined();
+    });
+
+    it("should clear the session key when credentials are replaced", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.success", session: "a" },
+        { type: "credentials.replaced" },
+      );
+      expect(status.details.session).toBeUndefined();
+    });
+
     it("should treat an auth error from the check as an auth failure", () => {
       const status = apply(createConfig(), {
         type: "check.failure",
@@ -661,6 +692,13 @@ describe("connection", () => {
       time: TimeStamp.ZERO,
     });
     const base = stale(apply(config, { type: "check.success", info: createInfo() }));
+    const authenticated = stale(
+      apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "auth.success", session: "a" },
+      ),
+    );
     const nextAt = TimeStamp.now();
     const scheduled = stale(
       apply(config, { type: "retry.scheduled", attempt: 1, nextAt }),
@@ -675,6 +713,10 @@ describe("connection", () => {
 
     it("should not notify on repeated identical checks", () => {
       expectQuiet(base, { type: "check.success", info: createInfo() });
+    });
+
+    it("should not notify on a repeat of the same session", () => {
+      expectQuiet(authenticated, { type: "auth.success", session: "a" });
     });
 
     it("should ignore raw clock skew jitter", () => {
@@ -714,6 +756,7 @@ describe("connection", () => {
         ["streamLive", base, { type: "stream.live" }],
         ["streamDenied", base, { type: "stream.denied" }],
         ["authenticated", base, { type: "credentials.replaced" }],
+        ["session", authenticated, { type: "auth.success", session: "b" }],
         ["epoch", base, { type: "epoch.advanced", epoch: 7 }],
         [
           "clusterKey",
@@ -773,6 +816,7 @@ describe("connection", () => {
       const classified = [
         "error",
         "authenticated",
+        "session",
         "streamLive",
         "streamDenied",
         "epoch",
@@ -788,11 +832,11 @@ describe("connection", () => {
         "license",
       ];
       const authError = reduce(
-        base,
+        authenticated,
         { type: "auth.failure", error: new AuthError("bad password") },
         config,
       );
-      expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
+      expect(Object.keys(authenticated.details).sort()).toEqual([...classified].sort());
       expect(Object.keys(authError.details).sort()).toEqual(
         [...classified, "reason"].sort(),
       );
@@ -962,7 +1006,7 @@ describe("connection", () => {
       const send = unary.send as ReturnType<typeof vi.fn>;
       while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       // the stream opens behind the auth middleware, so a login lands first
-      client.notify({ type: "auth.success" });
+      client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
       // the check issued before the stream came up fails late: it was aimed

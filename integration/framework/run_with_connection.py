@@ -101,7 +101,7 @@ if __name__ == "__main__":
     import synnax.synnax as _syn
 
     _opts = options_from_env()
-    vars(_syn)["try_load_options_if_none_provided"] = lambda *a, **k: _opts
+    vars(_syn)["try_load_options_if_none_provided"] = lambda *a, **k: (_opts, False)
 
     _module = sys.argv[1]
     sys.argv = [_module]  # Clean argv so argparse in imported modules works

@@ -14,21 +14,24 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
-import { OrderFields } from "@/feature/modbus/task/OrderFields";
-import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
+import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
+import { RegisterField } from "@/feature/modbus/task/Register";
 import {
-  BIT_BOUNDS,
+  RegisterMap,
+  RegisterMapProvider,
+  useOverlaps,
+} from "@/feature/modbus/task/RegisterMap";
+import {
   deployReadConfigZ,
-  isStringChannel,
   isVariableDensityReadChannel,
   nextChannel,
   READ_CHANNEL_SCHEMAS,
@@ -36,119 +39,78 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
-  type ReadChannelType,
   readMapKey,
   type ReadSchemas,
-  STRING_LENGTH_BOUNDS,
   type TypedReadChannel,
   UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
-import { CSS } from "@/platform/css";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<ReadSchemas>>();
 
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
 
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { channel } = ch;
+const COLUMNS: List.Column[] = [
+  { name: "Type", width: "30rem", field: true },
+  { name: "Address", width: "24rem", field: true },
+  { name: "Data type", width: "26rem", field: true },
+  {
+    name: "Byte order",
+    width: "var(--console-modbus-byte-order-width, 27rem)",
+    field: true,
+  },
+];
+
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
+  const dev = useFromConfig();
+  const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
-    <Select.Item
-      {...props}
-      className={CSS.BE("modbus", "channel-item")}
-      justify="between"
-      align="center"
-      x
+    <Task.Views.ListChannelItem
+      {...rest}
+      itemKey={itemKey}
+      path={entry}
+      channel={ch.channel}
+      defaultName={
+        dev == null
+          ? undefined
+          : readChannelName(channel.escapeInvalidName(dev.name), ch)
+      }
     >
-      <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectReadChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<ReadChannelType>(path).value;
-            if (prevType === value) return;
-            const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
-            const schema = READ_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
-              type: value,
-            });
-          }}
+      <List.Cell>
+        <RegisterField path={entry} schemas={READ_CHANNEL_SCHEMAS} />
+      </List.Cell>
+      <List.Cell>
+        <AddressField path={entry} variant="shadow" overlapping={overlapping} />
+      </List.Cell>
+      <List.Cell>
+        <DataTypeCell
+          path={entry}
+          channel={ch}
+          hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
         />
-        <AddressField path={path} />
-        {"bit" in ch && (
-          <PForm.NumericField
-            inputProps={{
-              showDragHandle: false,
-              bounds: BIT_BOUNDS,
-              startContent: "Bit",
-              "aria-label": "Bit",
-            }}
-            showLabel={false}
-            showHelpText={false}
-            path={`${path}.bit`}
-          />
-        )}
+      </List.Cell>
+      <List.Cell>
         {isVariableDensityReadChannel(ch) && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
-            showLabel={false}
-            showHelpText={false}
-          >
-            {renderTelemSelectDataType}
-          </PForm.Field>
-        )}
-        {isStringChannel(ch) && (
-          <PForm.NumericField
-            inputProps={{
-              showDragHandle: false,
-              bounds: STRING_LENGTH_BOUNDS,
-              startContent: "String length",
-              "aria-label": "String length",
-            }}
-            showLabel={false}
-            showHelpText={false}
-            path={`${path}.stringLength`}
+          <ByteOrderField
+            path={deep.variant(entry, "type", ch.type)}
+            dataType={ch.dataType}
           />
         )}
-      </Flex.Box>
-      {isVariableDensityReadChannel(ch) && (
-        <OrderFields path={path} dataType={ch.dataType} />
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
+      </List.Cell>
+    </Task.Views.ListChannelItem>
   );
 };
-
-const renderTelemSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType
-      {...props}
-      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
-      location="bottom"
-    />
-  ),
-);
 
 const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
@@ -163,19 +125,40 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   };
 };
 
+const createMapChannel = (type: ReadChannel["type"], address: number): ReadChannel => ({
+  ...READ_CHANNEL_SCHEMAS[type].parse({ type, address }),
+  ...Task.READ_CHANNEL_OVERRIDE,
+  key: id.create(),
+});
+
 const listItem = Component.renderProp(ChannelListItem);
+
+const map = ({ selected, onSelect }: Task.Views.PortsProps<ReadChannel>) => (
+  <RegisterMap
+    path={path.config.channels}
+    createChannel={createMapChannel}
+    selected={selected}
+    onSelect={onSelect}
+  />
+);
 
 const Form: FC = () => {
   const dev = useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
-    <Task.Views.List<ReadChannel>
-      createChannel={getOpenChannel}
-      contextMenuItems={Task.readChannelContextMenuItem}
-      listItem={listItem}
-      resolve={resolve}
-    />
+    <RegisterMapProvider>
+      <Task.Views.List
+        path={path.config.channels}
+        createChannel={getOpenChannel}
+        contextMenuItems={Task.readChannelContextMenuItem}
+        listItem={listItem}
+        resolve={resolve}
+        map={map}
+        columns={COLUMNS}
+        checkable
+      />
+    </RegisterMapProvider>
   );
 };
 
@@ -258,17 +241,18 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "Modbus read task",
+  label: "Read",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
-});
+};

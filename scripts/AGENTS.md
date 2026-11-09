@@ -35,6 +35,9 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   Tests may import names from a test utility (`testutil`, `test`, or `mock`). Fix a
   finding with a leading underscore, or move the helper into a test utility. The package
   list is `PACKAGES` in the script.
+- `python3 scripts/check_docstrings_py.py [directory ...]` reports Google-style
+  docstring sections (`Args:`, `Returns:`, `Raises:`, `Yields:`) and `:return:` fields.
+  Each Python package's CI job runs it.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory
@@ -115,3 +118,6 @@ instance.
 Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
 Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
 the scripts by hand on the box.
+
+The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
+controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.

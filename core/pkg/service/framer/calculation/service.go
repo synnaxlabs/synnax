@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -44,7 +43,7 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the channels that the service reads, and stores statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -101,9 +100,8 @@ type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	cfg                          ServiceConfig
 	mu                           struct {
-		graph       *graph.Graph
-		calculators map[channel.Key]*calculator.Calculator
-		groups      map[int]*group
+		graph  *graph.Graph
+		groups map[int]*group
 		sync.Mutex
 	}
 }
@@ -118,16 +116,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Service{cfg: cfg}
-	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
-	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
+	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
@@ -207,11 +205,11 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
+		if cg.Kind == gorp.ChangeDelete || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()
-		if _, found := s.mu.calculators[cg.Key]; !found {
+		if !s.mu.graph.Contains(cg.Key) {
 			s.mu.Unlock()
 			continue
 		}
@@ -235,7 +233,7 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 	return s.rebuildGroups(ctx)
 }
 
-func (s *Service) openOrGetCalculator(
+func (s *Service) openCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
@@ -249,8 +247,7 @@ func (s *Service) openOrGetCalculator(
 			err, "failed to open calculator for channel %s", mod.Channel,
 		)
 	}
-	s.mu.calculators[calc.Channel().Key()] = calc
-	return calc, err
+	return calc, nil
 }
 
 func groupEquals(mods []compiler.Module, g *group) bool {
@@ -288,7 +285,7 @@ func (s *Service) updateGroup(
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
 	for i, m := range mods {
-		calc, err := s.openOrGetCalculator(ctx, m)
+		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
 			return err
 		}
@@ -367,10 +364,12 @@ func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
 	var channels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchKeys(added...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(added...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -429,6 +428,7 @@ type RequestManager struct {
 }
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	keys = keys.Unique()
 	added, removed := lo.Difference(keys, r.currKeys)
 	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
 		return err

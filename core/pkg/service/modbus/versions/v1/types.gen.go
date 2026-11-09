@@ -20,6 +20,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
@@ -53,15 +54,23 @@ type BaseReadChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	CoilReadChannelType            ReadChannelType = "coil"
-	DiscreteInputReadChannelType   ReadChannelType = "discrete_input"
+	// CoilReadChannelType reads a single bit from a coil.
+	CoilReadChannelType ReadChannelType = "coil"
+	// DiscreteInputReadChannelType reads a single bit from a discrete input.
+	DiscreteInputReadChannelType ReadChannelType = "discrete_input"
+	// HoldingRegisterReadChannelType reads a typed value from one or more holding
+	// registers.
 	HoldingRegisterReadChannelType ReadChannelType = "holding_register"
-	InputRegisterReadChannelType   ReadChannelType = "input_register"
+	// InputRegisterReadChannelType reads a typed value from one or more input
+	// registers.
+	InputRegisterReadChannelType ReadChannelType = "input_register"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -160,38 +169,71 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilReadChannelType:
-		var v CoilReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			CoilReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilReadChannel
 	case DiscreteInputReadChannelType:
-		var v DiscreteInputReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			DiscreteInputReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DiscreteInputReadChannel
 	case HoldingRegisterReadChannelType:
-		var v HoldingRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			HoldingRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterReadChannel
 	case InputRegisterReadChannelType:
-		var v InputRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			InputRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputRegisterReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case CoilReadChannel:
+		return CoilReadChannelType
+	case DiscreteInputReadChannel:
+		return DiscreteInputReadChannelType
+	case HoldingRegisterReadChannel:
+		return HoldingRegisterReadChannelType
+	case InputRegisterReadChannel:
+		return InputRegisterReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -204,6 +246,41 @@ func (u *ReadChannel) ApplyDefaults() {
 	case InputRegisterReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		return variant.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DiscreteInputReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -221,13 +298,18 @@ type BaseWriteChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	CoilWriteChannelType            WriteChannelType = "coil"
+	// CoilWriteChannelType writes a single bit to a coil.
+	CoilWriteChannelType WriteChannelType = "coil"
+	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
+	// registers.
 	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -292,26 +374,49 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilWriteChannelType:
-		var v CoilWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			CoilWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilWriteChannel
 	case HoldingRegisterWriteChannelType:
-		var v HoldingRegisterWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case CoilWriteChannel:
+		return CoilWriteChannelType
+	case HoldingRegisterWriteChannel:
+		return HoldingRegisterWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -321,6 +426,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case HoldingRegisterWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import logging
+from typing import override
 
 import pytest
 
@@ -75,6 +76,7 @@ class Records(logging.Handler):
         super().__init__()
         self.records: list[logging.LogRecord] = []
 
+    @override
     def emit(self, record: logging.LogRecord) -> None:
         self.records.append(record)
 

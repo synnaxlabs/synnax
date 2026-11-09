@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Query } from "@/components/tabs/sync";
+import { type Tabs } from "@/components/tabs";
 
 export const PLATFORMS = ["Linux", "Windows", "macOS", "Docker"] as const;
 
@@ -18,7 +18,7 @@ export type Platform = (typeof PLATFORMS)[number];
  * and marks the platform the reader picks, so keys on the page follow it. Docker runs
  * on any system, so it leaves the mark alone.
  */
-export const QUERY: Query = {
+export const QUERY: Tabs.Query = {
   initial: () =>
     PLATFORMS.find((platform) => platform === document.documentElement.dataset.os) ??
     null,

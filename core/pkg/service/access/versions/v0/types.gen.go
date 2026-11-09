@@ -16,10 +16,14 @@ package v0
 type Action string
 
 const (
-	ActionCreate   Action = "create"
-	ActionDelete   Action = "delete"
+	// ActionCreate creates a resource.
+	ActionCreate Action = "create"
+	// ActionDelete deletes a resource.
+	ActionDelete Action = "delete"
+	// ActionRetrieve reads a resource.
 	ActionRetrieve Action = "retrieve"
-	ActionUpdate   Action = "update"
+	// ActionUpdate changes a resource.
+	ActionUpdate Action = "update"
 )
 
 // IsValid reports whether a is one of the defined Action

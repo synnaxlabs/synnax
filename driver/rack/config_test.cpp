@@ -19,12 +19,14 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/status/status.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
 
 synnax::Config key_conn(const std::string &key) {
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = key;
     return conn;
 }
@@ -80,6 +82,52 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_TRUE(cfg.connection.password.empty());
     ASSERT_NE(cfg.rack.key, 0);
     ASSERT_NE(cfg.rack.name, "");
+}
+
+/// @brief it should write the version of this Driver to its rack and find a Core of the
+/// same train compatible.
+TEST_F(RackConfigTest, WritesDriverVersionToRack) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    EXPECT_FALSE(cfg.incompatible_core_version.has_value());
+    const auto rack = ASSERT_NIL_P(new_test_client().racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
+}
+
+/// @brief it should start only the rack status when the Core runs another minor, and
+/// report the mismatch in its heartbeat.
+TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("mismatch_rack"));
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(
+        client,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    auto tasks = factory->configure_initial_tasks(
+        std::make_shared<task::MockContext>(client),
+        rack
+    );
+    x::defer::defer stop([&tasks]() {
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+    });
+    ASSERT_EQ(tasks.size(), 1);
+    EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
+    const auto owner = synnax::rack::resource_id(rack.key);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        client->statuses.retrieve_by_owner(owner).first.message,
+        "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+            " cannot work with Core 99.1.0",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(50)
+    );
+    const auto stat = ASSERT_NIL_P(client->statuses.retrieve_by_owner(owner));
+    EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        stat.description,
+        "Install the Driver release that matches the Core, then restart the Driver."
+    );
 }
 
 /// @brief it should load rack key from persisted state file.
@@ -151,7 +199,7 @@ TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
     const auto cluster_key = ASSERT_NIL_P(
         x::uuid::UUID::parse(client.connectivity->check().cluster_key)
     );
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = caller_key.token;
     Config cfg{
         .remote_info = {.rack_key = saved.key, .cluster_key = cluster_key},
@@ -276,6 +324,14 @@ TEST_F(RackConfigTest, RefuseSymlinkStateFile) {
     ASSERT_OCCURRED_AS(Config::save_api_key(args, key_conn("syk_saved")), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_conn_params(args, {}), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_remote_info(args, {}), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::secure_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief it should secure the persisted state without creating a missing state file.
+TEST_F(RackConfigTest, SecureMissingStateFile) {
+    std::filesystem::remove(STATE_PATH);
+    ASSERT_NIL(Config::secure_persisted_state(args));
+    ASSERT_FALSE(std::filesystem::exists(STATE_PATH));
 }
 
 /// @brief it should keep the persisted state file readable only by its owner.

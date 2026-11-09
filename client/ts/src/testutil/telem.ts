@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type DataType,
+  type TimeSpan,
+  TimeStamp,
+  type TypedArray,
+} from "@synnaxlabs/x";
 
 export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
   Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));
@@ -28,3 +33,9 @@ export class ManualClock {
     this.time = this.time.add(span);
   }
 }
+
+export const randomSeries = (length: number, dataType: DataType): TypedArray => {
+  const bytes = new Uint8Array(length * dataType.density.valueOf());
+  for (let i = 0; i < bytes.byteLength; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return new dataType.Array(bytes.buffer);
+};

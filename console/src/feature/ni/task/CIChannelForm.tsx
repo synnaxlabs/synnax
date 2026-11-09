@@ -9,16 +9,24 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type deep, record, TimeSpan } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
-import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
+import { PortField } from "@/feature/ni/task/PortField";
+import { COUNTER_INPUT } from "@/feature/ni/task/ports";
 import {
+  channelTypeItems,
+  SelectCIChannelTypeField,
+} from "@/feature/ni/task/SelectCIChannelTypeField";
+import {
+  CI_CHANNEL_TYPE_NAMES,
   type CIAngularPositionUnits,
   type CIAngularVelocityUnits,
+  type CIChannel,
   type CIChannelType,
   type CICountDirection,
   type CIDecodingType,
@@ -33,6 +41,7 @@ import {
   type CITimeUnits,
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
+import { allowedTypes, useChannelDevice } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
 
 const CI_TIME_UNITS_NAMES = {
@@ -45,8 +54,10 @@ const CI_EDGE_NAMES = {
   Falling: "Falling",
 } as const satisfies Record<CIEdge, string>;
 
-interface FormProps {
-  prefix: string;
+type Variant<K extends CIChannelType> = Extract<CIChannel, { type: K }>;
+
+interface FormProps<K extends CIChannelType = CIChannelType> {
+  path: deep.Path<Variant<K>>;
 }
 
 const CI_FREQ_UNITS_NAMES = {
@@ -55,7 +66,6 @@ const CI_FREQ_UNITS_NAMES = {
 } as const satisfies Record<CIFreqUnits, string>;
 
 const UnitsField = Form.buildSelectField<CIFreqUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
@@ -64,7 +74,6 @@ const UnitsField = Form.buildSelectField<CIFreqUnits>({
 });
 
 const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
@@ -73,7 +82,6 @@ const PeriodUnitsField = Form.buildSelectField<CIPeriodUnits>({
 });
 
 const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
@@ -82,7 +90,6 @@ const PulseWidthUnitsField = Form.buildSelectField<CIPulseWidthUnits>({
 });
 
 const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
@@ -91,7 +98,6 @@ const SemiPeriodUnitsField = Form.buildSelectField<CISemiPeriodUnits>({
 });
 
 const TwoEdgeSepUnitsField = Form.buildSelectField<CITwoEdgeSepUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
@@ -100,7 +106,6 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<CITwoEdgeSepUnits>({
 });
 
 const EdgeField = Form.buildSelectField<CIEdge>({
-  fieldKey: "edge",
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
@@ -110,7 +115,6 @@ const EdgeField = Form.buildSelectField<CIEdge>({
 });
 
 const StartingEdgeField = Form.buildSelectField<CIEdge>({
-  fieldKey: "startingEdge",
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
@@ -120,7 +124,6 @@ const StartingEdgeField = Form.buildSelectField<CIEdge>({
 });
 
 const ActiveEdgeField = Form.buildSelectField<CIEdge>({
-  fieldKey: "activeEdge",
   fieldProps: { label: "Active edge" },
   inputProps: {
     resourceName: "active edge",
@@ -135,19 +138,12 @@ const CI_COUNT_DIRECTION_NAMES = {
 } as const satisfies Record<CICountDirection, string>;
 
 const CountDirectionField = Form.buildSelectField<CICountDirection>({
-  fieldKey: "countDirection",
   fieldProps: { label: "Count direction" },
   inputProps: {
     resourceName: "count direction",
     searchName: "direction",
     children: Task.selectItems(CI_COUNT_DIRECTION_NAMES),
   },
-});
-
-const InitialCountField = Form.buildNumericField({
-  fieldKey: "initialCount",
-  fieldProps: { label: "Initial count" },
-  inputProps: {},
 });
 
 const CI_MEAS_METHOD_NAMES = {
@@ -158,7 +154,6 @@ const CI_MEAS_METHOD_NAMES = {
 } as const satisfies Record<CIMeasMethod, string>;
 
 const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
-  fieldKey: "measMethod",
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
@@ -167,56 +162,85 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   },
 });
 
-const MeasTimeField = Form.buildNumericField({
-  fieldKey: "measTime",
-  fieldProps: { label: "Measurement time (s)" },
-  inputProps: {},
-});
+const MeasTimeField = ({ path }: { path: deep.Target<number> }) => (
+  <Form.TimeSpanField path={path} label="Measurement time" unit={TimeSpan.SECOND} />
+);
 
 const DivisorField = Form.buildNumericField({
-  fieldKey: "divisor",
   fieldProps: { label: "Divisor" },
   inputProps: {},
 });
 
-const COUNTER_TERMINALS = [
-  "PFI0",
-  "PFI1",
-  "PFI2",
-  "PFI3",
-  "PFI4",
-  "PFI5",
-  "PFI6",
-  "PFI7",
-  "PFI8",
-  "PFI9",
-  "PFI10",
-  "PFI11",
-  "PFI12",
-  "PFI13",
-  "PFI14",
-  "PFI15",
-] as const;
+// A device with no port list offers PFI0 to PFI15.
+const FALLBACK_TERMINALS = Array.from({ length: 16 }, (_, i) => `PFI${i}`);
 
-const COUNTER_TERMINAL_ITEMS = COUNTER_TERMINALS.map((t) => (
-  <Select.Item key={t} itemKey={t}>
-    {t}
-  </Select.Item>
-));
+// The PFI terminals of the channel's device, and the current terminal.
+const useTerminalItems = (path: deep.Target<{ device: string }>, current: string) => {
+  const hardware = useChannelDevice(path)?.properties.hardware;
+  const terminals =
+    hardware == null
+      ? [...FALLBACK_TERMINALS]
+      : hardware.terminals.filter((t) => t.startsWith("PFI"));
+  if (current !== "" && !terminals.includes(current)) terminals.push(current);
+  return terminals.map((t) => (
+    <Select.Item key={t} itemKey={t}>
+      {t}
+    </Select.Item>
+  ));
+};
 
-const TerminalField = Form.buildSelectField<string>({
-  fieldKey: "terminal",
-  fieldProps: { label: "Input terminal" },
-  inputProps: {
-    resourceName: "input terminal",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
-  },
-});
+interface TerminalFieldProps {
+  path: deep.Target<string>;
+  channelPath: deep.Target<{ device: string }>;
+  label: string;
+  disabled?: boolean;
+}
+
+const TerminalField = ({ path, channelPath, label, disabled }: TerminalFieldProps) => {
+  const value = Form.useFieldValue(path);
+  const items = useTerminalItems(channelPath, value);
+  return (
+    <Form.Field path={path} label={label}>
+      {({ value, onChange, preview }) => (
+        <Select.Simple<string>
+          value={value}
+          onChange={(v: string | null) => onChange(v ?? "")}
+          preview={preview}
+          allowNone
+          disabled={disabled}
+          resourceName={label.charAt(0).toLowerCase() + label.slice(1)}
+          searchName="terminal"
+        >
+          {items}
+        </Select.Simple>
+      )}
+    </Form.Field>
+  );
+};
+
+const InputTerminalField = ({
+  path,
+}: {
+  path: deep.Path<{ device: string; terminal: string }>;
+}) => <TerminalField path={path.terminal} channelPath={path} label="Input terminal" />;
+
+const TerminalAField = ({
+  path,
+}: {
+  path: deep.Path<{ device: string; terminalA: string }>;
+}) => (
+  <TerminalField path={path.terminalA} channelPath={path} label="Input terminal A" />
+);
+
+const TerminalBField = ({
+  path,
+}: {
+  path: deep.Path<{ device: string; terminalB: string }>;
+}) => (
+  <TerminalField path={path.terminalB} channelPath={path} label="Input terminal B" />
+);
 
 const FirstEdgeField = Form.buildSelectField<CIEdge>({
-  fieldKey: "firstEdge",
   fieldProps: { label: "Edge 1" },
   inputProps: {
     resourceName: "edge 1",
@@ -225,33 +249,10 @@ const FirstEdgeField = Form.buildSelectField<CIEdge>({
 });
 
 const SecondEdgeField = Form.buildSelectField<CIEdge>({
-  fieldKey: "secondEdge",
   fieldProps: { label: "Edge 2" },
   inputProps: {
     resourceName: "edge 2",
     children: Task.selectItems(CI_EDGE_NAMES),
-  },
-});
-
-const TerminalAField = Form.buildSelectField<string>({
-  fieldKey: "terminalA",
-  fieldProps: { label: "Input terminal A" },
-  inputProps: {
-    resourceName: "input terminal A",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
-  },
-});
-
-const TerminalBField = Form.buildSelectField<string>({
-  fieldKey: "terminalB",
-  fieldProps: { label: "Input terminal B" },
-  inputProps: {
-    resourceName: "input terminal B",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
   },
 });
 
@@ -263,7 +264,6 @@ const CI_DECODING_TYPE_NAMES = {
 } as const satisfies Record<CIDecodingType, string>;
 
 const DecodingTypeField = Form.buildSelectField<CIDecodingType>({
-  fieldKey: "decodingType",
   fieldProps: { label: "Decoding type" },
   inputProps: {
     resourceName: "decoding type",
@@ -278,7 +278,6 @@ const CI_LINEAR_VELOCITY_UNITS_NAMES = {
 } as const satisfies Record<CILinearVelocityUnits, string>;
 
 const LinearVelocityUnitsField = Form.buildSelectField<CILinearVelocityUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
@@ -293,7 +292,6 @@ const CI_ANGULAR_VELOCITY_UNITS_NAMES = {
 } as const satisfies Record<CIAngularVelocityUnits, string>;
 
 const AngularVelocityUnitsField = Form.buildSelectField<CIAngularVelocityUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
@@ -302,49 +300,29 @@ const AngularVelocityUnitsField = Form.buildSelectField<CIAngularVelocityUnits>(
 });
 
 const DistPerPulseField = Form.buildNumericField({
-  fieldKey: "distPerPulse",
   fieldProps: { label: "Distance / pulse" },
   inputProps: {},
 });
 
 const PulsesPerRevField = Form.buildNumericField({
-  fieldKey: "pulsesPerRev",
   fieldProps: { label: "Pulses / rev" },
   inputProps: {},
 });
 
-const InitialPosField = Form.buildNumericField({
-  fieldKey: "initialPos",
-  fieldProps: { label: "Initial position" },
-  inputProps: {},
-});
-
-const InitialAngleField = Form.buildNumericField({
-  fieldKey: "initialAngle",
-  fieldProps: { label: "Initial angle" },
-  inputProps: {},
-});
-
-const ZIndexEnabledField: FC<{ path: string }> = ({ path }) => (
-  <Form.SwitchField path={`${path}.zIndexEnabled`} label="Z index enable" />
+const ZIndexEnabledField: FC<{ path: deep.Target<boolean> }> = ({ path }) => (
+  <Form.CheckboxField path={path} label="Z index enable" />
 );
 
-const ZIndexValField: FC<{ path: string; disabled?: boolean }> = ({
+const ZIndexValField: FC<{ path: deep.Target<number>; disabled?: boolean }> = ({
+  path,
+  disabled,
+}) => <Form.NumericField path={path} label="Z index value" inputProps={{ disabled }} />;
+
+const ZIndexPhaseField: FC<{ path: deep.Target<string>; disabled?: boolean }> = ({
   path,
   disabled,
 }) => (
-  <Form.NumericField
-    path={`${path}.zIndexVal`}
-    label="Z index value"
-    inputProps={{ disabled }}
-  />
-);
-
-const ZIndexPhaseField: FC<{ path: string; disabled?: boolean }> = ({
-  path,
-  disabled,
-}) => (
-  <Form.Field<string> path={`${path}.zIndexPhase`} label="Z index phase">
+  <Form.Field path={path} label="Z index phase">
     {({ value, onChange, preview }) => (
       <Select.Simple<string>
         value={value}
@@ -362,25 +340,19 @@ const ZIndexPhaseField: FC<{ path: string; disabled?: boolean }> = ({
   </Form.Field>
 );
 
-const TerminalZField: FC<{ path: string; disabled?: boolean }> = ({
+const TerminalZField = ({
   path,
   disabled,
+}: {
+  path: deep.Path<{ device: string; terminalZ: string }>;
+  disabled?: boolean;
 }) => (
-  <Form.Field<string> path={`${path}.terminalZ`} label="Input terminal Z">
-    {({ value, onChange, preview }) => (
-      <Select.Simple<string>
-        value={value}
-        onChange={(v: string | null) => onChange(v ?? "")}
-        preview={preview}
-        allowNone
-        disabled={disabled}
-        resourceName="input terminal Z"
-        searchName="terminal"
-      >
-        {COUNTER_TERMINAL_ITEMS}
-      </Select.Simple>
-    )}
-  </Form.Field>
+  <TerminalField
+    path={path.terminalZ}
+    channelPath={path}
+    label="Input terminal Z"
+    disabled={disabled}
+  />
 );
 
 const CI_LINEAR_POSITION_UNITS_NAMES = {
@@ -390,7 +362,6 @@ const CI_LINEAR_POSITION_UNITS_NAMES = {
 } as const satisfies Record<CILinearPositionUnits, string>;
 
 const LinearPositionUnitsField = Form.buildSelectField<CILinearPositionUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
@@ -405,7 +376,6 @@ const CI_ANGULAR_POSITION_UNITS_NAMES = {
 } as const satisfies Record<CIAngularPositionUnits, string>;
 
 const AngularPositionUnitsField = Form.buildSelectField<CIAngularPositionUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
@@ -413,171 +383,189 @@ const AngularPositionUnitsField = Form.buildSelectField<CIAngularPositionUnits>(
   },
 });
 
-const useMeasMethodVisibility = (prefix: string) => {
-  const measMethod = Form.useFieldValue<CIMeasMethod>(`${prefix}.measMethod`, {
-    optional: true,
-  });
+const useMeasMethodVisibility = (path: deep.Path<{ measMethod: CIMeasMethod }>) => {
+  const measMethod = Form.useFieldValue(path.measMethod, { optional: true });
   return {
     showMeasTime: measMethod === "HighFreq2Ctr",
     showDivisor: measMethod === "LargeRng2Ctr",
   };
 };
 
-const useZIndexFieldsDisabled = (prefix: string) => {
-  const zIndexEnabled = Form.useFieldValue<boolean>(`${prefix}.zIndexEnabled`, {
-    optional: true,
-  });
+const useZIndexFieldsDisabled = (path: deep.Path<{ zIndexEnabled: boolean }>) => {
+  const zIndexEnabled = Form.useFieldValue(path.zIndexEnabled, { optional: true });
   return !zIndexEnabled;
 };
 
-const FrequencyForm: FC<FormProps> = ({ prefix }) => {
-  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+const FrequencyForm: FC<FormProps<"ci_frequency">> = ({ path }) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(path);
   return (
     <>
-      <MinMaxValueFields path={prefix} />
-      <EdgeField path={prefix} />
-      <UnitsField path={prefix} />
-      <TerminalField path={prefix} />
-      <MeasMethodField path={prefix} />
-      {showMeasTime && <MeasTimeField path={prefix} />}
-      {showDivisor && <DivisorField path={prefix} />}
+      <MinMaxValueFields path={path} />
+      <EdgeField path={path.edge} />
+      <UnitsField path={path.units} />
+      <InputTerminalField path={path} />
+      <MeasMethodField path={path.measMethod} />
+      {showMeasTime && <MeasTimeField path={path.measTime} />}
+      {showDivisor && <DivisorField path={path.divisor} />}
     </>
   );
 };
 
-const PeriodForm: FC<FormProps> = ({ prefix }) => {
-  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+const PeriodForm: FC<FormProps<"ci_period">> = ({ path }) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(path);
   return (
     <>
-      <MinMaxValueFields path={prefix} />
-      <StartingEdgeField path={prefix} />
-      <PeriodUnitsField path={prefix} />
-      <TerminalField path={prefix} />
-      <MeasMethodField path={prefix} />
-      {showMeasTime && <MeasTimeField path={prefix} />}
-      {showDivisor && <DivisorField path={prefix} />}
+      <MinMaxValueFields path={path} />
+      <StartingEdgeField path={path.startingEdge} />
+      <PeriodUnitsField path={path.units} />
+      <InputTerminalField path={path} />
+      <MeasMethodField path={path.measMethod} />
+      {showMeasTime && <MeasTimeField path={path.measTime} />}
+      {showDivisor && <DivisorField path={path.divisor} />}
     </>
   );
 };
 
-const LinearPositionForm: FC<FormProps> = ({ prefix }) => {
-  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+const LinearPositionForm: FC<FormProps<"ci_position_linear">> = ({ path }) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(path);
   return (
     <>
-      <InitialPosField path={prefix} />
-      <DistPerPulseField path={prefix} />
-      <LinearPositionUnitsField path={prefix} />
-      <TerminalAField path={prefix} />
-      <TerminalBField path={prefix} />
-      <DecodingTypeField path={prefix} />
-      <ZIndexEnabledField path={prefix} />
-      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+      <Form.NumericField path={path.initialPos} label="Initial position" />
+      <DistPerPulseField path={path.distPerPulse} />
+      <LinearPositionUnitsField path={path.units} />
+      <TerminalAField path={path} />
+      <TerminalBField path={path} />
+      <DecodingTypeField path={path.decodingType} />
+      <ZIndexEnabledField path={path.zIndexEnabled} />
+      <ZIndexValField path={path.zIndexVal} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={path.zIndexPhase} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={path} disabled={zIndexFieldsDisabled} />
     </>
   );
 };
 
-const AngularPositionForm: FC<FormProps> = ({ prefix }) => {
-  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+const AngularPositionForm: FC<FormProps<"ci_position_angular">> = ({ path }) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(path);
   return (
     <>
-      <PulsesPerRevField path={prefix} />
-      <InitialAngleField path={prefix} />
-      <AngularPositionUnitsField path={prefix} />
-      <TerminalAField path={prefix} />
-      <TerminalBField path={prefix} />
-      <DecodingTypeField path={prefix} />
-      <ZIndexEnabledField path={prefix} />
-      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+      <PulsesPerRevField path={path.pulsesPerRev} />
+      <Form.NumericField path={path.initialAngle} label="Initial angle" />
+      <AngularPositionUnitsField path={path.units} />
+      <TerminalAField path={path} />
+      <TerminalBField path={path} />
+      <DecodingTypeField path={path.decodingType} />
+      <ZIndexEnabledField path={path.zIndexEnabled} />
+      <ZIndexValField path={path.zIndexVal} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={path.zIndexPhase} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={path} disabled={zIndexFieldsDisabled} />
     </>
   );
 };
 
-const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
+const CHANNEL_FORMS: { [K in CIChannelType]: FC<FormProps<K>> } = {
   ci_frequency: FrequencyForm,
-  ci_edge_count: ({ prefix }: FormProps) => (
+  ci_edge_count: ({ path }) => (
     <>
-      <ActiveEdgeField path={prefix} />
-      <CountDirectionField path={prefix} />
-      <TerminalField path={prefix} />
-      <InitialCountField path={prefix} />
+      <ActiveEdgeField path={path.activeEdge} />
+      <CountDirectionField path={path.countDirection} />
+      <InputTerminalField path={path} />
+      <Form.NumericField path={path.initialCount} label="Initial count" />
     </>
   ),
   ci_period: PeriodForm,
-  ci_pulse_width: ({ prefix }: FormProps) => (
+  ci_pulse_width: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <StartingEdgeField path={prefix} />
-      <PulseWidthUnitsField path={prefix} />
-      <TerminalField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <StartingEdgeField path={path.startingEdge} />
+      <PulseWidthUnitsField path={path.units} />
+      <InputTerminalField path={path} />
     </>
   ),
-  ci_semi_period: ({ prefix }: FormProps) => (
+  ci_semi_period: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <SemiPeriodUnitsField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <SemiPeriodUnitsField path={path.units} />
     </>
   ),
-  ci_two_edge_sep: ({ prefix }: FormProps) => (
+  ci_two_edge_sep: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <TwoEdgeSepUnitsField path={prefix} />
-      <FirstEdgeField path={prefix} />
-      <SecondEdgeField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <TwoEdgeSepUnitsField path={path.units} />
+      <FirstEdgeField path={path.firstEdge} />
+      <SecondEdgeField path={path.secondEdge} />
     </>
   ),
-  ci_velocity_linear: ({ prefix }: FormProps) => (
+  ci_velocity_linear: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <LinearVelocityUnitsField path={prefix} />
-      <DistPerPulseField path={prefix} />
-      <DecodingTypeField path={prefix} />
-      <TerminalAField path={prefix} />
-      <TerminalBField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <LinearVelocityUnitsField path={path.units} />
+      <DistPerPulseField path={path.distPerPulse} />
+      <DecodingTypeField path={path.decodingType} />
+      <TerminalAField path={path} />
+      <TerminalBField path={path} />
     </>
   ),
-  ci_velocity_angular: ({ prefix }: FormProps) => (
+  ci_velocity_angular: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <AngularVelocityUnitsField path={prefix} />
-      <PulsesPerRevField path={prefix} />
-      <DecodingTypeField path={prefix} />
-      <TerminalAField path={prefix} />
-      <TerminalBField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <AngularVelocityUnitsField path={path.units} />
+      <PulsesPerRevField path={path.pulsesPerRev} />
+      <DecodingTypeField path={path.decodingType} />
+      <TerminalAField path={path} />
+      <TerminalBField path={path} />
     </>
   ),
   ci_position_linear: LinearPositionForm,
   ci_position_angular: AngularPositionForm,
-  ci_duty_cycle: ({ prefix }: FormProps) => (
+  ci_duty_cycle: ({ path }) => (
     <>
-      <MinMaxValueFields path={prefix} />
-      <ActiveEdgeField path={prefix} />
-      <TerminalField path={prefix} />
+      <MinMaxValueFields path={path} />
+      <ActiveEdgeField path={path.activeEdge} />
+      <InputTerminalField path={path} />
     </>
   ),
 };
 
 export interface CIChannelFormProps {
   type: CIChannelType;
-  prefix: string;
+  path: deep.Path<CIChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<CIChannel[]>;
 }
 
-export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
-  const TypeForm = CHANNEL_FORMS[type];
+const CI_CHANNEL_TYPES = record.keys(CI_CHANNEL_TYPE_NAMES);
+
+const deviceOf = (c: CIChannel) => c.device;
+
+const TypeFields = createTypeFields<CIChannel>(CHANNEL_FORMS);
+
+export const CIChannelForm = ({ type, path, channelsPath }: CIChannelFormProps) => {
+  const device = useChannelDevice(path);
+  const port = Form.useFieldValue(path.port);
+  const counter = device?.properties.hardware?.counterInputs.find(
+    (c) => c.port === port,
+  );
+  const types = allowedTypes(CI_CHANNEL_TYPES, type, counter);
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <SelectDevice path={`${prefix}.device`} />
-        <PortField path={prefix} />
+        <SelectDevice path={path.device} />
+        <PortField
+          path={path}
+          channelsPath={channelsPath}
+          device={device}
+          kind={COUNTER_INPUT}
+          deviceOf={deviceOf}
+        />
       </Form.Section>
       <Form.Section title="Signal">
-        <SelectCIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
-        <TypeForm prefix={prefix} />
+        <SelectCIChannelTypeField
+          path={path}
+          inputProps={{ allowNone: false, children: channelTypeItems(types) }}
+        />
+        <TypeFields type={type} path={path} />
       </Form.Section>
-      <CustomScaleSection prefix={prefix} />
+      <CustomScaleSection path={path} />
     </Form.Sections>
   );
 };

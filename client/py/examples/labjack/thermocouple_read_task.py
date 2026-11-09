@@ -112,23 +112,19 @@ print(f"{'Sample':<10} {'Time (s)':<10} {'TC0 (°C)':>12} {'TC1 (°F)':>12}")
 print("-" * 70)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["thermocouple_0", "thermocouple_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest values from both channels
-                if (
-                    frame
-                    and "thermocouple_0" in frame
-                    and len(frame["thermocouple_0"]) > 0
-                ):
+                if "thermocouple_0" in frame and len(frame["thermocouple_0"]) > 0:
                     temp_c = frame["thermocouple_0"].as_(np.float32)[-1]
                     temp_f = frame["thermocouple_1"].as_(np.float32)[-1]
                     elapsed = sy.TimeStamp.now().span(start_time).seconds

@@ -20,6 +20,7 @@ import {
   useSelectWindows,
 } from "@/react/selectors";
 import { type SliceState, type StoreState, ZERO_SLICE_STATE } from "@/state";
+import { STORE_CHECKS } from "@/testutil";
 import { INITIAL_WINDOW_STATE, MAIN_WINDOW, type WindowState } from "@/window";
 
 const WINDOW_A: WindowState = {
@@ -46,6 +47,7 @@ const createStore = (overrides: Partial<SliceState> = {}) => {
   const initial = buildState(overrides);
   return configureStore({
     reducer: { drift: (state: SliceState = initial.drift) => state },
+    middleware: (getDefault) => getDefault(STORE_CHECKS),
   });
 };
 

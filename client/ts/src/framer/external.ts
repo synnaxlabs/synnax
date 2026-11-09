@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { type ChannelRetriever } from "@/framer/adapter";
+export { NO_HISTORY } from "@/framer/cache/status";
 export * from "@/framer/client";
 export * from "@/framer/feed";
 export * from "@/framer/frame";

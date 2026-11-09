@@ -278,7 +278,7 @@ func dispatchCreate(
 			)
 			return ""
 		}
-		r.Parent = &ranger.Range{Key: uid}
+		r.Parent = &uid
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).Create(ctx, &r)
@@ -327,7 +327,10 @@ func dispatchEnd(
 		return ""
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
-		return rng.NewWriter(tx).SetEnd(ctx, uid, telem.Now())
+		return rng.NewWriter(tx).Apply(ctx, uid, ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"time_range", "end"},
+			Value: telem.Now(),
+		}))
 	}); err != nil {
 		report(ctx, status.VariantWarning, endFailed, err.Error())
 		return ""

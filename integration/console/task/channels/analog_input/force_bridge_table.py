@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class ForceBridgeTable(Analog):
@@ -18,38 +19,36 @@ class ForceBridgeTable(Analog):
     Force Bridge Table channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        force_units (str): "Newtons", "Pounds", "Kilograms", etc.
-        bridge_configuration (str): "Full bridge", "Half bridge", "Quarter bridge"
+        force_units (str): "Newtons", "Pounds", "KilogramForce", etc.
+        bridge_configuration (str): "FullBridge", "HalfBridge", "QuarterBridge"
         resistance (float): Nominal bridge resistance
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
-        physical_units (str): "Newtons", "Pounds", "Kilograms", etc.
-        electrical_units (str): "mV/V", "V/V"
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        physical_units (str): "Newtons", "Pounds", "KilogramForce", etc.
+        electrical_units (str): "mVoltsPerVolt", "VoltsPerVolt"
+        custom_scale (str): "none", "linear", "map", "table"
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
     """
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
-        bridge_configuration: (
-            Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
-        ) = None,
+        *,
+        force_units: sy.ni.ForceUnits | None = None,
+        bridge_configuration: sy.ni.BridgeConfig | None = None,
         resistance: float | None = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         excitation_value: float | None = None,
-        physical_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
-        electrical_units: Literal["mV/V", "V/V"] | None = None,
-        **kwargs: Any,
+        physical_units: sy.ni.ForceUnits | None = None,
+        electrical_units: sy.ni.ElectricalUnits | None = None,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

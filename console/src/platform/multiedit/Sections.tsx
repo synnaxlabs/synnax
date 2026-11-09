@@ -12,7 +12,7 @@ import "@/platform/multiedit/Sections.css";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
-import { type color, type notation } from "@synnaxlabs/x";
+import { type color, type notation, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -29,7 +29,8 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
   </Form.Section>
 );
 
-const STALENESS_TIMEOUT_BOUNDS = { lower: 1, upper: Infinity };
+const checkStalenessTimeout = (span: TimeSpan): string | null =>
+  span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
 const PRECISION_BOUNDS = { lower: 0, upper: 10 };
 
 export interface StalenessSectionProps {
@@ -50,11 +51,11 @@ export const StalenessSection = ({
   <Form.Section title="Staleness">
     <ColorField label="Color" values={colors} onChange={onColorChange} />
     <Input.Item label="Timeout" align="start" padHelpText={false}>
-      <Input.Numeric
-        bounds={STALENESS_TIMEOUT_BOUNDS}
-        endContent="s"
-        value={timeout}
-        onChange={onTimeoutChange}
+      <Input.TimeSpan
+        inline
+        value={Number(TimeSpan.seconds(timeout).valueOf())}
+        onChange={(ns) => onTimeoutChange(new TimeSpan(ns).seconds)}
+        check={checkStalenessTimeout}
       />
     </Input.Item>
   </Form.Section>

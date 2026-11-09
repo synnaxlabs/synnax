@@ -22,11 +22,11 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
     const active = getFocusedKey();
     if (active == null || client == null) return;
     handleError(async () => {
-      const ranges = await client.ranges.retrieve({ keys });
+      const ranges = await client.ranges.retrieve(keys);
       dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
       await client.lineplots.dispatch(
         active,
-        ranges.map((range) => lineplot.addRange({ axisKey: "x1", range: range.key })),
+        ranges.map(({ key }) => lineplot.addRange({ range: { variant: "key", key } })),
       );
     }, "Failed to add ranges to plot");
   };

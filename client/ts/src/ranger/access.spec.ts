@@ -8,18 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { TimeRange } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { ranger } from "@/ranger";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  recordResponses,
-  waitForStreamLive,
-} from "@/testutil";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,7 +39,7 @@ describe("range", () => {
     it("should allow the caller to retrieve ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: ["retrieve"],
       });
       const randomRange = await client.ranges.create({
@@ -60,7 +55,7 @@ describe("range", () => {
     it("should allow the caller to create ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: ["create"],
       });
       await userClient.ranges.create({
@@ -73,7 +68,7 @@ describe("range", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: [],
       });
       await expect(
@@ -88,8 +83,8 @@ describe("range", () => {
     it("should allow the caller to delete ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
-        actions: ["delete"],
+        objects: [ranger.resourceID("")],
+        actions: ["delete", "retrieve"],
       });
       const randomRange = await client.ranges.create({
         name: "test",
@@ -105,7 +100,7 @@ describe("range", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [ranger.resourceID("")],
         actions: [],
       });
       const randomRange = await client.ranges.create({
@@ -118,36 +113,34 @@ describe("range", () => {
       );
     });
 
-    it("should report no error for a label the caller cannot read", async () => {
-      // Created before the caller connects, so its stream never carries the label.
+    it("should give the label keys of a range to a caller that cannot read the labels", async () => {
       const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
-      const onError = vi.fn();
-      const userClient = await createTestClientWithPolicy(
-        client,
-        {
-          name: "test",
-          objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            ranger.ontologyID(""),
-          ],
-          actions: ["retrieve"],
-        },
-        onError,
-      );
-      await waitForStreamLive(userClient.connection);
-      const fetches = recordResponses(userClient, "/label/retrieve");
       const rng = await client.ranges.create({
         name: "test",
         timeRange: new TimeRange({ start: 1, end: 2 }),
       });
-      onTestFinished(userClient.ranges.onChange(rng.key, vi.fn()));
-      await client.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
-      await expect.poll(() => fetches.length).toBeGreaterThan(0);
-      for (const fetch of fetches)
-        await expect(fetch).rejects.toSatisfy(AccessDeniedError.matches);
-      // Lets the rejection reach the error handler.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await client.labels.label(ranger.resourceID(rng.key), [lbl.key]);
+      const onError = vi.fn();
+      const userClient = await createTestClientWithPolicy(
+        client,
+        [
+          {
+            name: "ranges",
+            objects: [
+              channel.TYPE_RESOURCE_ID,
+              framer.TYPE_RESOURCE_ID,
+              ranger.TYPE_RESOURCE_ID,
+            ],
+            actions: ["retrieve", "update"],
+          },
+        ],
+        onError,
+      );
+      const retrieved = await userClient.ranges.retrieve(rng.key);
+      expect(retrieved.labels).toEqual([lbl.key]);
+      await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
       expect(onError).not.toHaveBeenCalled();
     });
   });

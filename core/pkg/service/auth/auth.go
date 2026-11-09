@@ -18,9 +18,10 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -46,9 +47,11 @@ func (p Proof) method() (Method, error) {
 // Identity is the subject a proof resolved to and the credential that proved it.
 type Identity struct {
 	// Subject is the user or rack that logged in.
-	Subject ontology.ID
+	Subject resource.ID
 	// Credential is the key of the credential record the proof matched.
 	Credential uuid.UUID
+	// Version is when the credential's secret was set.
+	Version telem.TimeStamp
 }
 
 // Authenticator checks proofs for one [Method].
@@ -56,6 +59,11 @@ type Authenticator interface {
 	// Authenticate checks the proof and returns the identity it proves. It returns
 	// [ErrInvalidCredentials] when the proof matches no stored credential.
 	Authenticate(ctx context.Context, proof Proof) (Identity, error)
-	// DeleteFor removes every credential of the given subjects within tx.
-	DeleteFor(ctx context.Context, tx gorp.Tx, subjects ...ontology.ID) error
+	// Version returns the [Identity.Version] of the credential in snap. It returns an
+	// error wrapping query.ErrNotFound when the authenticator holds no such credential.
+	Version(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		credential uuid.UUID,
+	) (telem.TimeStamp, error)
 }

@@ -25,6 +25,7 @@ import {
   getInputByNodePlaceholder,
   queryIconButton,
   renderSuspended,
+  selectTestProject,
   uniqueName,
 } from "@/testutil";
 
@@ -48,7 +49,8 @@ const Harness = (): ReactElement => {
 };
 
 const renderList = async (as: Client = client): Promise<HTMLElement> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  await selectTestProject(store, client);
   const { container } = await renderSuspended(
     <>
       <Harness />
@@ -57,6 +59,16 @@ const renderList = async (as: Client = client): Promise<HTMLElement> => {
     { wrapper },
   );
   return container;
+};
+
+const showRange = async (container: HTMLElement): Promise<ranger.Range> => {
+  const rng = await createTestRange(client);
+  const input = await waitFor(() =>
+    getInputByNodePlaceholder(container, "Search Ranges..."),
+  );
+  fireEvent.change(input, { target: { value: rng.name } });
+  await within(container).findByText(rng.name);
+  return rng;
 };
 
 describe("range/list/List", () => {
@@ -68,8 +80,10 @@ describe("range/list/List", () => {
       getInputByNodePlaceholder(document.body, "Search Ranges..."),
     );
     fireEvent.change(input, { target: { value: target.name } });
-    await waitFor(() => expect(screen.getByText(target.name)).toBeTruthy());
-    expect(screen.queryByText(other.name)).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText(target.name)).toBeTruthy();
+      expect(screen.queryByText(other.name)).toBeNull();
+    });
   });
 
   it("offers Reload Console from a range's context menu", async () => {
@@ -88,6 +102,18 @@ describe("range/list/List", () => {
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
     expect(await screen.findByText("Save locally")).toBeTruthy();
+  });
+
+  it("should end a range on the Core from its stage selector", async () => {
+    const container = await renderList();
+    const rng = await showRange(container);
+    const item = within(container).getByLabelText(rng.name);
+    fireEvent.click(getIconButton(item, "in-progress"));
+    fireEvent.click(await screen.findByText("Complete"));
+    await waitFor(async () => {
+      const { timeRange } = await client.ranges.retrieve(rng.key);
+      expect(timeRange.end.before(rng.timeRange.end)).toBe(true);
+    });
   });
 });
 
@@ -110,12 +136,12 @@ describe("range/list/SelectFilters", () => {
     await searchAndClickNestedLabel(label.name);
     await waitFor(() => expect(onRequestChange).toHaveBeenCalled());
     const [setter] = onRequestChange.mock.calls[0] as [
-      state.SetArg<ranger.RetrieveRequest>,
+      state.SetArg<ranger.RetrieveMultipleParams>,
     ];
     const next = state.executeSetter(setter, { offset: 25, limit: 25 });
-    expect(next.hasLabels).toEqual([label.key]);
+    expect(next.where?.labels).toEqual([label.key]);
     expect(next.offset).toBe(0);
-    expect(next.limit).toBe(0);
+    expect(next.limit).toBeUndefined();
   });
 
   it("renders the applied label filters as chips", async () => {
@@ -126,7 +152,7 @@ describe("range/list/SelectFilters", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     await renderSuspended(
       <Range.List.Filters
-        request={{ hasLabels: [label.key] }}
+        request={{ where: { labels: [label.key] } }}
         onRequestChange={vi.fn()}
       />,
       { wrapper },
@@ -151,15 +177,6 @@ describe("range/list/List permissions", () => {
     await within(container).findByText("No ranges found", undefined, {
       timeout: 5000,
     });
-  };
-
-  const showRange = async (container: HTMLElement): Promise<void> => {
-    const rng = await createTestRange(client);
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(container, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: rng.name } });
-    await within(container).findByText(rng.name);
   };
 
   it("should freeze the stage selector for a viewer", async () => {

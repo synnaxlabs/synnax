@@ -9,8 +9,8 @@
 
 import {
   NotFoundError,
-  type ontology,
   type project,
+  type resource,
   type Synnax,
 } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
@@ -21,7 +21,10 @@ import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
-export interface TabNameProps {
+export interface TabNameProps extends Pick<
+  Text.TextProps,
+  "level" | "weight" | "color"
+> {
   /** Whether the render site permits renaming the tab in place. Defaults to true. */
   allowRename?: boolean;
 }
@@ -33,7 +36,7 @@ export interface Content extends FC<record.Empty> {}
 export interface RestoreParams {
   client: Synnax;
   project: project.Key;
-  resource: ontology.ID;
+  resource: resource.ID;
 }
 
 export interface ResourceGuardProps {
@@ -131,10 +134,12 @@ export const createStaticTabName = ({
   icon,
   name,
 }: CreateStaticTabNameParams): TabName => {
-  const Name: TabName = () => (
+  const Name: TabName = ({ level, weight, color }) => (
     <>
       {icon}
-      <Text.Text overflow="fade">{name}</Text.Text>
+      <Text.Text overflow="fade" level={level} weight={weight} color={color}>
+        {name}
+      </Text.Text>
     </>
   );
   return Name;
@@ -144,8 +149,8 @@ export const createStaticTabName = ({
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
 /**
- * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
- * id, so editing one is a no-op.
+ * editTabName starts an in-place edit of the tab's name. Tabs with static names carry
+ * no id, so editing one is a no-op.
  */
 export const editTabName = (tabKey: string): void => {
   const id = tabNameID(tabKey);
@@ -166,7 +171,7 @@ export const createEditableTabName = (
   { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
-  const Name: TabName = ({ allowRename = true }) => {
+  const Name: TabName = ({ allowRename = true, ...rest }) => {
     const tabKey = Panel.useTabKey();
     const resource = Panel.useTabResource();
     const { key } = resource;
@@ -183,6 +188,7 @@ export const createEditableTabName = (
           overflow="fade"
           disabled={!allowRename || !canRename}
           onChange={(name) => update({ key, name })}
+          {...rest}
         />
       </>
     );

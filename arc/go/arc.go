@@ -31,9 +31,7 @@ type (
 	IR             = ir.IR
 	Node           = ir.Node
 	Edge           = ir.Edge
-	Handle         = ir.Handle
 	Function       = ir.Function
-	Symbol         = symbol.Symbol
 	SymbolResolver = symbol.Resolver
 	Graph          = graph.Graph
 	Text           = text.Text

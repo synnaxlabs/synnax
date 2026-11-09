@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, connection, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { id, sleep, TimeSpan } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { Tooltip } from "@/schematic/Tooltip";
+import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { latestSample } from "@/vis/latestSample/aether";
 
 const client = createTestClient();
 
@@ -73,6 +76,33 @@ const createCalculated = async (): Promise<channel.Channel> => {
   });
 };
 
+const STREAM_VALUE_TYPE = telem.streamChannelValue({ channel: 0 }).type;
+
+// The harness has no worker client, so this stands in for the remote factory and
+// reports the sample times a spec sets per channel.
+class StampFactory implements telem.Factory {
+  type = "remote";
+  private readonly stamps = new Map<channel.Key, TimeStamp>();
+  private readonly sources = new Map<channel.Key, telemTest.TestSource<number>[]>();
+
+  stamp(key: channel.Key, at: TimeStamp): void {
+    this.stamps.set(key, at);
+    this.sources.get(key)?.forEach((s) => {
+      s.time = at;
+      s.setValue(s.value().data + 1);
+    });
+  }
+
+  create(spec: telem.Spec): telem.Telem | null {
+    if (spec.type !== STREAM_VALUE_TYPE) return null;
+    const key = spec.props.channel as channel.Key;
+    const source = telemTest.source<number>(1);
+    source.time = this.stamps.get(key);
+    this.sources.set(key, [...(this.sources.get(key) ?? []), source]);
+    return source;
+  }
+}
+
 const getTooltip = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".pluto-schematic-tooltip");
 
@@ -92,8 +122,14 @@ const dividersOf = (tooltip: HTMLElement): NodeListOf<Element> =>
 
 describe("Schematic.Tooltip", () => {
   let Providers: FC<PropsWithChildren>;
+  let stamps: StampFactory;
   beforeAll(async () => {
-    Providers = await createAsyncSynnaxWrapper({ client });
+    stamps = new StampFactory();
+    Providers = await createAsyncSynnaxWrapper({
+      client,
+      telemFactories: [stamps],
+      additionalRegistry: latestSample.REGISTRY,
+    });
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Providers>
@@ -251,12 +287,230 @@ describe("Schematic.Tooltip", () => {
     );
   });
 
-  describe("divider", () => {
-    it("should divide channel rows from field rows", async () => {
+  describe("sample age row", () => {
+    const LABEL = "Sample age";
+    const findRowValue = async (tooltip: HTMLElement): Promise<string | null> => {
+      await waitFor(() =>
+        expect(valueOf(labelOf(tooltip, LABEL)).textContent).not.toEqual(""),
+      );
+      return valueOf(labelOf(tooltip, LABEL)).textContent;
+    };
+
+    it("should label the row under the time icon", async () => {
       const ch = await createChannel();
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
       const tooltip = await findTooltip();
-      expect(dividersOf(tooltip)).toHaveLength(1);
+      const label = labelOf(tooltip, LABEL);
+      expect(label.querySelector(".lyra-icon--time-outline")).not.toBeNull();
+    });
+
+    it("should close the tooltip in its own section", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      const last = tooltip.lastElementChild as HTMLElement;
+      expect(last.contains(labelOf(tooltip, LABEL))).toBe(true);
+      expect(last.previousElementSibling).toEqual(dividersOf(tooltip)[1]);
+    });
+
+    it("should leave the value blank until a sample is known", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      await sleep.sleep(TimeSpan.milliseconds(250));
+      expect(valueOf(labelOf(tooltip, LABEL)).textContent).toEqual("");
+    });
+
+    it("should show the time since the newest sample", async () => {
+      const ch = await createChannel();
+      stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(2)));
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      expect(await findRowValue(tooltip)).toEqual("2h");
+    });
+
+    it("should remove the clock skew from the age", async () => {
+      // Ten minutes of skew would otherwise read as "2h 10min".
+      const clockSkew = TimeSpan.minutes(10);
+      const connectionStatus: connection.Status = {
+        ...connection.DEFAULT_STATUS,
+        variant: "success",
+        details: { ...connection.DEFAULT_STATUS.details, clockSkew },
+      };
+      const Skewed = await createAsyncSynnaxWrapper({
+        client,
+        telemFactories: [stamps],
+        additionalRegistry: latestSample.REGISTRY,
+        connectionStatus,
+      });
+      const ch = await createChannel();
+      stamps.stamp(ch.key, TimeStamp.now().sub(clockSkew).sub(TimeSpan.hours(2)));
+      render(
+        <Tooltip
+          anchor={createAnchor()}
+          config={Node.createConfig({ variant: "value", channel: ch.key })}
+        />,
+        {
+          wrapper: ({ children }) => (
+            <Skewed>
+              <Base.Config delay={DELAY}>{children}</Base.Config>
+            </Skewed>
+          ),
+        },
+      );
+      const tooltip = await findTooltip();
+      expect(await findRowValue(tooltip)).toEqual("2h");
+    });
+
+    it("should follow a sample that arrives while open", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      // The row's clock ticks once a second, so the stamp sits past the hour mark.
+      stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(1).add(TimeSpan.SECOND)));
+      expect(await findRowValue(tooltip)).toEqual("1h");
+    });
+
+    it("should show one row for a valve with two channels", async () => {
+      const [command, state] = await Promise.all([createChannel(), createChannel()]);
+      renderTooltip(
+        Node.createConfig({
+          variant: "valve",
+          commandChannel: command.key,
+          stateChannel: state.key,
+        }),
+      );
+      const tooltip = await findTooltip();
+      expect(within(tooltip).getAllByText(LABEL)).toHaveLength(1);
+    });
+
+    it("should follow the state channel before the command channel", async () => {
+      const [command, state] = await Promise.all([createChannel(), createChannel()]);
+      stamps.stamp(command.key, TimeStamp.now().sub(TimeSpan.hours(1)));
+      stamps.stamp(state.key, TimeStamp.now().sub(TimeSpan.hours(2)));
+      renderTooltip(
+        Node.createConfig({
+          variant: "valve",
+          commandChannel: command.key,
+          stateChannel: state.key,
+        }),
+      );
+      const tooltip = await findTooltip();
+      expect(await findRowValue(tooltip)).toEqual("2h");
+    });
+
+    it("should fall back to the command channel", async () => {
+      const command = await createChannel();
+      renderTooltip(
+        Node.createConfig({ variant: "valve", commandChannel: command.key }),
+      );
+      const tooltip = await findTooltip();
+      expect(within(tooltip).queryByText(LABEL)).not.toBeNull();
+    });
+
+    it.each<[string, () => Promise<channel.Channel>]>([
+      ["an index", createIndex],
+      ["a virtual", createVirtual],
+      ["a calculated", createCalculated],
+    ])("should show the row for %s channel", async (_, create) => {
+      const ch = await create();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      expect(within(tooltip).queryByText(LABEL)).not.toBeNull();
+    });
+
+    it("should omit the row when no channel is set", async () => {
+      renderTooltip(Node.createConfig({ variant: "value" }));
+      const tooltip = await findTooltip();
+      expect(within(tooltip).queryByText(LABEL)).toBeNull();
+    });
+
+    describe("config changes while open", () => {
+      const createSampled = async (): Promise<channel.Channel> => {
+        const ch = await createChannel();
+        stamps.stamp(ch.key, TimeStamp.now());
+        return ch;
+      };
+
+      // Cached, so a swap re-renders the open tooltip instead of remounting it.
+      const createCached = async (): Promise<channel.Channel> => {
+        const ch = await createChannel();
+        await client.channels.retrieve(ch.key);
+        return ch;
+      };
+
+      const renderSwappable = async (config: Node.Config) => {
+        const anchor = createAnchor();
+        const { rerender } = render(<Tooltip anchor={anchor} config={config} />, {
+          wrapper: Wrapper,
+        });
+        const tooltip = await findTooltip();
+        await findRowValue(tooltip);
+        const label = labelOf(tooltip, LABEL);
+        const swap = (next: Node.Config): void => {
+          rerender(<Tooltip anchor={anchor} config={next} />);
+          expect(getTooltip()).toBe(tooltip);
+        };
+        return { tooltip, label, swap };
+      };
+
+      it("should follow a new channel", async () => {
+        const [a, b] = await Promise.all([createSampled(), createCached()]);
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.key }),
+        );
+        swap(Node.createConfig({ variant: "value", channel: b.key }));
+        expect(labelOf(tooltip, LABEL)).not.toBe(label);
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(valueOf(labelOf(tooltip, LABEL)).textContent).toEqual("");
+      });
+
+      it("should follow a state channel added to a command-only valve", async () => {
+        const [command, state] = await Promise.all([createSampled(), createCached()]);
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "valve", commandChannel: command.key }),
+        );
+        swap(
+          Node.createConfig({
+            variant: "valve",
+            commandChannel: command.key,
+            stateChannel: state.key,
+          }),
+        );
+        expect(labelOf(tooltip, LABEL)).not.toBe(label);
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(valueOf(labelOf(tooltip, LABEL)).textContent).toEqual("");
+      });
+
+      it("should keep the row when only another field changes", async () => {
+        const a = await createSampled();
+        const { tooltip, label, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.key }),
+        );
+        swap(
+          Node.createConfig({ variant: "value", channel: a.key, stalenessTimeout: 10 }),
+        );
+        expect(labelOf(tooltip, LABEL)).toBe(label);
+        expect(valueOf(label).textContent).not.toEqual("");
+      });
+
+      it("should drop the row when the channel is cleared", async () => {
+        const a = await createSampled();
+        const { tooltip, swap } = await renderSwappable(
+          Node.createConfig({ variant: "value", channel: a.key }),
+        );
+        swap(Node.createConfig({ variant: "value" }));
+        expect(within(tooltip).queryByText(LABEL)).toBeNull();
+      });
+    });
+  });
+
+  describe("dividers", () => {
+    it("should divide channel rows, field rows, and the sample age row", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      expect(dividersOf(tooltip)).toHaveLength(2);
     });
 
     it("should omit the divider when there are no channel rows", async () => {

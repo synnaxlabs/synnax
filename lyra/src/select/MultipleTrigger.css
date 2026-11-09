@@ -15,3 +15,9 @@
     padding: 0 1rem;
     color: var(--pluto-text-placeholder);
 }
+
+/* A status colors the trigger, and the placeholder takes that color. */
+:is(.lyra--status-warning, .lyra--status-error)
+    > .lyra-text.lyra-select-multiple-trigger-placeholder {
+    color: inherit;
+}

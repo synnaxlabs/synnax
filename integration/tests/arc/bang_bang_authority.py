@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -116,7 +116,7 @@ class BangBangAuthority(ArcCase):
     start_cmd_channel = "bb_start_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "vent_vlv_state", "press_pt"]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self._press_writer: sy.Writer | None = None
@@ -153,7 +153,7 @@ class BangBangAuthority(ArcCase):
         # Wait beyond the stop wait{250ms} to ensure yield is active, then assert
         # the valve has not returned to 1 (which would indicate spurious re-entry).
         self.log("Phase 3: Asserting no re-entry from stale start signal...")
-        sy.sleep(0.4)
+        sy.sleep(0.4)  # noqa: TID251 hold: nothing may change
         self.wait_for_eq("press_vlv_state", 0, timeout=0)
         self.log("Sequence correctly remains in yield")
 

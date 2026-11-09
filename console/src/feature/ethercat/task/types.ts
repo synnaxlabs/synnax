@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, ethercat, type task } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
@@ -119,6 +119,20 @@ export const DIRECTIONS: Record<PDOType, string> = {
 export const addressKey = ({ index, subIndex }: Address): string =>
   `${index}_${subIndex}`;
 
+/** @returns whether the read channel scales its samples. */
+const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
+
+/**
+ * @returns the device properties key of the read channel's Synnax channel. A scaled
+ * channel writes float64 samples, so it maps to its own Synnax channel.
+ */
+export const readKey = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? `scaled_${addressKey(ch)}` : addressKey(ch);
+
+/** @returns the data type of the read channel's Synnax channel. */
+export const readDataType = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? "float64" : ch.dataType;
+
 /** @returns the device properties key of the write state channel at the address. */
 export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
 
@@ -177,6 +191,32 @@ export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
   });
 };
 
+/** @returns a read channel bound to an entry of the slave with the given key. */
+export const createEntryReadChannel = (
+  device: string,
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+): EntryReadChannel =>
+  READ_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+  });
+
+/** @returns a write channel bound to an entry of the slave with the given key. */
+export const createEntryWriteChannel = (
+  device: string,
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+): EntryWriteChannel =>
+  WRITE_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+  });
+
 /** Creates a new write channel, copying the slave of the last channel if available. */
 export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
   const base = channels.length === 0 ? {} : channels[channels.length - 1];
@@ -186,6 +226,7 @@ export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
     ...ZERO_ENTRY,
     type: "entry",
     name: "",
+    stopValue: 0,
     key: id.create(),
   });
 };
@@ -221,4 +262,36 @@ export const getEntryChannelName = (
     part = `${entry.name}_${hex}`;
   }
   return channel.escapeInvalidName(`${identifier}_${part}`);
+};
+
+/**
+ * The name deploying the task gives a read channel. The default name of a scaled
+ * channel ends in `_scaled`, apart from the raw channel of its entry.
+ */
+export const readChannelName = (slave: SlaveDevice, ch: EntryReadChannel): string => {
+  if (primitive.isNonZero(ch.name)) return ch.name;
+  const name = getEntryChannelName(
+    slave.properties.identifier,
+    slave.properties.pdos.inputs,
+    ch,
+  );
+  return isScaled(ch) ? `${name}_scaled` : name;
+};
+
+/** The names deploying the task gives a write channel's command and state channels. */
+export const writeChannelNames = (
+  slave: SlaveDevice,
+  ch: EntryWriteChannel,
+): { cmd: string; state: string } => {
+  const base = getEntryChannelName(
+    slave.properties.identifier,
+    slave.properties.pdos.outputs,
+    ch,
+  );
+  return {
+    cmd: primitive.isNonZero(ch.cmdChannelName) ? ch.cmdChannelName : `${base}_cmd`,
+    state: primitive.isNonZero(ch.stateChannelName)
+      ? ch.stateChannelName
+      : `${base}_state`,
+  };
 };

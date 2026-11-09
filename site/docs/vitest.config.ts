@@ -8,13 +8,55 @@
 // included in the file licenses/APL.txt.
 
 import react from "@astrojs/react";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
+import { playwright } from "@vitest/browser-playwright";
 import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
+import path from "path";
+import { configDefaults, type ViteUserConfigFn } from "vitest/config";
 
 import { schema } from "./src/util/env";
 
+const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
+
 const config: ViteUserConfigFn = getViteConfig(
-  { test: { environment: "jsdom" } },
+  {
+    test: {
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "jsdom",
+            environment: "jsdom",
+            exclude: [...configDefaults.exclude, BROWSER_SPECS],
+          },
+        },
+        {
+          extends: true,
+          // Specs see the cascade layers of production.
+          css: {
+            postcss: {
+              plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+            },
+          },
+          test: {
+            name: "browser",
+            setupFiles: ["src/testutil/browser.ts"],
+            include: [BROWSER_SPECS],
+            browser: {
+              enabled: true,
+              headless: true,
+              provider: playwright(),
+              // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
+              instances: [
+                { browser: "chromium", name: "chromium" },
+                { browser: "webkit", name: "webkit" },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  },
   {
     root: import.meta.dirname,
     configFile: false,

@@ -25,7 +25,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
-dev = client.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289", one=True)
 
 # Create virtual command channels that will be used to send commands to the device.
 # These are virtual channels that won't store data to disk.

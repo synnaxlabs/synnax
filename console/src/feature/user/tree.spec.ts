@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, user } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { access, NotFoundError, user } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createTestClient,
+  createTestClientWithPolicy,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Access } from "@/feature/access";
 import { User } from "@/feature/user";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
 import {
+  createResource,
+  findModalButton,
   openTreeRowContextMenu,
-  renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+  renderLiveTree,
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import {
   assertDefined,
   awaitTextEditingElement,
@@ -32,11 +39,17 @@ const roles = new RoleClients(client);
 
 const Item = User.TREE_ITEMS.user;
 
-const createUser = async () =>
-  await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
+const createUser = async () => {
+  const { key: role } = await createEmptyRole(client);
+  return await client.users.create({
+    username: uniqueName("user"),
+    password: "pwd12345",
+    role,
+  });
+};
 
 const userResource = (key: string, name: string, rootUser = false) =>
-  createResource(user.ontologyID(key), name, { root_user: rootUser });
+  createResource(user.resourceID(key), name, { root_user: rootUser });
 
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
@@ -48,7 +61,7 @@ const renderMenu = async (
   });
 };
 
-describe("user ontology service", () => {
+describe("user tree item", () => {
   it("should expose rename, role, and delete actions for another user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.name)]);
@@ -106,33 +119,27 @@ describe("user ontology service", () => {
       name: "",
       rootUser: false,
     };
-    const items = Item.haulItems(createResource(user.ontologyID("u1"), "u", data));
+    const items = Item.haulItems(createResource(user.resourceID("u1"), "u", data));
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
-    expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+    expect(Item.haulItems(createResource(user.resourceID("u2"), "u2"))).toHaveLength(0);
   });
 });
 
 describe("rename", () => {
   it("should rename the user on the Core and keep its username", async () => {
+    const role = await client.access.roles.create({ name: uniqueName("role") });
     const username = uniqueName("user");
     const u = await client.users.create({
       username,
       name: uniqueName("name"),
       password: "pwd12345",
+      role: role.key,
     });
-    const grp = await client.groups.create({
-      parent: ontology.ROOT_ID,
-      name: uniqueName("usergrp"),
-    });
-    await client.ontology.addChildren(
-      group.ontologyID(grp.key),
-      user.ontologyID(u.key),
-    );
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
-      root: group.ontologyID(grp.key),
-      items: User.TREE_ITEMS,
+      root: access.role.resourceID(role.key),
+      items: { ...Access.TREE_ITEMS, ...User.TREE_ITEMS },
     });
     await openTreeRowContextMenu(u.name);
     fireEvent.click(await screen.findByText("Rename"));
@@ -156,7 +163,34 @@ describe("permission to write the user", () => {
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Change Role")).toBeNull();
+    expect(screen.queryByText("Change role")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold a role change from a subject that cannot update roles", async () => {
+    const u = await createUser();
+    const editor = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [user.TYPE_RESOURCE_ID],
+        actions: ["update"],
+      },
+    ]);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: editor,
+      resources: [userResource(u.key, u.name)],
+    });
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Change role")).toBeNull();
   });
 });

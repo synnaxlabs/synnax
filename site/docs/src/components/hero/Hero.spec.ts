@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { Hero } from "@/components/hero";
 import linePlots from "@/components/hero/stills/console/line-plots/hero.json";
 import schematics from "@/components/hero/stills/console/schematics/hero.json";
-import { mediaURL } from "@/components/media/url";
+import { CDN } from "@/components/media/cdn";
 
 const elements = (node: Root | Element): Element[] =>
   node.children.flatMap((child) =>
@@ -60,7 +60,7 @@ describe("Hero.Hero", () => {
         palette: "violet-pink",
       });
       expect(images(root)).toEqual([
-        mediaURL(
+        CDN.url(
           `console/schematics/hero/${schematics.version}/window`,
           "webp",
           "light",
@@ -91,11 +91,7 @@ describe("Hero.Hero", () => {
       });
       const [toolbar] = withClass(root, "toolbar");
       expect(images(toolbar)).toEqual([
-        mediaURL(
-          `console/line-plots/hero/${linePlots.version}/window`,
-          "webp",
-          "light",
-        ),
+        CDN.url(`console/line-plots/hero/${linePlots.version}/window`, "webp", "light"),
       ]);
     });
 
@@ -148,7 +144,7 @@ describe("Hero.Hero", () => {
         tone: "soft",
         palette: "teal-violet",
       });
-      expect(images(root)).toEqual([mediaURL("releases/0-49-0/thumbnail", "webp")]);
+      expect(images(root)).toEqual([CDN.url("releases/0-49-0/thumbnail", "webp")]);
       expect(classes(root)).toEqual(["docs-hero", "framed", "soft", "media"]);
     });
 

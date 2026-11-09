@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, type Synnax as Client } from "@synnaxlabs/client";
-import { color, verbs } from "@synnaxlabs/x";
+import { label, type resource, type Synnax as Client } from "@synnaxlabs/client";
+import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -18,37 +18,33 @@ const PLURAL_RESOURCE_NAME = "labels";
 
 export type RetrieveQuery = label.RetrieveSingleParams;
 
-export type LabelsOfQuery = {
-  id: ontology.ID;
-};
-
-interface SetLabelsForParams {
-  client: Client;
-  data: {
-    id: ontology.ID;
-    labels: label.Key[];
-  };
+export interface EditForParams {
+  id: resource.ID;
+  added: label.Key[];
+  removed: label.Key[];
 }
 
-export const setLabelsFor = async ({
-  client,
-  data: { id, labels },
-}: SetLabelsForParams): Promise<label.Label[]> => {
-  await client.labels.label(id, labels, { replace: true });
-  if (labels.length === 0) return [];
-  return await client.labels.retrieve({ keys: labels });
+/**
+ * Adds and removes labels on a range or a status. The labels it holds that the edit
+ * does not name stay in place.
+ * @throws {ValidationError} if the resource is not a range or a status.
+ */
+export const editFor = async (
+  client: Client,
+  { id, added, removed }: EditForParams,
+): Promise<void> => {
+  if (added.length > 0) await client.labels.label(id, added);
+  if (removed.length > 0) await client.labels.remove(id, removed);
 };
 
-export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
-  LabelsOfQuery,
-  label.Label[]
->({
+/** A hook form of {@link editFor}. */
+export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.labels.retrieve({ for: id }),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.labels.onChange({ for: id }, handler),
-  getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    await editFor(client, data);
+    return data;
+  },
 });
 
 export type ListQuery = label.RetrieveMultipleParams;
@@ -62,35 +58,46 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
   getCached: ({ client, query }) => client.labels.getCached(query),
 });
 
-type FormQuery = {
-  key: label.Key;
-};
+const { useEnsure } = Flux.createRetrieve<RetrieveQuery, label.Label>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.labels.onChange(key, handler),
+  getCached: ({ client, query: { key } }) => client.labels.getCached(key),
+});
 
-export const formSchema = label.labelZ.partial({ key: true });
+export const createFormSchema = label.labelZ.partial({ key: true });
 
-const INITIAL_VALUES: z.infer<typeof formSchema> = {
+export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
+
+const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   color: color.construct("#000000"),
 };
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
+/** A form that creates a label when the caller saves it. */
+export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   name: RESOURCE_NAME,
-  initialValues: INITIAL_VALUES,
-  schema: formSchema,
-  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.labels.getCached(key);
-    return query.isLive(cached) ? cached : undefined;
-  },
+  initialValues: ZERO_CREATE_FORM_VALUES,
+  schema: createFormSchema,
   update: async ({ client, value, reset }) => {
-    const updated = await client.labels.create(value());
-    reset(updated);
+    reset(await client.labels.create(value()));
   },
-  mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.labels.onChange(key, (result) => {
-      if (query.isLive(result)) reset(result);
-      else if (query.Deleted.matches(result)) abandon();
-    }),
+});
+
+export const formSchema = label.labelZ.pick({ name: true, color: true });
+
+/** A form over the name and color of a cached label. */
+export const useForm = Flux.createDocumentForm<
+  label.Key,
+  label.Label,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  domain: (client) => client.labels,
+  useEnsure,
+  toValues: ({ name, color }) => ({ name, color }),
 });
 
 export type DeleteParams = label.Key | label.Key[];
@@ -115,7 +122,9 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.labels.retrieve({ key: keys }),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.labels.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),
 });

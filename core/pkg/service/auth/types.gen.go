@@ -76,6 +76,7 @@ func (a APIKeyCredentials) Validate() error {
 	return v.Error()
 }
 
+// ProofVariant is implemented by every Proof variant.
 type ProofVariant interface {
 	isProofVariant()
 }
@@ -150,26 +151,50 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type Method `json:"method"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case MethodPassword:
-		var v PasswordProof
+		var v struct {
+			Type Method `json:"method"`
+			PasswordProof
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PasswordProof
 	case MethodAPIKey:
-		var v APIKeyProof
+		var v struct {
+			Type Method `json:"method"`
+			APIKeyProof
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.APIKeyProof
 	default:
-		return errors.Newf("Proof: unknown method %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Proof: unknown method %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Method returns the method of the active variant, or an empty method when there is
+// none.
+func (u Proof) Method() Method {
+	switch u.Variant.(type) {
+	case PasswordProof:
+		return MethodPassword
+	case APIKeyProof:
+		return MethodAPIKey
+	}
+	return ""
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

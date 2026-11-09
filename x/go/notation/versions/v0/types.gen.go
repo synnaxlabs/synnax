@@ -15,8 +15,12 @@ package v0
 type Notation string
 
 const (
-	NotationStandard    Notation = "standard"
-	NotationScientific  Notation = "scientific"
+	// NotationStandard renders a plain decimal number.
+	NotationStandard Notation = "standard"
+	// NotationScientific renders a mantissa below 10 and an exponent.
+	NotationScientific Notation = "scientific"
+	// NotationEngineering renders a mantissa below 1000 and an exponent that is a
+	// multiple of 3.
 	NotationEngineering Notation = "engineering"
 )
 

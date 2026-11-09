@@ -24,11 +24,11 @@ program
 topLevelItem
     : importStatement
     | authorityBlock
-    | functionDeclaration
+    | EXPORT? functionDeclaration
     | flowStatement
-    | sequenceDeclaration
-    | stageDeclaration
-    | variableDeclaration
+    | EXPORT? sequenceDeclaration
+    | EXPORT? stageDeclaration
+    | EXPORT? variableDeclaration
     | assignment
     ;
 
@@ -177,6 +177,8 @@ routingTable
     : LBRACE routingEntry (COMMA routingEntry)* COMMA? RBRACE
     ;
 
+// SY-5483: a routingTable at the head of a flowStatement (an input table) and the
+// trailing `COLON IDENTIFIER` on an entry parse but are unsupported and undocumented.
 routingEntry
     : routingKey COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
     ;
@@ -203,6 +205,7 @@ flowNode
 
 identifier
     : IDENTIFIER
+    | qualifiedIdentifier
     ;
 
 function

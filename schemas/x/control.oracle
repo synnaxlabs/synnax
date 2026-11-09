@@ -21,8 +21,12 @@ Authority uint8 {
 }
 
 Concurrency enum {
-    exclusive = 0
-    shared    = 1
+    exclusive = 0 {
+        @doc value "allows one subject to act on the resource at a time."
+    }
+    shared    = 1 {
+        @doc value "allows many subjects to act on the resource at once."
+    }
 
     @doc value """
         defines whether a resource can have multiple subjects acting on it at once.

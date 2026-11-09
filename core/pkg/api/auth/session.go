@@ -16,12 +16,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // SessionCookieParam is the request parameter a handler sets to ask the transport to
@@ -68,18 +66,27 @@ func (s *Service) CreateSession(
 	if err != nil {
 		return SessionCreateResponse{}, err
 	}
-	res := SessionCreateResponse{Token: tk, Session: session}
-	if req.Cookie {
-		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
-			Token:    tk,
-			Lifetime: s.auth.IdleTimeout(),
-		})
-		res.Token = ""
+	res := SessionCreateResponse{
+		Token:   s.deliver(ctx, tk, req.Cookie),
+		Session: session,
 	}
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
 		return SessionCreateResponse{}, err
 	}
 	return res, nil
+}
+
+// deliver returns token, or with cookie set hands it to the transport through
+// [SessionCookieParam] and returns an empty token.
+func (s *Service) deliver(ctx context.Context, token string, cookie bool) string {
+	if !cookie {
+		return token
+	}
+	freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
+		Token:    token,
+		Lifetime: s.auth.IdleTimeout(),
+	})
+	return ""
 }
 
 // SessionRenewResponse is the caller's session, so a client that holds only a token
@@ -105,8 +112,8 @@ func (s *Service) RenewSession(
 	return SessionRenewResponse{Session: session, User: u}, nil
 }
 
-func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, error) {
-	if subject.Type != ontology.ResourceTypeUser {
+func (s *Service) userOf(ctx context.Context, subject resource.ID) (*user.User, error) {
+	if subject.Type != resource.TypeUser {
 		return nil, nil
 	}
 	key, err := uuid.Parse(subject.Key)
@@ -114,10 +121,9 @@ func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, 
 		return nil, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchKeys(key)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -126,7 +132,7 @@ func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, 
 // SessionRetrieveRequest selects sessions to list.
 type SessionRetrieveRequest struct {
 	// Subjects limits the result to these subjects' sessions. Empty means the caller.
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 }
 
 // SessionRetrieveResponse lists sessions.
@@ -135,30 +141,25 @@ type SessionRetrieveResponse struct {
 	Sessions []auth.Session `json:"sessions" msgpack:"sessions"`
 }
 
-// RetrieveSessions lists the caller's sessions, or the sessions of the given subjects
-// when the caller may retrieve those subjects.
+// Holders implements bind.Held.
+func (r SessionRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+
+// RetrieveSessions lists the sessions of the given subjects in snap, or the caller's
+// sessions when the request names no subject.
 func (s *Service) RetrieveSessions(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	req SessionRetrieveRequest,
 ) (SessionRetrieveResponse, error) {
-	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []ontology.ID{caller}
-	}
-	if err := s.enforceOthers(
-		ctx,
-		caller,
-		access.ActionRetrieve,
-		subjects,
-	); err != nil {
-		return SessionRetrieveResponse{}, err
+		subjects = []resource.ID{GetSubject(ctx)}
 	}
 	sessions := make([]auth.Session, 0)
 	if err := s.auth.NewRetrieve().
 		Where(auth.MatchSubjects(subjects...)).
 		Entries(&sessions).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return SessionRetrieveResponse{}, err
 	}
 	return SessionRetrieveResponse{Sessions: sessions}, nil
@@ -170,53 +171,15 @@ type SessionDeleteRequest struct {
 	Keys []auth.SessionKey `json:"keys" msgpack:"keys"`
 }
 
-// DeleteSessions ends the given sessions. A caller may end its own sessions; ending
-// another subject's needs permission to delete that subject. Unknown keys are ignored.
-// Ending the caller's own session asks the transport to clear its cookie, if it set
-// one.
+// DeleteSessions ends the given sessions. Unknown keys are ignored. Ending the caller's
+// own session asks the transport to clear its cookie, if it set one.
 func (s *Service) DeleteSessions(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SessionDeleteRequest,
 ) (struct{}, error) {
-	var sessions []auth.Session
-	if err := s.auth.NewRetrieve().
-		Where(auth.MatchKeys(req.Keys...)).
-		Entries(&sessions).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return struct{}{}, err
-	}
-	subjects := lo.Uniq(lo.Map(sessions, func(e auth.Session, _ int) ontology.ID {
-		return e.Subject
-	}))
-	if err := s.enforceOthers(
-		ctx,
-		GetSubject(ctx),
-		access.ActionDelete,
-		subjects,
-	); err != nil {
-		return struct{}{}, err
-	}
 	if lo.Contains(req.Keys, getSession(ctx).Key) {
 		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{})
 	}
-	return struct{}{}, s.auth.Logout(ctx, req.Keys...)
-}
-
-func (s *Service) enforceOthers(
-	ctx context.Context,
-	caller ontology.ID,
-	action access.Action,
-	subjects []ontology.ID,
-) error {
-	others := lo.Filter(subjects, func(id ontology.ID, _ int) bool {
-		return id != caller
-	})
-	if len(others) == 0 {
-		return nil
-	}
-	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: caller,
-		Action:  action,
-		Objects: others,
-	})
+	return struct{}{}, s.auth.NewWriter(tx).Delete(ctx, req.Keys...)
 }

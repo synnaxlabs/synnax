@@ -306,6 +306,8 @@ func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
 		f.formatTypeDefDef(ctx.TypeDefDef())
 	} else if ctx.UnionDef() != nil {
 		f.formatUnionDef(ctx.UnionDef())
+	} else if ctx.FilterDef() != nil {
+		f.formatFilterDef(ctx.FilterDef())
 	}
 }
 
@@ -575,9 +577,30 @@ func isEmptyActionBody(ctx parser.IActionBodyContext) bool {
 }
 
 func (f *formatter) formatActionBody(ctx parser.IActionBodyContext) {
-	fields := ctx.AllFieldDef()
-	domains := ctx.AllDomain()
+	f.formatFieldsAndDomains(ctx.AllFieldDef(), ctx.AllDomain())
+}
 
+func (f *formatter) formatFilterDef(ctx parser.IFilterDefContext) {
+	idents := ctx.AllIDENT()
+	f.write(idents[0].GetText() + " " + idents[1].GetText() + " ")
+	f.formatTypeRef(ctx.TypeRef())
+	body := ctx.FilterBody()
+	if body == nil || len(body.AllFieldDef())+len(body.AllDomain()) == 0 {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatFieldsAndDomains(body.AllFieldDef(), body.AllDomain())
+	f.currentIndent--
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatFieldsAndDomains(
+	fields []parser.IFieldDefContext, domains []parser.IDomainContext,
+) {
 	maxNameLen := 0
 	maxTypeLen := 0
 	for _, field := range fields {
@@ -1577,7 +1600,8 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 }
 
 func isEmptyUnionBody(ctx parser.IUnionBodyContext) bool {
-	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 && len(ctx.AllDomain()) == 0)
+	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 &&
+		len(ctx.AllActionDef()) == 0 && len(ctx.AllDomain()) == 0)
 }
 
 func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
@@ -1598,7 +1622,19 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 		f.formatUnionVariant(v, maxNameLen)
 	}
 
-	if len(variants) > 0 && len(domains) > 0 {
+	actions := ctx.AllActionDef()
+	if len(variants) > 0 && len(actions) > 0 {
+		f.newline()
+	}
+	for i, action := range actions {
+		f.emitCommentsBefore(action.GetStart().GetTokenIndex())
+		f.formatActionDef(action)
+		if i < len(actions)-1 {
+			f.newline()
+		}
+	}
+
+	if (len(variants) > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 	f.formatDomains(domains)

@@ -129,8 +129,13 @@ telem::SampleValue convert_float(const double v) {
     if constexpr (std::is_integral_v<T>) {
         if (v != std::trunc(v))
             throw std::runtime_error("value has a fractional component");
+        // The maximum of a 64-bit type rounds up to 2^digits as a double, so the
+        // bound is the exclusive 2^digits.
         if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
-            v > static_cast<double>(std::numeric_limits<T>::max()))
+            v >= std::ldexp(1.0, std::numeric_limits<T>::digits))
+            throw std::runtime_error("value is out of bounds");
+    } else if constexpr (std::is_same_v<T, float>) {
+        if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
             throw std::runtime_error("value is out of bounds");
     }
     return telem::SampleValue(static_cast<T>(v));
@@ -286,22 +291,37 @@ string_to_numeric(const std::string &str, const telem::DataType &target) {
     return number_to_numeric(parse_string_double(str), target);
 }
 
-telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
+int64_t nanoseconds_per_unit(const TimeFormat time_format) {
     switch (time_format) {
         case TimeFormat::UnixNanosecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v)));
+            return 1;
         case TimeFormat::UnixMicrosecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e3)));
+            return 1000;
         case TimeFormat::UnixMillisecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e6)));
+            return 1000000;
         case TimeFormat::UnixSecond:
-            return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(v * 1e9)));
+            return 1000000000;
         case TimeFormat::ISO8601:
             throw std::runtime_error(
                 "numeric values cannot be converted with ISO 8601 format"
             );
     }
     throw std::runtime_error("unknown TimeFormat");
+}
+
+telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
+    const double ns = v * static_cast<double>(nanoseconds_per_unit(time_format));
+    if (std::isnan(ns) || ns < -std::ldexp(1.0, 63) || ns >= std::ldexp(1.0, 63))
+        throw std::runtime_error("value is out of bounds");
+    return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(ns)));
+}
+
+telem::SampleValue integer_to_timestamp(const int64_t v, TimeFormat time_format) {
+    const int64_t unit = nanoseconds_per_unit(time_format);
+    if (v > std::numeric_limits<int64_t>::max() / unit ||
+        v < std::numeric_limits<int64_t>::min() / unit)
+        throw std::runtime_error("value is out of bounds");
+    return telem::SampleValue(telem::TimeStamp(v * unit));
 }
 
 /// @brief performs the actual conversion, throwing on failure.
@@ -312,15 +332,23 @@ telem::SampleValue convert(
     const EnumMap *enum_values
 ) {
     if (target == telem::TIMESTAMP_T) {
+        if (value.is_number_unsigned()) {
+            const auto u = value.get<uint64_t>();
+            if (u > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+                throw std::runtime_error("value is out of bounds");
+            return integer_to_timestamp(static_cast<int64_t>(u), time_format);
+        }
+        if (value.is_number_integer())
+            return integer_to_timestamp(value.get<int64_t>(), time_format);
         if (value.is_number())
             return number_to_timestamp(value.get<double>(), time_format);
         if (value.is_string()) {
             if (time_format == TimeFormat::ISO8601)
                 return parse_rfc3339(value.get<std::string>());
-            return number_to_timestamp(
-                parse_string_double(value.get_ref<const std::string &>()),
-                time_format
-            );
+            const auto &str = value.get_ref<const std::string &>();
+            if (is_integer_string(str))
+                return integer_to_timestamp(parse_string_int64(str), time_format);
+            return number_to_timestamp(parse_string_double(str), time_format);
         }
         throw std::runtime_error("");
     }

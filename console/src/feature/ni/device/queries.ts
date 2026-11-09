@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device as PDevice } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -18,8 +19,13 @@ const { useResult } = PDevice.createRetrieve(SCHEMAS);
 /** The device the form's config names, or undefined until it resolves or on failure. */
 export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
 
+/** The device with the key, or undefined for an empty key, until it resolves, or on
+ * failure. */
+export const useByKey = (key: device.Key): Device | undefined =>
+  useResult(primitive.isNonZero(key) ? { key } : null).data;
+
 const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS);
 
 /** The devices the keys name, or undefined until they resolve or on failure. */
 export const useByKeys = (keys: device.Key[]): Device[] | undefined =>
-  useResultMultiple(keys.length === 0 ? null : { keys }).data;
+  useResultMultiple(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;

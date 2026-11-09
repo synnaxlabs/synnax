@@ -4,12 +4,19 @@
 
 # Synnax
 
-Synnax is an observability and control platform designed for high-performance hardware
-teams. Synnax aims to control the entire data lifecycle, from reading data from a sensor
-to writing bytes to a file, including a visualization engine and mechanisms for
-real-time propagation of data, allowing for the control of hardware. Synnax can be
-accessed both programatically through our client libraries and visually through our
-Console application.
+Synnax is mission control and data review for hardware operations. It is one platform
+for real-time data acquisition, hardware control, visualization, and analysis. Synnax
+records every sample at full rate and gives engineers live plots, operator schematics,
+control, automated sequences, and data review. Synnax can be accessed programmatically
+through our client libraries and visually through our Console application.
+
+## Download
+
+[Synnax Desktop](https://docs.synnaxlabs.com/reference/get-started/install-desktop) is
+free for any use, including commercial use, up to 50 channels. It runs on macOS (Apple
+silicon) and Windows. It connects to LabJack, EtherCAT, and HTTP devices, OPC UA and
+Modbus TCP servers, and NI hardware on Windows. Teams that share one system use
+[Synnax Enterprise](https://docs.synnaxlabs.com/reference/get-started/editions).
 
 ## Documentation
 
@@ -39,8 +46,6 @@ monorepo. The following is a summary of each:
 - [Arc](arc) - A domain-specific language and compiler for hardware automation and
   control sequences, with a reactive execution model and a WebAssembly compilation
   target.
-- [Aspen](aspen) - A gossip-based distributed key-value store used for propagating and
-  persisting metadata between nodes, such as cluster topology, state, and configuration.
 - [Cesium](cesium) - An embedded time series database engine optimized for
   high-performance reads and writes of time series sensor data.
 - [Client](client) - Client libraries for communicating with the Synnax server in C++,
@@ -54,8 +59,9 @@ monorepo. The following is a summary of each:
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
   building multi-window Tauri applications.
-- [Driver](driver) - An application that can connect to LabJack or National Instruments
-  hardware or OPC UA servers and run control sequences on real-time operating systems.
+- [Driver](driver) - An application that connects to NI, LabJack, EtherCAT, and HTTP
+  devices and OPC UA and Modbus servers, and runs control sequences on real-time
+  operating systems.
 - [Freighter](freighter) - A protocol-agnostic network transport for cross-language
   unary and streaming communication with implementations in several languages (C++, Go,
   Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).
@@ -67,7 +73,7 @@ monorepo. The following is a summary of each:
   by Pluto, the Console, and the documentation site.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
-- [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a
+- [Core](core) - The core Synnax server, which integrates Cesium and Gorp to provide a
   unified telemetry system.
 - [X](x) - Common utilities used by other projects.
 

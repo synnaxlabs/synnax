@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
@@ -24,10 +24,25 @@ import {
 
 const client = createTestClient();
 
-const newTextArc = (name: string): arc.New => ({ name, mode: "text" });
+const textOf = (a: arc.Arc): arc.text.Text => {
+  if (a.source.mode !== "text") throw new Error("expected a text-mode Arc");
+  return a.source.text;
+};
+
+const newTextArc = (name: string): arc.New => ({
+  name,
+  type: "automation",
+  source: { mode: "text" },
+});
 
 describe("arc", () => {
   describe("retrieve", () => {
+    it("should retrieve an arc by its name", async () => {
+      const created = await client.arcs.create(newTextArc(`named-arc-${id.create()}`));
+      const retrieved = await client.arcs.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("should retrieve arcs by search term", async () => {
       const prefix = `searchable-arc-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
@@ -38,6 +53,43 @@ describe("arc", () => {
           return results.map((a) => a.name).sort();
         })
         .toEqual(names);
+    });
+
+    it("should retrieve arcs by where", async () => {
+      const prefix = `where-arc-${id.create()}`;
+      const [a, b] = await client.arcs.create([
+        newTextArc(`${prefix}-a`),
+        newTextArc(`${prefix}-b`),
+      ]);
+      const res = await client.arcs.retrieve({
+        where: { name: { regex: `^${prefix}` }, not: { key: { eq: a.key } } },
+      });
+      expect(res.map(({ key }) => key)).toEqual([b.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
+      const missing = uuid.create();
+      await expect(client.arcs.retrieve([created.key, missing])).rejects.toThrow(
+        new NotFoundError(`Arc with key ${missing} not found`),
+      );
+    });
+
+    it("should retrieve Arcs by a list of names in a flat filter", async () => {
+      const names = [`flat-${id.create()}`, `flat-${id.create()}`];
+      const created = await Promise.all(
+        names.map(async (n) => await client.arcs.create(newTextArc(n))),
+      );
+      const res = await client.arcs.retrieve({ name: names });
+      expect(res.map(({ key }) => key).sort()).toEqual(
+        created.map(({ key }) => key).sort(),
+      );
+    });
+
+    it("should omit missing keys from a filter on keys", async () => {
+      const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
+      const res = await client.arcs.retrieve({ key: [created.key, uuid.create()] });
+      expect(res.map(({ key }) => key)).toEqual([created.key]);
     });
   });
 
@@ -58,7 +110,7 @@ describe("arc", () => {
       await expect
         .poll(async () => {
           const res = await client.arcs.retrieve(created.key);
-          return res.text.raw;
+          return textOf(res).raw;
         })
         .toEqual("hello");
     });
@@ -70,7 +122,7 @@ describe("arc", () => {
       const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
       await client.arcs.dispatch(created.key, [...insertOps, ...deleteOps]);
       await expect
-        .poll(async () => (await client.arcs.retrieve(created.key)).text.raw)
+        .poll(async () => textOf(await client.arcs.retrieve(created.key)).raw)
         .toEqual("ello");
     });
 
@@ -88,7 +140,7 @@ describe("arc", () => {
       ]);
       await expect
         .poll(async () => {
-          const { text } = await client.arcs.retrieve(created.key);
+          const text = textOf(await client.arcs.retrieve(created.key));
           return {
             raw: text.raw,
             deletes: text.doc.deletes.length,
@@ -102,16 +154,11 @@ describe("arc", () => {
   describe("task", () => {
     const attachTask = async (arcKey: arc.Key): Promise<task.Task> => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const tsk = await rack.createTask({
+      return await rack.createTask({
         name: `arc-task-${id.create()}`,
         type: "arc",
-        config: {},
+        config: { arcKey },
       });
-      await client.ontology.addChildren(
-        arc.ontologyID(arcKey),
-        task.ontologyID(tsk.key),
-      );
-      return tsk;
     };
 
     it("resolves null for an arc with no task", async () => {
@@ -121,6 +168,13 @@ describe("arc", () => {
 
     it("resolves null for an arc that does not exist", async () => {
       expect(await client.arcs.task.retrieve(uuid.create())).toBeNull();
+    });
+
+    it("resolves null for an arc whose task runs another arc", async () => {
+      const owner = await client.arcs.create(newTextArc(`task-own-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`task-other-${id.create()}`));
+      await attachTask(owner.key);
+      expect(await client.arcs.task.retrieve(other.key)).toBeNull();
     });
 
     it("retrieves the task attached to an arc and caches the answer", async () => {
@@ -161,11 +215,10 @@ describe("arc", () => {
         expect(res?.key).toEqual(tsk.key);
         await client.statuses.set(
           status.create<ReturnType<typeof task.statusDetailsZ>>({
-            key: task.statusKey(tsk.key),
+            owner: task.resourceID(tsk.key),
             variant: "error",
             message: "Task failed",
             details: {
-              task: tsk.key,
               running: false,
               cmd: "",
               configHash: "",
@@ -201,6 +254,16 @@ describe("arc", () => {
       expect(tsk?.config.arcKey).toEqual(created.key);
       expect(tsk?.config.hash).not.toEqual("");
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
+    });
+
+    it("finds the task through the task client by its Arc", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const deployed = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const tsk = await client.arcs.updateTask(deployed.key, { rack: rack.key });
+      await client.arcs.updateTask(other.key, { rack: rack.key });
+      const found = await client.tasks.retrieve({ arcs: [deployed.key] });
+      expect(found.map(({ key }) => key)).toEqual([tsk?.key]);
     });
 
     it("reuses the task across rebinds and rack moves", async () => {
@@ -258,6 +321,19 @@ describe("arc", () => {
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
     });
 
+    it("does not serve a snapshot of the task after an unbind", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`snap-${id.create()}`));
+      const tsk = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (tsk == null) throw new Error("expected a deployment task");
+      expect((await client.arcs.task.retrieve(created.key))?.key).toEqual(tsk.key);
+      await client.tasks.copy(tsk.key, "Snapshot", true);
+      await client.arcs.updateTask(created.key, { rack: 0 });
+      await expect
+        .poll(async () => await client.arcs.task.retrieve(created.key))
+        .toBeNull();
+    });
+
     it("defaults a new task to auto performance", async () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`auto-${id.create()}`));
@@ -292,7 +368,7 @@ describe("arc", () => {
       if (tsk == null) throw new Error("expected a deployment task");
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID(""), task.ontologyID("")],
+        objects: [arc.resourceID(""), task.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(
@@ -300,6 +376,41 @@ describe("arc", () => {
       ).rejects.toSatisfy(AccessDeniedError.matches);
       const surviving = await client.tasks.retrieve(tsk.key);
       expect(surviving.rack).toEqual(rack.key);
+    });
+  });
+
+  describe("rename", () => {
+    beforeAll(async () => {
+      await waitForStreamLive(client.connection);
+    });
+
+    it("renames the arc and its task", async () => {
+      const fresh = createTestClient();
+      await waitForStreamLive(fresh.connection);
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
+      const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (deployed == null) throw new Error("expected a deployment task");
+      const name = `renamed-${id.create()}`;
+      await client.arcs.rename(created.key, name);
+      expect((await fresh.arcs.retrieve(created.key)).name).toEqual(name);
+      await expect
+        .poll(async () => (await fresh.tasks.retrieve(deployed.key)).name)
+        .toEqual(name);
+    });
+
+    it("leaves the arc and its task unchanged when the name is used", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const taken = await client.arcs.create(newTextArc(`taken-${id.create()}`));
+      const created = await client.arcs.create(newTextArc(`rename-${id.create()}`));
+      const deployed = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (deployed == null) throw new Error("expected a deployment task");
+      await expect(client.arcs.rename(created.key, taken.name)).rejects.toThrow(
+        "is already used in this directory",
+      );
+      const fresh = createTestClient();
+      expect((await fresh.arcs.retrieve(created.key)).name).toEqual(created.name);
+      expect((await fresh.tasks.retrieve(deployed.key)).name).toEqual(deployed.name);
     });
   });
 

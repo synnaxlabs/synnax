@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, project, status, UnexpectedError } from "@synnaxlabs/client";
+import { type panel, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -20,6 +20,8 @@ import { Modals } from "@/platform/modals";
 import { Selector } from "@/platform/selector";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
+
+const path = Project.formPath;
 
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
@@ -40,7 +42,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       dispatch(Session.Project.select(key));
       createPanel({
         name: "New panel",
-        parent: project.ontologyID(key),
+        project: key,
         root: { variant: "leaf", tabs: [Selector.createEmptyTab()] },
       });
       close();
@@ -52,7 +54,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       <Modal.Header icon={<Icon.Project />}>Project.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false}>
+          <Form.Field path={path.name} showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 placeholder="Project name"

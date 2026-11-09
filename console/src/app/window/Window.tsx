@@ -69,11 +69,12 @@ export const Window = memo((): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      <Modals.Stack />
-      <Notifications.Feed />
-      <Menu.ContextMenu menu={menu} {...menuProps}>
-        {isMain ? <Primary /> : <Secondary />}
-      </Menu.ContextMenu>
+      <Modals.Stack>
+        <Notifications.Feed />
+        <Menu.ContextMenu menu={menu} {...menuProps}>
+          {isMain ? <Primary /> : <Secondary />}
+        </Menu.ContextMenu>
+      </Modals.Stack>
     </Flex.Box>
   );
 });

@@ -12,24 +12,42 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeCreate         = "create"
-	ActionTypeRename         = "rename"
-	ActionTypeSetIcon        = "set_icon"
-	ActionTypeSetColor       = "set_color"
-	ActionTypeInsertTabs     = "insert_tabs"
-	ActionTypeRemoveTab      = "remove_tab"
-	ActionTypeMoveTab        = "move_tab"
-	ActionTypeSplitTab       = "split_tab"
-	ActionTypeResizeSplit    = "resize_split"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeRename is the Type of an Action that carries RenamePayload.
+	ActionTypeRename = "rename"
+	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
+	ActionTypeSetGroup = "set_group"
+	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
+	ActionTypeSetProject = "set_project"
+	// ActionTypeSetIcon is the Type of an Action that carries SetIconPayload.
+	ActionTypeSetIcon = "set_icon"
+	// ActionTypeSetColor is the Type of an Action that carries SetColorPayload.
+	ActionTypeSetColor = "set_color"
+	// ActionTypeInsertTabs is the Type of an Action that carries InsertTabsPayload.
+	ActionTypeInsertTabs = "insert_tabs"
+	// ActionTypeRemoveTab is the Type of an Action that carries RemoveTabPayload.
+	ActionTypeRemoveTab = "remove_tab"
+	// ActionTypeMoveTab is the Type of an Action that carries MoveTabPayload.
+	ActionTypeMoveTab = "move_tab"
+	// ActionTypeSplitTab is the Type of an Action that carries SplitTabPayload.
+	ActionTypeSplitTab = "split_tab"
+	// ActionTypeResizeSplit is the Type of an Action that carries ResizeSplitPayload.
+	ActionTypeResizeSplit = "resize_split"
+	// ActionTypeSetTabResource is the Type of an Action that carries
+	// SetTabResourcePayload.
 	ActionTypeSetTabResource = "set_tab_resource"
-	ActionTypeSetTabView     = "set_tab_view"
+	// ActionTypeSetTabView is the Type of an Action that carries SetTabViewPayload.
+	ActionTypeSetTabView = "set_tab_view"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -41,6 +59,18 @@ type CreatePayload struct {
 // RenamePayload renames the panel.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the panel into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the panel; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// SetProjectPayload moves the panel into a project. Emitted by the Core when it moves
+// the panel; clients never dispatch it.
+type SetProjectPayload struct {
+	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
@@ -120,7 +150,7 @@ type ResizeSplitPayload struct {
 // visualization.
 type SetTabResourcePayload struct {
 	Key      TabKey      `json:"key" msgpack:"key"`
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 // SetTabViewPayload sets the inline view displayed by the tab with the given key,
@@ -137,6 +167,8 @@ type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
 	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename         *RenamePayload         `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup       *SetGroupPayload       `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
+	SetProject     *SetProjectPayload     `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	SetIcon        *SetIconPayload        `json:"set_icon,omitzero" msgpack:"set_icon,omitempty"`
 	SetColor       *SetColorPayload       `json:"set_color,omitzero" msgpack:"set_color,omitempty"`
 	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
@@ -148,10 +180,9 @@ type Action struct {
 	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitzero" msgpack:"set_tab_view,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state Panel, actions ...Action) (Panel, error) {
 	var err error
@@ -167,6 +198,16 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
+		case ActionTypeSetProject:
+			if a.SetProject == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetProject.Handle(state)
 		case ActionTypeSetIcon:
 			if a.SetIcon == nil {
 				return state, union.MissingPayload(a.Type)
@@ -213,7 +254,7 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 			}
 			state, err = a.SetTabView.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
@@ -230,6 +271,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
+}
+
+// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
+func NewSetProjectAction(p SetProjectPayload) Action {
+	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewSetIconAction wraps a SetIconPayload in an Action envelope.

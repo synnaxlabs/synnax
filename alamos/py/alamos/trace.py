@@ -10,20 +10,19 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import cached_property
-from typing import Protocol
+from typing import Protocol, override
 
 from opentelemetry.propagators.textmap import Setter, TextMapPropagator
-from opentelemetry.trace import Span as OtelSpan
 from opentelemetry.trace import (
+    Span as OtelSpan,
     StatusCode,
+    Tracer as OtelTracer,
+    TracerProvider as OtelTraceProvider,
 )
-from opentelemetry.trace import Tracer as OtelTracer
-from opentelemetry.trace import TracerProvider as OtelTraceProvider
 
 from alamos.environment import Environment, EnvironmentFilter, env_threshold_filter
 from alamos.meta import InstrumentationMeta
-from alamos.noop import Noop
-from alamos.noop import noop as noopd
+from alamos.noop import Noop, noop as noopd
 
 
 class Carrier(Protocol):
@@ -127,7 +126,7 @@ class Tracer:
 
         :param key: The key of the span.
         :param env: The environment to run the span under.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the provided env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -147,7 +146,7 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the debug env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -161,7 +160,7 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the bench env or the Tracer is noop, a no-op span is
             provided.
         """
@@ -175,13 +174,14 @@ class Tracer:
         context, the new span is made as its child.
 
         :param key: The key of the span.
-        :return: A span that tracks program execution. If the Tracer's environment
+        :returns: A span that tracks program execution. If the Tracer's environment
             filter rejects the prod env or the Tracer is noop, a no-op span is provided.
         """
         with self.trace(key, env="prod") as span:
             yield span
 
     class _Setter(Setter[Carrier]):
+        @override
         @staticmethod
         def set(carrier: Carrier, key: str, value: str) -> None:
             carrier.set(key, value)

@@ -10,20 +10,31 @@
 package pagerduty_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
-	var svc *pd.Service
+	var (
+		db    *gorp.DB
+		svc   *pd.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
+		// The suite's DB holds a task table of its own.
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -48,16 +59,16 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded alert config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(svc.Alert.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(tasks.CreateStatus(ctx, "status-1")).To(Succeed())
+			key := MustSucceed(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
 				"routing_key": "rk-1",
 				"auto_start":  true,
 				"alerts": []any{map[string]any{
 					"key":    "alert-1",
 					"status": "status-1",
 				}},
-			})).To(Succeed())
-			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
+			}))
+			data := MustSucceed(svc.Alert.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["routing_key"]).To(Equal("rk-1"))
 			Expect(data["auto_start"]).To(BeTrue())

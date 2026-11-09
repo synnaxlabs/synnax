@@ -8,18 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type group } from "@/group";
-import { type ontology } from "@/ontology";
+import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
-import { createOf, kindOf, reduceAll } from "@/schematic/actions";
+import { ranger } from "@/ranger";
+import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/schematic/actions.gen";
@@ -28,10 +29,18 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
+import {
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -42,29 +51,27 @@ const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
   snapshot: z.boolean(),
+  /** Makes the copy belong to the range instead of the original's project. */
+  range: ranger.keyZ.optional(),
 });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
+
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type CopyParams = z.input<typeof copyReqZ>;
 
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ schematics: schematicZ.array() });
-
 const createReqZ = z.object({
-  project: project.keyZ,
+  dispatchKey: z.string(),
   schematics: schematicZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -72,19 +79,9 @@ const createResZ = z.object({ schematics: schematicZ.array() });
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
 
-/**
- * Client-side matching for a request: exact for key sets, the only shape a
- * schematic request carries.
- */
-const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (s) => keySet == null || keySet.has(s.key);
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
-  ontology: ontology.Client;
   cache: query.Cache;
   groupStore: query.Table<group.Key, group.Group>;
 }
@@ -97,6 +94,10 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
+  /** Builds requests that move schematics between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move schematics out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -106,22 +107,21 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Schematic>({
       name: "schematics",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
-      send: async (key, actions, dispatchKey) => {
-        await cfg.unary.send(
-          "/schematic/dispatch",
-          { key, dispatchKey, actions },
-          dispatchReqZ,
-          emptyResZ,
-        );
-      },
+      send: actions.sender(
+        cfg.unary,
+        "/schematic/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      encode,
       kindOf,
       createOf,
     });
@@ -132,27 +132,32 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (schematic, req) => requestFilter(req)(schematic),
+        matches: (schematic, req) => matches(LINES, schematic, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/schematic/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/schematic/set-project",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
   async create(
-    project: project.Key,
     schematic: New,
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic>;
   async create(
-    project: project.Key,
     schematics: New[],
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic[]>;
   async create(
-    project: project.Key,
     schematics: New | New[],
     opts: query.WriteOptions<Schematic[]> = {},
   ): Promise<Schematic | Schematic[]> {
@@ -164,11 +169,15 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/schematic/create",
-          { project, schematics: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/schematic/create",
+              { dispatchKey, schematics: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.schematics);
@@ -180,10 +189,8 @@ export class Client extends query.Retriever<
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -254,10 +261,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -290,12 +294,12 @@ export class Client extends query.Retriever<
     return res.schematic;
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Schematic[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Schematic[]> {
     const res = await this.cfg.unary.send(
       "/schematic/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.schematics;
   }

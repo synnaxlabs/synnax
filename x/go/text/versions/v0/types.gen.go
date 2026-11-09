@@ -17,14 +17,22 @@ package v0
 type Level string
 
 const (
-	LevelH1    Level = "h1"
-	LevelH2    Level = "h2"
-	LevelH3    Level = "h3"
-	LevelH4    Level = "h4"
-	LevelH5    Level = "h5"
-	LevelP     Level = "p"
+	// LevelH1 is the largest heading level.
+	LevelH1 Level = "h1"
+	// LevelH2 is the second heading level.
+	LevelH2 Level = "h2"
+	// LevelH3 is the third heading level.
+	LevelH3 Level = "h3"
+	// LevelH4 is the fourth heading level.
+	LevelH4 Level = "h4"
+	// LevelH5 is the smallest heading level.
+	LevelH5 Level = "h5"
+	// LevelP is the paragraph level.
+	LevelP Level = "p"
+	// LevelSmall is one step below the paragraph level.
 	LevelSmall Level = "small"
-	LevelTiny  Level = "tiny"
+	// LevelTiny is the smallest level.
+	LevelTiny Level = "tiny"
 )
 
 // IsValid reports whether l is one of the defined Level

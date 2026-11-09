@@ -41,7 +41,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				fs = openFS()
 				indexDBKey = GenerateChannelKey()
 				indexDBfs = MustSucceed(fs.Sub("index"))
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        indexDBfs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -53,7 +53,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				}))
 				dataDBKey = GenerateChannelKey()
 				dataDBfs = MustSucceed(fs.Sub("data"))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        dataDBfs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -64,11 +64,6 @@ var _ = Describe("DB Metadata Operations", func() {
 						Index:    indexDBKey,
 					},
 				}))
-			})
-
-			AfterEach(func() {
-				Expect(indexDB.Close()).To(Succeed())
-				Expect(dataDB.Close()).To(Succeed())
 			})
 
 			Describe("RenameChannelInMeta", func() {
@@ -98,10 +93,12 @@ var _ = Describe("DB Metadata Operations", func() {
 					"Should return the correct size after writing data",
 					func(ctx SpecContext) {
 						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   telem.TimeStamp(0),
+							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "size_test"},
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
+						MustSucceed(
+							w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)),
+						)
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
@@ -114,12 +111,12 @@ var _ = Describe("DB Metadata Operations", func() {
 					"Should accumulate size across multiple writes",
 					func(ctx SpecContext) {
 						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   telem.TimeStamp(0),
+							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "size_test"},
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(13, 14)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 

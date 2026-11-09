@@ -28,6 +28,7 @@ type engine interface {
 	Stage(s *scope, key int, value string)
 	StageDelete(s *scope, key int)
 	Get(s *scope, values ...string) ([]int, error)
+	Committing(values ...string) []int
 }
 
 // populated returns an index loaded with key 1 -> a, 2 -> a, and 3 -> b.
@@ -43,10 +44,29 @@ func populated(newEngine func() engine) engine {
 
 var errLoad = errors.New("load failed")
 
+// singleValue runs a Multi through the engine specs, with one value for each key.
+type singleValue struct {
+	*index.Multi[*scope, int, string]
+}
+
+func (m singleValue) Populate() (func(int, string), func(error)) {
+	insert, finish := m.Multi.Populate()
+	return func(k int, v string) { insert(k, []string{v}) }, finish
+}
+
+func (m singleValue) Set(key int, value string) { m.Multi.Set(key, []string{value}) }
+
+func (m singleValue) Stage(s *scope, key int, value string) {
+	m.Multi.Stage(s, key, []string{value})
+}
+
 var _ = Describe("Index", func() {
 	engines := map[string]func() engine{
 		"Lookup": func() engine { return index.NewLookup[*scope, int, string]() },
 		"Sorted": func() engine { return index.NewSorted[*scope, int, string]() },
+		"Multi": func() engine {
+			return singleValue{index.NewMulti[*scope, int, string]()}
+		},
 	}
 	for name, newEngine := range engines {
 		Describe(name, func() {
@@ -76,6 +96,17 @@ var _ = Describe("Index", func() {
 					ctx, cancel := context.WithCancel(context.Background())
 					cancel()
 					Expect(e.Wait(ctx)).To(MatchError(context.Canceled))
+				})
+
+				It("Should return the load result from Wait after ctx ends", func() {
+					e := newEngine()
+					_, finish := e.Populate()
+					finish(errLoad)
+					ctx, cancel := context.WithCancel(context.Background())
+					cancel()
+					for range 20 {
+						Expect(e.Wait(ctx)).To(MatchError(errLoad))
+					}
 				})
 
 				It(
@@ -174,6 +205,26 @@ var _ = Describe("Index", func() {
 					e.StageDelete(nil, 3)
 					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
 					Expect(e.Get(nil, "b")).To(BeEmpty())
+				})
+
+				It("Should return staged keys only while the scope commits", func() {
+					e.Stage(txn, 4, "a")
+					Expect(e.Committing("a")).To(BeEmpty())
+					txn.committing = true
+					Expect(e.Committing("a")).To(ConsistOf(4))
+					Expect(e.Committing("b")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
+					txn.end(true)
+					Expect(e.Committing("a")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
+				})
+
+				It("Should drop committing keys when the commit fails", func() {
+					e.Stage(txn, 4, "a")
+					txn.committing = true
+					txn.end(false)
+					Expect(e.Committing("a")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
 				})
 			})
 		})

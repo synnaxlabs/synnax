@@ -1,0 +1,552 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { array } from "@synnaxlabs/x";
+import {
+  act,
+  fireEvent,
+  type Matcher,
+  type MatcherFunction,
+  render,
+  type RenderOptions,
+  type RenderResult,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+
+import { Errors } from "@/platform/errors";
+import { Modals } from "@/platform/modals";
+import { Tree } from "@/platform/tree";
+import { type Session } from "@/session";
+import {
+  createConsoleWrapper,
+  createTestStore,
+  getIconButton,
+  renderSuspended,
+  selectTestProject,
+  type TestStore,
+} from "@/testutil";
+
+/**
+ * Builds a {@link Tree.TreeState} backed by the given resources. getResource resolves
+ * against the supplied resources; the mutating members are no-ops unless overridden.
+ */
+export const createState = (
+  resources: Tree.Resource[],
+  overrides: Partial<Tree.TreeState> = {},
+): Tree.TreeState => {
+  const byKey = new Map(resources.map((r) => [resource.idToString(r.id), r]));
+  const lookup = (id: resource.ID | string): Tree.Resource | undefined =>
+    byKey.get(typeof id === "string" ? id : resource.idToString(id));
+  const resolve = (id: resource.ID | string): Tree.Resource => {
+    const found = lookup(id);
+    if (found != null) return found;
+    const key = typeof id === "string" ? id : resource.idToString(id);
+    throw new Error(`resource ${key} not found in test state`);
+  };
+  // Like the tree's, the list form leaves out the IDs it holds no resource for.
+  const getResource = ((id: resource.ID | string | (resource.ID | string)[]) =>
+    Array.isArray(id)
+      ? id.map(lookup).filter((r) => r != null)
+      : resolve(id)) as Tree.GetResource;
+  const nodes = resources.map((r) => ({ key: resource.idToString(r.id) }));
+  return {
+    nodes,
+    shape: PTree.flatten({ nodes, expanded: [] }),
+    setNodes: () => {},
+    setResource: () => {},
+    getResource,
+    subscribeResource: () => () => {},
+    setSelection: () => {},
+    expand: () => {},
+    contract: () => {},
+    ...overrides,
+  };
+};
+
+/** Builds a tree resource for the given id with an optional name and data payload. */
+export const createResource = (
+  id: resource.ID,
+  name: string,
+  data?: Record<string, unknown>,
+): Tree.Resource => ({
+  key: resource.idToString(id),
+  id,
+  name,
+  ...(data != null ? { data } : {}),
+});
+
+/**
+ * Builds a {@link Status.ErrorHandler} that actually runs the wrapped operation, so
+ * handlers like Tree.HandleSelect (which route their async work through
+ * handleError) execute in tests. Failures are reported to onError with the handler's
+ * heading.
+ */
+export const createExecutingHandleError =
+  (
+    onError: (heading: Status.Heading, exc: unknown) => void = () => {},
+  ): Status.ErrorHandler =>
+  (excOrFunc, heading = "error") => {
+    if (typeof excOrFunc !== "function") return onError(heading, excOrFunc);
+    void (async () => {
+      try {
+        await excOrFunc();
+      } catch (exc) {
+        onError(heading, exc);
+      }
+    })();
+  };
+
+/** Lists the groups whose parent is the node. */
+const listChildGroups: Tree.Children = ({ client, id }) => [
+  Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+];
+
+/**
+ * Builds a group item that lists its child groups and moves dropped groups into it.
+ * Params override any part of the item.
+ */
+export const createGroupItem = (
+  params: Partial<Tree.CreateItemParams> = {},
+): Tree.Item =>
+  Tree.createItem({
+    type: "group",
+    children: listChildGroups,
+    drop: async ({ client, destination, items }) =>
+      await client.groups.setParent(
+        items.map(({ id }) => id.key),
+        destination.id,
+      ),
+    ...params,
+  });
+
+const listMembers = (client: Synnax, key: group.Key): Tree.Source[] => [
+  Tree.createSource(
+    client.groups,
+    { parents: [group.resourceID(key)] },
+    Tree.toResource("group"),
+  ),
+  Tree.createSource(client.channels, { where: { groups: [key] } }, (ch) =>
+    Tree.toResource("channel")(ch.payload),
+  ),
+];
+
+/** The items of a tree and the lister of its root. */
+export interface ScopeTree extends Required<
+  Pick<RenderLiveTreeOptions, "items" | "listRoot">
+> {}
+
+/**
+ * Builds a tree rooted at the channel scope, which offers group creation. The root
+ * lists the groups and channels in the container group instead of the whole scope, and
+ * so does each group. groupParams override any part of the group item.
+ */
+export const createScopeTree = (
+  container: group.Key,
+  groupParams: Partial<Tree.CreateItemParams> = {},
+): ScopeTree => ({
+  items: {
+    group: createGroupItem({
+      children: ({ client, id }) => listMembers(client, id.key),
+      ...groupParams,
+    }),
+  },
+  listRoot: (client) => listMembers(client, container),
+});
+
+/** The root of a tree whose children come from {@link createHostItems}. */
+export const HOST_ID: resource.ID = { type: "builtin", key: "host" };
+
+/**
+ * Builds the item of a tree rooted at HOST_ID that lists the records of the sources,
+ * for specs whose records sit in no group.
+ */
+export const createHostItems = (
+  children: (client: Synnax) => Tree.Source[],
+): Tree.Items => ({
+  [HOST_ID.type]: Tree.createItem({
+    type: HOST_ID.type,
+    children: ({ client }) => children(client),
+  }),
+});
+
+/** Returns the keys of the groups whose parent is the given resource. */
+export const retrieveChildGroupKeys = async (
+  client: Synnax,
+  parent: resource.ID,
+): Promise<string[]> =>
+  (await client.groups.retrieve({ parents: [parent] })).map(({ key }) => key);
+
+export interface CreateSelectionParams {
+  ids: resource.ID[];
+  rootID?: resource.ID;
+  parentID?: resource.ID;
+}
+
+/** Builds the selection portion of {@link Tree.ContextMenuProps}. */
+export const createSelection = ({
+  ids,
+  rootID = channel.TYPE_RESOURCE_ID,
+  parentID = rootID,
+}: CreateSelectionParams): Tree.ContextMenuProps["selection"] => ({
+  ids: array.toArray(ids),
+  top: array.toArray(ids),
+  rootID,
+  parentID,
+});
+
+export interface CreateBasePropsParams {
+  client: Synnax;
+  store: Session.Store;
+  overrides?: Partial<Tree.BaseProps>;
+}
+
+/**
+ * Builds {@link Tree.BaseProps} with the given client and store. The tab and
+ * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
+ * observe them.
+ */
+export const createBaseProps = ({
+  client,
+  store,
+  overrides = {},
+}: CreateBasePropsParams): Tree.BaseProps => ({
+  client,
+  store,
+  openTab: () => undefined,
+  addStatus: () => undefined,
+  handleError: () => undefined,
+  ...overrides,
+});
+
+export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtError"> {
+  client: Synnax;
+  root: resource.ID | null;
+  /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
+  items?: Tree.Items;
+  listRoot?: Tree.TreeProps["listRoot"];
+  /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
+  extra?: ReactNode;
+  /** The client that creates the session's project; defaults to the rendering one. */
+  projectClient?: Synnax;
+  /** Renders a search action and field above the tree. */
+  search?: Tree.UseSearch;
+}
+
+export interface LiveTreeHandle extends RenderResult {
+  store: TestStore;
+}
+
+/**
+ * Renders the real Tree.Tree against the live Core inside the full console
+ * provider stack, with a mounted modal stack so context-menu flows can open prompts.
+ * The Triggers provider is included so held-modifier interactions (control-click
+ * multi-select) behave as they do in the app. An active project is established so
+ * onSelect handlers that place a tab have a project to create panels under.
+ */
+interface SearchableTreeProps extends Pick<Tree.TreeProps, "listRoot"> {
+  root: resource.ID | null;
+}
+
+const createSearchableTree = (useSearch: Tree.UseSearch) => {
+  const SearchableTree = ({ root, listRoot }: SearchableTreeProps): ReactElement => {
+    const search = useSearch(root);
+    return (
+      <>
+        {search.open ? (
+          <Tree.SearchField search={search} />
+        ) : (
+          <Tree.SearchAction search={search} />
+        )}
+        <Tree.Tree root={root} listRoot={listRoot} search={search} />
+      </>
+    );
+  };
+  return SearchableTree;
+};
+
+export const renderLiveTree = async ({
+  client,
+  root,
+  items = {},
+  listRoot,
+  extra,
+  projectClient = client,
+  search,
+  onCaughtError,
+}: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
+  const { wrapper, store } = await createConsoleWrapper({ client });
+  await selectTestProject(store, projectClient);
+  const SearchableTree = search == null ? null : createSearchableTree(search);
+  const rendered = render(
+    <Triggers.Provider>
+      <Haul.Provider>
+        <Tree.Provider items={items}>
+          {SearchableTree == null ? (
+            <Tree.Tree root={root} listRoot={listRoot} />
+          ) : (
+            <SearchableTree root={root} listRoot={listRoot} />
+          )}
+          <Modals.Stack />
+        </Tree.Provider>
+      </Haul.Provider>
+      {extra}
+    </Triggers.Provider>,
+    { wrapper, onCaughtError },
+  );
+  return { ...rendered, store };
+};
+
+const SCROLL_STEP = 200;
+// A search hides the browse tree, so the helpers skip it as a user does.
+const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";
+const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
+
+/**
+ * Finds the tree label matching text, scrolling the tree when the row sits outside the
+ * window. The tree keeps only the rows near the window mounted, so a label further down
+ * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
+ * label was found, and back at the top when there is none.
+ */
+// Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
+const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
+  const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
+  const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
+  if (tree == null || rows == null) return null;
+  const total = parseInt(rows.style.minHeight, 10);
+  for (let offset = 0; offset <= total; offset += SCROLL_STEP) {
+    await act(async () => {
+      tree.scrollTop = offset;
+      fireEvent.scroll(tree);
+    });
+    const label = screen.queryByText(text, QUERY_OPTIONS);
+    if (label != null) return label;
+  }
+  return null;
+};
+
+const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
+  const mounted = screen.queryByText(text, QUERY_OPTIONS);
+  if (mounted != null) return mounted;
+  const swept = await sweepTree(text);
+  if (swept != null) return swept;
+  // Absent from the data rather than the window: wait for it to load, then sweep again.
+  try {
+    return await screen.findByText(text, QUERY_OPTIONS);
+  } catch (err) {
+    const retried = await sweepTree(text);
+    if (retried != null) return retried;
+    throw err instanceof Error ? err : new Error(String(err), { cause: err });
+  }
+};
+
+/**
+ * Matches the whole name of a tree item, including a search result name that the
+ * search tints in parts.
+ */
+export const itemName =
+  (name: string): MatcherFunction =>
+  (_, el) =>
+    el?.matches(".lyra-text:not(.lyra-tree__item)") === true && el.textContent === name;
+
+/** Finds the rendered tree row containing the given text. */
+export const findTreeRow = async (text: Matcher): Promise<Element> => {
+  const row = (await findTreeLabel(text)).closest(".lyra-tree__item");
+  if (row == null) throw new Error(`tree row for ${String(text)} not found`);
+  return row;
+};
+
+/** Right-clicks the tree row containing text, opening its service context menu. A
+ * menu that suspends must mount inside an async act: a suspension mounted under
+ * sync act never retries when its promise resolves, so the menu stays empty. */
+export const openTreeRowContextMenu = async (text: Matcher): Promise<void> => {
+  const row = await findTreeRow(text);
+  await act(async () => {
+    fireEvent.contextMenu(row);
+  });
+};
+
+/** Returns the icon named by its registry name inside the tree row, or null. */
+export const findTreeRowIcon = async (
+  text: string,
+  icon: string,
+): Promise<Element | null> =>
+  (await findTreeRow(text)).querySelector(`.lyra-icon--${icon}`);
+
+/** Right-clicks the tree's empty space, opening the root context menu. */
+export const openTreeRootContextMenu = async (): Promise<void> => {
+  const tree = await waitFor(() => {
+    const el = document.querySelector(".lyra-tree");
+    if (el == null) throw new Error("tree not found");
+    return el;
+  });
+  await act(async () => {
+    fireEvent.contextMenu(tree);
+  });
+};
+
+export interface RenderTreeContextMenuOptions extends Pick<
+  RenderOptions,
+  "onCaughtError"
+> {
+  client: Synnax;
+  /** Resources backing the tree state. */
+  resources: Tree.Resource[];
+  /** The selected ids; defaults to every resource. */
+  selected?: resource.ID[];
+  /** The tree root; defaults to the channel type ID. */
+  rootID?: resource.ID;
+  /** The tree parent of the selection; defaults to the root. */
+  parentID?: resource.ID;
+  store?: TestStore;
+  baseOverrides?: Partial<Tree.BaseProps>;
+  stateOverrides?: Partial<Tree.TreeState>;
+  /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
+  extra?: ReactNode;
+}
+
+export interface TreeContextMenuHandle {
+  store: TestStore;
+  props: Tree.ContextMenuProps;
+}
+
+/**
+ * Renders a domain's TreeContextMenu against the full console provider stack with a
+ * live modal stack, backed by the given resources and selection. Returns the store and
+ * the exact props handed to the menu so specs can re-invoke handlers or inspect state.
+ */
+export const renderTreeContextMenu = async (
+  TreeContextMenu: Tree.ContextMenu,
+  {
+    client,
+    resources,
+    selected,
+    rootID,
+    parentID,
+    store,
+    baseOverrides = {},
+    stateOverrides = {},
+    onCaughtError,
+    extra,
+  }: RenderTreeContextMenuOptions,
+): Promise<TreeContextMenuHandle> => {
+  const resolvedStore = store ?? (await createTestStore());
+  const props: Tree.ContextMenuProps = {
+    ...createBaseProps({
+      client,
+      store: resolvedStore,
+      overrides: baseOverrides,
+    }),
+    selection: createSelection({
+      ids: selected ?? resources.map((r) => r.id),
+      rootID,
+      parentID,
+    }),
+    state: createState(resources, stateOverrides),
+  };
+  const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
+  await renderSuspended(
+    <>
+      <Errors.SuspenseBoundary loading={null}>
+        <TreeContextMenu {...props} />
+      </Errors.SuspenseBoundary>
+      <Modals.Stack />
+      {extra}
+    </>,
+    { wrapper, onCaughtError },
+  );
+  return { store: resolvedStore, props };
+};
+
+export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {
+  client: Synnax;
+  /**
+   * Real tree items keyed by resource type; other types fall back to Tree.DefaultItem.
+   */
+  items?: Tree.Items;
+}
+
+export interface ToolbarHandle {
+  store: TestStore;
+}
+
+/**
+ * Renders a domain's navdrawer toolbar content inside the full console provider stack
+ * with haul and tree items and a live modal stack, so the toolbar's resource tree and
+ * its actions run against the real Core.
+ */
+export const renderToolbar = async (
+  content: ReactNode,
+  { client, items, onCaughtError }: RenderToolbarOptions,
+): Promise<ToolbarHandle> => {
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Haul.Provider>
+        <Tree.Provider items={items ?? {}}>{children}</Tree.Provider>
+      </Haul.Provider>
+    </Console>
+  );
+  Wrapper.displayName = "ToolbarWrapper";
+  await renderSuspended(
+    <>
+      {content}
+      <Modals.Stack />
+    </>,
+    { wrapper: Wrapper, onCaughtError },
+  );
+  return { store };
+};
+
+/** Opens the search of a tree or toolbar and types the term. */
+export const searchTree = (term: string): void => {
+  fireEvent.click(getIconButton(document.body, "search"));
+  fireEvent.change(screen.getByPlaceholderText(/^Search /), {
+    target: { value: term },
+  });
+};
+
+/** Returns the tree row (`.lyra-tree__item`) whose label matches text. */
+export const getTreeRow = (text: string): HTMLElement => {
+  const row = screen.getByText(text).closest<HTMLElement>(".lyra-tree__item");
+  if (row == null) throw new Error(`tree row for ${text} not found`);
+  return row;
+};
+
+/**
+ * Clicks the expansion caret on the tree row matching text, loading its children.
+ * Tree groups lazy-load their children only once expanded.
+ */
+export const expandTreeRow = (text: string): void => {
+  const caret = getTreeRow(text).querySelector(".lyra-tree__expansion-indicator");
+  if (caret == null) throw new Error(`expansion indicator for ${text} not found`);
+  fireEvent.click(caret);
+};
+
+/**
+ * Finds the button containing text inside the open modal dialog. Context menus render
+ * items as buttons too, so an unscoped text query can hit the menu item that opened
+ * the modal instead of the modal's own action.
+ */
+export const findModalButton = (text: string): HTMLButtonElement => {
+  const dialog = screen.getByRole("dialog");
+  const btn = within(dialog)
+    .getAllByText(text)
+    .map((el) => el.closest<HTMLButtonElement>("button"))
+    .find((b) => b != null);
+  if (btn == null) throw new Error(`modal button with text ${text} not found`);
+  return btn;
+};

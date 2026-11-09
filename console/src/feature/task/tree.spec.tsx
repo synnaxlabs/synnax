@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
+import { NotFoundError, query, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -18,16 +18,19 @@ import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+import { Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createExecutingHandleError,
+  createHostItems,
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  HOST_ID,
+  renderLiveTree,
+  renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -46,7 +49,7 @@ const roles = new RoleClients(client);
 
 const Item = Task.TREE_ITEMS.task;
 const { ContextMenu: Menu } = Item;
-assertDefined(Menu, "task ontology service has no ContextMenu");
+assertDefined(Menu, "task tree item has no ContextMenu");
 
 const createTask = async () => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
@@ -57,23 +60,19 @@ const createTask = async () => {
   });
 };
 
-const renderTaskTree = async (t: task.Task) => {
-  const [parent] = await client.ontology.parents.retrieve({ ids: t.ontologyID });
-  const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("taskgrp"),
-  });
-  await client.ontology.moveChildren(
-    parent.id,
-    group.ontologyID(grp.key),
-    t.ontologyID,
-  );
-  return await renderOntologyTree({
+const renderTaskTree = async (t: task.Task) =>
+  await renderLiveTree({
     client,
-    root: group.ontologyID(grp.key),
-    items: Task.TREE_ITEMS,
+    root: HOST_ID,
+    items: {
+      ...Task.TREE_ITEMS,
+      ...createHostItems((c) => [
+        Tree.createSource(c.tasks, query.keysRequest([t.key]), (tsk) =>
+          Tree.toResource("task")(tsk.payload),
+        ),
+      ]),
+    },
   });
-};
 
 interface CreateMenuPropsParams {
   tasks: task.Task[];
@@ -86,7 +85,7 @@ const createMenuProps = async ({
   overrides,
   snapshot = false,
 }: CreateMenuPropsParams): Promise<Tree.ContextMenuProps> => {
-  const ids = tasks.map((t) => t.ontologyID);
+  const ids = tasks.map((t) => t.resourceID);
   const store = await createTestStore();
   return {
     ...createBaseProps({ client, store, overrides }),
@@ -113,7 +112,7 @@ const renderMenu = async (props: Tree.ContextMenuProps) => {
   return { store, statuses };
 };
 
-describe("task ontology", () => {
+describe("task tree", () => {
   describe("onSelect", () => {
     it("should open the task's configuration tab when double-clicked", async () => {
       const t = await createTask();
@@ -204,10 +203,8 @@ describe("task ontology", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.children.retrieve({
-          ids: rng.ontologyID,
-        });
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+        expect(tasks.some((s) => s.snapshot)).toBe(true);
       });
       await waitFor(() =>
         expect(statuses).toContainEqual(
@@ -228,20 +225,19 @@ describe("permission to write the task", () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {
       client,
-      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+      resources: [createResource(t.resourceID, t.name, { snapshot: false })],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should withhold rename, grouping, and delete from a viewer", async () => {
+  it("should withhold rename and delete from a viewer", async () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {
       client: await roles.get("Viewer"),
-      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+      resources: [createResource(t.resourceID, t.name, { snapshot: false })],
     });
     expect(await screen.findByText("Export")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Group selection")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
   });
 });

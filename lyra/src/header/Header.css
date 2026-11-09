@@ -21,7 +21,17 @@
         overflow: hidden;
     }
 
-    .lyra-header-button-title {
+    /* A clickable title sits and reads like a title: hover brightens its text instead
+       of filling a box. */
+    .lyra-btn.lyra-header-button-title {
         flex-grow: 1;
+        padding-left: 0;
+
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+
+        &:hover {
+            --pluto-text-color: var(--pluto-gray-l11);
+        }
     }
 }

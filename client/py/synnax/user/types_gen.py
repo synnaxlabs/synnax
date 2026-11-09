@@ -11,37 +11,117 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Any, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax.access import role as role_
+from synnax.resource import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = UUID
 
 
 class User(BaseModel):
-    """Is an account entity representing a person accessing the Synnax system. Users can
-    have roles assigned for permission management.
+    """Is an account entity representing a person accessing the Synnax system. Each user
+    holds one role, which grants its permissions.
 
     Attributes:
         key: Is the unique identifier for this user.
         name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
+        role: Is the role that grants the user its permissions.
     """
 
     key: Key
     name: str = Field(min_length=1)
     root_user: bool = False
+    role: role_.Key
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="user")
+class Where(BaseModel):
+    """Is a filter that selects users.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        usernames: Matches the users whose password has any of the given usernames.
+        roles: Matches the users that hold any of the given roles.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    usernames: list[str] | None = None
+    roles: list[role_.Key] | None = None
+
+    @field_validator("usernames", "roles", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
-def ontology_id(key: Key) -> ID:
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "usernames": str | list[str],
+        "roles": role_.Key | list[role_.Key],
+    },
+    total=False,
+)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the users a RetrieveRequest selects.
+
+    Attributes:
+        users: Are the users the request selects.
+    """
+
+    users: list[User] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve users.
+
+    Attributes:
+        where: Selects the users to retrieve. An absent where selects all of them.
+        search_term: Keeps the users that match the term, closest match first.
+        limit: Is the most users to return.
+        offset: Is the number of matching users to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="user")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="user", key=str(key))

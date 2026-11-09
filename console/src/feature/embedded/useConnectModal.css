@@ -1,0 +1,56 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-connect {
+    width: 56rem;
+
+    .console-connect__body {
+        padding: 3rem 4rem;
+    }
+
+    .console-connect__snippet {
+        padding: 1.5rem 1.5rem 1.5rem 2rem;
+        border: var(--pluto-border);
+        border-radius: var(--pluto-border-radius);
+        background: var(--pluto-gray-l1);
+
+        pre {
+            flex: 1 1 0;
+            min-width: 0;
+            margin: 0;
+            overflow-x: auto;
+            font-family: var(--pluto-code-font-family);
+            font-size: var(--pluto-small-size);
+            line-height: 1.6;
+
+            /* Centers the first line on the copy button. */
+            padding-block: calc((var(--pluto-height-small) - 1.6em) / 2);
+            user-select: text;
+        }
+    }
+
+    /* The colors of the code blocks of the docs site. */
+    .console-connect__token--keyword {
+        color: var(--editor-token-keyword);
+    }
+
+    .console-connect__token--string {
+        color: var(--pluto-secondary-m1);
+    }
+
+    .console-connect__token--function {
+        color: var(--pluto-primary-z);
+    }
+
+    .console-connect__token--comment {
+        color: var(--pluto-gray-l7);
+    }
+}

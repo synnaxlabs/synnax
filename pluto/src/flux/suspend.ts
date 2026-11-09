@@ -47,6 +47,13 @@ export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, Settled<Data>>;
+  /**
+   * Bumped by {@link invalidate} while a fetch runs, so a fetch started before it
+   * settles nothing. Dropped when the query's last fetch ends.
+   */
+  generations: Map<string, number>;
+  /** Running fetches by query hash, including ones {@link invalidate} discarded. */
+  fetches: Map<string, number>;
   /** Readers by query hash. Write through {@link subscribeReader}. */
   listeners: Map<string, Set<() => void>>;
 }
@@ -93,8 +100,34 @@ export const subscribeReader = <Data>(
   };
 };
 
-/** Tells the query's readers to re-read the domain cache and the settled entry. */
-export const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
+/**
+ * Discards a query's settled answer and its in-flight fetch, so the next read fetches
+ * again and the older fetch's answer is dropped when it lands.
+ */
+export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
+  local.settled.delete(hash);
+  local.inFlight.delete(hash);
+  if (local.fetches.has(hash))
+    local.generations.set(hash, generationOf(local, hash) + 1);
+};
+
+const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => void) => {
+  local.fetches.set(hash, (local.fetches.get(hash) ?? 0) + 1);
+  return () => {
+    const remaining = (local.fetches.get(hash) ?? 1) - 1;
+    if (remaining > 0) {
+      local.fetches.set(hash, remaining);
+      return;
+    }
+    local.fetches.delete(hash);
+    local.generations.delete(hash);
+  };
+};
+
+const generationOf = <Data>(local: LocalCache<Data>, hash: string): number =>
+  local.generations.get(hash) ?? 0;
+
+const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
   local.listeners.get(hash)?.forEach((l) => l());
 
 export const localFor = <Data>(
@@ -108,6 +141,8 @@ export const localFor = <Data>(
       epoch,
       inFlight: new Map(),
       settled: new Map(),
+      generations: new Map(),
+      fetches: new Map(),
       listeners: new Map(),
     };
     locals.set(client, local);
@@ -124,63 +159,86 @@ export const localFor = <Data>(
   return existing;
 };
 
-export interface FetchErrorParams<Data> {
+export interface FetchErrorParams {
   cause: unknown;
   error: Error;
-  hash: string;
-  local: LocalCache<Data>;
 }
 
-export interface EnsureFetchParams<Query extends query.Params, Data> {
+export interface EnsureFetchParams<
+  Query extends query.Params,
+  Data extends query.Data,
+> {
   name: string;
   retrieve: (params: RetrieveParams<Query>) => Promise<Data>;
   /**
    * Reports whether the fetched answer lands somewhere the next render reads.
    * An answer that does not is kept in `settled` instead.
    */
-  getCached?: (params: RetrieveParams<Query>) => unknown;
+  getCached?: (params: RetrieveParams<Query>) => query.Cached<Data> | undefined;
   /**
    * Offers a failed fetch a second chance, returning a promise that supersedes
-   * the failure or null to settle it.
+   * the failure or null to settle it. The fetch settles the promise's answer.
    */
   onFetchError?: (
     params: RetrieveParams<Query>,
-    errorParams: FetchErrorParams<Data>,
+    errorParams: FetchErrorParams,
   ) => Promise<Data> | null;
   local: LocalCache<Data>;
 }
 
 /** Joins the query's in-flight fetch, starting one when none exists. */
-export const ensureFetch = <Query extends query.Params, Data>(
+export const ensureFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
-  { name, retrieve, getCached, onFetchError, local }: EnsureFetchParams<Query, Data>,
+  fetchParams: EnsureFetchParams<Query, Data>,
 ): Promise<Data> => {
+  const { name, retrieve, getCached, onFetchError, local } = fetchParams;
   const hash = query.hash(params.query);
+  // A reader waiting on a fetch that invalidate discarded gets the answer that replaced
+  // it, starting a fetch when no other reader has.
+  const follow = async (): Promise<Data> => {
+    const settled = local.settled.get(hash);
+    if (settled != null) {
+      if ("error" in settled) throw settled.error;
+      return settled.data;
+    }
+    const cached = getCached?.(params);
+    if (local.inFlight.has(hash) || !query.isLive(cached))
+      return await ensureFetch(params, fetchParams);
+    return cached;
+  };
   let promise = local.inFlight.get(hash);
   if (promise == null) {
     const epoch = local.epoch;
-    promise = retrieve(params).then(
-      (data) => {
-        // An answer the domain cache serves is read from there; one that never
-        // reaches it is kept locally instead.
-        if (getCached?.(params) === undefined) setSettled(local, hash, { data });
-        else notifyReaders(local, hash);
-        local.inFlight.delete(hash);
-        return data;
-      },
-      (cause: unknown) => {
-        const error = new Error(`Failed to retrieve ${name}`, { cause });
-        const retried = onFetchError?.(params, { cause, error, hash, local });
-        if (retried != null) return retried;
-        // A failed fetch writes nothing getCached can serve, so the error must
-        // settle locally or the next render refetches forever. A later cache
-        // hit short-circuits before this entry is read. A reconnect that
-        // landed mid-fetch discards the failure instead.
-        if (local.epoch === epoch) setSettled(local, hash, { error });
-        local.inFlight.delete(hash);
-        throw error;
-      },
-    );
+    const generation = generationOf(local, hash);
+    const release = holdGeneration(local, hash);
+    const current = (): boolean => generationOf(local, hash) === generation;
+    const land = async (data: Data): Promise<Data> => {
+      if (!current()) return await follow();
+      // An answer the domain cache serves is read from there; one that never
+      // reaches it is kept locally instead.
+      if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+      else notifyReaders(local, hash);
+      local.inFlight.delete(hash);
+      return data;
+    };
+    const fail = async (error: Error): Promise<Data> => {
+      if (!current()) return await follow();
+      // A failed fetch writes nothing getCached can serve, so the error must
+      // settle locally or the next render refetches forever. A later cache
+      // hit short-circuits before this entry is read. A reconnect that
+      // landed mid-fetch discards the failure instead.
+      if (local.epoch === epoch) setSettled(local, hash, { error });
+      local.inFlight.delete(hash);
+      throw error;
+    };
+    promise = retrieve(params).then(land, async (cause: unknown) => {
+      const error = new Error(`Failed to retrieve ${name}`, { cause });
+      if (!current()) return await follow();
+      const retried = onFetchError?.(params, { cause, error });
+      if (retried == null) return await fail(error);
+      return await retried.then(land, fail);
+    });
+    promise = promise.finally(release);
     local.inFlight.set(hash, promise);
   }
   return promise;
@@ -236,7 +294,7 @@ export const fulfilled = <Data>(value: Data): Promise<Data> =>
  * suspended on, the settled answer, or a new fetch.
  * @throws the error the query last settled to.
  */
-export const promiseFor = <Query extends query.Params, Data>(
+export const promiseFor = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
   pending: PendingFetch<Data>,

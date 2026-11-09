@@ -28,12 +28,6 @@ var _ = Describe("Status", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Status[any]{}.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("CustomTypeName", func() {
 		It("Should return the Status gorp type name", func() {
 			Expect(v0.Status[any]{}.CustomTypeName()).To(Equal("Status"))

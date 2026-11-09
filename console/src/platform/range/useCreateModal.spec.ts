@@ -117,32 +117,6 @@ describe("Range.useCreateModal", () => {
     );
   });
 
-  it("should not report an edited range as created", async () => {
-    const existing = await createTestRange(client);
-    const analytics = createTestSink();
-    await openModal({ rangeKey: existing.key }, { client, analytics });
-    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
-    await clickWhenEnabled("Save to Core");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    expect(analytics.capture).not.toHaveBeenCalled();
-  });
-
-  it("should prefill from and update the existing range when rangeKey is provided", async () => {
-    const existing = await createTestRange(client);
-    await openModal({ rangeKey: existing.key }, { client });
-    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
-    const renamed = uniqueRangeName("renamed");
-    fireEvent.change(screen.getByDisplayValue(existing.name), {
-      target: { value: renamed },
-    });
-    await clickWhenEnabled("Save to Core");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    await waitFor(async () => {
-      const updated = await client.ranges.retrieve(existing.key);
-      expect(updated.name).toEqual(renamed);
-    });
-  });
-
   it("should close on save after the prefilled parent is cleared", async () => {
     const parent = await createOffPageTestRange(client);
     const { store } = await openModal(

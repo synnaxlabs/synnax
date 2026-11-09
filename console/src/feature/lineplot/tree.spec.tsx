@@ -11,8 +11,8 @@ import {
   lineplot as clientLineplot,
   type lineplot,
   NotFoundError,
-  ontology,
   project as clientProject,
+  resource,
 } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
@@ -23,19 +23,21 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-
-const roles = new RoleClients(client);
-import { Modals } from "@/platform/modals";
-import { findButton, findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
+import { Project } from "@/feature/project";
 import {
   createBaseProps,
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderLiveTree,
+  renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+
+const roles = new RoleClients(client);
+import { Modals } from "@/platform/modals";
+import { findButton, findLastButton } from "@/platform/modals/testutil";
+import { type Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
@@ -55,7 +57,7 @@ const CORE = createCore("test");
 const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
-  await client.lineplots.create(await project(), { name: uniqueName("plot") });
+  await client.lineplots.create({ project: await project(), name: uniqueName("plot") });
 
 interface SetupParams {
   plots: lineplot.LinePlot[];
@@ -73,13 +75,13 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
   const Menu = Item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const buildUI = (current: lineplot.LinePlot[]) => {
-    const ids = current.map((p) => clientLineplot.ontologyID(p.key));
+    const ids = current.map((p) => clientLineplot.resourceID(p.key));
     const props: Tree.ContextMenuProps = {
       ...createBaseProps({ client, store, overrides }),
       selection: createSelection({ ids }),
       state: createState(current.map((p, i) => createResource(ids[i], p.name))),
     };
-    const itemID = List.itemNameID(ontology.idToString(ids[0]));
+    const itemID = List.itemNameID(resource.idToString(ids[0]));
     const element = (
       <>
         <Menu {...props} />
@@ -98,7 +100,7 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
   return { store, props, itemID, rerenderWith };
 };
 
-describe("lineplot/ontology", () => {
+describe("lineplot/tree", () => {
   describe("TreeContextMenu", () => {
     it("copies the plot's properties to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
@@ -206,10 +208,10 @@ describe("lineplot/ontology", () => {
   describe("onSelect", () => {
     it("retrieves the plot and opens it as a tab when double-clicked", async () => {
       const plot = await createLinePlot();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
-        root: clientProject.ontologyID(await project()),
-        items: LinePlot.TREE_ITEMS,
+        root: clientProject.resourceID(await project()),
+        items: { ...Project.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(plot.name));
       const tab = await resolveFocusedTab(store, client);
@@ -220,7 +222,7 @@ describe("lineplot/ontology", () => {
 
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
-      const id = clientLineplot.ontologyID("11111111-1111-1111-1111-111111111111");
+      const id = clientLineplot.resourceID("11111111-1111-1111-1111-111111111111");
       const items = Item.haulItems(createResource(id, "My Plot"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
@@ -234,7 +236,7 @@ describe("permission to write the line plot", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+      resources: [createResource(clientLineplot.resourceID(plot.key), plot.name)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -244,7 +246,7 @@ describe("permission to write the line plot", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+      resources: [createResource(clientLineplot.resourceID(plot.key), plot.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

@@ -724,6 +724,44 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Filter Definitions", func() {
+		It("should format an empty filter", func() {
+			Expect(
+				format("Where filter Range {}\n"),
+			).To(Equal("Where filter Range {}\n"))
+		})
+
+		It("should align bare and typed lines", func() {
+			source := "Where   filter   Range {\n  key\n  name\n" +
+				"  overlaps telem.TimeRange\n  labels label.Key[]\n}\n"
+			Expect(format(source)).To(Equal("Where filter Range {\n" +
+				"    key\n" +
+				"    name\n" +
+				"    overlaps telem.TimeRange\n" +
+				"    labels   label.Key[]\n" +
+				"}\n"))
+		})
+
+		It("should format line and filter domains", func() {
+			source := "Where filter Range {\n  overlaps telem.TimeRange {\n" +
+				"    @doc value \"matches overlaps.\"\n  }\n" +
+				"  @response type APIRange\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    overlaps telem.TimeRange {\n" +
+					"        @doc value \"matches overlaps.\"\n    }\n",
+			))
+			Expect(result).To(ContainSubstring("\n\n    @response type APIRange\n}"))
+		})
+
+		It("should be idempotent", func() {
+			source := "Where filter Range {\n  key\n  labels label.Key[] {\n" +
+				"    @doc value \"matches labels.\"\n  }\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+	})
+
 	Describe("Union Definitions", func() {
 		It("should format an empty union", func() {
 			Expect(
@@ -755,6 +793,23 @@ var _ = Describe("Format", func() {
 			source := "Base struct {\n  k string\n}\nA struct {}\nB struct {}\nFoo union on type extends Base {\n  a A\n  b B\n}\n"
 			result := format(source)
 			Expect(result).To(ContainSubstring("Foo union on type extends Base {"))
+		})
+
+		It("should format actions after the variants of a union", func() {
+			source := "A struct {}\nFoo union on type {\n  action Rename {\n    name string\n  }\n  a A\n  action Reset {}\n  @doc value \"is a foo.\"\n}\n"
+			Expect(format(source)).To(Equal(
+				"A struct {}\n\nFoo union on type {\n    a A\n\n" +
+					"    action Rename {\n        name string\n    }\n\n" +
+					"    action Reset {}\n\n" +
+					"    @doc value \"is a foo.\"\n}\n",
+			))
+		})
+
+		It("should format a union that holds only actions", func() {
+			source := "Foo union on type {\n  action Reset {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type {\n    action Reset {}\n}\n",
+			))
 		})
 
 		It("should format a union with multiple bases", func() {

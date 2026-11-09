@@ -407,4 +407,31 @@ describe("Hardware Task Types", () => {
       }
     });
   });
+
+  describe("firstPerPort", () => {
+    const ch = (key: string, port: string, disabled = false) => ({
+      key,
+      port,
+      disabled,
+    });
+    const portOf = (c: { port: string }) => c.port;
+
+    it("should keep the first channel on each port, in order", () => {
+      const channels = [ch("a", "p0"), ch("b", "p1"), ch("c", "p0")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual(["a", "b"]);
+    });
+
+    it("should prefer an enabled channel over an earlier disabled one", () => {
+      const channels = [ch("off", "p0", true), ch("on", "p0")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual(["on"]);
+    });
+
+    it("should keep a disabled channel alone on its port", () => {
+      const channels = [ch("off", "p0", true), ch("other", "p1")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual([
+        "other",
+        "off",
+      ]);
+    });
+  });
 });

@@ -23,8 +23,10 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
@@ -54,21 +56,23 @@ func (*Plugin) Name() string       { return "ts/actions" }
 func (*Plugin) Domains() []string  { return []string{"ts"} }
 func (*Plugin) Requires() []string { return []string{"ts/types"} }
 
-// Generate emits one actions.gen.ts per output package containing structs that declare
-// actions. Structs without actions are skipped.
+// Generate emits one actions.gen.ts per output package containing a struct or union
+// that declares actions. It skips types without actions and types that TS hand-writes
+// or omits.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	req = req.OmitFields("ts")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	for _, typ := range req.Resolutions.StructTypes() {
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || len(form.Actions) == 0 {
+	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
+	for _, typ := range types {
+		actions := typ.Actions()
+		if len(actions) == 0 || omit.IsSkipped(typ, "ts") {
 			continue
 		}
 		outputPath := output.GetPath(typ, "ts")
 		if outputPath == "" {
 			continue
 		}
-		content, err := p.generateFile(typ, form, outputPath, req)
+		content, err := p.generateFile(typ, actions, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +86,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	typ resolution.Type,
-	form resolution.StructForm,
+	actions []resolution.Action,
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -94,13 +98,14 @@ func (p *Plugin) generateFile(
 		Request:    req,
 	}
 
+	tsName := domain.GetName(typ, "ts")
 	data := &templateData{
 		Manager:         mgr,
-		TargetTypeName:  typ.Name,
+		TargetTypeName:  tsName,
 		TargetProseName: proseName(typ.Name),
 	}
 
-	for _, action := range form.Actions {
+	for _, action := range actions {
 		a := actionData{
 			Name:     casing.TypePascal(action.Name),
 			TypeName: casing.TypeSnake(action.Name),
@@ -117,8 +122,16 @@ func (p *Plugin) generateFile(
 	mgr.AddImport("immer", "Draft")
 	mgr.AddImport("@synnaxlabs/x", "zod")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
-	mgr.AddImport(sameDir+"/types.gen", typ.Name)
-	mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	mgr.AddImport(sameDir+"/types.gen", tsName)
+	if ref, ok := resolution.RetrieveKey(typ); ok {
+		data.KeyZ = fp.ProcessField(
+			resolution.Field{Name: "key", Type: ref},
+			typ,
+		).ZodType
+	} else {
+		data.KeyZ = "keyZ"
+		mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	}
 	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
@@ -133,7 +146,9 @@ type templateData struct {
 	*imports.Manager
 	TargetTypeName  string
 	TargetProseName string
-	Actions         []actionData
+	// KeyZ is the zod schema of the target type's key.
+	KeyZ    string
+	Actions []actionData
 }
 
 var properNouns = set.New("Arc")
@@ -221,8 +236,10 @@ export const createReduceAll = (handlers: Handlers) =>
     }
   });
 
-export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+export const scopedActionZ = actions.scopedZ({{ .KeyZ }}, actionZ);
 
-export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
+export const dispatchReqZ = actions.dispatchReqZ({{ .KeyZ }}, actionZ);
+
+export const dispatchResZ = actions.dispatchResZ(actionZ);
 `),
 )

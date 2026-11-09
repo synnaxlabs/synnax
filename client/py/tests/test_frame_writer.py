@@ -9,14 +9,28 @@
 
 import asyncio
 from types import MappingProxyType
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter import EOF, WebsocketClient
+from freighter.mock import MockUnaryClient
+from synnax.channel.retrieve import Retriever
+from synnax.exceptions import create_registry
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from synnax.framer.writer import (
+    Writer,
+    WriterCommand,
+    WriterRequest,
+    WriterResponse,
+)
 from tests.channel import RetrieveCounter
+from x.codec import Codec
+from x.exceptions import ExceptionPayload
 from x.strings import random_name
 from x.telem import CrudeSeries, seconds_linspace
 
@@ -46,6 +60,25 @@ class TestWriter:
                 }
             )
             w.commit()
+
+    def test_write_without_start(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should start the index at its first timestamp when the writer has no start"""
+        idx_ch, data_ch = indexed_pair
+        with client.open_writer(channels=indexed_pair) as w:
+            w.write(
+                {idx_ch.key: seconds_linspace(1, count=3), data_ch.key: [1.0, 2.0, 3.0]}
+            )
+            w.commit()
+        frame = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert frame[idx_ch.key].to_numpy()[0] == 1 * sy.TimeSpan.SECOND
+        assert list(frame[data_ch.key]) == [1.0, 2.0, 3.0]
+
+    def test_open_writer_without_channels(self, client: sy.Synnax) -> None:
+        """Should fail to open a writer with no channels"""
+        with pytest.raises(sy.ValidationError, match="open_writer requires channels"):
+            client.open_writer()
 
     def test_write_by_name(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
@@ -339,20 +372,6 @@ class TestWriter:
 
         w1.close()
 
-    def test_write_err_first_timestamp_before_start(
-        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
-    ) -> None:
-        """Should raise a validation error when the first timestamp written to an index
-        channel is before the start time of the writer."""
-        time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
-            with client.open_writer(
-                start=sy.TimeStamp.now(),
-                channels=[time_ch.key, data_ch.key],
-            ) as w:
-                for i in range(100):
-                    w.write({time_ch.key: [i], data_ch.key: [i]})
-
     def test_write_out_of_order_timestamps(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
@@ -410,6 +429,50 @@ class TestWriter:
                     async with asyncio.timeout(0.2):
                         await s.read()
 
+    def test_write_persist_behind_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fill a gap before the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        start = 10 * sy.TimeSpan.SECOND
+        with client.open_writer(start=start, channels=channels) as live:
+            live.write(
+                {idx_ch.key: seconds_linspace(10, count=2), data_ch.key: [10.0, 11.0]}
+            )
+            live.commit()
+            client.write(
+                1 * sy.TimeSpan.SECOND,
+                {idx_ch.key: seconds_linspace(1, count=2), data_ch.key: [1.0, 2.0]},
+            )
+            live.write({idx_ch.key: seconds_linspace(12, count=1), data_ch.key: [12.0]})
+            live.commit()
+        assert list(client.read(sy.TimeRange.MAX, data_ch.key)) == [
+            1.0,
+            2.0,
+            10.0,
+            11.0,
+            12.0,
+        ]
+
+    def test_write_persist_inside_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fail to open a persist writer in the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        with client.open_writer(start=10 * sy.TimeSpan.SECOND, channels=channels):
+            with pytest.raises(sy.UnauthorizedError, match="cannot access time range"):
+                client.open_writer(
+                    start=15 * sy.TimeSpan.SECOND,
+                    channels=channels,
+                    mode=sy.WriterMode.PERSIST,
+                )
+
     def test_write_persist_stream_regression(self, client: sy.Synnax) -> None:
         """Should work"""
         idx = client.channels.create(
@@ -461,6 +524,51 @@ class TestWriter:
         assert len(f2[data.key]) == 2
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
+
+    def test_commit_result_reports_commit_without_control(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+
+        def frame(second: int) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    idx_ch.key: [sy.TimeStamp(sy.TimeSpan.SECOND * second)],
+                    data_ch.key: np.random.rand(1).astype(np.float64),
+                }
+            )
+
+        with client.open_writer(
+            start=start,
+            channels=indexed_pair,
+            authorities=100,
+            enable_auto_commit=False,
+        ) as low:
+            low.write(frame(1))
+            # The acknowledged command orders the write before the next writer opens.
+            low.set_authority(100)
+            with client.open_writer(
+                start=start, channels=indexed_pair, authorities=200
+            ):
+                assert not low.commit_result().authorized
+            low.write(frame(2))
+            granted = low.commit_result()
+            assert granted.authorized
+            assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
+
+    def test_commit_result_stream_ended_during_commit(self) -> None:
+        transport = _EndableTransport()
+        writer = _open_endable(transport)
+        transport.stream_.ended = True
+        with pytest.raises(EOF):
+            writer.commit_result()
+
+    def test_commit_result_writer_closed(self) -> None:
+        writer = _open_endable(_EndableTransport())
+        writer.close()
+        with pytest.raises(sy.WriterClosed):
+            writer.commit_result()
 
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
@@ -854,3 +962,50 @@ class TestWriter:
             w.commit()
         f = client.read(sy.TimeRange.MAX, data.key)
         assert list(f) == ["line1\nline2", "no newline"]
+
+
+class _EndableStream:
+    """A writer stream that a spec can end as the Core would."""
+
+    ended = False
+    send_closed = False
+
+    def send(self, req: WriterRequest) -> None: ...
+
+    def receive(self, timeout: float | None = None) -> WriterResponse:
+        if self.ended or self.send_closed:
+            raise EOF()
+        return WriterResponse(
+            command=WriterCommand.OPEN,
+            end=sy.TimeStamp(0),
+            err=ExceptionPayload(type=None, data=None),
+            authorized=True,
+        )
+
+    def received(self) -> bool:
+        return False
+
+    def close_send(self) -> None:
+        self.send_closed = True
+
+
+class _EndableTransport:
+    """A stream transport whose writer stream a spec can end."""
+
+    def __init__(self) -> None:
+        self.stream_ = _EndableStream()
+
+    def with_codec(self, codec: Codec) -> "_EndableTransport":
+        return self
+
+    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
+        return self.stream_
+
+
+def _open_endable(transport: _EndableTransport) -> Writer:
+    return Writer(
+        start=None,
+        client=cast(WebsocketClient, transport),
+        registry=create_registry(),
+        adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
+    )

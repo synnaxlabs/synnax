@@ -72,15 +72,21 @@ class CalculatedChannels(ConsoleCase):
         console.channels.edit_calculated(
             self.calc_editable, new_expression=updated_expr
         )
-        for _ in range(5):
-            sy.sleep(0.5)
+        observed = "no samples arrived"
+
+        def matched() -> bool | None:
+            nonlocal observed
             frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
-            if len(frame[self._ch_uptime]) > 0:
-                break
-        uptime_val = int(to_float(frame[self._ch_uptime][-1]))
-        calc_val = int(to_float(frame[self.calc_editable][-1]))
-        expected_val = uptime_val * updated_multiplier
-        assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
+            if len(frame[self._ch_uptime]) == 0 or len(frame[self.calc_editable]) == 0:
+                return None
+            uptime_val = int(to_float(frame[self._ch_uptime][-1]))
+            expected_val = uptime_val * updated_multiplier
+            calc_val = int(to_float(frame[self.calc_editable][-1]))
+            observed = f"expected {expected_val}, got {calc_val}"
+            return True if calc_val == expected_val else None
+
+        if sy.poll(matched, timeout=5, interval=0.5) is None:
+            raise AssertionError(observed)
 
     def test_plot_calculated_channel(self) -> None:
         """Test plotting a nested calculated channel (calc channel referencing another
@@ -90,7 +96,7 @@ class CalculatedChannels(ConsoleCase):
 
         plot = self.console.pages.create(Plot, f"Nested Calc Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", [self._ch_uptime, self.calc_x2, self.calc_x6])
+        plot.add_channels("y1", [self._ch_uptime, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 
         assert self.calc_x2 in csv_content, f"CSV should contain {self.calc_x2}"

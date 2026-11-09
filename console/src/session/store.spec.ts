@@ -11,7 +11,7 @@ import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { deep } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Session } from "@/session";
 import { createTestStore, MemoryKV, type TestStore } from "@/testutil";
@@ -73,6 +73,16 @@ describe("createStore", () => {
     expect(withoutDrift(store.getState())).toStrictEqual(
       withoutDrift(Session.ZERO_STATE),
     );
+  });
+
+  it("should not warn when its state checks run slowly", async () => {
+    const store = await createStore({ enablePersistence: false });
+    let now = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 40));
+    onTestFinished(() => clock.mockRestore());
+    const warn = vi.spyOn(console, "warn");
+    store.dispatch(Session.Core.select(DEMO_KEY));
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("routes dispatched actions to their owning slice", async () => {

@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeStamp, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -31,7 +31,7 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -41,7 +41,7 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
@@ -53,7 +53,7 @@ const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: apiKeyKeyZ,
   /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** name is a label that tells the subject's keys apart. */
   name: z.string(),
   /** created is when the key was created. */
@@ -62,18 +62,59 @@ const apiKeyZ = z.object({
 /** APIKey is an API key as the API returns it: the stored record without its hash. */
 export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
+const API_KEY_PREFIX = "syk_";
+/** An API key token holds the 16 bytes of the record key and a 32 byte secret. */
+const API_KEY_LENGTH = 48;
+
+/**
+ * Returns the key of the API key record that a token belongs to.
+ * @throws {InvalidTokenError} when the token is not an API key.
+ */
+export const apiKeyID = (token: string): APIKeyKey => {
+  if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
+  const body = token
+    .slice(API_KEY_PREFIX.length)
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
+  let raw: Uint8Array;
+  try {
+    raw = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  } catch {
+    throw new InvalidTokenError("malformed API key");
+  }
+  if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
+  return uuid.parse(raw);
+};
+
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
 }
 
-const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
+const keyCreateReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
 const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
+
+export interface SetPasswordParams {
+  /** The user whose password to set. Defaults to the caller. */
+  subject?: resource.ID;
+  /** The new password. */
+  password: string;
+  /** The caller's current password. Required when the caller sets its own. */
+  currentPassword?: string;
+}
+
+const passwordSetReqZ = z.object({
+  subject: resource.idZ.optional(),
+  password: z.string(),
+  currentPassword: z.string().optional(),
+  cookie: z.boolean().optional(),
+});
+const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 // the login route a Core without sessions serves; kept for one release
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
@@ -93,6 +134,7 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
@@ -136,8 +178,11 @@ export interface Observer {
    * undefined when setCredentials drops the user.
    */
   onUser?: (user: user.User | undefined) => void;
-  /** Fires after every successful login. */
-  onSuccess?: () => void;
+  /**
+   * Fires with the session's key after every successful login, and after setPassword
+   * opens a new session.
+   */
+  onSuccess?: (session: SessionKey) => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
 }
@@ -192,7 +237,7 @@ export class Client {
   }
 
   /** The subject the client logged in as, once logged in. */
-  get subject(): ontology.ID | undefined {
+  get subject(): resource.ID | undefined {
     return this.authState.authenticated ? this.authState.session.subject : undefined;
   }
 
@@ -253,7 +298,7 @@ export class Client {
    * sessions.
    * @throws {AuthError} when the login before the request fails.
    */
-  async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
+  async retrieveSessions(subjects?: resource.ID[]): Promise<Session[]> {
     const res = await this.client.send(
       SESSION_RETRIEVE_ENDPOINT,
       { subjects },
@@ -292,7 +337,7 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not retrieve another subject's
    * keys.
    */
-  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+  async retrieveKeys(subjects?: resource.ID[]): Promise<APIKey[]> {
     const res = await this.client.send(
       KEY_RETRIEVE_ENDPOINT,
       { subjects },
@@ -308,6 +353,32 @@ export class Client {
    */
   async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
     await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
+  }
+
+  /**
+   * Sets the caller's password, or another user's when the caller may update that
+   * user, and ends every session the old password opened. When that ends the client's
+   * own session, the client switches to the session the Core opens in its place.
+   * @throws {AuthError} when the caller sets its own password with a wrong current one.
+   * @throws {AccessDeniedError} when the caller may not update the user.
+   * @throws {ValidationError} when the password is empty, or the caller sets its own
+   * without the current one.
+   */
+  async setPassword(params: SetPasswordParams): Promise<void> {
+    const generation = this.generation;
+    const res = await this.client.send(
+      PASSWORD_SET_ENDPOINT,
+      { ...params, cookie: this.cookie || undefined },
+      passwordSetReqZ,
+      passwordSetResZ,
+    );
+    if (generation !== this.generation) return;
+    const own = params.subject == null || params.subject.key === this.subject?.key;
+    if (own && this.credentials != null) this.credentials.password = params.password;
+    if (res.session == null) return;
+    this.authState = { authenticated: true, token: res.token, session: res.session };
+    if (this.resumeToken != null) this.resumeToken = res.token;
+    this.observer.onSuccess?.(res.session.key);
   }
 
   /**
@@ -424,7 +495,7 @@ export class Client {
       this.authState = state;
       this.ownsSession = owned;
       this.observer.onUser?.(u);
-      this.observer.onSuccess?.();
+      this.observer.onSuccess?.(state.session.key);
       return null;
     } catch (err) {
       const parsed = errors.fromUnknown(err);

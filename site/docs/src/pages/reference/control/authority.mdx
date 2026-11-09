@@ -143,7 +143,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["press_time", "press_vlv_cmd"],
     authorities=100,
 )
@@ -160,6 +159,16 @@ Set `err_on_unauthorized=True` to make `open_writer` raise an error when a diffe
 writer controls one of the channels. Writes made later without control still return no
 error.
 
+To find out if a commit had control, call `commit_result` in place of `commit`. When
+`authorized` is false, the writer did not control a channel. Some channels can still
+commit, so do not use `end`. The writer stays open and can get control again:
+
+```python
+result = writer.commit_result()
+if not result.authorized:
+    print("Another writer controls a channel")
+```
+
 To control hardware from a script with waits and conditions, see
 [write a control sequence in Python](/reference/control/python/write-sequences).
 
@@ -174,7 +183,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["press_time", "press_vlv_cmd"],
   authorities: 100,
 });
@@ -190,6 +198,15 @@ await writer.setAuthority({ press_time: 255, press_vlv_cmd: 255 });
 Set `errOnUnauthorized: true` to make `openWriter` throw an error when a different
 writer controls one of the channels. Writes made later without control still return no
 error.
+
+To find out if a commit had control, call `commitResult` in place of `commit`. When
+`authorized` is false, the writer did not control a channel. Some channels can still
+commit, so do not use `end`. The writer stays open and can get control again:
+
+```typescript
+const result = await writer.commitResult();
+if (!result.authorized) console.log("Another writer controls a channel");
+```
 
   </Fragment>
 

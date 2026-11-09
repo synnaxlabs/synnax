@@ -912,4 +912,133 @@ describe("caseconv", () => {
       });
     });
   });
+
+  describe("path converters", () => {
+    const schema = z.object({
+      sampleRate: z.number(),
+      channels: z.array(
+        z.object({
+          key: z.string(),
+          maxVal: z.number(),
+          scaleConfig: z.object({ slopeValue: z.number() }),
+        }),
+      ),
+      nodeProps: caseconv.preserveKeys(
+        z.record(z.string(), z.object({ fillColor: z.string() })),
+      ),
+      rawArgs: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+      plainRecord: z.record(z.string(), z.object({ innerValue: z.number() })),
+    });
+    const camel = {
+      sampleRate: 1,
+      channels: [{ key: "ch_one", maxVal: 1, scaleConfig: { slopeValue: 2 } }],
+      nodeProps: { node_a: { fillColor: "red" } },
+      rawArgs: { someKey: { nestedKey: 1 } },
+      plainRecord: { recordKey: { innerValue: 3 } },
+    };
+    const snake = caseconv.camelToSnake(camel, { schema });
+
+    const get = (doc: unknown, path: string[]): unknown =>
+      path.reduce<unknown>((node, seg) => {
+        if (Array.isArray(node))
+          return node.find((e: { key?: string }) => e.key === seg) as unknown;
+        return (node as R)[seg];
+      }, doc);
+
+    const cases: Array<[string[], string[]]> = [
+      [["sampleRate"], ["sample_rate"]],
+      [["channels"], ["channels"]],
+      [
+        ["channels", "ch_one"],
+        ["channels", "ch_one"],
+      ],
+      [
+        ["channels", "ch_one", "maxVal"],
+        ["channels", "ch_one", "max_val"],
+      ],
+      [
+        ["channels", "ch_one", "scaleConfig"],
+        ["channels", "ch_one", "scale_config"],
+      ],
+      [
+        ["channels", "ch_one", "scaleConfig", "slopeValue"],
+        ["channels", "ch_one", "scale_config", "slope_value"],
+      ],
+      [
+        ["nodeProps", "node_a"],
+        ["node_props", "node_a"],
+      ],
+      [
+        ["nodeProps", "node_a", "fillColor"],
+        ["node_props", "node_a", "fill_color"],
+      ],
+      [
+        ["rawArgs", "someKey"],
+        ["raw_args", "someKey"],
+      ],
+      [
+        ["rawArgs", "someKey", "nestedKey"],
+        ["raw_args", "someKey", "nestedKey"],
+      ],
+      [
+        ["plainRecord", "recordKey"],
+        ["plain_record", "record_key"],
+      ],
+      [
+        ["plainRecord", "recordKey", "innerValue"],
+        ["plain_record", "record_key", "inner_value"],
+      ],
+    ];
+
+    describe("camelToSnakePath", () => {
+      cases.forEach(([from, to]) => {
+        it(`should convert ${from.join(".")} as the document converts`, () => {
+          const { path, convert } = caseconv.camelToSnakePath(from, {
+            schema,
+            data: camel,
+          });
+          expect(path).toEqual(to);
+          expect(convert(get(camel, from))).toEqual(get(snake, to));
+        });
+      });
+
+      it("should treat a segment into an absent list as an entry key", () => {
+        expect(
+          caseconv.camelToSnakePath(["channels", "new_key", "maxVal"], {
+            schema,
+            data: {},
+          }).path,
+        ).toEqual(["channels", "new_key", "max_val"]);
+      });
+
+      it("should leave a string value unchanged", () => {
+        const { convert } = caseconv.camelToSnakePath(["channels", "ch_one", "key"], {
+          schema,
+          data: camel,
+        });
+        expect(convert("someValue")).toEqual("someValue");
+      });
+
+      it("should convert every key without a schema", () => {
+        const { path, convert } = caseconv.camelToSnakePath(["someField", "innerKey"]);
+        expect(path).toEqual(["some_field", "inner_key"]);
+        expect(convert({ deepKey: [{ listKey: 1 }] })).toEqual({
+          deep_key: [{ list_key: 1 }],
+        });
+      });
+    });
+
+    describe("snakeToCamelPath", () => {
+      cases.forEach(([to, from]) => {
+        it(`should convert ${from.join(".")} as the document converts`, () => {
+          const { path, convert } = caseconv.snakeToCamelPath(from, {
+            schema,
+            data: camel,
+          });
+          expect(path).toEqual(to);
+          expect(convert(get(snake, from))).toEqual(get(camel, to));
+        });
+      });
+    });
+  });
 });

@@ -21,7 +21,8 @@ or collect_task_status; standalone callers can use the context manager form.
 
 import threading
 from collections.abc import Callable
-from typing import Any, Self
+from typing import Self
+from uuid import UUID
 
 from pydantic import ValidationError
 
@@ -90,7 +91,7 @@ class Recorder:
         if self._thread is not None:
             self._thread.join(timeout=_CLOSE_TIMEOUT)
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         """Decode raw and store it, returning True if stored. Runs under _cond."""
         raise NotImplementedError
 
@@ -153,7 +154,7 @@ class Notifications(Recorder):
         """
         return self._wait_for(lambda: any(text in t for t in self._texts), timeout)
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         try:
             status = sy.Status.model_validate(raw)
         except ValidationError:
@@ -166,7 +167,7 @@ class TaskStatus(Recorder):
     """Records per-task execution state, keyed by task key.
 
     Generic across every task type (Arc, NI, Modbus, OPC UA, LabJack): they all
-    publish ``task.Status`` with ``details.task`` set to their own key.
+    publish ``task.Status`` with ``owner`` set to their own resource ID.
     """
 
     _label = "task status"
@@ -207,17 +208,17 @@ class TaskStatus(Recorder):
             status is not None and status.details is not None and status.details.running
         )
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         try:
             status = sy.task.Status.model_validate(raw)
         except ValidationError:
-            # The channel carries statuses for all tasks and racks. Non-task
-            # statuses (and rack statuses with a different detail schema) fail
-            # validation and are skipped.
+            # The channel carries every status in the cluster, and a status that no task
+            # owns can carry other details.
             return False
-        if status.details is None:
+        owner = status.owner
+        if owner is None or owner.type != "task" or owner.key is None:
             return False
-        key = status.details.task
+        key = UUID(owner.key)
         self._latest[key] = status
         self._texts.setdefault(key, []).extend((status.message, status.description))
         return True

@@ -38,10 +38,19 @@ type region[R Resource] struct {
 	// independent regions can access a resource at the same time.
 	// [not safe for unprotected concurrent access]
 	timeRange telem.TimeRange
+	// bounded is true when the region holds a single bounded gate. It does not change
+	// after the region is created.
+	bounded bool
 	// counter tracks the total number of gates opened in the region. This counter
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
 	counter uint
+	// opening is non-nil from when the region is created until its resource opens or
+	// fails to, and closes at that point. A region that is opening has no gates and no
+	// resource. Guarded by controller.mu.
+	opening chan struct{}
+	// use serializes access to resource by authorized gates.
+	use sync.Mutex
 	// RWMutex locks access to the region's state. Only specified fields in a region are
 	// safe for concurrent access without locking the mutex.
 	sync.RWMutex
@@ -54,9 +63,8 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	if *cfg.ErrIfControlled && r.curr != nil {
 		err = errors.Wrapf(
 			control.ErrUnauthorized,
-			"time range %v overlaps with a controlled region with bounds %v controlled by %v",
-			cfg.TimeRange,
-			r.timeRange,
+			"cannot access time range %v because writer %v holds it",
+			cfg.TimeRange.Intersection(r.timeRange),
 			r.curr.Subject(),
 		)
 		return g, t, err
@@ -105,6 +113,33 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	return g, t, nil
 }
 
+// state returns the control State of the gate in control, or nil when the region is
+// bounded or still opening.
+func (r *region[R]) state() *State {
+	r.RLock()
+	defer r.RUnlock()
+	if r.bounded || r.curr == nil {
+		return nil
+	}
+	return r.curr.state()
+}
+
+// overlapError returns the error for a write to tr that reaches the region.
+func (r *region[R]) overlapError(tr telem.TimeRange) error {
+	r.RLock()
+	defer r.RUnlock()
+	holder := "a writer that is opening"
+	if r.curr != nil {
+		holder = "writer " + r.curr.Subject().String()
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot write to time range %v because %s holds it",
+		tr.Intersection(r.timeRange),
+		holder,
+	)
+}
+
 func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	if r.curr == nil {
 		return true
@@ -117,14 +152,16 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	return higherAuth || betterPos
 }
 
-// release a gate from the region. The region lock is released before calling
-// controller.remove to maintain consistent lock ordering (controller.mu before
-// region.RWMutex), preventing AB-BA deadlocks with OpenGate.
+// release a gate from the region. Releasing the last gate removes the region from the
+// controller in the same critical section, so no gate can join a region whose resource
+// the caller is about to close.
 func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
+	r.controller.mu.Lock()
+	defer r.controller.mu.Unlock()
 	r.Lock()
+	defer r.Unlock()
 	r.gates.Remove(g)
 	if r.curr != g {
-		r.Unlock()
 		return res, transfer
 	}
 	r.curr = nil
@@ -135,13 +172,10 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 			transfer.To = candidate.state()
 		}
 	}
-	shouldRemove := transfer.IsRelease()
-	res = r.resource
-	r.Unlock()
-	if shouldRemove {
-		r.controller.remove(r)
+	if transfer.IsRelease() {
+		r.controller.unsafeRemove(r)
 	}
-	return res, transfer
+	return r.resource, transfer
 }
 
 // update a gate's authority.

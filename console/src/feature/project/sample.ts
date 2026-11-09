@@ -13,12 +13,12 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  project,
   schematic,
   status,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
+import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
@@ -161,7 +161,7 @@ const createSchematic = (ch: Channels): schematic.New => ({
   },
 });
 
-const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
+const createLinePlot = (ch: Channels): lineplot.New => ({
   key: KEYS.linePlot,
   name: "Tank pressure",
   channels: {
@@ -169,14 +169,13 @@ const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
     y1: [ch[TANK_PT]],
     y2: [ch[PRESS_VLV_STATE], ch[VENT_VLV_STATE]],
   },
-  ranges: { x1: [range] },
+  ranges: [{ variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) }],
 });
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
-    integration: "arc",
+    integrations: "arc",
     embedded: true,
-    hostIsNode: true,
   });
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
@@ -190,10 +189,7 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {
-  const found = await client.projects.retrieve({
-    keys: [KEYS.project],
-    ignoreNotFoundError: true,
-  });
+  const found = await client.projects.retrieve({ key: { eq: KEYS.project } });
   return found.length > 0;
 };
 
@@ -208,36 +204,31 @@ export interface Programs {
 
 /**
  * Creates the sample project and starts its Arc programs, replacing any old sample. The
- * line plot shows the range with key `range`.
+ * line plot shows the last 30 seconds.
  */
-export const create = async (
-  client: Synnax,
-  range: string,
-  programs: Programs,
-): Promise<void> => {
+export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
-  await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch, range));
-  // Overwriting an existing schematic or line plot does not link it to the project,
-  // which matters after the user deletes the project.
-  await client.ontology.addChildren(
-    project.ontologyID(KEYS.project),
-    schematic.ontologyID(KEYS.schematic),
-    lineplot.ontologyID(KEYS.linePlot),
-  );
+  await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
+  await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
+  // Overwriting an existing schematic or line plot keeps its project and group, and the
+  // user can have moved either one. Both go back to the top of the sample project.
+  await client.batch.send([
+    client.schematics.setProjectRequest(KEYS.schematic, KEYS.project),
+    client.lineplots.setProjectRequest(KEYS.linePlot, KEYS.project),
+  ]);
   await client.arcs.create([
     {
       key: KEYS.simulator,
       name: "Tank simulator",
-      mode: "text",
-      text: { raw: programs.simulator },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.simulator } },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
-      mode: "text",
-      text: { raw: programs.sequence },
+      type: "automation",
+      source: { mode: "text", text: { raw: programs.sequence } },
     },
   ]);
   await deploy(client, KEYS.simulator);
@@ -245,7 +236,7 @@ export const create = async (
   await client.panels.create({
     key: KEYS.panel,
     name: NAME,
-    parent: project.ontologyID(KEYS.project),
+    project: KEYS.project,
     root: {
       variant: "split",
       direction: "x",
@@ -257,19 +248,19 @@ export const create = async (
         first: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", resource: schematic.ontologyID(KEYS.schematic) },
+            { variant: "resource", resource: schematic.resourceID(KEYS.schematic) },
           ],
         },
         last: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
+          tabs: [{ variant: "resource", resource: lineplot.resourceID(KEYS.linePlot) }],
         },
       },
       last: {
         variant: "leaf",
         tabs: [
-          { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
-          { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
+          { variant: "resource", resource: arc.resourceID(KEYS.sequence) },
+          { variant: "resource", resource: arc.resourceID(KEYS.simulator) },
         ],
       },
     },

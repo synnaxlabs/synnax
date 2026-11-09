@@ -22,18 +22,15 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
-import {
-  type NumericTimeRange,
-  numericTimeRangeZ,
-  TimeRange,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { deep, numericTimeRangeZ, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
@@ -77,9 +74,9 @@ interface FormStepProps {
 
 const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   const { validate, set } = Form.useContext();
-  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
-  const start = Form.useFieldValue<number>("timeRange.start");
-  const end = Form.useFieldValue<number>("timeRange.end");
+  const channelKeys = Form.useFieldValue(path.channels);
+  const start = Form.useFieldValue(path.timeRange.start);
+  const end = Form.useFieldValue(path.timeRange.end);
   const isFromBeginning = start === TimeRange.MAX.numeric.start;
   const isToEnd = end === TimeRange.MAX.numeric.end;
   const handleNext = () => {
@@ -105,9 +102,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
           Delete data
         </Text.Text>
         <Flex.Box y full="x" gap="medium">
-          <Form.Field<channel.Key[]> path="channels">
-            {channelSelectRenderProp}
-          </Form.Field>
+          <Form.Field path={path.channels}>{channelSelectRenderProp}</Form.Field>
           <Flex.Box x gap="medium" align="start">
             <Flex.Box
               y
@@ -119,7 +114,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                   value={isFromBeginning}
                   onChange={(v) =>
                     set(
-                      "timeRange.start",
+                      path.timeRange.start,
                       v ? TimeRange.MAX.numeric.start : TimeStamp.now().nanoseconds,
                     )
                   }
@@ -128,7 +123,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
               </Flex.Box>
               {!isFromBeginning && (
                 <Form.DateTimeField
-                  path="timeRange.start"
+                  path={path.timeRange.start}
                   padHelpText={false}
                   label="From"
                   inputProps={{
@@ -151,7 +146,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                   value={isToEnd}
                   onChange={(v) =>
                     set(
-                      "timeRange.end",
+                      path.timeRange.end,
                       v ? TimeRange.MAX.numeric.end : TimeStamp.now().nanoseconds,
                     )
                   }
@@ -160,7 +155,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
               </Flex.Box>
               {!isToEnd && (
                 <Form.DateTimeField
-                  path="timeRange.end"
+                  path={path.timeRange.end}
                   padHelpText={false}
                   label="To"
                   inputProps={{
@@ -212,15 +207,15 @@ const newChannelStr = (channelKeys: channel.Key[]): string =>
 
 const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   const { get } = Form.useContext();
-  const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
-  const start = Form.useFieldValue<number>("timeRange.start");
-  const end = Form.useFieldValue<number>("timeRange.end");
+  const channelKeys = Form.useFieldValue(path.channels);
+  const start = Form.useFieldValue(path.timeRange.start);
+  const end = Form.useFieldValue(path.timeRange.end);
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const handleDelete = () => {
-    const keys = get<channel.Key[]>("channels").value;
-    const tr = get<NumericTimeRange>("timeRange").value;
+    const keys = get(path.channels).value;
+    const tr = get(path.timeRange).value;
     onClose();
     handleError(async () => {
       if (client == null) throw new DisconnectedError();

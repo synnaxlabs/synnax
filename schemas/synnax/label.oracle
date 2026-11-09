@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/color"
+import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/label"
 @go output  "core/pkg/service/label"
@@ -26,17 +28,59 @@ Label struct {
     }
     name  string      {
         @doc value           "is a human-readable name for the label."
+        @patch
+        @search
         @validate min_length 1
     }
     color color.Color {
         @doc value "is the display color for visual identification of the label."
+        @patch
+    }
+
+    action Create {
+        label Label
+
+        @doc value """
+            replaces the label with the given created state. Emitted by the Core when a
+            label is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the label."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the label.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the label."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the label."
     }
 
     @create
-    @doc value  """
+    @doc value       """
         is a tagging and categorization entity with a name and associated color. Labels
         can be attached to resources like ranges for organization and filtering.
     """
     @go marshal
     @go migrate
+    @resource type   "label"
+    @retrieve custom
+}
+
+Where filter Label {
+    key
+    name
+
+    @cpp omit
+    @doc value         "is a filter that selects labels."
+    @go request_output "core/pkg/api/label"
+    @pb omit
 }

@@ -17,48 +17,37 @@ import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
 type TemperatureUnits = versions.TemperatureUnits
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = versions.TemperatureUnitsCelsius
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = versions.TemperatureUnitsCelsius
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = versions.TemperatureUnitsFahrenheit
-	TemperatureUnitsKelvin     TemperatureUnits = versions.TemperatureUnitsKelvin
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = versions.TemperatureUnitsKelvin
 )
 
 // ThermocoupleType selects the thermocouple alloy type.
 type ThermocoupleType = versions.ThermocoupleType
 
 const (
+	// ThermocoupleTypeJ pairs iron with copper-nickel.
 	ThermocoupleTypeJ ThermocoupleType = versions.ThermocoupleTypeJ
+	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
 	ThermocoupleTypeK ThermocoupleType = versions.ThermocoupleTypeK
+	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
 	ThermocoupleTypeN ThermocoupleType = versions.ThermocoupleTypeN
+	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
 	ThermocoupleTypeR ThermocoupleType = versions.ThermocoupleTypeR
+	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
 	ThermocoupleTypeS ThermocoupleType = versions.ThermocoupleTypeS
+	// ThermocoupleTypeT pairs copper with copper-nickel.
 	ThermocoupleTypeT ThermocoupleType = versions.ThermocoupleTypeT
+	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
 	ThermocoupleTypeB ThermocoupleType = versions.ThermocoupleTypeB
+	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
 	ThermocoupleTypeE ThermocoupleType = versions.ThermocoupleTypeE
+	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
 	ThermocoupleTypeC ThermocoupleType = versions.ThermocoupleTypeC
 )
-
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = versions.Scale
-type ScaleVariant = versions.ScaleVariant
-type ScaleType = versions.ScaleType
-
-const (
-	// LinearScaleType maps raw values to engineering units with a slope and offset.
-	LinearScaleType ScaleType = versions.LinearScaleType
-	// MapScaleType maps a raw range linearly onto a scaled range.
-	MapScaleType ScaleType = versions.MapScaleType
-	// NoneScaleType applies no scaling; the raw value is used directly.
-	NoneScaleType ScaleType = versions.NoneScaleType
-)
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = versions.LinearScale
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale = versions.MapScale
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = versions.NoneScale
 
 // BaseReadChannel carries the fields every LabJack read channel shares.
 type BaseReadChannel = versions.BaseReadChannel
@@ -66,7 +55,11 @@ type BaseReadChannel = versions.BaseReadChannel
 // ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
 type ReadChannel = versions.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = versions.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = versions.ReadChannelType
 
 const (
@@ -93,7 +86,11 @@ type BaseWriteChannel = versions.BaseWriteChannel
 // WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
 type WriteChannel = versions.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = versions.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = versions.WriteChannelType
 
 const (

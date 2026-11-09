@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
+import { type access } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createTestClient,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -27,13 +31,17 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
+const path = User.formPath;
+
 describe("User queries", () => {
   let controller: AbortController;
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
+  let role: access.role.Role;
 
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+    role = await createEmptyRole(client);
   });
 
   beforeEach(() => {
@@ -50,6 +58,7 @@ describe("User queries", () => {
         username: `test-user-${Date.now()}`,
         name: "Test User",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
@@ -70,11 +79,13 @@ describe("User queries", () => {
         username: `user1-${Date.now()}`,
         name: "User One",
         password: "password123",
+        role: role.key,
       });
       const user2 = await client.users.create({
         username: `user2-${Date.now()}`,
         name: "User Two",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
@@ -98,6 +109,7 @@ describe("User queries", () => {
         username: `original-${Date.now()}`,
         name: "Test User",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = renderHook(() => User.useRename(), { wrapper });
@@ -119,6 +131,7 @@ describe("User queries", () => {
         username: `original-${id.create()}`,
         name: "Test User",
         password: "password123",
+        role: role.key,
       });
       const afterOptimistic = vi.fn();
       const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
@@ -131,24 +144,13 @@ describe("User queries", () => {
     });
   });
 
-  describe("useGroupID", () => {
-    it("should retrieve the Users group ID", async () => {
-      const { result } = await renderHookSuspended(() => User.useGroupID({}), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current).not.toBeNull());
-      const res = await client.ontology.retrieve(result.current as ontology.ID);
-      expect(res.name).toBe("Users");
-    });
-  });
-
   describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
         name: "Retrieve Test",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = await renderHookSuspended(
@@ -183,11 +185,14 @@ describe("User queries", () => {
 
     it("should update the current user on a rename from another client", async () => {
       const username = id.create();
-      const u = await client.users.create({ username, password: "test" });
       const roles = await client.access.roles.retrieve({});
       const viewer = roles.find((r) => r.name === "Viewer");
       assert(viewer != null);
-      await client.access.roles.assign({ user: u.key, role: viewer.key });
+      const u = await client.users.create({
+        username,
+        password: "test",
+        role: viewer.key,
+      });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(() => User.useResult({}), {
         wrapper: createSynnaxWrapper({ client: userClient }),
@@ -204,6 +209,7 @@ describe("User queries", () => {
         username: `cached-user-${Date.now()}`,
         name: "Cached User",
         password: "password123",
+        role: role.key,
       });
 
       const { result: result1 } = await renderHookSuspended(
@@ -244,19 +250,22 @@ describe("User queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const timestamp = Date.now();
+        const username = `test-form-${id.create()}`;
         act(() => {
-          result.current.form.set("username", `test-form-${timestamp}`);
-          result.current.form.set("name", "Form Test");
-          result.current.form.set("password", "password123");
+          result.current.form.set(path.username, username);
+          result.current.form.set(path.name, "Form Test");
+          result.current.form.set(path.password, "password123");
+          result.current.form.set(path.role, role.key);
         });
 
         await act(async () => {
           result.current.save();
         });
 
-        await waitFor(() => {
-          expect(result.current.variant).toBe("success");
+        await waitFor(async () => {
+          const created = await client.users.retrieve({ username });
+          expect(created.name).toEqual("Form Test");
+          expect(created.role).toEqual(role.key);
         });
       });
 
@@ -271,13 +280,16 @@ describe("User queries", () => {
           result.current.save();
         });
 
-        const usernameField = result.current.form.get("username");
-        const passwordField = result.current.form.get("password");
-        const nameField = result.current.form.get("name");
+        const usernameField = result.current.form.get(path.username);
+        const passwordField = result.current.form.get(path.password);
+        const nameField = result.current.form.get(path.name);
+
+        const roleField = result.current.form.get(path.role);
 
         expect(usernameField.status.variant).toBe("error");
         expect(passwordField.status.variant).toBe("error");
         expect(nameField.status.variant).toBe("error");
+        expect(roleField.status.variant).toBe("error");
       });
     });
 
@@ -290,13 +302,13 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         act(() => {
-          result.current.form.set("username", "");
+          result.current.form.set(path.username, "");
         });
 
-        const isValid = result.current.form.validate("username");
+        const isValid = result.current.form.validate(path.username);
         expect(isValid).toBe(false);
 
-        const usernameField = result.current.form.get("username");
+        const usernameField = result.current.form.get(path.username);
         expect(usernameField.status.variant).toBe("error");
         expect(usernameField.status.message).toContain("username is required");
       });
@@ -311,9 +323,10 @@ describe("User queries", () => {
         const isValid = result.current.form.validate();
         expect(isValid).toBe(false);
 
-        expect(result.current.form.get("username").status.variant).toBe("error");
-        expect(result.current.form.get("password").status.variant).toBe("error");
-        expect(result.current.form.get("name").status.variant).toBe("error");
+        expect(result.current.form.get(path.username).status.variant).toBe("error");
+        expect(result.current.form.get(path.password).status.variant).toBe("error");
+        expect(result.current.form.get(path.name).status.variant).toBe("error");
+        expect(result.current.form.get(path.role).status.variant).toBe("error");
       });
     });
   });

@@ -9,7 +9,7 @@
 
 import z from "zod";
 
-import { ancestry } from "@/components/nav/tree";
+import { Nav } from "@/components/nav";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
 const snippetSchema = z.object({ value: z.string(), matchLevel: z.string() });
@@ -43,7 +43,8 @@ export interface Result {
   ancestors: string[];
 }
 
-// The index marks each matched word on its own, so a matched phrase joins into one mark.
+// The index marks each matched word on its own, so a matched phrase joins into one
+// mark.
 const joinMarks = (html: string): string => html.replace(/<\/b>(\s+)<b>/g, "$1");
 
 const locate = (href: string): Pick<Result, "section" | "path" | "ancestors"> => {
@@ -51,7 +52,7 @@ const locate = (href: string): Pick<Result, "section" | "path" | "ancestors"> =>
     return { section: "Releases", path: [], ancestors: ["releases"] };
   if (href.startsWith("/blog"))
     return { section: "Blog", path: [], ancestors: ["blog"] };
-  const chain = ancestry(REFERENCE_PAGES, href);
+  const chain = Nav.ancestry(REFERENCE_PAGES, href);
   // The index is rebuilt after the site deploys, so it can briefly hold a page that
   // the nav no longer lists.
   if (chain.length === 0) return { section: "Reference", path: [], ancestors: [] };

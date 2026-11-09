@@ -10,12 +10,19 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  createMember,
+  createOPCDevice,
+  createScannedDevice,
+  createVariableNode,
+  dragNode,
+} from "@/feature/opcua/testutil";
+import {
+  answerNextCommand,
   awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
@@ -23,7 +30,13 @@ import {
   type RenderTaskFormTabOptions,
   reportTaskStopped,
 } from "@/platform/task/testutil";
-import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  fakePickedFile,
+  interceptFilePicker,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -72,6 +85,10 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.WRITE_SCHEMAS);
 
 describe("Write", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should create command and index channels on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createWriteChannel();
@@ -202,5 +219,78 @@ describe("Write", () => {
     // below is read.
     expect(await screen.findByText("Remove")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  it("should skip the structure field rows of an imported CSV", async () => {
+    const picker = interceptFilePicker();
+    const dev = await createOPCDevice(client);
+    const draft = await createDraft(client, createWriteConfig(dev.key, []));
+    await renderWrite({ client, taskKey: draft.key });
+    const valve = uniqueName("valve").replace(/_/g, "");
+    const nodeId = `ns=1;s=${valve}`;
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Import channels from CSV" }),
+    );
+    picker.selectFiles([
+      fakePickedFile(
+        "channels.csv",
+        [
+          "node_id,field,name,enabled",
+          `${nodeId},Open,open,true`,
+          `${nodeId},,,0`,
+        ].join("\n"),
+      ),
+    ]);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels).toEqual([
+        {
+          key: nodeId,
+          nodeName: valve,
+          nodeId,
+          name: "",
+          cmdChannel: 0,
+          disabled: true,
+          dataType: "float32",
+        },
+      ]);
+    });
+  });
+});
+
+describe("Write structure members", () => {
+  it("should add a dropped variable but not a dropped structure member", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createWriteChannel();
+    const draft = await createDraft(client, createWriteConfig(device.key, [held]));
+    const motor = createVariableNode();
+    const valve = createVariableNode("float32");
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [motor, valve] },
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    await root.answered;
+    const members = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [createMember(motor, "Speed", "float64")] },
+    });
+    fireEvent.click(await screen.findByText(motor.name));
+    await members.answered;
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(valve.name, held.nodeName);
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(config.channels.map(({ nodeId }) => nodeId)).toEqual([
+        held.nodeId,
+        valve.nodeId,
+      ]);
+    });
   });
 });

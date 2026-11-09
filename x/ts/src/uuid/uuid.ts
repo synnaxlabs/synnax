@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NIL, stringify, v4 as uuid } from "uuid";
+import { NIL, stringify, v4 as uuid, v5 } from "uuid";
 
 /**
  * Creates a new random UUID (Universally Unique Identifier) version 4.
  * This function uses the cryptographically secure random number generator
  * to generate a UUID that is suitable for use as a unique identifier.
  *
- * @returns {string} A new UUID v4 string in the format 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+ * @returns A new UUID v4 string in the format 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
  * where x is any hexadecimal digit and y is one of 8, 9, A, or B.
  *
  * @example
@@ -23,12 +23,22 @@ import { NIL, stringify, v4 as uuid } from "uuid";
 export const create = (): string => uuid();
 
 /**
+ * Derives a name-based UUID (version 5) from a name within a namespace. The same name
+ * and namespace always produce the same UUID.
+ *
+ * @param name - The name to derive the UUID from.
+ * @param namespace - The namespace UUID the name belongs to.
+ * @returns A UUID v5 string.
+ */
+export const fromName = (name: string, namespace: string): string =>
+  v5(name, namespace);
+
+/**
  * Parses a UUID from a byte array. This function converts a 16-byte array into a
  * standard UUID string format. It can optionally start parsing from a specific offset
  * in the byte array.
- * @param {Uint8Array} bytes - The byte array containing the UUID. Must be at least 16
- * bytes long.
- * @returns {string} A UUID string in the format 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+ * @param bytes - The byte array containing the UUID. Must be at least 16 bytes long.
+ * @returns A UUID string in the format 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
  * @throws {Error} If the byte array is less than 16 bytes long (accounting for offset)
  *
  * @example

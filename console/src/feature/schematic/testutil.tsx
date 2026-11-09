@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type ontology,
+  type group,
   project,
   schematic,
   type Synnax as Client,
@@ -29,6 +29,7 @@ import {
   Suspense,
 } from "react";
 
+import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -53,7 +54,8 @@ export const testProjectKey = async (): Promise<string> =>
 export const createSchematic = async (
   overrides: Partial<schematic.New> = {},
 ): Promise<schematic.Schematic> =>
-  await client.schematics.create(await testProjectKey(), {
+  await client.schematics.create({
+    project: await testProjectKey(),
     name: uniqueName("schematic"),
     ...overrides,
   });
@@ -130,34 +132,40 @@ export const renderSchematic = async (
   await loadSchematic(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    schematic.ontologyID(created.key),
+    schematic.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
-  const result = render(
-    <PlutoPanel.Scope.Provider value={panelKey}>
-      <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Component />
-        <Modals.Stack />
-      </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper: Wrapper },
-  );
+  // React counts a `use` read as a suspend even when it is cached. A sync act leaves
+  // the work it queues unflushed.
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Component />
+          <Modals.Stack />
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
+      { wrapper: Wrapper },
+    );
+  });
   return { key: created.key, schematic: created, result, store };
 };
 
 /**
  * renderSchematicTree creates a schematic on the server under a fresh project and
- * mounts the real ontology tree rooted at that project with the schematic ontology
- * service registered, plus a live modal stack. Returns the created schematic, its
- * tree root, and the backing Redux store.
+ * mounts the real tree rooted at that project with the schematic tree item registered,
+ * plus a live modal stack. Returns the created schematic, its tree root, and the
+ * backing Redux store.
  */
 export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}) => {
   const proj = await client.projects.create({ name: id.create() });
-  const created = await client.schematics.create(proj.key, {
+  const created = await client.schematics.create({
+    project: proj.key,
     name: uniqueName("schematic"),
     ...overrides,
   });
-  const rootID = project.ontologyID(proj.key);
+  const rootID = project.resourceID(proj.key);
   const { wrapper: Console, store } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -166,7 +174,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const items = Schematic.TREE_ITEMS;
+  const items = { ...Project.TREE_ITEMS, ...Schematic.TREE_ITEMS };
   const result = render(
     <Tree.Provider items={items}>
       <Tree.Tree root={rootID} />
@@ -232,6 +240,6 @@ export const createSymbolPayload = (name: string) => ({
 export const createLegacySymbolFile = (name: string): string =>
   JSON.stringify({ version: 1, ...createSymbolPayload(name) });
 
-/** Returns the names of the resource's ontology children on the test Core. */
-export const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
+/** Returns the names of the symbols in the group on the test Core. */
+export const symbolNames = async (key: group.Key): Promise<string[]> =>
+  (await client.schematics.symbols.retrieve({ groups: [key] })).map((s) => s.name);

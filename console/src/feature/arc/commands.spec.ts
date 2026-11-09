@@ -60,7 +60,7 @@ describe("Arc Commands", () => {
     await act(async () => {
       fireEvent.click(item);
     });
-    const inputs = await screen.findAllByPlaceholderText("Name");
+    const inputs = await screen.findAllByPlaceholderText("Arc name");
     const input = inputs[inputs.length - 1];
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });
@@ -72,7 +72,7 @@ describe("Arc Commands", () => {
     });
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(arc.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(arc.TYPE_RESOURCE_ID.type);
     const created = await client.arcs.retrieve(tab.resource.key);
     expect(created.name).toBe(name);
   });

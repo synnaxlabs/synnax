@@ -9,18 +9,20 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type text } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
+
+const path = deep.path<schematic.TextBoxNodeConfig>();
 
 const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 2000 },
@@ -29,27 +31,27 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const TextBoxForm = (): ReactElement => {
-  const autoFitDisabled = Base.useField<boolean>("autoFitDisabled");
+  const autoFitDisabled = Base.useField(path.autoFitDisabled);
   return (
     <Base.Sections x>
       <Base.Section title="Text">
-        <Base.TextField path="value" label="Text" padHelpText={false} />
-        <Base.Field<text.Level> path="level" label="Size" padHelpText={false}>
+        <Base.TextField path={path.value} label="Text" padHelpText={false} />
+        <Base.Field path={path.level} label="Size" padHelpText={false}>
           {({ value, onChange }) => (
             <Select.Text.Level value={value} onChange={onChange} />
           )}
         </Base.Field>
-        <Base.Field<Flex.Alignment> path="align" label="Alignment" padHelpText={false}>
+        <Base.Field path={path.align} label="Alignment" padHelpText={false}>
           {({ value, onChange }) => (
             <Select.Flex.Alignment value={value} onChange={onChange} />
           )}
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="textColor" label="Text" />
-        <Base.Field<number>
-          onChange={(_, { set }) => set("autoFitDisabled", true)}
-          path="width"
+        <Form.ColorField path={path.textColor} label="Text" />
+        <Base.Field
+          onChange={(_, { set }) => set(path.autoFitDisabled, true)}
+          path={path.width}
           label="Wrap width"
           padHelpText={false}
         >
@@ -72,7 +74,7 @@ export const TextBoxForm = (): ReactElement => {
           )}
         </Base.Field>
       </Base.Section>
-      <Orientation.Section path="" />
+      <Orientation.Section path={path} />
     </Base.Sections>
   );
 };

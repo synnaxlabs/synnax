@@ -26,15 +26,65 @@ type Key = v6.Key
 type TickType = v6.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v6.TickTypeLinear
-	TickTypeTime   TickType = v6.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v6.TickTypeTime
 )
+
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation string
+
+const (
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = "min_max"
+	// AggregationAverage draws the mean of each pixel group.
+	AggregationAverage Aggregation = "average"
+)
+
+// IsValid reports whether a is one of the defined Aggregation
+// values.
+func (a Aggregation) IsValid() bool {
+	switch a {
+	case AggregationMinMax, AggregationAverage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail string
+
+const (
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = "low"
+	// DetailMedium draws one sample group per two pixel columns.
+	DetailMedium Detail = "medium"
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = "high"
+)
+
+// IsValid reports whether d is one of the defined Detail
+// values.
+func (d Detail) IsValid() bool {
+	switch d {
+	case DetailLow, DetailMedium, DetailHigh:
+		return true
+	default:
+		return false
+	}
+}
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v6.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v6.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v6.XAxisKeyX2
 )
 
@@ -42,9 +92,13 @@ const (
 type YAxisKey = v6.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v6.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v6.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v6.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v6.YAxisKeyY4
 )
 
@@ -52,11 +106,17 @@ const (
 type AxisKey = v6.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v6.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v6.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v6.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v6.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v6.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v6.AxisKeyY4
 )
 
@@ -72,7 +132,11 @@ type Channels = v6.Channels
 
 // CustomRange is the window a plot's synthetic "custom" range key resolves to.
 type CustomRange = v6.CustomRange
+
+// CustomRangeVariant is implemented by every CustomRange variant.
 type CustomRangeVariant = v6.CustomRangeVariant
+
+// CustomRangeType is the "variant" value that selects a variant of CustomRange.
 type CustomRangeType = v6.CustomRangeType
 
 const (
@@ -191,7 +255,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
@@ -202,45 +265,4 @@ func (l LinePlot) Validate() error {
 		v.Exec(func() error { return validate.PathedError(l.Rules[i].Validate(), "rules", strconv.Itoa(i)) })
 	}
 	return v.Error()
-}
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation string
-
-const (
-	AggregationMinMax  Aggregation = "min_max"
-	AggregationAverage Aggregation = "average"
-)
-
-// IsValid reports whether a is one of the defined Aggregation
-// values.
-func (a Aggregation) IsValid() bool {
-	switch a {
-	case AggregationMinMax, AggregationAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail string
-
-const (
-	DetailLow    Detail = "low"
-	DetailMedium Detail = "medium"
-	DetailHigh   Detail = "high"
-)
-
-// IsValid reports whether d is one of the defined Detail
-// values.
-func (d Detail) IsValid() bool {
-	switch d {
-	case DetailLow, DetailMedium, DetailHigh:
-		return true
-	default:
-		return false
-	}
 }

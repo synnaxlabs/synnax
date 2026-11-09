@@ -12,11 +12,14 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 import { z } from "zod";
 
 import { type License, type Term } from "@/server/db/schema";
-import { VERSION_PATTERN } from "@/server/license/limits";
+import { MAX_LABEL_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
+
+const path = deep.path<TermsValues>();
 
 const termChoiceZ = z.enum(["subscription", "updates", "perpetual"]);
 
@@ -28,7 +31,11 @@ type TermChoice = z.infer<typeof termChoiceZ>;
 
 /** termsSchema is the unrefined shape; apply checkTerms to get the term rules. */
 export const termsSchema = z.object({
-  label: z.string().trim().min(1, "Give the license a label"),
+  label: z
+    .string()
+    .trim()
+    .min(1, "Give the license a label")
+    .max(MAX_LABEL_LENGTH, "Too long"),
   term: termChoiceZ,
   nodes: z.number().int().min(1, "At least one machine"),
   channelsLimited: z.boolean(),
@@ -130,20 +137,20 @@ const TERM_DESCRIPTIONS: Record<TermChoice, string> = {
 
 /** TermsFields are the license terms staff set, shared by issuing and editing. */
 export const TermsFields = (): ReactElement => {
-  const term = Form.useFieldValue<TermChoice>("term");
-  const channelsLimited = Form.useField<boolean>("channelsLimited");
+  const term = Form.useFieldValue(path.term);
+  const channelsLimited = Form.useField(path.channelsLimited);
   const channelsLimitedID = useId();
   return (
     <>
       <Form.TextField
-        path="label"
+        path={path.label}
         label="Label"
         inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
       />
       <Flex.Box y gap="small">
-        <Form.Field<TermChoice> path="term" label="Term" padHelpText={false}>
+        <Form.Field path={path.term} label="Term" padHelpText={false}>
           {(p) => (
-            <Select.Simple<TermChoice> {...p} resourceName="Term">
+            <Select.Simple<TermChoice> {...p} resourceName="term">
               <Select.Item itemKey="subscription">Subscription</Select.Item>
               <Select.Item itemKey="updates">Perpetual with updates</Select.Item>
               <Select.Item itemKey="perpetual">Perpetual</Select.Item>
@@ -154,20 +161,20 @@ export const TermsFields = (): ReactElement => {
           {TERM_DESCRIPTIONS[term]}
         </Text.Text>
       </Flex.Box>
-      <Form.Field<string>
-        path="expiresAt"
+      <Form.Field
+        path={path.expiresAt}
         label={term === "updates" ? "Updates until (UTC)" : "Expires (UTC)"}
         visible={term !== "perpetual"}
       >
         {(p) => <Input.Text {...p} type="date" />}
       </Form.Field>
       <Form.TextField
-        path="maxVersion"
+        path={path.maxVersion}
         label="Maximum version"
         visible={term !== "subscription"}
         inputProps={{ placeholder: "0.62" }}
       />
-      <Form.NumericField path="nodes" label="Machines that may activate" />
+      <Form.NumericField path={path.nodes} label="Machines that may activate" />
       <Flex.Box x align="center" gap="small">
         <Input.Checkbox
           id={channelsLimitedID}
@@ -180,7 +187,7 @@ export const TermsFields = (): ReactElement => {
         </Text.Text>
       </Flex.Box>
       <Form.NumericField
-        path="channels"
+        path={path.channels}
         label="Channels per Core"
         visible={channelsLimited.value}
         inputProps={{ emptyValue: 0 }}

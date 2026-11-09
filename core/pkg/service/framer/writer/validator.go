@@ -22,7 +22,7 @@ import (
 
 var validateCommand = validate.NewInclusiveBoundsChecker(
 	writer.CommandOpen,
-	writer.CommandSetAuthority,
+	writer.CommandEndDomain,
 )
 
 // validator checks every request against the writer's key set and channel metadata
@@ -53,6 +53,9 @@ func (v *validator) transform(
 func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
+	}
+	if req.Command == writer.CommandEndDomain {
+		return v.validateIndexes(req.Config.Keys)
 	}
 	if req.Command != writer.CommandWrite {
 		return nil
@@ -87,6 +90,26 @@ func validateSeriesDataType(ch channel.Channel, s telem.Series) error {
 			"channel %s: expected data type %s, got %s",
 			ch, cDt, sDt,
 		)
+	}
+	return nil
+}
+
+func (v *validator) validateIndexes(keys channel.Keys) error {
+	if len(keys) == 0 {
+		return errors.Wrap(validate.ErrValidation, "no indexes to end domains of")
+	}
+	for _, k := range keys {
+		ch, ok := v.channels[k]
+		if !ok {
+			return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
+		}
+		if !ch.IsIndex {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %s is not an index",
+				ch,
+			)
+		}
 	}
 	return nil
 }

@@ -36,9 +36,20 @@
       ]
     },
     "check-types": { "dependsOn": ["^build"] },
-    "dev-vite": { "cache": false },
-    "dev": { "cache": false, "dependsOn": ["^build"] },
-    "dev-desktop": { "cache": false, "dependsOn": ["^build"] },
+    "dev-vite": {
+      "cache": false,
+      "passThroughEnv": ["SYNNAX_PORT", "SYNNAX_CONSOLE_PORT"]
+    },
+    "dev": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["SYNNAX_PORT"]
+    },
+    "dev-desktop": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["SYNNAX_PORT"]
+    },
     "build-desktop": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "fix": { "cache": false },

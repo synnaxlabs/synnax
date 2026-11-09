@@ -15,6 +15,7 @@ import {
   color,
   type CrudeTimeRange,
   DataType,
+  dynamicWindow,
   id,
   MultiSeries,
   scale,
@@ -23,13 +24,18 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type Window,
 } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import {
+  bridgeVertices,
+  buildDrawOperations,
+  DEFAULT_OVERLAP_THRESHOLD,
+} from "@/vis/line/aether/draw";
 import { Line, type LineProps, type State } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
@@ -124,8 +130,8 @@ describe("line", () => {
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
     const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
-    const X2 = series([5, 6], 10n, { start: 200, end: 300 });
-    const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+    const X2 = series([5, 6], 10n, { start: 100, end: 200 });
+    const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
 
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
@@ -323,6 +329,19 @@ describe("line", () => {
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
       });
 
+      it("should draw no bridge between two domains with time between them", () => {
+        const late = { start: 200, end: 300 };
+        const m = mount(
+          [X1, series([5, 6], 10n, late)],
+          [Y1, series([40, 50], 10n, late)],
+        );
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([
+          [canvasTest.GL_ENUMS.LINE_STRIP, 3],
+          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
+        ]);
+      });
+
       describe("non-finite samples", () => {
         const RANGE = { start: 0, end: 100 };
         const strips = (x: number[], y: number[], yAlignment = 0n) => {
@@ -419,14 +438,17 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
-      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
+      // Series upload as static draws or sub data, and the stroke and bridge buffers as
+      // dynamic draws. A growing series first sizes its buffer with a static draw.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter(
-            (c) =>
-              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
-          )
-          .map((c) => Array.from(c.args[1] as Float32Array));
+          .flatMap((c) => {
+            if (c.op === "bufferSubData") return [c.args[2]];
+            const sized = typeof c.args[1] === "number";
+            const isStatic = c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW;
+            return c.op === "bufferData" && isStatic && !sized ? [c.args[1]] : [];
+          })
+          .map((data) => Array.from(data as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -474,7 +496,7 @@ describe("line", () => {
         ]);
       });
 
-      it("should follow a growing buffer and not reduce complete groups again", () => {
+      it("should upload only the groups that a growing buffer adds", () => {
         const createGrowing = () =>
           Series.alloc({
             capacity: N,
@@ -492,16 +514,31 @@ describe("line", () => {
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
         expect(m.strips()).toEqual([[0, N / 32]]);
-        // A complete group reduced again would draw the change.
+        const before = uploads(m).length;
+        // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
         write(x, indexes(N / 2, N / 2 + 10));
         const tail = indexes(N / 2, N / 2 + 9).map(wave);
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
-        const drawn = uploads(m).at(-1);
-        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
-        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        expect(m.strips().slice(-2)).toEqual([
+          [0, N / 32],
+          [0, 3],
+        ]);
+        const top = N / 2 + tail.indexOf(Math.max(...tail));
+        const [xs, ys] = uploads(m).slice(before);
+        // The tail starts at the last complete point.
+        expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
+        expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        write(x, indexes(N / 2 + 10, N / 2 + 32));
+        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        const grown = uploads(m).length;
+        m.line.render(showing(0, N - 1));
+        expect(
+          uploads(m)
+            .slice(grown)
+            .map((u) => u.length),
+        ).toEqual([2, 2]);
       });
 
       it("should release its reduced series when deleted", () => {
@@ -539,6 +576,62 @@ describe("line", () => {
         const [xs, ys] = uploads(m).slice(-2);
         expect(xs.slice(0, 2)).toEqual([15, 47]);
         expect(new Set(ys)).toEqual(new Set([0]));
+      });
+    });
+
+    describe("view", () => {
+      const N = 100_000;
+      const RANGE = { start: 0, end: 100 };
+      const ramp = () =>
+        series(
+          Array.from({ length: N }, (_, i) => i),
+          0n,
+          RANGE,
+        );
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      const mountSorted = (sorted: boolean) => {
+        const m = mount([ramp()], [ramp()]);
+        m.xSource.sorted = sorted;
+        return m;
+      };
+      // The sample each draw's x attribute starts at.
+      const firstSamples = (m: ReturnType<typeof mount>): number[] =>
+        m.calls
+          .filter((c) => c.op === "vertexAttribPointer" && c.args[1] === 1)
+          .filter((_, i) => i % 2 === 0)
+          .map((c) => Number(c.args[5]) / 4);
+
+      it("should draw only the samples in view of an ascending x", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, 1024]]);
+        expect(firstSamples(m)).toEqual([49_152]);
+      });
+
+      it("should draw more samples as the view widens", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(50_000, 50_700));
+        expect(m.strips().at(-1)).toEqual([0, 2048]);
+      });
+
+      it("should move the samples it draws as the view pans", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(60_000, 60_100));
+        expect(m.strips().at(-1)).toEqual([0, 1024]);
+        expect(firstSamples(m).at(-1)).toBe(59_392);
+      });
+
+      it("should draw every sample of an x not known to ascend", () => {
+        const m = mountSorted(false);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, N]]);
       });
     });
 
@@ -611,6 +704,78 @@ describe("line", () => {
     // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100), or
     // SPIKE at spikeAt.
     const writeChannels = async (spikeAt?: number) => {
+      const { time, data } = await createChannels();
+      const start = TimeStamp.seconds(1_000_000);
+      await synnax.write(start, {
+        [time]: Array.from({ length: COUNT }, (_, i) =>
+          start.add(TimeSpan.milliseconds(i)),
+        ),
+        [data]: Array.from({ length: COUNT }, (_, i) =>
+          i === spikeAt ? SPIKE : Math.sin(i / 100),
+        ),
+      });
+      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
+      return { data, home };
+    };
+
+    const create = (
+      props: Partial<telem.ChannelDataProps>,
+      from: telem.Client = client,
+    ) => new telem.ChannelData(from, props);
+
+    const createWindowed = (
+      dataKey: channel.Key,
+      window: Window,
+      from: telem.Client = client,
+    ) => ({
+      x: create({ channel: dataKey, useIndexOfChannel: true, window }, from),
+      y: create({ channel: dataKey, window }, from),
+    });
+
+    const createPair = (
+      dataKey: channel.Key,
+      home: TimeRange,
+      from: telem.Client = client,
+    ) => createWindowed(dataKey, staticWindow(home), from);
+
+    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
+      await expect
+        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
+        .toBe(true);
+
+    const drawn = (x: MultiSeries, y: MultiSeries) =>
+      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+
+    // Returns the separate lines the sources draw: their ops less the bridges that join
+    // them.
+    const linesOf = (x: telem.ChannelData, y: telem.ChannelData): number => {
+      const ops = drawn(x.value().data[1], y.value().data[1]);
+      return ops.length - bridgeVertices(ops, scale.XY.IDENTITY).length / 4;
+    };
+
+    // Writes count samples spaced by step from start in one writer session.
+    const writeRun = async (
+      keys: { time: channel.Key; data: channel.Key },
+      start: TimeStamp,
+      count: number,
+      step: TimeSpan,
+    ): Promise<void> => {
+      const writer = await synnax.openWriter({
+        start,
+        channels: [keys.time, keys.data],
+      });
+      const BATCH = 100;
+      for (let i = 0; i < count; i += BATCH) {
+        const n = Math.min(BATCH, count - i);
+        await writer.write({
+          [keys.time]: Array.from({ length: n }, (_, k) => start.add(step.mult(i + k))),
+          [keys.data]: new Float32Array(n).fill(i),
+        });
+      }
+      await writer.close();
+    };
+
+    const createChannels = async () => {
       const time = await synnax.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -621,42 +786,12 @@ describe("line", () => {
         dataType: DataType.FLOAT32,
         index: time.key,
       });
-      const start = TimeStamp.seconds(1_000_000);
-      await synnax.write(start, {
-        [time.key]: Array.from({ length: COUNT }, (_, i) =>
-          start.add(TimeSpan.milliseconds(i)),
-        ),
-        [data.key]: Array.from({ length: COUNT }, (_, i) =>
-          i === spikeAt ? SPIKE : Math.sin(i / 100),
-        ),
-      });
-      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
-      return { data, home };
+      return { time: time.key, data: data.key };
     };
-
-    const create = (props: Partial<telem.ChannelDataProps>) =>
-      new telem.ChannelData(client, props);
-
-    const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: create({
-        channel: dataKey,
-        useIndexOfChannel: true,
-        window: staticWindow(home),
-      }),
-      y: create({ channel: dataKey, window: staticWindow(home) }),
-    });
-
-    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
-      await expect
-        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
-        .toBe(true);
-
-    const drawn = (x: MultiSeries, y: MultiSeries) =>
-      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
 
     it("should pair every reduced x sample with a y sample", async () => {
       const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
+      const { x, y } = createPair(data, home);
       await settle(x, y);
       const [xBounds, xs] = x.value().data;
       const [, ys] = y.value().data;
@@ -678,7 +813,7 @@ describe("line", () => {
     it("should keep a spike that an average drops inside the line's bounds", async () => {
       const { data, home } = await writeChannels(COUNT / 2);
       const y = create({
-        channel: data.key,
+        channel: data,
         window: staticWindow(home),
         aggregation: "average",
       });
@@ -692,7 +827,7 @@ describe("line", () => {
 
     it("should draw finer tiles for a zoomed view", async () => {
       const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
+      const { x, y } = createPair(data, home);
       await settle(x, y);
       const homePoints = y.value().data[1].length;
       const start = Number(home.start.valueOf());
@@ -723,6 +858,46 @@ describe("line", () => {
       expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
       x.cleanup();
       y.cleanup();
+    });
+
+    it("should break a line where a writer restarted, live and read back", async () => {
+      const keys = await createChannels();
+      const count = 200;
+      const step = TimeSpan.milliseconds(1);
+      const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+      const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
+      await settle(live.x, live.y);
+      await writeRun(keys, start, count, step);
+      await writeRun(keys, start.add(TimeSpan.seconds(1)), count, step);
+      await expect.poll(() => live.y.value().data[1].length).toBe(2 * count);
+      expect(linesOf(live.x, live.y)).toBe(2);
+      live.x.cleanup();
+      live.y.cleanup();
+      const end = start.add(TimeSpan.seconds(2));
+      const reloaded = synnax.openFeed();
+      const read = createPair(keys.data, new TimeRange(start, end), {
+        ...client,
+        feed: reloaded,
+      });
+      await settle(read.x, read.y);
+      await expect.poll(() => read.y.value().data[1].length).toBe(2 * count);
+      expect(linesOf(read.x, read.y)).toBe(2);
+      read.x.cleanup();
+      read.y.cleanup();
+      await reloaded.close();
+    });
+
+    it("should draw one line while a writer's samples cross raw blocks", async () => {
+      const keys = await createChannels();
+      const count = 7_000;
+      const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(100)));
+      await settle(live.x, live.y);
+      await writeRun(keys, TimeStamp.now(), count, TimeSpan.milliseconds(10));
+      await expect.poll(() => live.y.value().data[1].length).toBe(count);
+      expect(live.y.value().data[1].series.length).toBeGreaterThan(1);
+      expect(linesOf(live.x, live.y)).toBe(1);
+      live.x.cleanup();
+      live.y.cleanup();
     });
   });
 });

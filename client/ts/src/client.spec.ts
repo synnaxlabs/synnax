@@ -10,9 +10,8 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { type default as Synnax } from "@/client";
 import { type connection } from "@/connection";
-import { AuthError, DisconnectedError } from "@/errors";
+import { AuthError, DisconnectedError, type Synnax } from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -104,7 +103,7 @@ describe("denied change stream", () => {
     const root = createTestClient();
     const restricted = await createTestClientWithPolicy(root, {
       name: "test",
-      objects: [label.ontologyID("")],
+      objects: [label.resourceID("")],
       actions: ["retrieve"],
     });
     const status = await restricted.connect();

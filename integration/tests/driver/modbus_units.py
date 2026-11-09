@@ -138,7 +138,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                sy.sleep(0.2)
+                sy.sleep(0.2)  # noqa: TID251 hold: nothing may change
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")
@@ -171,20 +171,25 @@ class ModbusUnits(SimulatorCase):
     def wait_for_stats(self, unit: int, done: Callable[[Stats], bool]) -> Stats:
         """Wait for the device status of a unit to report counters that satisfy
         ``done``. The Driver reports them each time it scans the device."""
-        stats = None
-        timer = sy.Timer()
-        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+        last: Stats | None = None
+
+        def reported() -> Stats | None:
+            nonlocal last
             dev = self.client.devices.retrieve(
                 key=self.units[unit].key, include_status=True
             )
             details = None if dev.status is None else dev.status.details
             data = None if details is None else details.data
-            if data is not None:
-                stats = Stats.model_validate(data["stats"])
-                if done(stats):
-                    return stats
-            sy.sleep(0.5)
-        raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
+            if data is None:
+                return None
+            stats = Stats.model_validate(data["stats"])
+            last = stats
+            return stats if done(stats) else None
+
+        stats = sy.poll(reported, timeout=15, interval=0.5)
+        if stats is None:
+            raise AssertionError(f"Unit {unit} counters did not arrive, got {last}")
+        return stats
 
     @staticmethod
     def wait_for_warning(
@@ -206,7 +211,7 @@ class ModbusUnits(SimulatorCase):
                     status = sy.task.Status.model_validate(raw)
                 except ValidationError:
                     continue
-                if status.details is None or status.details.task != task_key:
+                if status.owner != sy.task.resource_id(task_key):
                     continue
                 if status.variant in ("warning", "error"):
                     last = f"{status.message}: {status.description}"
@@ -222,7 +227,7 @@ class ModbusSerialUnits(ModbusUnits):
     pseudo-terminal, so the case runs only on POSIX."""
 
     sim_classes = [ModbusSerialSim]
-    units_sim = ModbusSerialSim
+    units_sim: type[ModbusGatewaySim] | type[ModbusSerialSim] = ModbusSerialSim
     prefix = "modbus_serial_unit"
 
     def setup(self) -> None:

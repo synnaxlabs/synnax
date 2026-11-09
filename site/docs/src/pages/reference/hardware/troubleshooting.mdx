@@ -56,6 +56,29 @@ the Core. See [install the Driver](/reference/enterprise/driver/install).
 </Problem.Fix>
 </Problem.Body>
 
+### `Driver ... cannot work with Core ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver and the Core run different minor versions, such as Driver 0.60.2 and Core
+0.61.0. The Driver shows this error in the devices toolbar and starts no tasks. When you
+start a task, it shows "Failed to configure task", with this text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install the Driver release that matches the version of the Core. See
+   [install the Driver](/reference/enterprise/driver/install).
+2. [Restart the Driver](#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
+
 ### `No response to the start command`
 
 <Problem.Body>
@@ -174,8 +197,7 @@ device to select shows "No devices connected" in its device list.
   [supported integrations](/reference/hardware#supported-integrations).
 - **LabJack on the network** -> the Driver can take about a minute to find it.
 - **Modbus, OPC UA, and HTTP** -> the Driver does not look for these devices. Connect
-  them by hand. See
-  [how devices get into Synnax](/reference/hardware/devices#how-devices-get-into-synnax).
+  them by hand. See [connect a device](/reference/hardware/devices#connect-a-device).
 
 </Problem.Fix>
 </Problem.Body>

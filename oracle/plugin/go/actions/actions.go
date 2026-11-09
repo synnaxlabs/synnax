@@ -53,20 +53,21 @@ func (p *Plugin) Name() string       { return "go/actions" }
 func (p *Plugin) Domains() []string  { return []string{"go"} }
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
-// Generate emits one actions.gen.go per output package containing structs that
-// declare actions. Structs without actions are skipped.
+// Generate emits one actions.gen.go per output package containing a struct or union
+// that declares actions. Types without actions are skipped.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
-	for _, typ := range req.Resolutions.StructTypes() {
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || len(form.Actions) == 0 {
+	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
+	for _, typ := range types {
+		actions := typ.Actions()
+		if len(actions) == 0 {
 			continue
 		}
 		outputPath := output.GetPath(typ, "go")
 		if outputPath == "" {
 			continue
 		}
-		content, err := p.generateFile(typ, form, outputPath, req)
+		content, err := p.generateFile(typ, actions, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +81,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	typ resolution.Type,
-	form resolution.StructForm,
+	actions []resolution.Action,
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -106,11 +107,12 @@ func (p *Plugin) generateFile(
 
 	data := templateData{
 		Package:    pkg,
-		TargetType: naming.GetGoName(typ),
+		TargetName: naming.GetGoName(typ),
+		TargetType: targetType(typ),
 		Manager:    mgr,
 	}
 
-	for _, action := range form.Actions {
+	for _, action := range actions {
 		ad := actionData{
 			Name:     naming.ToPascalCase(action.Name),
 			TypeName: casing.TypeSnake(action.Name),
@@ -131,6 +133,17 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// targetType returns the Go type that Reduce takes. Go keeps only the type parameters
+// that have no default, and Reduce instantiates each one with any.
+func targetType(typ resolution.Type) string {
+	name := naming.GetGoName(typ)
+	params := resolution.NonDefaultedTypeParams(resolution.TypeParams(typ.Form))
+	if len(params) == 0 {
+		return name
+	}
+	return name + "[" + strings.Repeat("any, ", len(params)-1) + "any]"
 }
 
 // processField mirrors gotypes' optionality handling: optional values get a
@@ -158,6 +171,7 @@ func processField(
 
 type templateData struct {
 	Package    string
+	TargetName string
 	TargetType string
 	Actions    []actionData
 	*imports.Manager
@@ -195,8 +209,18 @@ func (f fieldData) MsgpackTagSuffix() string {
 	return ""
 }
 
+// constDocIndent is the display width of the single tab indenting a constant's doc
+// comment in a const block.
+const constDocIndent = 4
+
 var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
+	"formatFieldDoc": func(name, docStr string) string {
+		return doc.FormatGo(name, docStr, constDocIndent)
+	},
+	"typeDoc": func(name string) string {
+		return "is the Type of an Action that carries " + name + "Payload."
+	},
 }
 
 var fileTemplate = template.Must(
@@ -225,11 +249,13 @@ import (
 
 {{- if eq (len .Actions) 1}}
 {{- with index .Actions 0}}
+{{formatDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 const ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 {{- else}}
 const (
 {{- range .Actions}}
+	{{formatFieldDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 	ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 )
@@ -244,7 +270,7 @@ type {{.Name}}Payload struct {
 {{- end}}
 }
 {{end}}
-// Action is a discriminated union for all {{.TargetType}} mutations. Type names
+// Action is a discriminated union for all {{.TargetName}} mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type string ` + "`" + `json:"type" msgpack:"type"` + "`" + `
@@ -253,10 +279,9 @@ type Action struct {
 {{- end}}
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 	var err error
@@ -270,7 +295,7 @@ func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 			state, err = a.{{.Name}}.Handle(state)
 {{- end}}
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err

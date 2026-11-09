@@ -121,19 +121,19 @@ print(
 print("-" * 80)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_array_0", "my_array_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest array values from each channel
-                if frame and "my_array_0" in frame and len(frame["my_array_0"]) > 0:
+                if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
                     sample_count += 1
 

@@ -10,19 +10,12 @@
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import { Codec, WSIteratorCodec, WSWriterCodec } from "@/framer/codec";
-import { Frame } from "@/framer/frame";
-import { type IteratorResponse } from "@/framer/iterator";
-import {
-  IteratorCommand,
-  IteratorResponseVariant,
-  WriterCommand,
-} from "@/framer/types.gen";
-import { type WriteRequest } from "@/framer/writer";
+import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
+import { ValidationError } from "@/index";
 
 // Wire bytes the Core uses to mark JSON and binary WebSocket messages.
 const LOW_PERF_SPECIAL_CHAR = 254;
@@ -193,7 +186,7 @@ describe("encoder", () => {
         name: "Different Alignments",
         channels: [1, 2],
         dataTypes: [DataType.UINT8, DataType.FLOAT32],
-        frame: new Frame(
+        frame: new framer.Frame(
           [1, 2],
           [
             new Series({
@@ -344,6 +337,32 @@ describe("encoder", () => {
     });
   });
 
+  describe("series views", () => {
+    it("should encode only the samples of a sub-series", () => {
+      const codec = new Codec([1], [DataType.INT32]);
+      const sub = new Series(new Int32Array([1, 2, 3, 4, 5])).sub(1, 3);
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [sub])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([2, 3]);
+    });
+
+    it("should encode only the written samples of an allocated series", () => {
+      const codec = new Codec([1], [DataType.FLOAT64]);
+      const s = Series.alloc({ capacity: 10, dataType: DataType.FLOAT64 });
+      s.write(new Series(new Float64Array([1.5, 2.5])));
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [s])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([1.5, 2.5]);
+    });
+
+    it("should encode only the samples of a subarray", () => {
+      const codec = new Codec([1], [DataType.UINT8]);
+      const data = new Uint8Array([9, 8, 7, 6]).subarray(2);
+      const decoded = codec.decode(
+        codec.encode(new framer.Frame([1], [new Series(data)])),
+      );
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([7, 6]);
+    });
+  });
+
   describe("alignment multiples", () => {
     const MULTIPLES_PRESENT_BIT = 1 << 6;
     const EXTENDED_BIT = 1 << 7;
@@ -364,7 +383,7 @@ describe("encoder", () => {
         ),
       );
       expect(encoded[0] & MULTIPLES_PRESENT_BIT).toEqual(MULTIPLES_PRESENT_BIT);
-      const decoded = new Frame(codec.decode(encoded));
+      const decoded = new framer.Frame(codec.decode(encoded));
       expect(decoded.series[0].alignment).toEqual(8n);
       expect(decoded.series[0].alignmentMultiple).toEqual(4n);
       expect(decoded.series[1].alignment).toEqual(12n);
@@ -401,14 +420,14 @@ describe("encoder", () => {
       const encoded = codec.encode(
         new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]),
       );
-      const decoded1 = new Frame(codec.decode(encoded));
+      const decoded1 = new framer.Frame(codec.decode(encoded));
       expect(Array.from(decoded1.series[0])).toEqual([1, 2, 3]);
       expect(decoded1.keys[0]).toEqual(1);
       codec.update([2], [DataType.INT64]);
       const encoded2 = codec.encode(
         new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]),
       );
-      const decoded2 = new Frame(codec.decode(encoded2));
+      const decoded2 = new framer.Frame(codec.decode(encoded2));
       expect(Array.from(decoded2.series[0])).toEqual([1n, 2n, 3n]);
       expect(decoded2.keys[0]).toEqual(2);
     });
@@ -428,13 +447,13 @@ describe("encoder", () => {
 
       const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
       let encoded = encoder.encode(fr);
-      let decoded = new Frame(decoder.decode(encoded));
+      let decoded = new framer.Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(1);
       expect(decoded.series[0].data).toEqual(fr.series[0].data);
 
       decoder.update([2], [DataType.INT64]);
       encoded = encoder.encode(fr);
-      decoded = new Frame(decoder.decode(encoded));
+      decoded = new framer.Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(1);
       expect(decoded.series[0].data).toEqual(fr.series[0].data);
 
@@ -442,7 +461,7 @@ describe("encoder", () => {
       expect(() => encoder.encode(fr)).toThrow(ValidationError);
       const fr2 = new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]);
       encoded = encoder.encode(fr2);
-      decoded = new Frame(decoder.decode(encoded));
+      decoded = new framer.Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(2);
       expect(decoded.series[0].data).toEqual(fr2.series[0].data);
     });
@@ -463,32 +482,52 @@ describe("encoder", () => {
     });
   });
 
+  describe("websocket codec JSON fallback", () => {
+    [WSWriterCodec, WSStreamerCodec, WSIteratorCodec].forEach((WSCodec) => {
+      it(`should label parse errors in ${WSCodec.name}`, () => {
+        const codec = new WSCodec(new Codec([1], [DataType.INT32]));
+        const json = new TextEncoder().encode(JSON.stringify({ id: "a" }));
+        const data = new Uint8Array([LOW_PERF_SPECIAL_CHAR, ...json]);
+        const schema = z.object({ id: z.number() });
+        expect(() => codec.decode(data, schema, { label: "test response" })).toThrow(
+          /test response/,
+        );
+      });
+    });
+  });
+
   describe("websocket writer codec", () => {
     it("should correctly encode and decode a websocket write request", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
       const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
-      const writeReq: WriteRequest = {
-        command: WriterCommand.Write,
+      const writeReq: framer.WriteRequest = {
+        command: framer.WriterCommand.Write,
         frame: fr.toPayload(),
       };
-      const msg: WebsocketMessage<WriteRequest> = { type: "data", payload: writeReq };
+      const msg: WebsocketMessage<framer.WriteRequest> = {
+        type: "data",
+        payload: writeReq,
+      };
       const codec = new WSWriterCodec(baseCodec);
       const encoded = codec.encode(msg);
       expect(encoded[0]).toEqual(HIGH_PERF_SPECIAL_CHAR);
-      const decoded = codec.decode(encoded) as WebsocketMessage<WriteRequest>;
-      expect(decoded.payload?.command).toEqual(WriterCommand.Write);
-      const decodedFr = new Frame(decoded.payload?.frame);
+      const decoded = codec.decode(encoded) as WebsocketMessage<framer.WriteRequest>;
+      expect(decoded.payload?.command).toEqual(framer.WriterCommand.Write);
+      const decodedFr = new framer.Frame(decoded.payload?.frame);
       expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
     });
 
     it("should correctly e +d a WS write set authority request", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
-      const writeReq: WriteRequest = {
-        command: WriterCommand.SetAuthority,
+      const writeReq: framer.WriteRequest = {
+        command: framer.WriterCommand.SetAuthority,
         config: { authorities: [123] },
       };
       const codec = new WSWriterCodec(baseCodec);
-      const msg: WebsocketMessage<WriteRequest> = { type: "data", payload: writeReq };
+      const msg: WebsocketMessage<framer.WriteRequest> = {
+        type: "data",
+        payload: writeReq,
+      };
       const encoded = codec.encode(msg);
       expect(encoded[0]).toEqual(LOW_PERF_SPECIAL_CHAR);
       const decoded = codec.decode(encoded);
@@ -516,21 +555,23 @@ describe("encoder", () => {
       const codec = new WSIteratorCodec(baseCodec);
       const encoded = new Uint8Array(baseCodec.encode(fr.toPayload(), 1));
       encoded[0] = HIGH_PERF_SPECIAL_CHAR;
-      const decoded = codec.decode(encoded) as WebsocketMessage<IteratorResponse>;
-      expect(decoded.payload?.variant).toEqual(IteratorResponseVariant.Data);
-      const decodedFr = new Frame(decoded.payload?.frame);
+      const decoded = codec.decode(
+        encoded,
+      ) as WebsocketMessage<framer.IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(framer.IteratorResponseVariant.Data);
+      const decodedFr = new framer.Frame(decoded.payload?.frame);
       expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
     });
 
     it("should JSON-decode an ack variant response prefixed with the low-perf char", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
       const codec = new WSIteratorCodec(baseCodec);
-      const ackMsg: WebsocketMessage<IteratorResponse> = {
+      const ackMsg: WebsocketMessage<framer.IteratorResponse> = {
         type: "data",
         payload: {
-          variant: IteratorResponseVariant.Ack,
+          variant: framer.IteratorResponseVariant.Ack,
           ack: true,
-          command: IteratorCommand.Next,
+          command: framer.IteratorCommand.Next,
         },
       };
       // Simulate what the server sends: LOW_PERF_SPECIAL_CHAR + JSON-encoded message.
@@ -538,8 +579,10 @@ describe("encoder", () => {
       const encoded = new Uint8Array(json.byteLength + 1);
       encoded[0] = LOW_PERF_SPECIAL_CHAR;
       encoded.set(json, 1);
-      const decoded = codec.decode(encoded) as WebsocketMessage<IteratorResponse>;
-      expect(decoded.payload?.variant).toEqual(IteratorResponseVariant.Ack);
+      const decoded = codec.decode(
+        encoded,
+      ) as WebsocketMessage<framer.IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(framer.IteratorResponseVariant.Ack);
       expect(decoded.payload?.ack).toEqual(true);
     });
   });

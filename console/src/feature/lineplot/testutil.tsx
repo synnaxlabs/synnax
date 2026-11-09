@@ -82,7 +82,8 @@ export const renderLinePlot = async (
   Component: ComponentType,
   { linePlot: overrides, preloadedState, as = client }: RenderLinePlotOptions = {},
 ) => {
-  const created = await client.lineplots.create(await project(), {
+  const created = await client.lineplots.create({
+    project: await project(),
     name: "Test Plot",
     ...overrides,
   });
@@ -93,17 +94,22 @@ export const renderLinePlot = async (
   await loadLinePlot(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    lineplot.ontologyID(created.key),
+    lineplot.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
-  const result = render(
-    <PlutoPanel.Scope.Provider value={panelKey}>
-      <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Component />
-        <Modals.Stack />
-      </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper: Wrapper },
-  );
+  // React counts a `use` read as a suspend even when it is cached. A sync act leaves
+  // the work it queues unflushed.
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Component />
+          <Modals.Stack />
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
+      { wrapper: Wrapper },
+    );
+  });
   return { key: created.key, result, store };
 };

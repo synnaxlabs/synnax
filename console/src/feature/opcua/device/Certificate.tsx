@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/opcua/device/Certificate.css";
+
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import {
@@ -18,16 +20,23 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { Rack, Synnax } from "@synnaxlabs/pluto";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   type CertificateInfo,
   type CertificatesResponse,
@@ -35,18 +44,11 @@ import {
   GET_CERTIFICATE_COMMAND_TYPE,
   REGENERATE_CERTIFICATE_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
 const COMMAND_TIMEOUT = TimeSpan.seconds(10);
-
-const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
-  new ReadableStream({
-    start: (controller) => {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
 
 const PEM_ARMOR = /-----(BEGIN|END) CERTIFICATE-----|\s/g;
 
@@ -65,80 +67,120 @@ const formatThumbprint = (thumbprint: string): string =>
   thumbprint.match(/.{1,2}/g)?.join(":") ?? thumbprint;
 
 const formatExpiry = (notAfter: string): string =>
-  `Expires ${new TimeStamp(notAfter).toString("ISODate")}`;
+  new TimeStamp(notAfter).toString("ISODate");
 
 const executeCertificateCommand = async (
   client: Client,
   rack: rack.Key,
   type: string,
-): Promise<CertificatesResponse> => {
-  const scanTask = await retrieveScanTask(client, rack);
-  const res = await scanTask.executeCommandSync({
+): Promise<CertificatesResponse> =>
+  await executeScanCommand(client, rack, {
     type,
-    timeout: COMMAND_TIMEOUT,
     args: {},
+    schema: certificatesResponseZ,
+    timeout: COMMAND_TIMEOUT,
   });
-  if (res.variant === "error") throw status.toError(res);
-  return certificatesResponseZ.parse(res.details?.data);
-};
 
-interface DetailsProps extends PropsWithChildren {
-  title?: string;
-  subject?: string;
-  thumbprint: string;
-  notAfter?: string;
+interface DetailProps extends Description.ValueProps {
+  label: string;
 }
 
-const Details = ({
-  title,
-  subject,
+const Detail = ({ label, ...rest }: DetailProps): ReactElement => (
+  <Description.Item>
+    <Description.Label>{label}</Description.Label>
+    <Description.Value {...rest} />
+  </Description.Item>
+);
+
+interface CopyButtonProps {
+  thumbprint: string;
+  iconOnly?: boolean;
+}
+
+const CopyButton = ({
   thumbprint,
-  notAfter,
-  children,
-}: DetailsProps): ReactElement => (
-  <Flex.Box x align="center" justify="between" gap="medium">
-    <Flex.Box y gap="tiny">
-      {title != null && (
-        <Text.Text level="small" weight={500}>
-          {title}
-        </Text.Text>
-      )}
-      {subject != null && <Text.Text level="small">{subject}</Text.Text>}
-      <Text.Text level="small" variant="code">
-        {formatThumbprint(thumbprint)}
-      </Text.Text>
-      {notAfter != null && (
-        <Text.Text level="small" color={9}>
-          {formatExpiry(notAfter)}
-        </Text.Text>
-      )}
+  iconOnly = false,
+}: CopyButtonProps): ReactElement => (
+  <Button.Copy
+    text={thumbprint}
+    size="small"
+    variant="text"
+    textColor={9}
+    tooltip={iconOnly ? "Copy thumbprint" : undefined}
+  >
+    {iconOnly ? null : "Copy thumbprint"}
+  </Button.Copy>
+);
+
+interface CardProps extends PropsWithChildren {
+  actions: ReactNode;
+}
+
+/** A certificate on one line, with icon buttons at its end. */
+const InlineCard = ({ children, actions }: CardProps): ReactElement => (
+  <Flex.Box
+    x
+    gap="medium"
+    align="center"
+    justify="between"
+    bordered
+    borderColor={6}
+    rounded="small"
+    background={1}
+    className={CSS.cls(CSS.B("opc-certificate"), CSS.BM("opc-certificate", "inline"))}
+  >
+    {children}
+    <Flex.Box x gap="small" align="center">
+      {actions}
     </Flex.Box>
-    {children != null && (
-      <Flex.Box x gap="small">
-        {children}
-      </Flex.Box>
-    )}
   </Flex.Box>
+);
+
+const Card = ({ children, actions }: CardProps): ReactElement => (
+  <Flex.Box
+    y
+    gap="medium"
+    bordered
+    borderColor={6}
+    rounded="small"
+    background={1}
+    className={CSS.B("opc-certificate")}
+  >
+    {children}
+    <Flex.Box x gap="small" align="center" justify="end">
+      {actions}
+    </Flex.Box>
+  </Flex.Box>
+);
+
+interface ThumbprintDetailProps {
+  value: string;
+}
+
+const ThumbprintDetail = ({ value }: ThumbprintDetailProps): ReactElement => (
+  <Detail
+    label="Thumbprint"
+    variant="code"
+    className={CSS.BE("opc-certificate", "value")}
+  >
+    {formatThumbprint(value)}
+  </Detail>
+);
+
+const Note = ({ children }: PropsWithChildren): ReactElement => (
+  <Text.Text level="small" color={9}>
+    {children}
+  </Text.Text>
 );
 
 type CertificatesState =
   | { rack: rack.Key; variant: "success"; certificates: CertificatesResponse }
   | { rack: rack.Key; variant: "error"; status: status.Status };
 
-export interface DriverCertificateProps {
-  rack: rack.Key;
-}
-
-/**
- * Shows the certificate the Driver on the rack presents to servers, with actions to
- * download it and to regenerate it.
- */
-export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElement => {
+const useCertificates = (rack: rack.Key) => {
   const client = Synnax.use();
-  const confirm = Modals.useConfirm();
-  const download = Runtime.useDownload();
-  const handleError = Status.useErrorHandler();
   const [state, setState] = useState<CertificatesState | null>(null);
+  const [loads, setLoads] = useState(0);
   useAsyncEffect(
     async (signal) => {
       if (client == null || rack === 0) return;
@@ -159,78 +201,220 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
       }
       if (!signal.aborted) setState(next);
     },
-    [client, rack],
+    [client, rack, loads],
   );
-  if (rack === 0)
-    return (
-      <Input.HelpText>Select a rack to show its Driver certificate.</Input.HelpText>
-    );
-  if (state?.rack !== rack)
-    return <Input.HelpText>Loading the Driver certificate</Input.HelpText>;
-  if (state.variant === "error") return <Status.Summary status={state.status} />;
-  const { current, next } = state.certificates;
-  const handleDownload = (certificate: CertificateInfo, name: string) =>
+  return {
+    state: state?.rack === rack ? state : null,
+    setState,
+    reload: () => setLoads((n) => n + 1),
+  };
+};
+
+const useDownloadCertificate = () => {
+  const download = Runtime.useDownload();
+  const handleError = Status.useErrorHandler();
+  return (certificate: CertificateInfo, name: string) =>
     handleError(
       async () =>
         await download({
-          stream: toStream(toDER(certificate.pem)),
+          stream: Runtime.toStream(toDER(certificate.pem)),
           name,
           extension: "der",
         }),
       "Failed to download the Driver certificate",
     );
-  const handleRegenerate = () =>
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const confirmed = await confirm({
-        message: "Are you sure you want to regenerate the Driver certificate?",
-        description:
-          "Every server must trust the new certificate before the Driver can connect to it again.",
-        confirm: { label: "Regenerate" },
-      });
-      if (confirmed !== true) return;
-      const certificates = await executeCertificateCommand(
-        client,
-        rack,
-        REGENERATE_CERTIFICATE_COMMAND_TYPE,
-      );
-      setState({ rack, variant: "success", certificates });
-    }, "Failed to regenerate the Driver certificate");
+};
+
+interface DriverCertificateCardProps {
+  certificate: CertificateInfo;
+  /** The name of the downloaded file, without its extension. */
+  fileName: string;
+}
+
+const DriverCertificateCard = ({
+  certificate,
+  fileName,
+}: DriverCertificateCardProps): ReactElement => {
+  const downloadCertificate = useDownloadCertificate();
   return (
-    <Flex.Box y gap="small">
-      <Details thumbprint={current.thumbprint} notAfter={current.notAfter}>
-        <Button.Button
-          size="small"
-          variant="text"
-          tooltip="Download as DER"
-          onClick={() => handleDownload(current, "driver")}
-        >
-          <Icon.Download />
-          Download
-        </Button.Button>
-        <Button.Button size="small" variant="text" onClick={handleRegenerate}>
-          <Icon.Refresh />
-          Regenerate
-        </Button.Button>
-      </Details>
-      {next != null && (
-        <Details
-          title="Next certificate"
-          thumbprint={next.thumbprint}
-          notAfter={next.notAfter}
-        >
+    <Card
+      actions={
+        <>
+          <CopyButton thumbprint={certificate.thumbprint} />
           <Button.Button
             size="small"
             variant="text"
+            textColor={9}
             tooltip="Download as DER"
-            onClick={() => handleDownload(next, "driver-next")}
+            onClick={() => downloadCertificate(certificate, fileName)}
           >
             <Icon.Download />
             Download
           </Button.Button>
-        </Details>
-      )}
-    </Flex.Box>
+        </>
+      }
+    >
+      <Description.List level="small">
+        <ThumbprintDetail value={certificate.thumbprint} />
+        <Detail label="Expires">{formatExpiry(certificate.notAfter)}</Detail>
+      </Description.List>
+    </Card>
+  );
+};
+
+const REGENERATE_FAILED = "Failed to regenerate the Driver certificate";
+
+interface DriverCertificateModalParams {
+  rackKey: rack.Key;
+}
+
+const DriverCertificateModal = ({
+  rackKey,
+}: Modals.ContentProps<DriverCertificateModalParams, void>): ReactElement => {
+  const client = Synnax.use();
+  const confirm = Modals.useConfirm();
+  const handleError = Status.useErrorHandler();
+  const [regenerating, setRegenerating] = useState(false);
+  Rack.useEnsure({ key: rackKey });
+  const rackName = Rack.useName({ key: rackKey });
+  const { state, setState } = useCertificates(rackKey);
+  const certificates = state?.variant === "success" ? state.certificates : null;
+  const current = certificates?.current;
+  const renewal = certificates?.next;
+  const handleRegenerate = () =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const confirmed = await confirm({
+        message: "Regenerate Driver certificate",
+        description:
+          "Each server must trust the new certificate before the Driver can connect to it again.",
+        confirm: { label: "Regenerate" },
+      });
+      if (confirmed !== true) return;
+      setRegenerating(true);
+      try {
+        const next = await executeCertificateCommand(
+          client,
+          rackKey,
+          REGENERATE_CERTIFICATE_COMMAND_TYPE,
+        );
+        setState({ rack: rackKey, variant: "success", certificates: next });
+      } catch (e) {
+        handleError(e, REGENERATE_FAILED);
+      }
+      setRegenerating(false);
+    }, REGENERATE_FAILED);
+  let body: ReactElement;
+  if (state == null) body = <Note>Loading the Driver certificate</Note>;
+  else if (state.variant === "error") body = <Status.Summary status={state.status} />;
+  else
+    body = (
+      <>
+        <Text.Text color={9}>
+          The Driver presents this certificate to each OPC UA server that it connects to
+          with security.
+        </Text.Text>
+        <DriverCertificateCard
+          certificate={state.certificates.current}
+          fileName="driver"
+        />
+        {renewal != null && (
+          <Flex.Box y gap="medium">
+            <Text.Text level="h5" weight={500} color={11}>
+              Renewal
+            </Text.Text>
+            <Text.Text color={9}>
+              The Driver uses this certificate when every server trusts it. Add it to
+              each server that does not accept it automatically.
+            </Text.Text>
+            <DriverCertificateCard certificate={renewal} fileName="driver-renewal" />
+          </Flex.Box>
+        )}
+      </>
+    );
+
+  return (
+    <Modal.Frame className={CSS.B("opc-driver-certificate")}>
+      <Modal.Header icon={<Icon.Logo.OPCUA />}>
+        {[rackName ?? "Driver", "OPC UA Driver certificate"]}
+      </Modal.Header>
+      <Modal.Body gap="large">{body}</Modal.Body>
+      <Modal.Footer>
+        <Nav.Bar.End gap="small">
+          <Button.Button
+            variant="outlined"
+            disabled={current == null}
+            status={regenerating ? "loading" : undefined}
+            onClick={handleRegenerate}
+          >
+            <Icon.Refresh />
+            Regenerate
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+/**
+ * Opens the certificate that the Driver on a rack presents to OPC UA servers, with
+ * actions to download it and to regenerate it.
+ */
+export const useDriverCertificateModal = Modals.createPrompt<
+  void,
+  DriverCertificateModalParams
+>(DriverCertificateModal);
+
+export interface DriverCertificateProps {
+  rack: rack.Key;
+}
+
+/**
+ * Shows the thumbprint of the certificate the Driver on the rack presents to servers,
+ * with actions to copy it, download it, and open the Driver certificate.
+ */
+export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElement => {
+  const { state, reload } = useCertificates(rack);
+  const downloadCertificate = useDownloadCertificate();
+  const openModal = useDriverCertificateModal();
+  if (rack === 0)
+    return <Note>Select where to connect from to show its certificate.</Note>;
+  if (state == null) return <Note>Loading the Driver certificate</Note>;
+  if (state.variant === "error") return <Status.Summary status={state.status} />;
+  const { current } = state.certificates;
+  const handleManage = () => {
+    void openModal({ rackKey: rack }).then(reload);
+  };
+  return (
+    <InlineCard
+      actions={
+        <>
+          <CopyButton thumbprint={current.thumbprint} iconOnly />
+          <Button.Button
+            size="small"
+            variant="text"
+            textColor={9}
+            tooltip="Download as DER"
+            onClick={() => downloadCertificate(current, "driver")}
+          >
+            <Icon.Download />
+          </Button.Button>
+          <Button.Button
+            size="small"
+            variant="text"
+            textColor={9}
+            tooltip="Manage"
+            onClick={handleManage}
+          >
+            <Icon.Settings />
+          </Button.Button>
+        </>
+      }
+    >
+      <Description.List level="small">
+        <ThumbprintDetail value={current.thumbprint} />
+      </Description.List>
+    </InlineCard>
   );
 };
 
@@ -242,42 +426,54 @@ export interface ServerCertificateProps {
   onTrust: (offer: CertificateInfo) => void;
 }
 
+const NO_CERTIFICATE_NOTE = "No certificate yet. Connect to get one from the server.";
+
+const TRUSTED_NOTE = "The device trusts this certificate.";
+
+const OFFER_NOTE =
+  "The server sent this certificate. Compare its thumbprint with the certificate on the server, then trust it.";
+
+const CHANGED_NOTE =
+  "The server sent a different certificate. Compare its thumbprint with the certificate on the server, then trust it.";
+
 /** Shows the server certificate the device trusts, and offers one the server sent. */
 export const ServerCertificate = ({
   pem,
   offer,
   onTrust,
 }: ServerCertificateProps): ReactElement => {
-  let pinned: ReactElement;
-  if (pem === "") pinned = <Text.Text level="small">Not trusted</Text.Text>;
-  else {
-    const value = readThumbprint(pem);
-    pinned =
-      typeof value === "string" ? (
-        <Details thumbprint={value} />
-      ) : (
-        <Status.Summary status={value} />
-      );
-  }
+  const pinned = pem === "" ? null : readThumbprint(pem);
+  let note = pinned == null ? NO_CERTIFICATE_NOTE : TRUSTED_NOTE;
+  if (offer != null) note = pinned == null ? OFFER_NOTE : CHANGED_NOTE;
   return (
-    <Flex.Box y gap="small">
-      {pinned}
+    <Flex.Box y gap={2}>
+      <Text.Text level="small" color={9} className={CSS.BE("opc-certificate", "line")}>
+        {note}
+      </Text.Text>
+      {typeof pinned === "string" && (
+        <InlineCard actions={<CopyButton thumbprint={pinned} iconOnly />}>
+          <Description.List level="small">
+            <ThumbprintDetail value={pinned} />
+          </Description.List>
+        </InlineCard>
+      )}
+      {pinned != null && typeof pinned !== "string" && (
+        <Status.Summary status={pinned} />
+      )}
       {offer != null && (
-        <Details
-          title="The server sent this certificate"
-          subject={offer.subject}
-          thumbprint={offer.thumbprint}
-          notAfter={offer.notAfter}
+        <Card
+          actions={
+            <Button.Button size="small" variant="filled" onClick={() => onTrust(offer)}>
+              Trust and connect
+            </Button.Button>
+          }
         >
-          <Button.Button
-            size="small"
-            variant="filled"
-            tooltip="Compare the thumbprint with the server before you trust it"
-            onClick={() => onTrust(offer)}
-          >
-            Trust
-          </Button.Button>
-        </Details>
+          <Description.List level="small">
+            <Detail label="Subject">{offer.subject}</Detail>
+            <ThumbprintDetail value={offer.thumbprint} />
+            <Detail label="Expires">{formatExpiry(offer.notAfter)}</Detail>
+          </Description.List>
+        </Card>
       )}
     </Flex.Box>
   );

@@ -33,11 +33,14 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
     };
     ASSERT_NIL(rack.tasks.create(scanner));
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(client);
     auto tasks = factory->configure_initial_tasks(ctx, rack);
     for (const auto &[_, tsk]: tasks)
-        tsk->stop(false);
+        if (tsk != nullptr) tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
 }
 
@@ -45,12 +48,12 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
 /// it.
 TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
     Config cfg{
-        .connection = test_client_config,
+        .connection = test_client_config(),
         .integrations = {labjack::INTEGRATION_NAME, http::INTEGRATION_NAME},
     };
     ASSERT_NIL(cfg.enroll());
     ASSERT_NIL(cfg.load_remote());
-    const auto client = synnax::Synnax(test_client_config);
+    const auto client = synnax::Synnax(test_client_config());
     const auto rack = ASSERT_NIL_P(client.racks.retrieve(cfg.rack.key));
     EXPECT_EQ(rack.integrations, std::vector<std::string>{http::INTEGRATION_NAME});
 }
@@ -58,7 +61,10 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
 /// @brief it should fail a start of a LabJack task and name the platforms that run it.
 TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -76,5 +82,31 @@ TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
         "or macOS."
     );
     EXPECT_EQ(statuses[0].details.cmd, "start-cmd");
+}
+
+/// @brief it should name the platforms that run LabJack, not the Core version, when a
+/// LabJack task starts on a Driver whose Core runs another minor.
+TEST(RackFactoriesTest, IncompatibleCoreLabJackTaskNamesThePlatforms) {
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto [tsk, handled] = factory->configure_task(
+        ctx,
+        synnax::task::Task{.name = "t", .type = labjack::READ_TASK_TYPE},
+        "start-cmd"
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(
+        statuses[0].description,
+        "LabJack tasks do not run on Linux. Connect the device from a Driver on Windows "
+        "or macOS."
+    );
 }
 }

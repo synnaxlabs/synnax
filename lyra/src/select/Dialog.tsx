@@ -20,10 +20,11 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
+import { Input } from "@/input";
 import { ClosedContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Omit<BaseDialog.DialogProps, "passthrough"> {}
+export interface DialogProps extends BaseDialog.DialogProps {}
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
 const getSnapshot = (): boolean => true;
@@ -43,14 +44,15 @@ export const Dialog = ({ className, children, ...rest }: DialogProps): ReactNode
   const { visible } = BaseDialog.useContext();
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  if (!visible) return hydrated && <Closed>{children}</Closed>;
+  const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
+  if (!visible) return hydrated && <Closed>{content}</Closed>;
   return (
     <BaseDialog.Dialog
       {...rest}
       className={CSS.cls(CSS.BE("select", "dialog"), className)}
       bordered={false}
     >
-      {children}
+      {content}
     </BaseDialog.Dialog>
   );
 };

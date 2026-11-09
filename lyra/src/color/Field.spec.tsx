@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -20,6 +20,8 @@ import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
 const schema = z.object({ color: color.colorZ.optional() });
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const RED = "#ff0000";
 const BLUE = "#0000ff";
@@ -39,7 +41,7 @@ const Harness = ({ values, onChange }: HarnessProps): ReactElement => {
     <Triggers.Provider>
       <Theming.Provider>
         <Form.Form<typeof schema> {...methods}>
-          <Color.Field path="color" fallback={RED} />
+          <Color.Field path={path.color} fallback={RED} />
         </Form.Form>
       </Theming.Provider>
     </Triggers.Provider>

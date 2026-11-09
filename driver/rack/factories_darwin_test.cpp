@@ -33,23 +33,26 @@ TEST(RackFactoriesTest, DeletesLegacyNIScanner) {
     };
     ASSERT_NIL(rack.tasks.create(scanner));
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(client);
     auto tasks = factory->configure_initial_tasks(ctx, rack);
     for (const auto &[_, tsk]: tasks)
-        tsk->stop(false);
+        if (tsk != nullptr) tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should leave NI out of the rack's integrations when a config names it.
 TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
     Config cfg{
-        .connection = test_client_config,
+        .connection = test_client_config(),
         .integrations = {ni::INTEGRATION_NAME, http::INTEGRATION_NAME},
     };
     ASSERT_NIL(cfg.enroll());
     ASSERT_NIL(cfg.load_remote());
-    const auto client = synnax::Synnax(test_client_config);
+    const auto client = synnax::Synnax(test_client_config());
     const auto rack = ASSERT_NIL_P(client.racks.retrieve(cfg.rack.key));
     EXPECT_EQ(rack.integrations, std::vector<std::string>{http::INTEGRATION_NAME});
 }
@@ -57,7 +60,10 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
 /// @brief it should fail a start of an NI task and name the platforms that run it.
 TEST(RackFactoriesTest, NITaskNamesThePlatforms) {
     const Config cfg;
-    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto [tsk, handled] = factory->configure_task(
         ctx,

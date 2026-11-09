@@ -71,7 +71,7 @@ func (p *Plugin) processUnion(
 			HasExtends: true,
 			Fields:     make([]fieldData, 0),
 		}
-		inherited, declared := resolver.VariantBases(form, v, data.table)
+		inherited, declared := resolver.VariantBases(form, v, "cpp", data.table)
 		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(data.table); ok {
 				s.ParentTypes = append(s.ParentTypes, parentTypeData{

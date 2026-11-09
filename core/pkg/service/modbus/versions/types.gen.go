@@ -22,7 +22,11 @@ type BaseReadChannel = v2.BaseReadChannel
 // ReadChannel is a single Modbus read channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
 type ReadChannel = v2.ReadChannel
+
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant = v2.ReadChannelVariant
+
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType = v2.ReadChannelType
 
 const (
@@ -66,7 +70,11 @@ type BaseWriteChannel = v2.BaseWriteChannel
 // WriteChannel is a single Modbus write channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
 type WriteChannel = v2.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant = v2.WriteChannelVariant
+
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType = v2.WriteChannelType
 
 const (

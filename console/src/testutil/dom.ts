@@ -112,8 +112,8 @@ export const getBySelector = <E extends Element = Element>(
 };
 
 /** Finds the pluto input item element labeled with labelText in the document. */
-export const getInputItem = (labelText: string): Element => {
-  const item = screen.getByText(labelText).closest(".lyra-input__item");
+export const getInputItem = (labelText: string): HTMLElement => {
+  const item = screen.getByText(labelText).closest<HTMLElement>(".lyra-input__item");
   if (item == null) throw new Error(`no input item wraps label ${labelText}`);
   return item;
 };
@@ -124,6 +124,14 @@ export const getInputItem = (labelText: string): Element => {
  */
 export const getLabeledInput = (labelText: string): HTMLInputElement =>
   getBySelector<HTMLInputElement>(getInputItem(labelText), "input");
+
+/**
+ * Hides the name of a collapsible select trigger, as a narrow layout does. jsdom
+ * applies no stylesheets, so the trigger otherwise always fits its name.
+ */
+export const collapseSelectTrigger = (trigger: HTMLElement): void => {
+  getBySelector<HTMLElement>(trigger, ".lyra-select__label").style.display = "none";
+};
 
 /**
  * Waits for the live dialog trigger of the mounted select whose current value renders

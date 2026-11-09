@@ -256,7 +256,7 @@ class RangeLifecycle(ConsoleCase):
         plot_name = f"TestPlot_{self.rand_suffix}"
         plot = self.console.pages.create(Plot, plot_name)
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", "sy_node_1_metrics_cpu_percentage")
+        plot.add_channels("y1", "sy_node_1_metrics_cpu_percentage")
         self.console.layout.hide_visualization_toolbar()
         self.console.ranges.toolbar.add_to_active_plot(self.range_name)
         self.console.layout.close_tab(plot_name)
@@ -288,13 +288,12 @@ class RangeLifecycle(ConsoleCase):
 
         # The overview form autosaves on a debounce, so poll until the last
         # edit reaches the server before asserting.
-        for _ in range(10):
-            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-            start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
-            end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
-            if end_utc.day == 2:
-                break
-            sy.sleep(0.5)
+        rng = self.wait_for_range(
+            self.labeled_range_name,
+            done=lambda r: sy.TimeStamp(r.time_range.end).datetime(UTC).day == 2,
+        )
+        start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
+        end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
         assert start_utc.year == 2024, (
             f"Start year should be 2024, got {start_utc.year}"
         )
@@ -327,25 +326,27 @@ class RangeLifecycle(ConsoleCase):
     def retrieve_renamed(self, name: str) -> sy.Range:
         """Retrieve a range by its new name, polling while the debounced
         autosave of the rename lands."""
-        for _ in range(10):
+
+        def retrieve() -> sy.Range | None:
             try:
                 return self.client.ranges.retrieve(name=name)
             except sy.NotFoundError:
-                sy.sleep(0.5)
-        return self.client.ranges.retrieve(name=name)
+                return None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def assert_range_spans_now(self, name: str) -> None:
         """Poll until the range's time range spans now.
 
         Stage edits autosave on a debounce, so an immediate read races them.
         """
+
+        def spans_now(rng: sy.Range) -> bool:
+            return rng.time_range.start < int(sy.TimeStamp.now()) < rng.time_range.end
+
+        rng = self.wait_for_range(name, done=spans_now)
         now = int(sy.TimeStamp.now())
-        for _ in range(10):
-            rng = self.client.ranges.retrieve(name=name)
-            now = int(sy.TimeStamp.now())
-            if rng.time_range.start < now < rng.time_range.end:
-                break
-            sy.sleep(0.5)
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
 
@@ -365,13 +366,13 @@ class RangeLifecycle(ConsoleCase):
     ) -> sy.Range:
         """Poll until the range satisfies ``done``, since overview edits
         autosave on a debounce."""
-        rng = self.client.ranges.retrieve(name=name)
-        for _ in range(10):
-            if done(rng):
-                break
-            sy.sleep(0.5)
+
+        def retrieve() -> sy.Range | None:
             rng = self.client.ranges.retrieve(name=name)
-        return rng
+            return rng if done(rng) else None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def test_set_planned_end_in_overview(self) -> None:
         """Test setting a planned end on a running range in the overview."""
@@ -516,7 +517,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_python_code()
         notifications = self.console.notifications.check(timeout=10)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied Python code to clipboard" in messages, (
             "Should show Python code copied notification"
         )
@@ -532,7 +533,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_typescript_code()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied TypeScript code to clipboard" in messages, (
             "Should show TypeScript code copied notification"
         )
@@ -548,7 +549,7 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.copy_link()
         notifications = self.console.notifications.check(timeout=2)
-        messages = [n.get("message", "") for n in notifications]
+        messages = [n.message for n in notifications]
         assert "Copied link to clipboard" in messages, (
             "Should show link copied notification"
         )

@@ -7,8 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import TypedDict
+
 from console.layout import LayoutClient
-from console.task.channels.utils import is_numeric_string
+from console.task.channels.labels import label as console_label
+from console.task.channels.utils import get_port, is_numeric_string, set_port
+
+
+class Options(TypedDict, total=False):
+    """Options that every counter channel type accepts."""
+
+    port: int | None
+    min_val: float | None
+    max_val: float | None
 
 
 class Counter:
@@ -21,10 +32,10 @@ class Counter:
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         chan_type: str,
         port: int | None = None,
         min_val: float | None = None,
@@ -33,14 +44,13 @@ class Counter:
         """
         Initialize counter read channel with common configuration.
 
-        Args:
-            layout: LayoutClient for UI operations
-            name: Channel name
-            device: Device identifier
-            chan_type: Channel type (e.g., "Edge count", "Frequency")
-            port: Physical port number
-            min_val: Minimum value
-            max_val: Maximum value
+        :param layout: LayoutClient for UI operations
+        :param name: Channel name
+        :param device: Device identifier
+        :param chan_type: Channel type (e.g., "Edge count", "Frequency")
+        :param port: Physical port number
+        :param min_val: Minimum value
+        :param max_val: Maximum value
         """
         self.layout = layout
         self.device = device
@@ -60,10 +70,10 @@ class Counter:
 
         # Optional configurations
         if port is not None:
-            layout.fill_input_field("Port", str(port))
+            set_port(layout, port)
             values["Port"] = str(port)
         else:
-            values["Port"] = layout.get_input_field("Port")
+            values["Port"] = get_port(layout)
 
         # Min/Max values (not all counter types have these)
         if min_val is not None:
@@ -90,6 +100,8 @@ class Counter:
             actual_value: str | bool
             if isinstance(expected_value, bool):
                 actual_value = self.layout.get_toggle(key)
+            elif key == "Port":
+                actual_value = get_port(self.layout)
             elif is_numeric_string(expected_value):
                 # Match by accessible name: range inputs have no visible label.
                 actual_value = self.layout.page.get_by_label(
@@ -116,12 +128,12 @@ class Counter:
     ) -> None:
         """Configure a dropdown field.
 
-        Args:
-            label: The UI label for the dropdown
-            value: The value to select, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the dropdown
+        :param value: The value to select, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
+            value = console_label(value)
             self.layout.click_btn(label)
             self.layout.select_from_dropdown(
                 value, reopen=lambda: self.layout.click_btn(label)
@@ -140,10 +152,9 @@ class Counter:
     ) -> None:
         """Configure an input field.
 
-        Args:
-            label: The UI label for the input field
-            value: The value to set, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the input field
+        :param value: The value to set, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             self.layout.fill_input_field(label, str(value))
@@ -163,10 +174,9 @@ class Counter:
     ) -> None:
         """Configure a toggle/checkbox field.
 
-        Args:
-            label: The UI label for the toggle
-            value: The desired state, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the toggle
+        :param value: The desired state, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             current = self.layout.get_toggle(label)

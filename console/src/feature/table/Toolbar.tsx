@@ -38,11 +38,13 @@ import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
+const path = deep.path<{ variant: Table.Cell.Variant }>();
+
 const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
@@ -60,10 +62,10 @@ const Internal = (): ReactElement => {
       <Base.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Base.TitleSegment>
               <Icon.Table />
               {name}
-            </Breadcrumb.Segment>
+            </Base.TitleSegment>
             {selectedCellPos != null && (
               <Breadcrumb.Segment color={9}>
                 Cell {Table.getCellColumn(selectedCellPos.x)}
@@ -79,8 +81,8 @@ const Internal = (): ReactElement => {
           )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
-          <Export.ToolbarButton id={table.ontologyID(key)} />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
+          <Export.ToolbarButton id={table.resourceID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={table.resourceID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
@@ -160,35 +162,17 @@ interface CellFormProps {
   cellKey: string;
 }
 
-const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
-  const cell = Table.useCell({ cellKey });
-  const dispatch = Table.useSingleDispatch();
+const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
   const key = Table.useKey();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Table.useSelectPropertiesTab({ key });
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
-
-  const handleChange = ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
-    if (cell == null) return;
-    dispatch([
-      table.setCell({
-        cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
-      }),
-    ]);
-  };
-
-  const methods = Form.use<typeof Table.Cell.configZ>({
-    values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
-    schema: Table.Cell.configZ,
-    onChange: handleChange,
-    sync: true,
-  });
-
-  if (cell == null) return null;
-  const C = Table.Cell.REGISTRY[cell.variant];
+  const { form } = Table.useCellForm({ cellKey });
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
+  const C = Table.Cell.REGISTRY[variant];
   return (
-    <Form.Form<typeof Table.Cell.configZ> {...methods}>
+    <Form.Form<typeof Table.Cell.configZ> {...form}>
       <C.Form tab={tab} onTabChange={handleTabChange} />
     </Form.Form>
   );
@@ -207,7 +191,7 @@ interface NotEditableContentProps {
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
   const key = Table.useKey();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   return (
     <Empty.Action
       message={`${name} is not editable`}
@@ -237,8 +221,8 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     fields: FIELDS,
     onChange: (updates) =>
       dispatch(
-        updates.map(([key, config]) =>
-          table.setCell({ cell: { key, config: Table.Cell.configZ.parse(config) } }),
+        updates.flatMap(({ key, base, next }) =>
+          table.setChanged({ key, base, next: Table.Cell.configZ.parse(next) }),
         ),
       ),
   });

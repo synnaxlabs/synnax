@@ -32,7 +32,7 @@ class TestDispatchAgentTask:
     ) -> None:
         result = fake_github.run(*args)
         assert result.returncode == 2
-        assert fake_github.gh_calls() == []
+        assert fake_github.gh.calls() == []
 
     def test_should_print_payload_and_send_nothing_on_dry_run(
         self, fake_github: FakeGitHub
@@ -42,7 +42,7 @@ class TestDispatchAgentTask:
         assert "issue=SY-42" in result.stdout
         assert "agent=codex" in result.stdout
         assert "prompt=Work on Linear issue SY-42." in result.stdout
-        assert fake_github.gh_calls() == []
+        assert fake_github.gh.calls() == []
 
     def test_should_send_dispatch_and_print_matching_run(
         self, fake_github: FakeGitHub
@@ -55,7 +55,7 @@ class TestDispatchAgentTask:
         result = fake_github.run("SY-42")
         assert result.returncode == 0
         assert "Run: match" in result.stdout
-        send = fake_github.gh_calls()[0]
+        send = fake_github.gh.calls()[0]
         assert send[:4] == [
             "api",
             "repos/synnaxlabs/synnax/dispatches",
@@ -74,4 +74,4 @@ class TestDispatchAgentTask:
         result = fake_github.run("SY-42")
         assert result.returncode == 0
         assert "No run found yet" in result.stdout
-        assert len(fake_github.gh_calls()) == 13
+        assert len(fake_github.gh.calls()) == 13

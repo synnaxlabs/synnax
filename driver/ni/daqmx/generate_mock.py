@@ -48,9 +48,10 @@ HEADER = """\
 #include "driver/ni/daqmx/api.h"
 
 namespace driver::ni::daqmx {
-/// @brief a mock DAQmx API that records every call and its scalar/string
-/// arguments as JSON for assertion in tests. All calls succeed.
-class MockAPI final : public API {
+/// @brief a mock DAQmx API that records every call and its scalar/string arguments as
+/// JSON for assertion in tests. All calls succeed. A test that needs filled buffers
+/// derives from it and overrides those calls.
+class MockAPI : public API {
 public:
     /// @brief one entry per API call, in call order: {"fn": name, "args": {...}}.
     std::vector<nlohmann::json> calls;

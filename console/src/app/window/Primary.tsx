@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { Link } from "@/app/link";
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
+import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Guard } from "@/app/window/Guard";
 import { Device } from "@/feature/device";
@@ -26,6 +27,7 @@ import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
+  Notifications.useForward();
   Link.useDeep();
   Persist.useStoreStatus();
   Triggers.use();
@@ -41,8 +43,8 @@ const ProjectSideEffect = (): null => {
 };
 
 /**
- * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigable as possible.
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep
+ * this component as simple, presentational, and navigable as possible.
  */
 export const Primary = (): ReactElement => {
   const os = OS.use();

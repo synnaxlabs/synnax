@@ -56,6 +56,17 @@ cc_test(
     srcs = ["mock_test.cpp"],
     deps = [
         ":mock",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sugared_test",
+    srcs = ["sugared_test.cpp"],
+    deps = [
+        ":mock",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

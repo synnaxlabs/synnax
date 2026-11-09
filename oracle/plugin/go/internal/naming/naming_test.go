@@ -33,6 +33,11 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym at start", "id", "ID"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
+		Entry("word starting with an acronym", "slave", "Slave"),
+		Entry("word containing an acronym", "ratio", "Ratio"),
+		Entry("plural acronym", "ids", "IDs"),
+		Entry("acronym with a digit suffix", "iso8601", "ISO8601"),
+		Entry("utf8 acronym", "utf8", "UTF8"),
 	)
 
 	DescribeTable("should pass screaming-case identifiers through unchanged",
@@ -111,6 +116,15 @@ var _ = Describe("DerivePackageAlias", func() {
 		Expect(
 			naming.DerivePackageAlias("arc/go/types/versions/v1", "v2"),
 		).To(Equal("types"))
+	})
+
+	It("should alias only the version packages under a legacy directory", func() {
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/legacy/device", "modbus"),
+		).To(Equal("device"))
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/task/legacy/v1", "task"),
+		).To(Equal("task"))
 	})
 })
 

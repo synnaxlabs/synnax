@@ -13,6 +13,8 @@ import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
+_STATUS_CLASS_PREFIX = "lyra--status-"
+
 _CHANNEL_LIST_SELECTOR = ".console-channel-list"
 
 
@@ -58,6 +60,12 @@ class TaskPage(ConsolePage):
         controls = self._pane().locator(".console-task-controls").first
         controls.wait_for(state="visible", timeout=5000)
         return controls
+
+    def _set_setting(self, label: str, on: bool) -> None:
+        """Set a task-wide setting with its toggle in the controls footer."""
+        toggle = self._controls().get_by_role("button", name=label, exact=True)
+        if (toggle.get_attribute("aria-pressed") == "true") != on:
+            toggle.click()
 
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
@@ -127,27 +135,27 @@ class TaskPage(ConsolePage):
         msg.wait_for(state="visible", timeout=timeout)
         return msg.inner_text().strip()
 
-    def wait_for_status_level(
+    def wait_for_status_variant(
         self,
-        levels: tuple[str, ...],
+        variants: tuple[sy.status.Variant, ...],
         *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
-    ) -> dict[str, str]:
-        """Poll the status box until its level is one of ``levels``.
+    ) -> sy.Status:
+        """Poll the status box until its variant is one of ``variants``.
 
-        :param levels: Accepted status levels, e.g. ``("error", "warning")``.
+        :param variants: Accepted status variants, e.g. ``("error", "warning")``.
         :param timeout: Maximum time to wait.
         :returns: The matching status, as returned by ``status()``.
         """
         timer = sy.Timer()
         while True:
             status = self.status()
-            if status["level"] in levels:
+            if status.variant in variants:
                 return status
             if timer.elapsed() > timeout:
                 raise AssertionError(
-                    f"Task status level stayed '{status['level']}' "
-                    f"('{status['msg']}'), expected one of {levels}"
+                    f"Task status variant stayed '{status.variant}' "
+                    f"('{status.message}'), expected one of {variants}"
                 )
             sy.sleep(0.25)
 
@@ -171,32 +179,23 @@ class TaskPage(ConsolePage):
         help_text.wait_for(state="visible", timeout=5000)
         return help_text.inner_text().strip()
 
-    def status(self) -> dict[str, str]:
-        """Get the current status information from the task status box.
-
-        Returns:
-            Dictionary containing:
-                - msg: The status message (e.g., "Task has not been configured")
-                - level: The alert level (e.g., "disabled", "info", "success", "error")
-        """
+    def status(self) -> sy.Status:
+        """Return the variant and message in the task status box."""
         status_element = (
             self._controls().locator(".console-task-status__message-text").first
         )
-
-        # Parse status level from CSS class
-        class_attr = status_element.get_attribute("class") or ""
-        level = "unknown"
-        for cls in class_attr.split():
-            if cls.startswith("lyra--status-"):
-                level = cls.replace("lyra--status-", "")
-                break
-
-        msg = status_element.inner_text()
-
-        return {
-            "msg": msg,
-            "level": level,
-        }
+        classes = (status_element.get_attribute("class") or "").split()
+        variant = next(
+            (
+                cls.removeprefix(_STATUS_CLASS_PREFIX)
+                for cls in classes
+                if cls.startswith(_STATUS_CLASS_PREFIX)
+            ),
+            None,
+        )
+        return sy.Status.model_validate(
+            {"variant": variant, "message": status_element.inner_text()}
+        )
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""
@@ -207,8 +206,7 @@ class TaskPage(ConsolePage):
     def verify_config(self, expected_channels: list[str]) -> None:
         """Verify the task config page is visible and contains expected channels.
 
-        Args:
-            expected_channels: Channel identifiers expected in the channel list.
+        :param expected_channels: Channel identifiers expected in the channel list.
         """
         if self.pane_locator is None:
             raise RuntimeError("No pane locator available for config verification")
@@ -241,11 +239,11 @@ class TaskPage(ConsolePage):
             self.name_input().fill(task_name)
             layout.press_enter()
 
-        if data_saving is not None and data_saving != layout.get_toggle("Data saving"):
-            layout.click_checkbox("Data saving")
+        if data_saving is not None:
+            self._set_setting("Data saving", data_saving)
 
-        if auto_start is not None and auto_start != layout.get_toggle("Auto start"):
-            layout.click_checkbox("Auto start")
+        if auto_start is not None:
+            self._set_setting("Auto start", auto_start)
 
         if sample_rate is not None:
             layout.fill_input_field("Sample rate", str(sample_rate))

@@ -312,7 +312,11 @@ std::pair<Identity, x::errors::Error> create(
     logger.log =
         [](void *, UA_LogLevel, UA_LogCategory, const char *msg, va_list args) {
             std::array<char, 1024> buf{};
-            vsnprintf(buf.data(), buf.size(), msg, args);
+            UA_String out{
+                .length = buf.size(),
+                .data = reinterpret_cast<UA_Byte *>(buf.data()),
+            };
+            UA_String_vformat(&out, msg, args);
             VLOG(1) << "[opc.certificate] " << buf.data();
         };
     UA_ByteString key = UA_BYTESTRING_NULL;

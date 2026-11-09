@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 import { type TimeRange } from "@synnaxlabs/x";
 
@@ -39,19 +39,31 @@ const fold = (
 };
 
 /**
- * Resolves the session's ranges, reading the Core for the ones it holds.
- * @param keys - The ranges to resolve. Defaults to every one the session has.
+ * Resolves ranges, reading the Core for the ones it holds.
+ * @param keys - The ranges to resolve. Defaults to every one the session has. A range
+ * key the session does not hold resolves as a Core range, after the session's ranges,
+ * and resolves to nothing if the Core does not hold it either. Any other key the
+ * session does not hold resolves to nothing.
  */
 export const useResolveMultiple = (keys?: string[]): Resolved[] => {
   const entries = Session.Range.useSelectMultiple(keys);
-  const persisted = entries
+  const inSession = new Set(entries.map(({ key }) => key));
+  // The client reads a key list with any non-key entry as a list of names.
+  const outside = (keys ?? []).filter(
+    (key) => !inSession.has(key) && ranger.keyZ.safeParse(key).success,
+  );
+  const all: Session.Range.State[] = [
+    ...entries,
+    ...outside.map((key) => ({ variant: "persisted" as const, key })),
+  ];
+  const persisted = all
     .filter(({ variant }) => variant === "persisted")
     .map(({ key }) => key);
   const { data } = Ranger.useResultMultiple(
     persisted.length === 0 ? null : { keys: persisted },
   );
   const found = new Map((data ?? []).map((range) => [range.key, range]));
-  return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
+  return all.map((entry) => fold(entry, found)).filter((entry) => entry != null);
 };
 
 /**

@@ -245,8 +245,7 @@ class TestStreamer:
                     frm = s.read(timeout=1)
                     assert frm is not None
                     for channel in curr_channels:
-                        d = frm.get(channel)
-                        assert d is not None
+                        d = frm[channel]
                         if len(d) > 0:
                             assert len(d) == 1
                             assert d[0] == (ts if channel == idx.name else value)

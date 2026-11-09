@@ -11,48 +11,47 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "client/cpp/device/key.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
 struct KeyedConfig;
+struct Where;
 struct Command;
 struct StartConfig;
 struct ScanConfig;
+struct RetrieveRequest;
 struct PersistConfig;
+struct RetrieveResponse;
 struct ReadConfig;
 struct WriteConfig;
 
 using Key = x::uuid::UUID;
 
-/// @brief KeyedConfig is the base for every stored task configuration record.
-struct KeyedConfig {
-    /// @brief key is the unique identifier for the stored configuration record.
-    x::uuid::UUID key;
-
-    static KeyedConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
 struct StatusDetails {
-    /// @brief task is the key of the task this status pertains to.
-    Key task;
     /// @brief running is true if the task is currently executing.
     bool running = false;
     /// @brief cmd is the last command executed on this task.
@@ -75,6 +74,140 @@ struct StatusDetails {
     from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
+/// @brief KeyedConfig is the base for every stored task configuration record.
+struct KeyedConfig {
+    /// @brief key is the unique identifier for the stored configuration record.
+    x::uuid::UUID key;
+
+    static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief LinearScale maps raw values to engineering units with a slope and offset.
+struct LinearScale {
+    std::string type = "linear";
+    /// @brief slope is the multiplier applied to the raw value.
+    double slope = 1;
+    /// @brief offset is the offset added after scaling.
+    double offset = 0;
+
+    static LinearScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MapScale maps a raw range linearly onto a scaled range.
+struct MapScale {
+    std::string type = "map";
+    /// @brief pre_scaled_min is the lower bound of the raw input range.
+    double pre_scaled_min = 0;
+    /// @brief pre_scaled_max is the upper bound of the raw input range.
+    double pre_scaled_max = 1;
+    /// @brief scaled_min is the lower bound of the scaled output range.
+    double scaled_min = 0;
+    /// @brief scaled_max is the upper bound of the scaled output range.
+    double scaled_max = 1;
+
+    static MapScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief PolynomialScale maps raw values to engineering units with a polynomial.
+struct PolynomialScale {
+    std::string type = "polynomial";
+    /// @brief coeffs are the coefficients from the constant term up, so that index i
+    /// holds the coefficient of x^i.
+    std::vector<double> coeffs = {};
+
+    static PolynomialScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TableScale maps raw values to engineering units by linear interpolation
+/// between the breakpoints, and clips raw values outside the table to its first or last
+/// scaled value.
+struct TableScale {
+    std::string type = "table";
+    /// @brief pre_scaled_vals are the raw breakpoints, in increasing order.
+    std::vector<double> pre_scaled_vals = {};
+    /// @brief scaled_vals are the engineering-unit values at each breakpoint.
+    std::vector<double> scaled_vals = {};
+
+    static TableScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NoneScale applies no scaling; the raw value is used directly.
+struct NoneScale {
+    std::string type = "none";
+
+    static NoneScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scale determines how the raw values of a hardware read channel are
+/// transformed to engineering units.
+using Scale = std::
+    variant<LinearScale, MapScale, PolynomialScale, TableScale, NoneScale>;
+
+Scale parse_scale(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scale &value);
+
+/// @brief Where is a filter that selects tasks.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief type selects by type.
+    ::x::filter::Field<::x::filter::String> type;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+    /// @brief internal selects by internal.
+    ::x::filter::Field<::x::filter::Bool> internal;
+    /// @brief snapshot selects by snapshot.
+    ::x::filter::Field<::x::filter::Bool> snapshot;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::task::pb::Where;
+    [[nodiscard]] std::pair<::service::task::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::task::pb::Where &pb);
+};
+
 /// @brief Command is a command to execute on a task in the Driver system.
 struct Command {
     /// @brief task is the key of the target task.
@@ -89,6 +222,9 @@ struct Command {
     std::string config_hash = "";
     /// @brief args contains optional arguments for the command.
     x::json::json::object_t args = {};
+    /// @brief pinned is true when the Driver must refuse a start whose config_hash
+    /// differs from the hash of the stored config.
+    bool pinned = false;
 
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -99,6 +235,8 @@ struct Command {
     static std::pair<Command, x::errors::Error>
     from_proto(const ::service::task::pb::Command &pb);
 };
+
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief StartConfig carries the configuration fields shared by every task.
 struct StartConfig : public KeyedConfig {
@@ -121,17 +259,50 @@ struct ScanConfig : public KeyedConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the tasks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most tasks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching tasks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
 
-/// @brief PersistConfig carries the configuration fields shared by tasks that write
-/// telemetry.
-struct PersistConfig : public StartConfig {
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    bool data_saving_disabled = false;
+/// @brief RetrieveRequest is a request to retrieve tasks.
+struct RetrieveRequest {
+    /// @brief where selects the tasks to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the tasks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most tasks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching tasks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
 
-    static PersistConfig parse(x::json::Parser parser);
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::task::pb::RetrieveRequest &pb);
 };
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
@@ -173,6 +344,32 @@ struct Task {
     from_proto(const ::service::task::pb::Task &pb);
 };
 
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief tasks are the tasks the request selects.
+    std::vector<Task> tasks;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::task::pb::RetrieveResponse &pb);
+};
+
 /// @brief ReadConfig carries the configuration fields shared by hardware acquisition
 /// tasks.
 struct ReadConfig : public PersistConfig {
@@ -196,9 +393,9 @@ struct WriteConfig : public PersistConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("task", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("task", key.to_string());
 }
 }

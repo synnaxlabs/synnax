@@ -642,9 +642,9 @@ func buildUnionCodec(
 
 	enc := []string{fmt.Sprintf("\tswitch v := %s.Variant.(type) {", recv)}
 	dec := []string{
-		"\ttag, err := r.String()",
+		"\ttag, err := r.StringBytes()",
 		"\tif err != nil { return err }",
-		"\tswitch tag {",
+		"\tswitch string(tag) {",
 	}
 	for _, v := range form.Variants {
 		payload, ok := v.Type.Resolve(table)
@@ -659,7 +659,7 @@ func buildUnionCodec(
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {
@@ -891,7 +891,7 @@ func (b *encoderBuilder) processArray(
 	ind := b.indent()
 	elemRef := f.Type.TypeArgs[0]
 	elemType, ok := elemRef.Resolve(b.table)
-	if !ok {
+	if !ok && (!elemRef.IsTypeParam() || !b.hasTypeParams) {
 		return errors.Newf("cannot resolve array element type %s", elemRef.Name)
 	}
 	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)

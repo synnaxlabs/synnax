@@ -10,6 +10,11 @@
 package errors_test
 
 import (
+	"context"
+	stderrors "errors"
+	"fmt"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -25,7 +30,29 @@ func (e *aggregateError) Error() string { return "aggregate" }
 
 func (e *aggregateError) Unwrap() []error { return e.errs }
 
+type panicError struct{}
+
+func (panicError) Error() string { panic("member failed") }
+
+//go:noinline
+func createFirstMember() error { return errors.New("err1") }
+
+//go:noinline
+func createSecondMember() error { return errors.New("err2") }
+
+var _ = Describe("ErrUnsupported", func() {
+	It("Should be the standard library sentinel", func() {
+		Expect(errors.ErrUnsupported).To(MatchError("unsupported operation"))
+	})
+})
+
 var _ = Describe("Is", func() {
+	Describe("ErrUnsupported", func() {
+		It("Should be the standard library sentinel", func() {
+			Expect(errors.ErrUnsupported).To(BeIdenticalTo(stderrors.ErrUnsupported))
+		})
+	})
+
 	Describe("Is", func() {
 		It("Should work with sub-errors", func() {
 			err1 := errors.New("err1")
@@ -60,6 +87,24 @@ var _ = Describe("Is", func() {
 				Expect(errors.Is(wrapped, base)).To(BeTrue())
 				Expect(wrapped).To(MatchError("wrapped cat: base"))
 			})
+		})
+	})
+
+	Describe("Mark", func() {
+		reference := errors.New("reference")
+		It("Should match the reference and keep the message of the error", func() {
+			cause := errors.New("cause")
+			marked := errors.Mark(errors.Wrap(cause, "context"), reference)
+			Expect(marked).To(MatchError("context: cause"))
+			Expect(errors.Is(marked, reference)).To(BeTrue())
+			Expect(errors.Is(marked, cause)).To(BeTrue())
+		})
+		It("Should not match a different reference", func() {
+			marked := errors.Mark(errors.New("cause"), reference)
+			Expect(errors.Is(marked, errors.New("other"))).To(BeFalse())
+		})
+		It("Should return nil for a nil error", func() {
+			Expect(errors.Mark(nil, reference)).To(Succeed())
 		})
 	})
 
@@ -193,6 +238,101 @@ var _ = Describe("Is", func() {
 			Expect(errors.UnwrapMulti(joined)).To(HaveLen(2))
 			Expect(joined).To(MatchError("context: err1\nerr2\nerr3"))
 		})
+
+		It("Should print the same message through a formatter", func() {
+			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(fmt.Sprintf("%v", joined)).To(Equal("err1\nerr2"))
+			Expect(fmt.Sprintf("%v", errors.Mark(joined, errors.New("mark")))).
+				To(Equal("err1\nerr2"))
+		})
+
+		DescribeTable("Should recover a panic in a member",
+			func(member error, want string) {
+				joined := errors.Join(member, errors.New("err2"))
+				first := joined.Error()
+				Expect(first).To(SatisfyAll(
+					ContainSubstring(want),
+					HaveSuffix("\nerr2"),
+				))
+				Expect(joined.Error()).To(Equal(first))
+			},
+			Entry("a typed nil", (*customError)(nil), "<nil>"),
+			Entry("a member that panics", panicError{}, "member failed"),
+		)
+
+		DescribeTable("Should render an empty member as the formatter does",
+			func(want string, messages ...string) {
+				var members []error
+				for _, message := range messages {
+					members = append(members, errors.New(message))
+				}
+				joined := errors.Join(members...)
+				Expect(joined.Error()).To(Equal(want))
+				payload := errors.Encode(context.Background(), joined, false)
+				Expect(payload.Data).To(Equal(want))
+			},
+			Entry("before one character", "z", "", "z"),
+			Entry("before a word", "\nerr2", "", "err2"),
+			Entry("between words", "err1\nerr3", "err1", "", "err3"),
+		)
+
+		It("Should keep the member stacks in the verbose format", func() {
+			joined := errors.Join(createFirstMember(), createSecondMember())
+			Expect(fmt.Sprintf("%+v", joined)).To(SatisfyAll(
+				ContainSubstring("errors_test.createFirstMember"),
+				ContainSubstring("errors_test.createSecondMember"),
+			))
+		})
+
+		It("Should stay matchable after transport", func() {
+			sentinel := errors.New("sentinel")
+			ctx := context.Background()
+			payload := errors.Encode(
+				ctx,
+				errors.Join(errors.Wrap(sentinel, "context"), errors.New("other")),
+				true,
+			)
+			decoded := errors.Decode(ctx, payload)
+			Expect(decoded).To(MatchError("context: sentinel\nother"))
+			Expect(errors.Is(decoded, sentinel)).To(BeTrue())
+			Expect(errors.UnwrapMulti(decoded)).To(HaveLen(2))
+		})
+
+		DescribeTable("Should format a join rewrapped in a loop in polynomial time",
+			func(format func(error) string, wrap func(error) error) {
+				var err error
+				for i := range 64 {
+					err = wrap(errors.Join(err, errors.Newf("err%d", i)))
+				}
+				formatted := make(chan string, 1)
+				go func() { formatted <- format(err) }()
+				Eventually(formatted, 10*time.Second).Should(Receive(Not(BeEmpty())))
+			},
+			Entry("Error under Wrap",
+				error.Error,
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+			Entry(
+				"Error under Mark",
+				error.Error,
+				func(err error) error { return errors.Mark(err, errors.ErrUnsupported) },
+			),
+			Entry(
+				"Error under two stacks",
+				error.Error,
+				func(err error) error { return errors.WithStack(errors.WithStack(err)) },
+			),
+			Entry("the verbose format under Wrap",
+				func(err error) string { return fmt.Sprintf("%+v", err) },
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+			Entry("transport encoding under Wrap",
+				func(err error) string {
+					return errors.Encode(context.Background(), err, true).Data
+				},
+				func(err error) error { return errors.Wrap(err, "context") },
+			),
+		)
 	})
 
 	Describe("UnwrapMulti", func() {

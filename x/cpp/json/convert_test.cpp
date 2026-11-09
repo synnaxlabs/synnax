@@ -150,6 +150,34 @@ TEST(ToSampleValue, NumberWholeFloatToInt64) {
     ASSERT_EQ(std::get<int64_t>(sv), 35);
 }
 
+TEST(ToSampleValue, NumberFloatAtInt64LimitError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(9223372036854775808.0), x::telem::INT64_T),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValue, NumberFloatAtUint64LimitError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(18446744073709551616.0), x::telem::UINT64_T),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValue, NumberToFloat32OverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(1e39), x::telem::FLOAT32_T),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringToFloat32OverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("-1e39"), x::telem::FLOAT32_T),
+        x::json::CONVERSION_ERROR
+    );
+}
+
 TEST(ToSampleValue, NumberToUint8Overflow) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json(300), x::telem::UINT8_T),
@@ -193,6 +221,68 @@ TEST(ToSampleValue, NumberToTimestampNanosecond) {
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(value));
+}
+
+TEST(ToSampleValue, NumberToTimestampNanosecondKeepsEveryNanosecond) {
+    const int64_t value = 1700000000123456789;
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json(value),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::UnixNanosecond
+        )
+    );
+    ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(value));
+}
+
+TEST(ToSampleValue, NumberToTimestampMicrosecondKeepsEveryMicrosecond) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json(int64_t{1700000000123457}),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::UnixMicrosecond
+        )
+    );
+    ASSERT_EQ(
+        std::get<x::telem::TimeStamp>(sv),
+        x::telem::TimeStamp(int64_t{1700000000123457000})
+    );
+}
+
+TEST(ToSampleValue, StringToTimestampNanosecondKeepsEveryNanosecond) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json("1700000000123456789"),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::UnixNanosecond
+        )
+    );
+    ASSERT_EQ(
+        std::get<x::telem::TimeStamp>(sv),
+        x::telem::TimeStamp(int64_t{1700000000123456789})
+    );
+}
+
+TEST(ToSampleValue, NumberToTimestampOverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json(int64_t{10000000000000}),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::UnixSecond
+        ),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValue, NumberDecimalToTimestampOverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json(1e13),
+            x::telem::TIMESTAMP_T,
+            x::json::TimeFormat::UnixSecond
+        ),
+        x::json::CONVERSION_ERROR
+    );
 }
 
 TEST(ToSampleValue, NumberToTimestampMicrosecond) {
@@ -1938,61 +2028,61 @@ TEST(CheckToSampleValue, Unknown) {
 // ==================== check_from_sample_value ====================
 
 TEST(CheckFromSampleValue, Float64ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Float64ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Float64ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::FLOAT64_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Int64ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::INT64_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToNumberOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::Number)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::String)
     );
 }
 
 TEST(CheckFromSampleValue, Uint8ToBooleanOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::UINT8_T, x::json::Type::Boolean)
     );
 }
 
 TEST(CheckFromSampleValue, StringToStringOK) {
-    ASSERT_FALSE(
+    ASSERT_NIL(
         x::json::check_from_sample_value(x::telem::STRING_T, x::json::Type::String)
     );
 }

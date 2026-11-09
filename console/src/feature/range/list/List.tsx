@@ -39,13 +39,13 @@ export interface ListProps
   enableSearch?: boolean;
   enableFilters?: boolean;
   enableAddButton?: boolean;
-  initialRequest?: ranger.RetrieveRequest;
+  initialRequest?: ranger.RetrieveMultipleParams;
   emptyContent?: ReactNode;
 }
 
 const EmptyContent = () => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No ranges found"
@@ -80,18 +80,18 @@ export const List = ({
   initialRequest = {},
   emptyContent = EMPTY_CONTENT,
 }: ListProps) => {
-  const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
+  const [request, setRequest] = useState<ranger.RetrieveMultipleParams>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const handleRequestChange = (
-    setter: state.SetArg<ranger.RetrieveRequest>,
+    setter: state.SetArg<ranger.RetrieveMultipleParams>,
     opts?: Flux.AsyncListOptions,
   ) => {
     retrieve(setter, opts);
     setRequest(setter);
   };
   const handleSearch = (term: string) =>
-    handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
+    handleRequestChange((p: ranger.RetrieveMultipleParams) => PList.search(p, term));
   const handleFetchMore = () =>
     handleRequestChange((r) => PList.page(r, 25), { mode: "append" });
   return (
@@ -171,7 +171,7 @@ const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
 
 const AddButton = (): ReactElement | null => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   if (!hasCreatePermission) return null;
   return (
     <Button.Button tooltip="Create range" onClick={() => openCreate()} variant="filled">

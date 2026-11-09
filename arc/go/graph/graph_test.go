@@ -156,8 +156,8 @@ var _ = Describe("Graph", func() {
 				Inputs: inputs,
 				Edges: graph.Edges{
 					{
-						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
-						Target: arc.Handle{
+						Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{
 							Node:  "printer",
 							Param: ir.DefaultInputParam,
 						},
@@ -799,35 +799,35 @@ var _ = Describe("Graph", func() {
 						Inputs: inputs,
 						Edges: graph.Edges{
 							{
-								Source: arc.Handle{
+								Source: ir.Handle{
 									Node:  "on",
 									Param: ir.DefaultOutputParam,
 								},
-								Target: arc.Handle{Node: "ge", Param: "a"},
+								Target: ir.Handle{Node: "ge", Param: "a"},
 							},
 							{
-								Source: arc.Handle{
+								Source: ir.Handle{
 									Node:  "constant",
 									Param: ir.DefaultOutputParam,
 								},
-								Target: arc.Handle{Node: "ge", Param: "b"},
+								Target: ir.Handle{Node: "ge", Param: "b"},
 							},
 							{
-								Source: arc.Handle{
+								Source: ir.Handle{
 									Node:  "ge",
 									Param: ir.DefaultOutputParam,
 								},
-								Target: arc.Handle{
+								Target: ir.Handle{
 									Node:  "stable_for",
 									Param: ir.DefaultInputParam,
 								},
 							},
 							{
-								Source: arc.Handle{
+								Source: ir.Handle{
 									Node:  "stable_for",
 									Param: ir.DefaultOutputParam,
 								},
-								Target: arc.Handle{
+								Target: ir.Handle{
 									Node:  "select",
 									Param: ir.DefaultInputParam,
 								},

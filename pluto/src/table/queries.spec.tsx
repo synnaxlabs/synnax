@@ -8,16 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, table } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
+import { deep, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<table.TextCellConfig>();
 
 const client = createTestClient();
 
@@ -41,7 +47,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "test_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "retrieve_test",
       });
 
@@ -62,7 +69,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cached_table",
       });
 
@@ -196,7 +204,7 @@ describe("table queries", () => {
       const key = uuid.create();
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
 
-      // Use a fake project key so the server-side ontology insert fails.
+      // A project key that names no project fails the create on the Core.
       await act(async () => {
         await result.current.updateAsync({
           key,
@@ -214,7 +222,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "original_name",
       });
 
@@ -245,7 +254,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "cache_original",
       });
 
@@ -276,7 +286,8 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_project",
       });
-      const created = await client.tables.create(project.key, {
+      const created = await client.tables.create({
+        project: project.key,
         name: "delete_single",
       });
 
@@ -293,10 +304,12 @@ describe("table queries", () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
       });
-      const created1 = await client.tables.create(project.key, {
+      const created1 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_1",
       });
-      const created2 = await client.tables.create(project.key, {
+      const created2 = await client.tables.create({
+        project: project.key,
         name: "delete_multi_2",
       });
 
@@ -318,7 +331,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "dispatch_test",
         rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
         columns: [
@@ -550,7 +564,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "ensure_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
@@ -567,7 +582,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `fastpath_ws_${uuid.create()}`,
       });
-      const created = await client.tables.create(proj.key, {
+      const created = await client.tables.create({
+        project: proj.key,
         name: "fastpath_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
@@ -601,7 +617,8 @@ describe("table queries", () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
       });
-      return await client.tables.create(proj.key, {
+      return await client.tables.create({
+        project: proj.key,
         name: "selector_test",
         rows: [
           { key: "r0", size: 30, cells: ["a", "b"] },
@@ -835,6 +852,101 @@ describe("table queries", () => {
         });
       });
       await waitFor(() => expect(result.current.a).toEqual({ x: 0, y: 1 }));
+    });
+  });
+
+  describe("useCellForm", () => {
+    const remote = createTestClient();
+
+    beforeEach(async () => await waitForStreamLive(client.connection));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const createTable = async () => {
+      const proj = await client.projects.create({ name: `cell_form_${uuid.create()}` });
+      return await client.tables.create({
+        project: proj.key,
+        name: "cell_form_test",
+        rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+        columns: [
+          { key: "c0", size: 80 },
+          { key: "c1", size: 100 },
+        ],
+        cells: {
+          a: { variant: "text", value: "A" },
+          b: { variant: "text", value: "B" },
+        },
+      });
+    };
+
+    const renderForm = async (key: table.Key) =>
+      await renderHookSuspended(
+        ({ cellKey }: { cellKey: string }) => Table.useCellForm({ key, cellKey }),
+        { wrapper, initialProps: { cellKey: "a" } },
+      );
+
+    // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
+    const fetchStoredCell = async (
+      key: table.Key,
+      cellKey: string,
+    ): Promise<table.CellConfig> =>
+      (await createTestClient().tables.retrieve({ key })).cells[cellKey];
+
+    it("should show the cell's config", async () => {
+      const created = await createTable();
+      const { result } = await renderForm(created.key);
+      expect(result.current.form.value()).toMatchObject({
+        variant: "text",
+        value: "A",
+      });
+    });
+
+    it("should send an edit as a path action into the cell's config", async () => {
+      const created = await createTable();
+      const { result } = await renderForm(created.key);
+      const send = spyOnSend(client);
+      act(() => result.current.form.set(path.value, "Pressure"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/table/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          { type: "set", set: { path: ["cells", "a", "value"], value: "Pressure" } },
+        ],
+      });
+      expect(await fetchStoredCell(created.key, "a")).toMatchObject({
+        value: "Pressure",
+      });
+    });
+
+    it("should show a remote edit to the cell", async () => {
+      const created = await createTable();
+      const { result } = await renderForm(created.key);
+      await remote.tables.retrieve({ key: created.key });
+      await act(async () => {
+        await remote.tables.dispatch(
+          created.key,
+          table.set({ path: ["cells", "a", "value"], value: "Remote" }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.get(path.value).value).toBe("Remote"),
+      );
+    });
+
+    it("should edit the new cell when the cell key changes", async () => {
+      const created = await createTable();
+      const { result, rerender } = await renderForm(created.key);
+      rerender({ cellKey: "b" });
+      expect(result.current.form.get(path.value).value).toBe("B");
+      act(() => result.current.form.set(path.value, "Temperature"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredCell(created.key, "b")).toMatchObject({
+        value: "Temperature",
+      });
+      expect(await fetchStoredCell(created.key, "a")).toMatchObject({ value: "A" });
     });
   });
 });

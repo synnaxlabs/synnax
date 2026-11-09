@@ -119,6 +119,8 @@ interface UseLifecycleProps<
   /** Fired on worker-pushed state changes only (not on local setState). */
   onAetherChange?: StateHandler<z.infer<StateSchema>>;
   methods?: Methods;
+  /** Timeout for this component's async methods. Defaults to the provider's timeout. */
+  invokeTimeout?: CrudeTimeSpan;
 }
 
 /** Registers a component with the enclosing {@link Provider}'s {@link Store} and
@@ -138,6 +140,7 @@ export const useLifecycle = <
   initialTransfer = [],
   onAetherChange,
   methods: methodsSchema,
+  invokeTimeout,
 }: UseLifecycleProps<StateSchema, Methods>): UseLifecycleReturn<
   StateSchema,
   Methods
@@ -155,6 +158,7 @@ export const useLifecycle = <
       initialState,
       initialTransfer,
       methodsSchema,
+      invokeTimeout,
       onReceiveRef,
     }),
   );

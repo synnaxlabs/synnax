@@ -10,10 +10,12 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type ColorFallback } from "@/schematic/node/spec";
+
+const path = deep.path<{ fillColor?: color.Color }>();
 
 /** @returns the theme color a symbol paints while one of its colors is absent. */
 export const defaultFallback = (theme: theme.Theme): color.Color =>
@@ -48,5 +50,5 @@ export const FillField = ({
   fallback = noFillFallback,
   ...rest
 }: FillFieldProps): ReactElement => (
-  <ColorField path="fillColor" label={label} fallback={fallback} {...rest} />
+  <ColorField path={path.fillColor} label={label} fallback={fallback} {...rest} />
 );

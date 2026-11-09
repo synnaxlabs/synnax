@@ -10,9 +10,14 @@
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { NotFoundError, UnauthorizedError } from "@/errors";
-import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
-import { randomSeries } from "@/util/telem";
+import { UnauthorizedError } from "@/errors";
+import { NotFoundError } from "@/index";
+import {
+  createTestClient,
+  newIndexedPair,
+  randomSeries,
+  secondsLinspace,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -88,8 +93,7 @@ describe("Deleter", () => {
       TimeStamp.milliseconds(i).valueOf(),
     );
 
-    await index.write(0, time);
-    await dat.write(0, data);
+    await client.write(0, { [index.key]: time, [dat.key]: data });
 
     await expect(
       client.delete(

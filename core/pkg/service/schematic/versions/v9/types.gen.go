@@ -76,18 +76,27 @@ func (s SegmentedEdgeConfig) Validate() error {
 	return v.Error()
 }
 
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
 type EdgeConfigType string
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = "pipe"
-	ElectricEdgeConfigType  EdgeConfigType = "electric"
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = "pipe"
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = "electric"
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
 	SecondaryEdgeConfigType EdgeConfigType = "secondary"
-	JacketedEdgeConfigType  EdgeConfigType = "jacketed"
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
 	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
 	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
-	DataEdgeConfigType      EdgeConfigType = "data"
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
 type EdgeConfigVariant interface {
 	isEdgeConfigVariant()
 }
@@ -255,54 +264,81 @@ func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type EdgeConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PipeEdgeConfigType:
-		var v PipeEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PipeEdgeConfig
 	case ElectricEdgeConfigType:
-		var v ElectricEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricEdgeConfig
 	case SecondaryEdgeConfigType:
-		var v SecondaryEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SecondaryEdgeConfig
 	case JacketedEdgeConfigType:
-		var v JacketedEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.JacketedEdgeConfig
 	case HydraulicEdgeConfigType:
-		var v HydraulicEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HydraulicEdgeConfig
 	case PneumaticEdgeConfigType:
-		var v PneumaticEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PneumaticEdgeConfig
 	case DataEdgeConfigType:
-		var v DataEdgeConfig
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DataEdgeConfig
 	default:
-		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -329,13 +365,17 @@ func (u EdgeConfig) Validate() error {
 	return nil
 }
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -354,11 +394,16 @@ func (f FlexAlignment) IsValid() bool {
 type ComponentSize string
 
 const (
-	ComponentSizeTiny   ComponentSize = "tiny"
-	ComponentSizeSmall  ComponentSize = "small"
+	// ComponentSizeTiny is the smallest preset.
+	ComponentSizeTiny ComponentSize = "tiny"
+	// ComponentSizeSmall is the preset between tiny and medium.
+	ComponentSizeSmall ComponentSize = "small"
+	// ComponentSizeMedium is the default preset.
 	ComponentSizeMedium ComponentSize = "medium"
-	ComponentSizeLarge  ComponentSize = "large"
-	ComponentSizeHuge   ComponentSize = "huge"
+	// ComponentSizeLarge is the preset between medium and huge.
+	ComponentSizeLarge ComponentSize = "large"
+	// ComponentSizeHuge is the largest preset.
+	ComponentSizeHuge ComponentSize = "huge"
 )
 
 // IsValid reports whether c is one of the defined ComponentSize
@@ -377,9 +422,12 @@ func (c ComponentSize) IsValid() bool {
 type ButtonMode string
 
 const (
-	ButtonModeFire      ButtonMode = "fire"
+	// ButtonModeFire writes once on click.
+	ButtonModeFire ButtonMode = "fire"
+	// ButtonModeMomentary writes on press and clears on release.
 	ButtonModeMomentary ButtonMode = "momentary"
-	ButtonModePulse     ButtonMode = "pulse"
+	// ButtonModePulse writes a one-cycle pulse.
+	ButtonModePulse ButtonMode = "pulse"
 )
 
 // IsValid reports whether b is one of the defined ButtonMode
@@ -739,10 +787,14 @@ type StateMapping struct {
 type PageType string
 
 const (
+	// PageTypeSchematic is a schematic page.
 	PageTypeSchematic PageType = "schematic"
-	PageTypeLineplot  PageType = "lineplot"
-	PageTypeLog       PageType = "log"
-	PageTypeTable     PageType = "table"
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = "lineplot"
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = "log"
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = "table"
 )
 
 // IsValid reports whether p is one of the defined PageType
@@ -772,115 +824,243 @@ func (p Page) Validate() error {
 	return v.Error()
 }
 
+// NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType string
 
 const (
-	CapNodeConfigType                            NodeConfigType = "cap"
-	FilterNodeConfigType                         NodeConfigType = "filter"
-	FlowStraightenerNodeConfigType               NodeConfigType = "flow_straightener"
-	HeaterElementNodeConfigType                  NodeConfigType = "heater_element"
-	IsoCapNodeConfigType                         NodeConfigType = "iso_cap"
-	IsoFilterNodeConfigType                      NodeConfigType = "iso_filter"
-	NozzleNodeConfigType                         NodeConfigType = "nozzle"
-	OrificeNodeConfigType                        NodeConfigType = "orifice"
-	OrificePlateNodeConfigType                   NodeConfigType = "orifice_plate"
-	StrainerNodeConfigType                       NodeConfigType = "strainer"
-	StrainerConeNodeConfigType                   NodeConfigType = "strainer_cone"
-	ThrusterNodeConfigType                       NodeConfigType = "thruster"
-	VentNodeConfigType                           NodeConfigType = "vent"
-	FlowmeterGeneralNodeConfigType               NodeConfigType = "flowmeter_general"
-	FlowmeterElectromagneticNodeConfigType       NodeConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaNodeConfigType          NodeConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisNodeConfigType              NodeConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleNodeConfigType                NodeConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiNodeConfigType               NodeConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonNodeConfigType            NodeConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementNodeConfigType  NodeConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineNodeConfigType               NodeConfigType = "flowmeter_turbine"
-	FlowmeterPulseNodeConfigType                 NodeConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorNodeConfigType           NodeConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeNodeConfigType               NodeConfigType = "flowmeter_orifice"
-	BoxNodeConfigType                            NodeConfigType = "box"
-	ButtonNodeConfigType                         NodeConfigType = "button"
-	CircleNodeConfigType                         NodeConfigType = "circle"
-	GaugeNodeConfigType                          NodeConfigType = "gauge"
-	InputNodeConfigType                          NodeConfigType = "input"
-	LightNodeConfigType                          NodeConfigType = "light"
-	LineNodeConfigType                           NodeConfigType = "line"
-	OffPageReferenceNodeConfigType               NodeConfigType = "off_page_reference"
-	PolygonNodeConfigType                        NodeConfigType = "polygon"
-	SelectNodeConfigType                         NodeConfigType = "select"
-	ScaleNodeConfigType                          NodeConfigType = "scale"
-	SetpointNodeConfigType                       NodeConfigType = "setpoint"
-	StateIndicatorNodeConfigType                 NodeConfigType = "state_indicator"
-	StringDisplayNodeConfigType                  NodeConfigType = "string_display"
-	SwitchNodeConfigType                         NodeConfigType = "switch"
-	TextBoxNodeConfigType                        NodeConfigType = "text_box"
-	ValueNodeConfigType                          NodeConfigType = "value"
-	AgitatorNodeConfigType                       NodeConfigType = "agitator"
-	CrossBeamAgitatorNodeConfigType              NodeConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorNodeConfigType              NodeConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralNodeConfigType           NodeConfigType = "heat_exchanger_general"
-	HeatExchangerMNodeConfigType                 NodeConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorNodeConfigType                NodeConfigType = "helical_agitator"
-	PaddleAgitatorNodeConfigType                 NodeConfigType = "paddle_agitator"
-	PropellerAgitatorNodeConfigType              NodeConfigType = "propeller_agitator"
-	RotaryMixerNodeConfigType                    NodeConfigType = "rotary_mixer"
-	StaticMixerNodeConfigType                    NodeConfigType = "static_mixer"
-	CavityPumpNodeConfigType                     NodeConfigType = "cavity_pump"
-	CentrifugalCompressorNodeConfigType          NodeConfigType = "centrifugal_compressor"
-	CompressorNodeConfigType                     NodeConfigType = "compressor"
-	DiaphragmPumpNodeConfigType                  NodeConfigType = "diaphragm_pump"
-	EjectionPumpNodeConfigType                   NodeConfigType = "ejection_pump"
-	EjectorCompressorNodeConfigType              NodeConfigType = "ejector_compressor"
-	LiquidRingCompressorNodeConfigType           NodeConfigType = "liquid_ring_compressor"
-	PistonPumpNodeConfigType                     NodeConfigType = "piston_pump"
-	PumpNodeConfigType                           NodeConfigType = "pump"
-	RollerVaneCompressorNodeConfigType           NodeConfigType = "roller_vane_compressor"
-	ScrewPumpNodeConfigType                      NodeConfigType = "screw_pump"
-	TurboCompressorNodeConfigType                NodeConfigType = "turbo_compressor"
-	VacuumPumpNodeConfigType                     NodeConfigType = "vacuum_pump"
-	BurstDiscNodeConfigType                      NodeConfigType = "burst_disc"
-	FlameArrestorNodeConfigType                  NodeConfigType = "flame_arrestor"
-	FlameArrestorDetonationNodeConfigType        NodeConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionNodeConfigType         NodeConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResNodeConfigType           NodeConfigType = "flame_arrestor_fire_res"
+	// CapNodeConfigType selects the CapNodeConfig variant.
+	CapNodeConfigType NodeConfigType = "cap"
+	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	FilterNodeConfigType NodeConfigType = "filter"
+	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
+	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	HeaterElementNodeConfigType NodeConfigType = "heater_element"
+	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	IsoCapNodeConfigType NodeConfigType = "iso_cap"
+	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
+	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	NozzleNodeConfigType NodeConfigType = "nozzle"
+	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	OrificeNodeConfigType NodeConfigType = "orifice"
+	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	OrificePlateNodeConfigType NodeConfigType = "orifice_plate"
+	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	StrainerNodeConfigType NodeConfigType = "strainer"
+	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	StrainerConeNodeConfigType NodeConfigType = "strainer_cone"
+	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	ThrusterNodeConfigType NodeConfigType = "thruster"
+	// VentNodeConfigType selects the VentNodeConfig variant.
+	VentNodeConfigType NodeConfigType = "vent"
+	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	FlowmeterGeneralNodeConfigType NodeConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticNodeConfigType selects the
+	// FlowmeterElectromagneticNodeConfig variant.
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
+	// variant.
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	FlowmeterCoriolisNodeConfigType NodeConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	FlowmeterNozzleNodeConfigType NodeConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	FlowmeterVenturiNodeConfigType NodeConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
+	// variant.
+	FlowmeterRingPistonNodeConfigType NodeConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementNodeConfigType selects the
+	// FlowmeterPositiveDisplacementNodeConfig variant.
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	FlowmeterTurbineNodeConfigType NodeConfigType = "flowmeter_turbine"
+	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	FlowmeterPulseNodeConfigType NodeConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
+	// variant.
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	FlowmeterOrificeNodeConfigType NodeConfigType = "flowmeter_orifice"
+	// BoxNodeConfigType is the configuration for box annotation symbols.
+	BoxNodeConfigType NodeConfigType = "box"
+	// ButtonNodeConfigType is the configuration for button symbols.
+	ButtonNodeConfigType NodeConfigType = "button"
+	// CircleNodeConfigType is the configuration for circle annotation symbols.
+	CircleNodeConfigType NodeConfigType = "circle"
+	// GaugeNodeConfigType is the configuration for gauge symbols.
+	GaugeNodeConfigType NodeConfigType = "gauge"
+	// InputNodeConfigType is the configuration for free-form input symbols.
+	InputNodeConfigType NodeConfigType = "input"
+	// LightNodeConfigType is the configuration for indicator light symbols.
+	LightNodeConfigType NodeConfigType = "light"
+	// LineNodeConfigType is the configuration for straight line symbols.
+	LineNodeConfigType NodeConfigType = "line"
+	// OffPageReferenceNodeConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceNodeConfigType NodeConfigType = "off_page_reference"
+	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
+	PolygonNodeConfigType NodeConfigType = "polygon"
+	// SelectNodeConfigType is the configuration for select symbols.
+	SelectNodeConfigType NodeConfigType = "select"
+	// ScaleNodeConfigType is the configuration for standalone scale symbols.
+	ScaleNodeConfigType NodeConfigType = "scale"
+	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
+	SetpointNodeConfigType NodeConfigType = "setpoint"
+	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
+	// StringDisplayNodeConfigType is the configuration for live string display symbols.
+	StringDisplayNodeConfigType NodeConfigType = "string_display"
+	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	SwitchNodeConfigType NodeConfigType = "switch"
+	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
+	TextBoxNodeConfigType NodeConfigType = "text_box"
+	// ValueNodeConfigType is the configuration for live telemetry value symbols.
+	ValueNodeConfigType NodeConfigType = "value"
+	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	AgitatorNodeConfigType NodeConfigType = "agitator"
+	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
+	// variant.
+	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
+	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeNodeConfigType selects the
+	// HeatExchangerStraightTubeNodeConfig variant.
+	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
+	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
+	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
+	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
+	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
+	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
+	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
+	// variant.
+	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
+	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	CompressorNodeConfigType NodeConfigType = "compressor"
+	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
+	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
+	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
+	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
+	// variant.
+	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
+	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
+	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	PumpNodeConfigType NodeConfigType = "pump"
+	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
+	// variant.
+	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
+	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
+	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
+	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
+	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
+	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	FlameArrestorNodeConfigType NodeConfigType = "flame_arrestor"
+	// FlameArrestorDetonationNodeConfigType selects the
+	// FlameArrestorDetonationNodeConfig variant.
+	FlameArrestorDetonationNodeConfigType NodeConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
+	// variant.
+	FlameArrestorExplosionNodeConfigType NodeConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
+	// variant.
+	FlameArrestorFireResNodeConfigType NodeConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationNodeConfigType selects the
+	// FlameArrestorFireResDetonationNodeConfig variant.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscNodeConfigType                   NodeConfigType = "iso_burst_disc"
-	AngledValveNodeConfigType                    NodeConfigType = "angled_valve"
-	AngledReliefValveNodeConfigType              NodeConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = "angled_spring_loaded_relief_valve"
-	BallValveNodeConfigType                      NodeConfigType = "ball_valve"
-	BreatherValveNodeConfigType                  NodeConfigType = "breather_valve"
-	ButterflyValveOneNodeConfigType              NodeConfigType = "butterfly_valve_one"
-	ButterflyValveTwoNodeConfigType              NodeConfigType = "butterfly_valve_two"
-	CheckValveNodeConfigType                     NodeConfigType = "check_valve"
-	CheckValveWithArrowNodeConfigType            NodeConfigType = "check_valve_with_arrow"
-	ElectricRegulatorNodeConfigType              NodeConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = "electric_regulator_motorized"
-	FourWayValveNodeConfigType                   NodeConfigType = "four_way_valve"
-	GateValveNodeConfigType                      NodeConfigType = "gate_valve"
-	IsoCheckValveNodeConfigType                  NodeConfigType = "iso_check_valve"
-	ManualValveNodeConfigType                    NodeConfigType = "manual_valve"
-	NeedleValveNodeConfigType                    NodeConfigType = "needle_valve"
-	RegulatorNodeConfigType                      NodeConfigType = "regulator"
-	RegulatorManualNodeConfigType                NodeConfigType = "regulator_manual"
-	ReliefValveNodeConfigType                    NodeConfigType = "relief_valve"
-	SolenoidValveNodeConfigType                  NodeConfigType = "solenoid_valve"
-	SpringLoadedReliefValveNodeConfigType        NodeConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveNodeConfigType                  NodeConfigType = "three_way_valve"
-	ThreeWayBallValveNodeConfigType              NodeConfigType = "three_way_ball_valve"
-	ValveNodeConfigType                          NodeConfigType = "valve"
-	CrossJunctionNodeConfigType                  NodeConfigType = "cross_junction"
-	CylinderNodeConfigType                       NodeConfigType = "cylinder"
-	TankNodeConfigType                           NodeConfigType = "tank"
-	TJunctionNodeConfigType                      NodeConfigType = "t_junction"
-	CustomActuatorNodeConfigType                 NodeConfigType = "custom_actuator"
-	CustomStaticNodeConfigType                   NodeConfigType = "custom_static"
-	GroupBoxNodeConfigType                       NodeConfigType = "group_box"
+	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	IsoBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
+	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	AngledValveNodeConfigType NodeConfigType = "angled_valve"
+	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	AngledReliefValveNodeConfigType NodeConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveNodeConfigType selects the
+	// AngledSpringLoadedReliefValveNodeConfig variant.
+	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	BallValveNodeConfigType NodeConfigType = "ball_valve"
+	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	BreatherValveNodeConfigType NodeConfigType = "breather_valve"
+	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	ButterflyValveOneNodeConfigType NodeConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	ButterflyValveTwoNodeConfigType NodeConfigType = "butterfly_valve_two"
+	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	CheckValveNodeConfigType NodeConfigType = "check_valve"
+	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
+	// variant.
+	CheckValveWithArrowNodeConfigType NodeConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	ElectricRegulatorNodeConfigType NodeConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedNodeConfigType selects the
+	// ElectricRegulatorMotorizedNodeConfig variant.
+	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = "electric_regulator_motorized"
+	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	FourWayValveNodeConfigType NodeConfigType = "four_way_valve"
+	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	GateValveNodeConfigType NodeConfigType = "gate_valve"
+	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	IsoCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
+	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	ManualValveNodeConfigType NodeConfigType = "manual_valve"
+	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	NeedleValveNodeConfigType NodeConfigType = "needle_valve"
+	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	RegulatorNodeConfigType NodeConfigType = "regulator"
+	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	RegulatorManualNodeConfigType NodeConfigType = "regulator_manual"
+	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	ReliefValveNodeConfigType NodeConfigType = "relief_valve"
+	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveNodeConfigType NodeConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveNodeConfigType selects the
+	// SpringLoadedReliefValveNodeConfig variant.
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	ThreeWayValveNodeConfigType NodeConfigType = "three_way_valve"
+	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	ThreeWayBallValveNodeConfigType NodeConfigType = "three_way_ball_valve"
+	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	ValveNodeConfigType NodeConfigType = "valve"
+	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	CrossJunctionNodeConfigType NodeConfigType = "cross_junction"
+	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
+	CylinderNodeConfigType NodeConfigType = "cylinder"
+	// TankNodeConfigType is the configuration for tank vessel symbols.
+	TankNodeConfigType NodeConfigType = "tank"
+	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
+	TJunctionNodeConfigType NodeConfigType = "t_junction"
+	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorNodeConfigType NodeConfigType = "custom_actuator"
+	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
+	CustomStaticNodeConfigType NodeConfigType = "custom_static"
+	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxNodeConfigType NodeConfigType = "group_box"
 )
 
+// NodeConfigVariant is implemented by every NodeConfig variant.
 type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
@@ -3920,636 +4100,954 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type NodeConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CapNodeConfigType:
-		var v CapNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CapNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CapNodeConfig
 	case FilterNodeConfigType:
-		var v FilterNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FilterNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FilterNodeConfig
 	case FlowStraightenerNodeConfigType:
-		var v FlowStraightenerNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowStraightenerNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowStraightenerNodeConfig
 	case HeaterElementNodeConfigType:
-		var v HeaterElementNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			HeaterElementNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeaterElementNodeConfig
 	case IsoCapNodeConfigType:
-		var v IsoCapNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			IsoCapNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoCapNodeConfig
 	case IsoFilterNodeConfigType:
-		var v IsoFilterNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			IsoFilterNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoFilterNodeConfig
 	case NozzleNodeConfigType:
-		var v NozzleNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			NozzleNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NozzleNodeConfig
 	case OrificeNodeConfigType:
-		var v OrificeNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			OrificeNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OrificeNodeConfig
 	case OrificePlateNodeConfigType:
-		var v OrificePlateNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			OrificePlateNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OrificePlateNodeConfig
 	case StrainerNodeConfigType:
-		var v StrainerNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			StrainerNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StrainerNodeConfig
 	case StrainerConeNodeConfigType:
-		var v StrainerConeNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			StrainerConeNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StrainerConeNodeConfig
 	case ThrusterNodeConfigType:
-		var v ThrusterNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ThrusterNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThrusterNodeConfig
 	case VentNodeConfigType:
-		var v VentNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			VentNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.VentNodeConfig
 	case FlowmeterGeneralNodeConfigType:
-		var v FlowmeterGeneralNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterGeneralNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterGeneralNodeConfig
 	case FlowmeterElectromagneticNodeConfigType:
-		var v FlowmeterElectromagneticNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterElectromagneticNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterElectromagneticNodeConfig
 	case FlowmeterVariableAreaNodeConfigType:
-		var v FlowmeterVariableAreaNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterVariableAreaNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterVariableAreaNodeConfig
 	case FlowmeterCoriolisNodeConfigType:
-		var v FlowmeterCoriolisNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterCoriolisNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterCoriolisNodeConfig
 	case FlowmeterNozzleNodeConfigType:
-		var v FlowmeterNozzleNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterNozzleNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterNozzleNodeConfig
 	case FlowmeterVenturiNodeConfigType:
-		var v FlowmeterVenturiNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterVenturiNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterVenturiNodeConfig
 	case FlowmeterRingPistonNodeConfigType:
-		var v FlowmeterRingPistonNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterRingPistonNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterRingPistonNodeConfig
 	case FlowmeterPositiveDisplacementNodeConfigType:
-		var v FlowmeterPositiveDisplacementNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterPositiveDisplacementNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterPositiveDisplacementNodeConfig
 	case FlowmeterTurbineNodeConfigType:
-		var v FlowmeterTurbineNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterTurbineNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterTurbineNodeConfig
 	case FlowmeterPulseNodeConfigType:
-		var v FlowmeterPulseNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterPulseNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterPulseNodeConfig
 	case FlowmeterFloatSensorNodeConfigType:
-		var v FlowmeterFloatSensorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterFloatSensorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterFloatSensorNodeConfig
 	case FlowmeterOrificeNodeConfigType:
-		var v FlowmeterOrificeNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterOrificeNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterOrificeNodeConfig
 	case BoxNodeConfigType:
-		var v BoxNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			BoxNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BoxNodeConfig
 	case ButtonNodeConfigType:
-		var v ButtonNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ButtonNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButtonNodeConfig
 	case CircleNodeConfigType:
-		var v CircleNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CircleNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CircleNodeConfig
 	case GaugeNodeConfigType:
-		var v GaugeNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			GaugeNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GaugeNodeConfig
 	case InputNodeConfigType:
-		var v InputNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			InputNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputNodeConfig
 	case LightNodeConfigType:
-		var v LightNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			LightNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LightNodeConfig
 	case LineNodeConfigType:
-		var v LineNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			LineNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LineNodeConfig
 	case OffPageReferenceNodeConfigType:
-		var v OffPageReferenceNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			OffPageReferenceNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OffPageReferenceNodeConfig
 	case PolygonNodeConfigType:
-		var v PolygonNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			PolygonNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PolygonNodeConfig
 	case SelectNodeConfigType:
-		var v SelectNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SelectNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SelectNodeConfig
 	case ScaleNodeConfigType:
-		var v ScaleNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ScaleNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScaleNodeConfig
 	case SetpointNodeConfigType:
-		var v SetpointNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SetpointNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SetpointNodeConfig
 	case StateIndicatorNodeConfigType:
-		var v StateIndicatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			StateIndicatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StateIndicatorNodeConfig
 	case StringDisplayNodeConfigType:
-		var v StringDisplayNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			StringDisplayNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StringDisplayNodeConfig
 	case SwitchNodeConfigType:
-		var v SwitchNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SwitchNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SwitchNodeConfig
 	case TextBoxNodeConfigType:
-		var v TextBoxNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			TextBoxNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TextBoxNodeConfig
 	case ValueNodeConfigType:
-		var v ValueNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ValueNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValueNodeConfig
 	case AgitatorNodeConfigType:
-		var v AgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			AgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AgitatorNodeConfig
 	case CrossBeamAgitatorNodeConfigType:
-		var v CrossBeamAgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CrossBeamAgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CrossBeamAgitatorNodeConfig
 	case FlatBladeAgitatorNodeConfigType:
-		var v FlatBladeAgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlatBladeAgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlatBladeAgitatorNodeConfig
 	case HeatExchangerGeneralNodeConfigType:
-		var v HeatExchangerGeneralNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerGeneralNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerGeneralNodeConfig
 	case HeatExchangerMNodeConfigType:
-		var v HeatExchangerMNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerMNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerMNodeConfig
 	case HeatExchangerStraightTubeNodeConfigType:
-		var v HeatExchangerStraightTubeNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerStraightTubeNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerStraightTubeNodeConfig
 	case HelicalAgitatorNodeConfigType:
-		var v HelicalAgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			HelicalAgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HelicalAgitatorNodeConfig
 	case PaddleAgitatorNodeConfigType:
-		var v PaddleAgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			PaddleAgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PaddleAgitatorNodeConfig
 	case PropellerAgitatorNodeConfigType:
-		var v PropellerAgitatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			PropellerAgitatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PropellerAgitatorNodeConfig
 	case RotaryMixerNodeConfigType:
-		var v RotaryMixerNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			RotaryMixerNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RotaryMixerNodeConfig
 	case StaticMixerNodeConfigType:
-		var v StaticMixerNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			StaticMixerNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticMixerNodeConfig
 	case CavityPumpNodeConfigType:
-		var v CavityPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CavityPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CavityPumpNodeConfig
 	case CentrifugalCompressorNodeConfigType:
-		var v CentrifugalCompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CentrifugalCompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CentrifugalCompressorNodeConfig
 	case CompressorNodeConfigType:
-		var v CompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CompressorNodeConfig
 	case DiaphragmPumpNodeConfigType:
-		var v DiaphragmPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			DiaphragmPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DiaphragmPumpNodeConfig
 	case EjectionPumpNodeConfigType:
-		var v EjectionPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			EjectionPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EjectionPumpNodeConfig
 	case EjectorCompressorNodeConfigType:
-		var v EjectorCompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			EjectorCompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EjectorCompressorNodeConfig
 	case LiquidRingCompressorNodeConfigType:
-		var v LiquidRingCompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			LiquidRingCompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LiquidRingCompressorNodeConfig
 	case PistonPumpNodeConfigType:
-		var v PistonPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			PistonPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PistonPumpNodeConfig
 	case PumpNodeConfigType:
-		var v PumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			PumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PumpNodeConfig
 	case RollerVaneCompressorNodeConfigType:
-		var v RollerVaneCompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			RollerVaneCompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RollerVaneCompressorNodeConfig
 	case ScrewPumpNodeConfigType:
-		var v ScrewPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ScrewPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScrewPumpNodeConfig
 	case TurboCompressorNodeConfigType:
-		var v TurboCompressorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			TurboCompressorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TurboCompressorNodeConfig
 	case VacuumPumpNodeConfigType:
-		var v VacuumPumpNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			VacuumPumpNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.VacuumPumpNodeConfig
 	case BurstDiscNodeConfigType:
-		var v BurstDiscNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			BurstDiscNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BurstDiscNodeConfig
 	case FlameArrestorNodeConfigType:
-		var v FlameArrestorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorNodeConfig
 	case FlameArrestorDetonationNodeConfigType:
-		var v FlameArrestorDetonationNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorDetonationNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorDetonationNodeConfig
 	case FlameArrestorExplosionNodeConfigType:
-		var v FlameArrestorExplosionNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorExplosionNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorExplosionNodeConfig
 	case FlameArrestorFireResNodeConfigType:
-		var v FlameArrestorFireResNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorFireResNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorFireResNodeConfig
 	case FlameArrestorFireResDetonationNodeConfigType:
-		var v FlameArrestorFireResDetonationNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorFireResDetonationNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorFireResDetonationNodeConfig
 	case IsoBurstDiscNodeConfigType:
-		var v IsoBurstDiscNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			IsoBurstDiscNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoBurstDiscNodeConfig
 	case AngledValveNodeConfigType:
-		var v AngledValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			AngledValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledValveNodeConfig
 	case AngledReliefValveNodeConfigType:
-		var v AngledReliefValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			AngledReliefValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledReliefValveNodeConfig
 	case AngledSpringLoadedReliefValveNodeConfigType:
-		var v AngledSpringLoadedReliefValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			AngledSpringLoadedReliefValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledSpringLoadedReliefValveNodeConfig
 	case BallValveNodeConfigType:
-		var v BallValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			BallValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BallValveNodeConfig
 	case BreatherValveNodeConfigType:
-		var v BreatherValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			BreatherValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BreatherValveNodeConfig
 	case ButterflyValveOneNodeConfigType:
-		var v ButterflyValveOneNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ButterflyValveOneNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButterflyValveOneNodeConfig
 	case ButterflyValveTwoNodeConfigType:
-		var v ButterflyValveTwoNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ButterflyValveTwoNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButterflyValveTwoNodeConfig
 	case CheckValveNodeConfigType:
-		var v CheckValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CheckValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CheckValveNodeConfig
 	case CheckValveWithArrowNodeConfigType:
-		var v CheckValveWithArrowNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CheckValveWithArrowNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CheckValveWithArrowNodeConfig
 	case ElectricRegulatorNodeConfigType:
-		var v ElectricRegulatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ElectricRegulatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricRegulatorNodeConfig
 	case ElectricRegulatorMotorizedNodeConfigType:
-		var v ElectricRegulatorMotorizedNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ElectricRegulatorMotorizedNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricRegulatorMotorizedNodeConfig
 	case FourWayValveNodeConfigType:
-		var v FourWayValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			FourWayValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FourWayValveNodeConfig
 	case GateValveNodeConfigType:
-		var v GateValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			GateValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GateValveNodeConfig
 	case IsoCheckValveNodeConfigType:
-		var v IsoCheckValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			IsoCheckValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoCheckValveNodeConfig
 	case ManualValveNodeConfigType:
-		var v ManualValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ManualValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ManualValveNodeConfig
 	case NeedleValveNodeConfigType:
-		var v NeedleValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			NeedleValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NeedleValveNodeConfig
 	case RegulatorNodeConfigType:
-		var v RegulatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			RegulatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RegulatorNodeConfig
 	case RegulatorManualNodeConfigType:
-		var v RegulatorManualNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			RegulatorManualNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RegulatorManualNodeConfig
 	case ReliefValveNodeConfigType:
-		var v ReliefValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ReliefValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ReliefValveNodeConfig
 	case SolenoidValveNodeConfigType:
-		var v SolenoidValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SolenoidValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SolenoidValveNodeConfig
 	case SpringLoadedReliefValveNodeConfigType:
-		var v SpringLoadedReliefValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SpringLoadedReliefValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SpringLoadedReliefValveNodeConfig
 	case ThreeWayValveNodeConfigType:
-		var v ThreeWayValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ThreeWayValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThreeWayValveNodeConfig
 	case ThreeWayBallValveNodeConfigType:
-		var v ThreeWayBallValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ThreeWayBallValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThreeWayBallValveNodeConfig
 	case ValveNodeConfigType:
-		var v ValveNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			ValveNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValveNodeConfig
 	case CrossJunctionNodeConfigType:
-		var v CrossJunctionNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CrossJunctionNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CrossJunctionNodeConfig
 	case CylinderNodeConfigType:
-		var v CylinderNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CylinderNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CylinderNodeConfig
 	case TankNodeConfigType:
-		var v TankNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			TankNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TankNodeConfig
 	case TJunctionNodeConfigType:
-		var v TJunctionNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			TJunctionNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TJunctionNodeConfig
 	case CustomActuatorNodeConfigType:
-		var v CustomActuatorNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CustomActuatorNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CustomActuatorNodeConfig
 	case CustomStaticNodeConfigType:
-		var v CustomStaticNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			CustomStaticNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CustomStaticNodeConfig
 	case GroupBoxNodeConfigType:
-		var v GroupBoxNodeConfig
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			GroupBoxNodeConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GroupBoxNodeConfig
 	default:
-		return errors.Newf("NodeConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"NodeConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -5082,122 +5580,278 @@ func (u NodeConfig) Validate() error {
 	return nil
 }
 
+// ElementConfigType is the "variant" value that selects a variant of ElementConfig.
 type ElementConfigType string
 
 const (
-	CapElementConfigType                            ElementConfigType = "cap"
-	FilterElementConfigType                         ElementConfigType = "filter"
-	FlowStraightenerElementConfigType               ElementConfigType = "flow_straightener"
-	HeaterElementElementConfigType                  ElementConfigType = "heater_element"
-	IsoCapElementConfigType                         ElementConfigType = "iso_cap"
-	IsoFilterElementConfigType                      ElementConfigType = "iso_filter"
-	NozzleElementConfigType                         ElementConfigType = "nozzle"
-	OrificeElementConfigType                        ElementConfigType = "orifice"
-	OrificePlateElementConfigType                   ElementConfigType = "orifice_plate"
-	StrainerElementConfigType                       ElementConfigType = "strainer"
-	StrainerConeElementConfigType                   ElementConfigType = "strainer_cone"
-	ThrusterElementConfigType                       ElementConfigType = "thruster"
-	VentElementConfigType                           ElementConfigType = "vent"
-	FlowmeterGeneralElementConfigType               ElementConfigType = "flowmeter_general"
-	FlowmeterElectromagneticElementConfigType       ElementConfigType = "flowmeter_electromagnetic"
-	FlowmeterVariableAreaElementConfigType          ElementConfigType = "flowmeter_variable_area"
-	FlowmeterCoriolisElementConfigType              ElementConfigType = "flowmeter_coriolis"
-	FlowmeterNozzleElementConfigType                ElementConfigType = "flowmeter_nozzle"
-	FlowmeterVenturiElementConfigType               ElementConfigType = "flowmeter_venturi"
-	FlowmeterRingPistonElementConfigType            ElementConfigType = "flowmeter_ring_piston"
-	FlowmeterPositiveDisplacementElementConfigType  ElementConfigType = "flowmeter_positive_displacement"
-	FlowmeterTurbineElementConfigType               ElementConfigType = "flowmeter_turbine"
-	FlowmeterPulseElementConfigType                 ElementConfigType = "flowmeter_pulse"
-	FlowmeterFloatSensorElementConfigType           ElementConfigType = "flowmeter_float_sensor"
-	FlowmeterOrificeElementConfigType               ElementConfigType = "flowmeter_orifice"
-	BoxElementConfigType                            ElementConfigType = "box"
-	ButtonElementConfigType                         ElementConfigType = "button"
-	CircleElementConfigType                         ElementConfigType = "circle"
-	GaugeElementConfigType                          ElementConfigType = "gauge"
-	InputElementConfigType                          ElementConfigType = "input"
-	LightElementConfigType                          ElementConfigType = "light"
-	LineElementConfigType                           ElementConfigType = "line"
-	OffPageReferenceElementConfigType               ElementConfigType = "off_page_reference"
-	PolygonElementConfigType                        ElementConfigType = "polygon"
-	SelectElementConfigType                         ElementConfigType = "select"
-	ScaleElementConfigType                          ElementConfigType = "scale"
-	SetpointElementConfigType                       ElementConfigType = "setpoint"
-	StateIndicatorElementConfigType                 ElementConfigType = "state_indicator"
-	StringDisplayElementConfigType                  ElementConfigType = "string_display"
-	SwitchElementConfigType                         ElementConfigType = "switch"
-	TextBoxElementConfigType                        ElementConfigType = "text_box"
-	ValueElementConfigType                          ElementConfigType = "value"
-	AgitatorElementConfigType                       ElementConfigType = "agitator"
-	CrossBeamAgitatorElementConfigType              ElementConfigType = "cross_beam_agitator"
-	FlatBladeAgitatorElementConfigType              ElementConfigType = "flat_blade_agitator"
-	HeatExchangerGeneralElementConfigType           ElementConfigType = "heat_exchanger_general"
-	HeatExchangerMElementConfigType                 ElementConfigType = "heat_exchanger_m"
-	HeatExchangerStraightTubeElementConfigType      ElementConfigType = "heat_exchanger_straight_tube"
-	HelicalAgitatorElementConfigType                ElementConfigType = "helical_agitator"
-	PaddleAgitatorElementConfigType                 ElementConfigType = "paddle_agitator"
-	PropellerAgitatorElementConfigType              ElementConfigType = "propeller_agitator"
-	RotaryMixerElementConfigType                    ElementConfigType = "rotary_mixer"
-	StaticMixerElementConfigType                    ElementConfigType = "static_mixer"
-	CavityPumpElementConfigType                     ElementConfigType = "cavity_pump"
-	CentrifugalCompressorElementConfigType          ElementConfigType = "centrifugal_compressor"
-	CompressorElementConfigType                     ElementConfigType = "compressor"
-	DiaphragmPumpElementConfigType                  ElementConfigType = "diaphragm_pump"
-	EjectionPumpElementConfigType                   ElementConfigType = "ejection_pump"
-	EjectorCompressorElementConfigType              ElementConfigType = "ejector_compressor"
-	LiquidRingCompressorElementConfigType           ElementConfigType = "liquid_ring_compressor"
-	PistonPumpElementConfigType                     ElementConfigType = "piston_pump"
-	PumpElementConfigType                           ElementConfigType = "pump"
-	RollerVaneCompressorElementConfigType           ElementConfigType = "roller_vane_compressor"
-	ScrewPumpElementConfigType                      ElementConfigType = "screw_pump"
-	TurboCompressorElementConfigType                ElementConfigType = "turbo_compressor"
-	VacuumPumpElementConfigType                     ElementConfigType = "vacuum_pump"
-	BurstDiscElementConfigType                      ElementConfigType = "burst_disc"
-	FlameArrestorElementConfigType                  ElementConfigType = "flame_arrestor"
-	FlameArrestorDetonationElementConfigType        ElementConfigType = "flame_arrestor_detonation"
-	FlameArrestorExplosionElementConfigType         ElementConfigType = "flame_arrestor_explosion"
-	FlameArrestorFireResElementConfigType           ElementConfigType = "flame_arrestor_fire_res"
+	// CapElementConfigType selects the CapElementConfig variant.
+	CapElementConfigType ElementConfigType = "cap"
+	// FilterElementConfigType selects the FilterElementConfig variant.
+	FilterElementConfigType ElementConfigType = "filter"
+	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
+	// variant.
+	FlowStraightenerElementConfigType ElementConfigType = "flow_straightener"
+	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	HeaterElementElementConfigType ElementConfigType = "heater_element"
+	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	IsoCapElementConfigType ElementConfigType = "iso_cap"
+	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	IsoFilterElementConfigType ElementConfigType = "iso_filter"
+	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	NozzleElementConfigType ElementConfigType = "nozzle"
+	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	OrificeElementConfigType ElementConfigType = "orifice"
+	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	OrificePlateElementConfigType ElementConfigType = "orifice_plate"
+	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	StrainerElementConfigType ElementConfigType = "strainer"
+	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	StrainerConeElementConfigType ElementConfigType = "strainer_cone"
+	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	ThrusterElementConfigType ElementConfigType = "thruster"
+	// VentElementConfigType selects the VentElementConfig variant.
+	VentElementConfigType ElementConfigType = "vent"
+	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
+	// variant.
+	FlowmeterGeneralElementConfigType ElementConfigType = "flowmeter_general"
+	// FlowmeterElectromagneticElementConfigType selects the
+	// FlowmeterElectromagneticElementConfig variant.
+	FlowmeterElectromagneticElementConfigType ElementConfigType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaElementConfigType selects the
+	// FlowmeterVariableAreaElementConfig variant.
+	FlowmeterVariableAreaElementConfigType ElementConfigType = "flowmeter_variable_area"
+	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
+	// variant.
+	FlowmeterCoriolisElementConfigType ElementConfigType = "flowmeter_coriolis"
+	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
+	// variant.
+	FlowmeterNozzleElementConfigType ElementConfigType = "flowmeter_nozzle"
+	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
+	// variant.
+	FlowmeterVenturiElementConfigType ElementConfigType = "flowmeter_venturi"
+	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
+	// variant.
+	FlowmeterRingPistonElementConfigType ElementConfigType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementElementConfigType selects the
+	// FlowmeterPositiveDisplacementElementConfig variant.
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
+	// variant.
+	FlowmeterTurbineElementConfigType ElementConfigType = "flowmeter_turbine"
+	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	FlowmeterPulseElementConfigType ElementConfigType = "flowmeter_pulse"
+	// FlowmeterFloatSensorElementConfigType selects the
+	// FlowmeterFloatSensorElementConfig variant.
+	FlowmeterFloatSensorElementConfigType ElementConfigType = "flowmeter_float_sensor"
+	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
+	// variant.
+	FlowmeterOrificeElementConfigType ElementConfigType = "flowmeter_orifice"
+	// BoxElementConfigType is the configuration for box annotation symbols.
+	BoxElementConfigType ElementConfigType = "box"
+	// ButtonElementConfigType is the configuration for button symbols.
+	ButtonElementConfigType ElementConfigType = "button"
+	// CircleElementConfigType is the configuration for circle annotation symbols.
+	CircleElementConfigType ElementConfigType = "circle"
+	// GaugeElementConfigType is the configuration for gauge symbols.
+	GaugeElementConfigType ElementConfigType = "gauge"
+	// InputElementConfigType is the configuration for free-form input symbols.
+	InputElementConfigType ElementConfigType = "input"
+	// LightElementConfigType is the configuration for indicator light symbols.
+	LightElementConfigType ElementConfigType = "light"
+	// LineElementConfigType is the configuration for straight line symbols.
+	LineElementConfigType ElementConfigType = "line"
+	// OffPageReferenceElementConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceElementConfigType ElementConfigType = "off_page_reference"
+	// PolygonElementConfigType is the configuration for polygon annotation symbols.
+	PolygonElementConfigType ElementConfigType = "polygon"
+	// SelectElementConfigType is the configuration for select symbols.
+	SelectElementConfigType ElementConfigType = "select"
+	// ScaleElementConfigType is the configuration for standalone scale symbols.
+	ScaleElementConfigType ElementConfigType = "scale"
+	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
+	SetpointElementConfigType ElementConfigType = "setpoint"
+	// StateIndicatorElementConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorElementConfigType ElementConfigType = "state_indicator"
+	// StringDisplayElementConfigType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigType ElementConfigType = "string_display"
+	// SwitchElementConfigType selects the SwitchElementConfig variant.
+	SwitchElementConfigType ElementConfigType = "switch"
+	// TextBoxElementConfigType is the configuration for text box annotation symbols.
+	TextBoxElementConfigType ElementConfigType = "text_box"
+	// ValueElementConfigType is the configuration for live telemetry value symbols.
+	ValueElementConfigType ElementConfigType = "value"
+	// AgitatorElementConfigType selects the AgitatorElementConfig variant.
+	AgitatorElementConfigType ElementConfigType = "agitator"
+	// CrossBeamAgitatorElementConfigType selects the CrossBeamAgitatorElementConfig
+	// variant.
+	CrossBeamAgitatorElementConfigType ElementConfigType = "cross_beam_agitator"
+	// FlatBladeAgitatorElementConfigType selects the FlatBladeAgitatorElementConfig
+	// variant.
+	FlatBladeAgitatorElementConfigType ElementConfigType = "flat_blade_agitator"
+	// HeatExchangerGeneralElementConfigType selects the
+	// HeatExchangerGeneralElementConfig variant.
+	HeatExchangerGeneralElementConfigType ElementConfigType = "heat_exchanger_general"
+	// HeatExchangerMElementConfigType selects the HeatExchangerMElementConfig variant.
+	HeatExchangerMElementConfigType ElementConfigType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeElementConfigType selects the
+	// HeatExchangerStraightTubeElementConfig variant.
+	HeatExchangerStraightTubeElementConfigType ElementConfigType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorElementConfigType selects the HelicalAgitatorElementConfig
+	// variant.
+	HelicalAgitatorElementConfigType ElementConfigType = "helical_agitator"
+	// PaddleAgitatorElementConfigType selects the PaddleAgitatorElementConfig variant.
+	PaddleAgitatorElementConfigType ElementConfigType = "paddle_agitator"
+	// PropellerAgitatorElementConfigType selects the PropellerAgitatorElementConfig
+	// variant.
+	PropellerAgitatorElementConfigType ElementConfigType = "propeller_agitator"
+	// RotaryMixerElementConfigType selects the RotaryMixerElementConfig variant.
+	RotaryMixerElementConfigType ElementConfigType = "rotary_mixer"
+	// StaticMixerElementConfigType selects the StaticMixerElementConfig variant.
+	StaticMixerElementConfigType ElementConfigType = "static_mixer"
+	// CavityPumpElementConfigType selects the CavityPumpElementConfig variant.
+	CavityPumpElementConfigType ElementConfigType = "cavity_pump"
+	// CentrifugalCompressorElementConfigType selects the
+	// CentrifugalCompressorElementConfig variant.
+	CentrifugalCompressorElementConfigType ElementConfigType = "centrifugal_compressor"
+	// CompressorElementConfigType selects the CompressorElementConfig variant.
+	CompressorElementConfigType ElementConfigType = "compressor"
+	// DiaphragmPumpElementConfigType selects the DiaphragmPumpElementConfig variant.
+	DiaphragmPumpElementConfigType ElementConfigType = "diaphragm_pump"
+	// EjectionPumpElementConfigType selects the EjectionPumpElementConfig variant.
+	EjectionPumpElementConfigType ElementConfigType = "ejection_pump"
+	// EjectorCompressorElementConfigType selects the EjectorCompressorElementConfig
+	// variant.
+	EjectorCompressorElementConfigType ElementConfigType = "ejector_compressor"
+	// LiquidRingCompressorElementConfigType selects the
+	// LiquidRingCompressorElementConfig variant.
+	LiquidRingCompressorElementConfigType ElementConfigType = "liquid_ring_compressor"
+	// PistonPumpElementConfigType selects the PistonPumpElementConfig variant.
+	PistonPumpElementConfigType ElementConfigType = "piston_pump"
+	// PumpElementConfigType selects the PumpElementConfig variant.
+	PumpElementConfigType ElementConfigType = "pump"
+	// RollerVaneCompressorElementConfigType selects the
+	// RollerVaneCompressorElementConfig variant.
+	RollerVaneCompressorElementConfigType ElementConfigType = "roller_vane_compressor"
+	// ScrewPumpElementConfigType selects the ScrewPumpElementConfig variant.
+	ScrewPumpElementConfigType ElementConfigType = "screw_pump"
+	// TurboCompressorElementConfigType selects the TurboCompressorElementConfig
+	// variant.
+	TurboCompressorElementConfigType ElementConfigType = "turbo_compressor"
+	// VacuumPumpElementConfigType selects the VacuumPumpElementConfig variant.
+	VacuumPumpElementConfigType ElementConfigType = "vacuum_pump"
+	// BurstDiscElementConfigType selects the BurstDiscElementConfig variant.
+	BurstDiscElementConfigType ElementConfigType = "burst_disc"
+	// FlameArrestorElementConfigType selects the FlameArrestorElementConfig variant.
+	FlameArrestorElementConfigType ElementConfigType = "flame_arrestor"
+	// FlameArrestorDetonationElementConfigType selects the
+	// FlameArrestorDetonationElementConfig variant.
+	FlameArrestorDetonationElementConfigType ElementConfigType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionElementConfigType selects the
+	// FlameArrestorExplosionElementConfig variant.
+	FlameArrestorExplosionElementConfigType ElementConfigType = "flame_arrestor_explosion"
+	// FlameArrestorFireResElementConfigType selects the
+	// FlameArrestorFireResElementConfig variant.
+	FlameArrestorFireResElementConfigType ElementConfigType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationElementConfigType selects the
+	// FlameArrestorFireResDetonationElementConfig variant.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = "flame_arrestor_fire_res_detonation"
-	IsoBurstDiscElementConfigType                   ElementConfigType = "iso_burst_disc"
-	AngledValveElementConfigType                    ElementConfigType = "angled_valve"
-	AngledReliefValveElementConfigType              ElementConfigType = "angled_relief_valve"
-	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = "angled_spring_loaded_relief_valve"
-	BallValveElementConfigType                      ElementConfigType = "ball_valve"
-	BreatherValveElementConfigType                  ElementConfigType = "breather_valve"
-	ButterflyValveOneElementConfigType              ElementConfigType = "butterfly_valve_one"
-	ButterflyValveTwoElementConfigType              ElementConfigType = "butterfly_valve_two"
-	CheckValveElementConfigType                     ElementConfigType = "check_valve"
-	CheckValveWithArrowElementConfigType            ElementConfigType = "check_valve_with_arrow"
-	ElectricRegulatorElementConfigType              ElementConfigType = "electric_regulator"
-	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = "electric_regulator_motorized"
-	FourWayValveElementConfigType                   ElementConfigType = "four_way_valve"
-	GateValveElementConfigType                      ElementConfigType = "gate_valve"
-	IsoCheckValveElementConfigType                  ElementConfigType = "iso_check_valve"
-	ManualValveElementConfigType                    ElementConfigType = "manual_valve"
-	NeedleValveElementConfigType                    ElementConfigType = "needle_valve"
-	RegulatorElementConfigType                      ElementConfigType = "regulator"
-	RegulatorManualElementConfigType                ElementConfigType = "regulator_manual"
-	ReliefValveElementConfigType                    ElementConfigType = "relief_valve"
-	SolenoidValveElementConfigType                  ElementConfigType = "solenoid_valve"
-	SpringLoadedReliefValveElementConfigType        ElementConfigType = "spring_loaded_relief_valve"
-	ThreeWayValveElementConfigType                  ElementConfigType = "three_way_valve"
-	ThreeWayBallValveElementConfigType              ElementConfigType = "three_way_ball_valve"
-	ValveElementConfigType                          ElementConfigType = "valve"
-	CrossJunctionElementConfigType                  ElementConfigType = "cross_junction"
-	CylinderElementConfigType                       ElementConfigType = "cylinder"
-	TankElementConfigType                           ElementConfigType = "tank"
-	TJunctionElementConfigType                      ElementConfigType = "t_junction"
-	CustomActuatorElementConfigType                 ElementConfigType = "custom_actuator"
-	CustomStaticElementConfigType                   ElementConfigType = "custom_static"
-	GroupBoxElementConfigType                       ElementConfigType = "group_box"
-	PipeElementConfigType                           ElementConfigType = "pipe"
-	ElectricElementConfigType                       ElementConfigType = "electric"
-	SecondaryElementConfigType                      ElementConfigType = "secondary"
-	JacketedElementConfigType                       ElementConfigType = "jacketed"
-	HydraulicElementConfigType                      ElementConfigType = "hydraulic"
-	PneumaticElementConfigType                      ElementConfigType = "pneumatic"
-	DataElementConfigType                           ElementConfigType = "data"
+	// IsoBurstDiscElementConfigType selects the IsoBurstDiscElementConfig variant.
+	IsoBurstDiscElementConfigType ElementConfigType = "iso_burst_disc"
+	// AngledValveElementConfigType selects the AngledValveElementConfig variant.
+	AngledValveElementConfigType ElementConfigType = "angled_valve"
+	// AngledReliefValveElementConfigType selects the AngledReliefValveElementConfig
+	// variant.
+	AngledReliefValveElementConfigType ElementConfigType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveElementConfigType selects the
+	// AngledSpringLoadedReliefValveElementConfig variant.
+	AngledSpringLoadedReliefValveElementConfigType ElementConfigType = "angled_spring_loaded_relief_valve"
+	// BallValveElementConfigType selects the BallValveElementConfig variant.
+	BallValveElementConfigType ElementConfigType = "ball_valve"
+	// BreatherValveElementConfigType selects the BreatherValveElementConfig variant.
+	BreatherValveElementConfigType ElementConfigType = "breather_valve"
+	// ButterflyValveOneElementConfigType selects the ButterflyValveOneElementConfig
+	// variant.
+	ButterflyValveOneElementConfigType ElementConfigType = "butterfly_valve_one"
+	// ButterflyValveTwoElementConfigType selects the ButterflyValveTwoElementConfig
+	// variant.
+	ButterflyValveTwoElementConfigType ElementConfigType = "butterfly_valve_two"
+	// CheckValveElementConfigType selects the CheckValveElementConfig variant.
+	CheckValveElementConfigType ElementConfigType = "check_valve"
+	// CheckValveWithArrowElementConfigType selects the CheckValveWithArrowElementConfig
+	// variant.
+	CheckValveWithArrowElementConfigType ElementConfigType = "check_valve_with_arrow"
+	// ElectricRegulatorElementConfigType selects the ElectricRegulatorElementConfig
+	// variant.
+	ElectricRegulatorElementConfigType ElementConfigType = "electric_regulator"
+	// ElectricRegulatorMotorizedElementConfigType selects the
+	// ElectricRegulatorMotorizedElementConfig variant.
+	ElectricRegulatorMotorizedElementConfigType ElementConfigType = "electric_regulator_motorized"
+	// FourWayValveElementConfigType selects the FourWayValveElementConfig variant.
+	FourWayValveElementConfigType ElementConfigType = "four_way_valve"
+	// GateValveElementConfigType selects the GateValveElementConfig variant.
+	GateValveElementConfigType ElementConfigType = "gate_valve"
+	// IsoCheckValveElementConfigType selects the IsoCheckValveElementConfig variant.
+	IsoCheckValveElementConfigType ElementConfigType = "iso_check_valve"
+	// ManualValveElementConfigType selects the ManualValveElementConfig variant.
+	ManualValveElementConfigType ElementConfigType = "manual_valve"
+	// NeedleValveElementConfigType selects the NeedleValveElementConfig variant.
+	NeedleValveElementConfigType ElementConfigType = "needle_valve"
+	// RegulatorElementConfigType selects the RegulatorElementConfig variant.
+	RegulatorElementConfigType ElementConfigType = "regulator"
+	// RegulatorManualElementConfigType selects the RegulatorManualElementConfig
+	// variant.
+	RegulatorManualElementConfigType ElementConfigType = "regulator_manual"
+	// ReliefValveElementConfigType selects the ReliefValveElementConfig variant.
+	ReliefValveElementConfigType ElementConfigType = "relief_valve"
+	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveElementConfigType ElementConfigType = "solenoid_valve"
+	// SpringLoadedReliefValveElementConfigType selects the
+	// SpringLoadedReliefValveElementConfig variant.
+	SpringLoadedReliefValveElementConfigType ElementConfigType = "spring_loaded_relief_valve"
+	// ThreeWayValveElementConfigType selects the ThreeWayValveElementConfig variant.
+	ThreeWayValveElementConfigType ElementConfigType = "three_way_valve"
+	// ThreeWayBallValveElementConfigType selects the ThreeWayBallValveElementConfig
+	// variant.
+	ThreeWayBallValveElementConfigType ElementConfigType = "three_way_ball_valve"
+	// ValveElementConfigType selects the ValveElementConfig variant.
+	ValveElementConfigType ElementConfigType = "valve"
+	// CrossJunctionElementConfigType selects the CrossJunctionElementConfig variant.
+	CrossJunctionElementConfigType ElementConfigType = "cross_junction"
+	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigType ElementConfigType = "cylinder"
+	// TankElementConfigType is the configuration for tank vessel symbols.
+	TankElementConfigType ElementConfigType = "tank"
+	// TJunctionElementConfigType selects the TJunctionElementConfig variant.
+	TJunctionElementConfigType ElementConfigType = "t_junction"
+	// CustomActuatorElementConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorElementConfigType ElementConfigType = "custom_actuator"
+	// CustomStaticElementConfigType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigType ElementConfigType = "custom_static"
+	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxElementConfigType ElementConfigType = "group_box"
+	// PipeElementConfigType selects the PipeElementConfig variant.
+	PipeElementConfigType ElementConfigType = "pipe"
+	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	ElectricElementConfigType ElementConfigType = "electric"
+	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
+	SecondaryElementConfigType ElementConfigType = "secondary"
+	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	JacketedElementConfigType ElementConfigType = "jacketed"
+	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
+	HydraulicElementConfigType ElementConfigType = "hydraulic"
+	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
+	PneumaticElementConfigType ElementConfigType = "pneumatic"
+	// DataElementConfigType selects the DataElementConfig variant.
+	DataElementConfigType ElementConfigType = "data"
 )
 
+// ElementConfigVariant is implemented by every ElementConfig variant.
 type ElementConfigVariant interface {
 	isElementConfigVariant()
 }
@@ -8370,678 +9024,1017 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ElementConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CapElementConfigType:
-		var v CapElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CapElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CapElementConfig
 	case FilterElementConfigType:
-		var v FilterElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FilterElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FilterElementConfig
 	case FlowStraightenerElementConfigType:
-		var v FlowStraightenerElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowStraightenerElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowStraightenerElementConfig
 	case HeaterElementElementConfigType:
-		var v HeaterElementElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HeaterElementElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeaterElementElementConfig
 	case IsoCapElementConfigType:
-		var v IsoCapElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			IsoCapElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoCapElementConfig
 	case IsoFilterElementConfigType:
-		var v IsoFilterElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			IsoFilterElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoFilterElementConfig
 	case NozzleElementConfigType:
-		var v NozzleElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			NozzleElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NozzleElementConfig
 	case OrificeElementConfigType:
-		var v OrificeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			OrificeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OrificeElementConfig
 	case OrificePlateElementConfigType:
-		var v OrificePlateElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			OrificePlateElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OrificePlateElementConfig
 	case StrainerElementConfigType:
-		var v StrainerElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			StrainerElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StrainerElementConfig
 	case StrainerConeElementConfigType:
-		var v StrainerConeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			StrainerConeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StrainerConeElementConfig
 	case ThrusterElementConfigType:
-		var v ThrusterElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ThrusterElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThrusterElementConfig
 	case VentElementConfigType:
-		var v VentElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			VentElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.VentElementConfig
 	case FlowmeterGeneralElementConfigType:
-		var v FlowmeterGeneralElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterGeneralElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterGeneralElementConfig
 	case FlowmeterElectromagneticElementConfigType:
-		var v FlowmeterElectromagneticElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterElectromagneticElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterElectromagneticElementConfig
 	case FlowmeterVariableAreaElementConfigType:
-		var v FlowmeterVariableAreaElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterVariableAreaElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterVariableAreaElementConfig
 	case FlowmeterCoriolisElementConfigType:
-		var v FlowmeterCoriolisElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterCoriolisElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterCoriolisElementConfig
 	case FlowmeterNozzleElementConfigType:
-		var v FlowmeterNozzleElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterNozzleElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterNozzleElementConfig
 	case FlowmeterVenturiElementConfigType:
-		var v FlowmeterVenturiElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterVenturiElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterVenturiElementConfig
 	case FlowmeterRingPistonElementConfigType:
-		var v FlowmeterRingPistonElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterRingPistonElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterRingPistonElementConfig
 	case FlowmeterPositiveDisplacementElementConfigType:
-		var v FlowmeterPositiveDisplacementElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterPositiveDisplacementElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterPositiveDisplacementElementConfig
 	case FlowmeterTurbineElementConfigType:
-		var v FlowmeterTurbineElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterTurbineElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterTurbineElementConfig
 	case FlowmeterPulseElementConfigType:
-		var v FlowmeterPulseElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterPulseElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterPulseElementConfig
 	case FlowmeterFloatSensorElementConfigType:
-		var v FlowmeterFloatSensorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterFloatSensorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterFloatSensorElementConfig
 	case FlowmeterOrificeElementConfigType:
-		var v FlowmeterOrificeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterOrificeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlowmeterOrificeElementConfig
 	case BoxElementConfigType:
-		var v BoxElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			BoxElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BoxElementConfig
 	case ButtonElementConfigType:
-		var v ButtonElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ButtonElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButtonElementConfig
 	case CircleElementConfigType:
-		var v CircleElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CircleElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CircleElementConfig
 	case GaugeElementConfigType:
-		var v GaugeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			GaugeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GaugeElementConfig
 	case InputElementConfigType:
-		var v InputElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			InputElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputElementConfig
 	case LightElementConfigType:
-		var v LightElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			LightElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LightElementConfig
 	case LineElementConfigType:
-		var v LineElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			LineElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LineElementConfig
 	case OffPageReferenceElementConfigType:
-		var v OffPageReferenceElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			OffPageReferenceElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OffPageReferenceElementConfig
 	case PolygonElementConfigType:
-		var v PolygonElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PolygonElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PolygonElementConfig
 	case SelectElementConfigType:
-		var v SelectElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SelectElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SelectElementConfig
 	case ScaleElementConfigType:
-		var v ScaleElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ScaleElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScaleElementConfig
 	case SetpointElementConfigType:
-		var v SetpointElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SetpointElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SetpointElementConfig
 	case StateIndicatorElementConfigType:
-		var v StateIndicatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			StateIndicatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StateIndicatorElementConfig
 	case StringDisplayElementConfigType:
-		var v StringDisplayElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			StringDisplayElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StringDisplayElementConfig
 	case SwitchElementConfigType:
-		var v SwitchElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SwitchElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SwitchElementConfig
 	case TextBoxElementConfigType:
-		var v TextBoxElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			TextBoxElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TextBoxElementConfig
 	case ValueElementConfigType:
-		var v ValueElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ValueElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValueElementConfig
 	case AgitatorElementConfigType:
-		var v AgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			AgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AgitatorElementConfig
 	case CrossBeamAgitatorElementConfigType:
-		var v CrossBeamAgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CrossBeamAgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CrossBeamAgitatorElementConfig
 	case FlatBladeAgitatorElementConfigType:
-		var v FlatBladeAgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlatBladeAgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlatBladeAgitatorElementConfig
 	case HeatExchangerGeneralElementConfigType:
-		var v HeatExchangerGeneralElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerGeneralElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerGeneralElementConfig
 	case HeatExchangerMElementConfigType:
-		var v HeatExchangerMElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerMElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerMElementConfig
 	case HeatExchangerStraightTubeElementConfigType:
-		var v HeatExchangerStraightTubeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerStraightTubeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HeatExchangerStraightTubeElementConfig
 	case HelicalAgitatorElementConfigType:
-		var v HelicalAgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HelicalAgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HelicalAgitatorElementConfig
 	case PaddleAgitatorElementConfigType:
-		var v PaddleAgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PaddleAgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PaddleAgitatorElementConfig
 	case PropellerAgitatorElementConfigType:
-		var v PropellerAgitatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PropellerAgitatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PropellerAgitatorElementConfig
 	case RotaryMixerElementConfigType:
-		var v RotaryMixerElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			RotaryMixerElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RotaryMixerElementConfig
 	case StaticMixerElementConfigType:
-		var v StaticMixerElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			StaticMixerElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticMixerElementConfig
 	case CavityPumpElementConfigType:
-		var v CavityPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CavityPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CavityPumpElementConfig
 	case CentrifugalCompressorElementConfigType:
-		var v CentrifugalCompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CentrifugalCompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CentrifugalCompressorElementConfig
 	case CompressorElementConfigType:
-		var v CompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CompressorElementConfig
 	case DiaphragmPumpElementConfigType:
-		var v DiaphragmPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			DiaphragmPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DiaphragmPumpElementConfig
 	case EjectionPumpElementConfigType:
-		var v EjectionPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			EjectionPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EjectionPumpElementConfig
 	case EjectorCompressorElementConfigType:
-		var v EjectorCompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			EjectorCompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EjectorCompressorElementConfig
 	case LiquidRingCompressorElementConfigType:
-		var v LiquidRingCompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			LiquidRingCompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LiquidRingCompressorElementConfig
 	case PistonPumpElementConfigType:
-		var v PistonPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PistonPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PistonPumpElementConfig
 	case PumpElementConfigType:
-		var v PumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PumpElementConfig
 	case RollerVaneCompressorElementConfigType:
-		var v RollerVaneCompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			RollerVaneCompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RollerVaneCompressorElementConfig
 	case ScrewPumpElementConfigType:
-		var v ScrewPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ScrewPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScrewPumpElementConfig
 	case TurboCompressorElementConfigType:
-		var v TurboCompressorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			TurboCompressorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TurboCompressorElementConfig
 	case VacuumPumpElementConfigType:
-		var v VacuumPumpElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			VacuumPumpElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.VacuumPumpElementConfig
 	case BurstDiscElementConfigType:
-		var v BurstDiscElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			BurstDiscElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BurstDiscElementConfig
 	case FlameArrestorElementConfigType:
-		var v FlameArrestorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorElementConfig
 	case FlameArrestorDetonationElementConfigType:
-		var v FlameArrestorDetonationElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorDetonationElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorDetonationElementConfig
 	case FlameArrestorExplosionElementConfigType:
-		var v FlameArrestorExplosionElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorExplosionElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorExplosionElementConfig
 	case FlameArrestorFireResElementConfigType:
-		var v FlameArrestorFireResElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorFireResElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorFireResElementConfig
 	case FlameArrestorFireResDetonationElementConfigType:
-		var v FlameArrestorFireResDetonationElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorFireResDetonationElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FlameArrestorFireResDetonationElementConfig
 	case IsoBurstDiscElementConfigType:
-		var v IsoBurstDiscElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			IsoBurstDiscElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoBurstDiscElementConfig
 	case AngledValveElementConfigType:
-		var v AngledValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			AngledValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledValveElementConfig
 	case AngledReliefValveElementConfigType:
-		var v AngledReliefValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			AngledReliefValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledReliefValveElementConfig
 	case AngledSpringLoadedReliefValveElementConfigType:
-		var v AngledSpringLoadedReliefValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			AngledSpringLoadedReliefValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AngledSpringLoadedReliefValveElementConfig
 	case BallValveElementConfigType:
-		var v BallValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			BallValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BallValveElementConfig
 	case BreatherValveElementConfigType:
-		var v BreatherValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			BreatherValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BreatherValveElementConfig
 	case ButterflyValveOneElementConfigType:
-		var v ButterflyValveOneElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ButterflyValveOneElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButterflyValveOneElementConfig
 	case ButterflyValveTwoElementConfigType:
-		var v ButterflyValveTwoElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ButterflyValveTwoElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ButterflyValveTwoElementConfig
 	case CheckValveElementConfigType:
-		var v CheckValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CheckValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CheckValveElementConfig
 	case CheckValveWithArrowElementConfigType:
-		var v CheckValveWithArrowElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CheckValveWithArrowElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CheckValveWithArrowElementConfig
 	case ElectricRegulatorElementConfigType:
-		var v ElectricRegulatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricRegulatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricRegulatorElementConfig
 	case ElectricRegulatorMotorizedElementConfigType:
-		var v ElectricRegulatorMotorizedElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricRegulatorMotorizedElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricRegulatorMotorizedElementConfig
 	case FourWayValveElementConfigType:
-		var v FourWayValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			FourWayValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FourWayValveElementConfig
 	case GateValveElementConfigType:
-		var v GateValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			GateValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GateValveElementConfig
 	case IsoCheckValveElementConfigType:
-		var v IsoCheckValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			IsoCheckValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IsoCheckValveElementConfig
 	case ManualValveElementConfigType:
-		var v ManualValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ManualValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ManualValveElementConfig
 	case NeedleValveElementConfigType:
-		var v NeedleValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			NeedleValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NeedleValveElementConfig
 	case RegulatorElementConfigType:
-		var v RegulatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			RegulatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RegulatorElementConfig
 	case RegulatorManualElementConfigType:
-		var v RegulatorManualElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			RegulatorManualElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RegulatorManualElementConfig
 	case ReliefValveElementConfigType:
-		var v ReliefValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ReliefValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ReliefValveElementConfig
 	case SolenoidValveElementConfigType:
-		var v SolenoidValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SolenoidValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SolenoidValveElementConfig
 	case SpringLoadedReliefValveElementConfigType:
-		var v SpringLoadedReliefValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SpringLoadedReliefValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SpringLoadedReliefValveElementConfig
 	case ThreeWayValveElementConfigType:
-		var v ThreeWayValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ThreeWayValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThreeWayValveElementConfig
 	case ThreeWayBallValveElementConfigType:
-		var v ThreeWayBallValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ThreeWayBallValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThreeWayBallValveElementConfig
 	case ValveElementConfigType:
-		var v ValveElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ValveElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValveElementConfig
 	case CrossJunctionElementConfigType:
-		var v CrossJunctionElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CrossJunctionElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CrossJunctionElementConfig
 	case CylinderElementConfigType:
-		var v CylinderElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CylinderElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CylinderElementConfig
 	case TankElementConfigType:
-		var v TankElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			TankElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TankElementConfig
 	case TJunctionElementConfigType:
-		var v TJunctionElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			TJunctionElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TJunctionElementConfig
 	case CustomActuatorElementConfigType:
-		var v CustomActuatorElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CustomActuatorElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CustomActuatorElementConfig
 	case CustomStaticElementConfigType:
-		var v CustomStaticElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			CustomStaticElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CustomStaticElementConfig
 	case GroupBoxElementConfigType:
-		var v GroupBoxElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			GroupBoxElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GroupBoxElementConfig
 	case PipeElementConfigType:
-		var v PipeElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PipeElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PipeElementConfig
 	case ElectricElementConfigType:
-		var v ElectricElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ElectricElementConfig
 	case SecondaryElementConfigType:
-		var v SecondaryElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			SecondaryElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SecondaryElementConfig
 	case JacketedElementConfigType:
-		var v JacketedElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			JacketedElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.JacketedElementConfig
 	case HydraulicElementConfigType:
-		var v HydraulicElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			HydraulicElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HydraulicElementConfig
 	case PneumaticElementConfigType:
-		var v PneumaticElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			PneumaticElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PneumaticElementConfig
 	case DataElementConfigType:
-		var v DataElementConfig
+		var v struct {
+			Type ElementConfigType `json:"variant"`
+			DataElementConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DataElementConfig
 	default:
-		return errors.Newf("ElementConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ElementConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

@@ -7,12 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, get_args
+from collections.abc import Sequence
+from typing import Literal, get_args, override
 from uuid import uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.exceptions import PathError, ValidationError
 from synnax.modbus.types_gen import (
     ReadChannel,
@@ -84,7 +85,7 @@ class ReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[ReadChannel] | None = None,
+        channels: Sequence[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -97,10 +98,11 @@ class ReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration.
 
@@ -151,7 +153,7 @@ class WriteTask(
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[WriteChannel] | None = None,
+        channels: Sequence[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -161,10 +163,11 @@ class WriteTask(
         self.config = WriteConfig(
             device=device,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration.
 
@@ -252,8 +255,8 @@ class Device(device.Device):
         delay_ms: int = 0,
         name: str = "",
         location: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = False,
     ):
         if not key:

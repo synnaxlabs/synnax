@@ -11,8 +11,8 @@ import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
-import { useIsRunning } from "@/platform/task/Form";
 import { useKey } from "@/platform/task/useKey";
+import { useIsRunning } from "@/platform/task/useStatus";
 
 export interface TareableChannel {
   key: string;

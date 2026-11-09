@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -18,6 +22,8 @@ import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = Channel.formPath;
 
 describe("queries", () => {
   let controller: AbortController;
@@ -301,7 +307,7 @@ describe("queries", () => {
       });
       const { result, rerender } = renderHook(
         ({ key }: { key?: channel.Key }) => {
-          const list = Channel.useList({ initialQuery: { rangeKey: range.key } });
+          const list = Channel.useList({ query: { rangeKey: range.key } });
           const item = Flux.useListItem({
             subscribe: list.subscribe,
             getItem: list.getItem,
@@ -345,7 +351,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Channel.useList({
-            initialQuery: { rangeKey: range.key },
+            query: { rangeKey: range.key },
             useCachedList: false,
           }),
         { wrapper },
@@ -373,7 +379,7 @@ describe("queries", () => {
         unmount();
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: {} }),
+          () => Channel.useList({ query: {} }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -397,7 +403,7 @@ describe("queries", () => {
         await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
 
         const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: { searchTerm: "cached" } }),
+          () => Channel.useList({ query: { searchTerm: "cached" } }),
           { wrapper },
         );
         expect(secondResult.current.variant).toEqual("loading");
@@ -414,13 +420,16 @@ describe("queries", () => {
         });
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ internal: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { internal: { eq: true } } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).not.toContain(normalCh.key);
       });
 
-      it("should filter by dataTypes inclusion", async () => {
+      it("should filter by data type inclusion", async () => {
         const float32Ch = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT32,
@@ -435,7 +444,7 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { dataTypes: [DataType.FLOAT32] },
+            { where: { dataType: { in: [DataType.FLOAT32] } } },
             { signal: controller.signal },
           );
         });
@@ -444,7 +453,7 @@ describe("queries", () => {
         expect(result.current.data).not.toContain(float64Ch.key);
       });
 
-      it("should filter by notDataTypes exclusion", async () => {
+      it("should filter by data type exclusion", async () => {
         const float32Ch = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT32,
@@ -459,7 +468,7 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { notDataTypes: [DataType.FLOAT32] },
+            { where: { not: { dataType: { in: [DataType.FLOAT32] } } } },
             { signal: controller.signal },
           );
         });
@@ -482,7 +491,10 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ isIndex: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { isIndex: { eq: true } } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(indexCh.key);
@@ -509,7 +521,10 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ virtual: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { virtual: true } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(virtualCh.key);
@@ -542,7 +557,13 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { virtual: true, dataTypes: [DataType.FLOAT32], internal: false },
+            {
+              where: {
+                virtual: true,
+                dataType: { in: [DataType.FLOAT32] },
+                internal: { eq: false },
+              },
+            },
             { signal: controller.signal },
           );
         });
@@ -562,9 +583,9 @@ describe("queries", () => {
       const name = id.create();
 
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("virtual", true);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.virtual, true);
         result.current.save({ signal: controller.signal });
       });
 
@@ -586,9 +607,9 @@ describe("queries", () => {
 
       const name = id.create();
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.TIMESTAMP.toString());
-        result.current.form.set("isIndex", true);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.TIMESTAMP.toString());
+        result.current.form.set(path.isIndex, true);
         result.current.save({ signal: controller.signal });
       });
 
@@ -616,9 +637,9 @@ describe("queries", () => {
 
       const name = id.create();
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("index", indexChannel.key);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.index, indexChannel.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -654,7 +675,7 @@ describe("queries", () => {
       const updatedName = id.create();
 
       act(() => {
-        result.current.form.set("name", updatedName);
+        result.current.form.set(path.name, updatedName);
         result.current.save({ signal: controller.signal });
       });
 
@@ -713,13 +734,13 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("isIndex", true);
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.isIndex, true);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("dataType").status.message).toContain(
+      expect(result.current.form.get(path.dataType).status.message).toContain(
         "Index channel must have data type TIMESTAMP",
       );
     });
@@ -730,15 +751,15 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("isIndex", false);
-        result.current.form.set("index", 0);
-        result.current.form.set("virtual", false);
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.isIndex, false);
+        result.current.form.set(path.index, 0);
+        result.current.form.set(path.virtual, false);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("index").status.message).toContain(
+      expect(result.current.form.get(path.index).status.message).toContain(
         "Data channel must have an index",
       );
     });
@@ -749,12 +770,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "");
-        result.current.form.set("virtual", true);
+        result.current.form.set(path.name, "");
+        result.current.form.set(path.virtual, true);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("name").status.message).toContain(
+      expect(result.current.form.get(path.name).status.message).toContain(
         "Name is required",
       );
     });
@@ -771,13 +792,13 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "sensor_temp_123");
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("index", indexChannel.key);
+        result.current.form.set(path.name, "sensor_temp_123");
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.index, indexChannel.key);
       });
 
       expect(result.current.form.validate()).toBe(true);
-      expect(result.current.form.get("name").status.variant).not.toBe("error");
+      expect(result.current.form.get(path.name).status.variant).not.toBe("error");
     });
   });
 
@@ -869,7 +890,7 @@ describe("queries", () => {
       // let that settle so it does not race the status set below.
       await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message: "invalid expression",
@@ -937,7 +958,7 @@ describe("queries", () => {
       await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "broken expression",
@@ -949,6 +970,164 @@ describe("queries", () => {
         expect(result.current?.status?.variant).toEqual("error");
         expect(result.current?.status?.message).toEqual("broken expression");
       });
+    });
+
+    describe("calculated channel cached without a status", () => {
+      const createCalculated = async () => {
+        const source = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const calc = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: `return ${source.name} * 2`,
+        });
+        // The Core clears a new calculated channel's status: let that settle.
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        return calc;
+      };
+
+      const createCalculatedWithStatus = async () => {
+        const calc = await createCalculated();
+        await client.statuses.set({
+          owner: channel.resourceID(calc.key),
+          name: calc.name,
+          variant: "error",
+          message: "invalid expression",
+          time: TimeStamp.now(),
+        });
+        return calc;
+      };
+
+      it("should fetch the status after a status-free fetch", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const { result } = await renderHookSuspended(
+          () => Channel.use({ key: calc.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.message).toEqual("invalid expression");
+      });
+
+      it("should fetch the status after a channel arrives on the stream", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.connect();
+        await waitForStreamLive(local.connection);
+        const name = id.create();
+        await client.channels.rename(calc.key, name);
+        await waitFor(() =>
+          expect(local.channels.store.get(calc.key)?.name).toBe(name),
+        );
+        const { result } = await renderHookSuspended(
+          () => Channel.use({ key: calc.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.message).toEqual("invalid expression");
+      });
+
+      it("should fetch the status for a subscriber with no fetch", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const seen: (channel.Status | undefined)[] = [];
+        const { result } = renderHook(
+          () => {
+            const res = Channel.useResult({ key: calc.key });
+            if (res.data != null) seen.push(res.data.status);
+            return res;
+          },
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        await waitFor(() =>
+          expect(result.current.data?.status?.message).toEqual("invalid expression"),
+        );
+        expect(seen.every((status) => status != null)).toBe(true);
+      });
+
+      it("should fetch once when the channel has no status row", async () => {
+        const calc = await createCalculated();
+        const held = await client.statuses.retrieve({
+          owners: [channel.resourceID(calc.key)],
+        });
+        await client.statuses.delete(held.map((s) => s.key));
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const mount = async () =>
+          await renderHookSuspended(() => Channel.use({ key: calc.key }), {
+            wrapper: localWrapper,
+          });
+        const first = await mount();
+        expect(first.result.current?.status).toBeUndefined();
+        first.unmount();
+        const second = await mount();
+        expect(second.result.current?.key).toEqual(calc.key);
+        const statusRetrieves = send.mock.calls.filter(
+          ([target]) => target === "/status/retrieve",
+        );
+        expect(statusRetrieves).toHaveLength(1);
+      });
+
+      it("should not fetch for plain channels", async () => {
+        const plain = await Promise.all(
+          [0, 1, 2].map(
+            async () =>
+              await client.channels.create({
+                name: id.create(),
+                dataType: DataType.FLOAT32,
+                virtual: true,
+              }),
+          ),
+        );
+        const local = createTestClient();
+        await local.channels.retrieve(plain.map(({ key }) => key));
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const { result } = renderHook(
+          () => plain.map(({ key }) => Channel.use({ key })),
+          { wrapper: localWrapper },
+        );
+        expect(result.current.map((ch) => ch?.key)).toEqual(
+          plain.map(({ key }) => key),
+        );
+        const unaryTargets = send.mock.calls.map(([target]) => target);
+        expect(unaryTargets).not.toContain("/channel/retrieve");
+        expect(unaryTargets).not.toContain("/status/retrieve");
+      });
+    });
+  });
+
+  describe("useResultList", () => {
+    it("should search channels and follow a new match", async () => {
+      const token = `rl${Math.random().toString(36).slice(2)}`;
+      const first = await client.channels.create({
+        name: `${token}_a`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => Channel.useResultList({ searchTerm: token, limit: 10 }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key)).toEqual([first.key]),
+      );
+      const second = await client.channels.create({
+        name: `${token}_b`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
     });
   });
 
@@ -965,7 +1144,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useMultiple({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useMultiple({ where: { key: { in: [ch1.key, ch2.key] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -988,7 +1167,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useMultiple({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useMultiple({ where: { key: { in: [ch1.key, ch2.key] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1020,7 +1199,7 @@ describe("queries", () => {
       const { result } = await renderHookSuspended(
         () =>
           Channel.useMultiple({
-            keys: [ch1.key, ch2.key],
+            where: { key: { in: [ch1.key, ch2.key] } },
             rangeKey: range.key,
           }),
         { wrapper },
@@ -1046,7 +1225,9 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useMultiple({ keys: [ch1.key, ch2.key] });
+          const retrieve = Channel.useMultiple({
+            where: { key: { in: [ch1.key, ch2.key] } },
+          });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -1135,18 +1316,17 @@ describe("queries", () => {
       });
     });
 
-    it("should handle delete errors gracefully", async () => {
-      const nonExistentKey = 999999999;
+    it("should fail to delete an internal channel", async () => {
+      const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
-
       await act(async () => {
-        try {
-          await result.current.updateAsync(nonExistentKey);
-        } catch (error) {
-          expect(error).toBeDefined();
-        }
+        expect(await result.current.updateAsync(internal.key)).toBe(false);
       });
       expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toContain(
+        `can't delete internal channel "${internal.name}"`,
+      );
+      await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
     });
   });
 
@@ -1302,7 +1482,7 @@ describe("queries", () => {
       const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useMultiple({
-            keys: [ch1.key, ch2.key],
+            where: { key: { in: [ch1.key, ch2.key] } },
             rangeKey: range.key,
           });
           const deleteAlias = Channel.useDeleteAlias();
@@ -1365,36 +1545,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useGroup", () => {
-    it("should retrieve the channel group", async () => {
-      const { result } = await renderHookSuspended(() => Channel.useGroup({}), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.key).toBeDefined();
-      expect(result.current?.name).toEqual("Channels");
-    });
-
-    it("should serve the same group to a second caller", async () => {
-      const { result: result1 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result1.current).not.toBeNull());
-      const firstGroup = result1.current;
-
-      const { result: result2 } = await renderHookSuspended(
-        () => Channel.useGroup({}),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));
-    });
-  });
-
   describe("useCalculatedForm", () => {
     it("should create a new calculated channel", async () => {
       const sourceChannel = await client.channels.create({
@@ -1410,10 +1560,10 @@ describe("queries", () => {
       const calculatedName = id.create();
 
       act(() => {
-        result.current.form.set("name", calculatedName);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("virtual", true);
-        result.current.form.set("expression", `return ${sourceChannel.name} * 2`);
+        result.current.form.set(path.name, calculatedName);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.virtual, true);
+        result.current.form.set(path.expression, `return ${sourceChannel.name} * 2`);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1442,7 +1592,7 @@ describe("queries", () => {
         expression: `return ${sourceChannel.name} + 1`,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Channel.useCalculatedForm({ query: { key: existingCalculated.key } }),
         { wrapper },
       );
@@ -1457,7 +1607,7 @@ describe("queries", () => {
       ]);
 
       act(() => {
-        result.current.form.set("expression", `return ${sourceChannel.name} * 3`);
+        result.current.form.set(path.expression, `return ${sourceChannel.name} * 3`);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1474,12 +1624,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("expression", "");
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.expression, "");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("expression").status.message).toContain(
+      expect(result.current.form.get(path.expression).status.message).toContain(
         "Expression must contain a return statement",
       );
     });
@@ -1490,12 +1640,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("expression", "sourceChannel * 2");
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.expression, "sourceChannel * 2");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("expression").status.message).toContain(
+      expect(result.current.form.get(path.expression).status.message).toContain(
         "Expression must contain a return statement",
       );
     });
@@ -1525,7 +1675,7 @@ describe("queries", () => {
         expression: `return ${sourceChannel.name}`,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const form = Channel.useCalculatedForm({
             query: { key: testCalculated.key },

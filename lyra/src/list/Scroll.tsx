@@ -13,11 +13,12 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { useCombinedRefs } from "@/hooks";
 import { useData } from "@/list/Frame";
 import { ScrollContext } from "@/list/scope";
 
 /** Props for {@link Scroll}. */
-export interface ScrollProps extends Omit<Flex.BoxProps, "ref"> {
+export interface ScrollProps extends Flex.BoxProps {
   /** Sizes the container to hold this many items before it scrolls. */
   displayItems?: number;
   /**
@@ -40,6 +41,7 @@ const ITEM_HEIGHT_VARIABLE = CSS.variable("list-item-height");
  * rendered around them, and it is the element a virtualized list measures.
  */
 export const Scroll = ({
+  ref,
   className,
   children,
   displayItems,
@@ -51,7 +53,8 @@ export const Scroll = ({
   y,
   ...rest
 }: ScrollProps): ReactElement => {
-  const { ref, data, itemHeight, totalSize } = useData();
+  const { ref: frameRef, data, itemHeight, totalSize } = useData();
+  const combinedRef = useCombinedRefs(frameRef, ref);
   const count = itemCount ?? data.length;
   const hasItems = count > 0;
   const isVirtual = totalSize != null;
@@ -70,7 +73,7 @@ export const Scroll = ({
   return (
     <Flex.Box
       gap={0}
-      ref={ref}
+      ref={combinedRef}
       className={CSS.cls(
         className,
         CSS.BE("list", "scroll"),
@@ -83,7 +86,7 @@ export const Scroll = ({
       direction={parsedDirection}
       {...rest}
     >
-      <ScrollContext value={ref}>{children}</ScrollContext>
+      <ScrollContext value={frameRef}>{children}</ScrollContext>
     </Flex.Box>
   );
 };

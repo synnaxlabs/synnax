@@ -120,6 +120,54 @@ describe("Range.useResolveMultiple", () => {
     await waitFor(() => expect(result.current).toEqual([]));
   });
 
+  // A line plot can hold a Core range that is not in the viewer's session, for example
+  // a plot another user made.
+  it("should resolve a Core range the session does not hold", async () => {
+    const created = await createTestRange(client);
+    const { result } = await renderResolveMultiple([], [created.key]);
+    await waitFor(() =>
+      expect(result.current).toEqual([
+        {
+          variant: "persisted",
+          key: created.key,
+          name: created.name,
+          timeRange: created.timeRange,
+        },
+      ]),
+    );
+  });
+
+  it("should resolve the Core ranges it can when another is gone", async () => {
+    const created = await createTestRange(client);
+    const deleted = await createTestRange(client);
+    await client.ranges.delete(deleted.key);
+    const { result } = await renderResolveMultiple(
+      Session.Range.fromClient(created.payload),
+      [created.key, deleted.key],
+    );
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([created.key]),
+    );
+  });
+
+  // A line plot's custom range has the key "custom", which is not a range key.
+  it("should resolve Core ranges beside a key that is not a range key", async () => {
+    const created = await createTestRange(client);
+    const { result } = await renderResolveMultiple([], ["custom", created.key]);
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([created.key]),
+    );
+  });
+
+  it("should put a range the session does not hold after the session's", async () => {
+    const outside = await createTestRange(client);
+    const local = createLocal();
+    const { result } = await renderResolveMultiple([local], [outside.key, local.key]);
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([local.key, outside.key]),
+    );
+  });
+
   it("should keep the session's order", async () => {
     const created = await createTestRange(client);
     const local = createLocal();

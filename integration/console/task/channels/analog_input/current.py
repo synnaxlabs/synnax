@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class Current(Analog):
@@ -26,18 +27,18 @@ class Current(Analog):
         terminal_config (str): "Default", "Differential", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "Linear", "Map", "Table"
     """
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        shunt_resistor: Literal["DefaultInternalExternal"] | None = None,
+        *,
+        shunt_resistor: sy.ni.ShuntResistorLocation | None = None,
         resistance: float | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

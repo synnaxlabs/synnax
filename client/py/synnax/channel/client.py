@@ -9,28 +9,30 @@
 
 from __future__ import annotations
 
-from typing import overload
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Literal, overload, override
 
 from pydantic import PrivateAttr
 
-from synnax import framer
+from freighter import UnaryClient
+from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
-    NormalizedNameResult,
     Params,
     normalize_params,
 )
-from synnax.channel.retrieve import Request, Retriever
+from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
     Operation,
     Payload,
+    RetrieveRequest,
     Status,
-    ontology_id,
+    Where,
+    WhereInput,
+    resource_id,
 )
 from synnax.channel.writer import Writer
-from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
-from synnax.ontology.payload import ID
+from synnax.exceptions import MultipleFoundError, ValidationError
+from synnax.resource import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeSeries,
@@ -39,8 +41,13 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
-from x import control
+from synnax.util import request_where, returns_one, sole
+from x import control, filter
 from x.lists import normalize
+
+# synnax.ranger imports synnax.channel at load time.
+if TYPE_CHECKING:
+    from synnax import ranger
 
 
 class Channel(Payload):
@@ -59,7 +66,7 @@ class Channel(Payload):
         data_type: CrudeDataType,
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
@@ -68,6 +75,7 @@ class Channel(Payload):
         alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
+        group: group_.Key | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -93,6 +101,7 @@ class Channel(Payload):
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
+        :param group: The group the channel sits in, if any.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -116,6 +125,7 @@ class Channel(Payload):
             concurrency=concurrency,
             alias=alias,
             status=status,
+            group=group,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -171,8 +181,8 @@ class Channel(Payload):
         self._client.rename(self.key, name)
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     @property
     def _frame_client(self) -> framer.Client:
@@ -182,9 +192,11 @@ class Channel(Payload):
             )
         return self._cached_frame_client
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Channel):
             return NotImplemented
@@ -202,12 +214,14 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            group=self.group,
         )
 
 
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
+    _client: UnaryClient
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
@@ -215,10 +229,12 @@ class Client:
     def __init__(
         self,
         *,
+        client: UnaryClient,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
     ):
+        self._client = client
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
@@ -235,10 +251,11 @@ class Client:
         name: str = "",
         index: Key = 0,
         is_index: bool = False,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -260,10 +277,11 @@ class Client:
         name: str = "",
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -284,6 +302,7 @@ class Client:
         automatically configured as virtual.
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param group: The group to create the channel in, if any.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -319,6 +338,7 @@ class Client:
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     operations=operations,
+                    group=group,
                 )
             ]
         elif isinstance(channels, Channel):
@@ -343,109 +363,226 @@ class Client:
         self,
         channel: Key | str,
         *,
-        search_term: str | None = None,
-        data_types: list[CrudeDataType] | None = None,
-        not_data_types: list[CrudeDataType] | None = None,
-        virtual: bool | None = None,
-        is_index: bool | None = None,
-        internal: bool | None = None,
-        range_key: UUID | None = None,
-        node_key: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        include_status: bool = False,
+        leaseholder: filter.SetInput[node.Key] = ...,
+        data_type: filter.SetInput[DataType] = ...,
+        is_index: filter.BoolInput = ...,
+        internal: filter.BoolInput = ...,
+        virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        data_types: list[CrudeDataType] | None = ...,
+        not_data_types: list[CrudeDataType] | None = ...,
+        node_key: node.Key | None = ...,
+        search_term: str = ...,
+        range_key: ranger.Key | None = ...,
+        include_status: bool = ...,
+        one: bool = ...,
     ) -> Channel: ...
 
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
         *,
-        search_term: str | None = None,
-        data_types: list[CrudeDataType] | None = None,
-        not_data_types: list[CrudeDataType] | None = None,
-        virtual: bool | None = None,
-        is_index: bool | None = None,
-        internal: bool | None = None,
-        range_key: UUID | None = None,
-        node_key: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        include_status: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        leaseholder: filter.SetInput[node.Key] = ...,
+        data_type: filter.SetInput[DataType] = ...,
+        is_index: filter.BoolInput = ...,
+        internal: filter.BoolInput = ...,
+        virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        range_key: ranger.Key | None = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Channel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        leaseholder: filter.SetInput[node.Key] = ...,
+        data_type: filter.SetInput[DataType] = ...,
+        is_index: filter.BoolInput = ...,
+        internal: filter.BoolInput = ...,
+        virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        range_key: ranger.Key | None = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Channel: ...
+
+    @overload
+    def retrieve(
+        self,
+        channel: list[Key] | tuple[Key, ...] | list[str] | tuple[str, ...] | None = ...,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        leaseholder: filter.SetInput[node.Key] = ...,
+        data_type: filter.SetInput[DataType] = ...,
+        is_index: filter.BoolInput = ...,
+        internal: filter.BoolInput = ...,
+        virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        data_types: list[CrudeDataType] | None = ...,
+        not_data_types: list[CrudeDataType] | None = ...,
+        node_key: node.Key | None = ...,
+        search_term: str = ...,
+        range_key: ranger.Key | None = ...,
+        include_status: bool = ...,
+        one: Literal[True],
+    ) -> Channel: ...
+
+    @overload
+    def retrieve(
+        self,
+        channel: list[Key] | tuple[Key, ...] | list[str] | tuple[str, ...] | None = ...,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        leaseholder: filter.SetInput[node.Key] = ...,
+        data_type: filter.SetInput[DataType] = ...,
+        is_index: filter.BoolInput = ...,
+        internal: filter.BoolInput = ...,
+        virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        data_types: list[CrudeDataType] | None = ...,
+        not_data_types: list[CrudeDataType] | None = ...,
+        node_key: node.Key | None = ...,
+        search_term: str = ...,
+        range_key: ranger.Key | None = ...,
+        limit: int | None = ...,
+        offset: int = ...,
+        include_status: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Channel]: ...
 
     def retrieve(
         self,
         channel: Params | None = None,
         *,
-        search_term: str | None = None,
+        where: Where | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
-        virtual: bool | None = None,
-        is_index: bool | None = None,
-        internal: bool | None = None,
-        range_key: UUID | None = None,
-        node_key: int | None = None,
+        node_key: node.Key | None = None,
+        search_term: str = "",
+        range_key: ranger.Key | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> Channel | list[Channel]:
-        """Retrieves a channel or set of channels from the Core. A filter left as None
-        does not filter.
+        """Retrieves channels from the Core. With no arguments, retrieves every
+        channel.
+
+        Each filter field takes a value, a list of values, or an operator, and a
+        channel must match every field. A plain ``key`` or ``name``, or a single key
+        or name as ``channel``, returns one channel.
 
         :param channel: The key or name of one channel, or a list of keys or names. A
-            single key or name returns one channel. A list, or None, returns a list.
-        :param search_term: Fuzzy matches channel names.
-        :param data_types: Keeps channels with one of these data types.
-        :param not_data_types: Drops channels with one of these data types.
-        :param virtual: Keeps only virtual or only non-virtual channels.
+            name matches exactly. To match a pattern, use where with a name regex.
+        :param key: Keeps channels with this key.
+        :param name: Keeps channels with this name.
+        :param leaseholder: Keeps channels whose leaseholder is this node.
+        :param data_type: Keeps channels with this data type.
         :param is_index: Keeps only index or only non-index channels.
         :param internal: Keeps only internal or only non-internal channels.
-        :param range_key: Sets each channel's alias from this range. With a search
-            term, also matches channels by their alias in the range.
+        :param virtual: Keeps only virtual channels that are not calculated, or only
+            the other channels.
+        :param groups: Keeps channels in any of these groups.
+        :param grouped: Keeps only channels in a group when True, and only channels in
+            no group when False.
+        :param and_: Keeps channels that match every filter in the list.
+        :param or_: Keeps channels that match any filter in the list.
+        :param not_: Keeps channels that do not match the filter.
+        :param where: A filter tree that the channels must also match.
+        :param data_types: Keeps channels with one of these data types.
+        :param not_data_types: Drops channels with one of these data types.
         :param node_key: Keeps channels whose leaseholder is this node.
-        :param limit: The maximum number of channels to return.
-        :param offset: The number of matching channels to skip.
+        :param search_term: Fuzzy matches channel names. With range_key, the channels
+            whose alias in the range matches come first.
+        :param range_key: Sets each channel's alias from this range.
+        :param limit: The maximum number of channels to retrieve.
+        :param offset: The number of channels to skip.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
-        :returns: The retrieved channel, or a list of the retrieved channels.
-        :raises NotFoundError: If a single channel is requested and not found.
-        :raises MultipleFoundError: If a single name matches more than one channel.
+        :param one: Returns one channel for any filter.
+        :returns: One channel when one is wanted, otherwise a list of channels. The
+            list leaves out keys that do not exist.
+        :raises NotFoundError: If one channel is wanted and none matches.
+        :raises MultipleFoundError: If one channel is wanted and more than one
+            matches.
+        :raises ValidationError: If a filter field is None, or if one channel is
+            wanted beside a limit or an offset.
         """
-        req = Request(
+        selected = Where()
+        positional = False
+        if channel is not None:
+            selected = params_where(channel)
+            positional = normalize_params(channel).single
+        single = returns_one(fields, one or positional, limit, offset)
+        flat = Where(
+            key=selected.key,
+            name=selected.name,
+            leaseholder=(
+                None if node_key is None else filter.Set[node.Key](eq=node_key)
+            ),
+            data_type=(
+                None
+                if data_types is None
+                else filter.Set[DataType](in_=_data_types(data_types))
+            ),
+            not_=(
+                None
+                if not_data_types is None
+                else Where(
+                    data_type=filter.Set[DataType](in_=_data_types(not_data_types))
+                )
+            ),
+        )
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
-            data_types=_data_types(data_types),
-            not_data_types=_data_types(not_data_types),
-            virtual=virtual,
-            is_index=is_index,
-            internal=internal,
-            range_key=range_key,
-            node_key=node_key,
             limit=limit,
             offset=offset,
-            status_included=include_status,
+            include_status=include_status,
         )
-        if channel is None:
-            return self._sugar(self._retriever.filter(req))
-        normal = normalize_params(channel)
-        if len(req.model_dump(exclude_defaults=True)) == 0:
-            res = self._retriever.retrieve(channel)
-        elif len(normal.channels) == 0:
-            res = []
-        else:
-            if isinstance(normal, NormalizedNameResult):
-                req.names = normal.channels
-            else:
-                req.keys = normal.channels
-            res = self._retriever.filter(req)
+        res = self._retriever.filter(req, range_key)
         sug = self._sugar(res)
-        if not normal.single:
+        if not single:
             return sug
-        if len(res) == 1:
-            return sug[0]
-        if len(res) > 1:
+        if channel is not None and positional and len(res) > 1:
             raise _multiple_results_error(channel, res)
-        raise NotFoundError(f"Channel matching '{channel}' not found.")
+        return sole("channel", req, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:
@@ -458,7 +595,7 @@ class Client:
 
     @overload
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -469,8 +606,8 @@ class Client:
 
     def rename(
         self,
-        keys: Key | list[Key] | tuple[Key],
-        names: str | list[str] | tuple[str],
+        keys: Key | list[Key] | tuple[Key, ...],
+        names: str | list[str] | tuple[str, ...],
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -480,6 +617,14 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves channels into a group, or out of their group when group is None.
+
+        :param keys: The key of the channel to move, or a list of keys.
+        :param group: The key of the group to move the channels into.
+        """
+        self._creator.set_group(normalize(keys), group)
+
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
@@ -487,8 +632,8 @@ class Client:
         ]
 
 
-def _data_types(data_types: list[CrudeDataType] | None) -> list[DataType] | None:
-    return None if data_types is None else [DataType(dt) for dt in data_types]
+def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:
+    return [DataType(dt) for dt in data_types]
 
 
 def _multiple_results_error(

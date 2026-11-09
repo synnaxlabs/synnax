@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -91,6 +91,35 @@ describe("Aggregator", () => {
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
       await waitFor(() => expect(result.current.statuses.statuses).toHaveLength(0));
+    });
+
+    describe("expiration", () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("should count from when it gets a status, not from the status time", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+        const { result } = renderHook(
+          () => ({
+            add: Status.useAdder(),
+            statuses: Status.useNotifications(),
+          }),
+          { wrapper },
+        );
+        act(() => {
+          result.current.add({
+            variant: "warning",
+            message: "Driver not running",
+            time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+          });
+        });
+        expect(result.current.statuses.statuses).toHaveLength(1);
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(6).milliseconds));
+        expect(result.current.statuses.statuses).toHaveLength(1);
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(2).milliseconds));
+        expect(result.current.statuses.statuses).toHaveLength(0);
+      });
     });
   });
 

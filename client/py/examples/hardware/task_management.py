@@ -177,7 +177,7 @@ with client.open_streamer([input_reg_0.key, input_reg_1.key]) as streamer:
     sample_count = 0
     while sy.TimeStamp.now().span(start_time).seconds < 5:
         frame = streamer.read()
-        if frame and input_reg_0.key in frame:
+        if input_reg_0.key in frame:
             sample_count += len(frame[input_reg_0.key])
 
 if sample_count > 0:

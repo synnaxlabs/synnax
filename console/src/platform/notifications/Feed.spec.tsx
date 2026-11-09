@@ -83,87 +83,28 @@ describe("Notifications", () => {
     });
   });
 
-  describe("createSuppressRoutineForPrefix", () => {
-    const rackRoutine = Notifications.createSuppressRoutineForPrefix("rack");
-
-    it("suppresses a loading status with a matching key prefix", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "loading", message: "Heartbeat pending" },
-        [rackRoutine],
-      );
-      expect(screen.queryByText("Heartbeat pending")).toBeNull();
-    });
-
-    it("suppresses a success status with a matching key prefix", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "success", message: "Heartbeat ok" },
-        [rackRoutine],
-      );
-      expect(screen.queryByText("Heartbeat ok")).toBeNull();
-    });
-
-    it("suppresses a disabled status with a matching key prefix", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "disabled", message: "Not deployed" },
-        [rackRoutine],
-      );
-      expect(screen.queryByText("Not deployed")).toBeNull();
-    });
-
-    it("does not suppress a matching prefix with a non-routine variant", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "error", message: "Heartbeat failed" },
-        [rackRoutine],
-      );
-      expect(screen.getByText("Heartbeat failed")).toBeTruthy();
-    });
-
-    it("does not suppress a routine variant with a different key prefix", async () => {
-      await addStatus(
-        { key: "device.heartbeat", variant: "success", message: "Device ok" },
-        [rackRoutine],
-      );
-      expect(screen.getByText("Device ok")).toBeTruthy();
-    });
-  });
-
   describe("overflow", () => {
-    const BatchHarness = ({
-      crudes,
-      notifications = [],
-    }: {
-      crudes: status.Crude[];
-      notifications?: Notifications.Notification[];
-    }): ReactElement => {
+    const BatchHarness = ({ crudes }: { crudes: status.Crude[] }): ReactElement => {
       const add = Status.useAdder();
       return (
         <>
           <button onClick={() => crudes.forEach((c) => add(c))}>add</button>
-          <Notifications.Feed notifications={notifications} />
+          <Notifications.Feed notifications={[]} />
         </>
       );
     };
     BatchHarness.displayName = "BatchHarness";
 
-    const addStatuses = async (
-      crudes: status.Crude[],
-      notifications?: Notifications.Notification[],
-    ): Promise<void> => {
-      await renderWithConsole(
-        <BatchHarness crudes={crudes} notifications={notifications} />,
-      );
+    const addStatuses = async (crudes: status.Crude[]): Promise<void> => {
+      await renderWithConsole(<BatchHarness crudes={crudes} />);
       fireEvent.click(screen.getByText("add"));
     };
 
-    const createCrudes = (
-      count: number,
-      keyPrefix = "n",
-      variant: status.Variant = "info",
-    ): status.Crude[] =>
+    const createCrudes = (count: number): status.Crude[] =>
       Array.from({ length: count }, (_, i) => ({
-        key: `${keyPrefix}${i + 1}`,
-        variant,
-        message: `Message ${keyPrefix}${i + 1}`,
+        key: `n${i + 1}`,
+        variant: "info",
+        message: `Message n${i + 1}`,
       }));
 
     it("shows only the four newest toasts and an overflow chip", async () => {
@@ -196,16 +137,6 @@ describe("Notifications", () => {
       fireEvent.click(screen.getByText("Clear all"));
       expect(screen.queryByText(/Message n/)).toBeNull();
       expect(screen.queryByText("Clear all")).toBeNull();
-    });
-
-    it("does not count suppressed statuses toward the cap or overflow", async () => {
-      await addStatuses(
-        [...createCrudes(2, "hidden", "success"), ...createCrudes(4)],
-        [Notifications.createSuppressRoutineForPrefix("hidden")],
-      );
-      expect(screen.getByText("Message n1")).toBeTruthy();
-      expect(screen.getByText("Message n4")).toBeTruthy();
-      expect(screen.queryByText(/more/)).toBeNull();
     });
   });
 });

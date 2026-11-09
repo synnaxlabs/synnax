@@ -16,8 +16,8 @@ from synnax.telem import TimeRange
 
 
 class _Request(BaseModel):
-    keys: list[channel.Key] | tuple[channel.Key] | None = None
-    names: list[str] | tuple[str] | None = None
+    keys: list[channel.Key] | tuple[channel.Key, ...] | None = None
+    names: list[str] | tuple[str, ...] | None = None
     bounds: TimeRange
 
 

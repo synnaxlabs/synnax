@@ -9,7 +9,7 @@
 
 import { type project, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
+import { compare, grid, id, verbs, type xy } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Cell } from "@/table/cells";
@@ -29,9 +29,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   table.Table
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.tables.retrieve(query),
-  onChange: ({ client, query }, handler) => client.tables.onChange(query, handler),
-  getCached: ({ client, query }) => client.tables.getCached(query),
+  retrieve: async ({ client, query }) => await client.tables.retrieve(query.key),
+  onChange: ({ client, query }, handler) => client.tables.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.tables.getCached(query.key),
   awaitCreation: true,
 });
 
@@ -54,6 +54,25 @@ export const useCell = Scope.bindHook(
     ({ cells }, { cellKey }) => cells?.[cellKey],
   ),
 );
+
+const useDocumentCellForm = Flux.createDocumentForm<
+  table.Key,
+  table.Table,
+  typeof Cell.configZ,
+  CellParams
+>({
+  name: "table cell",
+  schema: Cell.configZ,
+  domain: (client) => client.tables,
+  useEnsure,
+  toValues: ({ cells }, { cellKey }) => cells[cellKey],
+  pathOf: ({ cellKey }) => ["cells", cellKey],
+});
+
+const useCellFormBase = (query: CellParams) => useDocumentCellForm({ query });
+
+/** A form over one cell's config in the cached table. */
+export const useCellForm = Scope.bindHook(useCellFormBase);
 
 export interface CellsParams extends KeyParams {
   cellKeys: string[];
@@ -87,7 +106,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
 });
 
 export interface CreateParams extends table.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 const createDefaultLayout = (): Pick<table.New, "rows" | "columns" | "cells"> => {
@@ -107,7 +126,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.tables.create(data.project ?? uuid.ZERO, data, {
+    await client.tables.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

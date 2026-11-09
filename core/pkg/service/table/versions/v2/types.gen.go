@@ -27,13 +27,17 @@ import (
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = v1.Key
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
+// FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment string
 
 const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = "start"
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = "center"
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = "end"
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
@@ -48,13 +52,17 @@ func (f FlexAlignment) IsValid() bool {
 	}
 }
 
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType string
 
 const (
-	TextCellConfigType  CellConfigType = "text"
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = "text"
+	// ValueCellConfigType is the configuration for live telemetry value cells.
 	ValueCellConfigType CellConfigType = "value"
 )
 
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant interface {
 	isCellConfigVariant()
 }
@@ -202,24 +210,36 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CellConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case TextCellConfigType:
-		var v TextCellConfig
+		var v struct {
+			Type CellConfigType `json:"variant"`
+			TextCellConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TextCellConfig
 	case ValueCellConfigType:
-		var v ValueCellConfig
+		var v struct {
+			Type CellConfigType `json:"variant"`
+			ValueCellConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValueCellConfig
 	default:
-		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CellConfig: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

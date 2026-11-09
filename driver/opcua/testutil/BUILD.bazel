@@ -9,6 +9,7 @@
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "testutil",
@@ -42,5 +43,14 @@ cc_binary(
         ":testutil",
         "//vendor/open62541",
         "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_test(
+    name = "server_test",
+    srcs = ["server_test.cpp"],
+    deps = [
+        ":testutil",
+        "@googletest//:gtest_main",
     ],
 )

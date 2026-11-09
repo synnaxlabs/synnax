@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { DataType, id, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test, vi } from "vitest";
 
-import { NotFoundError } from "@/errors";
-import { rename } from "@/lineplot/actions.gen";
-import { type LinePlot } from "@/lineplot/types.gen";
+import { NotFoundError } from "@/index";
+import { lineplot } from "@/lineplot";
+import { project } from "@/project";
 import { query } from "@/query";
-import { createTestClient, expectDeleted } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -24,7 +24,10 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(uuid.ZERO);
     });
@@ -34,18 +37,85 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       await client.lineplots.rename(linePlot.key, "Line Plot2");
       const res = await client.lineplots.retrieve(linePlot.key);
       expect(res.name).toEqual("Line Plot2");
     });
   });
+  describe("project", () => {
+    test("retrieve the lineplots of a project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const other = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      expect(v.project).toEqual(proj.key);
+      const owned = await client.lineplots.retrieve({ projects: [proj.key] });
+      expect(owned.map(({ key }) => key)).toEqual([v.key]);
+      const unowned = await client.lineplots.retrieve({ projects: [other.key] });
+      expect(unowned).toEqual([]);
+    });
+
+    test("move to another project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
+      const res = await client.lineplots.retrieve([v.key]);
+      expect(res[0].project).toEqual(dest.key);
+    });
+
+    test("move out of its group into another project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const g = await client.groups.create({
+        parent: project.resourceID(proj.key),
+        name: "Line Plot",
+      });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
+      await client.batch.send([client.lineplots.setProjectRequest(v.key, dest.key)]);
+      const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
+      expect(res.key).toEqual(v.key);
+      expect(res.group).toBeUndefined();
+    });
+
+    test("move into the project of its group", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const dest = await client.projects.create({ name: "Line Plot" });
+      const g = await client.groups.create({
+        parent: project.resourceID(dest.key),
+        name: "Line Plot",
+      });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.batch.send([client.lineplots.setGroupRequest(v.key, g.key)]);
+      const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
+      expect(res.key).toEqual(v.key);
+      expect(res.group).toEqual(g.key);
+    });
+
+    test("delete with its project", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
+      await client.projects.delete(proj.key);
+      await vi.waitFor(
+        async () =>
+          await expect(client.lineplots.retrieve(v.key)).rejects.toThrow(NotFoundError),
+      );
+    });
+  });
+
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
       });
-      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve(linePlot.key)).rejects.toThrow(
         NotFoundError,
@@ -54,12 +124,15 @@ describe("LinePlot", () => {
   });
 });
 
-const seedPlot = async (): Promise<LinePlot> => {
-  const project = await client.projects.create({ name: `lp-${id.create()}` });
-  return await client.lineplots.create(project.key, { name: `plot-${id.create()}` });
+const seedPlot = async (): Promise<lineplot.LinePlot> => {
+  const proj = await client.projects.create({ name: `lp-${id.create()}` });
+  return await client.lineplots.create({
+    project: proj.key,
+    name: `plot-${id.create()}`,
+  });
 };
 
-const cachedName = (key: LinePlot["key"]): string | undefined => {
+const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {
   const cached = client.lineplots.getCached(key);
   return query.isLive(cached) ? cached.name : undefined;
 };
@@ -95,11 +168,32 @@ describe("store", () => {
     }
   });
 
+  it("drops a deleted channel from the cached document", async () => {
+    await client.connect();
+    const ch = await client.channels.create({
+      name: `lineplot_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const proj = await client.projects.create({ name: `lp-${id.create()}` });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: `plot-${id.create()}`,
+      channels: { y1: [ch.key] },
+    });
+    expect(plot.lines).toHaveLength(1);
+    await client.channels.delete(ch.key);
+    await expect
+      .poll(() => expectLive(client.lineplots.getCached(plot.key)).channels.y1)
+      .toEqual([]);
+    expect(expectLive(client.lineplots.getCached(plot.key)).lines).toEqual([]);
+  });
+
   it("reduces broadcast dispatch frames into the cached document", async () => {
     await client.connect();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
-    await client.lineplots.dispatch(plot.key, [rename({ name })]);
+    await client.lineplots.dispatch(plot.key, [lineplot.rename({ name })]);
     await expect.poll(() => cachedName(plot.key)).toBe(name);
   });
 });

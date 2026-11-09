@@ -22,6 +22,8 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
+    "synnax",
+    "synnax-scripts-common",
 ]
 
 [tool.ruff]
@@ -49,6 +51,9 @@ select = [
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.mypy]
 strict = true
 # Its own workspace member, checked by the runners CI job.
@@ -60,5 +65,5 @@ pythonpath = ["."]
 norecursedirs = ["runners"]
 
 [tool.coverage.run]
-# The runners CI job measures its own workspace member.
-omit = ["runners/*", "tests/*"]
+# The runners CI job measures its own workspace member. common holds test helpers.
+omit = ["common/*", "runners/*", "tests/*"]

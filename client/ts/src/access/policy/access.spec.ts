@@ -7,25 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { role } from "@/access/role";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   expectDeleted,
   expectLive,
 } from "@/testutil";
+import { user } from "@/user";
 
 const client = createTestClient();
 
+// The role that holds every policy these specs create.
+let owner: role.Role;
+beforeAll(async () => {
+  owner = await client.access.roles.create({ name: `policy-spec-${id.create()}` });
+});
+
 describe("policy", () => {
   describe("retrieve", () => {
+    it("should retrieve the policies of a subject's roles", async () => {
+      const r = await client.access.roles.create({ name: "holder", description: "" });
+      const [held, other] = await client.access.policies.create([
+        { role: r.key, name: "held", objects: [], actions: ["retrieve"] },
+        { role: owner.key, name: "other", objects: [], actions: ["retrieve"] },
+      ]);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        role: r.key,
+      });
+      const subjects = [user.resourceID(u.key)];
+      const key = { in: [held.key, other.key] };
+      const matched = await client.access.policies.retrieve({ subjects, key });
+      expect(matched.map((p) => p.key)).toEqual([held.key]);
+      const unmatched = await client.access.policies.retrieve({
+        not: { subjects },
+        key,
+      });
+      expect(unmatched.map((p) => p.key)).toEqual([other.key]);
+    });
+
     it("should filter by internal flag when retrieving policies", async () => {
       const created = await client.access.policies.create({
+        role: owner.key,
         name: "test-non-internal",
         objects: [],
         actions: ["retrieve"],
@@ -47,6 +79,31 @@ describe("policy", () => {
     });
   });
 
+  describe("roles", () => {
+    it("should retrieve the policies of a role", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const held = await client.access.policies.create({
+        role: r.key,
+        name: "held",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      const res = await client.access.policies.retrieve({ roles: [r.key] });
+      expect(res.map((p) => p.key)).toEqual([held.key]);
+    });
+
+    it("should refuse a policy whose role does not exist", async () => {
+      await expect(
+        client.access.policies.create({
+          role: uuid.create(),
+          name: "orphan",
+          objects: [],
+          actions: ["retrieve"],
+        }),
+      ).rejects.toThrow("does not exist");
+    });
+  });
+
   describe("access control", () => {
     it("should deny access when no matching policy exists", async () => {
       // Create a user with no policy for retrieving policies
@@ -56,6 +113,7 @@ describe("policy", () => {
         actions: [],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -68,10 +126,11 @@ describe("policy", () => {
     it("should allow the caller to retrieve policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -83,13 +142,13 @@ describe("policy", () => {
       expect(retrieved.actions).toEqual(randomPolicy.actions);
     });
 
-    it("should allow the caller to create policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.ontologyID("")],
-        actions: ["create"],
-      });
+    it("should allow the caller to create policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [policy.resourceID("")], actions: ["create"] },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       await userClient.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -100,11 +159,12 @@ describe("policy", () => {
       // Create a user with no create policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(
         userClient.access.policies.create({
+          role: owner.key,
           name: "test",
           objects: [],
           actions: ["retrieve"],
@@ -112,13 +172,17 @@ describe("policy", () => {
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
-    it("should allow the caller to delete policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.ontologyID("")],
-        actions: ["delete"],
-      });
+    it("should allow the caller to delete policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [policy.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -133,10 +197,11 @@ describe("policy", () => {
       // Create a user with no delete policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -154,6 +219,7 @@ const remote = createTestClient();
 
 const createPolicy = async (c = client) =>
   await c.access.policies.create({
+    role: owner.key,
     name: `qry-${id.create()}`,
     objects: [],
     actions: ["retrieve"],
@@ -183,7 +249,7 @@ describe("cached reads", () => {
       const a = await createPolicy();
       const b = await createPolicy();
       await client.access.policies.retrieve(b.key);
-      const res = await client.access.policies.retrieve({ keys: [a.key, b.key] });
+      const res = await client.access.policies.retrieve([a.key, b.key]);
       expect(res.map((p) => p.key)).toEqual([a.key, b.key]);
     });
   });
@@ -212,6 +278,35 @@ describe("cached reads", () => {
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();
+      } finally {
+        off();
+      }
+    });
+
+    it("refetches the policies of a user whose role changes", async () => {
+      const p = await createPolicy();
+      const empty = await createEmptyRole(client);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        role: empty.key,
+      });
+      const subject = user.resourceID(u.key);
+      const off = client.access.policies.onChange(
+        { where: { subjects: [subject] } },
+        () => {},
+      );
+      try {
+        expect(await client.access.policies.retrieve({ subjects: [subject] })).toEqual(
+          [],
+        );
+        await remote.users.setRole(u.key, owner.key);
+        await expect
+          .poll(() => {
+            const cached = client.access.policies.getCached({ subjects: [subject] });
+            return query.isLive(cached) && cached.some(({ key }) => key === p.key);
+          })
+          .toBe(true);
       } finally {
         off();
       }

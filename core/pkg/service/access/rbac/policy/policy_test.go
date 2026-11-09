@@ -10,6 +10,8 @@
 package policy_test
 
 import (
+	"context"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,16 +33,16 @@ var _ = Describe("Writer", func() {
 		w  policy.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should create a policy with auto-generated UUID", func(ctx SpecContext) {
 			p := &policy.Policy{
+				Role:    owner.Key,
 				Name:    "test-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
@@ -49,8 +53,9 @@ var _ = Describe("Writer", func() {
 			"Should return a validation error when an object has an invalid type",
 			func(ctx SpecContext) {
 				p := &policy.Policy{
+					Role:    owner.Key,
 					Name:    "test-policy",
-					Objects: []ontology.ID{{Type: "not-a-real-type", Key: "ch1"}},
+					Objects: []resource.ID{{Type: "not-a-real-type", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(w.Create(ctx, p)).
@@ -61,9 +66,10 @@ var _ = Describe("Writer", func() {
 		It("Should create a policy with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			p := &policy.Policy{
+				Role:    owner.Key,
 				Key:     key,
 				Name:    "test-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
@@ -72,8 +78,9 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a policy with multiple objects", func(ctx SpecContext) {
 			p := &policy.Policy{
+				Role: owner.Key,
 				Name: "multi-object-policy",
-				Objects: []ontology.ID{
+				Objects: []resource.ID{
 					{Type: "channel", Key: "ch1"},
 					{Type: "channel", Key: "ch2"},
 					{Type: "project", Key: "p1"},
@@ -86,28 +93,12 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a policy with ActionAll wildcard", func(ctx SpecContext) {
 			p := &policy.Policy{
+				Role:    owner.Key,
 				Name:    "wildcard-policy",
-				Objects: []ontology.ID{{Type: "channel"}},
+				Objects: []resource.ID{{Type: "channel"}},
 				Actions: access.AllActions,
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
-		})
-
-		It("Should define policy in ontology", func(ctx SpecContext) {
-			p := &policy.Policy{
-				Name:    "ontology-test",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
-			}
-			Expect(w.Create(ctx, p)).To(Succeed())
-
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(p.OntologyID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.ID.Key).To(Equal(p.Key.String()))
-			Expect(res.Name).To(Equal(p.Name))
 		})
 
 		It(
@@ -115,8 +106,9 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				internalWriter := svc.NewWriter(tx, true)
 				p := &policy.Policy{
+					Role:     owner.Key,
 					Name:     "internal-policy",
-					Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Objects:  []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions:  []access.Action{access.ActionRetrieve},
 					Internal: true,
 				}
@@ -129,8 +121,9 @@ var _ = Describe("Writer", func() {
 			"Should fail to create an internal policy when allowInternal is false",
 			func(ctx SpecContext) {
 				p := &policy.Policy{
+					Role:     owner.Key,
 					Name:     "internal-policy",
-					Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Objects:  []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions:  []access.Action{access.ActionRetrieve},
 					Internal: true,
 				}
@@ -145,15 +138,17 @@ var _ = Describe("Writer", func() {
 		It("Should create multiple policies", func(ctx SpecContext) {
 			policies := []policy.Policy{
 				{
+					Role:    owner.Key,
 					Name:    "policy-1",
 					Key:     uuid.New(),
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 				{
+					Role:    owner.Key,
 					Name:    "policy-2",
 					Key:     uuid.New(),
-					Objects: []ontology.ID{{Type: "project", Key: "proj1"}},
+					Objects: []resource.ID{{Type: "project", Key: "proj1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -173,13 +168,15 @@ var _ = Describe("Writer", func() {
 		BeforeEach(func(ctx SpecContext) {
 			policies = []policy.Policy{
 				{
+					Role:    owner.Key,
 					Name:    "policy-1",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 				{
+					Role:    owner.Key,
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+					Objects: []resource.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -192,11 +189,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(policies[0].Key)).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple policies", func(ctx SpecContext) {
@@ -211,62 +207,46 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("SetOnRole", func() {
-		var (
-			r        *role.Role
-			policies []policy.Policy
-		)
-		BeforeEach(func(ctx SpecContext) {
-			rw := roleSvc.NewWriter(tx, true)
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(rw.Create(ctx, r)).To(Succeed())
-
-			policies = []policy.Policy{
-				{
-					Name:    "policy-1",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+	Describe("Role", func() {
+		It(
+			"Should return a validation error when the role does not exist",
+			func(ctx SpecContext) {
+				p := &policy.Policy{
+					Role:    uuid.New(),
+					Name:    "orphan",
+					Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
-				},
-				{
-					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
-					Actions: []access.Action{access.ActionUpdate},
-				},
+				}
+				Expect(w.Create(ctx, p)).
+					To(MatchError(ContainSubstring("role " + p.Role.String() +
+						" does not exist")))
+			},
+		)
+
+		It("Should delete the policies of a deleted role", func(ctx SpecContext) {
+			r := &role.Role{Name: "doomed"}
+			Expect(roleSvc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			doomed := &policy.Policy{
+				Role:    r.Key,
+				Name:    "doomed-policy",
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
 			}
-			for i := range policies {
-				Expect(w.Create(ctx, &policies[i])).To(Succeed())
+			kept := &policy.Policy{
+				Role:    owner.Key,
+				Name:    "kept-policy",
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
 			}
-		})
-
-		It("Should set policies for a role", func(ctx SpecContext) {
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(w.SetOnRole(ctx, r.Key, policyKeys...)).To(Succeed())
-
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypePolicy).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(children).To(HaveLen(2))
-		})
-
-		It("Should attach single policy to role", func(ctx SpecContext) {
-			Expect(w.SetOnRole(ctx, r.Key, policies[0].Key)).To(Succeed())
-
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.OntologyID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypePolicy).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(children).To(HaveLen(1))
-			Expect(children[0].ID.Key).To(Equal(policies[0].Key.String()))
+			Expect(w.Create(ctx, doomed)).To(Succeed())
+			Expect(w.Create(ctx, kept)).To(Succeed())
+			Expect(roleSvc.NewWriter(tx, true).Delete(ctx, r.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(policy.MatchKeys(doomed.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+			Expect(svc.NewRetrieve().
+				Where(policy.MatchKeys(kept.Key)).
+				Exists(ctx, tx)).To(BeTrue())
 		})
 	})
 })
@@ -278,22 +258,25 @@ var _ = Describe("Retriever", func() {
 		policies []policy.Policy
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 		policies = []policy.Policy{
 			{
+				Role:    owner.Key,
 				Name:    "alpha-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			},
 			{
+				Role:    owner.Key,
 				Name:    "beta-policy",
-				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Objects: []resource.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionDelete},
 			},
 			{
+				Role:    owner.Key,
 				Name:    "gamma-policy",
-				Objects: []ontology.ID{{Type: "user", Key: "u1"}},
+				Objects: []resource.ID{{Type: "user", Key: "u1"}},
 				Actions: []access.Action{access.ActionUpdate},
 			},
 		}
@@ -301,7 +284,6 @@ var _ = Describe("Retriever", func() {
 			Expect(w.Create(ctx, &policies[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single policy by key", func(ctx SpecContext) {
@@ -325,11 +307,10 @@ var _ = Describe("Retriever", func() {
 
 		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(policy.MatchKeys(uuid.New())).
 				Entry(&p).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -353,64 +334,36 @@ var _ = Describe("Retriever", func() {
 		})
 	})
 
-	Describe("MatchSubjects", func() {
-		var (
-			r        *role.Role
-			subject1 ontology.ID
-			subject2 ontology.ID
-		)
+	Describe("MatchRoles", func() {
+		var other *role.Role
 		BeforeEach(func(ctx SpecContext) {
-			rw := roleSvc.NewWriter(tx, true)
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role for subject queries",
+			other = &role.Role{Name: "other"}
+			Expect(roleSvc.NewWriter(tx, true).Create(ctx, other)).To(Succeed())
+			p := &policy.Policy{
+				Role:    other.Key,
+				Name:    "other-policy",
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
 			}
-			Expect(rw.Create(ctx, r)).To(Succeed())
-			Expect(
-				w.SetOnRole(ctx, r.Key, policies[0].Key, policies[1].Key),
-			).To(Succeed())
-
-			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject1)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject2)).To(Succeed())
-			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
+			Expect(w.Create(ctx, p)).To(Succeed())
 		})
 
-		It("Should retrieve policies for a subject via role", func(ctx SpecContext) {
-			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1))
+		It("Should retrieve the policies of a role", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.MatchKeys(keys...)).
+				Where(policy.MatchRoles(other.Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(HaveLen(2))
-			gotKeys := []uuid.UUID{ps[0].Key, ps[1].Key}
-			Expect(gotKeys).To(ContainElements(policies[0].Key, policies[1].Key))
+			Expect(ps).To(HaveExactElements(HaveField("Name", "other-policy")))
 		})
 
-		It("Should return empty when subject has no roles", func(ctx SpecContext) {
-			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject2))
-			Expect(keys).To(BeEmpty())
-		})
-
-		It("Should retrieve policies for multiple subjects", func(ctx SpecContext) {
-			rw := roleSvc.NewWriter(tx, true)
-			r2 := &role.Role{
-				Name:        "test-role-2",
-				Description: "Second test role",
-			}
-			Expect(rw.Create(ctx, r2)).To(Succeed())
-			Expect(w.SetOnRole(ctx, r2.Key, policies[2].Key)).To(Succeed())
-			Expect(rw.AssignRole(ctx, subject2, r2.Key)).To(Succeed())
-
-			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1, subject2))
+		It("Should retrieve the policies of several roles", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.MatchKeys(keys...)).
+				Where(policy.MatchRoles(owner.Key, other.Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(HaveLen(3))
+			Expect(ps).To(HaveLen(len(policies) + 1))
 		})
 	})
 
@@ -449,14 +402,16 @@ var _ = Describe("Retriever", func() {
 		BeforeEach(func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
+				Role:     owner.Key,
 				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects:  []resource.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
 			}
 			regularPolicy = policy.Policy{
+				Role:     owner.Key,
 				Name:     "regular-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch2"}},
+				Objects:  []resource.ID{{Type: "channel", Key: "ch2"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: false,
 			}
@@ -494,14 +449,16 @@ var _ = Describe("Retriever", func() {
 		BeforeEach(func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
+				Role:     owner.Key,
 				Name:     "combo-internal",
-				Objects:  []ontology.ID{{Type: "channel", Key: "cix"}},
+				Objects:  []resource.ID{{Type: "channel", Key: "cix"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
 			}
 			regularPolicy = policy.Policy{
+				Role:    owner.Key,
 				Name:    "combo-regular",
-				Objects: []ontology.ID{{Type: "channel", Key: "crg"}},
+				Objects: []resource.ID{{Type: "channel", Key: "crg"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(internalWriter.Create(ctx, &internalPolicy)).To(Succeed())
@@ -542,13 +499,15 @@ var _ = Describe("Retriever", func() {
 	Describe("Count and Exists", func() {
 		It("Should count policies matching a filter", func(ctx SpecContext) {
 			p1 := policy.Policy{
+				Role:    owner.Key,
 				Name:    "count-a",
-				Objects: []ontology.ID{{Type: "channel", Key: "a"}},
+				Objects: []resource.ID{{Type: "channel", Key: "a"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			p2 := policy.Policy{
+				Role:    owner.Key,
 				Name:    "count-b",
-				Objects: []ontology.ID{{Type: "channel", Key: "b"}},
+				Objects: []resource.ID{{Type: "channel", Key: "b"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(svc.NewWriter(tx, false).Create(ctx, &p1)).To(Succeed())
@@ -560,8 +519,9 @@ var _ = Describe("Retriever", func() {
 		})
 		It("Should report existence with Exists", func(ctx SpecContext) {
 			p := policy.Policy{
+				Role:    owner.Key,
 				Name:    "exists-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "x"}},
+				Objects: []resource.ID{{Type: "channel", Key: "x"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(svc.NewWriter(tx, false).Create(ctx, &p)).To(Succeed())
@@ -575,60 +535,209 @@ var _ = Describe("Retriever", func() {
 	})
 })
 
-var _ = Describe("Ontology Integration", func() {
+var _ = Describe("Resources", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
-
-	Describe("Type", func() {
-		It("Should return correct ontology type", func(ctx SpecContext) {
-			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
-		})
-	})
-
-	Describe("RetrieveResource", func() {
-		It("Should retrieve a policy as an ontology resource", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, false)
-			p := &policy.Policy{
-				Name:    "resource-test",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
-			}
-			Expect(w.Create(ctx, p)).To(Succeed())
-
-			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(res.ID.Key).To(Equal(p.Key.String()))
-			Expect(res.Name).To(Equal(p.Name))
-		})
-
-		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, "invalid-uuid", tx),
-			).Error().
-				To(MatchError("invalid uuid"))
-		})
-
-		It("Should return error for non-existent policy", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, uuid.New().String(), tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
+	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Search", func() {
 		It(
 			"Should return the policies whose name matches the term",
 			func(ctx SpecContext) {
 				p := &policy.Policy{
+					Role:    owner.Key,
 					Name:    "turbopump readers",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
-					To(Equal([]ontology.ID{p.OntologyID()}))
+				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{p.ResourceID()}))
 			},
 		)
+	})
+})
+
+var _ = Describe("Writer in concurrent transactions", func() {
+	It(
+		"Should not overwrite a policy that moves to a built-in role at once",
+		func(ctx SpecContext) {
+			custom := role.Role{Name: "custom"}
+			builtin := role.Role{Name: "built-in", Internal: true}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &custom)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &builtin)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, custom.Key)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, builtin.Key)
+				})).To(Succeed())
+			})
+			for range 30 {
+				key := uuid.New()
+				newPolicy := func(r role.Key) policy.Policy {
+					return policy.Policy{
+						Key:     key,
+						Role:    r,
+						Name:    "moving",
+						Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+						Actions: []access.Action{access.ActionRetrieve},
+					}
+				}
+				p := newPolicy(custom.Key)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx, false).Create(ctx, &p)
+				})).To(Succeed())
+				var (
+					wg      sync.WaitGroup
+					userErr error
+				)
+				wg.Go(func() {
+					defer GinkgoRecover()
+					internal := newPolicy(builtin.Key)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, true).Create(ctx, &internal)
+					})).To(Succeed())
+				})
+				wg.Go(func() {
+					user := newPolicy(custom.Key)
+					userErr = db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, false).Create(ctx, &user)
+					})
+				})
+				wg.Wait()
+				Expect(userErr).To(Or(
+					Succeed(),
+					MatchError(
+						ContainSubstring("cannot change the policies of built-in"),
+					),
+				))
+				var stored policy.Policy
+				Expect(svc.NewRetrieve().
+					Where(policy.MatchKeys(key)).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.Role).To(Equal(builtin.Key))
+			}
+		},
+	)
+})
+
+var _ = Describe("ResolveRolesWith", func() {
+	var (
+		tx                 gorp.Tx
+		held, other        role.Role
+		heldPolicy, otherP policy.Policy
+		subject            resource.ID
+		rolesOf            policy.RolesOf
+	)
+	BeforeEach(func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
+		held, other = role.Role{Name: "held"}, role.Role{Name: "other"}
+		rw := roleSvc.NewWriter(tx, true)
+		Expect(rw.Create(ctx, &held)).To(Succeed())
+		Expect(rw.Create(ctx, &other)).To(Succeed())
+		heldPolicy = policy.Policy{
+			Role:    held.Key,
+			Name:    "held-policy",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{access.ActionRetrieve},
+		}
+		otherP = policy.Policy{
+			Role:    other.Key,
+			Name:    "other-policy",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{access.ActionRetrieve},
+		}
+		w := svc.NewWriter(tx, true)
+		Expect(w.Create(ctx, &heldPolicy)).To(Succeed())
+		Expect(w.Create(ctx, &otherP)).To(Succeed())
+		subject = resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+		rolesOf = func(
+			_ context.Context,
+			_ gorp.Snapshot,
+			subjects ...resource.ID,
+		) ([]role.Key, error) {
+			if subjects[0] != subject {
+				return nil, query.ErrNotFound
+			}
+			return []role.Key{held.Key}, nil
+		}
+	})
+
+	retrieve := func(ctx SpecContext, f policy.Filter) ([]policy.Policy, error) {
+		var ps []policy.Policy
+		err := svc.NewRetrieve().ResolveRolesWith(rolesOf).Where(f).Entries(&ps).
+			Exec(ctx, tx)
+		return ps, err
+	}
+
+	It("Should match the policies of the roles a subject holds", func(ctx SpecContext) {
+		Expect(retrieve(ctx, policy.MatchSubjects(subject))).To(ConsistOf(heldPolicy))
+	})
+
+	It("Should match no policies for a subject that does not exist", func(
+		ctx SpecContext,
+	) {
+		missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+		Expect(retrieve(ctx, policy.Or(
+			policy.MatchSubjects(missing),
+			policy.MatchKeys(otherP.Key),
+		))).To(ConsistOf(otherP))
+	})
+
+	It("Should return any other error of the role lookup", func(ctx SpecContext) {
+		rolesOf = func(
+			context.Context,
+			gorp.Snapshot,
+			...resource.ID,
+		) ([]role.Key, error) {
+			return nil, errors.New("lookup failed")
+		}
+		Expect(retrieve(ctx, policy.MatchSubjects(subject))).Error().
+			To(MatchError(ContainSubstring("lookup failed")))
+	})
+
+	It("Should look up roles through the snapshot of the query", func(
+		ctx SpecContext,
+	) {
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var (
+			looked gorp.Snapshot
+			lookup = rolesOf
+			ps     []policy.Policy
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().
+				ResolveRolesWith(func(
+					ctx context.Context,
+					snap gorp.Snapshot,
+					subjects ...resource.ID,
+				) ([]role.Key, error) {
+					looked = snap
+					return lookup(ctx, snap, subjects...)
+				}).
+				Where(policy.MatchSubjects(subject)).
+				Entries(&ps).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(looked).ToNot(BeNil())
+		_, isTx := looked.(gorp.Tx)
+		Expect(isTx).To(BeFalse())
+		Expect(ps).To(ConsistOf(heldPolicy))
+	})
+
+	It("Should fail to filter by subject without a role lookup", func(ctx SpecContext) {
+		var ps []policy.Policy
+		Expect(svc.NewRetrieve().
+			Where(policy.MatchSubjects(subject)).
+			Entries(&ps).
+			Exec(ctx, tx)).
+			To(MatchError(ContainSubstring("cannot filter by subject")))
 	})
 })
