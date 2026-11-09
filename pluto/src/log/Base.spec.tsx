@@ -539,6 +539,36 @@ describe("log/Base", () => {
       expect(applyCalls(setState, beforeRows, state).selectionEnd).toBe(9);
     });
 
+    // Releases during an edge scroll, then shows the rows of a later wheel position.
+    const releaseThenShow = (rows: number[], wheelOffset: number) => {
+      const { setState, state } = setupAether(ROWS);
+      const { container, rerender } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
+      advanceFrames(1);
+      fireEvent.mouseUp(window);
+      const scrolled = applyCalls(setState, 0, state);
+      const shown = { ...scrolled, wheelPos: Number(scrolled.wheelPos) + wheelOffset };
+      const beforeRows = setState.mock.calls.length;
+      showRows(setState, shown, rows);
+      rerender(<Base />);
+      return {
+        calls: setState.mock.calls.length - beforeRows,
+        setState,
+        beforeRows,
+        shown,
+      };
+    };
+
+    it("should select the edge row of a scroll that lands after release", () => {
+      const { setState, beforeRows, shown } = releaseThenShow([9, 10, 11], 0);
+      expect(applyCalls(setState, beforeRows, shown).selectionEnd).toBe(9);
+    });
+
+    it("should not move the selection for rows of another scroll after release", () => {
+      expect(releaseThenShow([9, 10, 11], 16).calls).toBe(0);
+    });
+
     it("should not move the selection when rows change inside the log", () => {
       const { setState, state } = setupAether(ROWS);
       const { container, rerender } = renderLog();

@@ -129,6 +129,8 @@ export const Base = ({
   const pointerYRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const pastEdgeRef = useRef(false);
+  // The wheel position of the last edge scroll whose rows have not arrived.
+  const edgeScrollRef = useRef<number | null>(null);
   const stopDragRef = useRef<(() => void) | null>(null);
   useEffect(() => () => stopDragRef.current?.(), []);
 
@@ -149,14 +151,22 @@ export const Base = ({
     pastEdgeRef.current = past !== 0;
     if (past === 0) return;
     if (past < 0 && !scrolling) setHold(true);
-    setState((s) => ({ ...s, wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE }));
+    setState((s) => {
+      const wheelPos = s.wheelPos - past * EDGE_SCROLL_RATE;
+      edgeScrollRef.current = wheelPos;
+      return { ...s, wheelPos };
+    });
     frameRef.current = requestAnimationFrame(scrollPastEdge);
   };
 
   // The worker sends the rows an edge scroll reveals after the scroll, so the
-  // selection catches up to the pointer here.
+  // selection catches up to the pointer here, also for a scroll still in flight at
+  // release.
   useEffect(() => {
-    if (!pastEdgeRef.current) return;
+    const { scrolling, wheelPos } = stateRef.current;
+    const landed = scrolling && edgeScrollRef.current === wheelPos;
+    if (!pastEdgeRef.current && !landed) return;
+    if (landed) edgeScrollRef.current = null;
     const idx = mouseYToEntryIndex(pointerYRef.current);
     if (idx !== stateRef.current.selectionEnd)
       setState((s) => ({ ...s, selectionEnd: idx }));
@@ -164,6 +174,7 @@ export const Base = ({
 
   const startDrag = (clientY: number) => {
     pointerYRef.current = clientY;
+    edgeScrollRef.current = null;
     const handleMove = (e: MouseEvent) => {
       // A release outside the window sends no mouseup.
       if ((e.buttons & 1) === 0) {
