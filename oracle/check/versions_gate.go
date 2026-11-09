@@ -390,6 +390,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 				for _, e := range a.Extends {
 					visit(e)
 				}
+				if a.IsAlias() {
+					visit(a.Alias)
+				}
 			}
 			for _, e := range form.Extends {
 				visit(e)

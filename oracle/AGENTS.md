@@ -145,6 +145,15 @@ rules hold for top-level and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+`@py optional` makes a field optional in Python alone. Use it for an `any` field that
+must read an absent key as `None`, because the Python JSON codec drops `None` fields.
+
+## Action aliases
+
+`action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
+Generators keep the `SetPayload` name as an alias (in Go, a defined type that can carry
+`Handle`). The target must be a struct, and no two actions of a type may share one.
+
 ## Union discriminators
 
 A union's discriminator is a generated `<Union>Type` with one constant per variant. When

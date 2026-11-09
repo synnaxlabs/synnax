@@ -109,8 +109,11 @@ func (p *Plugin) generateFile(
 	hasAlias := false
 	for i, action := range actions {
 		a := &data.Actions[i]
+		if action.IsAlias() {
+			a.Target = fp.ProcessField(resolution.Field{Type: action.Alias}).PyType
+		}
 		for _, field := range action.Fields {
-			fd := fp.ProcessField(absentAsNull(field, req.Resolutions))
+			fd := fp.ProcessField(field)
 			a.Fields = append(a.Fields, fd)
 			a.HasAlias = a.HasAlias || fd.Alias != ""
 		}
@@ -131,15 +134,6 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// absentAsNull makes a required any field optional. The JSON codec drops None fields,
-// so a payload must read an absent key in its own encoding as null.
-func absentAsNull(field resolution.Field, table *resolution.Table) resolution.Field {
-	if field.Default == nil && resolution.PrimitiveBase(field.Type, table) == "any" {
-		field.Optional = true
-	}
-	return field
-}
-
 // templateData's fields are read by fileTemplate, so they must stay exported.
 type templateData struct {
 	Imports    string
@@ -158,6 +152,8 @@ type actionData struct {
 	// the builder function.
 	Field string
 	Doc   string
+	// Target is the Python type of the struct that an action alias uses as its payload.
+	Target string
 	// HasAlias is true when a payload field has a wire name other than its attribute.
 	HasAlias bool
 	Fields   []pytypes.FieldData
@@ -185,6 +181,11 @@ var fileTemplate = template.Must(
 
 from __future__ import annotations{{ .Imports }}
 {{- range .Actions }}
+{{- if .Target }}
+
+
+{{ .Payload }} = {{ .Target }}
+{{- else }}
 
 
 class {{ .Payload }}(BaseModel):
@@ -199,6 +200,7 @@ class {{ .Payload }}(BaseModel):
 {{- end }}
 {{- if and (not .Fields) (not (payloadDocstring .)) }}
     pass
+{{- end }}
 {{- end }}
 {{- end }}
 {{- range .Actions }}

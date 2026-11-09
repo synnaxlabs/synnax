@@ -275,6 +275,9 @@ func referencedNamespaces(
 			for _, e := range a.Extends {
 				walkRef(e)
 			}
+			if a.IsAlias() {
+				walkRef(a.Alias)
+			}
 		}
 		for _, e := range f.Extends {
 			walkRef(e)

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -3090,6 +3091,99 @@ Node union on variant {
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
 			},
 		)
+
+		Context("aliased payloads", func() {
+			It(
+				"Should resolve the aliased struct and take its doc",
+				func(ctx SpecContext) {
+					source := `
+					Set struct {
+						path string[]
+
+						@doc value "replaces the value at a path."
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set
+					}
+				`
+					table, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					action := findAction(table, "test.Container", "Set")
+					Expect(action.IsAlias()).To(BeTrue())
+					Expect(action.Alias.Name).To(Equal("test.Set"))
+					Expect(action.Fields).To(BeEmpty())
+					Expect(doc.Get(action.Domains)).
+						To(Equal("replaces the value at a path."))
+				},
+			)
+
+			It("Should reject an alias of a type that is not a struct", func(
+				ctx SpecContext,
+			) {
+				source := `
+					Color enum {
+						red = 0
+					}
+
+					Container struct {
+						key uuid
+
+						action Paint = Color
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"action Paint of Container must alias a struct, got test.Color",
+				))
+			})
+
+			It("Should reject an alias of an array", func(ctx SpecContext) {
+				source := `
+					Set struct {
+						path string[]
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set[]
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`action Set: the alias target must be a plain struct reference, `+
+						`got "Set[]"`,
+				))
+			})
+
+			It("Should reject two actions that alias the same struct", func(
+				ctx SpecContext,
+			) {
+				source := `
+					Set struct {
+						path string[]
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set
+
+						action Replace = Set
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"actions Set and Replace of Container both alias test.Set",
+				))
+			})
+		})
 	})
 
 	Describe("Union Actions", func() {

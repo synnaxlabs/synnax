@@ -47,6 +47,9 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 		for i := range f.Actions {
 			f.Actions[i].Fields = copyFields(f.Actions[i].Fields, rw)
 			f.Actions[i].Extends = copyRefs(f.Actions[i].Extends, rw)
+			if f.Actions[i].IsAlias() {
+				f.Actions[i].Alias = copyRef(f.Actions[i].Alias, rw)
+			}
 		}
 		f.TypeParams = copyParams(f.TypeParams, rw)
 		f.Extends = copyRefs(f.Extends, rw)

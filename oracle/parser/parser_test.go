@@ -253,6 +253,41 @@ var _ = Describe("Parser", func() {
 			).To(Equal("B"))
 		})
 
+		It("Should parse an action that aliases a struct", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Set = patch.Set
+
+					action Rename {
+						name string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			actions := structDef.StructBody().AllActionDef()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Set"))
+			Expect(actions[0].ActionBody()).To(BeNil())
+			qi := asTypeRefNormal(actions[0].TypeRef()).QualifiedIdent()
+			Expect(qi.IDENT(0).GetText()).To(Equal("patch"))
+			Expect(qi.IDENT(1).GetText()).To(Equal("Set"))
+			Expect(actions[1].TypeRef()).To(BeNil())
+		})
+
+		It("Should reject an action alias with a body", func() {
+			_, diag := parser.Parse(`
+				Schematic struct {
+					action Set = patch.Set {
+						@doc value "sets a value."
+					}
+				}
+			`)
+			Expect(diag).To(MatchError(ContainSubstring("mismatched input '{'")))
+			Expect(diag.Ok()).To(BeFalse())
+		})
+
 		It("Should parse actions in a union body beside its variants", func() {
 			schema := MustSucceed(parser.Parse(`
 				Shape union on type {

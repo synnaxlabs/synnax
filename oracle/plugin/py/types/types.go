@@ -971,7 +971,7 @@ func processField(
 	fd := fieldData{
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
-		IsOptional: field.Optional,
+		IsOptional: optionalInPython(field),
 		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
@@ -1028,7 +1028,7 @@ func processField(
 	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	optional := field.Optional || isOptionalTypeParam || excludedRequired
+	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType = fd.PyType + " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
@@ -1047,7 +1047,7 @@ func processField(
 // requiredInPython reports whether a Python model must be given field: it is not
 // optional and has no default.
 func requiredInPython(field resolution.Field, table *resolution.Table) bool {
-	if field.Optional || field.Default != nil {
+	if optionalInPython(field) || field.Default != nil {
 		return false
 	}
 	if field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
@@ -1056,6 +1056,13 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 	}
 	_, isCollection := resolution.CollectionKind(field.Type, table)
 	return !isCollection
+}
+
+// optionalInPython reports whether field is optional in Python. `@py optional` makes a
+// field optional in Python alone, such as an any field that the JSON codec drops when
+// it is None.
+func optionalInPython(field resolution.Field) bool {
+	return field.Optional || domain.HasExprFromField(field, "py", "optional")
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend

@@ -210,6 +210,48 @@ var _ = Describe("Go Actions Plugin", func() {
 			)
 
 			It(
+				"Should declare the payload of an action alias over its struct",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@go output "x/go/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key uuid
+
+						action Set = patch.Set
+
+						action Reset {
+							@doc value "resets the counter."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"// SetPayload replaces the value at a path.\n"+
+								"type SetPayload patch.Set\n",
+							"// ResetPayload resets the counter.\n"+
+								"type ResetPayload struct {\n",
+							"Set *SetPayload",
+							"state, err = a.Set.Handle(state)",
+							"func NewSetAction(p SetPayload) Action {",
+						).
+						ToNotContain("type SetPayload struct")
+				},
+			)
+
+			It(
 				"Should reduce a generic struct with any for each kept type parameter",
 				func(ctx SpecContext) {
 					source := `
