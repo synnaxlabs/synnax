@@ -346,7 +346,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 				h.stateString[key] = inner
 			}
 			if str, ok := inner[varID]; ok {
-				return h.strings.Create(str)
+				return h.strings.CreateView(str)
 			}
 			if initStr, ok := h.strings.Get(initHandle); ok {
 				inner[varID] = initStr

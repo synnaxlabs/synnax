@@ -168,6 +168,21 @@ var _ = Describe("ProgramState", func() {
 			}
 		})
 
+		It("Should count only the handle of a view", func() {
+			held := strings.Repeat("a", stlstrings.MaxBytes/2)
+			for range 100_000 {
+				s.CreateView(held)
+			}
+		})
+
+		It("Should panic with ErrLimit when views pass MaxBytes", func() {
+			Expect(func() {
+				for range stlstrings.MaxBytes/stlstrings.HandleBytes + 1 {
+					s.CreateView("a")
+				}
+			}).To(PanicWith(stlstrings.ErrLimit))
+		})
+
 		It(
 			"Should panic with ErrLimit when a loop grows a string past MaxBytes",
 			func() {

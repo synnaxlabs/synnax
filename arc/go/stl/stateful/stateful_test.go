@@ -10,6 +10,8 @@
 package stateful_test
 
 import (
+	stdstrings "strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -288,6 +290,17 @@ var _ = Describe("Vars", func() {
 			)
 			rh2 := callU32(ctx, "load_str", testutil.U32(0), testutil.U32(0))
 			Expect(MustBeOk(strS.Get(rh2))).To(Equal("updated"))
+		})
+
+		It("Should load a stored string for each of 100,000 samples", func(
+			ctx SpecContext,
+		) {
+			mod.SetNodeKey("node1")
+			h := strS.Create(stdstrings.Repeat("a", 1<<20))
+			rt.CallVoid(ctx, "stateful", "store_str", testutil.U32(0), testutil.U32(h))
+			for range 100_000 {
+				callU32(ctx, "load_str", testutil.U32(0), testutil.U32(0))
+			}
 		})
 
 		It(

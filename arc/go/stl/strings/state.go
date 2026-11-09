@@ -60,10 +60,19 @@ func NewProgramState() *ProgramState {
 // Create stores a string and returns a transient handle for later retrieval. It panics
 // with ErrLimit when the string would pass MaxBytes.
 func (s *ProgramState) Create(str string) uint32 {
+	return s.create(str, HandleBytes+len(str))
+}
+
+// CreateView stores a string that is held elsewhere, such as a stateful variable, and
+// returns a transient handle for it. Only its handle counts toward MaxBytes.
+func (s *ProgramState) CreateView(str string) uint32 {
+	return s.create(str, HandleBytes)
+}
+
+func (s *ProgramState) create(str string, cost int) uint32 {
 	if str == "" {
 		return 0
 	}
-	cost := HandleBytes + len(str)
 	if s.bytes+cost > MaxBytes {
 		panic(ErrLimit)
 	}
