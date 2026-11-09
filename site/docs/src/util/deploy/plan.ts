@@ -24,6 +24,16 @@ export interface Deployment {
   host: string;
 }
 
+export interface Options {
+  /** Builds this ref instead. It needs exactly one version. */
+  ref?: string;
+  /**
+   * A train that a release changed. It deploys only if it has a stable Core release,
+   * since a train without one has no site.
+   */
+  released?: string;
+}
+
 export interface Lookups {
   /** Lists the trains with a stable Core release, newest first. */
   trains: () => Promise<string[]>;
@@ -39,13 +49,12 @@ export interface Lookups {
  * Core tag.
  * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
- * @param ref - Builds this ref instead. It needs exactly one version.
  * @throws {Error} if GitHub lists no train, if a version is neither `next` nor a train
  * with a stable Core release, or if `ref` comes with more than one version.
  */
 export const plan = async (
   requested: string[],
-  ref: string | undefined,
+  { ref, released }: Options,
   { trains: listTrains, newest, branched }: Lookups,
 ): Promise<Deployment[]> => {
   const trains = await listTrains();
@@ -56,6 +65,8 @@ export const plan = async (
     return [name];
   };
   const names = [...new Set(requested.flatMap(expand))];
+  if (released != null && trains.includes(released) && !names.includes(released))
+    names.push(released);
   if (ref != null && names.length !== 1)
     throw new Error(`A ref builds exactly one version, not ${names.length}`);
   const refOf = async (name: string): Promise<string> => {

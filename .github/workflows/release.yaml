@@ -517,7 +517,8 @@ jobs:
       'success')
     uses: ./.github/workflows/deploy.docs.yaml
     with:
-      versions: next latest previous ${{ needs.resolve.outputs.train }}
+      versions: next latest previous
+      train: ${{ needs.resolve.outputs.train }}
     secrets:
       DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
       DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}

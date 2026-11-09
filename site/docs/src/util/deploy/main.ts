@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Prints the deployments that the space-separated `VERSIONS` ask for, as JSON. `REF`
-// builds one version from another ref. `GITHUB_TOKEN` raises the GitHub API rate limit.
+// builds one version from another ref. `RELEASED` names a train that a release changed.
+// `GITHUB_TOKEN` raises the GitHub API rate limit.
 
 import { plan } from "@/util/deploy/plan";
 import { Releases } from "@/util/releases";
@@ -30,11 +31,16 @@ const branched = async (train: string): Promise<boolean> => {
 const requested = (process.env.VERSIONS ?? "")
   .split(/\s+/)
   .filter((name) => name !== "");
-const ref = process.env.REF === "" ? undefined : process.env.REF;
+const optional = (value: string | undefined): string | undefined =>
+  value === "" ? undefined : value;
 
-const deployments = await plan(requested, ref, {
-  trains: async () => await releases.trains("core"),
-  newest: async (train) => await releases.onTrain("core", train),
-  branched,
-});
+const deployments = await plan(
+  requested,
+  { ref: optional(process.env.REF), released: optional(process.env.RELEASED) },
+  {
+    trains: async () => await releases.trains("core"),
+    newest: async (train) => await releases.onTrain("core", train),
+    branched,
+  },
+);
 console.log(JSON.stringify(deployments));
