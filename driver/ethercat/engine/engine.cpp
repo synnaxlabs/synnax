@@ -612,11 +612,40 @@ Engine::~Engine() {
     this->stop_locked();
 }
 
+x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
+    for (const auto &input: this->inputs)
+        for (const auto &[pos, params]: settings) {
+            const auto held = input->settings.find(pos);
+            if (held == input->settings.end()) continue;
+            for (const auto &param: params)
+                for (const auto &other: held->second)
+                    if (other.index == param.index &&
+                        other.sub_index == param.sub_index &&
+                        (other.value != param.value ||
+                         other.data_type != param.data_type))
+                        return x::errors::Error(
+                            errors::SETTING_CONFLICT,
+                            std::format(
+                                "another task sets {} of slave {} to {}. Stop it, or "
+                                "give both tasks the same value",
+                                telem::format_index_sub_index(
+                                    param.index,
+                                    param.sub_index
+                                ),
+                                pos,
+                                other.value
+                            )
+                        );
+        }
+    return x::errors::NIL;
+}
+
 std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     std::unique_lock<std::mutex> &lock,
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate rate,
-    const bool output
+    const bool output,
+    const Settings &settings
 ) {
     auto [configs, configs_err] = this->read_slave_configs(lock);
     auto reads = this->read_rates_locked();
@@ -627,9 +656,13 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const bool started = !this->running();
     if (started) {
         if (configs_err) return {{}, configs_err};
+        for (const auto &[pos, params]: settings)
+            configs[pos].add_startup_parameters(params);
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {{}, err};
-    }
+    } else
+        for (const auto &[pos, params]: settings)
+            if (auto err = this->master->write(pos, params)) return {{}, err};
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
         if (started) this->stop_locked();
@@ -641,10 +674,12 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
-    const size_t samples_per_read
+    const size_t samples_per_read,
+    const Settings &settings
 ) {
     std::unique_lock lock(this->mu);
-    auto [joined, err] = this->join_locked(lock, entries, sample_rate, false);
+    if (auto err = this->check_settings_locked(settings)) return {nullptr, err};
+    auto [joined, err] = this->join_locked(lock, entries, sample_rate, false, settings);
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
         entries,
@@ -652,6 +687,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         sample_rate,
         samples_per_read
     );
+    input->settings = settings;
     this->inputs.push_back(input);
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
@@ -670,7 +706,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         stop_values.push_back(stop_value);
     }
     std::unique_lock lock(this->mu);
-    auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true);
+    auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true, {});
     if (err) return {nullptr, err};
     auto output = std::make_shared<Output>(Output{
         .entries = std::move(pdo_entries),

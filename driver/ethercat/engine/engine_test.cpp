@@ -967,6 +967,91 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
+namespace {
+/// @brief sets the measurement of input 1 of a 6xSTG at the given position.
+Settings measurement(const uint16_t position, const double value) {
+    return {
+        {position,
+         {{.index = 0x8040,
+           .sub_index = 1,
+           .data_type = x::telem::UINT16_T,
+           .value = value}}}
+    };
+}
+}
+
+/// @brief it should write a reader's settings in PRE-OP when it starts the bus.
+TEST_F(EngineTest, WritesReaderSettingsAsStartupParametersOnStart) {
+    const auto settings = measurement(0, 6);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+    );
+    EXPECT_EQ(this->master->config(0).startup_parameters, settings.at(0));
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should write a reader's settings to the bus when another task already
+/// runs it.
+TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto settings = measurement(0, 6);
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+    );
+    const auto written = this->master->written();
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].first, 0);
+    EXPECT_EQ(written[0].second, settings.at(0));
+}
+
+/// @brief it should refuse a reader that sets an object to another value than an open
+/// reader does.
+TEST_F(EngineTest, RefusesAReaderWhoseSettingsConflict) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0)),
+        errors::SETTING_CONFLICT
+    );
+    const auto same = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+}
+
+/// @brief it should let a reader set an object that a closed reader set to another
+/// value.
+TEST_F(EngineTest, ReleasesTheSettingsOfAClosedReader) {
+    auto keep = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    first.reset();
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0))
+    );
+    EXPECT_EQ(this->master->config(0).startup_parameters, measurement(0, 0).at(0));
+}
+
+/// @brief it should fail to open a reader whose setting a slave on the running bus
+/// rejects.
+TEST_F(EngineTest, FailsAReaderWhoseSettingTheSlaveRejects) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->inject_write_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8040:01")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6)),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+}
+
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {

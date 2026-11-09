@@ -2745,6 +2745,58 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should write parameters to a slave on the running bus, and write them
+/// again with its startup parameters when the slave recovers.
+TEST_F(SOEMMasterTest, WriteReachesTheRunningBusAndReplaysOnRecovery) {
+    this->initialize_with_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    this->activate_master();
+    this->mock->sdo_writes.clear();
+    const auto range = slave::StartupParameter{
+        .index = 0x8000,
+        .sub_index = 0x15,
+        .data_type = x::telem::UINT16_T,
+        .value = 5,
+    };
+    ASSERT_NIL(this->master->write(1, {range, RANGE}));
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x05, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+    this->mock->sdo_writes.clear();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x05, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+}
+
+/// @brief it should return the reason a slave rejects a parameter on the running bus,
+/// and leave the slave on the bus without a fault.
+TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    const auto err = this->master->write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_FALSE(health[0].faulted);
+    EXPECT_TRUE(health[0].startup_error.empty());
+}
+
 /// @brief it should hold a slave in PRE-OP and report the failure when a startup
 /// parameter write fails during reconfiguration.
 TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {

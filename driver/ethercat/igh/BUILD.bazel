@@ -53,6 +53,7 @@ cc_library(
         "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/esi:settings",
         "//driver/ethercat/master",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",

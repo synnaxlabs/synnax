@@ -21,6 +21,7 @@
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -31,31 +32,36 @@ constexpr auto SYSFS_PATH = "/sys/class/EtherCAT";
 /// @brief the device of the first IgH master.
 constexpr auto DEVICE_PATH = "/dev/EtherCAT0";
 
+/// @brief returns a read of the object dictionary of the slave at position.
+coe::Read sdo_reader(const API &api, ec_master_t *master, const uint16_t position) {
+    return [&api, master, position](const uint16_t index, const uint8_t sub_index)
+               -> std::pair<uint32_t, x::errors::Error> {
+        std::array<uint8_t, 4> data{};
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (api.master_sdo_upload(
+                master,
+                position,
+                index,
+                sub_index,
+                data.data(),
+                data.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return {0, coe::read_error(index, sub_index, abort_code)};
+        uint32_t value = 0;
+        for (size_t i = 0; i < size; i++)
+            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        return {value, x::errors::NIL};
+    };
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
     return coe::read_layout(
-        [&](const uint16_t index,
-            const uint8_t sub_index) -> std::pair<uint32_t, x::errors::Error> {
-            std::array<uint8_t, 4> data{};
-            size_t size = 0;
-            uint32_t abort_code = 0;
-            if (api.master_sdo_upload(
-                    master,
-                    position,
-                    index,
-                    sub_index,
-                    data.data(),
-                    data.size(),
-                    &size,
-                    &abort_code
-                ) < 0)
-                return {0, coe::read_error(index, sub_index, abort_code)};
-            uint32_t value = 0;
-            for (size_t i = 0; i < size; i++)
-                value |= static_cast<uint32_t>(data[i]) << (8 * i);
-            return {value, x::errors::NIL};
-        },
+        sdo_reader(api, master, position),
         EC_MAX_SYNC_MANAGERS,
         coe::OnError::FAIL
     );
@@ -190,6 +196,15 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
+        auto [settings, settings_err] = esi::read_settings(
+            slave_info.vendor_id,
+            slave_info.product_code,
+            sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
+        );
+        if (settings_err)
+            LOG(WARNING) << "[ethercat] failed to read the settings of slave " << i + 1
+                         << ": " << settings_err.message();
+        result.properties.settings = std::move(settings);
         this->cached_slaves.push_back(std::move(result));
     }
 
@@ -216,32 +231,51 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
+x::errors::Error
+Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
+    const auto data = param.bytes();
+    uint32_t abort_code = 0;
+    if (this->api->master_sdo_download(
+            this->ec_master,
+            ring_position(slave.position),
+            param.index,
+            param.sub_index,
+            data.data(),
+            data.size(),
+            &abort_code
+        ) >= 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        errors::STARTUP_PARAMETER_ERROR,
+        "slave " + std::to_string(slave.position) + " (" + slave.name +
+            ") rejected startup parameter " + param.to_string() + ": " +
+            errors::sdo_abort_reason(abort_code)
+    );
+}
+
+x::errors::Error Master::write(
+    const uint16_t position,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    for (const auto &param: parameters)
+        if (auto err = this->download(
+                this->cached_slaves[position - 1].properties,
+                param
+            ))
+            return err;
+    return x::errors::NIL;
+}
+
 x::errors::Error Master::add_startup_parameters(
     const slave::Properties &slave,
     ec_slave_config_t *sc,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    const auto slave_name = "slave " + std::to_string(slave.position) + " (" +
-                            slave.name + ")";
     for (const auto &param: parameters) {
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        uint32_t abort_code = 0;
-        if (this->api->master_sdo_download(
-                this->ec_master,
-                ring_position(slave.position),
-                param.index,
-                param.sub_index,
-                data.data(),
-                data.size(),
-                &abort_code
-            ) < 0)
-            return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
-                slave_name + " rejected startup parameter " + param.to_string() + ": " +
-                    errors::sdo_abort_reason(abort_code)
-            );
+        if (auto err = this->download(slave, param)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -251,8 +285,8 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to " +
-                    slave_name
+                "failed to add startup parameter " + param.to_string() + " to slave " +
+                    std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
     return x::errors::NIL;

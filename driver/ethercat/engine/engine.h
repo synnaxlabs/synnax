@@ -29,6 +29,10 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
+/// @brief the values that a task writes to the CoE objects of each slave, keyed by
+/// position, in the order they are written.
+using Settings = std::map<uint16_t, std::vector<slave::StartupParameter>>;
+
 /// @brief Configuration for the Engine.
 struct Config {
     /// @brief lends the cycle thread an RT core while the bus runs. Without it, the
@@ -98,6 +102,8 @@ class Engine {
             telem::Decoder decoder;
         };
         std::vector<Entry> entries;
+        /// @brief what the reader writes to the slaves.
+        Settings settings;
         x::telem::Rate rate;
         size_t samples_per_read;
         size_t sample_size = 0;
@@ -236,13 +242,19 @@ class Engine {
     };
     /// @brief returns the bus rate and the offset of each entry once the bus runs at a
     /// rate that also serves rate as a read rate, or as a write rate when output is
-    /// true. Starts the bus when it is stopped, and stops it again on an error.
+    /// true. Starts the bus when it is stopped, with settings among the startup
+    /// parameters, and stops it again on an error. Writes settings to a running bus.
     [[nodiscard]] std::pair<Joined, x::errors::Error> join_locked(
         std::unique_lock<std::mutex> &lock,
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate rate,
-        bool output
+        bool output,
+        const Settings &settings
     );
+    /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
+    /// to another value.
+    [[nodiscard]] x::errors::Error
+    check_settings_locked(const Settings &settings) const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -338,15 +350,20 @@ public:
 
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
-    /// bus when it is not running.
+    /// bus when it is not running. Writes settings to the slaves before the first
+    /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. The
+    /// slaves keep them when the reader closes.
     /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
     /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
     /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
-    /// process image, or the error that kept the bus from starting.
+    /// process image. errors::SETTING_CONFLICT when an open reader sets an object to
+    /// another value. errors::STARTUP_PARAMETER_ERROR when a slave rejects a setting on
+    /// the running bus, or the error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
-        size_t samples_per_read
+        size_t samples_per_read,
+        const Settings &settings = {}
     );
 
     /// @brief opens a writer for the entries. The bus cycles at least as fast as

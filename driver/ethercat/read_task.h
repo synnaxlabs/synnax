@@ -83,6 +83,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (slave == nullptr) return;
             auto input = channel::make_input(parsed, *slave, ch);
             if (input == nullptr) return;
+            if (ch.has("settings"))
+                ch.iter("settings", [&input](x::json::Parser &setting) {
+                    input->settings.push_back(slave::StartupParameter::parse(setting));
+                });
             transform::validate_scale(ch, "scale", input->scale);
             claims.claim(input->entry, *slave, ch);
             this->channels.push_back(std::move(input));
@@ -183,13 +187,19 @@ public:
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
-        for (const auto &ch: this->cfg.channels)
+        engine::Settings settings;
+        for (const auto &ch: this->cfg.channels) {
             entries.push_back(ch->entry);
+            if (ch->settings.empty()) continue;
+            auto &params = settings[ch->entry.slave_position];
+            params.insert(params.end(), ch->settings.begin(), ch->settings.end());
+        }
 
         auto [rdr, err] = this->engine->open_reader(
             entries,
             this->cfg.sample_rate,
-            this->cfg.samples_per_chan
+            this->cfg.samples_per_chan,
+            settings
         );
         if (err) return err;
         this->reader = std::move(rdr);

@@ -35,6 +35,9 @@ struct Input {
     synnax::channel::Channel ch;
     /// @brief the scale applied to raw samples after acquisition.
     ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
+    /// @brief the values the task writes to the slave's CoE objects for the channel, in
+    /// order.
+    std::vector<slave::StartupParameter> settings;
 
     /// @brief whether the channel scales its raw samples.
     [[nodiscard]] bool scaled() const {

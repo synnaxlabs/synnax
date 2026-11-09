@@ -1,0 +1,116 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "gtest/gtest.h"
+
+#include "x/cpp/testutil/testutil.h"
+
+#include "driver/ethercat/esi/settings.h"
+
+namespace driver::ethercat::esi {
+namespace {
+constexpr uint32_t DEWESOFT = 0xDEBE50F7;
+constexpr uint32_t IOLITE_6XSTG = 252;
+
+/// @brief the range, filter, and excitation tables of input 1 of the 6xSTG on the
+/// station. Each other input holds the same tables at its own indices.
+const std::map<std::pair<uint16_t, uint8_t>, uint32_t> STG_TABLES{
+    {{0x8050, 3}, 5},
+    {{0x8050, 4}, 500},
+    {{0x8050, 5}, 100},
+    {{0x8050, 6}, 30},
+    {{0x8050, 7}, 10},
+    {{0x8050, 8}, 1},
+    {{0x8060, 1}, 2},
+    {{0x8060, 2}, 10000},
+    {{0x8060, 3}, 500},
+    {{0x8070, 2}, 240},
+    {{0x8070, 3}, 42},
+    {{0x8070, 4}, 120},
+};
+
+std::pair<uint32_t, x::errors::Error>
+read_stg(const uint16_t index, const uint8_t sub_index) {
+    const auto it = STG_TABLES.find({static_cast<uint16_t>(index & 0xFFF8), sub_index});
+    if (it == STG_TABLES.end() || (index & 0x7) > 5)
+        return {0, coe::read_error(index, sub_index, 0x06020000)};
+    return {it->second, x::errors::NIL};
+}
+
+std::vector<std::string> names(const x::json::json &options) {
+    std::vector<std::string> result;
+    for (const auto &option: options)
+        result.push_back(option["name"].get<std::string>());
+    return result;
+}
+
+/// @brief returns the nth setting of channel at sub_index.
+const x::json::json &
+setting(const x::json::json &channel, const uint8_t sub_index, const size_t nth = 0) {
+    size_t found = 0;
+    for (const auto &s: channel["settings"])
+        if (s["sub_index"] == sub_index && found++ == nth) return s;
+    throw std::runtime_error("no setting at sub-index " + std::to_string(sub_index));
+}
+}
+
+/// @brief it should describe the six inputs of a 6xSTG with the ranges, filters, and
+/// excitation limits that the card holds.
+TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
+    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = (*settings)["channels"];
+    ASSERT_EQ(channels.size(), 6);
+    const auto &input_2 = channels[1];
+    EXPECT_EQ(input_2["index"], 0x6030);
+    EXPECT_EQ(input_2["sub_index"], 2);
+    const auto &range = setting(input_2, 3);
+    EXPECT_EQ(range["index"], 0x8041);
+    EXPECT_EQ(
+        names(range["options"]),
+        (std::vector<std::string>{"50 V", "10 V", "3 V", "1 V", "0.1 V"})
+    );
+    EXPECT_EQ(range["options"][4]["value"], 4);
+    EXPECT_FALSE(range.contains("options_from"));
+    EXPECT_EQ(range["visible_when"][0]["index"], 0x8041);
+    const auto &filter = setting(input_2, 4);
+    EXPECT_EQ(names(filter["options"]), (std::vector<std::string>{"20 kHz", "1 kHz"}));
+    EXPECT_EQ(filter["options"][0]["value"], 1);
+    EXPECT_EQ(setting(input_2, 28, 0)["max"], 24);
+    EXPECT_EQ(setting(input_2, 28, 1)["max"], 12);
+    EXPECT_EQ(setting(input_2, 34)["max"], 42);
+    EXPECT_EQ(input_2["requires"][0]["then"]["index"], 0x8041);
+    EXPECT_EQ(input_2["requires"][0]["when"][0]["index"], 0x8041);
+    EXPECT_EQ((*settings)["device"][0]["index"], 0x8020);
+}
+
+/// @brief it should return no settings for a product that the catalog does not
+/// describe.
+TEST(ReadSettings, ReturnsNoneForAnUndescribedProduct) {
+    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, 0xFFFF, read_stg));
+    EXPECT_FALSE(settings.has_value());
+}
+
+/// @brief it should return the error of a failed read of a card table.
+TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
+    const coe::Read missing = [](const uint16_t index, const uint8_t sub_index) {
+        return std::pair{uint32_t{0}, coe::read_error(index, sub_index, 0x06020000)};
+    };
+    ASSERT_OCCURRED_AS_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, missing),
+        coe::OBJECT_MISSING
+    );
+}
+}
