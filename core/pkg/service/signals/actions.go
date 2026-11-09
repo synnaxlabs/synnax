@@ -110,9 +110,9 @@ func (f *actionFeed[K, A]) append(
 	return fr.Append(f.ch.Key(), samples)
 }
 
-func (f *actionFeed[K, A]) records() map[channel.Key]RecordOf {
-	return map[channel.Key]RecordOf{
-		f.ch.Key(): recordOf(unmarshalKey[K], f.cfg.Resource),
+func (f *actionFeed[K, A]) records() map[channel.Key]Record {
+	return map[channel.Key]Record{
+		f.ch.Key(): {Of: recordOf(unmarshalKey[K], f.cfg.Resource)},
 	}
 }
 

@@ -143,12 +143,8 @@ func resolvedAndDealiased(
 // defaults in a slice, a map value, an optional field, or a generic struct. An embedded
 // type takes no decode hooks, so a decode leaves the defaults of such a value unset.
 func checkHeldEmbedded(owner string, field resolution.Field, data *templateData) error {
-	w := heldWalk{
-		table:   data.table,
-		visited: set.New[string](),
-		path:    map[string]int{},
-	}
-	refs, err := w.refs(field.Type, field.Optional)
+	w := heldWalk{table: data.table, visited: set.New[string]()}
+	refs, err := w.refs(field.Type, field.Optional, 0)
 	if err != nil {
 		return errors.Wrapf(err, "%s.%s", owner, field.Name)
 	}
@@ -174,28 +170,30 @@ type heldWalk struct {
 	table *resolution.Table
 	// visited holds the instantiations of generic structs already walked.
 	visited set.Set[string]
-	// path maps each generic struct being walked to the length of its instance key.
-	path map[string]int
 }
+
+// maxGenericDepth bounds how deep generic structs nest in one field. Only a generic
+// struct that instantiates itself with ever larger type arguments reaches it.
+const maxGenericDepth = 32
 
 // refs returns the types that ref holds in slices, map values, and the fields of a
 // generic struct, and ref itself when the field is optional. A generic struct sets no
 // defaults, so each of its fields counts as held. refs looks through aliases and
 // distinct types to the collection or generic struct they name. It returns an error
-// when a generic struct instantiates itself with a larger type argument, which never
-// ends.
+// when generic structs nest deeper than maxGenericDepth.
 func (w heldWalk) refs(
 	ref resolution.TypeRef,
 	optional bool,
+	depth int,
 ) ([]resolution.TypeRef, error) {
 	if under, ok := underlying(ref, w.table); ok {
 		ref = under
 	}
 	switch {
 	case ref.Name == "Array" && len(ref.TypeArgs) == 1:
-		return w.refs(ref.TypeArgs[0], true)
+		return w.refs(ref.TypeArgs[0], true, depth)
 	case ref.Name == "Map" && len(ref.TypeArgs) == 2:
-		return w.refs(ref.TypeArgs[1], true)
+		return w.refs(ref.TypeArgs[1], true, depth)
 	}
 	var out []resolution.TypeRef
 	if optional {
@@ -206,22 +204,17 @@ func (w heldWalk) refs(
 	if !ok || w.visited.Contains(key) {
 		return out, nil
 	}
-	if outer, ok := w.path[ref.Name]; ok && len(key) > outer {
+	if depth == maxGenericDepth {
 		return nil, errors.Newf("%s instantiates itself without end", t.Name)
 	}
 	w.visited.Add(key)
-	outer, onPath := w.path[ref.Name]
-	w.path[ref.Name] = len(key)
-	defer func() {
-		if onPath {
-			w.path[ref.Name] = outer
-		} else {
-			delete(w.path, ref.Name)
-		}
-	}()
 	args := resolution.TypeArgMap(form.TypeParams, ref.TypeArgs)
 	for _, f := range resolution.UnifiedFields(t, w.table) {
-		held, err := w.refs(resolution.SubstituteTypeRef(f.Type, args), true)
+		held, err := w.refs(
+			resolution.SubstituteTypeRef(f.Type, args),
+			true,
+			depth+1,
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -87,6 +87,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.AnalogReadConfigLadder,
 			Legacy:          &legacy.AnalogRead,
 			SetEntryKey:     (*AnalogReadConfig).SetKey,
+			PatchEntry:      (*AnalogReadConfig).Patch,
+			HashEntry:       (*AnalogReadConfig).HashContent,
 			ValidateEntry:   (*AnalogReadConfig).Validate,
 		},
 	); !ok(err, s.AnalogRead) {
@@ -102,6 +104,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.AnalogWriteConfigLadder,
 			Legacy:          &legacy.AnalogWrite,
 			SetEntryKey:     (*AnalogWriteConfig).SetKey,
+			PatchEntry:      (*AnalogWriteConfig).Patch,
+			HashEntry:       (*AnalogWriteConfig).HashContent,
 			ValidateEntry:   (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
@@ -117,6 +121,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.CounterReadConfigLadder,
 			Legacy:          &legacy.CounterRead,
 			SetEntryKey:     (*CounterReadConfig).SetKey,
+			PatchEntry:      (*CounterReadConfig).Patch,
+			HashEntry:       (*CounterReadConfig).HashContent,
 			ValidateEntry:   (*CounterReadConfig).Validate,
 		},
 	); !ok(err, s.CounterRead) {
@@ -132,6 +138,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.DigitalReadConfigLadder,
 			Legacy:          &legacy.Digital,
 			SetEntryKey:     (*DigitalReadConfig).SetKey,
+			PatchEntry:      (*DigitalReadConfig).Patch,
+			HashEntry:       (*DigitalReadConfig).HashContent,
 		},
 	); !ok(err, s.DigitalRead) {
 		return nil, err
@@ -146,6 +154,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.DigitalWriteConfigLadder,
 			Legacy:          &legacy.Digital,
 			SetEntryKey:     (*DigitalWriteConfig).SetKey,
+			PatchEntry:      (*DigitalWriteConfig).Patch,
+			HashEntry:       (*DigitalWriteConfig).HashContent,
 		},
 	); !ok(err, s.DigitalWrite) {
 		return nil, err
@@ -160,6 +170,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:          &legacy.Scanner,
 			Migrations:      []gorp.Migration{v3.ScanMigration},
 			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
 		},
 	); !ok(err, s.Scanner) {
 		return nil, err

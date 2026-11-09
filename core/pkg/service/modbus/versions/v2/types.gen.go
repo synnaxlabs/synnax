@@ -50,6 +50,20 @@ func (r *RegisterValue) SetDefaults() {
 	r.DataType = "uint16"
 }
 
+// RegisterBit addresses one bit of a 16-bit register.
+type RegisterBit struct {
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit uint8 `json:"bit" msgpack:"bit"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RegisterBit) Validate() error {
+	v := validate.New("RegisterBit")
+	v.LessThanEq("bit", r.Bit, 15)
+	return v.Error()
+}
+
 // BaseReadChannel carries the fields every Modbus read channel shares.
 type BaseReadChannel = v1.BaseReadChannel
 
@@ -676,17 +690,3 @@ func (w WriteConfig) Validate() error {
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v1.ScanConfig
-
-// RegisterBit addresses one bit of a 16-bit register.
-type RegisterBit struct {
-	// Bit is the bit index, from 0 (least significant) to 15.
-	Bit uint8 `json:"bit" msgpack:"bit"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RegisterBit) Validate() error {
-	v := validate.New("RegisterBit")
-	v.LessThanEq("bit", r.Bit, 15)
-	return v.Error()
-}

@@ -95,6 +95,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.ReadMigration,
 			},
 			SetEntryKey: (*ReadConfig).SetKey,
+			PatchEntry:  (*ReadConfig).Patch,
+			HashEntry:   (*ReadConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
@@ -120,6 +122,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v3.WriteMigration,
 			},
 			SetEntryKey: (*WriteConfig).SetKey,
+			PatchEntry:  (*WriteConfig).Patch,
+			HashEntry:   (*WriteConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
@@ -140,6 +144,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.ScanConfigLadder,
 			Legacy:          &legacy.Scan,
 			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
