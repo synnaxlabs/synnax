@@ -261,7 +261,8 @@ export const Editor = <V,>({
           value={text ?? initialText}
           onChange={open}
           onFocus={(e) => {
-            open(initialText);
+            // The field takes the focus back from its open dialog with the edit kept.
+            if (draftRef.current == null) open(initialText);
             e.currentTarget.select();
           }}
           onBlur={(e) => {
