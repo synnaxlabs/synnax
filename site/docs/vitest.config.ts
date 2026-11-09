@@ -14,7 +14,7 @@ import { type ViteUserConfigFn } from "vitest/config";
 import { schema } from "./src/util/env";
 
 const config: ViteUserConfigFn = getViteConfig(
-  { test: { environment: "jsdom" } },
+  { define: { __DOCS_VERSION__: "null" }, test: { environment: "jsdom" } },
   {
     root: import.meta.dirname,
     configFile: false,
