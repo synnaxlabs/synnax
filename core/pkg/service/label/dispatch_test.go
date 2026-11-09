@@ -42,11 +42,25 @@ var _ = Describe("Dispatch", func() {
 			Name:  "Nominal",
 			Color: MustSucceed(color.FromHex("#00ff00")),
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &nominal)
+		})).To(Succeed())
 	})
+	dispatch := func(
+		ctx context.Context,
+		key label.Key,
+		dispatchKey string,
+		acts []label.Action,
+	) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).
+				WithDispatchKey(dispatchKey).
+				Apply(ctx, key, acts...)
+		})
+	}
 	record := func() *Recorder[label.Key, label.Action] {
 		rec := &Recorder[label.Key, label.Action]{}
-		DeferCleanup(svc.ObserveActions().OnChange(rec.Record))
+		DeferCleanup(svc.Actions().OnChange(rec.Record))
 		return rec
 	}
 	set := func(path []string, value any) label.Action {
@@ -58,12 +72,12 @@ var _ = Describe("Dispatch", func() {
 		Expect(svc.NewRetrieve().
 			Where(label.MatchKeys(nominal.Key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return res
 	}
 
 	It("Should store the edited name and color", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
+		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
 			set([]string{"name"}, "Anomaly"),
 			set([]string{"color"}, "#ff0000"),
 		})).To(Succeed())
@@ -77,7 +91,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {
 		rec := record()
 		acts := []label.Action{set([]string{"name"}, "Anomaly")}
-		Expect(svc.Dispatch(ctx, nominal.Key, "dk-1", acts)).To(Succeed())
+		Expect(dispatch(ctx, nominal.Key, "dk-1", acts)).To(Succeed())
 		frames := rec.Snapshot()
 		Expect(frames).To(HaveLen(1))
 		f := frames[0]
@@ -89,7 +103,7 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
 		rec := record()
-		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
+		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
 			set([]string{"name"}, "Anomaly"),
 			set([]string{"key"}, uuid.New().String()),
 		})).To(MatchError(validate.ErrValidation))
@@ -98,7 +112,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject an empty name", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
+		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
 			set([]string{"name"}, ""),
 		})).To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieve(ctx)).To(Equal(nominal))
@@ -107,7 +121,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should reject a create", func(ctx SpecContext) {
 		overwritten := nominal
 		overwritten.Name = "Overwritten"
-		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
+		Expect(dispatch(ctx, nominal.Key, "dk", []label.Action{
 			label.NewCreateAction(label.CreatePayload{Label: overwritten}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -117,7 +131,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should return not found for a missing label", func(ctx SpecContext) {
-		Expect(svc.Dispatch(ctx, uuid.New(), "dk", []label.Action{
+		Expect(dispatch(ctx, uuid.New(), "dk", []label.Action{
 			set([]string{"name"}, "Anomaly"),
 		})).To(MatchError(query.ErrNotFound))
 	})

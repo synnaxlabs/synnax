@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Range{}
 // GorpKey implements gorp.Entry.
 func (r Range) GorpKey() Key { return r.Key }
 
-// SetOptions implements gorp.Entry.
-func (Range) SetOptions() []any { return nil }
-
 // ResourceID returns the ID of the range in the ontology.
 func (r Range) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeRange, Key: r.Key.String()}

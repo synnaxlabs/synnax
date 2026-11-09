@@ -88,9 +88,7 @@ describe("arc", () => {
 
     it("should omit missing keys from a filter on keys", async () => {
       const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
-      const res = await client.arcs.retrieve({
-        where: { key: { in: [created.key, uuid.create()] } },
-      });
+      const res = await client.arcs.retrieve({ key: [created.key, uuid.create()] });
       expect(res.map(({ key }) => key)).toEqual([created.key]);
     });
   });
@@ -264,7 +262,7 @@ describe("arc", () => {
       const other = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
       const tsk = await client.arcs.updateTask(deployed.key, { rack: rack.key });
       await client.arcs.updateTask(other.key, { rack: rack.key });
-      const found = await client.tasks.retrieve({ where: { arcs: [deployed.key] } });
+      const found = await client.tasks.retrieve({ arcs: [deployed.key] });
       expect(found.map(({ key }) => key)).toEqual([tsk?.key]);
     });
 

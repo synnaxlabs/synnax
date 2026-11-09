@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node serves the cluster's nodes as resources.
+// Package node serves the host node of a Core as a resource.
 package node
 
 import (
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -21,11 +20,10 @@ import (
 // ServiceConfig configures a node Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	// Cluster provides cluster-membership information about the host node and its
-	// peers.
+	// Host is the host node of the Core.
 	//
 	// [REQUIRED]
-	Cluster cluster.Cluster
+	Host Node
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -33,18 +31,18 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	c.Host = override.If(c.Host, other.Host, other.Host != Node{})
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("node")
-	v.NotNil("cluster", c.Cluster)
+	v.NonZero("host.key", c.Host.Key)
 	return v.Error()
 }
 
-// Service serves the cluster's nodes as resources.
+// Service serves the host node as a resource.
 type Service struct{ cfg ServiceConfig }
 
 // NewService creates a Service.

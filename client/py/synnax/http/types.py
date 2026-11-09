@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
@@ -232,8 +232,8 @@ class Device(device.Device):
         auth: dict[str, Any] | None = None,
         health_check: HealthCheck | None = None,
         name: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = True,
     ):
         if not key:

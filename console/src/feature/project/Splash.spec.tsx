@@ -38,7 +38,7 @@ describe("project/Splash", () => {
       expect(screen.queryByText("No projects")).toBeNull();
     });
 
-    it("should name the denial when the list read is refused", async () => {
+    it("should show no projects when the subject cannot retrieve any", async () => {
       await client.projects.create({ name: uniqueName("argon") });
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
@@ -51,11 +51,8 @@ describe("project/Splash", () => {
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
-      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
-      expect(
-        screen.getByText(/^You do not have permission to do that\. /),
-      ).toBeDefined();
-      expect(screen.queryByText("No projects created.")).toBeNull();
+      expect(await screen.findByText("No projects")).toBeDefined();
+      expect(screen.queryByText("Failed to retrieve projects")).toBeNull();
     });
   });
 

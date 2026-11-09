@@ -34,9 +34,9 @@ export interface ClientConfig {
 }
 
 /**
- * Reads the control state of channels across the cluster. A channel is in the table
- * exactly while a subject holds it, so absence is the uncontrolled state: a release
- * deletes the entry instead of storing a sentinel.
+ * Reads the control state of channels. A channel is in the table exactly while a
+ * subject holds it, so absence is the uncontrolled state: a release deletes the entry
+ * instead of storing a sentinel.
  */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,

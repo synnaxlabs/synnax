@@ -29,8 +29,7 @@ import (
 
 var _ = Describe("Deleter", Ordered, func() {
 	scenarios := []func(context.Context) scenario{
-		gatewayOnlyScenario,
-		peerOnlyScenario,
+		storageScenario,
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
@@ -56,13 +55,9 @@ var _ = Describe("Deleter", Ordered, func() {
 					))).To(BeTrue())
 					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
-
-					// Use context.Background() because the iterator must survive
-					// beyond BeforeEach into It/AfterEach. SpecContext is cancelled
-					// when BeforeEach exits, which kills peer streams and deadlocks.
 					i = MustOpen(
 						s.dist.Framer.OpenIterator(
-							context.Background(),
+							ctx,
 							iterator.Config{
 								Keys:   s.keys,
 								Bounds: telem.TimeRangeMax,
@@ -124,6 +119,22 @@ var _ = Describe("Deleter", Ordered, func() {
 						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
 					},
 				)
+				It("Should skip free channels", func(ctx SpecContext) {
+					free := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
+						Name:        "free",
+						DataType:    telem.Float32T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+					}}))
+					keys := channel.Keys{s.keys[0], free[0].Key()}
+					Expect(
+						s.dist.Framer.DeleteTimeRange(ctx, keys, telem.TimeRangeMax),
+					).To(Succeed())
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+					Expect(i.Value().Get(s.keys[0]).Len()).To(BeZero())
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(3)))
+				})
 				It(
 					"Should be a no-op when no keys are provided",
 					func(ctx SpecContext) {
@@ -149,93 +160,6 @@ var _ = Describe("Deleter", Ordered, func() {
 			})
 		})
 	}
-
-	Describe("Mixed Gateway and Peer", Ordered, func() {
-		var s scenario
-		BeforeAll(func(ctx SpecContext) {
-			ShouldNotLeakGoroutines()
-			s = DeferClose(mixedScenario(context.Background()))
-		})
-
-		It(
-			"Should delete channels across gateway and peer nodes",
-			func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-					},
-				))).To(BeTrue())
-				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-				Expect(w.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(
-						ctx,
-						s.keys,
-						(10 * telem.SecondTS).Range(12*telem.SecondTS),
-					),
-				).To(Succeed())
-
-				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-					Keys:   s.keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(i.SeekFirst()).To(BeTrue())
-				Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-				for _, key := range s.keys {
-					Expect(i.Value().Get(key).Len()).To(Equal(int64(1)))
-					Expect(
-						i.Value().Get(key).TimeRange(),
-					).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
-				}
-				Expect(i.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
-				).To(Succeed())
-			},
-		)
-
-		It(
-			"Should delete all data across gateway and peer nodes",
-			func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-						telem.NewSeriesSecondsTSV(10, 11, 12),
-					},
-				))).To(BeTrue())
-				Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
-				Expect(w.Close()).To(Succeed())
-
-				Expect(
-					s.dist.Framer.DeleteTimeRange(ctx, s.keys, telem.TimeRangeMax),
-				).To(Succeed())
-
-				i := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
-					Keys:   s.keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(i.SeekFirst()).To(BeFalse())
-				Expect(i.Close()).To(Succeed())
-			},
-		)
-	})
 })
 
 type scenario struct {
@@ -269,61 +193,19 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario(ctx context.Context) scenario {
+func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:     "Gateway Only",
+		name:     "Storage",
 		keys:     keys,
 		channels: channels,
 		names:    names,
 		dist:     dist,
 		closer:   dist,
-	}
-}
-
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 4)
-	dist := cluster.Nodes[1]
-	for i := range channels {
-		channels[i].Leaseholder = node.Key(i + 2)
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
-	return scenario{
-		name:     "Peer Only",
-		keys:     keys,
-		channels: channels,
-		names:    names,
-		dist:     dist,
-		closer:   cluster,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	builder := testutil.OpenCluster(ctx, 3)
-	dist := builder.Nodes[1]
-	for i := range channels {
-		channels[i].Leaseholder = node.Key(i + 1)
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	keys := channel.KeysFromChannels(channels)
-	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
-	return scenario{
-		name:     "Mixed Gateway and Peer",
-		keys:     keys,
-		channels: channels,
-		names:    names,
-		dist:     dist,
-		closer:   builder,
 	}
 }

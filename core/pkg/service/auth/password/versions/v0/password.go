@@ -15,6 +15,3 @@ var _ gorp.Entry[Key] = Password{}
 
 // GorpKey implements gorp.Entry.
 func (p Password) GorpKey() Key { return p.Key }
-
-// SetOptions implements gorp.Entry.
-func (Password) SetOptions() []any { return nil }

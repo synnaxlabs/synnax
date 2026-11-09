@@ -11,20 +11,27 @@
 
     python3 -m review run <review.json>
     python3 -m review post <review.json>
+    python3 -m review carry
+    python3 -m review dismiss
     python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
 `run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`, and POLICY_SHA,
 the commit its policy comes from; HEAD_DIR, a checkout of the head; REPLAY, `true` for a
-review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only variable that reaches
+review that posts nothing; and CLAUDE_CODE_OAUTH_TOKEN, the only secret that reaches
 Claude Code. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
 policy commit, the usage, the review, and each pass before the join. `post` posts the
-review in a record. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
-with full history, and prints a Markdown comparison of the records of the last days
-with Greptile's reviews of the same commits.
+review in a record. `carry` gives the head the newest review of the pull request when
+the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
+also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
+COMMENT, a reply that mentions the bot on the thread of one of its findings: a member's
+`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no finding of its
+review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
+runs in a clone with full history, and prints a Markdown comparison of the records of
+the last days with Greptile's reviews of the same commits.
 """
 
 import contextlib
@@ -41,14 +48,17 @@ from pathlib import Path
 from review import (
     PullRequest,
     Target,
+    carry,
     compare,
+    dismiss,
+    dismissed,
     gh,
     load,
-    open_findings,
     parse,
     post,
     reviewed,
     run,
+    threads,
 )
 
 
@@ -59,6 +69,10 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
             "HOME": home,
             "CLAUDE_CONFIG_DIR": home,
             "CLAUDE_CODE_OAUTH_TOKEN": os.environ["CLAUDE_CODE_OAUTH_TOKEN"],
+            # A subscription writes the one-hour cache, at 1.6 times the price of the
+            # five-minute one. The turns of a review come seconds apart, and no other
+            # review shares its cache, so the hour is never used.
+            "CLAUDE_CODE_PROMPT_CACHE_TTL": "5m",
         }
         with subprocess.Popen(
             args,
@@ -121,14 +135,16 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
             '{title, body: (.body // "")}',
         )
     )
+    # A replay of an old commit must not see the threads that came after it.
+    found = [] if replay else threads(target, gh)
     pr = PullRequest(
         number=target.pr,
         title=meta["title"],
         body=meta["body"],
         head=head,
         diff=diff,
-        # A replay of an old commit must not see the threads that came after it.
-        open=set() if replay else open_findings(target, gh),
+        open={(th.path, th.title) for th in found if not th.resolved},
+        dismissed=dismissed(found),
         new=new,
         reviewed=since is not None,
     )
@@ -157,7 +173,8 @@ def _before(head: Path, commit: str, tip: str) -> bool:
 
 
 def main(argv: list[str]) -> None:
-    if len(argv) != 2 or argv[0] not in ("run", "post", "compare"):
+    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 2}
+    if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
     if argv[0] == "compare":
@@ -176,6 +193,12 @@ def main(argv: list[str]) -> None:
         run_url=env["RUN_URL"],
         bot=env["BOT"],
     )
+    if argv[0] == "carry":
+        print(str(carry(target, gh, key=env["KEY"])).lower())
+        return
+    if argv[0] == "dismiss":
+        dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
+        return
     path = Path(argv[1])
     if argv[0] == "run":
         review(target, path, replay=env.get("REPLAY") == "true")

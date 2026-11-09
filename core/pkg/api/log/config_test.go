@@ -13,15 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apilog.ServiceConfig {
 		return apilog.ServiceConfig{
-			Log:  &log.Service{},
-			RBAC: &rbac.Service{},
+			Log: &log.Service{},
 		}
 	}
 
@@ -42,11 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apilog.ServiceConfig) { c.Log = nil },
 				"log: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apilog.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -55,14 +48,12 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apilog.ServiceConfig{}.Override(cfg)
 			Expect(merged.Log).To(BeIdenticalTo(cfg.Log))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apilog.ServiceConfig{})
 			Expect(merged.Log).To(BeIdenticalTo(cfg.Log))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })
