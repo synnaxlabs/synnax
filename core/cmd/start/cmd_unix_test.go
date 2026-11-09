@@ -113,6 +113,12 @@ var _ = Describe("Start", func() {
 				Perm()).To(Equal(xfs.UserRW))
 		})
 
+		It("Should write no secrets key file for a Core in memory", func() {
+			data := GinkgoT().TempDir()
+			startCore("--data", data)
+			Expect(filepath.Join(data, "secrets.key")).ToNot(BeAnExistingFile())
+		})
+
 		It("Should use the secrets key before the secrets key file", func() {
 			key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
 			startCore("--secrets-key", key, "--secrets-key-file", path)
