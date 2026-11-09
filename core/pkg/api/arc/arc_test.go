@@ -624,8 +624,7 @@ var _ = Describe("Service", func() {
 
 	Describe("UpdateTask", func() {
 		// grantTask grants what a bind needs other than retrieve on the arc: create on
-		// the task and its status, and update on the task and the rack, which the
-		// status and the task sit in.
+		// the task and its status, and update on the rack, which the task sits in.
 		grantTask := func(ctx SpecContext) {
 			GinkgoHelper()
 			grantOn(
@@ -635,12 +634,7 @@ var _ = Describe("Service", func() {
 				resource.ID{Type: resource.TypeTask},
 				resource.ID{Type: resource.TypeStatus},
 			)
-			grantUpdateOn(
-				ctx,
-				author.ResourceID(),
-				resource.ID{Type: resource.TypeTask},
-				testRack.ResourceID(),
-			)
+			grantUpdateOn(ctx, author.ResourceID(), testRack.ResourceID())
 		}
 		bind := func(ctx SpecContext, a arc.Arc) (apiarc.UpdateTaskResponse, error) {
 			return updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
@@ -688,11 +682,6 @@ var _ = Describe("Service", func() {
 					resource.ID{Type: resource.TypeTask},
 					resource.ID{Type: resource.TypeStatus},
 				)
-				grantUpdateOn(
-					ctx,
-					author.ResourceID(),
-					resource.ID{Type: resource.TypeTask},
-				)
 				Expect(bind(ctx, a)).Error().
 					To(denied(author, access.ActionUpdate, testRack.ResourceID()))
 			},
@@ -721,12 +710,7 @@ var _ = Describe("Service", func() {
 				resource.ID{Type: resource.TypeTask},
 				resource.ID{Type: resource.TypeStatus},
 			)
-			grantUpdateOn(
-				ctx,
-				author.ResourceID(),
-				resource.ID{Type: resource.TypeTask},
-				testRack.ResourceID(),
-			)
+			grantUpdateOn(ctx, author.ResourceID(), testRack.ResourceID())
 			res := MustSucceed(
 				updateTask(AuthedCtx(ctx, author), apiarc.UpdateTaskRequest{
 					Key:  a.Base().Key,

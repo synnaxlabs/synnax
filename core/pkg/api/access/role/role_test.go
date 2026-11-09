@@ -134,7 +134,6 @@ var _ = Describe("Delete", func() {
 			return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
 		})).To(Succeed())
 		return r, p, []need{
-			{access.ActionUpdate, r.ResourceID()},
 			{access.ActionDelete, r.ResourceID()},
 			{access.ActionDelete, p.ResourceID()},
 		}
@@ -155,9 +154,8 @@ var _ = Describe("Delete", func() {
 			Where(policy.MatchKeys(p.Key)).
 			Exists(ctx, db))).To(BeTrue())
 	},
-		Entry("update on the role", 0),
-		Entry("delete on the role", 1),
-		Entry("delete on its policy", 2),
+		Entry("delete on the role", 0),
+		Entry("delete on its policy", 1),
 	)
 
 	It("Should delete a role and its policies", func(ctx SpecContext) {
