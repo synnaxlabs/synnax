@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection } from "@synnaxlabs/client";
+import { type Client, connection } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,13 +25,19 @@ import { Version } from "@/feature/version";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { Version as PlatformVersion } from "@/platform/version";
-import { callsOf, clearUpdater, mockUpdater } from "@/platform/version/testutil";
+import {
+  callsOf,
+  clearUpdater,
+  mockUpdater,
+  RESOURCE_ID,
+} from "@/platform/version/testutil";
 import {
   CONNECTION_PARAMS,
   createCore,
   createCoreState,
 } from "@/session/core/testutil";
 import {
+  createTestClientWithGrants,
   INCOMPATIBLE_UNLICENSED_STATUS,
   mockLocationReload,
   pinLocationOrigin,
@@ -68,6 +75,7 @@ const COMPATIBLE_STATUS: connection.Status = {
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
+  client: Client | null = null,
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
@@ -79,7 +87,7 @@ const renderGuard = async (
       </Auth.Guard>
       <Modals.Stack />
     </PlatformVersion.Provider>,
-    { client: null, status, preloadedState: createCoreState([core], core.key) },
+    { client, status, preloadedState: createCoreState([core], core.key) },
   );
 };
 
@@ -164,6 +172,19 @@ describe("Version.Guard", () => {
     await renderGuard(INCOMPATIBLE_STATUS);
     await waitFor(() =>
       expect(callsOf(ipc, "updater_check").length).toBeGreaterThan(0),
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
+  });
+
+  it("should not offer an update that moves the Console past the Core", async () => {
+    const granted = await createTestClientWithGrants(createTestClient(), {
+      update: [RESOURCE_ID],
+    });
+    const ipc = mockUpdater({ version: "0.61.0", served: null, latest: "0.61.3" });
+    await renderGuard(INCOMPATIBLE_STATUS, false, granted);
+    await waitFor(() =>
+      expect(callsOf(ipc, "plugin:updater|check").length).toBeGreaterThan(0),
     );
     await act(async () => {});
     expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
