@@ -47,11 +47,11 @@ type Store interface {
 	) (Record, error)
 	// Edit applies the path actions at cursors to the record stored under key, then
 	// prepares the result as Prepare does. Each cursor is past the segment that names
-	// the config. A value that an action removes or sets to null takes its default, and
-	// a value set to zero stays zero. Edit returns the record to write, and whether it
-	// differs from the result of the actions alone, such as by a filled default. It
-	// returns an error wrapping query.ErrNotFound when no record exists, or
-	// validate.ErrValidation when an action or the result is not valid.
+	// the config. A value that an action removes or sets to null takes its default.
+	// Edit returns the record to write, and whether it differs from the result of the
+	// actions alone, such as by a filled default. It returns an error wrapping
+	// query.ErrNotFound when no record exists, or validate.ErrValidation when an action
+	// or the result is not valid.
 	Edit(
 		ctx context.Context,
 		snap gorp.Snapshot,
@@ -328,28 +328,32 @@ func (s *Service[E]) Edit(
 }
 
 // refill drops the members at paths from the JSON form of e and decodes the result, so
-// a removed or nulled value takes its default.
+// a removed or nulled value takes its default. An empty path drops the whole config.
 func (s *Service[E]) refill(e E, paths [][]string) (E, error) {
+	var next E
 	if len(paths) == 0 {
 		return e, nil
 	}
 	data, err := encode(e)
 	if err != nil {
-		return e, err
+		return next, err
 	}
 	for _, p := range paths {
+		if len(p) == 0 {
+			data = msgpack.EncodedJSON{}
+			continue
+		}
 		last := len(p) - 1
 		if err = (patch.Remove{Path: p[:last], Key: p[last]}).Apply(data); err != nil {
-			return e, err
+			return next, err
 		}
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
-		return e, err
+		return next, err
 	}
-	var next E
 	if err = json.Unmarshal(b, &next); err != nil {
-		return e, errors.Wrapf(
+		return *new(E), errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
