@@ -14,6 +14,7 @@ import { z } from "zod";
 import { type role } from "@/access/role";
 import { group } from "@/group";
 import { query } from "@/query";
+import { type Action, dispatchReqZ, dispatchResZ, set } from "@/rack/actions.gen";
 import {
   type Key,
   keyZ,
@@ -73,7 +74,6 @@ const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -170,7 +170,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+    this.setGroupRequest = group.createMoveRequest("/rack/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -198,9 +198,23 @@ export class Client extends query.Retriever<
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send("/rack/rename", { key, name }, renameReqZ, emptyResZ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the rack in one transaction.
+   * @throws {ValidationError} if the rack cannot hold an action.
+   * @throws {NotFoundError} if the rack does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/rack/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async create(rack: New): Promise<Rack>;

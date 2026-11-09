@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  errors,
   filter,
   id,
   primitive,
@@ -41,6 +42,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/task/actions.gen";
 import {
   type Command,
@@ -362,7 +364,6 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
@@ -568,16 +569,26 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
+    const setName = (next: string) =>
       this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
+        p == null ? undefined : this.sugar({ ...p.payload, name: next }),
+      );
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      setName(name);
+      return () => setName(prev);
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }
