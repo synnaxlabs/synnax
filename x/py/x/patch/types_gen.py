@@ -38,7 +38,7 @@ class Set(BaseModel):
     """
 
     path: list[str] = Field(default_factory=list)
-    value: JsonValue
+    value: JsonValue | None = None
     guards: list[Guard] = Field(default_factory=list)
 
 
@@ -68,7 +68,7 @@ class Insert(BaseModel):
     """
 
     path: list[str] = Field(default_factory=list)
-    value: JsonValue
+    value: JsonValue | None = None
     after: str | None = None
     guards: list[Guard] = Field(default_factory=list)
 

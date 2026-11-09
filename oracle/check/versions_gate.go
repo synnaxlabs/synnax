@@ -374,14 +374,6 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 					walkValue(*fd.Default, into)
 				}
 			}
-			for _, a := range form.Actions {
-				for _, fd := range a.Fields {
-					visit(fd.Type)
-				}
-				for _, e := range a.Extends {
-					visit(e)
-				}
-			}
 			for _, e := range form.Extends {
 				visit(e)
 			}

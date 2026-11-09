@@ -351,13 +351,14 @@ func analyze(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateActionExtends(c, typ)
+		validateActionAliases(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
 	desugarPartialOverrides(c)
-	finalizeActionExtends(c)
+	finalizeActions(c)
 	checkOptionalDefaultInvariant(c)
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
@@ -880,6 +881,24 @@ func collectAction(
 		Domains: make(map[string]resolution.Domain),
 		AST:     def,
 	}
+	if tr := def.TypeRef(); tr != nil {
+		if !plainTypeRef(tr) {
+			c.report(diagnostics.Errorf(
+				def,
+				"action %s: the alias target must be a plain struct reference, got %q",
+				action.Name,
+				tr.GetText(),
+			))
+			return action
+		}
+		action.Alias = collectTypeRef(tr, nil)
+		if body := def.AliasBody(); body != nil {
+			for _, d := range body.AllDomain() {
+				addDomain(action.Domains, collectDomain(c, d))
+			}
+		}
+		return action
+	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
@@ -905,12 +924,7 @@ func collectAction(
 		action.Fields = append(action.Fields, field)
 	}
 	for _, d := range body.AllDomain() {
-		de := collectDomain(c, d)
-		if existing, ok := action.Domains[de.Name]; ok {
-			action.Domains[de.Name] = de.Merge(existing)
-		} else {
-			action.Domains[de.Name] = de
-		}
+		addDomain(action.Domains, collectDomain(c, d))
 	}
 	return action
 }
@@ -1723,6 +1737,10 @@ func resolveActionRefs(
 		for j := range actions[i].Extends {
 			resolveTypeRef(c, typ, &actions[i].Extends[j])
 		}
+		if actions[i].IsAlias() {
+			// No current type, so a type parameter name does not resolve.
+			resolveTypeRef(c, nil, &actions[i].Alias)
+		}
 	}
 }
 
@@ -2092,10 +2110,60 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeActionExtends flattens each action's extends clause, prepending the inherited
-// struct fields to the action's own fields. After this pass Action.Fields holds the
-// unified list, so code generators consume it unchanged.
-func finalizeActionExtends(c *analysisCtx) {
+// validateActionAliases checks that every action alias names a struct with no type
+// parameters, and that no two actions of typ alias the same struct, which a C++
+// std::variant cannot hold twice.
+func validateActionAliases(c *analysisCtx, typ resolution.Type) {
+	aliased := make(map[string]string)
+	for _, action := range typ.Actions() {
+		if !action.IsAlias() {
+			continue
+		}
+		target, _, ok := resolution.Dealias(action.Alias, c.table)
+		form, isStruct := target.Form.(resolution.StructForm)
+		if !ok || !isStruct {
+			c.report(diagnostics.Errorf(
+				nil,
+				"action %s of %s must alias a struct, got %s",
+				action.Name,
+				typ.Name,
+				action.Alias.Name,
+			))
+			continue
+		}
+		if len(form.TypeParams) > 0 {
+			c.report(diagnostics.Errorf(
+				nil,
+				"action %s of %s cannot alias generic struct %s, because an alias "+
+					"takes no type arguments",
+				action.Name,
+				typ.Name,
+				target.QualifiedName,
+			))
+			continue
+		}
+		key := target.QualifiedName
+		if first, dup := aliased[key]; dup {
+			c.report(diagnostics.Errorf(
+				nil,
+				"actions %s and %s of %s both alias %s; give each action its own "+
+					"struct",
+				first,
+				action.Name,
+				typ.Name,
+				key,
+			))
+			continue
+		}
+		aliased[key] = action.Name
+	}
+}
+
+// finalizeActions flattens each action's extends clause, prepending the inherited
+// struct fields to the action's own fields, and gives each action alias without a doc
+// the doc of its struct. After this pass code generators consume Action.Fields and
+// Domains unchanged.
+func finalizeActions(c *analysisCtx) {
 	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
 			continue
@@ -2103,7 +2171,15 @@ func finalizeActionExtends(c *analysisCtx) {
 		// The slice shares its array with the table, so each update lands in place.
 		actions := typ.Actions()
 		for ai := range actions {
-			if len(actions[ai].Extends) > 0 {
+			if actions[ai].IsAlias() {
+				if _, own := actions[ai].Domains["doc"]; own {
+					continue
+				}
+				target, _, _ := resolution.Dealias(actions[ai].Alias, c.table)
+				if d, ok := target.Domains["doc"]; ok {
+					actions[ai].Domains["doc"] = d
+				}
+			} else if len(actions[ai].Extends) > 0 {
 				actions[ai].Fields = unifyActionFields(c, actions[ai])
 			}
 		}
