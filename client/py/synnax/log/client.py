@@ -9,11 +9,12 @@
 
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from freighter import Empty, UnaryClient
 from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.log.types_gen import (
+    ChannelEntry,
     Key,
     Log,
     RetrieveRequest,
@@ -22,7 +23,7 @@ from synnax.log.types_gen import (
     WhereInput,
 )
 from synnax.util import request_where, returns_one, sole
-from x import color as color_, filter, notation as notation_
+from x import color as color_, filter, notation as notation_, telem
 from x.lists import normalize
 
 
@@ -43,23 +44,8 @@ class _SetPayload(BaseModel):
     value: Any
 
 
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
 class _ChannelPayload(BaseModel):
     channel: channel_.Key
-
-
-class _AddChannelAction(BaseModel):
-    type: Literal["add_channel"] = "add_channel"
-    add_channel: _ChannelPayload
-
-
-class _RemoveChannelAction(BaseModel):
-    type: Literal["remove_channel"] = "remove_channel"
-    remove_channel: _ChannelPayload
 
 
 class _ColorPayload(BaseModel):
@@ -67,19 +53,9 @@ class _ColorPayload(BaseModel):
     color: color_.Color
 
 
-class _SetChannelColorAction(BaseModel):
-    type: Literal["set_channel_color"] = "set_channel_color"
-    set_channel_color: _ColorPayload
-
-
 class _AliasPayload(BaseModel):
     channel: channel_.Key
     alias: str
-
-
-class _SetChannelAliasAction(BaseModel):
-    type: Literal["set_channel_alias"] = "set_channel_alias"
-    set_channel_alias: _AliasPayload
 
 
 class _NotationPayload(BaseModel):
@@ -87,30 +63,53 @@ class _NotationPayload(BaseModel):
     notation: notation_.Notation
 
 
-class _SetChannelNotationAction(BaseModel):
-    type: Literal["set_channel_notation"] = "set_channel_notation"
-    set_channel_notation: _NotationPayload
-
-
 class _PrecisionPayload(BaseModel):
     channel: channel_.Key
-    precision: int | None
+    precision: int | None = Field(ge=0, le=17)
 
 
-class _SetChannelPrecisionAction(BaseModel):
-    type: Literal["set_channel_precision"] = "set_channel_precision"
-    set_channel_precision: _PrecisionPayload
+class _EntryPayload(BaseModel):
+    entry: ChannelEntry
 
 
-_Action = (
-    _SetAction
-    | _AddChannelAction
-    | _RemoveChannelAction
-    | _SetChannelColorAction
-    | _SetChannelAliasAction
-    | _SetChannelNotationAction
-    | _SetChannelPrecisionAction
-)
+class _FormatPayload(BaseModel):
+    channel: channel_.Key
+    format: telem.TimestampFormat
+
+
+class _ChannelTimeZonePayload(BaseModel):
+    channel: channel_.Key
+    time_zone: telem.TimeZone
+
+
+class _SwapPayload(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: channel_.Key = Field(alias="from")
+    to: channel_.Key
+
+
+class _TimestampPrecisionPayload(BaseModel):
+    timestamp_precision: int = Field(ge=0, le=3)
+
+
+class _ChannelNamesHiddenPayload(BaseModel):
+    channel_names_hidden: bool
+
+
+class _TimestampsHiddenPayload(BaseModel):
+    timestamps_hidden: bool
+
+
+class _TimeZonePayload(BaseModel):
+    time_zone: telem.TimeZone
+
+
+# Holds its payload in an extra field named after its type.
+class _Action(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: str
 
 
 class _DispatchRequest(BaseModel):
@@ -261,7 +260,7 @@ class Client:
         :param key: The key of the log to rename.
         :param name: The new name for the log.
         """
-        self._dispatch(key, _SetAction(set=_SetPayload(path=["name"], value=name)))
+        self._dispatch(key, "set", _SetPayload(path=["name"], value=name))
 
     def add_channel(self, key: Key, channel: channel_.Key) -> None:
         """Add a channel to a log with the default display configuration. Does
@@ -270,8 +269,7 @@ class Client:
         :param key: The key of the log.
         :param channel: The key of the channel to add.
         """
-        payload = _ChannelPayload(channel=channel)
-        self._dispatch(key, _AddChannelAction(add_channel=payload))
+        self._dispatch(key, "add_channel", _ChannelPayload(channel=channel))
 
     def remove_channel(self, key: Key, channel: channel_.Key) -> None:
         """Remove a channel from a log. Does nothing when the log does not show the
@@ -280,22 +278,21 @@ class Client:
         :param key: The key of the log.
         :param channel: The key of the channel to remove.
         """
-        payload = _ChannelPayload(channel=channel)
-        self._dispatch(key, _RemoveChannelAction(remove_channel=payload))
+        self._dispatch(key, "remove_channel", _ChannelPayload(channel=channel))
 
     def set_channel_color(
         self, key: Key, channel: channel_.Key, color: color_.Color | str
     ) -> None:
-        """Set the display color of a channel in a log. A zero color shows the
-        channel in the text color of the log. Does nothing when the log does not show
-        the channel.
+        """Set the display color of a channel in a log. A zero color,
+        ``Color(a=0)``, shows the channel in the text color of the log. Does nothing
+        when the log does not show the channel.
 
         :param key: The key of the log.
         :param channel: The key of the channel.
         :param color: The color, as a ``Color`` or a hex string such as ``"#FF0000"``.
         """
         payload = _ColorPayload(channel=channel, color=color_.Color(color))
-        self._dispatch(key, _SetChannelColorAction(set_channel_color=payload))
+        self._dispatch(key, "set_channel_color", payload)
 
     def set_channel_alias(self, key: Key, channel: channel_.Key, alias: str) -> None:
         """Set the name a log shows for a channel. An empty alias shows the channel
@@ -306,7 +303,7 @@ class Client:
         :param alias: The name to show, at most 64 characters.
         """
         payload = _AliasPayload(channel=channel, alias=alias)
-        self._dispatch(key, _SetChannelAliasAction(set_channel_alias=payload))
+        self._dispatch(key, "set_channel_alias", payload)
 
     def set_channel_notation(
         self, key: Key, channel: channel_.Key, notation: notation_.Notation
@@ -320,7 +317,7 @@ class Client:
             ``"engineering"``.
         """
         payload = _NotationPayload(channel=channel, notation=notation)
-        self._dispatch(key, _SetChannelNotationAction(set_channel_notation=payload))
+        self._dispatch(key, "set_channel_notation", payload)
 
     def set_channel_precision(
         self, key: Key, channel: channel_.Key, precision: int | None
@@ -332,11 +329,95 @@ class Client:
         :param channel: The key of the channel.
         :param precision: A number of digits from 0 to 17, or None to show each sample
             as it arrives.
+        :raises ValidationError: If the precision is above 17.
         """
         payload = _PrecisionPayload(channel=channel, precision=precision)
-        self._dispatch(key, _SetChannelPrecisionAction(set_channel_precision=payload))
+        self._dispatch(key, "set_channel_precision", payload)
 
-    def _dispatch(self, key: Key, action: _Action) -> None:
+    def set_channel_entry(self, key: Key, entry: ChannelEntry) -> None:
+        """Set the full display configuration of a channel in a log. Adds the channel
+        when the log does not show it.
+
+        :param key: The key of the log.
+        :param entry: The display configuration, with the key of its channel.
+        """
+        self._dispatch(key, "set_channel_entry", _EntryPayload(entry=entry))
+
+    def set_channel_timestamp_format(
+        self, key: Key, channel: channel_.Key, format: telem.TimestampFormat
+    ) -> None:
+        """Set the format of the values of a timestamp channel in a log. Does nothing
+        when the log does not show the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the timestamp channel.
+        :param format: The format of the values, such as ``"ISO"``.
+        """
+        payload = _FormatPayload(channel=channel, format=format)
+        self._dispatch(key, "set_channel_timestamp_format", payload)
+
+    def set_channel_timestamp_time_zone(
+        self, key: Key, channel: channel_.Key, time_zone: telem.TimeZone
+    ) -> None:
+        """Set the time zone of the values of a timestamp channel in a log. Does
+        nothing when the log does not show the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the timestamp channel.
+        :param time_zone: ``"local"`` or ``"UTC"``.
+        """
+        payload = _ChannelTimeZonePayload(channel=channel, time_zone=time_zone)
+        self._dispatch(key, "set_channel_timestamp_time_zone", payload)
+
+    def swap_channel(self, key: Key, from_: channel_.Key, to: channel_.Key) -> None:
+        """Replace a channel in a log with another channel, and keep its position and
+        display configuration. Does nothing when the log does not show ``from_`` or
+        already shows ``to``.
+
+        :param key: The key of the log.
+        :param from_: The key of the channel to replace.
+        :param to: The key of the channel to show in its place.
+        """
+        self._dispatch(key, "swap_channel", _SwapPayload(from_=from_, to=to))
+
+    def set_timestamp_precision(self, key: Key, precision: int) -> None:
+        """Set the number of decimal places of the seconds in the line times of a log.
+
+        :param key: The key of the log.
+        :param precision: A number of decimal places from 0 to 3.
+        :raises ValidationError: If the precision is above 3.
+        """
+        payload = _TimestampPrecisionPayload(timestamp_precision=precision)
+        self._dispatch(key, "set_timestamp_precision", payload)
+
+    def set_channel_names_hidden(self, key: Key, hidden: bool) -> None:
+        """Hide or show the channel names in the lines of a log.
+
+        :param key: The key of the log.
+        :param hidden: True to hide the channel names.
+        """
+        payload = _ChannelNamesHiddenPayload(channel_names_hidden=hidden)
+        self._dispatch(key, "set_channel_names_hidden", payload)
+
+    def set_timestamps_hidden(self, key: Key, hidden: bool) -> None:
+        """Hide or show the line times of a log.
+
+        :param key: The key of the log.
+        :param hidden: True to hide the line times.
+        """
+        payload = _TimestampsHiddenPayload(timestamps_hidden=hidden)
+        self._dispatch(key, "set_timestamps_hidden", payload)
+
+    def set_time_zone(self, key: Key, time_zone: telem.TimeZone) -> None:
+        """Set the time zone of the line times and day rows of a log.
+
+        :param key: The key of the log.
+        :param time_zone: ``"local"`` or ``"UTC"``.
+        """
+        self._dispatch(key, "set_time_zone", _TimeZonePayload(time_zone=time_zone))
+
+    def _dispatch(self, key: Key, type_: str, payload: BaseModel) -> None:
+        action = _Action.model_validate({"type": type_, type_: payload})
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/log/dispatch", req, Empty)
 

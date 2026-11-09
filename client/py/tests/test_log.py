@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax import log
-from synnax.exceptions import NotFoundError, ValidationError as CoreValidationError
+from synnax.exceptions import NotFoundError
 
 
 class TestLog:
@@ -220,7 +220,7 @@ class TestClient:
         client.logs.add_channel(log.key, virtual_channel.key)
         client.logs.add_channel(log.key, virtual_channel.key)
         assert client.logs.retrieve(key=log.key).channels == [
-            sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
+            sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color(a=0))
         ]
 
     def test_remove_channel(
@@ -265,8 +265,72 @@ class TestClient:
         """Should reject a precision above 17."""
         log = client.logs.create(name="Bounds", project=project.key)
         client.logs.add_channel(log.key, virtual_channel.key)
-        with pytest.raises(CoreValidationError):
+        with pytest.raises(ValidationError):
             client.logs.set_channel_precision(log.key, virtual_channel.key, 18)
+
+    def test_set_channel_entry(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should add a channel entry, then replace it in place."""
+        log = client.logs.create(name="Entry", project=project.key)
+        entry = sy.log.ChannelEntry(
+            channel=virtual_channel.key, color=sy.Color("#00FF00"), alias="first"
+        )
+        client.logs.set_channel_entry(log.key, entry)
+        assert client.logs.retrieve(key=log.key).channels == [entry]
+        replaced = entry.model_copy(update={"alias": "second", "precision": 4})
+        client.logs.set_channel_entry(log.key, replaced)
+        assert client.logs.retrieve(key=log.key).channels == [replaced]
+
+    def test_set_channel_timestamp_config(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should set the timestamp format and time zone of a channel."""
+        log = client.logs.create(name="Timestamp", project=project.key)
+        ch = virtual_channel.key
+        client.logs.add_channel(log.key, ch)
+        client.logs.set_channel_timestamp_format(log.key, ch, "ISO")
+        client.logs.set_channel_timestamp_time_zone(log.key, ch, "UTC")
+        entry = client.logs.retrieve(key=log.key).channels[0]
+        assert entry.timestamp_config == sy.log.TimestampConfig(
+            format="ISO", time_zone="UTC"
+        )
+
+    def test_swap_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should replace a channel and keep its display configuration."""
+        other = client.channels.create(
+            name=f"test_{uuid4()}_swap", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        log = client.logs.create(name="Swap", project=project.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        client.logs.set_channel_alias(log.key, virtual_channel.key, "kept")
+        client.logs.swap_channel(log.key, virtual_channel.key, other.key)
+        [entry] = client.logs.retrieve(key=log.key).channels
+        assert entry.channel == other.key
+        assert entry.alias == "kept"
+
+    def test_set_display_settings(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should set the timestamp precision, hidden flags, and time zone."""
+        log = client.logs.create(name="Display", project=project.key)
+        client.logs.set_timestamp_precision(log.key, 3)
+        client.logs.set_channel_names_hidden(log.key, True)
+        client.logs.set_timestamps_hidden(log.key, True)
+        client.logs.set_time_zone(log.key, "UTC")
+        res = client.logs.retrieve(key=log.key)
+        assert res.timestamp_precision == 3
+        assert res.channel_names_hidden
+        assert res.timestamps_hidden
+        assert res.time_zone == "UTC"
+
+    def test_set_timestamp_precision_out_of_bounds(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should reject a timestamp precision above 3."""
+        log = client.logs.create(name="Bounds", project=project.key)
+        with pytest.raises(ValidationError):
+            client.logs.set_timestamp_precision(log.key, 4)
 
     def test_set_missing_channel(
         self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
