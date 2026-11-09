@@ -321,8 +321,9 @@ running task without taking control. See [Write data](/reference/client/write-da
 - Inputs go in parentheses and triggers in braces. The Core rewrites stored Arcs.
   Rewrite Arc text in scripts that call `client.arcs.create` and in files outside
   Synnax.
-- A flow that reads a variable with no compile-time value, such as a series, fails to
-  compile. Before, it read or wrote nothing. Use a literal or a channel.
+- A series variable outside a function, such as `s := [1.0, 2.0]`, fails to compile.
+  Before, a flow on it read or wrote nothing. Declare the variable in the function that
+  uses it.
 - `^` needs numeric operands.
 - New Arcs are text only. Graph Arcs still run.
 
