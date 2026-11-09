@@ -60,6 +60,16 @@ try {
     }
     if (-not $started) { Fail "the Core never started" }
 
+    Write-Host "Installing over a state folder that the Users group owns..."
+    New-Item -ItemType Directory -Path $state -Force | Out-Null
+    cmd /c "icacls `"$state`" /setowner *S-1-5-32-545 >nul"
+    if ($LASTEXITCODE -ne 0) { Fail "could not give $state to the Users group" }
+    $r = Invoke-Driver $driver "install"
+    if ($r.Code -eq 0) { Fail "install accepted a state folder that the Users group owns" }
+    if ($r.Out -notmatch "another user owns") { Write-Host $r.Out; Fail "install failed without the owner error" }
+    if ($null -ne (Get-DriverService)) { Fail "install created the service before it checked the state folder" }
+    Remove-Item -Recurse -Force $state
+
     Write-Host "Installing the service..."
     $r = Invoke-Driver $driver "install"
     if ($r.Code -ne 0) { Write-Host $r.Out; Fail "install failed" }

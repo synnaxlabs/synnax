@@ -71,6 +71,7 @@ cc_library(
         "//driver/rack/status",
         "//driver/task",
         "//x/cpp/args",
+        "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/kv",
         "//x/cpp/log",

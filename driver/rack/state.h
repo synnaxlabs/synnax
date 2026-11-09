@@ -23,6 +23,7 @@ std::filesystem::path user_dir();
 
 /// @brief secures the state file at path and its directory, and skips either when it
 /// does not exist. Only a dedicated directory, which the Driver chose, changes mode,
-/// owner, or access.
+/// owner, or access. On Windows, it creates the directory of the computer instead, and
+/// returns an error when neither LocalSystem nor the administrators own it.
 x::errors::Error secure(const std::filesystem::path &path, bool dedicated);
 }

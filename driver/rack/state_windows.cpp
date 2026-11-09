@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <system_error>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -20,6 +21,8 @@
 #include <aclapi.h>
 #include <sddl.h>
 // clang-format on
+
+#include "x/cpp/defer/defer.h"
 
 #include "driver/rack/rack.h"
 #include "driver/rack/state.h"
@@ -37,49 +40,97 @@ fs::path user_dir() {
     return {};
 }
 
-/// @brief gives the state directory of the computer, and the files in it, to
-/// LocalSystem and the administrators alone. Each user can read a new folder in
-/// ProgramData.
+namespace {
+/// @brief the administrators own the directory. SYSTEM and the administrators have full
+/// access to it and everything in it, and no one else has access.
+constexpr auto DESCRIPTOR = L"O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+
+x::errors::Error state_error(const std::string &action, const DWORD code) {
+    return x::errors::Error(
+        STATE_ERROR,
+        action + ": " + std::system_category().message(static_cast<int>(code))
+    );
+}
+
+/// @brief returns an error unless SYSTEM or the administrators own dir itself, and not
+/// only the target of a link. Any other owner can give itself access again, and can
+/// leave links or files in dir.
+x::errors::Error check_owner(const std::wstring &dir) {
+    const HANDLE handle = CreateFileW(
+        dir.c_str(),
+        READ_CONTROL,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+        nullptr
+    );
+    if (handle == INVALID_HANDLE_VALUE)
+        return state_error("failed to open state directory", GetLastError());
+    PSID owner = nullptr;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    const DWORD result = GetSecurityInfo(
+        handle,
+        SE_FILE_OBJECT,
+        OWNER_SECURITY_INFORMATION,
+        &owner,
+        nullptr,
+        nullptr,
+        nullptr,
+        &descriptor
+    );
+    CloseHandle(handle);
+    if (result != ERROR_SUCCESS)
+        return state_error("failed to read the owner of the state directory", result);
+    const bool trusted = IsWellKnownSid(owner, WinLocalSystemSid) != 0 ||
+                         IsWellKnownSid(owner, WinBuiltinAdministratorsSid) != 0;
+    LocalFree(descriptor);
+    if (trusted) return x::errors::NIL;
+    return x::errors::Error(
+        STATE_ERROR,
+        "another user owns " + fs::path(dir).string() +
+            ". Delete it, then install the Driver again"
+    );
+}
+}
+
+/// @brief creates the state directory of the computer for LocalSystem and the
+/// administrators alone, or gives an existing one to them alone. Each user can create
+/// and read a new folder in ProgramData.
 x::errors::Error secure(const fs::path &path, const bool dedicated) {
     if (!dedicated || path.parent_path() != machine_dir()) return x::errors::NIL;
     auto dir = path.parent_path().wstring();
-    std::error_code ec;
-    if (!fs::exists(dir, ec)) {
-        if (ec)
-            return x::errors::Error(
-                STATE_ERROR,
-                "failed to open state directory: " + ec.message()
-            );
-        return x::errors::NIL;
-    }
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            L"D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
+            DESCRIPTOR,
             SDDL_REVISION_1,
             &descriptor,
             nullptr
         ) == 0)
-        return x::errors::Error(STATE_ERROR, "failed to secure state directory");
+        return state_error("failed to secure state directory", GetLastError());
+    x::defer::defer free_descriptor([&] { LocalFree(descriptor); });
+    // Created with its access in one step, so no user can add a file to it first.
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
+    if (CreateDirectoryW(dir.c_str(), &attributes) == 0)
+        if (const DWORD code = GetLastError(); code != ERROR_ALREADY_EXISTS)
+            return state_error("failed to create state directory", code);
+    if (auto err = check_owner(dir)) return err;
     BOOL present = FALSE;
     BOOL defaulted = FALSE;
     PACL dacl = nullptr;
-    DWORD result = ERROR_INVALID_SECURITY_DESCR;
-    if (GetSecurityDescriptorDacl(descriptor, &present, &dacl, &defaulted) != 0)
-        result = SetNamedSecurityInfoW(
-            dir.data(),
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-            nullptr,
-            nullptr,
-            dacl,
-            nullptr
-        );
-    LocalFree(descriptor);
+    if (GetSecurityDescriptorDacl(descriptor, &present, &dacl, &defaulted) == 0)
+        return state_error("failed to secure state directory", GetLastError());
+    const DWORD result = SetNamedSecurityInfoW(
+        dir.data(),
+        SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+        nullptr,
+        nullptr,
+        dacl,
+        nullptr
+    );
     if (result != ERROR_SUCCESS)
-        return x::errors::Error(
-            STATE_ERROR,
-            "failed to secure state directory: error " + std::to_string(result)
-        );
+        return state_error("failed to secure state directory", result);
     return x::errors::NIL;
 }
 }
