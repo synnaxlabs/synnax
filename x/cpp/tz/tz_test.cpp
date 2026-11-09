@@ -157,7 +157,7 @@ TEST(DatabaseTest, ListsEveryZoneInSortedOrder) {
           "UTC"})
         EXPECT_NE(std::ranges::find(names, name), names.end()) << name;
     for (const auto &name: names)
-        EXPECT_FALSE(db.load(name).second) << name;
+        ASSERT_NIL_P(db.load(name));
 }
 
 /// @brief every zone matches Go at every vector.
