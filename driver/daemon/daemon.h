@@ -53,6 +53,6 @@ x::errors::Error status();
 x::errors::Error load_env();
 
 /// @brief runs the application as a daemon with the given configuration. Returns the
-/// exit code of the callback, or 1 when it throws.
+/// exit code of the callback, or 1 when it throws or the daemon cannot start.
 int run(const Config &config);
 }

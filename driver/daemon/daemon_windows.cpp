@@ -126,8 +126,8 @@ x::errors::Error start(const Handle &service) {
     return windows_error("failed to start the Driver service", code);
 }
 
-/// @brief sets the description and makes the service manager restart the Driver after
-/// a crash or a nonzero exit code.
+/// @brief sets the description and makes the service manager restart the Driver after a
+/// crash or a nonzero exit code.
 x::errors::Error configure(const Handle &service) {
     SERVICE_DESCRIPTIONW description{const_cast<LPWSTR>(DESCRIPTION)};
     if (ChangeServiceConfig2W(service.h, SERVICE_CONFIG_DESCRIPTION, &description) == 0)
