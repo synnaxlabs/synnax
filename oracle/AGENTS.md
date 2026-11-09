@@ -162,16 +162,19 @@ rules hold for top-level and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
-`@py optional` makes a field optional in Python alone. Use it for an `any` field that
-must read an absent key as `None`, because the Python JSON codec drops `None` fields.
+A bare `any` field (no `?`, no default) reads an absent key as null in every language:
+`nil` in Go, `undefined` in TypeScript, `None` in Python, and `nullptr` in C++.
 
-## Action aliases
+## Actions
 
-`action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
-A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the action
-its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
-(in Go, a defined type that can carry `Handle`). The target must be a struct with no
-type parameters, and no two actions of a type may share one.
+`@actions` on a struct or union gives it the standard actions: `Create`, which only the
+Core emits, and the path actions `Set`, `Remove`, `Insert`, and `Move`. The file must
+import `schemas/x/patch`. `action X { ... }` in the body adds a custom action, after the
+standard ones. The analyzer adds an `XPayload` type for each action (a defined type over
+`patch.X` for a path action) and one adjacent `Action` union per namespace, with the
+wire form `{"type": "x", "x": {...}}`. Payloads and the union are ordinary types, so
+every types plugin emits them. The actions plugins emit only the reducer, the builders,
+and the dispatch schemas. Clients get no `Create` builder.
 
 ## Union discriminators
 
@@ -245,13 +248,12 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Path actions
 
-`@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
-actions may edit. A path to any other field fails, so a Core-owned field such as
-`labels` gets no tag. Go generates a `Patch` method for the document and for every
-struct that a `@patch` field reaches, in the version package that declares the struct. A
-struct with a hand-written Go JSON decoder, such as `color.Color`, declares
-`@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
-runs the decoder.
+`@patch` marks a field of a document (a struct marked `@actions`) that path actions may
+edit. A path to any other field fails, so a Core-owned field such as `labels` gets no
+tag. Go generates a `Patch` method for the document and for every struct that a `@patch`
+field reaches, in the version package that declares the struct. A struct with a
+hand-written Go JSON decoder, such as `color.Color`, declares `@go json hand` and gets
+no `Patch` method. Only a whole set changes it, and that set runs the decoder.
 
 ## Rules
 

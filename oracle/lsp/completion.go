@@ -189,6 +189,11 @@ var (
 			Detail: protocol.NewOptional("Path actions can edit the field"),
 		},
 		{
+			Label:  "actions",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Generate the create and path actions"),
+		},
+		{
 			Label:  "index",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Index configuration for the field"),
