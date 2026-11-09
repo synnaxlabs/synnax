@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -81,6 +82,25 @@ var _ = Describe("NewService", func() {
 	It("Should return an error when the config is invalid", func() {
 		Expect(apiauth.NewService(apiauth.ServiceConfig{})).Error().
 			To(MatchError(ContainSubstring("auth: must be non-nil")))
+	})
+})
+
+var _ = Describe("HeldTables", func() {
+	It("Should name the tables of the API keys, password, and sessions of a user", func(
+		ctx SpecContext,
+	) {
+		tx := DeferClose(db.OpenTx())
+		k, _ := MustSucceed2(
+			apiKeySvc.NewWriter(tx).Create(ctx, root.ResourceID(), "held"),
+		)
+		h := MustSucceed(passwordSvc.Hash(creds.Password))
+		passwords := passwordSvc.NewWriter(tx)
+		Expect(passwords.Set(ctx, root.ResourceID(), creds.Username, h)).To(Succeed())
+		MustSucceed2(authSvc.NewWriter(tx).Open(ctx, root.ResourceID(), k.Key))
+		tables := lo.Map(gorp.ChangesOf(tx), func(c gorp.Change, _ int) string {
+			return c.Record.Table
+		})
+		Expect(tables).To(ConsistOf(apiauth.HeldTables()))
 	})
 })
 
