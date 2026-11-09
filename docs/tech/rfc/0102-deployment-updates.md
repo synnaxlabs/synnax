@@ -106,17 +106,18 @@ The downgrade check still runs.
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
 one it names, writes its version to `VERSION`, and prints the Core version to run. With
 no name, when `VERSION` already holds the newest backup's version, the last update is
-already undone and the undo restores no data. When `UPDATE_FAILED` holds the version of
-`<binary>`, it puts back `<binary>.old` (§3.2), and refuses if not. Data with no
-`VERSION` file gives a backup named `<unix seconds>-unknown`. Its undo removes `VERSION`
-and cannot name the Core to run. A second undo sees the missing file as `unknown`, so
-the update reads as already undone. `synnax update history` lists the backups. An undo
-writes a marker first and removes it last. While the marker exists, the Core does not
-start and tells the user to run the undo again. It moves aside the Cesium directory of
-each channel that has no `meta.json` in the backup. The channel key counter lives in
-`kv/` (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys
-again, and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry
-written to known channels after the backup stays.
+already undone and the undo restores no data. In that case, it puts back `<binary>.old`
+(§3.2) when that binary is the backup's version, or, for a backup with no version, when
+it is older than `<binary>`. If not, it refuses. Data with no `VERSION` file gives a
+backup named `<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the
+Core to run. A second undo sees the missing file as `unknown`, so the update reads as
+already undone. `synnax update history` lists the backups. An undo writes a marker first
+and removes it last. While the marker exists, the Core does not start and tells the user
+to run the undo again. It moves aside the Cesium directory of each channel that has no
+`meta.json` in the backup. The channel key counter lives in `kv/`
+(`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
+and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
+known channels after the backup stays.
 
 ### 3.2 `synnax update`
 
@@ -132,8 +133,9 @@ admin rights on the host, which is the access control for a Core update.
    leaves the new Core to finish and exits non-zero. The message tells the admin to run
    `synnax update undo` if the Core undoes the update later.
 
-`synnax update undo` also puts `<binary>.old` back when it exists. When the Core already
-undid the update, the undo only puts the binary back.
+`synnax update undo` also puts `<binary>.old` back when it is the version of the
+restored backup. When the Core already undid the update, the undo only puts the binary
+back (§3.1).
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
