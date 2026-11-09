@@ -332,6 +332,7 @@ var _ = Describe("Config typing", func() {
 		Entry("array", []any{0.0, 0.0, 0.0, 0.0}),
 		Entry("hex", "#00000000"),
 		Entry("object", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0}),
+		Entry("object without an alpha", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0}),
 		Entry("null", nil),
 	)
 
