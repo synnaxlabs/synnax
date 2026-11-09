@@ -29,12 +29,6 @@ class CreatePayload(BaseModel):
     arc: Payload
 
 
-class RenamePayload(BaseModel):
-    """Renames the Arc module."""
-
-    name: str
-
-
 class SetNodePayload(BaseModel):
     """Inserts the node if no node with the same key exists, otherwise replaces the
     existing node in place. Operates only on the node's position; the node's function
@@ -146,7 +140,7 @@ class SetDirectoryPayload(BaseModel):
 
 
 class SetPayload(BaseModel):
-    """Replaces the value at a path in the graph's node inputs.
+    """Replaces the Arc's name, or the value at a path in the graph's node inputs.
 
     Attributes:
         path: Is the path to the value. A segment into a list names the key of an entry.
@@ -211,11 +205,6 @@ class MovePayload(BaseModel):
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
-
-
-class RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: RenamePayload
 
 
 class SetNodeAction(BaseModel):
@@ -296,7 +285,6 @@ class MoveAction(BaseModel):
 # Action is a discriminated union for all Arc mutations.
 Action = Annotated[
     CreateAction
-    | RenameAction
     | SetNodeAction
     | SetNodePositionAction
     | SetNodeInputsAction
@@ -318,10 +306,6 @@ Action = Annotated[
 
 def create(payload: CreatePayload) -> CreateAction:
     return CreateAction(create=payload)
-
-
-def rename(payload: RenamePayload) -> RenameAction:
-    return RenameAction(rename=payload)
 
 
 def set_node(payload: SetNodePayload) -> SetNodeAction:
