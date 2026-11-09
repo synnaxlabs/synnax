@@ -33,9 +33,9 @@ type Directory = versions.Directory
 // Where is a filter that selects Arc directories.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -43,7 +43,7 @@ type Where struct {
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Parents matches the directories that any of the given directories hold.
-	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	Parents []Key `json:"parents,omitzero" msgpack:"parents"`
 	// Nested matches the directories that another directory holds, or the root when
 	// false.
 	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`

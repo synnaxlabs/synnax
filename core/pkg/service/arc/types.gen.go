@@ -83,9 +83,9 @@ const (
 // Where is a filter that selects Arcs.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -93,7 +93,7 @@ type Where struct {
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Directories matches the Arcs in any of the given directories.
-	Directories []uuid.UUID `json:"directories,omitzero" msgpack:"directories,omitempty"`
+	Directories []uuid.UUID `json:"directories,omitzero" msgpack:"directories"`
 }
 
 // CreatePayload replaces the state with the created arc. Only the Core emits it.

@@ -16,7 +16,7 @@ type String struct {
 	// Eq matches a value equal to eq.
 	Eq *string `json:"eq,omitzero" msgpack:"eq,omitempty"`
 	// In matches a value equal to an element of in.
-	In []string `json:"in,omitzero" msgpack:"in,omitempty"`
+	In []string `json:"in,omitzero" msgpack:"in"`
 	// Contains matches a value that holds contains.
 	Contains *string `json:"contains,omitzero" msgpack:"contains,omitempty"`
 	// StartsWith matches a value that begins with starts_with.
@@ -39,7 +39,7 @@ type Set[T any] struct {
 	// Eq matches a value equal to eq.
 	Eq *T `json:"eq,omitzero" msgpack:"eq,omitempty"`
 	// In matches a value equal to an element of in.
-	In []T `json:"in,omitzero" msgpack:"in,omitempty"`
+	In []T `json:"in,omitzero" msgpack:"in"`
 }
 
 // Ordered selects numbers and times. A value must match every operator that is set.
@@ -47,7 +47,7 @@ type Ordered[T any] struct {
 	// Eq matches a value equal to eq.
 	Eq *T `json:"eq,omitzero" msgpack:"eq,omitempty"`
 	// In matches a value equal to an element of in.
-	In []T `json:"in,omitzero" msgpack:"in,omitempty"`
+	In []T `json:"in,omitzero" msgpack:"in"`
 	// Gt matches a value greater than gt.
 	Gt *T `json:"gt,omitzero" msgpack:"gt,omitempty"`
 	// Gte matches a value greater than or equal to gte.
@@ -61,5 +61,5 @@ type Ordered[T any] struct {
 // Contains selects arrays by the elements they hold.
 type Contains[T any] struct {
 	// Any matches an array that holds an element of any.
-	Any []T `json:"any,omitzero" msgpack:"any,omitempty"`
+	Any []T `json:"any,omitzero" msgpack:"any"`
 }

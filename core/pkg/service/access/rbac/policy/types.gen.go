@@ -38,9 +38,9 @@ type Policy = versions.Policy
 // Where is a filter that selects policies.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -48,9 +48,9 @@ type Where struct {
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Subjects matches the policies of the roles that any of the given subjects hold.
-	Subjects []resource.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
+	Subjects []resource.ID `json:"subjects,omitzero" msgpack:"subjects"`
 	// Roles matches the policies of any of the given roles.
-	Roles []role.Key `json:"roles,omitzero" msgpack:"roles,omitempty"`
+	Roles []role.Key `json:"roles,omitzero" msgpack:"roles"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

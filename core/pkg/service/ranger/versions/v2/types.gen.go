@@ -54,9 +54,9 @@ func (r Range) Validate() error {
 // Where is a filter that selects ranges.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -66,9 +66,9 @@ type Where struct {
 	// Overlaps matches ranges whose time range overlaps the given range.
 	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
 	// Labels matches ranges that have any of the given labels.
-	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels"`
 	// Parents matches the ranges nested in any of the given ranges.
-	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	Parents []Key `json:"parents,omitzero" msgpack:"parents"`
 }
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline

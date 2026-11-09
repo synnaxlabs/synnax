@@ -105,9 +105,9 @@ type NoneScale = versions.NoneScale
 // Where is a filter that selects tasks.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -123,9 +123,9 @@ type Where struct {
 	// Snapshot selects by snapshot.
 	Snapshot *filter.Bool `json:"snapshot,omitzero" msgpack:"snapshot,omitempty"`
 	// Ranges matches the tasks that are snapshots in any of the given ranges.
-	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges"`
 	// Arcs matches the tasks that run any of the Arcs with the given keys.
-	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
+	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs"`
 }
 
 // Command is a command to execute on a task in the Driver system.

@@ -200,4 +200,27 @@ var _ = Describe("Update wire forms", func() {
 			`{"pairs":{"remove":[1],"move":[{"key":2}]}}`,
 		),
 	)
+
+	DescribeTable("Should keep an empty set through a generated list",
+		func(roundTrip func([]string) []string) {
+			Expect(roundTrip([]string{})).To(SatisfyAll(Not(BeNil()), BeEmpty()))
+			Expect(roundTrip(nil)).To(BeNil())
+		},
+		Entry("in JSON", func(set []string) []string {
+			GinkgoHelper()
+			var l patch.ValueList[string]
+			b := MustSucceed(json.Marshal(patch.ValueList[string]{Set: set}))
+			Expect(json.Unmarshal(b, &l)).To(Succeed())
+			return l.Set
+		}),
+		Entry("in msgpack", func(set []string) []string {
+			GinkgoHelper()
+			var l patch.List[string, string, string]
+			b := MustSucceed(
+				msgpack.Marshal(patch.List[string, string, string]{Set: set}),
+			)
+			Expect(msgpack.Unmarshal(b, &l)).To(Succeed())
+			return l.Set
+		}),
+	)
 })

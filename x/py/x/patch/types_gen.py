@@ -17,8 +17,6 @@ from pydantic import BaseModel, Field, JsonValue
 
 K = TypeVar("K")
 
-V = TypeVar("V")
-
 E = TypeVar("E")
 
 U = TypeVar("U")
@@ -110,19 +108,6 @@ class Move(BaseModel):
     path: list[str] = Field(default_factory=list)
     key: str
     after: str | None = None
-    guards: list[Guard] = Field(default_factory=list)
-
-
-class Update(BaseModel, Generic[V]):
-    """Changes a record by a partial record.
-
-    Attributes:
-        value: Is the partial record that the update applies.
-        guards: Are the variant guards that must hold in the stored record before the
-            update applies.
-    """
-
-    value: V
     guards: list[Guard] = Field(default_factory=list)
 
 

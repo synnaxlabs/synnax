@@ -49,15 +49,15 @@ type Symbol = versions.Symbol
 // Where is a filter that selects schematic symbols.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Groups matches the symbols in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups"`
 	// Grouped matches the symbols in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

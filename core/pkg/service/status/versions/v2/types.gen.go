@@ -93,9 +93,9 @@ func (s Status[Details]) ToAny() Status[any] {
 // Where is a filter that selects statuses.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -103,9 +103,9 @@ type Where struct {
 	// Variant selects by variant.
 	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
 	// Labels matches statuses that have any of the given labels.
-	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels"`
 	// Owners matches the statuses that the given resources own.
-	Owners []resource.ID `json:"owners,omitzero" msgpack:"owners,omitempty"`
+	Owners []resource.ID `json:"owners,omitzero" msgpack:"owners"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

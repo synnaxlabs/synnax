@@ -47,21 +47,21 @@ type Log = versions.Log
 // Where is a filter that selects logs.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Groups matches the logs in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups"`
 	// Grouped matches the logs in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 	// Projects matches the logs owned by any of the given projects.
-	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	Projects []project.Key `json:"projects,omitzero" msgpack:"projects"`
 	// Ranges matches the logs owned by any of the given ranges.
-	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges"`
 }
 
 // CreatePayload replaces the state with the created log. Only the Core emits it.

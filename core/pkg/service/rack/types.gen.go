@@ -41,9 +41,9 @@ type Rack = versions.Rack
 // Where is a filter that selects racks.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -55,7 +55,7 @@ type Where struct {
 	// Integrations selects by integrations.
 	Integrations *filter.Contains[string] `json:"integrations,omitzero" msgpack:"integrations,omitempty"`
 	// Groups matches the racks in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups"`
 	// Grouped matches the racks in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

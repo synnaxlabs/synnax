@@ -984,12 +984,13 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:      naming.GetFieldName(field),
-		GoType:      goType,
-		JSONName:    casing.FieldSnake(field.Name),
-		IsOptional:  field.Optional,
-		Doc:         doc.Get(field.Domains),
-		WireOmitted: domain.GetStringFromField(field, "go", "wire") == "omit",
+		GoName:       naming.GetFieldName(field),
+		GoType:       goType,
+		JSONName:     casing.FieldSnake(field.Name),
+		IsOptional:   field.Optional,
+		IsCollection: typemap.Nilable(field.Type, data.table),
+		Doc:          doc.Get(field.Domains),
+		WireOmitted:  domain.GetStringFromField(field, "go", "wire") == "omit",
 	}
 }
 
@@ -1152,6 +1153,8 @@ type fieldData struct {
 	JSONName   string
 	Doc        string
 	IsOptional bool
+	// IsCollection is set for a slice or a map, which can be empty without being nil.
+	IsCollection bool
 	// WireOmitted is set by @go wire omit: JSON and msgpack skip the field.
 	WireOmitted bool
 }
@@ -1171,12 +1174,13 @@ func (f fieldData) JSONTag() string {
 }
 
 // MsgpackTag returns the field's msgpack tag. vmihailenco/msgpack honors only
-// `,omitempty`, which also omits an allocated empty collection.
+// `,omitempty`, which also omits an allocated empty collection, so an optional
+// collection goes without it: a nil one encodes as nil, and an empty one stays empty.
 func (f fieldData) MsgpackTag() string {
 	if f.WireOmitted {
 		return "-"
 	}
-	if f.IsOptional {
+	if f.IsOptional && !f.IsCollection {
 		return f.JSONName + ",omitempty"
 	}
 	return f.JSONName

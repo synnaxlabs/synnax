@@ -42,7 +42,7 @@ type Range struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Labels contains optional labels attached to this range for categorization and
 	// filtering.
-	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	Labels []label.Label `json:"labels,omitzero" msgpack:"labels"`
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent *Range `json:"parent,omitzero" msgpack:"parent,omitempty"`

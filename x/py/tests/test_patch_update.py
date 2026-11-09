@@ -11,9 +11,10 @@ import json
 from typing import Any, TypedDict
 
 import pytest
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from x import patch
+from x.codec import JSONCodec
 
 
 class Settings(TypedDict):
@@ -96,3 +97,26 @@ class TestList:
         parsed = patch.ValueList[str].model_validate({"remove": ["a"]})
         assert parsed.remove == ["a"]
         assert parsed.set is None
+
+
+class Request(BaseModel):
+    key: str | None = None
+    update: patch.Update[Holder]
+
+
+class TestClears:
+    def test_codec_keeps_clears(self) -> None:
+        """Should keep a None in an update value through the client codec."""
+        request = Request(update=patch.Update[Holder](value={"group": None}))
+        data = JSONCodec().encode(request)
+        assert json.loads(data) == {"update": {"value": {"group": None}, "guards": []}}
+        assert JSONCodec().decode(data, Request) == request
+
+    def test_nested_clear(self) -> None:
+        """Should keep a None below a struct merge and leave absent keys out."""
+        value: Holder = {"settings": {"rate": 5}, "extra": None}
+        request = Request(update=patch.Update[Holder](value=value))
+        assert json.loads(JSONCodec().encode(request))["update"]["value"] == {
+            "settings": {"rate": 5},
+            "extra": None,
+        }
