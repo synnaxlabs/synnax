@@ -392,8 +392,9 @@ type WriterResponse struct {
 	Counter int32                  `protobuf:"varint,3,opt,name=counter,proto3" json:"counter,omitempty"`
 	Error   *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 	End     int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`
-	// unauthorized is true when the writer lacks control of a channel at this commit.
-	// A Core without this field sends no value, which reads as authorized.
+	// unauthorized is true if this commit lacked control of a channel, or if a write
+	// since the last reported commit was refused. Each refusal is reported once. A Core
+	// without this field sends no value, which reads as authorized.
 	Unauthorized  bool `protobuf:"varint,6,opt,name=unauthorized,proto3" json:"unauthorized,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
