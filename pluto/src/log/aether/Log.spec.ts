@@ -381,9 +381,9 @@ describe("log/aether/Log", () => {
   });
 
   describe("timestampPrecision", () => {
-    const lineTime = (timestampPrecision: number): string => {
+    const lineTime = (timestampPrecision: number, stamp = 1_123_456_789n): string => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: new TimeStamp(1_123_456_789n), value: "v" },
+        { channelKey: 1, timestamp: new TimeStamp(stamp), value: "v" },
       ];
       const { log } = setup(entries, REGION_500, {
         timestampPrecision,
@@ -410,6 +410,10 @@ describe("log/aether/Log", () => {
 
     it("should show nanoseconds at a precision of 9", () => {
       expect(lineTime(9)).toBe("00:00:01.123456789");
+    });
+
+    it("should show the fraction of a timestamp before 1970", () => {
+      expect(lineTime(3, -1_123_456_789n)).toBe("23:59:58.876");
     });
 
     it("should pad leading zeros in the fraction", () => {

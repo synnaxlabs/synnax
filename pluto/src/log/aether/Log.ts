@@ -194,10 +194,10 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
 const SECOND_NANOS = TimeStamp.SECOND.valueOf();
 
 const lineTime = (stamp: TimeStamp, precision: number, timeZone: TimeZone): string => {
-  const time = stamp.toString("time", timeZone);
+  const nanos = ((stamp.valueOf() % SECOND_NANOS) + SECOND_NANOS) % SECOND_NANOS;
+  const time = new TimeStamp(stamp.valueOf() - nanos).toString("time", timeZone);
   if (precision === 0) return time;
-  const fraction = String(stamp.valueOf() % SECOND_NANOS).padStart(9, "0");
-  return `${time}.${fraction.slice(0, precision)}`;
+  return `${time}.${String(nanos).padStart(9, "0").slice(0, precision)}`;
 };
 
 const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
