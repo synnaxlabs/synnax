@@ -79,6 +79,8 @@ export interface Line extends z.infer<typeof lineZ> {}
 export const methodsZ = {
   /** Returns the selected lines at the time of the call. */
   selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+  /** Returns whether a select-all leaves out stored values the log does not hold. */
+  selectionPartial: z.function({ input: z.tuple([]), output: z.boolean() }),
 };
 
 /**
@@ -907,6 +909,12 @@ export class Log
       const lineColor = valueColors[channelKey];
       return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
     });
+  }
+
+  selectionPartial(): boolean {
+    if (this.state.selectionEnd !== SELECT_ALL_END) return false;
+    const { exhausted, live } = this.internal.telem.wrapped;
+    return exhausted === false || live === false;
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

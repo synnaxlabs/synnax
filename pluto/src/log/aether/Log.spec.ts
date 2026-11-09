@@ -1774,6 +1774,39 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("selectionPartial", () => {
+    const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
+    const SELECT_ALL = { selectionStart: 0, selectionEnd: SELECT_ALL_END };
+
+    it("should be true for a select-all when older values are stored", () => {
+      const { log } = setup(entries, REGION_500, SELECT_ALL);
+      expect(log.selectionPartial()).toBe(true);
+    });
+
+    it("should be true for a select-all when newer values are stored", () => {
+      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      source.exhausted = true;
+      source.live = false;
+      updateState(SELECT_ALL);
+      expect(log.selectionPartial()).toBe(true);
+    });
+
+    it("should be false for a select-all of a log that holds every value", () => {
+      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      source.exhausted = true;
+      updateState(SELECT_ALL);
+      expect(log.selectionPartial()).toBe(false);
+    });
+
+    it("should be false for a selection that is not a select-all", () => {
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 4,
+      });
+      expect(log.selectionPartial()).toBe(false);
+    });
+  });
+
   describe("render with selection highlighting", () => {
     it("should not render selection when no selection is active", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));

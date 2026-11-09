@@ -75,11 +75,17 @@ const LINES = [
   { text: "two", color: "#ff0000" },
 ];
 
-const setupAether = (overrides: Record<string, unknown> = {}) => {
+const setupAether = (overrides: Record<string, unknown> = {}, partial = false) => {
   const setState = vi.fn();
   const state = { ...DEFAULT_STATE, ...overrides };
   const selectedLines = vi.fn(async () => LINES);
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines }]);
+  const selectionPartial = vi.fn(async () => partial);
+  mockAetherUse.mockReturnValue([
+    "test-key",
+    state,
+    setState,
+    { selectedLines, selectionPartial },
+  ]);
   return { setState, state, selectedLines };
 };
 
@@ -427,8 +433,11 @@ describe("log/Base", () => {
       const { statuses } = Status.useNotifications();
       return (
         <>
-          {statuses.map(({ key, message }) => (
-            <span key={key}>{message}</span>
+          {statuses.map(({ key, variant, message, description }) => (
+            <span key={key}>
+              <span>{`${variant}: ${message}`}</span>
+              {description != null && <span>{description}</span>}
+            </span>
           ))}
         </>
       );
@@ -499,7 +508,9 @@ describe("log/Base", () => {
         expect(fireEvent.copy(getLogDiv(container))).toBe(false);
       });
       expect(copied).toHaveBeenCalledWith("<one>\ntwo");
-      expect(await screen.findByText("Copied 2 lines to clipboard")).toBeDefined();
+      expect(
+        await screen.findByText("success: Copied 2 lines to clipboard"),
+      ).toBeDefined();
     });
 
     it("should report a copy the browser refuses", async () => {
@@ -511,7 +522,9 @@ describe("log/Base", () => {
       await act(async () => {
         fireEvent.copy(getLogDiv(container));
       });
-      expect(await screen.findByText("Failed to copy to clipboard")).toBeDefined();
+      expect(
+        await screen.findByText("error: Failed to copy to clipboard"),
+      ).toBeDefined();
     });
 
     it("should report the count of copied lines", async () => {
@@ -521,7 +534,22 @@ describe("log/Base", () => {
       await act(async () => {
         fireEvent.copy(getLogDiv(container));
       });
-      expect(await screen.findByText("Copied 2 lines to clipboard")).toBeDefined();
+      expect(
+        await screen.findByText("success: Copied 2 lines to clipboard"),
+      ).toBeDefined();
+    });
+
+    it("should warn that a select-all copy leaves out stored values", async () => {
+      stubClipboard();
+      setupAether({ ...SELECTED, selectionEnd: Number.MAX_SAFE_INTEGER }, true);
+      const { container } = renderLog({ children: <Messages /> });
+      await act(async () => {
+        fireEvent.copy(getLogDiv(container));
+      });
+      expect(
+        await screen.findByText("warning: Copied 2 lines to clipboard"),
+      ).toBeDefined();
+      expect(screen.getByText(/export the log/)).toBeDefined();
     });
   });
 
