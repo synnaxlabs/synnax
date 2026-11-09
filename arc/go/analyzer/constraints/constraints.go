@@ -63,8 +63,8 @@ type System struct {
 	Substitutions map[string]types.Type
 	// TypeVars tracks all type variables encountered during constraint collection.
 	TypeVars map[string]types.Type
-	// Defaults maps an unconstrained type variable to the type it takes when no
-	// constraint binds it.
+	// Defaults maps a type variable to the type it takes when no constraint binds it,
+	// in place of its constraint's default.
 	Defaults map[string]types.Type
 	// openNumerics holds the numeric type variables that stand for an open series
 	// element.

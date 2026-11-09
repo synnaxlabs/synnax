@@ -106,10 +106,10 @@ func (s *System) Unify() error {
 
 	for name, tv := range s.TypeVars {
 		if _, resolved := s.Substitutions[name]; !resolved {
-			if tv.Constraint != nil {
-				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
-			} else if t, ok := s.Defaults[name]; ok {
+			if t, ok := s.Defaults[name]; ok {
 				s.Substitutions[name] = t
+			} else if tv.Constraint != nil {
+				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 			} else {
 				return errors.Wrapf(ErrUnresolvedVariable, "%s", name)
 			}
@@ -234,6 +234,25 @@ func (s *System) numericYields(a, b types.Type) bool {
 		s.openNumerics.Contains(b.Name)
 }
 
+// integerIntoGeneric returns the integer literal and the generic numeric variable
+// among a and b, when they are one of each. A generic numeric variable is one that
+// does not stand for an open series element.
+func (s *System) integerIntoGeneric(a, b types.Type) (types.Type, types.Type, bool) {
+	isKind := func(t types.Type, k types.Kind) bool {
+		return t.Constraint != nil && t.Constraint.Kind == k
+	}
+	isGeneric := func(t types.Type) bool {
+		return isKind(t, types.KindNumericConstant) && !s.openNumerics.Contains(t.Name)
+	}
+	if isKind(a, types.KindIntegerConstant) && isGeneric(b) {
+		return a, b, true
+	}
+	if isKind(b, types.KindIntegerConstant) && isGeneric(a) {
+		return b, a, true
+	}
+	return types.Type{}, types.Type{}, false
+}
+
 // openIntegerTarget returns the one of a and b that is the open element of an empty
 // series, unbound and with a default, when the other is an integer literal.
 func (s *System) openIntegerTarget(a, b types.Type) (types.Type, bool) {
@@ -288,6 +307,15 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.recordTypeVars(bound)
 			s.Substitutions[open.Name] = bound
 			return s.unifyTypeVariableWithVisited(tv, other, source, visiting)
+		}
+		// An integer literal takes a generic numeric variable's type, so a later float
+		// still widens it. With no float, the variable defaults to i64.
+		if lit, generic, ok := s.integerIntoGeneric(tv, other); ok {
+			if _, set := s.Defaults[generic.Name]; !set {
+				s.Defaults[generic.Name] = types.I64()
+			}
+			s.Substitutions[lit.Name] = generic
+			return nil
 		}
 		if tv.Constraint != nil && other.Constraint == nil {
 			s.Substitutions[other.Name] = tv
