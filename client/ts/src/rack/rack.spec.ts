@@ -10,7 +10,7 @@
 import { id, sleep, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
@@ -42,7 +42,7 @@ describe("Rack", () => {
         message: "Custom rack status",
         description: "Rack is running",
         time: TimeStamp.now(),
-        details: { rack: 0 },
+        labels: [],
       };
       const r = await client.racks.create({
         name: "rack-with-status",
@@ -57,11 +57,11 @@ describe("Rack", () => {
       expect(retrieved.status?.variant).toBe("success");
       expect(retrieved.status?.message).toBe("Custom rack status");
       expect(retrieved.status?.description).toBe("Rack is running");
-      expect(retrieved.status?.details?.rack).toBe(r.key);
+      expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
     });
     it("should return the status of a new rack", async () => {
       const r = await client.racks.create({ name: "created-status" });
-      expect(r.status?.key).toBe(rack.statusKey(r.key));
+      expect(r.status?.owner).toEqual(rack.resourceID(r.key));
     });
     it("should answer a cached status query for a new rack", async () => {
       const local = createTestClient();
@@ -69,7 +69,7 @@ describe("Rack", () => {
       const r = await local.racks.create({ name: "cached-status" });
       const cached = local.racks.getCached({ key: r.key, includeStatus: true });
       expect(cached).toBeInstanceOf(rack.Rack);
-      expect((cached as rack.Rack).status?.key).toBe(rack.statusKey(r.key));
+      expect((cached as rack.Rack).status?.owner).toEqual(rack.resourceID(r.key));
     });
   });
   describe("update", () => {
@@ -134,7 +134,7 @@ describe("Rack", () => {
       await waitForStreamLive(local.connection);
       await local.racks.retrieve(r.key);
       const { responded, release } = holdResponses(local, "/rack/retrieve");
-      const fetching = local.racks.retrieve({ where: { name: { eq: r.name } } });
+      const fetching = local.racks.retrieve({ name: [r.name] });
       await responded;
       const name = `rack-renamed-${id.create()}`;
       await client.racks.rename(r.key, name);
@@ -152,6 +152,24 @@ describe("Rack", () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a rack by its name", async () => {
+      const created = await client.racks.create({ name: `named-rack-${id.create()}` });
+      const retrieved = await client.racks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
+    it("retrieves racks by a list of names", async () => {
+      const prefix = `named-racks-${id.create()}`;
+      const created = await client.racks.create([
+        { name: `${prefix}-a` },
+        { name: `${prefix}-b` },
+      ]);
+      const retrieved = await client.racks.retrieve(created.map((r) => r.name));
+      expect(retrieved.map((r) => r.key).sort()).toEqual(
+        created.map((r) => r.key).sort(),
+      );
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await client.racks.create({ name: "coalesce-a" }),
@@ -196,6 +214,31 @@ describe("Rack", () => {
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
     });
+    it("should reject a page on a plain name", async () => {
+      const name = `rack-page-${id.create()}`;
+      await client.racks.create([{ name }, { name }]);
+      await expect(
+        // @ts-expect-error - a page could hide a second rack with the name.
+        client.racks.retrieve({ name, limit: 1 }),
+      ).rejects.toThrow(
+        new ValidationError(
+          "a query for one record takes no limit or offset, since a page could hide a " +
+            "second match",
+        ),
+      );
+    });
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.racks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - embedded takes a boolean.
+        client.racks.retrieve({ embedded: "yes" }),
+      ).rejects.toThrow('✗ "embedded": "yes"  × expected boolean');
+    });
     it("should retrieve racks that match any branch of an or", async () => {
       const [a, b, c] = await client.racks.create([
         { name: `rack-or-${id.create()}` },
@@ -212,14 +255,8 @@ describe("Rack", () => {
     });
     it("should treat a missing key as a non-match", async () => {
       const r = await client.racks.create({ name: "rack-missing-key" });
-      const results = await client.racks.retrieve({
-        where: { key: { in: [r.key, 4123456789] } },
-      });
+      const results = await client.racks.retrieve({ key: [r.key, 4123456789] });
       expect(results.map(({ key }) => key)).toEqual([r.key]);
-    });
-    it("should retrieve the racks on the Core that serves the request", async () => {
-      const racks = await client.racks.retrieve({ where: { hostIsNode: true } });
-      expect(racks.some((r) => r.embedded)).toBe(true);
     });
     it("should retrieve racks by search term", async () => {
       const prefix = `searchable-rack-${id.create()}`;
@@ -251,9 +288,7 @@ describe("Rack", () => {
         name: "rack-modbus-only",
         integrations: ["modbus"],
       });
-      const results = await client.racks.retrieve({
-        where: { integrations: { any: ["ni"] } },
-      });
+      const results = await client.racks.retrieve({ integrations: "ni" });
       const keys = results.map((r) => r.key);
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);
@@ -285,6 +320,20 @@ describe("Rack", () => {
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });
+  describe("version", () => {
+    it("should keep the Driver version of a rack", async () => {
+      const r = await client.racks.create({
+        name: "rack-with-version",
+        version: "0.61.3",
+      });
+      expect(r.version).toBe("0.61.3");
+      const retrieved = await client.racks.retrieve({
+        key: r.key,
+        includeStatus: true,
+      });
+      expect(retrieved.version).toBe("0.61.3");
+    });
+  });
   describe("tasks", () => {
     it("should list the tasks on a rack", async () => {
       const r = await client.racks.create({ name: "test" });
@@ -306,7 +355,7 @@ describe("Rack", () => {
           return status;
         })
         .toBeDefined();
-      expect(status?.details?.rack).toBe(r.key);
+      expect(status?.owner).toEqual(rack.resourceID(r.key));
     });
     it("should include the status for multiple racks", async () => {
       const r1 = await client.racks.create({ name: "test1" });
@@ -315,7 +364,7 @@ describe("Rack", () => {
       await expect
         .poll(async () => {
           const retrieved = await client.racks.retrieve({
-            where: { key: { in: [r1.key, r2.key] } },
+            key: [r1.key, r2.key],
             includeStatus: true,
           });
           statuses = retrieved.map((r) => r.status);
@@ -323,8 +372,8 @@ describe("Rack", () => {
         })
         .toBe(true);
       expect(statuses).toHaveLength(2);
-      expect(statuses[0]?.details?.rack).toBe(r1.key);
-      expect(statuses[1]?.details?.rack).toBe(r2.key);
+      expect(statuses[0]?.owner).toEqual(rack.resourceID(r1.key));
+      expect(statuses[1]?.owner).toEqual(rack.resourceID(r2.key));
     });
     it("should compose streamed statuses onto a single query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-single" });
@@ -336,11 +385,10 @@ describe("Rack", () => {
       });
       try {
         await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(r.key),
+          status.create({
+            owner: rack.resourceID(r.key),
             variant: "warning",
             message: "Rack needs attention",
-            details: { rack: r.key },
           }),
         );
         await expect
@@ -361,11 +409,10 @@ describe("Rack", () => {
       });
       try {
         await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(r.key),
+          status.create({
+            owner: rack.resourceID(r.key),
             variant: "error",
             message: "Rack went dark",
-            details: { rack: r.key },
           }),
         );
         await expect
@@ -388,7 +435,7 @@ describe("Rack", () => {
         const params = { key: r.key, includeStatus: true };
         expect(local.racks.getCached(params)).toBeUndefined();
         const retrieved = await local.racks.retrieve(params);
-        expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+        expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
       });
       it("should fetch the status after a rack arrives on the stream", async () => {
         const r = await client.racks.create({ name: "stream-cached" });
@@ -411,7 +458,7 @@ describe("Rack", () => {
           const params = { key: r.key, includeStatus: true };
           expect(local.racks.getCached(params)).toBeUndefined();
           const retrieved = await local.racks.retrieve(params);
-          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+          expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
         } finally {
           stop();
         }
@@ -428,7 +475,7 @@ describe("Rack", () => {
           },
         );
         try {
-          await expect.poll(() => seen.at(-1)?.key).toBe(rack.statusKey(r.key));
+          await expect.poll(() => seen.at(-1)?.owner).toEqual(rack.resourceID(r.key));
           expect(seen.every((st) => st != null)).toBe(true);
         } finally {
           stop();
@@ -444,7 +491,7 @@ describe("Rack", () => {
         const stop = local.racks.onChange(params, () => {});
         try {
           const retrieved = await local.racks.retrieve(params);
-          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+          expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
           await sleep.sleep(REFETCH_WINDOW);
           expect(retrieves(send)).toHaveLength(1);
         } finally {
@@ -465,7 +512,7 @@ describe("Rack", () => {
           const reading = local.racks.retrieve(params);
           release();
           const retrieved = await reading;
-          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+          expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
           await sleep.sleep(REFETCH_WINDOW);
           expect(retrieves(send)).toHaveLength(1);
         } finally {
@@ -474,7 +521,10 @@ describe("Rack", () => {
       });
       it("should keep the answer of a fetch that found no status", async () => {
         const r = await client.racks.create({ name: "no-status-row" });
-        await client.statuses.delete(rack.statusKey(r.key));
+        const [st] = await client.statuses.retrieve({
+          owners: [rack.resourceID(r.key)],
+        });
+        await client.statuses.delete(st.key);
         const local = createTestClient();
         await local.racks.retrieve(r.key);
         const params = { key: r.key, includeStatus: true };
@@ -485,9 +535,7 @@ describe("Rack", () => {
         expect((cached as rack.Rack).status).toBeUndefined();
       });
     });
-    // Task and device statuses both name their rack in their details, and both parse
-    // against the rack status schema, so only the key tells them apart.
-    it("should not adopt a task or device status naming the rack", async () => {
+    it("should not adopt a status that the rack does not own", async () => {
       const r = await client.racks.create({ name: "status-impostor" });
       const params = { key: r.key, includeStatus: true };
       await client.racks.retrieve(params);
@@ -495,22 +543,16 @@ describe("Rack", () => {
       const stop = client.racks.onChange(params, (cached) => {
         if (query.isLive(cached)) seen.push(cached.status?.message);
       });
-      const impostor = (type: string, message: string) =>
-        status.create<typeof rack.statusDetailsZ>({
-          key: `${type}:${id.create()}`,
-          variant: "loading",
-          message,
-          details: { rack: r.key },
-        });
+      const impostor = (message: string) =>
+        status.create({ key: id.create(), variant: "loading", message });
       try {
-        await client.statuses.set(impostor("task", "Sending start command"));
-        await client.statuses.set(impostor("device", "Device reconnecting..."));
+        await client.statuses.set(impostor("Sending start command"));
+        await client.statuses.set(impostor("Device reconnecting..."));
         await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(r.key),
+          status.create({
+            owner: rack.resourceID(r.key),
             variant: "success",
             message: "Driver alive",
-            details: { rack: r.key },
           }),
         );
         await expect.poll(() => seen.at(-1)).toBe("Driver alive");

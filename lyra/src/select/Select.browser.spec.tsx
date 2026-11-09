@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -406,6 +407,43 @@ describe("Select", () => {
       expect(bottom(last)).toBeGreaterThan(bottom(scroll));
       await userEvent.wheel(scroll, { delta: { y: 1000 } });
       await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
+    });
+
+    it("should show the new options when they shrink under a scrolled list", async () => {
+      const keys = (prefix: string, count: number): string[] =>
+        Array.from({ length: count }, (_, i) => `${prefix}-${i}`);
+      const select = (data: string[]): ReactElement => (
+        <Select.Single<string, undefined>
+          resourceName="channel"
+          value="old-0"
+          onChange={() => {}}
+          data={data}
+          initialVisible
+          allowNone
+        >
+          {({ key, ...rest }) => (
+            <Select.Item key={key} {...rest} textValue={rest.itemKey}>
+              {rest.itemKey}
+            </Select.Item>
+          )}
+        </Select.Single>
+      );
+      const { getByRole, getByText, rerender } = await renderThemed(
+        select(keys("old", 200)),
+      );
+      const scroll = getByRole("listbox").element();
+      await expect.poll(() => scroll.scrollHeight).toBeGreaterThan(5000);
+      scroll.scrollTop = scroll.scrollHeight;
+      await expect.poll(() => getByText("old-199").elements().length).toBe(1);
+
+      await rerender(select(keys("new", 3)));
+
+      await expect.poll(() => getByText("new-0").elements().length).toBe(1);
+      expect(getByRole("dialog").element().isConnected).toBe(true);
+      expect(getByRole("listbox").element()).toBe(scroll);
+      expect(scroll.scrollTop).toBeLessThanOrEqual(
+        Math.max(0, scroll.scrollHeight - scroll.clientHeight),
+      );
     });
   });
 

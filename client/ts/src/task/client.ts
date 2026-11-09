@@ -14,27 +14,26 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  filter,
   id,
   primitive,
   type record,
   strings,
   sync,
   TimeSpan,
-  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key as RackKey,
-  keyZ as rackKeyZ,
-  ontologyID as rackOntologyID,
+  resourceID as rackResourceID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
-import { type ranger } from "@/ranger";
+import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
 import {
@@ -49,10 +48,10 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Payload,
   type PayloadSchemas as Schemas,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   type Status,
@@ -60,7 +59,8 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/task/where.gen";
+import { LINES } from "@/task/where";
+import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -113,12 +113,6 @@ interface CommandDeadline {
  */
 export const defaultStatusZ = statusZ();
 
-const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
-  if (parents.length === 0) return null;
-  return parents[0];
-};
-
 /** One command sent to a task, as issued from the task itself. */
 export interface TaskExecuteCommandParams {
   type: string;
@@ -163,6 +157,8 @@ export class Task<S extends Schemas = Schemas> {
   internal: boolean;
   type: z.infer<S["type"]>;
   snapshot: boolean;
+  /** The range the task is a snapshot in, if any. */
+  readonly range?: ranger.Key;
   config: z.infer<S["config"]>;
   readonly configHash: string;
   status?: Status<S["statusData"]>;
@@ -170,18 +166,12 @@ export class Task<S extends Schemas = Schemas> {
   readonly schemas: S;
   private readonly clients?: {
     frame: framer.Client;
-    ontology: ontology.Client;
     range: ranger.Client;
   };
 
   get frameClient(): framer.Client {
     if (this.clients == null) throw new Error("Task not created");
     return this.clients.frame;
-  }
-
-  get ontologyClient(): ontology.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.ontology;
   }
 
   get rangeClient(): ranger.Client {
@@ -199,11 +189,11 @@ export class Task<S extends Schemas = Schemas> {
       configHash = "",
       internal = false,
       snapshot = false,
+      range,
       status,
     }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
-    ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
   ) {
     this.key = key;
@@ -221,13 +211,10 @@ export class Task<S extends Schemas = Schemas> {
       } as unknown as S);
     this.internal = internal;
     this.snapshot = snapshot;
+    this.range = range;
     this.status = status;
-    if (frameClient != null && ontologyClient != null && rangeClient != null)
-      this.clients = {
-        frame: frameClient,
-        ontology: ontologyClient,
-        range: rangeClient,
-      };
+    if (frameClient != null && rangeClient != null)
+      this.clients = { frame: frameClient, range: rangeClient };
   }
 
   get payload(): Payload<S> {
@@ -241,11 +228,12 @@ export class Task<S extends Schemas = Schemas> {
       status: this.status,
       internal: this.internal,
       snapshot: this.snapshot,
+      range: this.range,
     };
   }
 
-  get ontologyID(): ontology.ID {
-    return ontologyID(this.key);
+  get resourceID(): resource.ID {
+    return resourceID(this.key);
   }
 
   async executeCommand(params: TaskExecuteCommandParams): Promise<string> {
@@ -293,22 +281,18 @@ export class Task<S extends Schemas = Schemas> {
     }
   }
 
-  async snapshottedTo(): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null || this.rangeClient == null)
-      throw new Error("Task not created");
-    if (!this.snapshot) return null;
-    return await retrieveSnapshottedTo(this.key, this.ontologyClient);
+  /** Returns the range the task is a snapshot in, or null if it sits in no range. */
+  async snapshottedTo(): Promise<ranger.Range | null> {
+    if (this.range == null) return null;
+    return await this.rangeClient.retrieve(this.range);
   }
 }
 
-/** Names one task in the cache: by key, by name, or by type and rack. */
-type SingleRequest = { key: Key } | { name: string } | { type: string; rack?: RackKey };
+/** Names one task in the cache: by key or by name. */
+type SingleRequest = { key: Key } | { name: string };
 
-const singleWhere = (q: SingleRequest): Where => {
-  if ("key" in q) return { key: { eq: q.key } };
-  if ("name" in q) return { name: { eq: q.name } };
-  return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
-};
+const singleWhere = (q: SingleRequest): Where =>
+  "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
 
 const singleRetrieveParamsZ = z.union([
   z
@@ -323,18 +307,8 @@ const singleRetrieveParamsZ = z.union([
       where: singleWhere({ name }),
       includeStatus,
     })),
-  z
-    .strictObject({
-      type: z.string(),
-      rack: rackKeyZ.optional(),
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ type, rack, includeStatus }): RetrieveRequest => ({
-      where: singleWhere({ type, rack }),
-      includeStatus,
-    })),
 ]);
-/** Names one task: by key, by name, or by type and rack. */
+/** Names one task: by key or by name. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 /** Everything a multi-task retrieval can filter on. */
@@ -342,45 +316,34 @@ export type RetrieveMultipleParams = RetrieveRequest;
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
 
-const retrieveParamsZ = z.union([
-  singleRetrieveParamsZ,
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
-const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
-  if ("key" in params) return { key: params.key };
-  if ("name" in params) return { name: params.name };
-  return params.rack == null
-    ? { type: params.type }
-    : { type: params.type, rack: params.rack };
-};
+const normalizeSingle = (params: RetrieveSingleParams): SingleRequest =>
+  "key" in params ? { key: params.key } : { name: params.name };
 
 const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({
-      type: z.string(),
-      rack: rackKeyZ.optional(),
-      includeStatus: z.boolean().optional(),
-    }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
-  filterParamsZ.transform(({ includeStatus: _, ...rest }) => rest),
-]);
+const retrieveMultiParamsZ = requestParamsZ.transform(
+  ({ includeStatus: _, ...rest }) => rest,
+);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is OneParams => query.addressesOne(params);
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -400,18 +363,22 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
+const copyReqZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+  range: ranger.keyZ.optional(),
+});
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
 const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
-  matches(t, singleWhere(q));
+  matches(LINES, t, singleWhere(q));
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
-  ontology: ontology.Client;
   ranges: ranger.Client;
   cache: query.Cache;
   statuses: status.Client;
@@ -433,15 +400,13 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
-  private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
     const statusStore = statuses.store;
-    const statusesByTask = statusStore.index(
-      new query.LookupIndex<status.Key, status.Status>(statusTaskKey),
-    );
+    const affectedKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "task");
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -479,11 +444,12 @@ export class Client extends query.Retriever<
         statusStore.batch(() =>
           commands.forEach((changed) => {
             if (!LOADING_COMMANDS.includes(changed.type)) return;
-            const key = statusKey(changed.task);
-            // Commands reach every client, so one for a task this client neither
-            // tracks nor holds a status for is dropped.
-            if (store.get(changed.task) == null && statusStore.get(key) == null) return;
-            const optimistic = this.optimisticStatus(changed);
+            // Commands reach every client, and only the status the cache holds for the
+            // task has a known key, so a command for any other task shows nothing until
+            // the Driver answers.
+            const held = statuses.ownedBy(resourceID(changed.task));
+            if (held == null) return;
+            const optimistic = this.optimisticStatus(changed, held.key);
             statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
@@ -493,11 +459,10 @@ export class Client extends query.Retriever<
     // status, so the reply is matched on arrival rather than when the deadline fires.
     statusStore.subscribe((event) => {
       if (event.variant !== "set") return;
-      const task = statusTaskKey(event.value);
-      if (task == null) {
-        this.standInForDownRack(event.value);
-        return;
-      }
+      const { owner } = event.value;
+      if (owner?.type === "rack") this.standInForDownRack(event.value);
+      if (owner?.type !== "task") return;
+      const task = owner.key;
       const pending = this.commandDeadlines.get(task);
       if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
@@ -523,11 +488,12 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
+      shortcut: shortcutZ,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (t, req) => matches(t, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (t, req) => matches(LINES, t, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),
@@ -536,7 +502,6 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.statusesByTask = statusesByTask;
   }
 
   async create(task: New): Promise<Task>;
@@ -579,11 +544,10 @@ export class Client extends query.Retriever<
   }
 
   private dropLocal(keys: Key[]): destructor.Destructor[] {
-    return [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keys)),
-      this.store.delete(keys),
-      this.cfg.statuses.store.delete(keys.map((k) => statusKey(k))),
-    ];
+    const statuses = keys.flatMap(
+      (k) => this.cfg.statuses.ownedBy(resourceID(k))?.key ?? [],
+    );
+    return [this.store.delete(keys), this.cfg.statuses.store.delete(statuses)];
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -608,7 +572,6 @@ export class Client extends query.Retriever<
       this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -644,9 +607,9 @@ export class Client extends query.Retriever<
   }
 
   async retrieve<S extends Schemas = Schemas>(
-    params: RetrieveSingleParams & RetrieveSchemas<S>,
+    params: (RetrieveSingleParams | OneParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
     params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
@@ -654,33 +617,49 @@ export class Client extends query.Retriever<
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | Key[] | ((RetrieveParams | FilterParams) & RetrieveSchemas<S>),
+    rawParams:
+      Key | Key[] | ((RetrieveParams | OneParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as unknown as Task<S>[];
-    const { schemas, ...params } =
-      typeof rawParams === "string" ? { key: rawParams } : rawParams;
-    const isSingle = z.validate(singleRetrieveParamsZ, params);
+    if (typeof rawParams === "string")
+      return (await super.retrieve(rawParams)) as Task<S>;
+    const { schemas, ...params } = rawParams;
+    const isSingle = z.validate(singleRetrieveParamsZ, params) || isOneParams(params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
-      if (!isSingle && "key" in params && typeof params.key === "string") {
-        const res = singleQueryZ.safeParse(params);
-        if (!res.success) throw singleQueryError("task", params, res.error);
+      const request = query.dropOne(params);
+      if (isOneParams(request) && !z.validate(retrieveParamsZ, request)) {
+        const res = singleQueryZ.safeParse(request);
+        if (!res.success) throw singleQueryError("task", request, res.error);
       }
-      const sugared = await this.execRetrieve<S>(params, schemas);
-      checkForMultipleOrNoResults("Task", params, sugared, isSingle);
+      const req = retrieveParamsZ.parse(request);
+      const sugared = await this.execRetrieve<S>(req, schemas);
+      checkForMultipleOrNoResults("task", req, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
     return (await super.retrieve(params)) as unknown as Task<S>[];
   }
 
-  async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
+  /**
+   * Copies the task with the given key under a new key and name. A snapshot copy sits
+   * in the range with key range, or in no range when range is undefined. Only a
+   * snapshot copy can sit in a range.
+   */
+  async copy(key: Key, name: string, snapshot: false): Promise<Task>;
+  async copy(key: Key, name: string, snapshot: true, range?: ranger.Key): Promise<Task>;
+  async copy(
+    key: Key,
+    name: string,
+    snapshot: boolean,
+    range?: ranger.Key,
+  ): Promise<Task> {
     const copyRes = copyResZ();
     const response = await this.cfg.unary.send(
       "/task/copy",
-      { key, name, snapshot },
+      { key, name, snapshot, range },
       copyReqZ,
       copyRes,
     );
@@ -690,21 +669,11 @@ export class Client extends query.Retriever<
   }
 
   async list(rack?: RackKey): Promise<Task[]> {
-    return await this.retrieve({
-      where: {
-        internal: { eq: false },
-        rack: rack == null ? undefined : { eq: rack },
-      },
-    });
-  }
-
-  async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.cfg.ontology == null) throw new Error("Task not created");
-    return await retrieveSnapshottedTo(taskKey, this.cfg.ontology);
+    return await this.retrieve({ internal: false, ...(rack != null && { rack }) });
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
-    params: RetrieveParams | FilterParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: S,
   ): Promise<Task<S>[]> {
     const res = await this.cfg.unary.send(
@@ -724,26 +693,23 @@ export class Client extends query.Retriever<
     return this.sugar({ ...payload, status: st });
   }
 
-  // Every domain's statuses share one store, so a rack's status sits beside its
-  // tasks' under the rack's ontology ID.
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statuses.store.get(ontology.idToString(rackOntologyID(rack)));
+    const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
     if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
     return stat;
   }
 
   /**
-   * Builds the status shown while a command is in flight. A rack whose Driver is down
-   * answers nothing, so its warning stands in for a wait that would never end.
+   * Builds the status shown under key while a command is in flight. A rack whose Driver
+   * is down answers nothing, so its warning stands in for a wait that would never end.
    */
-  private optimisticStatus(cmd: Command): Status {
+  private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
     // optimistic status claim the task deployed with an empty config/rack.
     const latest = this.latestStatusOf(cmd.task);
-    const key = statusKey(cmd.task);
+    const owner = resourceID(cmd.task);
     const details = {
-      task: cmd.task,
       cmd: "",
       configHash: latest?.details.configHash ?? "",
       rack: latest?.details.rack ?? 0,
@@ -756,6 +722,7 @@ export class Client extends query.Retriever<
       return status.create<StatusDetailsZodObject>({
         key,
         name,
+        owner,
         variant: "loading",
         message: `Sending ${cmd.type} command`,
         details: { ...details, running: true },
@@ -763,6 +730,7 @@ export class Client extends query.Retriever<
     return status.create<StatusDetailsZodObject>({
       key,
       name,
+      owner,
       variant: "warning",
       message: down.message,
       description: down.description,
@@ -777,14 +745,13 @@ export class Client extends query.Retriever<
       const down = this.downRackStatus(this.store.get(task)?.rack);
       if (down?.key !== rackStatus.key) continue;
       // A batch stores a reply before it delivers the reply's event.
-      const answered = this.statusesByTask
-        .get(task)
-        .some(
-          (s) =>
-            s !== pending.optimistic && status.detailsOf(s)?.cmd === pending.cmd.key,
-        );
+      const held = this.cfg.statuses.ownedBy(resourceID(task));
+      const answered =
+        held != null &&
+        held !== pending.optimistic &&
+        status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
-      pending.optimistic = this.optimisticStatus(pending.cmd);
+      pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
       this.cfg.statuses.setLocal(pending.optimistic);
     }
   }
@@ -792,17 +759,19 @@ export class Client extends query.Retriever<
   // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statuses } = this.cfg;
-    const key = statusKey(cmd.task);
+    const owner = resourceID(cmd.task);
     clearTimeout(this.commandDeadlines.get(cmd.task)?.timer);
     // A reply disarms the deadline on arrival, so firing means nothing answered.
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
-      if (statuses.store.get(key) == null) return;
+      const held = statuses.ownedBy(owner);
+      if (held == null) return;
       if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
       statuses.setLocal(
         status.create<StatusDetailsZodObject>({
-          key,
+          key: held.key,
           name: optimistic.name,
+          owner,
           variant: "warning",
           message: `No response to the ${cmd.type} command`,
           description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
@@ -818,25 +787,10 @@ export class Client extends query.Retriever<
     this.commandDeadlines.set(cmd.task, { cmd, timer, optimistic });
   }
 
-  // A task's status may live under the "task:<key>" row or under any status whose
-  // details reference the task; the freshest wins, ties going to the more severe. Rows
-  // are parsed because the status table holds every domain's statuses generically.
+  // Parsed because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
-    const direct = this.cfg.statuses.store.get(statusKey(key));
-    const rows = this.statusesByTask.get(key);
-    // A task status names its task in details too, so the index usually holds it.
-    if (direct != null && !rows.includes(direct)) rows.push(direct);
-    const candidates = rows
-      .map((s) => defaultStatusZ.safeParse(s))
-      .filter((p) => p.success)
-      .map((p) => p.data);
-    if (candidates.length === 0) return undefined;
-    return candidates.reduce((latest, s) => {
-      const time = new TimeStamp(s.time);
-      const latestTime = new TimeStamp(latest.time);
-      if (!time.equals(latestTime)) return time.after(latestTime) ? s : latest;
-      return status.moreSevere(s.variant, latest.variant) ? s : latest;
-    });
+    const parsed = defaultStatusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(key)));
+    return parsed.success ? parsed.data : undefined;
   }
 
   private writeThrough(task: Task): void {
@@ -865,21 +819,24 @@ export class Client extends query.Retriever<
     const cached = "key" in q ? this.store.get(q.key) : undefined;
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
-    if (cached != null && this.cfg.statuses.store.has(statusKey(cached.key)))
+    if (cached != null && this.cfg.statuses.ownedBy(resourceID(cached.key)) != null)
       return this.compose(cached);
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults("Task", q, tasks, true);
+      checkForMultipleOrNoResults(
+        "task",
+        { where: { key: { eq: q.key } } },
+        tasks,
+        true,
+      );
       return this.compose(tasks[0]);
     }
     const since = this.store.stamp();
     const statusSince = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({
-      where: singleWhere(q),
-      includeStatus: true,
-    });
-    checkForMultipleOrNoResults("Task", q, tasks, true);
+    const where = singleWhere(q);
+    const tasks = await this.execRetrieve({ where, includeStatus: true });
+    checkForMultipleOrNoResults("task", { where }, tasks, true);
     this.hydrate(tasks[0], since, statusSince);
     return tasks[0];
   }
@@ -893,26 +850,9 @@ export class Client extends query.Retriever<
     schemas?: S,
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
-    const res = array.toArray(payloads).map(
-      ({ key, rack, name, type, config, configHash, status, internal, snapshot }) =>
-        new Task(
-          {
-            key,
-            rack,
-            name,
-            type,
-            config,
-            configHash,
-            internal,
-            snapshot,
-            status,
-          },
-          schemas,
-          this.cfg.framer,
-          this.cfg.ontology,
-          this.cfg.ranges,
-        ),
-    );
+    const res = array
+      .toArray(payloads)
+      .map((payload) => new Task(payload, schemas, this.cfg.framer, this.cfg.ranges));
     return isSingle ? res[0] : res;
   }
 
@@ -998,38 +938,6 @@ export class Client extends query.Retriever<
     return tasks.flatMap((t) => this.store.get(t)?.rack ?? []);
   }
 }
-
-/** @returns the key of the status that reports on the given task. */
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
-
-/**
- * @returns the key of the task the status reports on, or null when it names none.
- * Guarded before the key parse: most statuses in the table belong to other domains,
- * and a failed zod parse costs orders of magnitude more than the miss is worth.
- */
-const statusTaskKey = (s: status.Status): Key | null => {
-  const task = status.detailsOf(s)?.task;
-  if (typeof task !== "string") return null;
-  return z.validate(keyZ, task) ? task : null;
-};
-
-/**
- * @returns the keys of the tasks a status change affects, or null when none. A status
- * names its task in `details.task`, with the "task:<key>" status key as a fallback.
- */
-export const affectedKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const keys: Key[] = [];
-  if (event.variant === "set") {
-    const task = statusTaskKey(event.value);
-    if (task != null) keys.push(task);
-  }
-  const [type, key] = event.key.split(":");
-  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
-    keys.push(key);
-  return keys.length === 0 ? null : keys;
-};
 
 interface ExecuteCommandInternalParams extends NewCommand {
   frameClient: framer.Client | null;
@@ -1130,10 +1038,10 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw new Error("Task not created");
-  const rackStatusKeys = new Set(
+  const rackOwners = new Set(
     racks
       .filter((r) => primitive.isNonZero(r))
-      .map((r) => ontology.idToString(rackOntologyID(r))),
+      .map((r) => resource.idToString(rackResourceID(r))),
   );
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
@@ -1152,7 +1060,8 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
           const rackRes = rackStatusZ.safeParse(decoded);
           if (
             rackRes.success &&
-            rackStatusKeys.has(rackRes.data.key) &&
+            rackRes.data.owner != null &&
+            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
             !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
           )
             throw status.toError(rackRes.data);

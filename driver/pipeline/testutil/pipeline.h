@@ -277,6 +277,25 @@ public:
     }
 };
 
+/// @brief opens writers on a live Core and counts the ones that open.
+class CoreWriterFactory final : public pipeline::WriterFactory {
+    pipeline::SynnaxWriterFactory internal;
+
+public:
+    /// @brief the number of writers that opened without an error.
+    std::atomic<size_t> writers_open = 0;
+
+    explicit CoreWriterFactory(std::shared_ptr<synnax::Synnax> client):
+        internal(std::move(client)) {}
+
+    std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &config) override {
+        auto res = this->internal.open_writer(config);
+        if (!res.second) this->writers_open.fetch_add(1, std::memory_order_release);
+        return res;
+    }
+};
+
 /// @brief Returns the sample rate the captured frames' own index timestamps imply,
 /// the way the integration suite derives a running task's rate. Returns 0 when fewer
 /// than two samples were written.

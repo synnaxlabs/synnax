@@ -25,6 +25,24 @@ from x.strings import random_name
 from x.testutil import assert_eventually
 
 
+class TestWhere:
+    def test_partial_record(self) -> None:
+        key = uuid4()
+        record: ranger.WhereInput = {
+            "name": "a",
+            "labels": key,
+            "or": [{"key": [key]}, {"name": {"starts_with": "b"}}],
+        }
+        assert ranger.Where.model_validate(record) == ranger.Where(
+            name=sy.filter.String(eq="a"),
+            labels=[key],
+            or_=[
+                ranger.Where(key=sy.filter.Set[ranger.Key](in_=[key])),
+                ranger.Where(name=sy.filter.String(starts_with="b")),
+            ],
+        )
+
+
 class TestRangeColor:
     def test_no_color(self) -> None:
         """Should leave the color as None when none is given."""
@@ -147,11 +165,8 @@ class TestRangeClient:
             assert rng.name.startswith("test")
             assert rng.key != ""
 
-    def test_create_reusing_resolved_parent(self, client: sy.Synnax) -> None:
-        """Should accept a created range's resolved parent (a Payload) as the parent
-        of another range. The server resolves parent into a Payload, and passing it
-        back through create previously raised AttributeError because Range called
-        to_payload() on it."""
+    def test_create_with_parent_key(self, client: sy.Synnax) -> None:
+        """Should accept a range or its key as the parent of another range."""
         parent = client.ranges.create(
             name=f"parent-{uuid4()}",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -161,15 +176,26 @@ class TestRangeClient:
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             parent=parent,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
+        assert child.parent == parent.key
         sibling = client.ranges.create(
             name=f"sibling-{uuid4()}",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             parent=child.parent,
         )
-        assert sibling.parent is not None
-        assert sibling.parent.key == parent.key
+        assert sibling.parent == parent.key
+        assert client.ranges.retrieve(key=sibling.key).parent == parent.key
+
+    def test_recreate_keeps_parent(self, client: sy.Synnax) -> None:
+        """Should keep the stored parent on a re-create that carries no parent, and
+        replace it on one that does."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        a = client.ranges.create(name=random_name(), time_range=tr)
+        b = client.ranges.create(name=random_name(), time_range=tr)
+        child = client.ranges.create(name=random_name(), time_range=tr, parent=a)
+        client.ranges.create(key=child.key, name=child.name, time_range=tr)
+        assert client.ranges.retrieve(key=child.key).parent == a.key
+        client.ranges.create(key=child.key, name=child.name, time_range=tr, parent=b)
+        assert client.ranges.retrieve(key=child.key).parent == b.key
 
     def test_retrieve_by_key(
         self, two_ranges: list[sy.Range], client: sy.Synnax
@@ -196,9 +222,7 @@ class TestRangeClient:
         self, two_ranges: list[sy.Range], client: sy.Synnax
     ) -> None:
         """Should raise an error when a range is not found"""
-        with pytest.raises(
-            sy.NotFoundError, match="Range matching not_found not found"
-        ):
+        with pytest.raises(sy.NotFoundError, match=r"Found no range where .*not_found"):
             client.ranges.retrieve(name="not_found")
 
     def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
@@ -208,7 +232,7 @@ class TestRangeClient:
         client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Range matching {name}, but found 2",
+            match=rf"Expected one range where .*{name}.*, but found 2",
         ):
             client.ranges.retrieve(name=name)
 
@@ -374,26 +398,6 @@ class TestRangeClient:
             """Should access a channel by name"""
             assert rng[two_channels[0].name].name == two_channels[0].name
 
-        def test_access_by_regex(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should access a channel by regex"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            channels = rng[f"test_{prefix}_.*"]
-            found = 0
-            for _ in channels:
-                found += 1
-            assert found == 2
-
-        def test_single_channel_operation_on_regex_matches(
-            self, rng: sy.Range, two_channels: list[sy.Channel]
-        ) -> None:
-            """Should raise a MultipleFoundError when a single channel operation runs
-            on a query that matches more than one channel"""
-            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
-            with pytest.raises(sy.MultipleFoundError):
-                rng[f"test_{prefix}_.*"].to_numpy()
-
         def test_repeated_access_retrieves_once(
             self,
             counted_client: tuple[sy.Synnax, RetrieveCounter],
@@ -496,13 +500,12 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             with pytest.raises(
-                sy.NotFoundError, match="Channel matching not_found not found"
+                sy.NotFoundError, match='Found no channel where name = "not_found"'
             ):
                 rng.set_alias("not_found", "test")
 
-        def test_scoped_channel_multiple_found(self, client: sy.Synnax) -> None:
-            """Should raise MultipleFoundError when a scoped channel matches two
-            channels and is used as one."""
+        def test_scoped_channel_pattern(self, client: sy.Synnax) -> None:
+            """Should read a scoped channel pattern as an exact name and find none."""
             prefix = random_name()
             for suffix in ("a", "b"):
                 client.channels.create(
@@ -512,11 +515,11 @@ class TestRangeClient:
                 name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.MultipleFoundError, match="Multiple channels found"):
+            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
                 rng[f"{prefix}_.*"].to_numpy()
 
-        def test_set_alias_multiple_found(self, client: sy.Synnax) -> None:
-            """Should raise MultipleFoundError when a name matches two channels."""
+        def test_set_alias_pattern(self, client: sy.Synnax) -> None:
+            """Should read a pattern as an exact name when it sets an alias."""
             prefix = random_name()
             for suffix in ("a", "b"):
                 client.channels.create(
@@ -527,7 +530,7 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             with pytest.raises(
-                sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+                sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
             ):
                 rng.set_alias(f"{prefix}_.*", "test")
 
@@ -593,8 +596,7 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
                 parent=parent_rng,
             )
-            assert child.parent is not None
-            assert child.parent.key == parent_rng.key
+            assert child.parent == parent_rng.key
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
@@ -614,8 +616,7 @@ class TestRangeClient:
                     parent=parent_rng,
                 )
             )
-            assert child.parent is not None
-            assert child.parent.key == parent_rng.key
+            assert child.parent == parent_rng.key
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
@@ -645,8 +646,7 @@ class TestRangeClient:
                 ]
             )
             for c in created:
-                assert c.parent is not None
-                assert c.parent.key == parent_rng.key
+                assert c.parent == parent_rng.key
             children = parent_rng.children
             child_names = {c.name for c in children}
             assert names[0] in child_names
@@ -685,18 +685,70 @@ def window_ranges(client: sy.Synnax, window: sy.TimeRange) -> list[sy.Range]:
 class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
-    def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
-        """Should reject a key or name combined with another selector or a list
-        filter
-        """
-        retrieve = cast(Callable[..., object], client.ranges.retrieve)
-        key = uuid4()
-        with pytest.raises(ValueError, match="cannot be combined; use keys"):
-            retrieve(key=key, name="a")
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(key=key, limit=1)
-        with pytest.raises(ValueError, match="cannot be combined with list filters"):
-            retrieve(name="a", keys=[key])
+    def test_plain_key_beside_fields(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for a plain key beside other fields"""
+        rng = window_ranges[0]
+        assert client.ranges.retrieve(key=rng.key, overlaps=window).key == rng.key
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.retrieve(key=rng.key, name="other")
+
+    def test_name_operator(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges whose name matches an operator"""
+        names = [r.name for r in window_ranges[:2]]
+        res = client.ranges.retrieve(name={"in": names}, overlaps=window)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_overlaps(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep only ranges that overlap the overlaps field"""
+        tr = window.start.span_range(50 * sy.TimeSpan.SECOND)
+        res = client.ranges.retrieve(overlaps=tr)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should keep the ranges that hold a label given as a plain value"""
+        rng = window_ranges[2]
+        lbl = _create_label(client, rng)
+        assert [r.key for r in client.ranges.retrieve(labels=lbl.key)] == [rng.key]
+
+    def test_or(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should keep the ranges that match any filter in or_"""
+        a, b = window_ranges[0], window_ranges[2]
+        res = client.ranges.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
+    def test_one(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return one range for any filter when one is set"""
+        rng = window_ranges[0]
+        found = client.ranges.retrieve(
+            name={"starts_with": rng.name}, overlaps=window, one=True
+        )
+        assert found.key == rng.key
+        assert client.ranges.retrieve(names=[rng.name], one=True).key == rng.key
+
+    def test_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match"""
+        with pytest.raises(sy.ValidationError, match="limit or offset"):
+            client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
+
+    def test_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every range"""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.ranges.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a range filter line"""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.ranges.retrieve(nme="a")  # type: ignore[call-overload]
 
     def test_where(
         self,
@@ -753,48 +805,29 @@ class TestRangeRetrieveFilters:
         assert_eventually(check)
 
     def test_has_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
-        """Should keep only ranges with the label and attach labels on request"""
+        """Should keep only ranges with the label, each with its label keys"""
         rng = window_ranges[1]
         lbl = _create_label(client, rng)
         res = client.ranges.retrieve(has_labels=[lbl.key])
         assert [r.key for r in res] == [rng.key]
-        assert res[0].labels is None
-        res = client.ranges.retrieve(has_labels=[lbl.key], include_labels=True)
-        assert res[0].labels is not None
-        assert [lb.key for lb in res[0].labels] == [lbl.key]
-        single = client.ranges.retrieve(key=rng.key, include_labels=True)
-        assert single.labels is not None
-        assert [lb.name for lb in single.labels] == [lbl.name]
+        assert res[0].labels == [lbl.key]
 
-    def test_include_parent(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should attach the parent of each range on request"""
-        parent = window_ranges[2]
+    def test_parents(self, client: sy.Synnax) -> None:
+        """Should keep only the children of the given ranges, each with its parent
+        key"""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
         child = parent.create_child_range(
             name=random_name(), time_range=parent.time_range
         )
-        assert client.ranges.retrieve(key=child.key).parent is None
-        res = client.ranges.retrieve(key=child.key, include_parent=True)
-        assert res.parent is not None
-        assert res.parent.key == parent.key
-        many = client.ranges.retrieve(keys=[child.key], include_parent=True)
-        assert many[0].parent is not None
-        assert many[0].parent.key == parent.key
-
-    def test_include_labels_only(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should return a list when given include_labels without a key or name"""
-        res = client.ranges.retrieve(include_labels=True)
-        assert {r.key for r in window_ranges} <= {r.key for r in res}
-
-    def test_include_parent_only(
-        self, client: sy.Synnax, window_ranges: list[sy.Range]
-    ) -> None:
-        """Should return a list when given include_parent without a key or name"""
-        res = client.ranges.retrieve(include_parent=True)
-        assert {r.key for r in window_ranges} <= {r.key for r in res}
+        parent.create_child_range(name=random_name(), time_range=parent.time_range)
+        res = client.ranges.retrieve(parents=[parent.key])
+        assert len(res) == 2
+        assert all(r.parent == parent.key for r in res)
+        assert client.ranges.retrieve(key=child.key).parent == parent.key
+        assert client.ranges.retrieve(key=parent.key).parent is None
 
 
 @pytest.mark.ranger
@@ -832,6 +865,28 @@ class TestRangeLabels:
         lbl = client.labels.create(name=random_name(), color="#FF0000")
         client.ranges.retrieve(key=rng.key).add_label(lbl.key)
         assert rng.retrieve_labels() == [lbl]
+        assert client.ranges.retrieve(key=rng.key).labels == [lbl.key]
+
+    def test_create_with_labels(self, client: sy.Synnax) -> None:
+        """Should attach the labels a create carries"""
+        lbl = client.labels.create(name=random_name(), color="#FF0000")
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            labels=[lbl.key],
+        )
+        assert rng.labels == [lbl.key]
+        assert rng.retrieve_labels() == [lbl]
+
+    def test_recreate_ignores_labels(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should keep the stored labels on a re-create and ignore the carried ones"""
+        a = client.labels.create(name=random_name(), color="#FF0000")
+        b = client.labels.create(name=random_name(), color="#00FF00")
+        rng.add_label(a.key)
+        client.ranges.create(
+            key=rng.key, name=rng.name, time_range=rng.time_range, labels=[b.key]
+        )
+        assert client.ranges.retrieve(key=rng.key).labels == [a.key]
 
 
 @pytest.mark.ranger
@@ -839,47 +894,49 @@ class TestRangeConstructor:
     """Pure-Pydantic tests of Range construction — no server required."""
 
     def test_accepts_range_as_parent(self) -> None:
-        """Range(parent=other_range) should store the parent's identity"""
+        """Range(parent=other_range) should store the parent's key"""
         parent = sy.Range(
             name="parent",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            key=uuid4(),
         )
         child = sy.Range(
             name="child",
             time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
             parent=parent,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
-        assert child.parent.name == parent.name
+        assert child.parent == parent.key
 
-    def test_strips_grandparent(self) -> None:
-        """A parent that itself has a parent should be flattened to depth 1"""
-        grandparent = sy.Range(
-            name="grandparent",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        parent = sy.Range(
-            name="parent",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            parent=grandparent,
-        )
+    def test_accepts_key_as_parent(self) -> None:
+        """Range(parent=key) should store the key"""
+        key = uuid4()
         child = sy.Range(
             name="child",
             time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
-            parent=parent,
+            parent=key,
         )
-        assert child.parent is not None
-        assert child.parent.key == parent.key
-        assert child.parent.parent is None
+        assert child.parent == key
+        assert child.to_payload().parent == key
+
+    def test_labels(self) -> None:
+        """Range(labels=keys) should carry the label keys into its payload"""
+        keys = [uuid4(), uuid4()]
+        rng = sy.Range(
+            name="labeled",
+            time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            labels=keys,
+        )
+        assert rng.labels == keys
+        assert rng.to_payload().labels == keys
 
     def test_no_parent(self) -> None:
-        """Range without a parent should have parent=None"""
+        """Range without a parent or labels should have no parent and no labels"""
         rng = sy.Range(
             name="solo",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
         assert rng.parent is None
+        assert rng.labels == []
 
 
 @pytest.mark.ranger

@@ -78,13 +78,13 @@ export interface SelectSingleProps
 /** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
-    initialQuery,
+    query,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -470,8 +471,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	name := parser.IdentifierName(ctx.AST)
+	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -501,6 +502,16 @@ func analyzeIdentifierByRole(
 		}
 		if !isSink && isConstVar(sym) {
 			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
+		}
+		// A value variable with no node and no compile-time value has no channel to
+		// read or write.
+		if sym.IsLiteral() {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"cannot use '%s' in a flow: its initializer is not a compile-time constant",
+				name,
+			))
+			return flowNodeResult{}, false
 		}
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
@@ -1052,6 +1063,10 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
 //
+// An imported X is keyed by its qualified name, so no local scope binds it. Inside
+// a top-level scope the jump survives as a transition. At the top level it is
+// rejected until Phase 3 compiles module scopes into the importer.
+//
 // This rule makes sequences behave as black boxes from the outside: you can
 // jump around inside your own nesting, you can call a top-level neighbor at
 // its front door, but you cannot reach across a structural boundary to land
@@ -1061,6 +1076,22 @@ func analyzeNamedRef(
 	sym *symbol.Symbol,
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
+	if sym.Root() != ctx.Scope.Root() {
+		key := parser.IdentifierName(ctx.AST)
+		if shell.jumps == nil {
+			// Phase 3 compiles module scopes into the importer. Until then a
+			// top-level activation has no scope to bind to, so it is rejected
+			// instead of dropped.
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"'%s' belongs to an imported module and cannot be activated from "+
+					"the top level yet",
+				key,
+			))
+			return transitionIntent{}, false
+		}
+		return transitionIntent{activateKey: key}, true
+	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
 	}
@@ -1258,32 +1289,21 @@ func tryAnalyzeFmtStrLiteral(
 	if strTerm == nil {
 		return nodeResult{}, false, false
 	}
-	_, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
+	if !lo.SomeBy(
+		ctx.FmtStrings[strTerm],
+		func(seg parser.FmtSegment) bool { return seg.Expr != nil },
+	) {
 		return nodeResult{}, false, false
 	}
 	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-	parsedValue, err := literal.Parse(literalCtx, outputType)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nodeResult{}, true, false
-	}
-	body := parsedValue.Value.(string)
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nodeResult{}, true, false
-	}
-	if !literal.FmtStrHasPlaceholder(segments) {
-		return nodeResult{}, false, false
-	}
+	body, _, _ := literal.StripQuotes(strTerm.GetText())
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
 	// Renamed so the compiler resolves the synthetic's scope by function key.
 	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
-		Body:     ir.Body{Raw: body},
+		Body:     ir.Body{Raw: body, AST: literalCtx},
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
@@ -1437,9 +1457,35 @@ func Analyze(
 	root *symbol.Symbol,
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, false, cfgs)
+}
+
+// AnalyzeModule is Analyze under the module rules.
+func AnalyzeModule(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	cfgs ...parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
+	return analyze(ctx, t, root, true, cfgs)
+}
+
+func analyze(
+	ctx context.Context,
+	t Text,
+	root *symbol.Symbol,
+	module bool,
+	cfgs []parser.Config,
+) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root).WithConfig(parser.ConfigOf(cfgs...))
-		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
+		aCtx = acontext.NewRoot(ctx, t.AST, root).
+			WithConfig(parser.ConfigOf(cfgs...)).
+			WithModule(module)
+		i = ir.IR{
+			Symbols:    aCtx.Scope,
+			TypeMap:    aCtx.TypeMap,
+			FmtStrings: aCtx.FmtStrings,
+		}
 	)
 
 	analyzer.AnalyzeProgram(aCtx)
@@ -1452,7 +1498,7 @@ func Analyze(
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		// Format-string fns compile from their raw body as fmt$ synthetics.
+		// Format-string fns compile as fmt$ synthetics from the stored placeholders.
 		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}

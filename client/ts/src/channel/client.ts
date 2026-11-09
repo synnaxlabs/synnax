@@ -16,9 +16,8 @@ import {
   DataType,
   deep,
   type destructor,
-  errors,
+  filter,
   type MultiSeries,
-  primitive,
   type TypedArray,
   zod,
 } from "@synnaxlabs/x";
@@ -29,33 +28,38 @@ import {
   isCalculated,
   type Params,
   type PrimitiveParams,
-  statusKey,
+  singleWhere,
 } from "@/channel/payload";
 import {
   type Key,
   keyZ,
   type Name,
   type New,
-  ontologyID,
   type Operation,
   operationZ,
   type Payload,
   payloadZ,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
-import { LINES, serverComputed } from "@/channel/where";
-import { matches, retrieveInputZ } from "@/channel/where.gen";
+import { LINES } from "@/channel/where";
+import {
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
-import { NotFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
+import { type resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -88,8 +92,8 @@ export class Channel {
   readonly dataType: DataType;
   /**
    * The key of the node in the Synnax cluster that holds the 'lease' over the channel
-   * i.e. it's the only node in the cluster allowed to accept writes to the channel. This
-   * property is mostly for internal use.
+   * i.e. it's the only node in the cluster allowed to accept writes to the channel.
+   * This property is mostly for internal use.
    */
   readonly leaseholder: number;
   /**
@@ -120,6 +124,8 @@ export class Channel {
   readonly concurrency: control.Concurrency;
   /** The status of the channel. */
   readonly status?: status.Status;
+  /** The group the channel sits in, if any. */
+  readonly group?: group.Key;
 
   constructor({
     dataType,
@@ -136,6 +142,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
+    group: groupKey,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -151,6 +158,7 @@ export class Channel {
       label: "channel operations",
     });
     this.concurrency = concurrency;
+    this.group = groupKey;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -183,6 +191,7 @@ export class Channel {
         status: this.status,
         operations: this.operations,
         concurrency: this.concurrency,
+        group: this.group,
       },
       { label: "channel payload" },
     );
@@ -192,9 +201,9 @@ export class Channel {
     return isCalculated(this.payload);
   }
 
-  /** @returns the ontology ID of the channel */
-  get ontologyID(): ontology.ID {
-    return ontologyID(this.key);
+  /** @returns the resource ID of the channel */
+  get resourceID(): resource.ID {
+    return resourceID(this.key);
   }
 
   /**
@@ -223,10 +232,10 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
-const retrieveParamsZ = z.union([
+const retrieveParamsZ = filter.requestInputZ(
   retrieveMultipleParamsZ,
   retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
-]);
+);
 
 const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
@@ -238,12 +247,13 @@ export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
-const retrieveGroupReqZ = z.object({});
-
-const retrieveGroupResZ = z.object({ group: group.groupZ });
-
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
+
+type OneParams = query.OneInput<typeof retrieveParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
 
 /** Aliases and statuses are composed from their stores on read. */
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
@@ -263,24 +273,18 @@ const singleParamsZ = z
   .transform(normalizeSingle);
 
 /**
- * @returns the name patterns of a request whose where selects by name patterns and
+ * @returns the names of a request whose where selects one name or a list of names and
  * nothing else, with no other field of the request set. Returns null for any other
  * request.
  */
-const onlyNamePatterns = ({ where, ...rest }: RetrieveRequest): string[] | null => {
+const onlyNames = ({ where, ...rest }: RetrieveRequest): string[] | null => {
   if (!Object.values(rest).every((v) => v == null) || where == null) return null;
-  const { namePatterns, ...others } = where;
-  if (namePatterns == null || Object.values(others).some((v) => v != null)) return null;
-  return namePatterns;
-};
-
-const affectedChannelKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "channel" || !primitive.isNonZero(key)) return null;
-  const parsed = keyZ.safeParse(key);
-  return parsed.success ? [parsed.data] : null;
+  const { name, ...others } = where;
+  if (name == null || Object.values(others).some((v) => v != null)) return null;
+  const { eq, in: names, ...ops } = name;
+  if (Object.values(ops).some((v) => v != null)) return null;
+  if (eq == null) return names ?? null;
+  return names == null ? [eq] : null;
 };
 
 /**
@@ -295,7 +299,6 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 /**
@@ -314,11 +317,15 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  /** Builds requests that move channels between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
+    const affectedChannelKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "channel")?.map(Number) ?? null;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
@@ -376,7 +383,7 @@ export class Client extends query.Retriever<
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
@@ -404,6 +411,10 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+      const rollbacks = keys.map((key) => this.moveThrough(key, to));
+      return () => rollbacks.forEach((rollback) => rollback());
+    });
     this.byName = byName;
   }
 
@@ -487,8 +498,7 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
-   * @param params - The key or the name of the channel to retrieve. A name that is not
-   * a valid channel name is a regular expression, anchored when unanchored.
+   * @param params - The key or the name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.rangeKey - Attaches the channel's alias in the range.
    * @returns The retrieved channel.
@@ -509,8 +519,8 @@ export class Client extends query.Retriever<
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    * @param params - The keys or the names of the channels to retrieve. Note that this
-   * method does not support mixing keys and names in the same call. A name that is not
-   * a valid channel name is a regular expression, anchored when unanchored.
+   * method does not support mixing keys and names in the same call. A name matches
+   * exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.rangeKey - Attaches each channel's alias in the range.
    */
@@ -519,7 +529,7 @@ export class Client extends query.Retriever<
     options?: RetrieveOptions,
   ): Promise<Channel[]>;
 
-  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
+  async retrieve(params: RetrieveSingleParams | OneParams): Promise<Channel>;
 
   /** Retrieves the channels that params selects. */
   async retrieve(
@@ -531,30 +541,39 @@ export class Client extends query.Retriever<
       | PrimitiveParams
       | Payload[]
       | RetrieveSingleParams
+      | OneParams
       | query.RequestInput<typeof retrieveParamsZ>,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    if (typeof params === "object" && !Array.isArray(params))
+    if (typeof params === "object" && !Array.isArray(params)) {
+      // The branches narrow params onto different base overloads.
+      if (isOneParams(params)) return await super.retrieve(params);
       return await super.retrieve(params);
+    }
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
-      checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
+      if (isSingle)
+        checkForMultipleOrNoResults(
+          "channel",
+          { where: singleWhere(rawNormalized[0]) },
+          [],
+          true,
+        );
       return [];
     }
     const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key, rangeKey });
-    const where =
-      variant === "keys"
-        ? { key: { in: normalized as Key[] } }
-        : { namePatterns: normalized as string[] };
+    const where = isSingle
+      ? singleWhere(normalized[0])
+      : shortcutZ.parse(normalized).where;
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
-    checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
+    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
@@ -563,12 +582,7 @@ export class Client extends query.Retriever<
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
       const keys = normalized;
-      const ids = ontologyID(keys);
-      const drop = () => [
-        this.cfg.ontology.cache.deleteRelationships(ids),
-        this.store.delete(keys),
-        this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
-      ];
+      const drop = () => [this.store.delete(keys)];
       await query.optimistic({
         rollbacks: drop(),
         onOptimistic: opts.onOptimistic,
@@ -592,20 +606,27 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () =>
-      keysArr.flatMap((key, i) => {
-        const name = namesArr[i];
-        return [
-          this.renameThrough(key, name),
-          this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-        ];
-      });
+    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () => await this.writer.rename(keysArr, namesArr),
     });
     rename();
+  }
+
+  /**
+   * Sets the group of the cached channel, skipping when absent. Returns a rollback that
+   * restores only the group.
+   */
+  private moveThrough(key: Key, to?: group.Key): destructor.Destructor {
+    const prev = this.store.get(key)?.group;
+    const set = (g?: group.Key) =>
+      this.store.set(key, (p) =>
+        p == null ? undefined : this.sugar({ ...p.payload, group: g }),
+      );
+    set(to);
+    return () => set(prev);
   }
 
   /** Renames the cached channel, skipping when absent. Returns a rollback. */
@@ -624,22 +645,12 @@ export class Client extends query.Retriever<
     return new Channel({ ...payloads, frameClient });
   }
 
-  async retrieveGroup(): Promise<group.Group> {
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve-group",
-      {},
-      retrieveGroupReqZ,
-      retrieveGroupResZ,
-    );
-    return res.group;
-  }
-
   /** Rebuilds a cached channel with its cached status attached. */
   private compose(payload: Payload): Channel {
     const next: Payload = { ...payload, status: undefined, alias: undefined };
     if (isCalculated(payload)) {
       const parsed = statusZ.safeParse(
-        this.cfg.statuses.store.get(statusKey(payload.key)),
+        this.cfg.statuses.ownedBy(resourceID(payload.key)),
       );
       if (parsed.success) next.status = parsed.data;
     }
@@ -704,25 +715,25 @@ export class Client extends query.Retriever<
       // Through the table, so concurrent misses coalesce into one request. A plot
       // panel resolves one channel per telemetry source, all in the same tick.
       const fetched = await this.store.retrieve([key]);
-      checkForMultipleOrNoResults("channel", key, fetched, true);
+      checkForMultipleOrNoResults(
+        "channel",
+        { where: { key: { eq: key } } },
+        fetched,
+        true,
+      );
       [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
-    if (ch.isCalculated && !this.cfg.statuses.store.has(statusKey(key)))
-      try {
-        await this.cfg.statuses.retrieve(statusKey(key));
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
-      }
+    if (ch.isCalculated && this.cfg.statuses.ownedBy(resourceID(key)) == null)
+      await this.cfg.statuses.retrieveOwned([resourceID(key)]);
     if (rangeKey != null) await this.ensureAliases(rangeKey, [key]);
     return ch;
   }
 
   /**
    * Resolves names through the record store. Returns null when a name matches no
-   * stored channel or more than one, so the Core answers the whole request. Assumes
-   * the Core validates names, so a stored name holds no regular expression character.
+   * stored channel or more than one, so the Core answers the whole request.
    */
   private resolveNames(names: string[]): Channel[] | null {
     const resolved: Channel[] = [];
@@ -751,7 +762,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
-    const names = onlyNamePatterns(req);
+    const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));

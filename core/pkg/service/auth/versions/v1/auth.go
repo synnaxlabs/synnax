@@ -15,6 +15,3 @@ var _ gorp.Entry[string] = SecureCredentials{}
 
 // GorpKey implements gorp.Entry.
 func (sc SecureCredentials) GorpKey() string { return sc.Username }
-
-// SetOptions implements gorp.Entry.
-func (SecureCredentials) SetOptions() []any { return nil }

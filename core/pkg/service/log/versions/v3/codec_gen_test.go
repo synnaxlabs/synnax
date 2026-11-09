@@ -18,7 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -104,6 +107,10 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 17,
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 			}),
 			Entry("zero values", v3.Log{
 				Key:                uuid.Nil(),
@@ -112,6 +119,10 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 0,
 				ChannelNamesHidden: false,
 				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone(""),
+				Group:              nil,
+				Project:            nil,
+				Range:              nil,
 			}),
 			Entry("empty collections", v3.Log{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -120,6 +131,10 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision: 5,
 				ChannelNamesHidden: true,
 				TimestampsHidden:   false,
+				TimeZone:           telem.TimeZone("local"),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 			}),
 		)
 	})
@@ -182,6 +197,10 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		TimestampPrecision: 17,
 		ChannelNamesHidden: true,
 		TimestampsHidden:   false,
+		TimeZone:           telem.TimeZone("local"),
+		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+		Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -290,6 +309,10 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 17,
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -305,6 +328,10 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 0,
 			ChannelNamesHidden: false,
 			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone(""),
+			Group:              nil,
+			Project:            nil,
+			Range:              nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -320,6 +347,10 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision: 5,
 			ChannelNamesHidden: true,
 			TimestampsHidden:   false,
+			TimeZone:           telem.TimeZone("local"),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

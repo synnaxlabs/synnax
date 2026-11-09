@@ -86,6 +86,9 @@ func MatchWhere(w Where) (Filter, error) {
 			}))
 		}
 	}
+	if l := w.Directories; l != nil {
+		fs = append(fs, MatchDirectories(l...))
+	}
 	return And(fs...), nil
 }
 

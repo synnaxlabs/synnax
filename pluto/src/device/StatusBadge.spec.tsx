@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status } from "@synnaxlabs/client";
+import { type device, status } from "@synnaxlabs/client";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeSpan } from "@synnaxlabs/x";
@@ -44,8 +44,7 @@ interface CreateStatusArgs {
 
 const createStatus = ({ connected, ...rest }: CreateStatusArgs): device.Status =>
   status.create<typeof device.statusDetailsZ>({
-    key: device.statusKey("dev"),
-    details: { rack: 1, device: "dev", connected },
+    details: { rack: 1, connected },
     ...rest,
   });
 

@@ -110,7 +110,7 @@ const DownloadCSV = ({
                 <Channel.SelectMultiple
                   value={value}
                   onChange={onChange}
-                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                  query={NON_VIRTUAL_CHANNEL_QUERY}
                   triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
                   full="x"
                 />

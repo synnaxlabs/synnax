@@ -66,7 +66,7 @@ const ROUTING_KEY_INPUT_PROPS = {
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} initialQuery={INITIAL_RACK_QUERY} />
+    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
   ),
 );
 

@@ -438,14 +438,17 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
-      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
+      // Series upload as static draws or sub data, and the stroke and bridge buffers as
+      // dynamic draws. A growing series first sizes its buffer with a static draw.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter(
-            (c) =>
-              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
-          )
-          .map((c) => Array.from(c.args[1] as Float32Array));
+          .flatMap((c) => {
+            if (c.op === "bufferSubData") return [c.args[2]];
+            const sized = typeof c.args[1] === "number";
+            const isStatic = c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW;
+            return c.op === "bufferData" && isStatic && !sized ? [c.args[1]] : [];
+          })
+          .map((data) => Array.from(data as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -493,7 +496,7 @@ describe("line", () => {
         ]);
       });
 
-      it("should follow a growing buffer and not reduce complete groups again", () => {
+      it("should upload only the groups that a growing buffer adds", () => {
         const createGrowing = () =>
           Series.alloc({
             capacity: N,
@@ -511,16 +514,31 @@ describe("line", () => {
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
         expect(m.strips()).toEqual([[0, N / 32]]);
-        // A complete group reduced again would draw the change.
+        const before = uploads(m).length;
+        // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
         write(x, indexes(N / 2, N / 2 + 10));
         const tail = indexes(N / 2, N / 2 + 9).map(wave);
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
-        const drawn = uploads(m).at(-1);
-        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
-        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        expect(m.strips().slice(-2)).toEqual([
+          [0, N / 32],
+          [0, 3],
+        ]);
+        const top = N / 2 + tail.indexOf(Math.max(...tail));
+        const [xs, ys] = uploads(m).slice(before);
+        // The tail starts at the last complete point.
+        expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
+        expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        write(x, indexes(N / 2 + 10, N / 2 + 32));
+        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        const grown = uploads(m).length;
+        m.line.render(showing(0, N - 1));
+        expect(
+          uploads(m)
+            .slice(grown)
+            .map((u) => u.length),
+        ).toEqual([2, 2]);
       });
 
       it("should release its reduced series when deleted", () => {
@@ -558,6 +576,62 @@ describe("line", () => {
         const [xs, ys] = uploads(m).slice(-2);
         expect(xs.slice(0, 2)).toEqual([15, 47]);
         expect(new Set(ys)).toEqual(new Set([0]));
+      });
+    });
+
+    describe("view", () => {
+      const N = 100_000;
+      const RANGE = { start: 0, end: 100 };
+      const ramp = () =>
+        series(
+          Array.from({ length: N }, (_, i) => i),
+          0n,
+          RANGE,
+        );
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      const mountSorted = (sorted: boolean) => {
+        const m = mount([ramp()], [ramp()]);
+        m.xSource.sorted = sorted;
+        return m;
+      };
+      // The sample each draw's x attribute starts at.
+      const firstSamples = (m: ReturnType<typeof mount>): number[] =>
+        m.calls
+          .filter((c) => c.op === "vertexAttribPointer" && c.args[1] === 1)
+          .filter((_, i) => i % 2 === 0)
+          .map((c) => Number(c.args[5]) / 4);
+
+      it("should draw only the samples in view of an ascending x", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, 1024]]);
+        expect(firstSamples(m)).toEqual([49_152]);
+      });
+
+      it("should draw more samples as the view widens", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(50_000, 50_700));
+        expect(m.strips().at(-1)).toEqual([0, 2048]);
+      });
+
+      it("should move the samples it draws as the view pans", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(60_000, 60_100));
+        expect(m.strips().at(-1)).toEqual([0, 1024]);
+        expect(firstSamples(m).at(-1)).toBe(59_392);
+      });
+
+      it("should draw every sample of an x not known to ascend", () => {
+        const m = mountSorted(false);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, N]]);
       });
     });
 

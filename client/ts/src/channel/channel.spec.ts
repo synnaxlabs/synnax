@@ -312,37 +312,14 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
-    test("retrieve by a name pattern", async () => {
+    test("match each name in a list exactly, never as a pattern", async () => {
       const prefix = `qry_${id.create()}`;
-      const [a, b] = await client.channels.create([
+      const [a] = await client.channels.create([
         { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
         { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
-      const res = await client.channels.retrieve([`${prefix}_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
-    });
-    test("retrieve by a literal name and a name pattern", async () => {
-      const prefix = `qry_${id.create()}`;
-      const [literal, a, b] = await client.channels.create([
-        { name: `${prefix}_literal`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_p_a`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_p_b`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_other`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
-      const res = await client.channels.retrieve([literal.name, `${prefix}_p_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual(
-        [literal.key, a.key, b.key].sort(),
-      );
-    });
-    test("retrieve a cached name and a pattern that matches it once", async () => {
-      const prefix = `qry_${id.create()}`;
-      const [a, b] = await client.channels.create([
-        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
-      await client.channels.retrieve(a.name);
       const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
-      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+      expect(res.map((ch) => ch.key)).toEqual([a.key]);
     });
     test("retrieve virtual channels without calculated channels", async () => {
       const prefix = `qry_${id.create()}`;
@@ -395,6 +372,62 @@ describe("Channel", () => {
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(NotFoundError);
     });
+    test("refuse a channel that a task config names", async () => {
+      const channel = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const rack = await client.racks.create({ name: "test" });
+      const device = await client.devices.create({
+        key: id.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: "plc",
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: "read",
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: channel.key }],
+        },
+      });
+      await expect(client.channels.delete(channel.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
+            "validation error",
+        ),
+      );
+      await client.tasks.delete(task.key);
+      await client.channels.delete(channel.key);
+    });
+    test("refuse an index that a data channel uses", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        index: index.key,
+        dataType: DataType.FLOAT32,
+      });
+      await expect(client.channels.delete(index.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${index.name} because channel ${data.name} uses ` +
+            "it as its index: validation error",
+        ),
+      );
+      await client.channels.delete(data.key);
+      await client.channels.delete(index.key);
+    });
   });
   describe("rename", async () => {
     test("single rename", async () => {
@@ -430,6 +463,23 @@ describe("Channel", () => {
     });
   });
 
+  describe("setGroupRequest", () => {
+    it("should move channels into a group and back out", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
+      expect(
+        (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
+      ).toEqual([ch.key]);
+      await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
+      expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
+    });
+  });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
@@ -605,12 +655,12 @@ describe("cached reads", () => {
         }),
       ]);
       // One status request needs both statuses to exist: the calculation
-      // engine only writes them once data flows, so seed them directly.
+      // engine only writes them once data flows, so create them directly.
       await Promise.all(
         created.map(
           async ({ key }) =>
             await client.statuses.set({
-              key: channel.statusKey(key),
+              owner: channel.resourceID(key),
               name: "Calculation Status",
               variant: "info",
               message: "calculating",
@@ -654,17 +704,13 @@ describe("cached reads", () => {
 
     it("composes a keys query from records written by create", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(
-        client.channels.getCached({ where: { key: { in: [ch.key] } } }),
-      );
+      const cached = expectLive(client.channels.getCached({ key: [ch.key] }));
       expect(cached.map(({ key }) => key)).toEqual([ch.key]);
     });
 
     it("returns undefined for a keys query with an uncached key", async () => {
       const ch = await createVirtual();
-      expect(
-        client.channels.getCached({ where: { key: { in: [ch.key, 999999999] } } }),
-      ).toBeUndefined();
+      expect(client.channels.getCached({ key: [ch.key, 999999999] })).toBeUndefined();
     });
   });
 
@@ -678,6 +724,16 @@ describe("cached reads", () => {
       await proxy.sever();
       const res = await local.channels.retrieve([ch.name]);
       expect(res.map((c) => c.key)).toEqual([ch.key]);
+    }, 30000);
+
+    it("serves a single literal name from the record store", async () => {
+      const { proxy, client: local } = await createProxiedTestClient({
+        retry: FAST_RETRY,
+        onRetry: quiet,
+      });
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      expect((await local.channels.retrieve(ch.name)).key).toEqual(ch.key);
     }, 30000);
 
     it("fetches only the names the store cannot resolve", async () => {
@@ -702,18 +758,6 @@ describe("cached reads", () => {
             .sort(),
         )
         .toEqual([known.key, unknown.key].sort());
-    }, 30000);
-
-    it("goes to the cluster for a name holding regex characters", async () => {
-      const { proxy, client: local } = await createProxiedTestClient({
-        retry: FAST_RETRY,
-        onRetry: quiet,
-      });
-      const ch = await createVirtual(local);
-      await proxy.sever();
-      // The stored channel matches the pattern, but a pattern can match
-      // records the store has never seen, so it cannot be served locally.
-      await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
     }, 30000);
 
     it("goes to the cluster when a name matches two stored channels", async () => {
@@ -748,7 +792,7 @@ describe("cached reads", () => {
       // The store cannot prove it holds every virtual channel named this, so
       // any field narrowing the request beyond names disqualifies it.
       await expect(
-        local.channels.retrieve({ where: { name: { in: [ch.name] }, virtual: true } }),
+        local.channels.retrieve({ name: [ch.name], virtual: true }),
       ).rejects.toThrow();
     }, 30000);
 
@@ -824,7 +868,7 @@ describe("cached reads", () => {
     it("should admit a renamed channel to a name query locally", async () => {
       const ch = await createVirtual();
       const name = `qry_wanted_${id.create()}`;
-      const params = { where: { namePatterns: [name] } };
+      const params = { where: { name: { in: [name] } } };
       const off = client.channels.onChange(params, vi.fn());
       const send = spyOnSend(client);
       try {
@@ -864,12 +908,11 @@ describe("cached reads", () => {
 
     const setStatus = async (calc: channel.Channel, message: string) =>
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message,
         time: TimeStamp.now(),
-        details: { channel: calc.key },
       });
 
     const createCalculatedWithStatus = async () => {
@@ -880,7 +923,10 @@ describe("cached reads", () => {
 
     const createCalculatedWithoutStatus = async () => {
       const calc = await createCalculated();
-      await client.statuses.delete(channel.statusKey(calc.key));
+      const held = await client.statuses.retrieve({
+        owners: [channel.resourceID(calc.key)],
+      });
+      await client.statuses.delete(held.map((s) => s.key));
       return calc;
     };
 
@@ -1050,7 +1096,7 @@ describe("cached reads", () => {
 
     const setStatus = async (key: number, message: string): Promise<void> => {
       await remote.statuses.set({
-        key: channel.statusKey(key),
+        owner: channel.resourceID(key),
         name: "Calculation Status",
         variant: "info",
         message,
@@ -1113,10 +1159,7 @@ describe("cached reads", () => {
       {
         name: "where",
         retrieve: async (key: channel.Key, rangeKey: ranger.Key) => {
-          const res = await client.channels.retrieve({
-            where: { key: { in: [key] } },
-            rangeKey,
-          });
+          const res = await client.channels.retrieve({ key: [key], rangeKey });
           return res[0];
         },
       },
@@ -1129,7 +1172,7 @@ describe("cached reads", () => {
         const child = await client.ranges.create({
           name: `qry-${id.create()}`,
           timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
-          parent,
+          parent: parent.key,
         });
         const inherited = `qry_alias_${id.create()}`;
         await client.ranges.setAlias(parent.key, ch.key, inherited);
@@ -1176,7 +1219,7 @@ describe("cached reads", () => {
       const alias = `qry_alias_${id.create()}`;
       await client.ranges.setAlias(rng.key, a.key, alias);
       const res = await client.channels.retrieve({
-        where: { key: { in: [a.key, b.key] } },
+        key: [a.key, b.key],
         rangeKey: rng.key,
       });
       expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
@@ -1204,7 +1247,7 @@ describe("cached reads", () => {
           const res = await client.channels.retrieve({
             searchTerm: term,
             rangeKey: rng.key,
-            where: { dataType: { eq: DataType.FLOAT32 } },
+            dataType: DataType.FLOAT32,
           });
           return res.map((ch) => [ch.key, ch.alias]);
         })
@@ -1219,10 +1262,7 @@ describe("cached reads", () => {
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
       expect(
-        client.channels.getCached({
-          where: { key: { in: [ch.key] } },
-          rangeKey: rng.key,
-        }),
+        client.channels.getCached({ key: [ch.key], rangeKey: rng.key }),
       ).toBeUndefined();
     });
 

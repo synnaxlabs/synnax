@@ -40,10 +40,10 @@ describe("Device select", () => {
     });
     await client.statuses.set(
       status.create<typeof device.statusDetailsZ>({
-        key: device.statusKey(dev.key),
+        owner: device.resourceID(dev.key),
         variant: "error",
         message: "Failed to reach device",
-        details: { rack: rack.key, device: dev.key, connected: false },
+        details: { rack: rack.key, connected: false },
       }),
     );
     return dev;

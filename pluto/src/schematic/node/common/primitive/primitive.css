@@ -61,7 +61,10 @@
         }
     }
 
+    /* Handles sit at a percent of the symbol's box. An inline SVG adds the descender
+       gap of its line to that box, which moves them off the drawing. */
     & svg {
+        display: block;
         overflow: visible;
     }
 
@@ -89,6 +92,7 @@
 }
 
 .pluto-symbol-primitive-toggle {
+    display: block;
     cursor: pointer;
     background: none;
     border: none;

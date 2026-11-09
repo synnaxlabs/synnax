@@ -71,29 +71,71 @@ var _ = Describe("Actions", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
 			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 		})
+		DescribeTable("Should lift a legacy alpha", func(alpha, want float64) {
+			res := MustSucceed(ranger.Reduce(base, set(
+				[]string{"color"},
+				map[string]any{"r": 255, "g": 0, "b": 0, "a": alpha},
+			)))
+			Expect(res.Color).To(HaveField("A", BeNumerically("~", want)))
+		},
+			Entry("just above 1", 1.5, 1.0),
+			Entry("on the 0-255 scale", 128.0, 128.0/255),
+		)
+		It("Should reject a path into the color", func() {
+			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
+			act := set([]string{"color", "a"}, 128)
+			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("[color]: the value takes only a whole set"),
+				),
+			))
+		})
+		It("Should set the parent", func() {
+			parent := uuid.New()
+			res := MustSucceed(ranger.Reduce(
+				base,
+				set([]string{"parent"}, parent.String()),
+			))
+			Expect(res.Parent).To(HaveValue(Equal(parent)))
+		})
 		It("Should keep the key, labels, and parent", func() {
-			base.Labels = []label.Label{{Key: uuid.New(), Name: "Nominal"}}
-			base.Parent = &ranger.Range{Key: uuid.New()}
+			base.Labels = []label.Key{uuid.New()}
+			base.Parent = new(uuid.New())
 			res := MustSucceed(ranger.Reduce(base, set([]string{"name"}, "Cold flow")))
 			Expect(res.Key).To(Equal(base.Key))
 			Expect(res.Labels).To(Equal(base.Labels))
 			Expect(res.Parent).To(Equal(base.Parent))
 		})
-		DescribeTable("Should reject", func(path []string, value any) {
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
 			Expect(ranger.Reduce(base, set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring(msg)),
 			))
 		},
 			Entry(
-				"a path outside the name, time range, and color",
+				"a path outside the document",
 				[]string{"key"},
 				uuid.New().String(),
+				"[key]: the path names no editable field",
+			),
+			Entry(
+				"a set of the labels",
+				[]string{"labels"},
+				[]string{uuid.New().String()},
+				"[labels]: the path names no editable field",
 			),
 			Entry(
 				"a value the time range cannot hold",
 				[]string{"time_range", "end"},
 				"soon",
+				"[time_range, end]: decoding value",
+			),
+			Entry(
+				"an alpha above the 0-255 scale",
+				[]string{"color"},
+				map[string]any{"r": 255, "g": 0, "b": 0, "a": 300},
+				"alpha 300 is above the 0-255 scale",
 			),
 		)
 	})
@@ -106,6 +148,14 @@ var _ = Describe("Actions", func() {
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),
 			))
 			Expect(res.Color).To(BeNil())
+		})
+		It("Should remove the parent", func() {
+			base.Parent = new(uuid.New())
+			res := MustSucceed(ranger.Reduce(
+				base,
+				ranger.NewRemoveAction(ranger.RemovePayload{Key: "parent"}),
+			))
+			Expect(res.Parent).To(BeNil())
 		})
 		DescribeTable(
 			"Should reject the removal of",
@@ -144,17 +194,24 @@ var _ = Describe("Actions", func() {
 				}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(
+					ContainSubstring("[tags]: the path names no editable field"),
+				),
 			))
 		})
 	})
 
 	Describe("MovePayload", func() {
-		It("Should leave the range unchanged when the list is missing", func() {
+		It("Should reject a list the range does not declare", func() {
 			Expect(ranger.Reduce(base, ranger.NewMoveAction(ranger.MovePayload{
 				Path: []string{"tags"},
 				Key:  "a",
-			}))).To(Equal(base))
+			}))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("[tags]: the path names no editable field"),
+				),
+			))
 		})
 	})
 })

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type ReactElement } from "react";
@@ -35,9 +36,9 @@ export const StatusBadge = ({
         hideIcon
         level="small"
       />
-      <Status.Chip variant={variant}>
+      <Badge.Badge status={variant}>
         {status?.details.connected === true ? "Connected" : "Disconnected"}
-      </Status.Chip>
+      </Badge.Badge>
     </Tooltip.Dialog>
   );
 };

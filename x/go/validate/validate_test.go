@@ -11,6 +11,7 @@ package validate_test
 
 import (
 	"runtime"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -112,6 +113,31 @@ var _ = Describe("Validate", func() {
 		It("Should include the field name in the error", func() {
 			v.Ternaryf("myField", true, "invalid value")
 			Expect(v.Error()).To(MatchError(ContainSubstring("my_field")))
+		})
+	})
+
+	Describe("Failing checks", func() {
+		It("Should keep the Ternary message and path", func() {
+			v.Ternary("parent.childField", true, "100% wrong")
+			Expect(v.Error()).To(MatchError("parent.child_field: 100% wrong"))
+			var pathErr validate.PathError
+			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
+		})
+
+		It("Should keep the Ternaryf message and path", func() {
+			v.Ternaryf("parent.childField", true, "invalid value: %v", 12)
+			Expect(v.Error()).To(MatchError("parent.child_field: invalid value: 12"))
+			var pathErr validate.PathError
+			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
+		})
+
+		It("Should keep an earlier failure through a passing check", func() {
+			v.Ternary("first", true, "failed")
+			Expect(v.Ternary("second", false, "passed")).To(BeTrue())
+			Expect(v.Ternaryf("third", false, "passed: %d", 1)).To(BeTrue())
+			Expect(v.Error()).To(MatchError("first: failed"))
 		})
 	})
 
@@ -289,6 +315,28 @@ var _ = Describe("Validate", func() {
 					Entry("a family emoji, which is five code points", "👨‍👩‍👧"),
 				)
 			})
+		})
+
+		Describe("NonZero", func() {
+			DescribeTable("Should accept a non-zero value", func(check func() bool) {
+				Expect(check()).To(BeFalse())
+				Expect(v.Error()).NotTo(HaveOccurred())
+			},
+				Entry("number", func() bool { return v.NonZero("field", 42) }),
+				Entry("string", func() bool { return v.NonZero("field", "a") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.New()) }),
+			)
+
+			DescribeTable("Should catch a zero value", func(check func() bool) {
+				Expect(check()).To(BeTrue())
+				Expect(
+					v.Error(),
+				).To(MatchError(ContainSubstring("field: must be non-zero")))
+			},
+				Entry("number", func() bool { return v.NonZero("field", 0) }),
+				Entry("string", func() bool { return v.NonZero("field", "") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.Nil()) }),
+			)
 		})
 
 		Describe("Zeroable", func() {

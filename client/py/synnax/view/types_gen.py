@@ -11,14 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import ranger, status
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter
 
 TYPE_RANGE: Literal["range"] = "range"
@@ -67,6 +66,22 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
     type: filter.Set[Type] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "type": filter.SetInput[Type],
+    },
+    total=False,
+)
 
 
 class RangeView(Base):
@@ -122,8 +137,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="view")
+TYPE_RESOURCE_ID = ID(type="view")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="view", key=str(key))

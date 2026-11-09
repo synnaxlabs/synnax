@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, project, query, ranger } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type project, query, ranger, type resource } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -19,10 +19,17 @@ import {
   within,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+} from "vitest";
 
 import { Errors } from "@/errors";
-import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -41,10 +48,10 @@ const newTab = (): panel.Tab => ({
 const asView = (tab?: panel.Tab | null): panel.ViewTab | undefined =>
   tab?.variant === "view" ? tab : undefined;
 
-const newResourceTab = (resource: ontology.ID): panel.ResourceTab => ({
+const newResourceTab = (id: resource.ID): panel.ResourceTab => ({
   variant: "resource",
   key: uuid.create(),
-  resource,
+  resource: id,
 });
 
 describe("Panel queries", () => {
@@ -52,10 +59,10 @@ describe("Panel queries", () => {
   let wrapper: FC<PropsWithChildren>;
   // Panel creation requires a parent; panels whose project is irrelevant to the
   // test at hand share this one.
-  let defaultParent: ontology.ID;
+  let defaultProject: project.Key;
 
   beforeAll(async () => {
-    defaultParent = await createPanelParent(client);
+    defaultProject = await createPanelProject(client);
   });
   beforeEach(async () => {
     controller = new AbortController();
@@ -68,7 +75,7 @@ describe("Panel queries", () => {
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({
       name: `panel-${uuid.create()}`,
-      parent: defaultParent,
+      project: defaultProject,
     });
 
   const asSplit = (node?: panel.Node): panel.SplitNode | undefined =>
@@ -124,7 +131,7 @@ describe("Panel queries", () => {
     it("should fetch a panel by key", async () => {
       const created = await client.panels.create({
         name: "retrieve-target",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: created.key }),
@@ -232,7 +239,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({
           key,
           name: "created-panel",
-          parent: defaultParent,
+          project: defaultProject,
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -256,7 +263,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({
           key,
           name: "stored-panel",
-          parent: defaultParent,
+          project: defaultProject,
         });
       });
 
@@ -264,27 +271,34 @@ describe("Panel queries", () => {
       expect(root.current).toEqual({ variant: "leaf", tabs: [] });
     });
 
-    it("should parent the panel under the given resource", async () => {
-      const parentProject = await client.projects.create({
-        name: `parent-${uuid.create()}`,
-      });
-      const parent = project.ontologyID(parentProject.key);
+    it("should put the panel in the given project", async () => {
+      const owner = await client.projects.create({ name: `owner-${uuid.create()}` });
 
       const { result } = renderHook(() => Panel.useCreate(), { wrapper });
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({ key, name: "parented-panel", parent });
+        await result.current.updateAsync({
+          key,
+          name: "owned-panel",
+          project: owner.key,
+        });
       });
 
-      const children = await client.ontology.children.retrieve({ ids: parent });
-      expect(children.map((c) => c.id.key)).toContain(key);
+      const owned = await client.panels.retrieve({ projects: [owner.key] });
+      expect(owned.map((p) => p.key)).toContain(key);
     });
   });
 
   describe("useList", () => {
     it("should return panels including those created beforehand", async () => {
-      const p1 = await client.panels.create({ name: "list-a", parent: defaultParent });
-      const p2 = await client.panels.create({ name: "list-b", parent: defaultParent });
+      const p1 = await client.panels.create({
+        name: "list-a",
+        project: defaultProject,
+      });
+      const p2 = await client.panels.create({
+        name: "list-b",
+        project: defaultProject,
+      });
 
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
@@ -300,7 +314,7 @@ describe("Panel queries", () => {
     it("should expose individual panels via getItem", async () => {
       const target = await client.panels.create({
         name: "get-item-target",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
@@ -339,13 +353,12 @@ describe("Panel queries", () => {
       return rendered;
     };
 
-    it("should return only the panels parented to the project", async () => {
+    it("should return only the panels of the project", async () => {
       const projectKey = await newProject();
-      const parent = project.ontologyID(projectKey);
-      const mine = await client.panels.create({ name: "mine", parent });
+      const mine = await client.panels.create({ name: "mine", project: projectKey });
       const theirs = await client.panels.create({
         name: "theirs",
-        parent: project.ontologyID(await newProject()),
+        project: await newProject(),
       });
 
       const { result } = await retrieveKeys(projectKey);
@@ -353,8 +366,10 @@ describe("Panel queries", () => {
       expect(result.current).not.toContain(theirs.key);
     });
 
-    it("should reject creating a panel without a parent", async () => {
-      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(/parent/);
+    it("should reject creating a panel without a project or a range", async () => {
+      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(
+        /exactly one of a project and a range/,
+      );
     });
 
     it("should return an empty list for a project with no panels", async () => {
@@ -362,14 +377,14 @@ describe("Panel queries", () => {
       expect(result.current).toEqual([]);
     });
 
-    it("should add a panel parented to the project after the initial retrieve", async () => {
+    it("should add a panel of the project after the initial retrieve", async () => {
       const projectKey = await newProject();
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([]);
 
       const added = await client.panels.create({
         name: "added",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       await waitFor(() => expect(result.current).toContain(added.key));
     });
@@ -382,7 +397,7 @@ describe("Panel queries", () => {
 
       const added = await client.panels.create({
         name: "added-while-unmounted",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const second = await retrieveKeys(projectKey);
       await waitFor(() => expect(second.result.current).toContain(added.key));
@@ -394,7 +409,7 @@ describe("Panel queries", () => {
 
       const outside = await client.panels.create({
         name: "outside",
-        parent: defaultParent,
+        project: defaultProject,
       });
       await act(async () => {
         await client.panels.rename(outside.key, "outside-renamed");
@@ -406,7 +421,7 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const target = await client.panels.create({
         name: "before-rename",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const { result } = await retrieveKeys(projectKey);
       const before = result.current;
@@ -417,9 +432,7 @@ describe("Panel queries", () => {
       // The rename reaches the project's cached answer, so the subscription fired
       // and the hook had every chance to hand back a new array.
       await waitFor(() => {
-        const cached = client.panels.getCached({
-          parent: project.ontologyID(projectKey),
-        });
+        const cached = client.panels.getCached({ projects: [projectKey] });
         if (!query.isLive(cached)) throw new Error("project answer not cached");
         expect(cached.map(({ name }) => name)).toContain("after-rename");
       });
@@ -430,7 +443,7 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const target = await client.panels.create({
         name: "to-delete",
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
       });
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([target.key]);
@@ -446,7 +459,7 @@ describe("Panel queries", () => {
     it("should rename an existing panel", async () => {
       const target = await client.panels.create({
         name: "before-rename",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useRename(), { wrapper });
 
@@ -462,7 +475,7 @@ describe("Panel queries", () => {
     it("should run afterOptimistic against the renamed panel", async () => {
       const target = await client.panels.create({
         name: "before-optimistic-rename",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const order: string[] = [];
       const { result } = renderHook(
@@ -496,7 +509,7 @@ describe("Panel queries", () => {
     it("should delete an existing panel", async () => {
       const target = await client.panels.create({
         name: "to-delete",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useDelete(), { wrapper });
 
@@ -741,7 +754,11 @@ describe("Panel queries", () => {
     it("set_tab_resource swaps a view tab to a resource and persists it", async () => {
       const created = await createPanel();
       const tab = newTab();
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
+      } as const;
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
@@ -1055,10 +1072,18 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useTabType resolves a resource tab to its ontology type", async () => {
+    it("useTabType resolves a resource tab to its resource type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
-      const resource = { type: "schematic", key: uuid.create() } as const;
+      const resource = {
+        type: "schematic",
+        key: (
+          await client.schematics.create({
+            name: "schematic",
+            project: defaultProject,
+          })
+        ).key,
+      } as const;
 
       const type = await loadAndCount(created.key, () =>
         Panel.useTabType({ key: created.key, tabKey: tab.key }),
@@ -1108,7 +1133,11 @@ describe("Panel queries", () => {
     it("useSetCurrentTabResource swaps the scoped tab to the resource", async () => {
       const tab = newTab();
       const { created } = await createTab(tab);
-      const resource = { type: "lineplot", key: uuid.create() } as const;
+      const resource = {
+        type: "lineplot",
+        key: (await client.lineplots.create({ name: "plot", project: defaultProject }))
+          .key,
+      } as const;
 
       const composed = ({ children }: PropsWithChildren): ReactElement => {
         const Synnax = wrapper;
@@ -1334,7 +1363,7 @@ describe("Panel queries", () => {
     it("useName returns the name and updates after a rename", async () => {
       const created = await client.panels.create({
         name: "name-before",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const ops = await loadAndUse(created.key, () => Panel.useRename());
       const { result } = await loadAndUse(created.key, () =>
@@ -1485,7 +1514,7 @@ describe("Panel queries", () => {
     it("should propagate rename through the channel listener to use", async () => {
       const target = await client.panels.create({
         name: "reactive-before",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: target.key }),
@@ -1527,7 +1556,7 @@ describe("Panel queries", () => {
     it("should propagate deletes through the channel listener", async () => {
       const target = await client.panels.create({
         name: "reactive-delete",
-        parent: defaultParent,
+        project: defaultProject,
       });
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
@@ -1542,12 +1571,12 @@ describe("Panel queries", () => {
   });
 
   describe("useCloseResourceTabs", () => {
-    const createRange = async (): Promise<ontology.ID> => {
+    const createRange = async (): Promise<resource.ID> => {
       const created = await client.ranges.create({
         name: `range-${uuid.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return ranger.ontologyID(created.key);
+      return ranger.resourceID(created.key);
     };
 
     const insert = async (
@@ -1605,13 +1634,9 @@ describe("Panel queries", () => {
       );
 
       const deleted: string[] = [];
-      renderHook(
-        () => {
-          Panel.useCloseResourceTabs();
-          Ontology.useResourceDeleteSynchronizer((id) => deleted.push(id.key));
-        },
-        { wrapper },
-      );
+      const off = client.ranges.onDelete((key) => deleted.push(key));
+      onTestFinished(off);
+      renderHook(() => Panel.useCloseResourceTabs(), { wrapper });
       await act(async () => {
         await writer.ranges.delete(resource.key);
       });
@@ -1622,12 +1647,12 @@ describe("Panel queries", () => {
   });
 
   describe("useMoveTabToPanel", () => {
-    const createRange = async (): Promise<ontology.ID> => {
+    const createRange = async (): Promise<resource.ID> => {
       const created = await client.ranges.create({
         name: `range-${uuid.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return ranger.ontologyID(created.key);
+      return ranger.resourceID(created.key);
     };
 
     const loadPair = async (source: panel.Key, destination: panel.Key) => {
