@@ -1443,6 +1443,8 @@ var _ = Describe("Decode-time default generation", func() {
 			DistinctBases Base[]
 			Page struct<T> { items T[] }
 			Box struct<T> { item T }
+			Name struct { value string }
+			Pair struct<A, B> { a A b B }
 			Outer struct { ` + field + ` }
 		`
 			table, diag := Analyze(ctx, source, "x", loader)
@@ -1463,6 +1465,30 @@ var _ = Describe("Decode-time default generation", func() {
 		Entry("in a slice of a generic struct", "items Page<Base>"),
 		Entry("in a type parameter field of a generic struct", "items Box<Base>"),
 		Entry("in a generic struct inside a slice", "items Box<Base>[]"),
+		Entry(
+			"in a second instantiation of a generic struct",
+			"items Pair<Box<Name>, Box<Base>>",
+		),
+	)
+
+	It(
+		"Should reject an embedded type with defaults in a required field of a "+
+			"generic struct",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Page struct<T> { meta Base items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.meta: Base has defaults and another struct embeds it",
+			)))
+		},
 	)
 
 	DescribeTable(

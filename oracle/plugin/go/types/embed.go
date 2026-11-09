@@ -163,8 +163,8 @@ func checkHeldEmbedded(owner string, field resolution.Field, data *templateData)
 
 // heldRefs returns the types that ref holds in slices, map values, and the fields of a
 // generic struct, and ref itself when the field is optional. A generic struct sets no
-// defaults, so each of its type parameter fields counts as held. heldRefs looks
-// through aliases and distinct types to the collection or generic struct they name.
+// defaults, so each of its fields counts as held. heldRefs looks through aliases and
+// distinct types to the collection or generic struct they name.
 func heldRefs(
 	ref resolution.TypeRef,
 	optional bool,
@@ -185,20 +185,32 @@ func heldRefs(
 		out = append(out, ref)
 	}
 	t, form, ok := genericStruct(ref, table)
-	if !ok || visited.Contains(ref.Name) {
+	if !ok || visited.Contains(instanceKey(ref)) {
 		return out
 	}
-	visited.Add(ref.Name)
+	visited.Add(instanceKey(ref))
 	args := resolution.TypeArgMap(form.TypeParams, ref.TypeArgs)
 	for _, f := range resolution.UnifiedFields(t, table) {
 		out = append(out, heldRefs(
 			resolution.SubstituteTypeRef(f.Type, args),
-			f.Optional || f.Type.IsTypeParam(),
+			true,
 			table,
 			visited,
 		)...)
 	}
 	return out
+}
+
+// instanceKey identifies ref by its name and its type arguments.
+func instanceKey(ref resolution.TypeRef) string {
+	if len(ref.TypeArgs) == 0 {
+		return ref.Name
+	}
+	args := make([]string, len(ref.TypeArgs))
+	for i, a := range ref.TypeArgs {
+		args[i] = instanceKey(a)
+	}
+	return ref.Name + "<" + strings.Join(args, ",") + ">"
 }
 
 // underlying follows ref through aliases and distinct types, and returns the slice,
