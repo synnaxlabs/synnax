@@ -214,6 +214,12 @@ const keepPending = <V>(
   return kept;
 };
 
+/** The values a save wrote, and the stored record its update read. */
+interface Saved<V> {
+  written: V;
+  read: V | undefined;
+}
+
 /** A save waiting on the one before it, and the signal its callers issued it under. */
 interface QueuedSave {
   promise: Promise<boolean>;
@@ -236,7 +242,7 @@ interface PersistParams<
 
 /**
  * Validates and writes the form, reporting progress through `setResult`.
- * @returns the values the update wrote, or undefined when it wrote nothing.
+ * @returns what the update wrote and read, or undefined when it wrote nothing.
  */
 const persist = async <
   Query extends query.Params,
@@ -252,7 +258,7 @@ const persist = async <
   setResult,
   addStatus,
   signal,
-}: PersistParams<Query, Schema>): Promise<z.infer<Schema> | undefined> => {
+}: PersistParams<Query, Schema>): Promise<Saved<z.infer<Schema>> | undefined> => {
   try {
     if (beforeValidate?.(params) === false) return undefined;
     if (!(await params.validateAsync())) return undefined;
@@ -275,10 +281,11 @@ const persist = async <
         } as Result<undefined>;
       });
     const written = params.value();
-    await update({ ...params, setStatus, stored: stored.current });
+    const read = stored.current;
+    await update({ ...params, setStatus, stored: read });
     setResult(successResult(`updated ${name}`, undefined));
     if (afterSave != null) afterSave(params);
-    return written;
+    return { written, read };
   } catch (error) {
     if (signal?.aborted === true) return undefined;
     const res = errorResult(`update ${name}`, error);
@@ -415,7 +422,7 @@ export const createForm = <
       const sent = unsaved.current;
       sending.current = sent;
       unsaved.current = new Set();
-      const written = await persist({
+      const persisted = await persist({
         name,
         params: {
           client,
@@ -433,11 +440,12 @@ export const createForm = <
         addStatus,
         signal,
       });
-      const saved = written != null;
+      const saved = persisted != null;
       // The form re-pointed at another record while this save ran.
       if (readQuery.current !== issuedFor) return saved;
-      if (saved) stored.current = written;
-      else sent.forEach((path) => unsaved.current.add(path));
+      if (!saved) sent.forEach((path) => unsaved.current.add(path));
+      // A listener reset that landed during the save is newer than what it wrote.
+      else if (stored.current === persisted.read) stored.current = persisted.written;
       sending.current = new Set();
       return saved;
     };
