@@ -257,7 +257,7 @@ describe("version useInfoModal", () => {
 
     it("should install it after the user confirms the break", async () => {
       const ipc = await openBreaking();
-      fireEvent.click(screen.getByRole("button", { name: "Update Console" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update" }));
       await waitFor(() => expect(restarted(ipc)).toBe(true));
       expect(installed(ipc)).toBe(true);
     });
@@ -284,7 +284,7 @@ describe("version useInfoModal", () => {
       await screen.findByText("Console 1.6.0 cannot work with Core 1.5.0");
       setStatus(createStatus("1.5.1"));
       await waitFor(() => expect(callsOf(ipc, "plugin:updater|check")).toHaveLength(2));
-      fireEvent.click(screen.getByRole("button", { name: "Update Console" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update" }));
       expect(
         await screen.findByText(
           "The Core changed before the update started. Close this dialog and update again.",
