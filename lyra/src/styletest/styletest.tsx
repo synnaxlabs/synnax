@@ -84,10 +84,12 @@ export const selectedByTripleClick = async (el: Element): Promise<string> => {
   const { style } = document.body;
   style.setProperty("-webkit-user-select", "none");
   style.setProperty("user-select", "none");
-  getSelection()?.removeAllRanges();
-  await userEvent.tripleClick(el);
-  const text = getSelection()?.toString() ?? "";
-  style.removeProperty("-webkit-user-select");
-  style.removeProperty("user-select");
-  return text;
+  try {
+    getSelection()?.removeAllRanges();
+    await userEvent.tripleClick(el);
+    return getSelection()?.toString() ?? "";
+  } finally {
+    style.removeProperty("-webkit-user-select");
+    style.removeProperty("user-select");
+  }
 };
