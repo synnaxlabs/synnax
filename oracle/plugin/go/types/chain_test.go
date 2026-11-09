@@ -400,7 +400,7 @@ Doc struct {
 	}
 
 	It(
-		"Should validate a type the current version aliases from a frozen definer",
+		"Should keep live rules out of a frozen definer the current version aliases",
 		func() {
 			files := generate(`
 Entry = v0.Entry
@@ -413,13 +413,9 @@ Doc struct {
 	@go marshal
 }
 `)
-			frozen := files["core/doc/versions/v0/types.gen.go"]
-			Expect(
-				frozen,
-			).To(ContainSubstring(`v.GreaterThanEq("precision", e.Precision, -1)`))
-			Expect(
-				frozen,
-			).To(ContainSubstring(`v.LessThanEq("precision", e.Precision, 17)`))
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				`Eq("precision"`,
+			))
 			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
 				"type Entry = v0.Entry",
 			))
@@ -516,7 +512,7 @@ Doc struct {
 	}
 
 	It(
-		"Should group the defaults of a type aliased from a frozen definer",
+		"Should keep a live default group out of an aliased frozen definer",
 		func() {
 			files := generate(`
 Range = v0.Range
@@ -529,8 +525,8 @@ Doc struct {
 	@go marshal
 }
 `)
-			Expect(files["core/doc/versions/v0/types.gen.go"]).To(ContainSubstring(
-				"if r.MinVal == 0 && r.MaxVal == 0 {",
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				"r.MinVal == 0 && r.MaxVal == 0",
 			))
 			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
 				"type Range = v0.Range",
@@ -608,13 +604,13 @@ Box struct<T> {
 	}
 
 	It(
-		"Should convert a type the current version aliases from a frozen definer",
+		"Should keep a live to_any out of a frozen definer the current version aliases",
 		func(ctx SpecContext) {
 			files := generate(ctx, `
 Box = v0.Box
 `)
-			Expect(files["core/box/versions/v0/types.gen.go"]).To(ContainSubstring(
-				"func (b Box[T]) ToAny() Box[any] {",
+			Expect(files["core/box/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				"ToAny",
 			))
 			current := files["core/box/versions/v1/types.gen.go"]
 			Expect(current).To(ContainSubstring("type Box[T any] = v0.Box[T]"))
@@ -730,12 +726,12 @@ Doc struct {
 `
 
 	It(
-		"Should validate the variant fields of a union the current version aliases",
+		"Should keep live rules out of a frozen union the current version aliases",
 		func() {
 			files := generate("Payload = v0.Payload\n\nWindow = v0.Window\n" + docV1)
 			frozen := files["core/doc/versions/v0/types.gen.go"]
-			Expect(frozen).To(ContainSubstring(`GreaterThanEq("span"`))
-			Expect(frozen).To(ContainSubstring(`GreaterThanEq("size"`))
+			Expect(frozen).ToNot(ContainSubstring(`GreaterThanEq("span"`))
+			Expect(frozen).ToNot(ContainSubstring(`GreaterThanEq("size"`))
 		},
 	)
 
@@ -1705,176 +1701,6 @@ Doc struct {
 }
 `,
 			}, "schemas/synnax/doc"),
-		Entry("when a declaration holds a live rule from an older definer",
-			docV1, "schemas/synnax/versions/doc/v2.oracle", `
-Base = v0.Base
-
-Doc = v1.Doc
-`, map[string]string{
-				"schemas/synnax/versions/doc/v0.oracle": `
-Base struct {
-	name string
-}
-`,
-				"schemas/synnax/versions/doc/v1.oracle": `
-Base = v0.Base
-
-Doc struct extends Base {
-	key uuid @key
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-@go output "core/pkg/service/doc"
-
-Base struct {
-	name string {
-		@validate required
-	}
-}
-
-Doc struct extends Base {
-	key uuid @key
-}
-`,
-			}, "schemas/synnax/doc"),
-		Entry("when the live file adds Go fields to a declaration",
-			docV0, "schemas/synnax/versions/doc/v1.oracle", `
-Doc = v0.Doc
-`, map[string]string{
-				"schemas/synnax/versions/doc/v0.oracle": `
-Doc struct {
-	key uuid @key
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-@go output "core/pkg/service/doc"
-
-Doc struct {
-	key uuid @key
-
-	@go fields  "AST parser.IProgramContext ` + "`json:\\\"-\\\"`" + `"
-	@go imports "github.com/synnaxlabs/arc/parser"
-}
-`,
-			}, "schemas/synnax/doc"),
-		Entry("when the live file repeats Go field and import lines",
-			docV0, "schemas/synnax/versions/doc/v1.oracle", `
-Doc = v0.Doc
-`, map[string]string{
-				"schemas/synnax/versions/doc/v0.oracle": `
-Doc struct {
-	key uuid @key
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-@go output "core/pkg/service/doc"
-
-Doc struct {
-	key uuid @key
-
-	@go fields  "AST parser.IProgramContext ` + "`json:\\\"-\\\"`" + `"
-	@go fields  "Size int ` + "`json:\\\"-\\\"`" + `"
-	@go imports "github.com/synnaxlabs/arc/parser"
-	@go imports "github.com/synnaxlabs/arc/symbol"
-}
-`,
-			}, "schemas/synnax/doc"),
-		Entry("when an omitted variant field holds a declaration with a live rule",
-			docV0, "schemas/synnax/versions/doc/v1.oracle", `
-Note = v0.Note
-
-Shape = v0.Shape
-
-Doc = v0.Doc
-`, map[string]string{
-				"schemas/synnax/versions/doc/v0.oracle": `
-Note struct {
-	name string
-}
-
-Shape union on kind {
-	circle {
-		preview Note {
-			@go marshal omit
-		}
-	}
-
-	@go marshal
-}
-
-Doc struct {
-	key uuid @key
-	shape Shape
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-@go output "core/pkg/service/doc"
-
-Note struct {
-	name string {
-		@validate required
-	}
-}
-
-Shape union on kind {
-	circle {
-		preview Note {
-			@go marshal omit
-		}
-	}
-}
-
-Doc struct {
-	key uuid @key
-	shape Shape
-}
-`,
-			}, "schemas/synnax/doc"),
-		Entry("when an omitted field holds a declaration with a live rule",
-			docV0, "schemas/synnax/versions/doc/v1.oracle", `
-Note = v0.Note
-
-Doc = v0.Doc
-`, map[string]string{
-				"schemas/synnax/versions/doc/v0.oracle": `
-Note struct {
-	name string
-}
-
-Doc struct {
-	key uuid @key
-	preview Note {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`,
-				"schemas/synnax/doc.oracle": `
-@go output "core/pkg/service/doc"
-
-Note struct {
-	name string {
-		@validate required
-	}
-}
-
-Doc struct {
-	key uuid @key
-	preview Note {
-		@go marshal omit
-	}
-}
-`,
-			}, "schemas/synnax/doc"),
 		Entry("when an omitted field resolves a dependency",
 			docV0, "schemas/synnax/versions/doc/v1.oracle", `
 import "schemas/x/versions/color/v0"
@@ -1978,4 +1804,35 @@ Job struct {
 `,
 			}, "schemas/x/color", "schemas/synnax/doc", "schemas/synnax/job"),
 	)
+
+	It("Should drop live rules and Go fields from the demoted version", func() {
+		files := map[string]string{
+			"schemas/synnax/versions/doc/v0.oracle": `
+Doc struct {
+	key uuid @key
+	name string
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	name string {
+		@validate required
+	}
+
+	@go fields  "Size int ` + "`json:\\\"-\\\"`" + `"
+}
+`,
+		}
+		Expect(generatedFile(generate(files, []string{"schemas/synnax/doc"}), docV0)).
+			To(And(ContainSubstring(`NotEmptyString("name"`), ContainSubstring("Size int")))
+		files["schemas/synnax/versions/doc/v1.oracle"] = "\nDoc = v0.Doc\n"
+		demoted := generatedFile(generate(files, []string{"schemas/synnax/doc"}), docV0)
+		Expect(demoted).ToNot(ContainSubstring(`NotEmptyString("name"`))
+		Expect(demoted).ToNot(ContainSubstring("Size int"))
+	})
 })
