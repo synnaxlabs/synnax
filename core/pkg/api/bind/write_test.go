@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xtypes "github.com/synnaxlabs/x/types"
 )
 
 // copyRequest is a request that copies its sources.
@@ -81,21 +82,50 @@ func (c *taskConfig) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
-// openConfigs opens the table of taskConfig records until the spec ends.
-func openConfigs(ctx context.Context) *gorp.Table[string, taskConfig] {
+// movedTaskConfig is a config record of the task type that a task changes to.
+type movedTaskConfig struct{ taskConfig }
+
+func (movedTaskConfig) CustomTypeName() string { return config.TableName("bind_moved") }
+
+// placedTwice is a record with no resource type that is placed in two ranges.
+type placedTwice struct{ Key, First, Second string }
+
+func (p placedTwice) GorpKey() string { return p.Key }
+
+func (p placedTwice) EncodeOrc(w *orc.Writer) error {
+	w.String(p.Key)
+	w.String(p.First)
+	w.String(p.Second)
+	return nil
+}
+
+func (p *placedTwice) DecodeOrc(r *orc.Reader) (err error) {
+	if p.Key, err = r.String(); err != nil {
+		return err
+	}
+	if p.First, err = r.String(); err != nil {
+		return err
+	}
+	p.Second, err = r.String()
+	return err
+}
+
+// openConfigs opens a table of config records, each placed in the task that shares its
+// key, until the spec ends.
+func openConfigs[E gorp.Entry[string]](ctx context.Context) *gorp.Table[string, E] {
 	GinkgoHelper()
 	task := string(resource.TypeTask)
-	return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, taskConfig]{
+	return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, E]{
 		DB:   db,
-		Name: config.TableName("bind_spec"),
-		References: []gorp.Reference[string, taskConfig]{
-			gorp.NewTargetReference(gorp.TargetReferenceConfig[string, taskConfig]{
+		Name: xtypes.Name[E](),
+		References: []gorp.Reference[string, E]{
+			gorp.NewTargetReference(gorp.TargetReferenceConfig[string, E]{
 				Name:     "key",
 				Tables:   []string{task},
 				OnDelete: gorp.Cascade,
 				Kind:     gorp.Place,
-				Targets: func(c *taskConfig) []gorp.Target {
-					return []gorp.Target{gorp.NewTarget(task, c.Key)}
+				Targets: func(c *E) []gorp.Target {
+					return []gorp.Target{gorp.NewTarget(task, (*c).GorpKey())}
 				},
 			}),
 		},
@@ -563,10 +593,61 @@ var _ = Describe("Write", func() {
 				},
 			}
 		}),
+		Entry("update on the task of a new task config record", func(
+			ctx context.Context,
+		) rule {
+			configs := openConfigs[taskConfig](ctx)
+			t := createTask(ctx)
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return configs.NewCreate().
+						Entry(&taskConfig{Key: t.Key.String()}).
+						Exec(ctx, tx)
+				},
+				needed: need{access.ActionUpdate, task.ResourceID(t.Key)},
+			}
+		}),
+		Entry("update on the task of a changed task config record", func(
+			ctx context.Context,
+		) rule {
+			configs := openConfigs[taskConfig](ctx)
+			t := createTask(ctx)
+			c := taskConfig{Key: t.Key.String()}
+			Expect(configs.NewCreate().Entry(&c).Exec(ctx, db)).To(Succeed())
+			return rule{
+				write: func(ctx context.Context, tx gorp.Tx) error {
+					return configs.NewCreate().Entry(&c).Exec(ctx, tx)
+				},
+				needed: need{access.ActionUpdate, task.ResourceID(t.Key)},
+			}
+		}),
+		Entry(
+			"update on the task of a task config record that moves to another table",
+			func(ctx context.Context) rule {
+				configs := openConfigs[taskConfig](ctx)
+				moved := openConfigs[movedTaskConfig](ctx)
+				t := createTask(ctx)
+				c := taskConfig{Key: t.Key.String()}
+				Expect(configs.NewCreate().Entry(&c).Exec(ctx, db)).To(Succeed())
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						if err := configs.NewDelete().
+							Where(gorp.MatchKeys[string, taskConfig](c.Key)).
+							Exec(ctx, tx); err != nil {
+							return err
+						}
+						return moved.NewCreate().
+							Entry(&movedTaskConfig{taskConfig: c}).
+							Exec(ctx, tx)
+					},
+					needed: need{access.ActionUpdate, task.ResourceID(t.Key)},
+				}
+			},
+		),
 		Entry("update on the task of a deleted task config record", func(
 			ctx context.Context,
 		) rule {
-			configs := openConfigs(ctx)
+			configs := openConfigs[taskConfig](ctx)
 			t := createTask(ctx)
 			k := t.Key.String()
 			Expect(configs.NewCreate().
@@ -729,12 +810,52 @@ var _ = Describe("Write", func() {
 					Entry(&unmapped{Key: "k"}).
 					Exec(ctx, tx)
 			})).To(MatchError(
-				"[bind] - table unmapped has no resource type, and k is placed in 0 records",
+				"[bind] - table unmapped has no resource type, and k is placed in 0 " +
+					"records",
 			))
 			Expect(gorp.NewRetrieve[string, unmapped]().
 				Where(gorp.MatchKeys[string, unmapped]("k")).
 				Entry(&unmapped{}).
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+	)
+
+	It(
+		"Should return an error for a record with no resource type that is placed in "+
+			"two records",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			first, second := createRange(ctx, nil), createRange(ctx, nil)
+			rng := string(resource.TypeRange)
+			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, placedTwice]{
+				DB: db,
+				References: []gorp.Reference[string, placedTwice]{
+					gorp.NewTargetReference(
+						gorp.TargetReferenceConfig[string, placedTwice]{
+							Name:     "ranges",
+							Tables:   []string{rng},
+							OnDelete: gorp.Cascade,
+							Kind:     gorp.Place,
+							Targets: func(p *placedTwice) []gorp.Target {
+								return []gorp.Target{
+									gorp.NewTarget(rng, p.First),
+									gorp.NewTarget(rng, p.Second),
+								}
+							},
+						},
+					),
+				},
+			}))
+			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return table.NewCreate().Entry(&placedTwice{
+					Key:    "k",
+					First:  first.Key.String(),
+					Second: second.Key.String(),
+				}).Exec(ctx, tx)
+			})).To(MatchError(
+				"[bind] - table placedTwice has no resource type, and k is placed in " +
+					"2 records",
+			))
 		},
 	)
 

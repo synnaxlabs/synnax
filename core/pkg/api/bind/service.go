@@ -53,7 +53,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.bind")
 	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("held", c.Held)
+	v.NotEmptySlice("held", c.Held)
 	return v.Error()
 }
 

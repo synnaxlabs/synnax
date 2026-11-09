@@ -51,7 +51,12 @@ var _ = Describe("ServiceConfig", func() {
 			Entry(
 				"held",
 				func(c *bind.ServiceConfig) { c.Held = nil },
-				"held: must be non-nil",
+				"held: must be non-empty",
+			),
+			Entry(
+				"held, as an empty list",
+				func(c *bind.ServiceConfig) { c.Held = []string{} },
+				"held: must be non-empty",
 			),
 		)
 	})
