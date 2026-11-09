@@ -181,13 +181,13 @@ client.ranges.create(
 const childRange = await client.ranges.create({
   name: "My Child Range",
   timeRange: new TimeRange(start, end),
-  parent: parentRange,
+  parent: parentRange.key,
 });
 
 // Or create many children in one call
 await client.ranges.create([
-  { name: "Child A", timeRange: trA, parent: parentRange },
-  { name: "Child B", timeRange: trB, parent: parentRange },
+  { name: "Child A", timeRange: trA, parent: parentRange.key },
+  { name: "Child B", timeRange: trB, parent: parentRange.key },
 ]);
 ```
 
