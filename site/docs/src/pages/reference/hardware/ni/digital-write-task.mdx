@@ -44,8 +44,10 @@ every frame.
 1. In the devices toolbar, right-click the device and select **Create digital write
    task**.
 2. Set **State update rate**.
-3. Click **Add channel**, then enter the port and the line in **Port/Line**.
-4. Click <Icon.Play /> (**Start**).
+3. The task starts with one channel. To add more, click **Add channel**, or click a free
+   line in the map above the channel list. See [ports](/reference/hardware/tasks#ports).
+4. In the channel list, enter the **Port** and the **Line** of each channel.
+5. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0, line
 0 gives the command channel `dev1_do_0_0_cmd` with the index `dev1_do_0_0_cmd_time`, and
@@ -86,9 +88,6 @@ task = ni.DigitalWriteTask(
 client.tasks.configure(task)
 task.start()
 ```
-
-Python creates the task on the embedded Driver of the Core. For a device on another
-Driver, use the Console or TypeScript.
 
   </Fragment>
   <Fragment slot="typescript">
@@ -139,9 +138,10 @@ await task.start();
 Each channel has a `cmd_channel` and a `state_channel`. The table shows the Console
 label of each setting, with its Python field under it.
 
-| Setting                                 | Default | Notes                         |
-| --------------------------------------- | ------- | ----------------------------- |
-| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
+| Setting                    | Default | Notes                 |
+| -------------------------- | ------- | --------------------- |
+| Port <small>`port`</small> | `0`     | The port.             |
+| Line <small>`line`</small> | `0`     | The line in the port. |
 
 <Divider.Divider x />
 
@@ -149,15 +149,43 @@ label of each setting, with its Python field under it.
 
 <Problem.List>
 
-<Problem.Item message={"Port ..., line ... has already been used on another channel"}>
+<Problem.Item message={"Another channel uses port0/line0"}>
 <Problem.Cause>
 
-Two channels use the same line.
+Two enabled channels use the same line.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Change the port or the line of one of them.
+Change the **Port** or the **Line** of one of the channels, or disable one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device has no digital output port0"}>
+<Problem.Cause>
+
+The channel uses a port that the device does not have, or a port that cannot write
+output.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the **Port** of the channel. The line map above the channel list shows the ports
+of the device.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"port0 has 8 lines, numbered 0 to 7"}>
+<Problem.Cause>
+
+The **Line** of the channel is past the last line of its port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the **Line** to a number in the range of the message.
 
 </Problem.Fix>
 </Problem.Item>
