@@ -144,15 +144,15 @@ The field types come from `synnax.http`. A generated timestamp field takes a
 
 ## Task options
 
-| Setting                                                     | Default      | Notes                                                     |
-| ----------------------------------------------------------- | ------------ | --------------------------------------------------------- |
-| Topic <small>`topic`</small>                                |              | One topic for each task.                                  |
-| Record key <small>`record_key`</small>                      | Channel name | **Channel name** or **None**.                             |
-| Value pointer <small>`record.value_pointer`</small>         | `/value`     | Cannot be empty.                                          |
-| Channel pointer <small>`record.channel_pointer`</small>     | `/channel`   | Empty leaves the name out. Code leaves it out by default. |
-| Timestamp pointer <small>`record.timestamp_pointer`</small> | `/timestamp` | Empty leaves it out. Code leaves it out by default.       |
-| Time format <small>`record.time_format`</small>             | Unix (ns)    | ISO 8601, or Unix time in s, ms, µs, or ns.               |
-| Auto start <small>`auto_start`</small>                      | Off          | Starts the task each time the Core starts.                |
+| Setting                                                     | Default      | Notes                                                           |
+| ----------------------------------------------------------- | ------------ | --------------------------------------------------------------- |
+| Topic <small>`topic`</small>                                |              | One topic for each task.                                        |
+| Record key <small>`record_key`</small>                      | Channel name | **Channel name** or **None**.                                   |
+| Value pointer <small>`record.value_pointer`</small>         | `/value`     | Empty uses `/value`.                                            |
+| Channel pointer <small>`record.channel_pointer`</small>     | `/channel`   | Empty leaves the name out. In code, leave it unset: `""` fails. |
+| Timestamp pointer <small>`record.timestamp_pointer`</small> | `/timestamp` | Empty leaves it out. In code, leave it unset: `""` fails.       |
+| Time format <small>`record.time_format`</small>             | Unix (ns)    | ISO 8601, or Unix time in s, ms, µs, or ns.                     |
+| Auto start <small>`auto_start`</small>                      | Off          | Starts the task each time the Core starts.                      |
 
 TypeScript uses the same fields in camel case, such as `recordKey`.
 
