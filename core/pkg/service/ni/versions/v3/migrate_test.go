@@ -18,6 +18,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -79,7 +80,15 @@ var _ = Describe("AnalogWriteMigration", func() {
 			}
 			bounds := v2.MinMaxVal{MinVal: -5, MaxVal: 5}
 			scale := v2.CustomScale{CustomScale: v2.Scale{Variant: v2.NoneScale{}}}
-			stored := v2.AnalogWriteConfig{Channels: []v2.AOChannel{
+			key := task.KeyedConfig{Key: uuid.New()}
+			stored := v2.AnalogWriteConfig{WriteConfig: v2.WriteConfig{
+				WriteConfig: task.WriteConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{KeyedConfig: key},
+					},
+				},
+				StateRate: 25,
+			}, Channels: []v2.AOChannel{
 				{Variant: v2.AOFuncGenChannel{
 					BaseAOChannel: oldBase("gen", 0),
 					WaveType:      v2.WaveTypeSquare,
@@ -98,8 +107,6 @@ var _ = Describe("AnalogWriteMigration", func() {
 					CustomScale:   scale,
 				}},
 			}}
-			stored.Key = uuid.New()
-			stored.StateRate = 25
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			MustSucceed(gorp.OpenTable(
 				ctx,
