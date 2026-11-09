@@ -18,7 +18,6 @@ import {
   type Release,
   Releases,
   tag,
-  trains,
 } from "@/util/releases";
 
 const release = (tag_name: string, prerelease = false, draft = false): Release => ({
@@ -121,20 +120,6 @@ describe("releases", () => {
     });
   });
 
-  describe("trains", () => {
-    it("should list each train with a stable release once, newest first", () => {
-      const releases = [
-        release("core/v0.59.3"),
-        release("core/v0.60.1"),
-        release("core/v0.59.0"),
-        release("core/v0.61.0-rc.1", true),
-        release("core/v0.60.0"),
-        release("console/v0.62.0"),
-      ];
-      expect(trains(releases, "core")).toEqual(["0.60", "0.59"]);
-    });
-  });
-
   describe("Releases", () => {
     const respond = (body: unknown, status = 200, next?: string): Response =>
       new Response(JSON.stringify(body), {
@@ -209,6 +194,19 @@ describe("releases", () => {
       expect(await releases.documented("core")).toEqual("0.59.3");
       expect(await releases.documented("desktop")).toEqual("1.0.4");
       expect(await releases.latest("core")).toEqual("0.60.1");
+      expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
+    });
+
+    it("should list each train with a stable release once, newest first", async () => {
+      const listing = [
+        release("core/v0.59.3"),
+        release("core/v0.60.1"),
+        release("core/v0.59.0"),
+        release("core/v0.61.0-rc.1", true),
+        release("core/v0.60.0"),
+        release("console/v0.62.0"),
+      ];
+      const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
       expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
     });
 
