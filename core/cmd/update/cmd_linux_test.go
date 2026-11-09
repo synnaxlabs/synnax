@@ -26,7 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/update"
 	"github.com/synnaxlabs/synnax/pkg/release"
 	releasetest "github.com/synnaxlabs/synnax/pkg/release/testutil"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // No spec reaches a Core service on the computer that runs it.
@@ -298,15 +300,15 @@ var _ = Describe("Update with a Core service", func() {
 		})
 
 		It("Should refuse a version that is not a Core version", func() {
-			Expect(run("latest")).To(MatchError(
-				"latest is not a Core version, such as 0.61.0.",
-			))
+			err := run("latest")
+			Expect(err).To(MatchError("latest is not a Core version, such as 0.61.0."))
+			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 		})
 
 		It("Should refuse a version and a file together", func() {
-			Expect(run("0.61.0", "--file", next)).To(MatchError(
-				"Give a version or --file, not both.",
-			))
+			err := run("0.61.0", "--file", next)
+			Expect(err).To(MatchError("Give a version or --file, not both."))
+			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 			Expect(systemctl.Calls()).To(BeEmpty())
 		})
 	})
@@ -349,22 +351,61 @@ var _ = Describe("Update with a Core service", func() {
 			Expect(coreAt(binary + ".old")).To(ContainSubstring("0.61.0"))
 		})
 
-		It("Should put back the binary after the Core undid the update", func() {
-			createBackup(data, "0000000001-0.60.0")
-			Expect(os.WriteFile(
-				filepath.Join(data, "VERSION"),
-				[]byte("0.60.0"),
-				0o600,
-			)).To(Succeed())
-			Expect(run(
-				"undo",
-				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
-			)).To(Succeed())
-			Expect(out.String()).To(Equal(
-				"The Core already undid the update.\n" +
+		Describe("After the Core undid the update", func() {
+			BeforeEach(func() {
+				Expect(os.WriteFile(
+					filepath.Join(data, "UPDATE_FAILED"),
+					[]byte("0.61.0"),
+					0o600,
+				)).To(Succeed())
+			})
+
+			It("Should put back the binary", func() {
+				createBackup(data, "0000000001-0.60.0")
+				Expect(os.WriteFile(
+					filepath.Join(data, "VERSION"),
+					[]byte("0.60.0"),
+					0o600,
+				)).To(Succeed())
+				Expect(run(
+					"undo",
+					"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+				)).To(Succeed())
+				Expect(out.String()).To(Equal(
+					"The Core already undid the update to Core 0.61.0.\n" +
+						"Put back Core 0.60.0 at " + binary + ". Start the Core.\n",
+				))
+				Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+			})
+
+			It("Should put back the binary when the backup has no version", func() {
+				createBackup(data, "0000000001-unknown")
+				Expect(os.Remove(filepath.Join(data, "VERSION"))).To(Succeed())
+				Expect(run(
+					"undo",
+					"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+				)).To(Succeed())
+				Expect(out.String()).To(HaveSuffix(
 					"Put back Core 0.60.0 at " + binary + ". Start the Core.\n",
-			))
-			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+				))
+				Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+			})
+
+			It("Should refuse when the binary is already back", func() {
+				createBackup(data, "0000000001-0.60.0")
+				Expect(os.WriteFile(
+					filepath.Join(data, "VERSION"),
+					[]byte("0.60.0"),
+					0o600,
+				)).To(Succeed())
+				writeCore(binary+".old", "0.61.0")
+				writeCore(binary, "0.60.0")
+				Expect(run(
+					"undo",
+					"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+				)).To(MatchError(HavePrefix("The last update is already undone.")))
+				Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+			})
 		})
 
 		It("Should keep a replaced binary of another version", func() {

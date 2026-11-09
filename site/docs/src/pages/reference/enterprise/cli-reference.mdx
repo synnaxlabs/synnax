@@ -544,7 +544,7 @@ folder of the [Core service](#service), or `synnax-data` when there is no servic
 ### update undo
 
 Restores the backup of the last update, or the named backup, and prints the Core version
-to run on the data. Without a name, it refuses if the last update is already undone:
+to run on the data:
 
 ```bash
 synnax update undo
@@ -552,8 +552,9 @@ synnax update undo 1793000000-0.60.1
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it
-back. For the Linux service, run it with `sudo`. The command gives the restored files to
-the owner of the data folder.
+back. Without a name, after the Core already undid the last update, the command only
+puts back the `.old` binary, and refuses when there is none. For the Linux service, run
+it with `sudo`. The command gives the restored files to the owner of the data folder.
 
 ### update history
 

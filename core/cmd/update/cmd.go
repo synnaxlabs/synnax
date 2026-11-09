@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -66,7 +67,10 @@ func NewCmd(cfg release.Config) *cobra.Command {
 			ctx, w := cmd.Context(), cmd.OutOrStdout()
 			switch {
 			case len(args) == 1 && file != "":
-				return errors.New("Give a version or --file, not both.")
+				return errors.Mark(
+					errors.New("Give a version or --file, not both."),
+					validate.ErrValidation,
+				)
 			case len(args) == 1:
 				cmd.SilenceUsage = true
 				return fromRelease(ctx, w, cfg, args[0], timeout)
@@ -228,9 +232,8 @@ func undo(
 	return printLines(w, run)
 }
 
-// putBackUndone puts back the binary that an already undone update replaced, when that
-// binary is the Core version of the newest backup. Without such a binary, it returns
-// undone.
+// putBackUndone puts back the binary that an undone update replaced, when binary is the
+// Core version of that update. If not, it returns undone.
 func putBackUndone(
 	ctx context.Context,
 	w io.Writer,
@@ -238,19 +241,25 @@ func putBackUndone(
 	binary string,
 	undone error,
 ) error {
-	all, err := backups.List()
+	current, err := binaryVersion(ctx, binary)
 	if err != nil {
 		return errors.Combine(undone, err)
 	}
-	version := all[len(all)-1].Version
-	putBack, err := putBackOld(ctx, binary, version)
-	if err != nil || !putBack {
+	state, err := backups.UpdateState(current)
+	if err != nil || state != storage.UpdateUndone {
 		return errors.Combine(undone, err)
+	}
+	old, err := oldVersion(ctx, binary)
+	if err != nil || old == "" {
+		return errors.Combine(undone, err)
+	}
+	if err = swapOld(binary); err != nil {
+		return errors.Wrapf(err, "failed to put back the binary at %s", binary)
 	}
 	return printLines(
 		w,
-		"The Core already undid the update.",
-		fmt.Sprintf("Put back Core %s at %s. Start the Core.", version, binary),
+		fmt.Sprintf("The Core already undid the update to Core %s.", current),
+		fmt.Sprintf("Put back Core %s at %s. Start the Core.", old, binary),
 	)
 }
 

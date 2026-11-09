@@ -326,23 +326,35 @@ func waitForUpdate(
 // putBackOld swaps binary with the binary that an update replaced, when that binary is
 // Core version want. It reports whether it swapped them.
 func putBackOld(ctx context.Context, binary, want string) (bool, error) {
+	if v, err := oldVersion(ctx, binary); err != nil || v != want {
+		return false, err
+	}
+	return true, swapOld(binary)
+}
+
+// oldVersion returns the Core version of the binary that an update replaced, or an
+// empty
+// string when there is none.
+func oldVersion(ctx context.Context, binary string) (string, error) {
 	old := binary + oldSuffix
 	if _, err := os.Stat(old); errors.Is(err, os.ErrNotExist) {
-		return false, nil
+		return "", nil
 	} else if err != nil {
-		return false, err
+		return "", err
 	}
-	if v, err := binaryVersion(ctx, old); err != nil || v != want {
-		return false, err
-	}
-	swap := binary + ".swap"
+	return binaryVersion(ctx, old)
+}
+
+// swapOld swaps binary with the binary that an update replaced.
+func swapOld(binary string) error {
+	old, swap := binary+oldSuffix, binary+".swap"
 	if err := os.Rename(binary, swap); err != nil {
-		return false, err
+		return err
 	}
 	if err := os.Rename(old, binary); err != nil {
-		return false, errors.Combine(err, os.Rename(swap, binary))
+		return errors.Combine(err, os.Rename(swap, binary))
 	}
-	return true, os.Rename(swap, old)
+	return os.Rename(swap, old)
 }
 
 func printLines(w io.Writer, lines ...string) error {

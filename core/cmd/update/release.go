@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // fromRelease downloads Core version to for this computer from the release, checks it
@@ -32,7 +33,10 @@ func fromRelease(
 	timeout time.Duration,
 ) (err error) {
 	if !version.Valid(to) {
-		return errors.Newf("%s is not a Core version, such as 0.61.0.", to)
+		return errors.Mark(
+			errors.Newf("%s is not a Core version, such as 0.61.0.", to),
+			validate.ErrValidation,
+		)
 	}
 	inst, installed, err := installation()
 	if err != nil {
