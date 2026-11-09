@@ -19,6 +19,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type RetrieveMultipleQuery, useList } from "@/device/queries";
+import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -63,6 +64,9 @@ const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 
 const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
+const renderStatus = (entry: unknown): ReactElement | undefined =>
+  entry == null ? undefined : <StatusBadge status={(entry as device.Device).status} />;
+
 export interface SelectSingleProps
   extends
     Omit<
@@ -71,9 +75,11 @@ export interface SelectSingleProps
     >,
     Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {}
 
+/** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
   query,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = useList({
@@ -91,6 +97,7 @@ export const SelectSingle = ({
       status={status}
       icon={<Icon.Device />}
       dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
       {...rest}
     >
       {listItemRenderProp}
