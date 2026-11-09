@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -78,6 +79,20 @@ func (s *Service) RenameDirectory(
 	req RenameDirectoryRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).RenameDirectory(ctx, req.Key, req.Name)
+}
+
+// DispatchDirectoryRequest carries a sequence of actions to apply to one directory.
+type DispatchDirectoryRequest = actions.DispatchRequest[directory.Key, directory.Action]
+
+// DispatchDirectory applies the action sequence to the directory in tx.
+func (s *Service) DispatchDirectory(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchDirectoryRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		ApplyDirectory(ctx, req.Key, req.Actions...)
 }
 
 // DeleteDirectoryRequest deletes the directories with Keys.

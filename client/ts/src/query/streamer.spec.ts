@@ -127,6 +127,32 @@ describe("openStreamer", () => {
   });
 
   describe("batched frame delivery", () => {
+    it("applies each frame after the frame before it", async () => {
+      const applied: string[] = [];
+      const first = Promise.withResolvers<void>();
+      const onChange = vi.fn(async (changed: Array<{ name: string }>) => {
+        if (changed[0].name === "a") await first.promise;
+        applied.push(changed[0].name);
+      });
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({ test: new Series([{ name: "a" }]) }),
+        new framer.Frame({ test: new Series([{ name: "b" }]) }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      first.resolve();
+      await expect.poll(() => applied).toEqual(["a", "b"]);
+      await closeStreamer();
+    });
+
     it("delivers a channel's records from one frame as a single batch", async () => {
       const onChange = vi.fn();
       const schema = z.object({ name: z.string() });

@@ -22,7 +22,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -289,12 +291,11 @@ var _ = Describe("Create", func() {
 		}
 	}
 	// createNeeds returns what a create of t needs: create on t and its new status, and
-	// update on t and its rack, which the status and t place themselves in.
+	// update on the rack that t sits in.
 	createNeeds := func(t task.Task) []need {
 		return []need{
 			{access.ActionCreate, t.ResourceID()},
 			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-			{access.ActionUpdate, t.ResourceID()},
 			{access.ActionUpdate, t.Rack.ResourceID()},
 		}
 	}
@@ -335,8 +336,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, node.DB)).To(BeFalse())
 		},
 		Entry("without create on the task", 0),
-		Entry("without update on the task, which its status sits in", 2),
-		Entry("without update on its rack", 3),
+		Entry("without update on its rack", 2),
 	)
 
 	It(
@@ -639,9 +639,13 @@ func stallWrites(ctx SpecContext) {
 var _ = Describe("Delete", func() {
 	var u user.User
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
-	withTimeout := func(timeout time.Duration) *apitask.Service {
+	// deleteWith returns the delete route, bound as the API layer binds it, with the
+	// stop timeout.
+	deleteWith := func(
+		timeout time.Duration,
+	) freighter.UnaryHandler[apitask.DeleteRequest, struct{}] {
 		GinkgoHelper()
-		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
+		s := MustSucceed(apitask.NewService(apitask.ServiceConfig{
 			DB:          node.DB,
 			Task:        svc.Task,
 			Status:      svc.Status,
@@ -649,6 +653,16 @@ var _ = Describe("Delete", func() {
 			Framer:      svc.Framer,
 			StopTimeout: timeout,
 		}))
+		return bind.WritePrepared(binder, s.PrepareDelete, s.Delete)
+	}
+	// deleteNeeds returns what a delete of t needs: delete on t and its status, and
+	// update on the rack that t leaves.
+	deleteNeeds := func(t task.Task) []need {
+		return []need{
+			{access.ActionDelete, t.ResourceID()},
+			{access.ActionDelete, resource.ID{Type: resource.TypeStatus}},
+			{access.ActionUpdate, t.Rack.ResourceID()},
+		}
 	}
 	expectGone := func(ctx SpecContext, key task.Key) {
 		GinkgoHelper()
@@ -660,7 +674,7 @@ var _ = Describe("Delete", func() {
 	}
 	It("Should release the channels of a running task", func(ctx SpecContext) {
 		t := createRunningTask(ctx, true)
-		grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+		grantAll(ctx, u, deleteNeeds(t)...)
 		ch := channel.Channel{
 			Name:        "task_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
 			DataType:    telem.TimestampT,
@@ -686,7 +700,7 @@ var _ = Describe("Delete", func() {
 			Expect(w.Close()).To(Succeed())
 			reportStopped(ctx, t)
 		}()
-		Expect(withTimeout(10*time.Second).Delete(
+		Expect(deleteWith(10*time.Second)(
 			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 		)).Error().ToNot(HaveOccurred())
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -699,7 +713,7 @@ var _ = Describe("Delete", func() {
 		"Should return as soon as a running task reports its stop",
 		func(ctx SpecContext) {
 			t := createRunningTask(ctx, true)
-			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			grantAll(ctx, u, deleteNeeds(t)...)
 			commands := streamCommands(ctx)
 			driver := make(chan struct{})
 			go func() {
@@ -709,7 +723,7 @@ var _ = Describe("Delete", func() {
 				reportStopped(ctx, t)
 			}()
 			start := time.Now()
-			Expect(withTimeout(5*time.Second).Delete(
+			Expect(deleteWith(5*time.Second)(
 				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
@@ -727,11 +741,11 @@ var _ = Describe("Delete", func() {
 		keys := make([]task.Key, len(tasks))
 		for i, t := range tasks {
 			keys[i] = t.Key
-			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			grantAll(ctx, u, deleteNeeds(t)...)
 		}
 		commands := streamCommands(ctx)
 		start := time.Now()
-		Expect(withTimeout(timeout).Delete(
+		Expect(deleteWith(timeout)(
 			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: keys},
 		)).Error().ToNot(HaveOccurred())
 		elapsed := time.Since(start)
@@ -755,10 +769,10 @@ var _ = Describe("Delete", func() {
 		func(ctx SpecContext) {
 			const timeout = 200 * time.Millisecond
 			t := createRunningTask(ctx, true)
-			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			grantAll(ctx, u, deleteNeeds(t)...)
 			stallWrites(ctx)
 			start := time.Now()
-			Expect(withTimeout(timeout).Delete(
+			Expect(deleteWith(timeout)(
 				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
@@ -768,9 +782,9 @@ var _ = Describe("Delete", func() {
 	It("Should stop only the requested task", func(ctx SpecContext) {
 		target := createRunningTask(ctx, true)
 		createRunningTask(ctx, true)
-		grant(ctx, access.ActionDelete, u.ResourceID(), target.ResourceID())
+		grantAll(ctx, u, deleteNeeds(target)...)
 		commands := streamCommands(ctx)
-		Expect(withTimeout(100*time.Millisecond).Delete(
+		Expect(deleteWith(100*time.Millisecond)(
 			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{target.Key}},
 		)).Error().ToNot(HaveOccurred())
 		var cmd task.Command
@@ -783,13 +797,13 @@ var _ = Describe("Delete", func() {
 		"Should keep the task when the caller cancels",
 		func(ctx SpecContext, after time.Duration) {
 			t := createRunningTask(ctx, true)
-			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			grantAll(ctx, u, deleteNeeds(t)...)
 			reqCtx, cancel := context.WithCancel(ctx)
 			defer time.AfterFunc(after, cancel).Stop()
 			if after == 0 {
 				cancel()
 			}
-			Expect(withTimeout(10*time.Second).Delete(
+			Expect(deleteWith(10*time.Second)(
 				AuthedCtx(reqCtx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().To(MatchError(context.Canceled))
 			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
@@ -801,10 +815,10 @@ var _ = Describe("Delete", func() {
 		"Should not wait for a task that is not running",
 		func(ctx SpecContext, create func(SpecContext) task.Task) {
 			t := create(ctx)
-			grant(ctx, access.ActionDelete, u.ResourceID(), t.ResourceID())
+			grantAll(ctx, u, deleteNeeds(t)...)
 			commands := streamCommands(ctx)
 			start := time.Now()
-			Expect(withTimeout(10*time.Second).Delete(
+			Expect(deleteWith(10*time.Second)(
 				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
@@ -832,13 +846,36 @@ var _ = Describe("Delete", func() {
 	)
 	It("Should not stop a task the caller cannot delete", func(ctx SpecContext) {
 		t := createRunningTask(ctx, true)
+		grantAll(ctx, u, deleteNeeds(t)[1:]...)
 		commands := streamCommands(ctx)
-		Expect(apiSvc.Delete(
+		Expect(deleteWith(time.Second)(
 			AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
-		)).Error().To(MatchError(access.ErrDenied))
+		)).Error().To(denied(u, access.ActionDelete, t.ResourceID()))
 		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
 		Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
 	})
+	DescribeTable(
+		"Should refuse the delete and keep the task",
+		func(
+			ctx SpecContext,
+			refused int,
+			object func(SpecContext, task.Task) resource.ID,
+		) {
+			t := createTask(ctx)
+			needs := deleteNeeds(t)
+			grantAll(ctx, u, slices.Delete(slices.Clone(needs), refused, refused+1)...)
+			Expect(deleteWith(time.Second)(
+				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().To(denied(u, needs[refused].action, object(ctx, t)))
+			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
+		},
+		Entry("without delete on its status", 1, statusOf),
+		Entry(
+			"without update on its rack",
+			2,
+			func(_ SpecContext, t task.Task) resource.ID { return t.Rack.ResourceID() },
+		),
+	)
 })
 
 var _ = Describe("Copy", func() {
@@ -853,13 +890,12 @@ var _ = Describe("Copy", func() {
 		r = createRange(ctx)
 	})
 	// copyNeeds returns what a snapshot copy of t into r needs: retrieve on t, create
-	// on the copy and its status, and update on the copy, its rack, and r.
+	// on the copy and its status, and update on its rack and r.
 	copyNeeds := func() []need {
 		return []need{
 			{access.ActionRetrieve, t.ResourceID()},
 			{access.ActionCreate, resource.ID{Type: resource.TypeTask}},
 			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-			{access.ActionUpdate, resource.ID{Type: resource.TypeTask}},
 			{access.ActionUpdate, t.Rack.ResourceID()},
 			{access.ActionUpdate, ranger.ResourceID(r.Key)},
 		}
@@ -894,6 +930,6 @@ var _ = Describe("Copy", func() {
 			Expect(countInRange(ctx, r)).To(BeZero())
 		},
 		Entry("without retrieve on the task", 0),
-		Entry("without update on the range", 5),
+		Entry("without update on the range", 4),
 	)
 })

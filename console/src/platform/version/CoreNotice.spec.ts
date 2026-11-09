@@ -28,7 +28,7 @@ import {
   mockLatestCore,
   mockUpdater,
   requestedLatestCore,
-  VERSION_RESOURCE_ID,
+  RESOURCE_ID,
 } from "@/platform/version/testutil";
 import { createTestClientWithGrants } from "@/testutil";
 
@@ -40,7 +40,7 @@ const renderNotifications = async (
   coreVersion = "1.5.0",
 ): Promise<{ current: Status.NotificationSpec[] }> => {
   const user = granted
-    ? await createTestClientWithGrants(client, { update: [VERSION_RESOURCE_ID] })
+    ? await createTestClientWithGrants(client, { update: [RESOURCE_ID] })
     : null;
   const { result } = renderHook(() => Status.useNotifications().statuses, {
     wrapper: await createWrapper({ client: user, coreVersion }),

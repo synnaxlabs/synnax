@@ -22,6 +22,7 @@ import (
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -32,9 +33,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -52,12 +56,14 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	rbacSvc *rbac.Service
-	userSvc *user.Service
-	arcSvc  *arc.Service
-	taskSvc *task.Service
-	apiSvc  *apiarc.Service
+	node       testutil.Node
+	db         *gorp.DB
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	arcSvc     *arc.Service
+	channelSvc *channel.Service
+	taskSvc    *task.Service
+	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
 	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
@@ -70,7 +76,11 @@ var (
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
 	]
-	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	renameDirectory   freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	dispatchDirectory freighter.UnaryHandler[
+		apiarc.DispatchDirectoryRequest,
+		struct{},
+	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
 	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
 	retrieve        freighter.UnaryHandler[
@@ -90,7 +100,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -138,7 +148,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Configs:      configs,
 		ImExExcluded: []string{arctask.Type},
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
@@ -153,18 +163,38 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:     statusSvc,
 		ImEx:       imexSvc,
 	}))
-	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		DB:     db,
-		Arc:    arcSvc,
-		Status: statusSvc,
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+	}))
+	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              db,
+		Channel:         channelSvc,
+		ParentRetriever: rangerSvc,
+	}))
+	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		DB:      db,
+		RBAC:    rbacSvc,
+		Channel: channelSvc,
+		Status:  statusSvc,
+		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
+		DB:            db,
+		Arc:           arcSvc,
+		Status:        statusSvc,
+		RBAC:          rbacSvc,
+		RenameChannel: bind.Write(binder, apiChannelSvc.Rename),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	updateTask = bind.Write(binder, apiSvc.UpdateTask)
 	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
 	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
+	dispatchDirectory = bind.Write(binder, apiSvc.DispatchDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	move = bind.Write(binder, apiSvc.Move)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))

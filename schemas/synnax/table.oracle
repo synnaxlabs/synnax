@@ -189,6 +189,7 @@ Table struct {
     }
     name    string                  {
         @doc value         "is a human-readable name for the table."
+        @index sorted
         @search
         @validate required
     }
@@ -234,30 +235,6 @@ Table struct {
         @doc value """
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the table."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the table into a group, or out of its group when group is empty.
-            Emitted by the Core when it moves the table; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the table into a project. Emitted by the Core when it moves the table;
-            clients never dispatch it.
         """
     }
 
@@ -395,12 +372,12 @@ Table struct {
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the table's cells."
+        @doc value "replaces the value at a path in the table."
     }
 
     action Remove extends patch.Remove {
         @doc value """
-            removes an entry from a list or a field from an object in the table's cells.
+            removes an entry from a list or a field from an object in the table.
         """
     }
 

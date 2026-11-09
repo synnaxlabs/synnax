@@ -10,7 +10,6 @@
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
@@ -30,30 +29,15 @@ import {
   type CreateWrapperParams,
   type IPC,
   mockUpdater,
-  VERSION_RESOURCE_ID,
+  renderProvider,
+  RESOURCE_ID,
 } from "@/platform/version/testutil";
-import { createCore, createCoreState } from "@/session/core/testutil";
-import { createTestClientWithGrants, renderWithStatus } from "@/testutil";
+import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
-interface OpenModalParams extends CreateWrapperParams {
-  middleware?: Version.InstallMiddleware;
-}
-
-const openModal = async ({
-  middleware,
-  ...params
-}: OpenModalParams = {}): Promise<void> => {
-  const Base = await createWrapper(params);
-  const wrapper =
-    middleware == null
-      ? Base
-      : ({ children }: PropsWithChildren): ReactElement => (
-          <Version.InstallProvider middleware={middleware}>
-            <Base>{children}</Base>
-          </Version.InstallProvider>
-        );
+const openModal = async (params: CreateWrapperParams = {}): Promise<void> => {
+  const wrapper = await createWrapper(params);
   const { result } = renderHook(Version.useInfoModal, { wrapper });
   act(() => {
     result.current();
@@ -82,17 +66,12 @@ type SetStatus = (status: connection.Status) => void;
  * badge.
  */
 const renderBadge = async (client: Client | null = null): Promise<SetStatus> => {
-  const core = createCore("Local");
-  const { setStatus } = await renderWithStatus(
-    <Version.Provider>
+  const setStatus = await renderProvider(
+    <>
       <Version.Badge />
       <Modals.Stack />
-    </Version.Provider>,
-    {
-      client,
-      status: createStatus("1.5.0"),
-      preloadedState: createCoreState([core], core.key),
-    },
+    </>,
+    client,
   );
   fireEvent.click(await screen.findByText("Update available"));
   return setStatus;
@@ -142,7 +121,7 @@ describe("version useInfoModal", () => {
     const ipc = mockUpdater({ served: "1.4.2" });
     const order: string[] = [];
     await openModal({
-      middleware: async (run) => {
+      installMiddleware: async (run) => {
         order.push(`before, installed: ${installed(ipc)}`);
         await run();
         order.push(`after, installed: ${installed(ipc)}`);
@@ -156,7 +135,7 @@ describe("version useInfoModal", () => {
   it("should not relaunch when the middleware rejects", async () => {
     const ipc = mockUpdater({ served: "1.4.2" });
     await openModal({
-      middleware: async () => await Promise.reject(new Error("the app is busy")),
+      installMiddleware: async () => await Promise.reject(new Error("the app is busy")),
     });
     await clickUpdate();
     expect(await screen.findByText("Failed to update Console")).toBeTruthy();
@@ -265,7 +244,7 @@ describe("version useInfoModal", () => {
   describe("newest release past the Core", () => {
     const openBreaking = async (): Promise<IPC> => {
       const granted = await createTestClientWithGrants(client, {
-        update: [VERSION_RESOURCE_ID],
+        update: [RESOURCE_ID],
       });
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
       await openModal({ client: granted });
@@ -297,7 +276,7 @@ describe("version useInfoModal", () => {
 
     it("should not download it when the Core changes before the user confirms", async () => {
       const granted = await createTestClientWithGrants(client, {
-        update: [VERSION_RESOURCE_ID],
+        update: [RESOURCE_ID],
       });
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
       const setStatus = await renderBadge(granted);

@@ -28,7 +28,6 @@ import {
   useTarget,
 } from "@/platform/version/check";
 import { CoreNotice } from "@/platform/version/CoreNotice";
-import { useInstallMiddleware } from "@/platform/version/Install";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -61,6 +60,19 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Version.Context";
 
+/**
+ * Runs the install of a downloaded update. It must call `install` exactly once and
+ * reject when `install` rejects.
+ */
+export type InstallMiddleware = (install: () => Promise<void>) => Promise<void>;
+
+const runInstall: InstallMiddleware = async (install) => await install();
+
+export interface ProviderProps extends PropsWithChildren {
+  /** Wraps the install of each update. */
+  installMiddleware?: InstallMiddleware;
+}
+
 interface Installing {
   update: Update;
   /** True when the checks started again and left the update to the install. */
@@ -74,9 +86,11 @@ interface Installing {
  * unmounts, and while {@link useInstall} installs it. A status also tells a user who
  * may take the Console past the Core about a newer Core release.
  */
-export const Provider = ({ children }: PropsWithChildren): ReactElement => {
+export const Provider = ({
+  installMiddleware = runInstall,
+  children,
+}: ProviderProps): ReactElement => {
   const addStatus = Status.useAdder();
-  const installMiddleware = useInstallMiddleware();
   const target = useTarget();
   const [check, setCheck] = useState<Check>({ variant: "loading" });
   const held = useRef<Update | null>(null);
@@ -84,6 +98,7 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       setCheck({ variant: "loading" });
+      // Not held.current: a newer run can set it before this cleanup runs.
       let found: Available | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const run = async (): Promise<void> => {

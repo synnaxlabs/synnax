@@ -926,6 +926,16 @@ var _ = Describe("Index", func() {
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
 
+			It("Should panic when a key cursor combines with an order", func() {
+				ordered := table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc))
+				Expect(func() { ordered.After(3) }).
+					To(PanicWith("gorp: After cannot combine with OrderBy"))
+				after := table.NewRetrieve().After(3)
+				Expect(func() { after.OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)) }).
+					To(PanicWith("gorp: After cannot combine with OrderBy"))
+			})
+
 			It("Should walk ascending order with a limit", func(ctx SpecContext) {
 				var res []indexedEntry
 				Expect(table.NewRetrieve().
@@ -953,18 +963,37 @@ var _ = Describe("Index", func() {
 						Limit(5).
 						Entries(&page1).Exec(ctx, idxDB)).To(Succeed())
 					Expect(page1).To(HaveLen(5))
-					lastScore := page1[len(page1)-1].Score
+
+					last := page1[len(page1)-1]
 
 					var page2 []indexedEntry
 					Expect(table.NewRetrieve().
-						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc).After(lastScore)).
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc).After(last.Score, last.ID)).
 						Limit(5).
 						Entries(&page2).Exec(ctx, idxDB)).To(Succeed())
 					Expect(scoresOf(page2)).To(Equal([]int64{50, 60, 70, 80, 90}))
 				},
 			)
 
-			It("Should compose with a Where post-filter", func(ctx SpecContext) {
+			It("Should keep entries that tie at a page edge", func(ctx SpecContext) {
+				tied := []indexedEntry{{ID: 40, Score: 40}, {ID: 41, Score: 40}}
+				Expect(gorp.NewCreate[int32, indexedEntry]().
+					Entries(&tied).Exec(ctx, idxDB)).To(Succeed())
+				var page1 []indexedEntry
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+					Limit(5).
+					Entries(&page1).Exec(ctx, idxDB)).To(Succeed())
+				Expect(idsOf(page1)).To(Equal([]int32{0, 1, 2, 3, 4}))
+				var page2 []indexedEntry
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc).After(40, 4)).
+					Limit(3).
+					Entries(&page2).Exec(ctx, idxDB)).To(Succeed())
+				Expect(idsOf(page2)).To(Equal([]int32{40, 41, 5}))
+			})
+
+			It("Should count the limit in matching entries", func(ctx SpecContext) {
 				var res []indexedEntry
 				aboveFifty := gorp.Match(
 					func(_ gorp.Context, e *indexedEntry) (bool, error) {
@@ -973,13 +1002,162 @@ var _ = Describe("Index", func() {
 				)
 				Expect(table.NewRetrieve().
 					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-					Limit(8).
+					Limit(3).
 					Where(aboveFifty).
 					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				// OrderBy walks the first 8 entries (scores 0..70); the
-				// post-filter keeps only those with Score > 50.
-				Expect(scoresOf(res)).To(Equal([]int64{60, 70}))
+				Expect(scoresOf(res)).To(Equal([]int64{60, 70, 80}))
 			})
+
+			It(
+				"Should fill the limit past the first walk batch",
+				func(ctx SpecContext) {
+					many := make([]indexedEntry, 300)
+					for i := range many {
+						many[i] = indexedEntry{
+							ID:    int32(100 + i),
+							Score: int64(1000 + i),
+						}
+					}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entries(&many).Exec(ctx, idxDB)).To(Succeed())
+					var res []indexedEntry
+					odd := gorp.Match(
+						func(_ gorp.Context, e *indexedEntry) (bool, error) {
+							return e.ID >= 100 && e.ID%2 == 1, nil
+						},
+					)
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(140).
+						Where(odd).
+						Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+					Expect(res).To(HaveLen(140))
+					Expect(res[0].ID).To(Equal(int32(101)))
+					Expect(res[139].ID).To(Equal(int32(379)))
+				},
+			)
+
+			It("Should walk only the keys of a key filter", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(gorp.MatchKeys[int32, indexedEntry](9, 2, 15, 99)).
+					OrderBy(scoreIdx.Ordered(gorp.DirectionDesc).After(150, 15)).
+					Limit(5).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(idsOf(res)).To(Equal([]int32{9, 2}))
+			})
+
+			It("Should return every entry without a limit", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(res).To(HaveLen(20))
+			})
+
+			It(
+				"Should skip an entry that moved after the walk found it",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(scoresOf(res)).To(Equal([]int64{0, 20, 30}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved ahead inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 25}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{0, 2, 1}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved back inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 2, Score: 5}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{0, 2, 1}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved after the walk found it into a full result",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(20))
+					Expect(scoresOf(res)[:2]).To(Equal([]int64{0, 20}))
+					Expect(res[19]).To(Equal(moved))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved after the walk found it into a key filter",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 500}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(gorp.MatchKeys[int32, indexedEntry](2, 1, 0)).
+						OrderBy(scoreIdx.Ordered(gorp.DirectionDesc)).
+						Limit(2).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{1, 2}))
+				},
+			)
+
+			It(
+				"Should drop an entry that moved behind the cursor after the walk found it",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 15, Score: 5}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(gorp.MatchKeys[int32, indexedEntry](2, 15, 9)).
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc).After(50, 5)).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{9}))
+				},
+			)
 
 			It(
 				"Should run validators on the ordered result set",

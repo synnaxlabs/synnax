@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -34,6 +35,12 @@ import (
 type Copy interface {
 	// Sources returns the records that the request copies.
 	Sources() []resource.ID
+}
+
+// Returns is a response that returns records.
+type Returns interface {
+	// Returned returns the records that the response holds.
+	Returned() []resource.ID
 }
 
 // Write returns a handler that runs apply in one write transaction, checks access on
@@ -49,10 +56,13 @@ type Copy interface {
 //   - update on the target of each place link added or removed, except a link to the
 //     range, user, or rack that the two rules above cover;
 //   - retrieve on the target of each use link added;
-//   - retrieve on each source of a request that implements Copy.
+//   - retrieve on each source of a request that implements Copy;
+//   - retrieve on each record that a response implementing Returns holds and the
+//     transaction did not change.
 //
-// Policies are read from committed state, so a policy or role that apply stages grants
-// nothing. A denial wraps access.ErrDenied and names the record.
+// A link needs nothing when the write creates or deletes its target. Policies are read
+// from committed state, so a policy or role that apply stages grants nothing. A denial
+// wraps access.ErrDenied and names the record.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
@@ -69,7 +79,7 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, sources)
+			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
 		}); err != nil {
 			return zero, err
 		}
@@ -98,6 +108,24 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 	}
 }
 
+// unchanged returns the records that res returns and tx did not change.
+func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
+	r, ok := any(res).(Returns)
+	if !ok {
+		return nil
+	}
+	changed := make(set.Set[resource.ID])
+	for _, c := range gorp.ChangesOf(tx) {
+		// A record with no resource type is never returned.
+		if id, err := resourceOf(c.Record); err == nil {
+			changed.Add(id)
+		}
+	}
+	return lo.Reject(r.Returned(), func(id resource.ID, _ int) bool {
+		return changed.Contains(id)
+	})
+}
+
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
 // the changes of tx or read sources.
 func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
@@ -117,7 +145,14 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 		}
 		return nil
 	}
-	for _, c := range gorp.ChangesOf(tx) {
+	changes := gorp.ChangesOf(tx)
+	createdOrDeleted := make(set.Set[gorp.Target], len(changes))
+	for _, c := range changes {
+		if c.Kind != gorp.ChangeUpdate {
+			createdOrDeleted.Add(c.Record)
+		}
+	}
+	for _, c := range changes {
 		var (
 			action access.Action
 			err    error
@@ -133,12 +168,15 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			needs[action] = append(needs[action], owner)
 		}
 		for _, l := range c.Added {
+			if createdOrDeleted.Contains(l.Target) {
+				continue
+			}
 			if err := need(addedLinkAction(l.Kind), l.Target); err != nil {
 				return err
 			}
 		}
 		for _, l := range c.Removed {
-			if l.Kind != gorp.Place {
+			if l.Kind != gorp.Place || createdOrDeleted.Contains(l.Target) {
 				continue
 			}
 			if err := need(access.ActionUpdate, l.Target); err != nil {

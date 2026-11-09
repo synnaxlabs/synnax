@@ -72,11 +72,11 @@ const Content = () => {
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-  const { data, getItem, subscribe, retrieve, answered } = Task.useList({
+  const { data, getItem, subscribe, more, answered } = Task.useList({
     query: INITIAL_QUERY,
     filter,
+    pageSize: 1000,
   });
-  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: rename } = Task.useRename();
 
@@ -152,7 +152,7 @@ const Content = () => {
             subscribe={subscribe}
             value={selected}
             onChange={setSelected}
-            onFetchMore={fetchMore}
+            onFetchMore={more}
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>

@@ -20,6 +20,7 @@ import { memo, type ReactElement, useEffect } from "react";
 import { Notifications } from "@/app/notifications";
 import { Primary } from "@/app/window/Primary";
 import { Secondary } from "@/app/window/Secondary";
+import { Embedded } from "@/feature/embedded";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -33,6 +34,8 @@ const DefaultContextMenu = (): ReactElement => (
 );
 
 const menu = Component.renderProp(DefaultContextMenu);
+
+const INSTALL_MIDDLEWARE = DESKTOP ? Embedded.installMiddleware : undefined;
 
 export const Window = memo((): ReactElement | null => {
   const isMain = Session.Runtime.isMainWindow();
@@ -57,7 +60,7 @@ export const Window = memo((): ReactElement | null => {
       ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
   };
 
-  const content = (
+  const stack = (
     <Modals.Stack>
       <Notifications.Feed />
       <Menu.ContextMenu menu={menu} {...menuProps}>
@@ -79,7 +82,13 @@ export const Window = memo((): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      {isMain ? <Version.Provider>{content}</Version.Provider> : content}
+      {isMain ? (
+        <Version.Provider installMiddleware={INSTALL_MIDDLEWARE}>
+          {stack}
+        </Version.Provider>
+      ) : (
+        stack
+      )}
     </Flex.Box>
   );
 });
