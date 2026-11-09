@@ -250,9 +250,27 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-func (idx *index) get(i int) (ptr pointer, ok bool) {
-	idx.read(func() { ptr, ok = idx.unprotectedGet(i) })
-	return ptr, ok
+// next returns the domain after the one that starts at start, and its position. It
+// finds both under one lock, so a concurrent insert cannot shift one off the other.
+func (idx *index) next(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		i, _ = idx.unprotectedSearch(start.SpanRange(0))
+		i++
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
+}
+
+// prev is next for the domain before the one that starts at start.
+func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		var exact bool
+		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
+			i--
+		}
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
 }
 
 func (idx *index) unprotectedGet(i int) (pointer, bool) {

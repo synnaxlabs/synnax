@@ -118,14 +118,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	i.position++
-	ok := i.reload()
-	// If we've reached the end of the iterator, back up the position so that we
-	// remain at the location of the last domain.
-	if !ok {
-		i.position--
-	}
-	return ok
+	return i.load(i.db.idx.next(i.currPtr.Start))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been
@@ -134,13 +127,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	// Check if the position is zero to avoid uint32 underflow.
-	if i.position == 0 {
-		i.valid = false
-		return i.valid
-	}
-	i.position--
-	return i.reload()
+	return i.load(i.db.idx.prev(i.currPtr.Start))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
@@ -177,17 +164,11 @@ func (i *Iterator) Close() error {
 	return nil
 }
 
-func (i *Iterator) reload() bool {
-	ptr, ok := i.db.idx.get(i.position)
-	return i.load(i.position, ptr, ok)
-}
-
+// load moves the iterator to ptr at position. An invalid load keeps the last domain.
 func (i *Iterator) load(position int, ptr pointer, ok bool) bool {
-	i.position = position
 	i.valid = ok && ptr.OverlapsWith(i.Bounds)
-	// An invalid load keeps currPtr, so the iterator stays at its last domain.
 	if i.valid {
-		i.currPtr = ptr
+		i.position, i.currPtr = position, ptr
 	}
 	return i.valid
 }
