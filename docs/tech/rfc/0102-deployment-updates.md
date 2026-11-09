@@ -224,10 +224,11 @@ update run at that connect, before any task starts again.
 
 On Linux, the binary moves to `/var/lib/synnax-driver/bin/`, which the `synnax` service
 user owns, because today root owns `/usr/local/bin/synnax-driver`
-(`driver/daemon/common.cpp:26`). `install` creates it, and the unit lists it in
-`StateDirectory`. The NI Linux RT init script runs the Driver as root
-(`driver/daemon/daemon_nilinuxrt.cpp:110-112`), so its binary stays in
-`/usr/local/bin/synnax-driver`.
+(`driver/daemon/common.cpp:26`). `install` creates it and makes
+`/usr/local/bin/synnax-driver` a link to it, so the commands on `PATH` run the binary
+that the service runs. The unit lists it in `StateDirectory`. The NI Linux RT init
+script runs the Driver as root (`driver/daemon/daemon_nilinuxrt.cpp:110-112`), so its
+binary stays in `/usr/local/bin/synnax-driver`.
 
 Today an early shutdown exits 0 (`driver/cmd/start.cpp:64`), so systemd does not restart
 it; that changes to a non-zero exit. Release builds sign the Core and Driver binaries
