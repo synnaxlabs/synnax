@@ -153,7 +153,12 @@ func sameDeclaration(
 		return false
 	}
 	for i := range oldRef.TypeArgs {
-		if !sameDeclaration(oldRef.TypeArgs[i], newRef.TypeArgs[i], oldTable, newTable) {
+		if !sameDeclaration(
+			oldRef.TypeArgs[i],
+			newRef.TypeArgs[i],
+			oldTable,
+			newTable,
+		) {
 			return false
 		}
 	}

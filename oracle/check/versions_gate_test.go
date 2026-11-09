@@ -887,8 +887,11 @@ State enum {
 }
 `
 		write("schemas/synnax/versions/shared/v0.oracle", state)
-		write("schemas/synnax/shared.oracle", "@go output \"core/pkg/service/shared\"\n"+
-			state)
+		write(
+			"schemas/synnax/shared.oracle",
+			"@go output \"core/pkg/service/shared\"\n"+
+				state,
+		)
 		write("schemas/synnax/versions/channel/v0.oracle", state+`
 Channel struct {
 	key uuid @key
