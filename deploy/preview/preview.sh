@@ -62,8 +62,15 @@ up() {
         if docker exec "$name" curl -fsS -o /dev/null -X POST \
             -H "Content-Type: application/json" -d '{}' \
             http://localhost:9090/api/v1/connectivity/check; then
-            printf 'pr-%s.%s {\n\treverse_proxy %s:9090\n}\n' \
-                "$pr" "$PREVIEW_DOMAIN" "$name" > "$PREVIEW_SITES/pr-$pr.caddy"
+            # A Caddy reload closes every proxied websocket unless delayed, so without
+            # the delay one preview's deploy breaks the streams of all the others.
+            cat > "$PREVIEW_SITES/pr-$pr.caddy" << EOF
+pr-$pr.$PREVIEW_DOMAIN {
+	reverse_proxy $name:9090 {
+		stream_close_delay 5m
+	}
+}
+EOF
             reload_caddy
             return
         fi
