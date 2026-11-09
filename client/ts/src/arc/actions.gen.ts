@@ -27,13 +27,6 @@ export const createPayloadZ = z.object({
 
 export type CreatePayload = z.infer<typeof createPayloadZ>;
 
-/** Rename renames the Arc module. */
-export const renamePayloadZ = z.object({
-  name: z.string(),
-});
-
-export type RenamePayload = z.infer<typeof renamePayloadZ>;
-
 /**
  * SetNode inserts the node if no node with the same key exists, otherwise replaces the
  * existing node in place. Operates only on the node's position; the node's function
@@ -153,7 +146,7 @@ export const setDirectoryPayloadZ = z.object({
 
 export type SetDirectoryPayload = z.infer<typeof setDirectoryPayloadZ>;
 
-/** Set replaces the value at a path in the graph's node inputs. */
+/** Set replaces the Arc's name, or the value at a path in the graph's node inputs. */
 export const setPayloadZ = patch.setZ;
 
 export type SetPayload = patch.Set;
@@ -178,7 +171,6 @@ export type MovePayload = patch.Move;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
-  | { type: "rename"; rename: RenamePayload }
   | { type: "set_node"; setNode: SetNodePayload }
   | { type: "set_node_position"; setNodePosition: SetNodePositionPayload }
   | { type: "set_node_inputs"; setNodeInputs: SetNodeInputsPayload }
@@ -197,7 +189,6 @@ export type Action =
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
-  z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({
     type: z.literal("set_node_position"),
@@ -225,13 +216,6 @@ export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
     label: "Arc create action payload",
-  }),
-});
-
-export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
-  type: "rename",
-  rename: zod.parse(renamePayloadZ, payload, {
-    label: "Arc rename action payload",
   }),
 });
 
@@ -354,7 +338,6 @@ export type ReduceAllResult = actions.ReduceAllResult<Arc, Action>;
 
 export interface Handlers {
   create: (state: Draft<Arc>, payload: CreatePayload) => HandlerResult;
-  rename: (state: Draft<Arc>, payload: RenamePayload) => HandlerResult;
   setNode: (state: Draft<Arc>, payload: SetNodePayload) => HandlerResult;
   setNodePosition: (
     state: Draft<Arc>,
@@ -380,8 +363,6 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
-      case "rename":
-        return handlers.rename(state, action.rename);
       case "set_node":
         return handlers.setNode(state, action.setNode);
       case "set_node_position":

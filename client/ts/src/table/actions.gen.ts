@@ -13,8 +13,6 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { group } from "@/group";
-import { project } from "@/project";
 import { cellConfigZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
 
 /**
@@ -26,33 +24,6 @@ export const createPayloadZ = z.object({
 });
 
 export type CreatePayload = z.infer<typeof createPayloadZ>;
-
-/** Rename renames the table. */
-export const renamePayloadZ = z.object({
-  name: z.string(),
-});
-
-export type RenamePayload = z.infer<typeof renamePayloadZ>;
-
-/**
- * SetGroup moves the table into a group, or out of its group when group is empty.
- * Emitted by the Core when it moves the table; clients never dispatch it.
- */
-export const setGroupPayloadZ = z.object({
-  group: group.keyZ.optional(),
-});
-
-export type SetGroupPayload = z.infer<typeof setGroupPayloadZ>;
-
-/**
- * SetProject moves the table into a project. Emitted by the Core when it moves the
- * table; clients never dispatch it.
- */
-export const setProjectPayloadZ = z.object({
-  project: project.keyZ,
-});
-
-export type SetProjectPayload = z.infer<typeof setProjectPayloadZ>;
 
 /**
  * AddRow inserts a row with the given key at the given index. Three flows:
@@ -192,14 +163,12 @@ export const eraseCellsPayloadZ = z.object({
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-/** Set replaces the value at a path in the table's cells. */
+/** Set replaces the value at a path in the table. */
 export const setPayloadZ = patch.setZ;
 
 export type SetPayload = patch.Set;
 
-/**
- * Remove removes an entry from a list or a field from an object in the table's cells.
- */
+/** Remove removes an entry from a list or a field from an object in the table. */
 export const removePayloadZ = patch.removeZ;
 
 export type RemovePayload = patch.Remove;
@@ -216,9 +185,6 @@ export type MovePayload = patch.Move;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
-  | { type: "rename"; rename: RenamePayload }
-  | { type: "set_group"; setGroup: SetGroupPayload }
-  | { type: "set_project"; setProject: SetProjectPayload }
   | { type: "add_row"; addRow: AddRowPayload }
   | { type: "remove_row"; removeRow: RemoveRowPayload }
   | { type: "add_col"; addCol: AddColPayload }
@@ -236,9 +202,6 @@ export type Action =
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
-  z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
-  z.object({ type: z.literal("set_group"), setGroup: setGroupPayloadZ }),
-  z.object({ type: z.literal("set_project"), setProject: setProjectPayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
   z.object({ type: z.literal("add_col"), addCol: addColPayloadZ }),
@@ -259,27 +222,6 @@ export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
     label: "table create action payload",
-  }),
-});
-
-export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
-  type: "rename",
-  rename: zod.parse(renamePayloadZ, payload, {
-    label: "table rename action payload",
-  }),
-});
-
-export const setGroup = (payload: z.input<typeof setGroupPayloadZ>): Action => ({
-  type: "set_group",
-  setGroup: zod.parse(setGroupPayloadZ, payload, {
-    label: "table set_group action payload",
-  }),
-});
-
-export const setProject = (payload: z.input<typeof setProjectPayloadZ>): Action => ({
-  type: "set_project",
-  setProject: zod.parse(setProjectPayloadZ, payload, {
-    label: "table set_project action payload",
   }),
 });
 
@@ -387,9 +329,6 @@ export type ReduceAllResult = actions.ReduceAllResult<Table, Action>;
 
 export interface Handlers {
   create: (state: Draft<Table>, payload: CreatePayload) => HandlerResult;
-  rename: (state: Draft<Table>, payload: RenamePayload) => HandlerResult;
-  setGroup: (state: Draft<Table>, payload: SetGroupPayload) => HandlerResult;
-  setProject: (state: Draft<Table>, payload: SetProjectPayload) => HandlerResult;
   addRow: (state: Draft<Table>, payload: AddRowPayload) => HandlerResult;
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
   addCol: (state: Draft<Table>, payload: AddColPayload) => HandlerResult;
@@ -411,12 +350,6 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
-      case "rename":
-        return handlers.rename(state, action.rename);
-      case "set_group":
-        return handlers.setGroup(state, action.setGroup);
-      case "set_project":
-        return handlers.setProject(state, action.setProject);
       case "add_row":
         return handlers.addRow(state, action.addRow);
       case "remove_row":

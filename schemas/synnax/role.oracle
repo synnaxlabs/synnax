@@ -28,6 +28,7 @@ Role struct {
             is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         """
         @filter
+        @index sorted
         @search
         @validate required
     }

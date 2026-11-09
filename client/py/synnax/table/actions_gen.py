@@ -16,7 +16,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import group as group_, project as project_
 from synnax.table.types_gen import Cell, CellConfig, Table
 from x import patch
 
@@ -27,28 +26,6 @@ class CreatePayload(BaseModel):
     """
 
     table: Table
-
-
-class RenamePayload(BaseModel):
-    """Renames the table."""
-
-    name: str
-
-
-class SetGroupPayload(BaseModel):
-    """Moves the table into a group, or out of its group when group is empty. Emitted by
-    the Core when it moves the table; clients never dispatch it.
-    """
-
-    group: group_.Key | None = None
-
-
-class SetProjectPayload(BaseModel):
-    """Moves the table into a project. Emitted by the Core when it moves the table;
-    clients never dispatch it.
-    """
-
-    project: project_.Key
 
 
 class AddRowPayload(BaseModel):
@@ -168,11 +145,11 @@ class EraseCellsPayload(BaseModel):
     template: CellConfig
 
 
-# Replaces the value at a path in the table's cells.
+# Replaces the value at a path in the table.
 SetPayload = patch.Set
 
 
-# Removes an entry from a list or a field from an object in the table's cells.
+# Removes an entry from a list or a field from an object in the table.
 RemovePayload = patch.Remove
 
 
@@ -187,21 +164,6 @@ MovePayload = patch.Move
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
-
-
-class RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: RenamePayload
-
-
-class SetGroupAction(BaseModel):
-    type: Literal["set_group"] = "set_group"
-    set_group: SetGroupPayload
-
-
-class SetProjectAction(BaseModel):
-    type: Literal["set_project"] = "set_project"
-    set_project: SetProjectPayload
 
 
 class AddRowAction(BaseModel):
@@ -277,9 +239,6 @@ class MoveAction(BaseModel):
 # Action is a discriminated union for all Table mutations.
 Action = Annotated[
     CreateAction
-    | RenameAction
-    | SetGroupAction
-    | SetProjectAction
     | AddRowAction
     | RemoveRowAction
     | AddColAction
@@ -300,18 +259,6 @@ Action = Annotated[
 
 def create(payload: CreatePayload) -> CreateAction:
     return CreateAction(create=payload)
-
-
-def rename(payload: RenamePayload) -> RenameAction:
-    return RenameAction(rename=payload)
-
-
-def set_group(payload: SetGroupPayload) -> SetGroupAction:
-    return SetGroupAction(set_group=payload)
-
-
-def set_project(payload: SetProjectPayload) -> SetProjectAction:
-    return SetProjectAction(set_project=payload)
 
 
 def add_row(payload: AddRowPayload) -> AddRowAction:

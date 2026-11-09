@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax import channel as channel_, ranger
 from synnax.lineplot.types_gen import (
     Aggregation,
     AxisKey,
@@ -28,7 +28,7 @@ from synnax.lineplot.types_gen import (
     XAxisKey,
     YAxisKey,
 )
-from x import color as color_, spatial, text
+from x import color as color_, patch, spatial, text
 
 
 class CreatePayload(BaseModel):
@@ -37,28 +37,6 @@ class CreatePayload(BaseModel):
     """
 
     line_plot: LinePlot
-
-
-class RenamePayload(BaseModel):
-    """Renames the line plot."""
-
-    name: str
-
-
-class SetGroupPayload(BaseModel):
-    """Moves the line plot into a group, or out of its group when group is empty.
-    Emitted by the Core when it moves the line plot; clients never dispatch it.
-    """
-
-    group: group_.Key | None = None
-
-
-class SetProjectPayload(BaseModel):
-    """Moves the line plot into a project. Emitted by the Core when it moves the line
-    plot; clients never dispatch it.
-    """
-
-    project: project_.Key
 
 
 class SetTitleVisiblePayload(BaseModel):
@@ -307,24 +285,25 @@ class RemoveRulePayload(BaseModel):
     key: str
 
 
+# Replaces the value at a path in the line plot.
+SetPayload = patch.Set
+
+
+# Removes an entry from a list or a field from an object in the line plot.
+RemovePayload = patch.Remove
+
+
+# Adds an entry to a list in the line plot.
+InsertPayload = patch.Insert
+
+
+# Moves an entry in a list in the line plot.
+MovePayload = patch.Move
+
+
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
-
-
-class RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: RenamePayload
-
-
-class SetGroupAction(BaseModel):
-    type: Literal["set_group"] = "set_group"
-    set_group: SetGroupPayload
-
-
-class SetProjectAction(BaseModel):
-    type: Literal["set_project"] = "set_project"
-    set_project: SetProjectPayload
 
 
 class SetTitleVisibleAction(BaseModel):
@@ -487,12 +466,29 @@ class RemoveRuleAction(BaseModel):
     remove_rule: RemoveRulePayload
 
 
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
 # Action is a discriminated union for all LinePlot mutations.
 Action = Annotated[
     CreateAction
-    | RenameAction
-    | SetGroupAction
-    | SetProjectAction
     | SetTitleVisibleAction
     | SetTitleLevelAction
     | SetLegendHiddenAction
@@ -524,25 +520,17 @@ Action = Annotated[
     | SetRuleLineDashAction
     | SetRuleUnitsAction
     | SetRulePositionAction
-    | RemoveRuleAction,
+    | RemoveRuleAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction,
     Field(discriminator="type"),
 ]
 
 
 def create(payload: CreatePayload) -> CreateAction:
     return CreateAction(create=payload)
-
-
-def rename(payload: RenamePayload) -> RenameAction:
-    return RenameAction(rename=payload)
-
-
-def set_group(payload: SetGroupPayload) -> SetGroupAction:
-    return SetGroupAction(set_group=payload)
-
-
-def set_project(payload: SetProjectPayload) -> SetProjectAction:
-    return SetProjectAction(set_project=payload)
 
 
 def set_title_visible(payload: SetTitleVisiblePayload) -> SetTitleVisibleAction:
@@ -679,3 +667,19 @@ def set_rule_position(payload: SetRulePositionPayload) -> SetRulePositionAction:
 
 def remove_rule(payload: RemoveRulePayload) -> RemoveRuleAction:
     return RemoveRuleAction(remove_rule=payload)
+
+
+def set(payload: SetPayload) -> SetAction:
+    return SetAction(set=payload)
+
+
+def remove(payload: RemovePayload) -> RemoveAction:
+    return RemoveAction(remove=payload)
+
+
+def insert(payload: InsertPayload) -> InsertAction:
+    return InsertAction(insert=payload)
+
+
+def move(payload: MovePayload) -> MoveAction:
+    return MoveAction(move=payload)

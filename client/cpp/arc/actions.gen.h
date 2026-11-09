@@ -43,14 +43,6 @@ struct CreatePayload {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief RenamePayload renames the Arc module.
-struct RenamePayload {
-    std::string name;
-
-    static RenamePayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief SetNodePayload inserts the node if no node with the same key exists,
 /// otherwise replaces the existing node in place. Operates only on the node's position;
 /// the node's function type and inputs are set separately via SetNodeInputs.
@@ -171,7 +163,8 @@ struct SetDirectoryPayload {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief SetPayload replaces the value at a path in the graph's node inputs.
+/// @brief SetPayload replaces the Arc's name, or the value at a path in the graph's
+/// node inputs.
 using SetPayload = ::x::patch::Set;
 
 /// @brief RemovePayload removes an entry from a list or a field from an object in the
@@ -188,7 +181,6 @@ using MovePayload = ::x::patch::Move;
 /// {"type": t, t: payload}, where t is the type of the action.
 using Action = std::variant<
     CreatePayload,
-    RenamePayload,
     SetNodePayload,
     SetNodePositionPayload,
     SetNodeInputsPayload,
@@ -212,11 +204,6 @@ Action parse_action(x::json::Parser parser);
 
 /// @brief returns an Action that carries the given payload.
 inline Action create(CreatePayload payload) {
-    return payload;
-}
-
-/// @brief returns an Action that carries the given payload.
-inline Action rename(RenamePayload payload) {
     return payload;
 }
 
@@ -304,18 +291,6 @@ inline CreatePayload CreatePayload::parse(x::json::Parser parser) {
 inline x::json::json CreatePayload::to_json() const {
     x::json::json j = x::json::json::object();
     j["arc"] = ::synnax::arc::to_json(this->arc);
-    return j;
-}
-
-inline RenamePayload RenamePayload::parse(x::json::Parser parser) {
-    return RenamePayload{
-        .name = parser.field<std::string>("name"),
-    };
-}
-
-inline x::json::json RenamePayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["name"] = this->name;
     return j;
 }
 
@@ -471,7 +446,6 @@ inline x::json::json SetDirectoryPayload::to_json() const {
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
     if (type == "create") return CreatePayload::parse(parser.child("create"));
-    if (type == "rename") return RenamePayload::parse(parser.child("rename"));
     if (type == "set_node") return SetNodePayload::parse(parser.child("set_node"));
     if (type == "set_node_position")
         return SetNodePositionPayload::parse(parser.child("set_node_position"));
@@ -507,8 +481,6 @@ inline x::json::json to_json(const Action &value) {
             std::string type;
             if constexpr (std::is_same_v<Payload, CreatePayload>)
                 type = "create";
-            else if constexpr (std::is_same_v<Payload, RenamePayload>)
-                type = "rename";
             else if constexpr (std::is_same_v<Payload, SetNodePayload>)
                 type = "set_node";
             else if constexpr (std::is_same_v<Payload, SetNodePositionPayload>)

@@ -26,8 +26,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
 	ActionTypeSetNode = "set_node"
 	// ActionTypeSetNodePosition is the Type of an Action that carries
@@ -67,11 +65,6 @@ const (
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Arc Arc `json:"arc" msgpack:"arc"`
-}
-
-// RenamePayload renames the Arc module.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
@@ -154,7 +147,8 @@ type SetDirectoryPayload struct {
 	Directory uuid.UUID `json:"directory" msgpack:"directory"`
 }
 
-// SetPayload replaces the value at a path in the graph's node inputs.
+// SetPayload replaces the Arc's name, or the value at a path in the graph's node
+// inputs.
 type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the graph's
@@ -172,7 +166,6 @@ type MovePayload patch.Move
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitzero" msgpack:"set_node_inputs,omitempty"`
@@ -203,11 +196,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -296,11 +284,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewSetNodeAction wraps a SetNodePayload in an Action envelope.

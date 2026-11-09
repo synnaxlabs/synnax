@@ -155,8 +155,8 @@ describe("Label", () => {
         client.labels.retrieve({ name: { startsWith: "x" }, one: true, limit: 1 }),
       ).rejects.toThrow(
         new ValidationError(
-          "a query for one record takes no limit or offset, since a page could " +
-            "hide a second match",
+          "a query for one record takes no limit or cursor, since a page could hide a " +
+            "second match",
         ),
       );
     });
@@ -279,7 +279,7 @@ describe("cached reads", () => {
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    const cached = expectLive(client.labels.getCached(lbl.key));
+    const cached = expectLive(client.labels.watch(lbl.key).getCached());
     expect(cached.name).toEqual(lbl.name);
   });
 
@@ -288,14 +288,14 @@ describe("cached reads", () => {
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    const off = client.labels.onChange(lbl.key, vi.fn());
+    const off = client.labels.watch(lbl.key).onChange(vi.fn());
     try {
       await client.labels.retrieve(lbl.key);
       await remote.labels.delete(lbl.key);
       await expect
-        .poll(() => query.Deleted.matches(client.labels.getCached(lbl.key)))
+        .poll(() => query.Deleted.matches(client.labels.watch(lbl.key).getCached()))
         .toBe(true);
-      const cached = expectDeleted(client.labels.getCached(lbl.key));
+      const cached = expectDeleted(client.labels.watch(lbl.key).getCached());
       expect(cached.corpse.name).toEqual(lbl.name);
       await expect(client.labels.retrieve(lbl.key)).rejects.toThrow("deleted");
     } finally {
@@ -312,20 +312,20 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const off = client.statuses.onChange(st.key, vi.fn());
+    const off = client.statuses.watch(st.key).onChange(vi.fn());
     try {
       await client.statuses.retrieve(st.key);
       await remote.labels.label(status.resourceID(st.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.statuses.getCached(st.key);
+          const cached = client.statuses.watch(st.key).getCached();
           return query.isLive(cached) && cached.labels.includes(lbl.key);
         })
         .toBe(true);
       await remote.labels.remove(status.resourceID(st.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.statuses.getCached(st.key);
+          const cached = client.statuses.watch(st.key).getCached();
           return query.isLive(cached) && !cached.labels.includes(lbl.key);
         })
         .toBe(true);
@@ -344,15 +344,15 @@ describe("store", () => {
     });
     await expect
       .poll(() => {
-        const cached = client.labels.getCached(created.key);
+        const cached = client.labels.watch(created.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toEqual(created.name);
     await client.labels.delete(created.key);
     await expect
-      .poll(() => query.Deleted.matches(client.labels.getCached(created.key)))
+      .poll(() => query.Deleted.matches(client.labels.watch(created.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.labels.getCached(created.key));
+    const cached = expectDeleted(client.labels.watch(created.key).getCached());
     expect(cached.corpse.name).toEqual(created.name);
   });
 });
@@ -377,7 +377,7 @@ describe("dispatch", () => {
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.name).toBe("Anomaly");
     expect(stored.color).toEqual(color.construct("#ff0000"));
-    const cached = expectLive(client.labels.getCached(lbl.key));
+    const cached = expectLive(client.labels.watch(lbl.key).getCached());
     expect(cached.name).toBe("Anomaly");
     expect(cached.color).toEqual(color.construct("#ff0000"));
   });
@@ -395,7 +395,7 @@ describe("dispatch", () => {
     await expect(client.labels.dispatch(lbl.key, rename(""))).rejects.toThrow(
       "name: required",
     );
-    expect(expectLive(client.labels.getCached(lbl.key)).name).toBe(lbl.name);
+    expect(expectLive(client.labels.watch(lbl.key).getCached()).name).toBe(lbl.name);
   });
 
   it("should send a transaction as one dispatch", async () => {
@@ -404,7 +404,7 @@ describe("dispatch", () => {
     const tx = client.labels.beginTransaction(lbl.key);
     tx.add(rename("Anomaly"));
     tx.add(label.set({ path: ["color"], value: "#ff0000" }));
-    expect(expectLive(client.labels.getCached(lbl.key)).name).toBe("Anomaly");
+    expect(expectLive(client.labels.watch(lbl.key).getCached()).name).toBe("Anomaly");
     expect(await tx.commit()).toBe(true);
     expect(
       send.mock.calls.filter(([target]) => target === "/label/dispatch"),
@@ -420,7 +420,7 @@ describe("dispatch", () => {
     await client.labels.dispatch(lbl.key, rename("Anomaly"));
     await expect
       .poll(() => {
-        const cached = remote.labels.getCached(lbl.key);
+        const cached = remote.labels.watch(lbl.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toBe("Anomaly");
@@ -430,7 +430,7 @@ describe("dispatch", () => {
     const lbl = await createLabel(remote);
     await expect
       .poll(() => {
-        const cached = client.labels.getCached(lbl.key);
+        const cached = client.labels.watch(lbl.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toBe(lbl.name);

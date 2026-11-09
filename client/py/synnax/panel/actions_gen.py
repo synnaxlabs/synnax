@@ -15,9 +15,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import group as group_, project as project_, resource as resource_
+from synnax import resource as resource_
 from synnax.panel.types_gen import Panel, Tab, TabKey, View
-from x import color as color_, spatial
+from x import color as color_, patch, spatial
 
 
 class CreatePayload(BaseModel):
@@ -26,28 +26,6 @@ class CreatePayload(BaseModel):
     """
 
     panel: Panel
-
-
-class RenamePayload(BaseModel):
-    """Renames the panel."""
-
-    name: str
-
-
-class SetGroupPayload(BaseModel):
-    """Moves the panel into a group, or out of its group when group is empty. Emitted by
-    the Core when it moves the panel; clients never dispatch it.
-    """
-
-    group: group_.Key | None = None
-
-
-class SetProjectPayload(BaseModel):
-    """Moves the panel into a project. Emitted by the Core when it moves the panel;
-    clients never dispatch it.
-    """
-
-    project: project_.Key
 
 
 class SetIconPayload(BaseModel):
@@ -152,24 +130,25 @@ class SetTabViewPayload(BaseModel):
     view: View
 
 
+# Replaces the value at a path in the panel.
+SetPayload = patch.Set
+
+
+# Removes an entry from a list or a field from an object in the panel.
+RemovePayload = patch.Remove
+
+
+# Adds an entry to a list in the panel.
+InsertPayload = patch.Insert
+
+
+# Moves an entry in a list in the panel.
+MovePayload = patch.Move
+
+
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
-
-
-class RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: RenamePayload
-
-
-class SetGroupAction(BaseModel):
-    type: Literal["set_group"] = "set_group"
-    set_group: SetGroupPayload
-
-
-class SetProjectAction(BaseModel):
-    type: Literal["set_project"] = "set_project"
-    set_project: SetProjectPayload
 
 
 class SetIconAction(BaseModel):
@@ -217,12 +196,29 @@ class SetTabViewAction(BaseModel):
     set_tab_view: SetTabViewPayload
 
 
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
 # Action is a discriminated union for all Panel mutations.
 Action = Annotated[
     CreateAction
-    | RenameAction
-    | SetGroupAction
-    | SetProjectAction
     | SetIconAction
     | SetColorAction
     | InsertTabsAction
@@ -231,25 +227,17 @@ Action = Annotated[
     | SplitTabAction
     | ResizeSplitAction
     | SetTabResourceAction
-    | SetTabViewAction,
+    | SetTabViewAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction,
     Field(discriminator="type"),
 ]
 
 
 def create(payload: CreatePayload) -> CreateAction:
     return CreateAction(create=payload)
-
-
-def rename(payload: RenamePayload) -> RenameAction:
-    return RenameAction(rename=payload)
-
-
-def set_group(payload: SetGroupPayload) -> SetGroupAction:
-    return SetGroupAction(set_group=payload)
-
-
-def set_project(payload: SetProjectPayload) -> SetProjectAction:
-    return SetProjectAction(set_project=payload)
 
 
 def set_icon(payload: SetIconPayload) -> SetIconAction:
@@ -286,3 +274,19 @@ def set_tab_resource(payload: SetTabResourcePayload) -> SetTabResourceAction:
 
 def set_tab_view(payload: SetTabViewPayload) -> SetTabViewAction:
     return SetTabViewAction(set_tab_view=payload)
+
+
+def set(payload: SetPayload) -> SetAction:
+    return SetAction(set=payload)
+
+
+def remove(payload: RemovePayload) -> RemoveAction:
+    return RemoveAction(remove=payload)
+
+
+def insert(payload: InsertPayload) -> InsertAction:
+    return InsertAction(insert=payload)
+
+
+def move(payload: MovePayload) -> MoveAction:
+    return MoveAction(move=payload)

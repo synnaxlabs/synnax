@@ -78,6 +78,7 @@ Task struct<
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
+        @index sorted
         @patch
         @search
         @validate required
