@@ -13,8 +13,10 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/convert.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 using nlohmann::json;
 
@@ -382,11 +384,10 @@ TEST(ToSampleValue, NumberToByteArray) {
     );
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, NumberToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(42), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
-    );
+    const auto sv = ASSERT_NIL_P(x::json::to_sample_value(json(42), x::telem::JSON_T));
+    ASSERT_EQ(std::get<std::string>(sv), "42");
 }
 
 // --- ToSampleValue (String) ---
@@ -396,6 +397,60 @@ TEST(ToSampleValue, StringToString) {
         x::json::to_sample_value(json("hello"), x::telem::STRING_T)
     );
     ASSERT_EQ(std::get<std::string>(sv), "hello");
+}
+
+/// @brief it should convert a string to its quoted JSON text on a JSON channel.
+TEST(ToSampleValue, StringToJSON) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("hello"), x::telem::JSON_T)
+    );
+    ASSERT_EQ(std::get<std::string>(sv), "\"hello\"");
+}
+
+/// @brief it should convert UUID text to the 16 bytes of the UUID.
+TEST(ToSampleValue, StringToUUID) {
+    const std::string text = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(text), x::telem::UUID_T)
+    );
+    const auto uuid = ASSERT_NIL_P(x::uuid::UUID::parse(text));
+    ASSERT_EQ(
+        std::get<std::string>(sv),
+        std::string(reinterpret_cast<const char *>(uuid.data()), uuid.size())
+    );
+}
+
+/// @brief it should reject a string that is not a UUID.
+TEST(ToSampleValue, InvalidStringToUUID) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("not-a-uuid"), x::telem::UUID_T),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should decode base64 text to the bytes that it holds.
+TEST(ToSampleValue, StringToBytes) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("AP8BAg=="), x::telem::BYTES_T)
+    );
+    ASSERT_EQ(std::get<std::string>(sv), std::string("\x00\xff\x01\x02", 4));
+}
+
+/// @brief it should decode empty base64 text to no bytes.
+TEST(ToSampleValue, EmptyStringToBytes) {
+    const auto sv = ASSERT_NIL_P(x::json::to_sample_value(json(""), x::telem::BYTES_T));
+    ASSERT_EQ(std::get<std::string>(sv), "");
+}
+
+/// @brief it should reject text that is not canonical, padded base64.
+TEST(ToSampleValue, InvalidStringToBytes) {
+    for (const auto *text: {"AP8BAg", "AP8B*g==", "AP8BAh==", "AP8 BAg=="}) {
+        SCOPED_TRACE(text);
+        ASSERT_OCCURRED_AS_P(
+            x::json::to_sample_value(json(text), x::telem::BYTES_T),
+            x::json::CONVERSION_ERROR
+        );
+    }
 }
 
 // --- String → Numeric ---
@@ -690,18 +745,20 @@ TEST(ToSampleValue, BooleanFalseToBytes) {
     );
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, BooleanTrueToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(true), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(true), x::telem::JSON_T)
     );
+    ASSERT_EQ(std::get<std::string>(sv), "true");
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, BooleanFalseToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(false), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(false), x::telem::JSON_T)
     );
+    ASSERT_EQ(std::get<std::string>(sv), "false");
 }
 
 TEST(ToSampleValue, BooleanTrueToTimestamp) {
@@ -755,11 +812,12 @@ TEST(ToSampleValue, NullToBytes) {
     );
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, NullToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(nullptr), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(nullptr), x::telem::JSON_T)
     );
+    ASSERT_EQ(std::get<std::string>(sv), "null");
 }
 
 TEST(ToSampleValue, NullToTimestamp) {
@@ -823,11 +881,12 @@ TEST(ToSampleValue, ObjectToBytes) {
     );
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, ObjectToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(json::object()), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(json::object()), x::telem::JSON_T)
     );
+    ASSERT_EQ(std::get<std::string>(sv), "{}");
 }
 
 TEST(ToSampleValue, ObjectToTimestamp) {
@@ -888,11 +947,12 @@ TEST(ToSampleValue, ArrayToBytes) {
     );
 }
 
+/// @brief it should convert the value to its JSON text on a JSON channel.
 TEST(ToSampleValue, ArrayToJSON) {
-    ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(json::array()), x::telem::JSON_T),
-        x::json::CONVERSION_ERROR
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(json::array()), x::telem::JSON_T)
     );
+    ASSERT_EQ(std::get<std::string>(sv), "[]");
 }
 
 TEST(ToSampleValue, ArrayToTimestamp) {
@@ -1827,6 +1887,78 @@ TEST(FromSampleValue, EnumNullptrBehavesNormally) {
     ASSERT_EQ(result, json("1"));
 }
 
+// ==================== from_series ====================
+
+/// @brief it should convert a JSON sample to the value that its text holds.
+TEST(FromSeries, JSON) {
+    const x::telem::Series s(
+        std::vector<std::string>{"1", R"({"a":[1,"b",null]})"},
+        x::telem::JSON_T
+    );
+    ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 0)), json(1));
+    ASSERT_EQ(
+        ASSERT_NIL_P(x::json::from_series(s, -1)),
+        json::parse(R"({"a":[1,"b",null]})")
+    );
+}
+
+/// @brief it should reject a JSON sample whose text is not valid JSON.
+TEST(FromSeries, InvalidJSON) {
+    const x::telem::Series s(std::string("{"), x::telem::JSON_T);
+    ASSERT_OCCURRED_AS_P(x::json::from_series(s, 0), x::json::CONVERSION_ERROR);
+}
+
+/// @brief it should convert a UUID sample to its text.
+TEST(FromSeries, UUID) {
+    const auto a = x::uuid::create();
+    const auto b = x::uuid::create();
+    x::telem::Series s(x::telem::UUID_T, 2);
+    s.write(a.data(), 1);
+    s.write(b.data(), 1);
+    ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 0)), json(a.to_string()));
+    ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, -1)), json(b.to_string()));
+}
+
+/// @brief it should convert a bytes sample to padded base64 text.
+TEST(FromSeries, Bytes) {
+    const x::telem::Series s(
+        std::vector<std::string>{std::string("\x00\xff\x01\x02", 4), ""},
+        x::telem::BYTES_T
+    );
+    ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 0)), json("AP8BAg=="));
+    ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 1)), json(""));
+}
+
+/// @brief it should throw on an index past the last sample.
+TEST(FromSeries, OutOfBounds) {
+    const x::telem::Series bytes(std::vector<std::string>{}, x::telem::BYTES_T);
+    ASSERT_THROW((void) x::json::from_series(bytes, 0), std::runtime_error);
+    const x::telem::Series text(std::string("1"), x::telem::JSON_T);
+    ASSERT_THROW((void) x::json::from_series(text, 1), std::runtime_error);
+}
+
+/// @brief it should reject a series of another data type.
+TEST(FromSeries, OtherDataType) {
+    for (const auto &s: {x::telem::Series(1.0), x::telem::Series(std::string("a"))})
+        ASSERT_OCCURRED_AS_P(x::json::from_series(s, 0), x::json::CONVERSION_ERROR);
+}
+
+/// @brief it should convert JSON, UUID, and bytes values to samples and back.
+TEST(FromSeries, RoundTrip) {
+    const std::vector<std::pair<x::telem::DataType, json>> cases = {
+        {x::telem::JSON_T, json::parse(R"({"a":[1,2.5,"c",true,null]})")},
+        {x::telem::JSON_T, json("text")},
+        {x::telem::UUID_T, json("6ba7b810-9dad-11d1-80b4-00c04fd430c8")},
+        {x::telem::BYTES_T, json("SGVsbG8sIFdvcmxkIQ==")},
+    };
+    for (const auto &[dt, value]: cases) {
+        const auto sv = ASSERT_NIL_P(x::json::to_sample_value(value, dt));
+        const x::telem::Series s(sv, dt);
+        ASSERT_EQ(s.data_type(), dt);
+        ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 0)), value);
+    }
+}
+
 // ==================== from_timestamp ====================
 
 TEST(FromTimestamp, UnixNanosecond) {
@@ -2064,15 +2196,15 @@ TEST(CheckToSampleValue, String) {
 }
 
 TEST(CheckToSampleValue, UUID) {
-    ASSERT_FALSE(x::json::check_to_sample_value(x::telem::UUID_T));
+    ASSERT_TRUE(x::json::check_to_sample_value(x::telem::UUID_T));
 }
 
 TEST(CheckToSampleValue, JSON) {
-    ASSERT_FALSE(x::json::check_to_sample_value(x::telem::JSON_T));
+    ASSERT_TRUE(x::json::check_to_sample_value(x::telem::JSON_T));
 }
 
 TEST(CheckToSampleValue, Bytes) {
-    ASSERT_FALSE(x::json::check_to_sample_value(x::telem::BYTES_T));
+    ASSERT_TRUE(x::json::check_to_sample_value(x::telem::BYTES_T));
 }
 
 TEST(CheckToSampleValue, Unknown) {

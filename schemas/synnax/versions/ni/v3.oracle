@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
 
 Units = v2.Units
@@ -46,7 +47,13 @@ StrainConfig = v2.StrainConfig
 
 ThermocoupleType = v2.ThermocoupleType
 
-CJC = v2.CJC
+CJC union on source extends v2.CJC {
+    chan {
+        port uint32 = 0 {
+            @doc value "is the port of the channel that measures the reference."
+        }
+    }
+}
 
 VelocityUnits = v2.VelocityUnits
 
@@ -78,9 +85,13 @@ TwoPointLin = v2.TwoPointLin
 
 CustomScale = v2.CustomScale
 
-BaseAIChannel = v2.BaseAIChannel
+BaseAIChannel struct extends v2.BaseAIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+}
 
-AIChannel = v2.AIChannel
+AIChannel union on type extends v2.AIChannel {}
 
 CIEdge = v2.CIEdge
 
@@ -106,9 +117,39 @@ ZIndexPhase = v2.ZIndexPhase
 
 ZIndex = v2.ZIndex
 
-BaseCIChannel = v2.BaseCIChannel
+BaseCIChannel struct extends v2.BaseCIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical counter the channel uses."
+    }
+}
 
-CIChannel = v2.CIChannel
+CIChannel union on type extends v2.CIChannel {
+    ci_frequency {
+        divisor uint32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+    }
+    ci_edge_count {
+        initial_count uint32 = 0 {
+            @doc value "is the value the counter starts at."
+        }
+    }
+    ci_period {
+        divisor uint32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+    }
+    ci_velocity_angular {
+        pulses_per_rev uint32 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+    }
+    ci_position_angular {
+        pulses_per_rev uint32 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+    }
+}
 
 WaveType = v2.WaveType
 
@@ -117,6 +158,9 @@ BaseAOChannel struct extends v2.BaseAOChannel {
     -state_channel
     -cmd_channel_name
     -state_channel_name
+    port uint32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
 }
 
 CommandedAOChannel struct {
@@ -170,21 +214,35 @@ AOChannel union on type extends BaseAOChannel {
     @go marshal
 }
 
-DIChannel = v2.DIChannel
+DIChannel struct extends v2.DIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+    line uint8 = 0 {
+        @doc value "is the digital line within the port the channel reads from."
+    }
+}
 
-DOChannel = v2.DOChannel
+DOChannel struct extends v2.DOChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+    line uint8 = 0 {
+        @doc value "is the digital line within the port the channel writes to."
+    }
+}
 
-AnalogReadConfig = v2.AnalogReadConfig
+AnalogReadConfig struct extends v2.AnalogReadConfig {}
 
-CounterReadConfig = v2.CounterReadConfig
+CounterReadConfig struct extends v2.CounterReadConfig {}
 
 WriteConfig = v2.WriteConfig
 
 AnalogWriteConfig struct extends v2.AnalogWriteConfig {}
 
-DigitalReadConfig = v2.DigitalReadConfig
+DigitalReadConfig struct extends v2.DigitalReadConfig {}
 
-DigitalWriteConfig = v2.DigitalWriteConfig
+DigitalWriteConfig struct extends v2.DigitalWriteConfig {}
 
 ScanConfig struct extends v2.ScanConfig {
     -ignored_models

@@ -14,6 +14,8 @@ package ni
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -915,7 +917,7 @@ type CommandedAOChannel = versions.CommandedAOChannel
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
-	Port int32 `json:"port" msgpack:"port"`
+	Port uint32 `json:"port" msgpack:"port"`
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
@@ -926,13 +928,13 @@ type AnalogInputPort struct {
 	Types []string `json:"types" msgpack:"types"`
 	// Negative is the port that a differential channel on this port uses as its
 	// negative input. Absent when the port has no pair.
-	Negative *int32 `json:"negative,omitzero" msgpack:"negative,omitempty"`
+	Negative *uint32 `json:"negative,omitzero" msgpack:"negative,omitempty"`
 }
 
 // AnalogOutputPort is an analog output port of an NI device.
 type AnalogOutputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 1 for ao1.
-	Port int32 `json:"port" msgpack:"port"`
+	Port uint32 `json:"port" msgpack:"port"`
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// Types are the channel types that the port accepts, such as ao_voltage.
@@ -942,7 +944,7 @@ type AnalogOutputPort struct {
 // CounterPort is a counter of an NI device.
 type CounterPort struct {
 	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-	Port int32 `json:"port" msgpack:"port"`
+	Port uint32 `json:"port" msgpack:"port"`
 	// Types are the channel types that the counter accepts, such as ci_frequency.
 	Types []string `json:"types" msgpack:"types"`
 }
@@ -950,13 +952,21 @@ type CounterPort struct {
 // DigitalPort is a digital port of an NI device.
 type DigitalPort struct {
 	// Port is the number in the DAQmx name of the port, such as 0 for port0.
-	Port int32 `json:"port" msgpack:"port"`
+	Port uint32 `json:"port" msgpack:"port"`
 	// Lines is the number of lines in the port.
-	Lines int32 `json:"lines" msgpack:"lines"`
+	Lines uint8 `json:"lines" msgpack:"lines"`
 	// Input is true when the port reads digital input.
 	Input bool `json:"input" msgpack:"input"`
 	// Output is true when the port writes digital output.
 	Output bool `json:"output" msgpack:"output"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalPort) Validate() error {
+	v := validate.New("DigitalPort")
+	v.LessThanEq("lines", d.Lines, 32)
+	return v.Error()
 }
 
 // Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
@@ -999,4 +1009,16 @@ type Hardware struct {
 	// AoCurrentRanges are the analog output current ranges of the device, ends
 	// included.
 	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h Hardware) Validate() error {
+	v := validate.New("Hardware")
+	for i := range h.DigitalPorts {
+		v.Exec(func() error {
+			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
+		})
+	}
+	return v.Error()
 }

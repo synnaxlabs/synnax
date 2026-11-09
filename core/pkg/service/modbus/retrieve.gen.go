@@ -65,6 +65,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 						if v2.Channel != 0 {
 							targets = append(targets, v2.Channel)
 						}
+					case HoldingRegisterStringReadChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case InputRegisterStringReadChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
 					case HoldingRegisterBitReadChannel:
 						if v2.Channel != 0 {
 							targets = append(targets, v2.Channel)
@@ -96,6 +104,16 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 						}
 						e.Channels[i3].Variant = v4
 					case InputRegisterReadChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case HoldingRegisterStringReadChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case InputRegisterStringReadChannel:
 						if v4.Channel == t {
 							v4.Channel = 0
 						}

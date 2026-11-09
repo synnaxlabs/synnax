@@ -594,7 +594,7 @@ class BaseAIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
     device: device_.Key = ""
 
     @_override
@@ -634,7 +634,7 @@ class BaseCIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
     device: device_.Key = ""
 
     @_override
@@ -653,7 +653,7 @@ class BaseAOChannel(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
 
     @_override
     def __hash__(self) -> int:
@@ -676,8 +676,8 @@ class DIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
-    line: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
+    line: int = Field(default=0, ge=0, le=31)
 
     @_override
     def __hash__(self) -> int:
@@ -704,8 +704,8 @@ class DOChannel(BaseModel):
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     cmd_channel_name: str = ""
     state_channel_name: str = ""
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
-    line: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
+    line: int = Field(default=0, ge=0, le=31)
 
     @_override
     def __hash__(self) -> int:
@@ -748,11 +748,11 @@ class AnalogInputPort(BaseModel):
             negative input. Absent when the port has no pair.
     """
 
-    port: int = Field(ge=-2147483648, le=2147483647)
+    port: int = Field(ge=0, le=4294967295)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
     default_terminal_config: TerminalConfig | None = None
     types: list[str] = Field(default_factory=list)
-    negative: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    negative: int | None = Field(default=None, ge=0, le=4294967295)
 
 
 class AnalogOutputPort(BaseModel):
@@ -764,7 +764,7 @@ class AnalogOutputPort(BaseModel):
         types: Are the channel types that the port accepts, such as ao_voltage.
     """
 
-    port: int = Field(ge=-2147483648, le=2147483647)
+    port: int = Field(ge=0, le=4294967295)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
     types: list[str] = Field(default_factory=list)
 
@@ -777,7 +777,7 @@ class CounterPort(BaseModel):
         types: Are the channel types that the counter accepts, such as ci_frequency.
     """
 
-    port: int = Field(ge=-2147483648, le=2147483647)
+    port: int = Field(ge=0, le=4294967295)
     types: list[str] = Field(default_factory=list)
 
 
@@ -791,8 +791,8 @@ class DigitalPort(BaseModel):
         output: Is true when the port writes digital output.
     """
 
-    port: int = Field(ge=-2147483648, le=2147483647)
-    lines: int = Field(ge=-2147483648, le=2147483647)
+    port: int = Field(ge=0, le=4294967295)
+    lines: int = Field(ge=0, le=32)
     input: bool = False
     output: bool = False
 
@@ -830,7 +830,7 @@ class ChanCJC(BaseModel):
     """Reads the reference temperature from another channel."""
 
     source: Literal["chan"] = "chan"
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
 
 
 # Is the cold-junction compensation for a thermocouple. The source selects where
@@ -1314,7 +1314,7 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: float = 0.000006
-    divisor: int = Field(default=4, ge=-2147483648, le=2147483647)
+    divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
 
@@ -1324,7 +1324,7 @@ class CIEdgeCountChannel(BaseCIChannel):
     type: Literal["ci_edge_count"] = "ci_edge_count"
     active_edge: CIEdge = "Rising"
     count_direction: CICountDirection = "CountUp"
-    initial_count: float = 0
+    initial_count: int = Field(default=0, ge=0, le=4294967295)
     terminal: str = ""
 
 
@@ -1338,7 +1338,7 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: float = 0.001000
-    divisor: int = Field(default=4, ge=-2147483648, le=2147483647)
+    divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
 
@@ -1397,7 +1397,7 @@ class CIVelocityAngularChannel(BaseCIChannel, CustomScale, MinMaxVal):
     max_val: float = 1
     units: CIAngularVelocityUnits = "RPM"
     decoding_type: CIDecodingType = "X4"
-    pulses_per_rev: float = 24
+    pulses_per_rev: int = Field(default=24, ge=1, le=4294967295)
     terminal_a: str = ""
     terminal_b: str = ""
 
@@ -1420,7 +1420,7 @@ class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
     type: Literal["ci_position_angular"] = "ci_position_angular"
     units: CIAngularPositionUnits = "Degrees"
     decoding_type: CIDecodingType = "X4"
-    pulses_per_rev: float = 24
+    pulses_per_rev: int = Field(default=24, ge=1, le=4294967295)
     initial_angle: float = 0
     terminal_a: str = ""
     terminal_b: str = ""
