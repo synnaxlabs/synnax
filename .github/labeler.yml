@@ -29,7 +29,6 @@ core:
   - changed-files:
       - any-glob-to-any-file:
           - alamos/go/**
-          - aspen/**
           - cesium/**
           - core/**
           - freighter/go/**

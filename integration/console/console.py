@@ -9,8 +9,7 @@
 
 from pathlib import Path
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.access import AccessClient

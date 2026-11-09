@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, errors, id } from "@synnaxlabs/x";
+import { array, id } from "@synnaxlabs/x";
 
 import { type policy } from "@/access/policy";
 import { type role } from "@/access/role";
@@ -43,26 +43,24 @@ const connectAs = async (
   onInternalError: (err: Error) => void = logAllButDenials,
 ) => {
   const client = createTestClient({ username, password: "test", onInternalError });
-  try {
-    await client.access.policies.retrieve({
-      where: { subjects: [user.resourceID(key)] },
-    });
-  } catch (err) {
-    if (!isDenial(err)) throw errors.fromUnknown(err);
-  }
+  await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   return client;
 };
 
-const createUser = async (client: Synnax, roles: role.Key[]) => {
+const createUser = async (client: Synnax, role: role.Key) => {
   const username = id.create();
   const u = await client.users.create({
     username,
     password: "test",
     name: "test",
-    roles,
+    role,
   });
   return { username, key: u.key };
 };
+
+/** Creates a role with no policies, for a user that can do nothing. */
+export const createEmptyRole = async (client: Synnax): Promise<role.Role> =>
+  await client.access.roles.create({ name: id.create(), description: "test" });
 
 /** A policy for the role that a test client's user holds. */
 export type TestPolicy = Omit<policy.New, "role">;
@@ -79,14 +77,11 @@ export const createTestClientWithPolicy = async (
   pol: TestPolicy | TestPolicy[],
   onInternalError?: (err: Error) => void,
 ) => {
-  const r = await client.access.roles.create({
-    name: "test",
-    description: "test",
-  });
+  const r = await createEmptyRole(client);
   await client.access.policies.create(
     array.toArray(pol).map((p) => ({ ...p, role: r.key })),
   );
-  const u = await createUser(client, [r.key]);
+  const u = await createUser(client, r.key);
   return await connectAs(u.username, u.key, onInternalError);
 };
 
@@ -114,7 +109,7 @@ export const createTestClientWithRole = async (
   const roles = await client.access.roles.retrieve({});
   const r = roles.find((r) => r.name === name);
   if (r == null) throw new NotFoundError(`no built-in role named ${name}`);
-  const u = await createUser(client, [r.key]);
+  const u = await createUser(client, r.key);
   return await connectAs(u.username, u.key);
 };
 

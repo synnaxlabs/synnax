@@ -32,12 +32,6 @@ var _ = Describe("Alias", func() {
 				To(Equal(rng.String() + "---" + ch.String()))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Alias{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {

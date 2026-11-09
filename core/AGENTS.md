@@ -2,8 +2,8 @@ Go development rules for this module: @../docs/claude/toolchains/go.md
 
 # Core server
 
-The Synnax server: composes Cesium (time-series) and Aspen (distributed KV) into a
-clustered telemetry engine, exposed over Freighter transports.
+The Synnax server: composes Cesium (time-series) and Gorp (typed KV) into a telemetry
+engine, exposed over Freighter transports.
 
 ## Layered architecture (`core/pkg/`)
 
@@ -12,9 +12,8 @@ downward only — a layer never imports one above it:
 
 1. **`storage/`** (lowest) — engine management: Cesium (`ts/`) for telemetry frames +
    Pebble KV. Single-node, no cluster awareness.
-2. **`distribution/`** — makes storage cluster-transparent: channels, framer
-   (reads/writes routed between nodes), node membership via Aspen. Data here is
-   addressable cluster-wide.
+2. **`distribution/`** — turns storage into the data plane: the Core's identity,
+   channels with node-aware keys, and the framer (reads, writes, and streams).
 3. **`service/`** — business logic on top of distribution: resource (search and names
    across types), group, auth, access, user, ranger, hardware (task/rack/device), arc,
    workspace items (schematic, lineplot, log, table, panel, view), label, status.
@@ -33,6 +32,6 @@ Supporting packages outside the stack:
 ## Placement rule
 
 New functionality goes in the lowest layer that can implement it: needs only local
-storage → storage; needs cluster routing → distribution; needs Synnax business concepts
-→ service; only shapes requests/responses → api. An api handler must stay thin — logic
-in api that belongs in service is a defect.
+storage → storage; needs channel keys or frame flow → distribution; needs Synnax
+business concepts → service; only shapes requests/responses → api. An api handler must
+stay thin — logic in api that belongs in service is a defect.

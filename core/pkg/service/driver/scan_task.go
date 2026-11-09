@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -98,7 +97,7 @@ type ScanTaskConfig struct {
 	//
 	// [REQUIRED]
 	Scanner Scanner
-	// DB opens the transactions that status writes run in.
+	// DB holds the devices that the task scans, and stores statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -348,7 +347,7 @@ func (t *ScanTask) open() func(context.Context) error {
 		r gorp.TxReader[device.Key, device.Device],
 	) {
 		for ch := range r {
-			if ch.Variant != change.VariantSet || !t.owns(ch.Value) {
+			if ch.Kind == gorp.ChangeDelete || !t.owns(ch.Value) {
 				continue
 			}
 			select {
@@ -391,13 +390,15 @@ func (t *ScanTask) owns(dev device.Device) bool {
 // compares against storage.
 func (t *ScanTask) scan(ctx context.Context) error {
 	var devices []device.Device
-	if err := t.cfg.Device.NewRetrieve().
-		Where(device.And(
-			device.MatchMakes(t.cfg.Make),
-			device.MatchRacks(t.cfg.Task.Rack),
-		)).
-		Entries(&devices).
-		Exec(ctx, nil); err != nil {
+	if err := t.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return t.cfg.Device.NewRetrieve().
+			Where(device.And(
+				device.MatchMakes(t.cfg.Make),
+				device.MatchRacks(t.cfg.Task.Rack),
+			)).
+			Entries(&devices).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	results := make([]health, len(devices))

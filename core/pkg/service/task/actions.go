@@ -11,8 +11,6 @@ package task
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 )
 
@@ -22,40 +20,48 @@ func (CreatePayload) Handle(Task) (Task, error) {
 	return Task{}, actions.CoreOnlyError("a task create")
 }
 
-// Handle applies the set to the task's name, rack, or config.
-func (p SetPayload) Handle(t Task) (Task, error) {
-	return edit(t, patch.Set(p).Apply)
-}
+// Handle applies the set to the task's name or rack.
+func (p SetPayload) Handle(t Task) (Task, error) { return apply(t, patch.Set(p)) }
 
-// Handle applies the remove to the task's name, rack, or config.
-func (p RemovePayload) Handle(t Task) (Task, error) {
-	return edit(t, patch.Remove(p).Apply)
-}
+// Handle applies the remove to the task's name or rack.
+func (p RemovePayload) Handle(t Task) (Task, error) { return apply(t, patch.Remove(p)) }
 
-// Handle applies the insert to the task's name, rack, or config.
-func (p InsertPayload) Handle(t Task) (Task, error) {
-	return edit(t, patch.Insert(p).Apply)
-}
+// Handle applies the insert to the task's name or rack.
+func (p InsertPayload) Handle(t Task) (Task, error) { return apply(t, patch.Insert(p)) }
 
-// Handle applies the move to the task's name, rack, or config.
-func (p MovePayload) Handle(t Task) (Task, error) {
-	return edit(t, patch.Move(p).Apply)
-}
+// Handle applies the move to the task's name or rack.
+func (p MovePayload) Handle(t Task) (Task, error) { return apply(t, patch.Move(p)) }
 
-// document is the part of a task that path actions edit.
-type document struct {
-	Name   string              `json:"name"`
-	Rack   rack.Key            `json:"rack"`
-	Config msgpack.EncodedJSON `json:"config"`
-}
-
-// edit applies a path action to a copy of the task's document. A document that gains a
-// member it does not declare, such as a path to the task's type, is rejected.
-func edit(t Task, apply func(map[string]any) error) (Task, error) {
-	d, err := patch.Edit(document{Name: t.Name, Rack: t.Rack, Config: t.Config}, apply)
+// apply applies a path action to the task's name or rack. The config store of the
+// task's type applies the actions on its config.
+func apply[A patch.Action](t Task, a A) (Task, error) {
+	c, err := patch.Begin(a)
+	if err == nil {
+		err = t.Patch(c)
+	}
 	if err != nil {
 		return Task{}, err
 	}
-	t.Name, t.Rack, t.Config = d.Name, d.Rack, d.Config
 	return t, nil
+}
+
+// cursor returns the cursor of a path action, and false for a create.
+func (a Action) cursor() (patch.Cursor, bool, error) {
+	var (
+		c   patch.Cursor
+		err error
+	)
+	switch {
+	case a.Set != nil:
+		c, err = patch.Begin(patch.Set(*a.Set))
+	case a.Remove != nil:
+		c, err = patch.Begin(patch.Remove(*a.Remove))
+	case a.Insert != nil:
+		c, err = patch.Begin(patch.Insert(*a.Insert))
+	case a.Move != nil:
+		c, err = patch.Begin(patch.Move(*a.Move))
+	default:
+		return patch.Cursor{}, false, nil
+	}
+	return c, true, err
 }

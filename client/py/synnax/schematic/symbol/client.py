@@ -85,6 +85,8 @@ class Client:
         self,
         *,
         key: Key,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -98,6 +100,8 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -112,6 +116,8 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -136,6 +142,9 @@ class Client:
         must match every field. A plain ``key`` returns one symbol.
 
         :param key: Keeps symbols with this key.
+        :param groups: Keeps symbols in any of these groups.
+        :param grouped: Keeps only symbols in a group when True, and only symbols in no
+            group when False.
         :param and_: Keeps symbols that match every filter in the list.
         :param or_: Keeps symbols that match any filter in the list.
         :param not_: Keeps symbols that do not match the filter.

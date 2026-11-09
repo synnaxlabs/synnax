@@ -13,7 +13,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"io"
-	"iter"
 	"maps"
 	"slices"
 	"sync"
@@ -24,7 +23,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -136,6 +134,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      []gorp.Migration{v3.NewMigration(s.version)},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
@@ -181,11 +180,10 @@ func (s *Service) Close() error {
 	return errors.Combine(s.shutdown.Close(), s.table.Close())
 }
 
-// Hold marks the session as kept open by a stream on this node. A held session counts
-// as active, so it never idles out, and every Sweep writes its activity for other
-// nodes. The returned channel closes when the session ends, by revocation or by any
-// node's sweep. The caller must call release when the stream closes. Hold returns
-// [ErrInvalidToken] when no session has the key.
+// Hold marks the session as kept open by a stream. A held session counts as active, so
+// it never idles out, and every Sweep writes its activity. The returned channel closes
+// when the session ends, by revocation or by a sweep. The caller must call release when
+// the stream closes. Hold returns [ErrInvalidToken] when no session has the key.
 func (s *Service) Hold(
 	ctx context.Context,
 	key SessionKey,
@@ -209,7 +207,11 @@ func (s *Service) Hold(
 		})
 	}
 	// registered before the lookup, so a deletion in between still ends the hold
-	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
+	var exists bool
+	err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		exists, err = s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, snap)
+		return err
+	})
 	if err != nil || !exists {
 		release()
 		if err != nil {
@@ -228,21 +230,37 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	if len(held) == 0 {
 		return nil
 	}
-	var sessions []Session
-	if err := s.NewRetrieve().
-		Where(MatchKeys(held...)).
-		Entries(&sessions).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	live := make(set.Set[SessionKey], len(sessions))
-	for _, e := range sessions {
-		current, err := s.check(ctx, e)
-		if err != nil {
+	var (
+		live  set.Set[SessionKey]
+		stale []SessionKey
+	)
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		var sessions []Session
+		if err := s.NewRetrieve().
+			Where(MatchKeys(held...)).
+			Entries(&sessions).
+			Exec(ctx, snap); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		if current {
-			live.Add(e.Key)
+		live = make(set.Set[SessionKey], len(sessions))
+		for _, e := range sessions {
+			current, err := s.current(ctx, snap, e)
+			if err != nil {
+				return err
+			}
+			if current {
+				live.Add(e.Key)
+			} else {
+				stale = append(stale, e.Key)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(stale) > 0 {
+		if err := s.Logout(ctx, stale...); err != nil {
+			return err
 		}
 	}
 	for _, key := range held {
@@ -257,11 +275,11 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 // query.ErrNotFound when no authenticator holds it.
 func (s *Service) version(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	for _, a := range s.cfg.Authenticators {
-		v, err := a.Version(ctx, tx, credential)
+		v, err := a.Version(ctx, snap, credential)
 		if !errors.Is(err, query.ErrNotFound) {
 			return v, err
 		}
@@ -269,17 +287,18 @@ func (s *Service) version(
 	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
 }
 
-// check returns true when the session holds its credential's current version, or
-// deletes it and returns false. A session's version never changes after login.
-func (s *Service) check(ctx context.Context, session Session) (bool, error) {
-	v, err := s.version(ctx, nil, session.Credential)
-	if err == nil && session.CredentialVersion == v {
-		return true, nil
+// current returns true when the session holds the current version of its credential in
+// snap. A session's version never changes after login.
+func (s *Service) current(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	session Session,
+) (bool, error) {
+	v, err := s.version(ctx, snap, session.Credential)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
 	}
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		return false, err
-	}
-	return false, s.Logout(ctx, session.Key)
+	return err == nil && session.CredentialVersion == v, err
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -293,12 +312,12 @@ func (s *Service) endHold(key SessionKey) {
 
 func (s *Service) endDeletedHolds(
 	_ context.Context,
-	changes iter.Seq[change.Change[SessionKey, Session]],
+	changes gorp.TxReader[SessionKey, Session],
 ) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for ch := range changes {
-		if ch.Variant != change.VariantDelete {
+		if ch.Kind != gorp.ChangeDelete {
 			continue
 		}
 		if h, ok := s.mu.holds[ch.Key]; ok && !h.over {
@@ -323,12 +342,12 @@ func (s *Service) held() []SessionKey {
 
 // NewRetrieve opens a query for sessions.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{svc: s, tx: tx}
 }
 
 // Login checks the proof with the authenticator for its method and opens a session for
@@ -354,36 +373,55 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	return s.NewWriter(nil).open(ctx, identity)
+	var (
+		session Session
+		token   string
+	)
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		session, token, err = s.NewWriter(tx).open(ctx, identity)
+		return err
+	}); err != nil {
+		return Session{}, "", err
+	}
+	return session, token, nil
 }
 
 // Authenticate returns the session a token belongs to and counts the request as
 // activity. It returns [ErrInvalidToken] when no session matches the token or the
 // session's credential changed since login, and [ErrExpiredToken] when the session has
-// been idle for the idle timeout. Both of the latter delete the session.
+// been idle for the idle timeout. Both of the latter delete the session. It reads two
+// records under the shared read lock, so it waits for a write that is in progress.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {
 		return Session{}, err
 	}
-	var session Session
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&session).
-		Exec(ctx, nil); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return Session{}, ErrInvalidToken
+	var (
+		session Session
+		current bool
+	)
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := s.NewRetrieve().
+			Where(MatchKeys(key)).
+			Entry(&session).
+			Exec(ctx, snap); err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				return ErrInvalidToken
+			}
+			return err
 		}
-		return Session{}, err
-	}
-	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
-		return Session{}, ErrInvalidToken
-	}
-	current, err := s.check(ctx, session)
-	if err != nil {
+		if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
+			return ErrInvalidToken
+		}
+		current, err = s.current(ctx, snap, session)
+		return err
+	}); err != nil {
 		return Session{}, err
 	}
 	if !current {
+		if err = s.Logout(ctx, key); err != nil {
+			return Session{}, err
+		}
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
@@ -440,22 +478,24 @@ func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
 // Logout ends the sessions with the given keys. Unknown keys are ignored.
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 	s.forget(nil, keys...)
-	return s.table.NewDelete().
-		Where(gorp.MatchKeys[SessionKey, Session](keys...)).
-		Exec(ctx, s.cfg.DB)
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.NewWriter(tx).Delete(ctx, keys...)
+	})
 }
 
 // Sweep writes the activity of every held session, then ends every other session whose
-// stored activity is older than the idle timeout plus a quarter. A node writes a
-// session's activity up to a quarter period late, so a younger stored mark may hide a
-// session that is live on another node.
+// stored activity is older than the idle timeout plus a quarter. A Core writes a
+// session's activity up to a quarter period late, so a stored mark can trail a session
+// that is still live.
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
 	// collected before the read, so a hold registered after it is never ended here
 	held := set.New(s.held()...)
 	var all []Session
-	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().Entries(&all).Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	keep := make(set.Set[SessionKey], len(all))
@@ -518,23 +558,17 @@ func (s *Service) touch(
 	})
 }
 
-// Writer removes credentials, and ends and opens sessions, in one transaction. It makes
-// no identity check: the caller authorizes the change.
+// Writer ends and opens sessions in one transaction. It makes no identity check: the
+// caller authorizes the change.
 type Writer struct {
 	svc *Service
 	tx  gorp.Tx
 }
 
-// DeleteFor removes every credential of the given subjects through each authenticator,
-// then ends their sessions.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
-	for _, a := range w.svc.cfg.Authenticators {
-		if err := a.DeleteFor(ctx, w.tx, subjects...); err != nil {
-			return err
-		}
-	}
+// Delete ends the sessions with the given keys. Unknown keys are ignored.
+func (w Writer) Delete(ctx context.Context, keys ...SessionKey) error {
 	return w.svc.table.NewDelete().
-		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
+		Where(gorp.MatchKeys[SessionKey, Session](keys...)).
 		Exec(ctx, w.tx)
 }
 

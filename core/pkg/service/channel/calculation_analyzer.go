@@ -18,6 +18,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -31,18 +32,26 @@ type resolver struct {
 	temp struct {
 		names map[string]*symbol.Symbol
 		keys  map[int]*symbol.Symbol
+		// unstored holds analyzed channels that are not stored yet. A stored channel
+		// with the same name resolves first.
+		unstored map[string]*symbol.Symbol
 	}
 	unresolved set.Set[string]
+	readErr    error
 }
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
-// without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
-// concurrent use.
+// without hitting the backing symbol resolver. A name that a stored channel holds
+// resolves to that channel before an analyzed channel that is not stored yet.
+// CalculationAnalyzer is not safe for concurrent use.
 type CalculationAnalyzer struct {
 	symbols  arc.SymbolResolver
 	resolver *resolver
 	cfg      parser.Config
+	// stl holds the Arc standard library symbols, built on the first analysis.
+	// symbol.NewRoot copies them into each analysis, so later analyses reuse them.
+	stl []*symbol.Symbol
 }
 
 // NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
@@ -54,6 +63,7 @@ func NewCalculationAnalyzer(
 	r := &resolver{}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
+	r.temp.unstored = make(map[string]*symbol.Symbol)
 	return &CalculationAnalyzer{
 		symbols:  symbolResolver,
 		resolver: r,
@@ -74,7 +84,12 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	if errors.Is(resolveErr, query.ErrNotFound) {
+		if s, ok := r.temp.unstored[name]; ok {
+			return s, nil
+		}
 		r.unresolved.Add(name)
+	} else if resolveErr != nil && r.readErr == nil {
+		r.readErr = resolveErr
 	}
 	return sym, resolveErr
 }
@@ -96,19 +111,28 @@ type CalculationAnalysisResult struct {
 
 // Analyze parses the channel's expression, infers its return type, and extracts the set
 // of channel dependencies. The analyzed channel is cached so that subsequent calls can
-// reference it by name or key.
+// reference it by name or key. An expression that fails analysis returns
+// *diagnostics.Diagnostics. A channel read that fails returns its error.
 func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
 	a.resolver.SymbolResolver = NewConsistentResolver(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
+	a.resolver.readErr = nil
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
 		return CalculationAnalysisResult{}, err
 	}
-	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
+	if a.stl == nil {
+		a.stl = stl.NewSymbols()
+	}
+	root := symbol.NewRoot(a.resolver, a.stl)
+	aCtx := acontext.NewRoot(ctx, t, root).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
+	if a.resolver.readErr != nil {
+		return CalculationAnalysisResult{}, a.resolver.readErr
+	}
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
@@ -119,12 +143,13 @@ func (a *CalculationAnalyzer) Analyze(
 		Kind: symbol.KindChannel,
 		Type: types.Chan(dataType),
 	}
-	if ch.Key() != 0 {
-		intKey := int(ch.Key())
-		s.ID = intKey
-		a.resolver.temp.keys[intKey] = s
+	if ch.LocalKey == 0 {
+		a.resolver.temp.unstored[s.Name] = s
+	} else {
+		s.ID = int(ch.Key())
+		a.resolver.temp.keys[s.ID] = s
+		a.resolver.temp.names[s.Name] = s
 	}
-	a.resolver.temp.names[s.Name] = s
 	var deps Keys
 	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
 	if scopeErr == nil {

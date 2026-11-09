@@ -29,7 +29,6 @@ const tableName = "log"
 // Retrieve is used to retrieve Log records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Log]
 	indexes indexes
 }
@@ -55,6 +54,7 @@ func newIndexes() indexes {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
 			Targets: func(e *Log) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -67,6 +67,7 @@ func newIndexes() indexes {
 			Name:     "project",
 			Table:    "project",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Log) []project.Key {
 				if e.Project == nil {
 					return nil
@@ -78,6 +79,7 @@ func newIndexes() indexes {
 			Name:     "range",
 			Table:    "range",
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Targets: func(e *Log) []ranger.Key {
 				if e.Range == nil {
 					return nil
@@ -89,6 +91,7 @@ func newIndexes() indexes {
 			Name:     "channels.channel",
 			Table:    "channel",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Use,
 			Targets: func(e *Log) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -300,17 +303,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of logs matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of logs in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any logs match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any logs in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

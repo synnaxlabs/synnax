@@ -159,7 +159,6 @@ inline std::pair<::service::rack::pb::Where, x::errors::Error> Where::to_proto()
         if (err) return {{}, err};
         *pb.mutable_integrations() = v;
     }
-    if (this->host_is_node.has_value()) pb.set_host_is_node(*this->host_is_node);
     return {pb, x::errors::NIL};
 }
 
@@ -201,7 +200,6 @@ Where::from_proto(const ::service::rack::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.integrations = v;
     }
-    if (pb.has_host_is_node()) cpp.host_is_node = pb.host_is_node();
     return {cpp, x::errors::NIL};
 }
 

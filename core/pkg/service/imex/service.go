@@ -94,19 +94,6 @@ func typeTakenError(kind, typ string) error {
 	return errors.Wrapf(ErrTypeTaken, "%s for type %q", kind, typ)
 }
 
-// ImporterType returns the resource type created by the Importer registered under t. It
-// returns a validation error scoped to the "type" field when no importer is registered
-// for t.
-func (s *Service) ImporterType(t string) (resource.Type, error) {
-	s.mu.RLock()
-	imp, ok := s.importers[t]
-	s.mu.RUnlock()
-	if !ok {
-		return "", notFoundError(t, "importer")
-	}
-	return imp.Type(), nil
-}
-
 func notFoundError[T ~string](typ T, kind string) error {
 	return validate.PathedError(
 		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, typ),
@@ -178,10 +165,12 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// Export routes resource to its Exporter and returns the resulting envelope. It returns
-// a validation error scoped to the "type" field when no Exporter is registered.
+// Export routes resource to its Exporter, which reads it from snap, and returns the
+// resulting envelope. It returns a validation error scoped to the "type" field when no
+// Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	resource resource.ID,
 ) (Envelope, error) {
 	s.mu.RLock()
@@ -190,7 +179,7 @@ func (s *Service) Export(
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	env, err := exporter.Export(ctx, resource)
+	env, err := exporter.Export(ctx, snap, resource)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "export resource")
 	}
