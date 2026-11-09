@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -32,35 +33,49 @@ const (
 )
 
 // NewCmd returns the command that updates the Core, with the subcommands that list the
-// metadata backups, undo an update, and allow a failed update to run again.
-func NewCmd() *cobra.Command {
+// metadata backups, undo an update, and allow a failed update to run again. The command
+// downloads releases as cfg sets.
+func NewCmd(cfg release.Config) *cobra.Command {
 	group := &cobra.Command{
-		Use:   "update",
+		Use:   "update [version]",
 		Short: "Update the Core, or undo an update",
-		Long: "Replaces the installed Core with the Core binary that --file names. " +
-			"For a Core service, the command stops the service, replaces the " +
-			"binary, starts the service, and waits until the new Core commits the " +
-			"update. If the new Core fails and undoes the update, the command puts " +
-			"the old Core back and starts it. Without a service, stop the Core " +
-			"before the update and start it after. Run the command as an " +
-			"administrator.\n\nBefore a new version first opens the data, the Core " +
-			"backs up its metadata. The subcommands list the backups, undo an " +
-			"update, and allow a failed update to run again. A backup holds no " +
-			"telemetry. Without --data, the subcommands use the data directory of " +
-			"the Core service, if there is one.",
-		Example: "sudo synnax update --file ./synnax-v0.61.0-linux",
-		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Long: "Replaces the installed Core with Core <version>, which the command " +
+			"downloads from the Synnax releases and checks against its signature, " +
+			"or with the Core binary that --file names. For a Core service, the " +
+			"command stops the service, replaces the binary, starts the service, " +
+			"and waits until the new Core commits the update. If the new Core fails " +
+			"and undoes the update, the command puts the old Core back and starts " +
+			"it. Without a service, stop the Core before the update and start it " +
+			"after. Run the command as an administrator.\n\nBefore a new version " +
+			"first opens the data, the Core backs up its metadata. The subcommands " +
+			"list the backups, undo an update, and allow a failed update to run " +
+			"again. A backup holds no telemetry. Without --data, the subcommands use " +
+			"the data directory of the Core service, if there is one.",
+		Example: "sudo synnax update 0.61.0\n" +
+			"sudo synnax update --file ./synnax-v0.61.0-linux",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			file, err := cmd.Flags().GetString(flagFile)
-			if err != nil || file == "" {
-				return errors.Combine(err, cmd.Help())
+			if err != nil {
+				return err
 			}
 			timeout, err := cmd.Flags().GetDuration(flagTimeout)
 			if err != nil {
 				return err
 			}
-			cmd.SilenceUsage = true
-			return fromFile(cmd.Context(), cmd.OutOrStdout(), file, timeout)
+			ctx, w := cmd.Context(), cmd.OutOrStdout()
+			switch {
+			case len(args) == 1 && file != "":
+				return errors.New("Give a version or --file, not both.")
+			case len(args) == 1:
+				cmd.SilenceUsage = true
+				return fromRelease(ctx, w, cfg, args[0], timeout)
+			case file != "":
+				cmd.SilenceUsage = true
+				return fromFile(ctx, w, file, timeout)
+			default:
+				return cmd.Help()
+			}
 		},
 	}
 	group.Flags().String(flagFile, "", "Path of the Core binary to update to")

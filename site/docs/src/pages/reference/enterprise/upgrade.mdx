@@ -52,23 +52,25 @@ Core does not start.
 
 <Fragment slot="Linux">
 
-Download the new binary:
+If the Core runs as a [service](/reference/enterprise/service), update it:
+
+<UpdateCommand os="linux" target="release" />
+
+The command downloads the new Core and checks its signature. It stops the service, puts
+the new binary in place of the old one, and starts the service. It then waits up to 10
+minutes for the new Core to commit the update. To change the wait, add `--timeout`, such
+as `--timeout 30m`. If the new Core fails, the command puts the old Core back and starts
+it. The old binary stays next to the new one, with an `.old` extension.
+
+An older Core cannot download an update, so the command fails. Then download the new
+binary and update with it:
 
 <DownloadURL os="linux" />
 
-If the Core runs as a [service](/reference/enterprise/service), update it with the new
-binary, because an older Core has no update command:
-
 <UpdateCommand os="linux" target="service" />
 
-The command stops the service, puts the new binary in place of the old one, and starts
-the service. It then waits up to 10 minutes for the new Core to commit the update. To
-change the wait, add `--timeout`, such as `--timeout 30m`. If the new Core fails, the
-command puts the old Core back and starts it. The old binary stays next to the new one,
-with an `.old` extension.
-
-If the Core runs in a terminal, stop it with **Ctrl+C**, then put the new binary in
-place of the old one:
+If the Core runs in a terminal, download the new binary as above. Stop the Core with
+**Ctrl+C**, then put the new binary in place of the old one:
 
 <UpdateCommand os="linux" target="binary" />
 

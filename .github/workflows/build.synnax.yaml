@@ -1078,6 +1078,39 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # synnax update and the Driver check these signatures before they run a downloaded
+  # binary. The job runs after the build, so it signs the files that each OS signed.
+  sign:
+    name: Sign release binaries
+    needs: [setup, build]
+    if: inputs.release_tag != '' && (inputs.core || inputs.driver)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download release binaries
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'synnax-v*' --pattern 'synnax-driver-v*' --dir binaries
+
+      - name: Sign release binaries
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          for file in binaries/*; do
+            # A rerun downloads the signatures of the first run too.
+            case "$file" in *.sig) continue ;; esac
+            npx --yes @tauri-apps/cli@2.12.3 signer sign "$file"
+          done
+
+      - name: Upload signatures
+        run:
+          gh release upload --clobber "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          binaries/*.sig
+
   docker:
     name: Build Docker image
     needs: [setup, build, republish]

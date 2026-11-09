@@ -15,6 +15,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -22,20 +24,23 @@ import (
 	. "github.com/onsi/gomega"
 	servicetest "github.com/synnaxlabs/synnax/cmd/service/testutil"
 	"github.com/synnaxlabs/synnax/cmd/update"
+	"github.com/synnaxlabs/synnax/pkg/release"
+	releasetest "github.com/synnaxlabs/synnax/pkg/release/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // No spec reaches a Core service on the computer that runs it.
 var _ = BeforeEach(func() { servicetest.NewSystemctl() })
 
+// fakeCore returns a fake Core binary of the given version.
+func fakeCore(version string) []byte {
+	return fmt.Appendf(nil, "#!/bin/sh\necho 'Synnax %s (commit: abc1234)'\n", version)
+}
+
 // writeCore writes a fake Core binary of the given version to path.
 func writeCore(path, version string) {
 	GinkgoHelper()
-	Expect(os.WriteFile(
-		path,
-		fmt.Appendf(nil, "#!/bin/sh\necho 'Synnax %s (commit: abc1234)'\n", version),
-		0o755,
-	)).To(Succeed())
+	Expect(os.WriteFile(path, fakeCore(version), 0o755)).To(Succeed())
 }
 
 func coreAt(path string) string {
@@ -48,6 +53,7 @@ var _ = Describe("Update with a Core service", func() {
 		systemctl          *servicetest.Systemctl
 		data, binary, next string
 		out                *bytes.Buffer
+		cfg                release.Config
 	)
 	BeforeEach(func() {
 		out = new(bytes.Buffer)
@@ -65,7 +71,7 @@ var _ = Describe("Update with a Core service", func() {
 	})
 
 	run := func(args ...string) error {
-		cmd := update.NewCmd()
+		cmd := update.NewCmd(cfg)
 		cmd.SetOut(out)
 		cmd.SetErr(io.Discard)
 		cmd.SetArgs(args)
@@ -167,6 +173,92 @@ var _ = Describe("Update with a Core service", func() {
 				"Core 0.61.0 did not finish the update within 500ms. Check the Core log.",
 			))
 			Expect(coreAt(binary)).To(ContainSubstring("0.61.0"))
+		})
+	})
+
+	Describe("From a release", func() {
+		var (
+			files  string
+			signer releasetest.Signer
+		)
+		BeforeEach(func() {
+			files = GinkgoT().TempDir()
+			signer = releasetest.NewSigner()
+			server := httptest.NewServer(http.FileServer(http.Dir(files)))
+			DeferCleanup(server.Close)
+			cfg = release.Config{URL: server.URL, PublicKey: signer.PublicKey}
+		})
+
+		// publish adds the Linux Core file and its signature to the release of version.
+		publish := func(version string, core, signature []byte) {
+			GinkgoHelper()
+			path := filepath.Join(
+				files,
+				"core",
+				"v"+version,
+				"synnax-v"+version+"-linux",
+			)
+			Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
+			Expect(os.WriteFile(path, core, 0o644)).To(Succeed())
+			Expect(os.WriteFile(path+".sig", signature, 0o644)).To(Succeed())
+		}
+
+		It("Should download the signed Core and wait for the commit", func() {
+			publish("0.61.0", fakeCore("0.61.0"), signer.Sign(fakeCore("0.61.0")))
+			systemctl.OnStart(fmt.Sprintf(
+				"printf 0.61.0 > %q",
+				filepath.Join(data, "VERSION"),
+			))
+			Expect(run("0.61.0")).To(Succeed())
+			Expect(out.String()).To(HavePrefix("Downloading Core 0.61.0.\n"))
+			Expect(out.String()).To(HaveSuffix("Updated to Core 0.61.0.\n"))
+			Expect(systemctl.Calls()).To(Equal([]string{"stop synnax", "start synnax"}))
+			Expect(coreAt(binary)).To(ContainSubstring("0.61.0"))
+			Expect(binary + ".new").ToNot(BeAnExistingFile())
+		})
+
+		It("Should keep the Core when the file fails its signature", func() {
+			publish("0.61.0", fakeCore("0.61.0"), signer.Sign(fakeCore("0.62.0")))
+			Expect(run("0.61.0")).To(MatchError(release.ErrSignature))
+			Expect(systemctl.Calls()).To(BeEmpty())
+			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+			Expect(binary + ".new").ToNot(BeAnExistingFile())
+		})
+
+		It("Should keep the Core when the file holds another version", func() {
+			publish("0.61.0", fakeCore("0.62.0"), signer.Sign(fakeCore("0.62.0")))
+			Expect(run("0.61.0")).To(MatchError(
+				"The release file synnax-v0.61.0-linux holds Core 0.62.0.",
+			))
+			Expect(systemctl.Calls()).To(BeEmpty())
+			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+		})
+
+		It("Should name the file that the release does not have", func() {
+			Expect(run("0.61.0")).To(MatchError(
+				"Core 0.61.0 has no release file synnax-v0.61.0-linux. Check the " +
+					"version.",
+			))
+			Expect(systemctl.Calls()).To(BeEmpty())
+		})
+
+		It("Should not download the Core that is already installed", func() {
+			Expect(run("0.60.0")).To(Succeed())
+			Expect(out.String()).To(Equal("Core 0.60.0 is already installed.\n"))
+			Expect(systemctl.Calls()).To(BeEmpty())
+		})
+
+		It("Should refuse a version that is not a Core version", func() {
+			Expect(run("latest")).To(MatchError(
+				"latest is not a Core version, such as 0.61.0.",
+			))
+		})
+
+		It("Should refuse a version and a file together", func() {
+			Expect(run("0.61.0", "--file", next)).To(MatchError(
+				"Give a version or --file, not both.",
+			))
+			Expect(systemctl.Calls()).To(BeEmpty())
 		})
 	})
 

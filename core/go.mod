@@ -53,6 +53,7 @@ require (
 )
 
 require (
+	aead.dev/minisign v0.3.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
