@@ -47,6 +47,7 @@ var (
 	// create, del, and retrieve run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
 	del      freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apipolicy.DispatchRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apipolicy.RetrieveRequest,
 		apipolicy.RetrieveResponse,
@@ -77,6 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

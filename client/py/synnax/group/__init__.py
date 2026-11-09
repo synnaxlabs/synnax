@@ -10,8 +10,10 @@
 from synnax.group.client import Client
 from synnax.group.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Group,
     Key,
+    Order,
     Where,
     WhereInput,
     resource_id,
@@ -20,8 +22,10 @@ from synnax.group.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Group",
     "Key",
+    "Order",
     "Where",
     "WhereInput",
     "resource_id",

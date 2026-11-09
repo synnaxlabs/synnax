@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/config"
@@ -56,6 +57,7 @@ type Service struct {
 	table   *gorp.Table[Key, View]
 	indexes indexes
 	closer  xio.MultiCloser
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -66,6 +68,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
+	s.state = actions.NewState[Key, Action](s.cfg.DB)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
@@ -89,6 +92,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_view_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -100,10 +110,14 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a new Writer to create, update, and delete views in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    tx,
-		table: s.table,
+		tx:         tx,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // NewRetrieve opens a new Retrieve query to fetch views from the database.
 func (s *Service) NewRetrieve() Retrieve {

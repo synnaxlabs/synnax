@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -118,6 +119,21 @@ func (s *Service) Set(
 	req SetRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
+}
+
+// DispatchRequest carries a sequence of actions to apply to the pair with the Gorp key
+// Key.
+type DispatchRequest = actions.DispatchRequest[string, kv.Action]
+
+// Dispatch applies the action sequence to the pair in tx.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.kv.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 type DeleteRequest struct {

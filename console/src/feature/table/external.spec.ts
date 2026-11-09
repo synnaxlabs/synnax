@@ -34,7 +34,9 @@ describe("Table.TABS restore", () => {
     await client.tables.retrieve(created.key);
     await client.tables.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.tables.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.tables.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
     await restore({ client, project: to.key, resource: table.resourceID(created.key) });
     const restored = await createTestClient().tables.retrieve(created.key);

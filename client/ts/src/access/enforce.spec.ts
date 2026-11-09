@@ -170,6 +170,49 @@ describe("allowRequest", () => {
     });
   });
 
+  describe("own records", () => {
+    const subject = id("user", "u1");
+
+    it("should allow the subject to retrieve itself alone", () => {
+      expect(
+        access.allowRequest({ subject, action: "retrieve", objects: subject }, []),
+      ).toBe(true);
+      expect(
+        access.allowRequest(
+          { subject, action: "retrieve", objects: [subject, id("user", "u2")] },
+          [],
+        ),
+      ).toBe(false);
+    });
+
+    it("should not allow the subject to update itself", () => {
+      expect(
+        access.allowRequest({ subject, action: "update", objects: subject }, []),
+      ).toBe(false);
+    });
+
+    it("should allow the subject to retrieve the policies of its roles alone", () => {
+      const own = policy([id("channel", "1")], ["update"]);
+      const policies = [own];
+      expect(
+        access.allowRequest(
+          { subject, action: "retrieve", objects: access.policy.resourceID(own.key) },
+          policies,
+        ),
+      ).toBe(true);
+      expect(
+        access.allowRequest(
+          {
+            subject,
+            action: "retrieve",
+            objects: access.policy.resourceID(crypto.randomUUID()),
+          },
+          policies,
+        ),
+      ).toBe(false);
+    });
+  });
+
   describe("edge cases", () => {
     it("should deny with empty policies", () => {
       const allowed = access.allowRequest(
