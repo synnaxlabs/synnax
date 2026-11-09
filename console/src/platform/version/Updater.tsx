@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { id, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import {
   createContext,
@@ -109,7 +109,8 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
         found = next;
         held.current = next.update;
         addStatus({
-          key: `${STATUS_KEY_PREFIX}-${id.create()}`,
+          // A new check that finds the same version replaces the status.
+          key: `${STATUS_KEY_PREFIX}-${next.update.version}`,
           variant: "info",
           message: "Update available",
         });
@@ -144,7 +145,8 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
     }
     installing.current = null;
     if (current.released) await update.close().catch(console.error);
-    if (failed) throw error instanceof Error ? error : new Error(String(error));
+    if (failed)
+      throw error instanceof Error ? error : new Error(String(error), { cause: error });
   };
   return <Context value={{ check, install }}>{children}</Context>;
 };
