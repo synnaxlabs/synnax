@@ -40,7 +40,7 @@ check_minimum_permissions(const std::filesystem::path &path, const char *context
 }
 
 JSONFile::JSONFile(const std::string &path, json data):
-    path(path), data_(std::move(data)) {}
+    path(path), data(std::move(data)) {}
 
 std::pair<std::shared_ptr<KV>, errors::Error>
 JSONFile::open_file(const JSONFileConfig &config) {
@@ -117,19 +117,19 @@ JSONFile::open_file(const JSONFileConfig &config) {
 }
 
 errors::Error JSONFile::set(const std::string &key, const std::string &value) {
-    data_[key] = value;
+    this->data[key] = value;
 
     std::ofstream file(path);
     if (!file.is_open()) { return errors::Error("failed to open file for writing"); }
-    file << data_.dump(4);
+    file << this->data.dump(4);
     file.close();
     return errors::NIL;
 }
 
 errors::Error JSONFile::get(const std::string &key, std::string &value) {
-    if (!data_.contains(key)) return errors::NOT_FOUND;
+    if (!this->data.contains(key)) return errors::NOT_FOUND;
     try {
-        value = data_[key].get<std::string>();
+        value = this->data[key].get<std::string>();
     } catch (const json::exception &e) {
         return errors::Error("failed to get value: " + std::string(e.what()));
     }
@@ -137,11 +137,11 @@ errors::Error JSONFile::get(const std::string &key, std::string &value) {
 }
 
 errors::Error JSONFile::del(const std::string &key) {
-    if (!data_.contains(key)) return errors::NIL;
-    data_.erase(key);
+    if (!this->data.contains(key)) return errors::NIL;
+    this->data.erase(key);
     std::ofstream file(path);
     if (!file.is_open()) { return errors::Error("failed to open file for writing"); }
-    file << data_.dump(4);
+    file << this->data.dump(4);
     file.close();
     return errors::NIL;
 }

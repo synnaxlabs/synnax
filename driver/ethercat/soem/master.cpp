@@ -491,6 +491,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        this->update_lost(static_cast<uint16_t>(i));
         const uint16_t state = this->api->slave_state(i);
         auto &h = health.emplace_back(
             slave::Health{
@@ -521,6 +522,12 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     for (const auto &[pos, refusal]: this->left_out)
         health.push_back({.position = pos, .refusal = refusal});
     return health;
+}
+
+void Master::update_lost(const uint16_t pos) {
+    if (this->api->slave_state(pos) == EC_STATE_NONE && !this->api->slave_lost(pos))
+        this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
+    this->api->set_slave_lost(pos, this->api->slave_state(pos) == EC_STATE_NONE);
 }
 
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
@@ -561,21 +568,15 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                         this->dc_restore_errors.erase(pos);
                 }
             );
-        if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
-            this->api->set_slave_lost(pos, false);
+        this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
         std::lock_guard lock(this->mu);
         if (this->startup_failures.contains(pos)) {
             this->api->set_slave_state(pos, EC_STATE_PRE_OP);
             this->api->writestate(pos);
         }
-    } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
-        this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
-        if (this->api->slave_state(pos) == EC_STATE_NONE)
-            this->api->set_slave_lost(pos, true);
     }
-    if (!this->api->slave_lost(pos)) return;
-    if (this->api->slave_state(pos) != EC_STATE_NONE ||
+    if (this->api->slave_lost(pos) &&
         this->api->recover_slave(pos, RECOVERY_TIMEOUT) > 0)
         this->api->set_slave_lost(pos, false);
 }

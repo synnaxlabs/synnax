@@ -63,6 +63,15 @@ class TestProject:
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
 
+    def test_retrieve_by_group(self, client: sy.Synnax) -> None:
+        """Should filter the projects by group."""
+        p = client.projects.create(name="Ungrouped")
+        g = client.groups.create("Empty", scope="project")
+        assert client.projects.retrieve(groups=g.key) == []
+        ungrouped = client.projects.retrieve(key=[p.key], grouped=False)
+        assert [r.key for r in ungrouped] == [p.key]
+        assert client.projects.retrieve(key=[p.key], grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should keep projects that match a filter tree and the given keys."""
         p1 = client.projects.create(name="Where A")

@@ -45,7 +45,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[str]
+    keys: list[Key]
 
 
 _SET_ENDPOINT = "/status/set"
@@ -69,8 +69,7 @@ class Client:
     def __init__(self, transport: UnaryClient) -> None:
         """Initialize the status client.
 
-        Args:
-            transport: The unary transport client to use for communication.
+        :param transport: The unary transport client to use for communication.
         """
         self.client = transport
 
@@ -245,14 +244,13 @@ class Client:
         """
         self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
-    def delete(self, keys: str | list[str]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         """Delete statuses by their keys.
 
         This operation is idempotent - deleting a non-existent status will not
         raise an error.
 
-        Args:
-            keys: A single key or list of keys to delete.
+        :param keys: A single key or list of keys to delete.
 
         Examples:
             Delete a single status:

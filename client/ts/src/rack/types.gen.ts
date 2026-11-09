@@ -29,7 +29,6 @@ export type Where = {
   name?: filter.String;
   embedded?: filter.Bool;
   integrations?: filter.Contains<z.ZodString>;
-  hostIsNode?: boolean;
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -54,11 +53,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   embedded: filter.boolZ.optional(),
   /** integrations selects by integrations. */
   integrations: filter.containsZ(z.string()).optional(),
-  /**
-   * hostIsNode matches racks on the Core that serves the request, or racks on other
-   * Cores when false.
-   */
-  hostIsNode: z.boolean().optional(),
   /** groups matches the racks in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the racks in a group, or in no group when false. */
@@ -112,12 +106,12 @@ export const payloadZ = z.object({
   version: z.string().optional(),
   /** group is the group the rack sits in, if any. */
   group: group.keyZ.optional(),
-  /** roles are the roles that grant the rack its permissions. */
-  roles: role.keyZ.array().default(() => []),
+  /** role is the role that grants the rack its permissions. */
+  role: role.keyZ,
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ embedded: true, roles: true, key: true }).extend({
+export const newZ = payloadZ.omit({ embedded: true, role: true, key: true }).extend({
   key: keyZ.refine((v) => v !== 0, "key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}

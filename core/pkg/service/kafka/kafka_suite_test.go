@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -39,15 +38,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -55,19 +54,17 @@ import (
 )
 
 var (
-	db        *gorp.DB
-	statusSvc *status.Service
+	// hookedKV stores the node, so a spec can intercept the commits of db.
+	hookedKV *hookkv.DB
 	// faultyFS holds the time-series data, so a spec can hold a write in progress.
-	faultyFS *FaultyFS
-	// peerFS holds the time-series data of the peer at peerKey, so a spec can hold a
-	// peer's answer to a write.
-	peerFS     *FaultyFS
-	peerKey    distnode.Key
+	faultyFS   *FaultyFS
+	db         *gorp.DB
+	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	deviceSvc  *device.Service
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
-	taskWriter task.Writer
+	taskSvc    *task.Service
 	cluster    *kfake.Cluster
 )
 
@@ -78,22 +75,15 @@ func TestKafka(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
+	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())
-	store := &storage.Layer{
-		KV: DeferClose(memkv.New()),
-		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
-	}
-	peerFS = WrapFaultyFS(xfs.NewMem())
-	peerStore := &storage.Layer{
-		KV: DeferClose(memkv.New()),
-		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: peerFS}))),
-	}
-	nodes := testutil.NewCluster(ctx, 0)
-	node := nodes.Provision(ctx, distribution.LayerConfig{Storage: store})
-	peerKey = nodes.Provision(
-		ctx,
-		distribution.LayerConfig{Storage: peerStore},
-	).Cluster.HostKey()
+	node := testutil.NewNode(ctx, distribution.LayerConfig{
+		Storage: &storage.Layer{
+			KV: hookedKV,
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		},
+	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -105,10 +95,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -116,10 +108,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -133,7 +125,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,
 		Status:  statusSvc,
@@ -141,7 +133,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:    imex.NewService(),
 		Configs: MustSucceed(taskconfig.NewRegistry(kafkaSvc.Stores()...)),
 	}))
-	taskWriter = taskSvc.NewWriter(nil)
 	cluster = MustSucceed(kfake.NewCluster(
 		kfake.NumBrokers(1),
 		kfake.AllowAutoTopicCreation(),
@@ -153,61 +144,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var errCommit = errors.New("commit failed")
 
-// uncommittableDB is a kv.DB whose transactions fail to commit.
-type uncommittableDB struct{ kv.DB }
+// refuse fails the commit it intercepts.
+func refuse(func() error) error { return errCommit }
 
-func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
-
-type uncommittableTx struct{ kv.Tx }
-
-func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
-
-// cancelingDB is a kv.DB whose transactions call cancel once they commit.
-type cancelingDB struct {
-	kv.DB
-	cancel context.CancelFunc
-}
-
-func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
-
-type cancelingTx struct {
-	kv.Tx
-	db cancelingDB
-}
-
-func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
-	err := t.Tx.Commit(ctx, opts...)
-	t.db.cancel()
-	return err
-}
-
-// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
-type gatedDB struct {
-	kv.DB
-	gated   atomic.Bool
-	held    chan struct{}
-	release chan struct{}
-}
-
-func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
-
-type gatedTx struct {
-	kv.Tx
-	db *gatedDB
-}
-
-func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
-	GinkgoHelper()
-	// A task commits on its own goroutine, where a failed assertion needs a recover.
-	defer GinkgoRecover()
-	if t.db.gated.CompareAndSwap(true, false) {
-		close(t.db.held)
-		Eventually(t.db.release).WithTimeout(15 * time.Second).Should(BeClosed())
-	}
-	return t.Tx.Commit(ctx, opts...)
-}
-
-// newFactory opens a Kafka factory over the suite's services.
 func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
 	GinkgoHelper()
 	return MustSucceed(kafka.NewFactory(append([]kafka.FactoryConfig{{
@@ -248,7 +187,9 @@ func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 		Configured: true,
 		Properties: toJSON(props),
 	}
-	Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+	})).To(Succeed())
 	return dev
 }
 
@@ -264,13 +205,17 @@ func createIndexed(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &index)
+	})).To(Succeed())
 	data = channel.Channel{
 		Name:       "data_" + suffix,
 		DataType:   dt,
 		LocalIndex: index.LocalKey,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &data)
+	})).To(Succeed())
 	return index, data
 }
 
@@ -288,7 +233,9 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 		To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
 	})
 	return t
 }
@@ -300,7 +247,7 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 
@@ -311,7 +258,7 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
 		Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 

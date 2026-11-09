@@ -106,8 +106,7 @@ var _ = Describe("Closer", func() {
 
 			multi := io.MultiCloser{closer1, closer2, closer3}
 
-			err := multi.Close()
-			Expect(err).To(SatisfyAll(MatchError(err1), MatchError(err2)))
+			Expect(multi.Close()).To(SatisfyAll(MatchError(err1), MatchError(err2)))
 		})
 
 		It("should handle empty MultiCloser", func() {

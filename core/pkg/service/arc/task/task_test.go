@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -46,15 +47,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -87,48 +90,22 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, err
 
 var errCommit = errors.New("commit failed")
 
-// uncommittableDB is a kv.DB whose transactions fail to commit.
-type uncommittableDB struct{ kv.DB }
-
-func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
-
-type uncommittableTx struct{ kv.Tx }
-
-func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
-
-// cancelingDB is a kv.DB whose transactions call cancel once they commit.
-type cancelingDB struct {
-	kv.DB
-	cancel context.CancelFunc
-}
-
-func (d cancelingDB) OpenTx() kv.Tx { return cancelingTx{Tx: d.DB.OpenTx(), db: d} }
-
-type cancelingTx struct {
-	kv.Tx
-	db cancelingDB
-}
-
-func (t cancelingTx) Commit(ctx context.Context, opts ...any) error {
-	err := t.Tx.Commit(ctx, opts...)
-	t.db.cancel()
-	return err
-}
-
 var _ = Describe("Task", Ordered, func() {
 	var (
-		db            *gorp.DB
-		statusSvc     *status.Service
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
-		framerSvc     *framer.Service
-		rangerSvc     *ranger.Service
-		taskWriter    task.Writer
+		db         *gorp.DB
+		statusSvc  *status.Service
+		channelSvc *channel.Service
+		framerSvc  *framer.Service
+		rangerSvc  *ranger.Service
+		taskSvc    *task.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
+		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		node := testutil.NewNode(ctx, distribution.LayerConfig{
+			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: node.DB,
@@ -140,12 +117,11 @@ var _ = Describe("Task", Ordered, func() {
 			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      node.DB,
 			Channel: channelSvc,
@@ -165,15 +141,17 @@ var _ = Describe("Task", Ordered, func() {
 			DB: node.DB,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
-			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+			DB:         node.DB,
+			HostKey:    node.Identity.HostKey,
+			Status:     statusSvc,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+			// No Driver reports for the rack, so a check would overwrite task statuses.
+			HealthCheckInterval: telem.Hour,
 		}))
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB: node.DB,
 		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      node.DB,
 			Rack:    rackSvc,
 			Status:  statusSvc,
@@ -181,7 +159,6 @@ var _ = Describe("Task", Ordered, func() {
 			ImEx:    imex.NewService(),
 			Configs: MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
 		}))
-		taskWriter = taskSvc.NewWriter(nil)
 	})
 
 	// createTask stores t so that it can own a status. It skips task.Writer, which
@@ -191,7 +168,9 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+			})).To(Succeed())
 		})
 	}
 
@@ -217,7 +196,7 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
@@ -242,7 +221,7 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
 				)...)
@@ -296,7 +275,9 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		return ch
 	}
 
@@ -328,13 +309,17 @@ var _ = Describe("Task", Ordered, func() {
 			IsIndex:  true,
 			DataType: telem.TimestampT,
 		}
-		Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idx)
+		})).To(Succeed())
 		data = channel.Channel{
 			Name:       prefix + "_" + uuid.New().String()[:8],
 			LocalIndex: idx.LocalKey,
 			DataType:   telem.Uint8T,
 		}
-		Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
 		return idx, data
 	}
 
@@ -444,7 +429,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
@@ -529,7 +516,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
@@ -557,7 +544,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("not found"))
@@ -572,7 +559,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-config-success",
@@ -589,7 +578,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -601,7 +590,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-start-ack",
@@ -623,7 +614,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -638,7 +629,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-auto-start",
@@ -658,7 +651,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -686,7 +679,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
@@ -702,7 +695,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-silent-stop",
@@ -722,7 +717,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
@@ -751,7 +746,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -778,7 +773,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -808,7 +803,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
 				Expect(stat.Description).To(ContainSubstring("not found"))
@@ -824,7 +819,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-silent-success",
@@ -841,7 +838,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -851,7 +848,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			svcTask := task.Task{
 				Key:  uuid.New(),
 				Name: "test-boot-auto-start",
@@ -871,7 +870,7 @@ var _ = Describe("Task", Ordered, func() {
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Running).To(BeTrue())
@@ -968,7 +967,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -1042,7 +1043,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-start-fail",
@@ -1062,7 +1065,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchOwners[task.StatusDetails](
 						svcTask.ResourceID(),
 					)).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Description).To(Equal(`unknown performance "unknown"`))
@@ -1074,12 +1077,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should return the error from Exec for a start it could not answer",
 			func(ctx SpecContext) {
 				ch := createVirtualCh(ctx, "start_unanswered", telem.Float32T)
-				t := newTask(ctx, newGraphFactory(
-					simpleGraph(ch.Key()),
-					arctask.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
-				))
+				t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 				DeferCleanup(func() { Expect(t.Stop(false)).To(Succeed()) })
-				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+				cmdCtx := hookkv.WithHook(
+					ctx,
+					func(func() error) error { return errCommit },
+				)
+				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
 					To(MatchError(errCommit))
 			},
 		)
@@ -1098,19 +1102,20 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createTask(ctx, svcTask)
 				cmdCtx, cancel := context.WithCancel(ctx)
-				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key()),
-					arctask.FactoryConfig{
-						DB: gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
-					},
-				).ConfigureTask(ctx, svcTask, "cmd-1"))
+				cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+					err := commit()
+					cancel()
+					return err
+				})
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
 					To(Succeed())
 				Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
 			},
@@ -1124,7 +1129,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			alarmNodes, alarmConfigs := buildGraphNodes(
 				graphNodeSpec{
@@ -1234,7 +1241,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
@@ -1287,7 +1294,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == name, nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				return stat
 			}
 
@@ -1296,7 +1303,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
-					Entry(&status.Status[struct{}]{}).Exec(ctx, nil)).To(Succeed())
+					Entry(&status.Status[struct{}]{}).Exec(ctx, db)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
@@ -1352,7 +1359,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1415,7 +1422,7 @@ var _ = Describe("Task", Ordered, func() {
 					GinkgoHelper()
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Count(ctx, nil)).To(Equal(1))
+						Count(ctx, db)).To(Equal(1))
 				}
 				Eventually(oneRange).Should(Succeed())
 
@@ -1479,7 +1486,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1556,7 +1563,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1634,7 +1641,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1689,7 +1696,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1762,7 +1769,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1840,7 +1847,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1919,7 +1926,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -1996,7 +2003,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -2072,7 +2079,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -2100,7 +2107,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.New().String()[:8]
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2180,7 +2189,7 @@ var _ = Describe("Task", Ordered, func() {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Name).To(Equal("test-status-report"))
 					g.Expect(stat.Message).To(Equal("Found duplicate status names"))
@@ -2199,13 +2208,17 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -2293,13 +2306,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf(
 					"interval(period=50ms) -> %s\n", dataCh.Name,
@@ -2359,13 +2376,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "stepped_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Int64T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
 				responses, closeStreamer := openTestStreamer(
 					ctx, channel.Keys{idxCh.Key()}, 10,
@@ -2759,13 +2780,17 @@ var _ = Describe("Task", Ordered, func() {
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
-					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, idx)
+					})).To(Succeed())
 					ch := &channel.Channel{
 						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
-					Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, ch)
+					})).To(Succeed())
 					return writeCh{ch: ch, idx: idx}
 				},
 			},
@@ -3574,7 +3599,7 @@ var _ = Describe("Task", Ordered, func() {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Message).To(Equal("Node failed"))
 					g.Expect(stat.Description).
@@ -3720,7 +3745,7 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).
 					To(ContainSubstring("integer divide by zero"))
@@ -3760,25 +3785,33 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				p3 := &channel.Channel{
 					Name:       "trig_align_p3_" + suffix,
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, p3)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, p3)
+				})).To(Succeed())
 				goCh := &channel.Channel{
 					Name:     "trig_align_go_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, goCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, goCh)
+				})).To(Succeed())
 				marker := &channel.Channel{
 					Name:     "trig_align_marker_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, marker)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, marker)
+				})).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`

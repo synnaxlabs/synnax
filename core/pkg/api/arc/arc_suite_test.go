@@ -14,15 +14,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -47,14 +52,40 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	rbacSvc  *rbac.Service
-	userSvc  *user.Service
-	arcSvc   *arc.Service
-	apiSvc   *apiarc.Service
+	db      *gorp.DB
+	rbacSvc *rbac.Service
+	userSvc *user.Service
+	arcSvc  *arc.Service
+	taskSvc *task.Service
+	apiSvc  *apiarc.Service
+	// The routes, bound as the API layer binds them.
+	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
+	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
+	updateTask freighter.UnaryHandler[
+		apiarc.UpdateTaskRequest,
+		apiarc.UpdateTaskResponse,
+	]
+	createDirectory freighter.UnaryHandler[
+		apiarc.CreateDirectoryRequest,
+		apiarc.CreateDirectoryResponse,
+	]
+	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
+	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
+	retrieve        freighter.UnaryHandler[
+		apiarc.RetrieveRequest,
+		apiarc.RetrieveResponse,
+	]
+	retrieveDirectories freighter.UnaryHandler[
+		apiarcdirectory.RetrieveRequest,
+		apiarcdirectory.RetrieveResponse,
+	]
 	author   user.User
 	rackSvc  *rack.Service
 	testRack *rack.Rack
+	// root is the directory that holds every Arc.
+	root directory.Key
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -72,18 +103,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Password: passwordSvc,
 	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
 	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		HostProvider:        testutil.NewStaticHostProvider(1),
+		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		DriverRole:          roles.Builtin.DriverKey,
@@ -94,11 +117,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:  userSvc,
 		Rack:  rackSvc,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
+		),
+	)
 	imexSvc := imex.NewService()
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
 		Rack:         rackSvc,
 		Status:       statusSvc,
@@ -107,10 +139,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:         db,
@@ -122,18 +154,37 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:       imexSvc,
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		RBAC:   rbacSvc,
+		DB:     db,
 		Arc:    arcSvc,
 		Status: statusSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	updateTask = bind.Write(binder, apiSvc.UpdateTask)
+	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
+	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
+	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
+	move = bind.Write(binder, apiSvc.Move)
+	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
+	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
+	var r directory.Directory
+	Expect(arcSvc.NewDirectoryRetrieve().
+		Where(directory.MatchNested(false)).
+		Entry(&r).
+		Exec(ctx, db)).To(Succeed())
+	root = r.Key
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, testRack)
+	})).To(Succeed())
 })
 
-// grantOn grants the action on the objects to the subject through a new role, which
+// grantOn grants the action on the objects to the subject through a new policy, which
 // is deleted on spec cleanup so a grant cannot leak into later specs.
 func grantOn(
 	ctx SpecContext,
@@ -144,17 +195,32 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	r := MustSucceed(
-		rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...),
+	p := MustSucceed(
+		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...),
 	)
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(rbacSvc.Role.NewWriter(nil, false).Delete(ctx, r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, p.Key)
+		})).To(Succeed())
 	})
 }
 
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
 }
 
 // textOf returns the text of the text-mode Arc b, failing the spec otherwise.

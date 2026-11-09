@@ -31,6 +31,7 @@ Directory struct {
     parent Key?   {
         @doc value     "is the directory that holds this directory. The root has none."
         @ref acyclic
+        @ref kind      place
         @ref on_delete restrict
     }
 

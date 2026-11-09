@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -126,10 +127,15 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
-	groups, err := buildReadGroups(ctx, f.cfg.Channel, cfg)
+	groups, err := buildReadGroups(ctx, f.cfg.DB, f.cfg.Channel, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +153,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 // validates that each group writes one even frame per record.
 func buildReadGroups(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *channel.Service,
 	cfg ReadConfig,
 ) (map[string]*readGroup, error) {
@@ -176,7 +183,7 @@ func buildReadGroups(
 			validate.ErrValidation, "records: at least one field must be enabled",
 		)
 	}
-	channels, err := retrieveChannels(ctx, svc, keys)
+	channels, err := retrieveChannels(ctx, db, svc, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +452,12 @@ func (t *readTask) group() string {
 // open connects the consumer. It writes no statuses and does not start the fetch loop:
 // start owns both.
 func (t *readTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
 	if err != nil {
 		return err
 	}

@@ -67,7 +67,7 @@ func (u Update[K, E]) exec(ctx context.Context, tx Tx) (err error) {
 	}
 	for i, e := range entries {
 		if entries[i], err = u.changes.exec(
-			Context{Context: ctx, Tx: tx},
+			newContext(ctx, tx),
 			e,
 		); err != nil {
 			return err
@@ -77,7 +77,7 @@ func (u Update[K, E]) exec(ctx context.Context, tx Tx) (err error) {
 		w := u.table.writer(tx, true)
 		return w.Set(ctx, entries...)
 	}
-	w := wrapWriter[K, E](tx, u.retrieve.keyPrefix, nil)
+	w := wrapWriter[K, E](tx, "", u.retrieve.keyPrefix, nil)
 	return w.Set(ctx, entries...)
 }
 

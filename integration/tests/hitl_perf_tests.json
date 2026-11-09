@@ -2,6 +2,11 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "cDAQ",
+      "isolated": true,
+      "tests": [{ "case": "hitl/ni_cdaq_perf" }]
+    },
+    {
       "sequence_name": "cRIO",
       "isolated": true,
       "tests": [{ "case": "hitl/crio_perf" }]

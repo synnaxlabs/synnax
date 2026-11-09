@@ -14,8 +14,6 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 )
 
@@ -26,13 +24,6 @@ type Option func(o *options)
 // undefined behavior.
 func WithCodec(codec encoding.Codec) Option {
 	return func(opts *options) { opts.Codec = codec }
-}
-
-// WithIndexObservable sets the default change source used by index observers
-// on tables opened against this DB. Per-table TableConfig.Observable still
-// takes precedence; when neither is set, the DB itself is used.
-func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
-	return func(opts *options) { opts.IndexObservable = obs }
 }
 
 // WithMaxDeleteSize sets the most entries that one Delete may delete or rewrite once
@@ -52,10 +43,6 @@ func WithInstrumentation(ins alamos.Instrumentation) Option {
 type options struct {
 	// Codec encodes and decodes entries to and from the underlying KV.
 	encoding.Codec
-	// IndexObservable is the default change source for index observers
-	// on tables opened against the DB. Per-table TableConfig.Observable
-	// takes precedence; when neither is set, the DB itself is used.
-	IndexObservable observe.Observable[kv.TxReader]
 	// MaxDeleteSize is the most entries that one Delete may delete or rewrite.
 	MaxDeleteSize int
 	// Instrumentation is where the DB logs.

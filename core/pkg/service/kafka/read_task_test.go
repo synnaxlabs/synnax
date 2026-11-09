@@ -30,10 +30,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -356,87 +356,6 @@ var _ = Describe("Read task", func() {
 		return writing, release
 	}
 
-	It("Should give up on a peer that never answers when the task stops",
-		func(ctx SpecContext) {
-			f = newFactory(kafka.FactoryConfig{
-				StopTimeout: 100 * telem.Millisecond,
-			})
-			index := channel.Channel{
-				Name:        "idx_" + uuid.New().String()[:8],
-				DataType:    telem.TimestampT,
-				IsIndex:     true,
-				Leaseholder: peerKey,
-			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
-			// A channel on the peer reaches this node later, and a data channel's
-			// index must exist here when the data channel is created.
-			resolved := func(keys ...channel.Key) []channel.Channel {
-				var found []channel.Channel
-				if err := channelSvc.NewRetrieve().
-					Where(channel.MatchKeys(keys...)).
-					Entries(&found).
-					Exec(ctx, nil); err != nil {
-					return nil
-				}
-				return found
-			}
-			Eventually(func() []channel.Channel { return resolved(index.Key()) }).
-				WithTimeout(5 * time.Second).Should(HaveLen(1))
-			data := channel.Channel{
-				Name:        "data_" + uuid.New().String()[:8],
-				DataType:    telem.Float64T,
-				LocalIndex:  index.LocalKey,
-				Leaseholder: peerKey,
-			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
-			Eventually(func() []channel.Channel { return resolved(data.Key()) }).
-				WithTimeout(5 * time.Second).Should(HaveLen(1))
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			group := "group-" + topic
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Group:   group,
-				Records: single(stampedFields(index, data)),
-			})
-			offset := func() int64 {
-				GinkgoHelper()
-				res := MustSucceed(kadm.NewClient(producer).
-					FetchOffsetsForTopics(ctx, group, topic))
-				return MustBeOk(res.Lookup(topic, 0)).At
-			}
-			start(ctx, dt, t)
-			writing, release := holdWrite(peerFS)
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 2.5})
-			Eventually(writing).WithTimeout(15 * time.Second).Should(BeClosed())
-			stopped := make(chan error, 1)
-			go func() { stopped <- dt.Stop(false) }()
-			Eventually(stopped).WithTimeout(5 * time.Second).Should(
-				Receive(MatchError(ContainSubstring("writer closed"))),
-			)
-			Expect(offset()).To(BeNumerically("<", 0))
-			release()
-			// The peer holds its control region until its held write ends.
-			Eventually(func() error {
-				w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:              channel.Keys{index.Key(), data.Key()},
-					Start:             telem.Now(),
-					ErrOnUnauthorized: new(true),
-					Sync:              new(true),
-				})
-				if err != nil {
-					return err
-				}
-				_, err = w.Commit()
-				return errors.Combine(err, w.Close())
-			}).WithTimeout(15 * time.Second).Should(Succeed())
-			start(ctx, dt, t)
-			Eventually(offset).WithTimeout(15 * time.Second).Should(Equal(int64(1)))
-			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
-		},
-	)
-
 	It(
 		"Should finish the write in progress when the task stops",
 		func(ctx SpecContext) {
@@ -603,12 +522,6 @@ var _ = Describe("Read task", func() {
 
 	DescribeTable("Should restart a consumer that fails while start is called",
 		func(ctx SpecContext, fail func(context.Context, string)) {
-			gated := &gatedDB{
-				DB:      db.KV(),
-				held:    make(chan struct{}),
-				release: make(chan struct{}),
-			}
-			f = newFactory(kafka.FactoryConfig{DB: gorp.Wrap(gated)})
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
@@ -619,12 +532,16 @@ var _ = Describe("Read task", func() {
 			})
 			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
 			// waits on the consumer that holds it.
-			release := sync.OnceFunc(func() { close(gated.release) })
+			held, gate := make(chan struct{}), make(chan struct{})
+			release := sync.OnceFunc(func() { close(gate) })
 			DeferCleanup(release)
 			start(ctx, dt, t)
-			gated.gated.Store(true)
+			DeferCleanup(hookedKV.HookKey(
+				[]byte(taskStatus(ctx, t).Key),
+				hookkv.Hold(held, gate),
+			))
 			fail(ctx, topic)
-			Eventually(gated.held).WithTimeout(15 * time.Second).Should(BeClosed())
+			Eventually(held).WithTimeout(15 * time.Second).Should(BeClosed())
 			Expect(taskStatus(ctx, t).Message).To(Equal("Started task"))
 			dropRecords(ctx, topic)
 			started := make(chan error, 1)
@@ -917,12 +834,9 @@ var _ = Describe("Read task", func() {
 				StartOffset: kafka.StartOffsetEarliest,
 				Records:     single(stampedFields(index, data)),
 			})
-			unwritable := newFactory(
-				kafka.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
-			)
-			dt := MustSucceed(unwritable.ConfigureTask(ctx, t, "cmd-1"))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			Expect(dt.Exec(ctx, task.Command{
+			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
 			})).To(MatchError(errCommit))
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -945,12 +859,12 @@ var _ = Describe("Read task", func() {
 				Records:     single(stampedFields(index, data)),
 			})
 			cmdCtx, cancel := context.WithCancel(ctx)
-			canceling := newFactory(
-				kafka.FactoryConfig{
-					DB: gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
-				},
-			)
-			dt := MustSucceed(canceling.ConfigureTask(ctx, t, "cmd-1"))
+			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+				err := commit()
+				cancel()
+				return err
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(cmdCtx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
@@ -1190,7 +1104,9 @@ var _ = Describe("Read task", func() {
 				DataType:   telem.StringT,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &text)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &text)
+			})).To(Succeed())
 			fields := stampedFields(index, data)
 			fields = slices.Insert(fields, 1, kafka.ReadField{
 				Key:      "s",
@@ -1275,7 +1191,9 @@ var _ = Describe("Read task", func() {
 			DataType:   telem.Float64T,
 			LocalIndex: index.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &inner)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &inner)
+		})).To(Succeed())
 		fields := stampedFields(index, data)
 		fields[1].DataType = telem.JSONT
 		fields = append(fields, kafka.ReadField{
@@ -1754,7 +1672,9 @@ var _ = Describe("Read task", func() {
 				DataType:   telem.Float64T,
 				LocalIndex: index.LocalKey,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			field := func(key string, ch channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

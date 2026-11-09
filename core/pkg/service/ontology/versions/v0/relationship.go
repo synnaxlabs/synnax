@@ -55,6 +55,3 @@ func (r Relationship) GorpKey() string {
 		relationshipKeySep +
 		r.To.String()
 }
-
-// SetOptions implements the gorp.Entry interface.
-func (Relationship) SetOptions() []any { return nil }

@@ -48,6 +48,7 @@ Range struct {
     }
     labels     label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
+        @ref kind      use
         @ref on_delete detach
     }
     parent     Key?            {
@@ -56,6 +57,7 @@ Range struct {
             range.
         """
         @ref acyclic
+        @ref kind      place
         @ref on_delete cascade
     }
 

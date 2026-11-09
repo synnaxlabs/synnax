@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
@@ -34,10 +33,15 @@ var _ = Describe("Translator", func() {
 				Message: "Driver running",
 				Labels:  []label.Key{label.Key(uuid.New())},
 			},
-			Roles: []role.Key{uuid.New()},
 		}
 		translated := MustSucceed(pb.RackToPB(r))
 		Expect(translated.Status.Details).To(BeNil())
 		Expect(pb.RackFromPB(translated)).To(Equal(r))
+	})
+	It("Should leave the role out, as the Core assigns it", func() {
+		r := rack.Rack{Key: rack.NewKey(1, 2), Name: "Rack", Role: uuid.New()}
+		translated := MustSucceed(pb.RackToPB(r))
+		Expect(pb.RackFromPB(translated)).
+			To(Equal(rack.Rack{Key: r.Key, Name: r.Name}))
 	})
 })
