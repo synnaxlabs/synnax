@@ -10,6 +10,7 @@
 package json
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json/jsontext"
 	"strconv"
@@ -93,7 +94,8 @@ type Field struct {
 // variablePrefix is the size of the length prefix of a variable-density sample.
 const variablePrefix = 4
 
-// strictBase64 rejects base64 with padding bits that are not zero.
+// strictBase64 rejects base64 with padding bits that are not zero. It still skips line
+// breaks.
 var strictBase64 = base64.StdEncoding.Strict()
 
 // rejectDuplicateNames overrides the leniency of jsontext.Value.Compact.
@@ -191,6 +193,11 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		}
 		if err := d.unquote(raw); err != nil {
 			return nil, err
+		}
+		if bytes.ContainsAny(d.text, "\r\n") {
+			return nil, errors.Wrap(
+				validate.ErrValidation, "base64 must not hold a line break",
+			)
 		}
 		start := len(dst)
 		dst = append(dst, make([]byte, variablePrefix)...)

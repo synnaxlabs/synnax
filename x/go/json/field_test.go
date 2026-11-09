@@ -207,6 +207,10 @@ var _ = Describe("Field", func() {
 				`"YQ"`, "illegal base64 data at input byte 0"),
 			Entry("base64 with padding bits set", xjson.Field{DataType: telem.BytesT},
 				`"YR=="`, "illegal base64 data at input byte 2"),
+			Entry("base64 with a line feed", xjson.Field{DataType: telem.BytesT},
+				`"Y\nQ=="`, "base64 must not hold a line break"),
+			Entry("base64 with a carriage return", xjson.Field{DataType: telem.BytesT},
+				`"YQ==\r"`, "base64 must not hold a line break"),
 		)
 
 		It("Should reject a data type that no JSON value converts to", func() {

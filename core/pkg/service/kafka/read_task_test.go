@@ -1345,6 +1345,13 @@ var _ = Describe("Read task", func() {
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
 			telem.NewSeriesV(readUUID)),
+		Entry("bytes from base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "AP8/"},
+			telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})),
+		Entry("empty bytes from empty base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
 	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
@@ -1421,6 +1428,9 @@ var _ = Describe("Read task", func() {
 		Entry("a malformed UUID",
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
+		Entry("text that is not base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
