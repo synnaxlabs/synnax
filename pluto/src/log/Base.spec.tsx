@@ -444,7 +444,7 @@ describe("log/Base", () => {
       });
       const { container } = renderLog();
       press(container, 396, 450);
-      fireEvent.mouseMove(window, { clientX: 396, clientY: 250 });
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
       expect(seekProgress).not.toHaveBeenCalled();
       fireEvent.mouseUp(window);
       expect(dragProgresses(setState, state)).toEqual([1, 0.5, -1]);
@@ -474,6 +474,53 @@ describe("log/Base", () => {
       const { container } = renderLog();
       press(container, 100, 450);
       fireEvent.mouseUp(window);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    const dragging = () => {
+      const aether = setupAether({
+        empty: false,
+        scrolling: true,
+        region: REGION,
+        thumb: THUMB,
+      });
+      const rendered = renderLog();
+      press(rendered.container, 396, 450);
+      return { ...aether, ...rendered };
+    };
+
+    it("should not seek when the thumb is released where it was pressed", () => {
+      const { setState, state, seekProgress } = dragging();
+      fireEvent.mouseUp(window);
+      expect(dragProgresses(setState, state).at(-1)).toBe(-1);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the drag when the window loses focus", () => {
+      const { setState, state, seekProgress } = dragging();
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.blur(window);
+      expect(dragProgresses(setState, state).at(-1)).toBe(-1);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    it("should end the drag on a move with no button held", () => {
+      const { seekProgress } = dragging();
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 50, buttons: 0 });
+      expect(seekProgress).toHaveBeenCalledWith(0.5);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).toHaveBeenCalledTimes(1);
+    });
+
+    it("should stop following the pointer after the log unmounts", () => {
+      const { setState, seekProgress, unmount } = dragging();
+      unmount();
+      const calls = setState.mock.calls.length;
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.mouseUp(window);
+      expect(setState.mock.calls).toHaveLength(calls);
       expect(seekProgress).not.toHaveBeenCalled();
     });
   });

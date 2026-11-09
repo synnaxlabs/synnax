@@ -181,30 +181,50 @@ export const Base = ({
     return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
+  const stopThumbDragRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopThumbDragRef.current?.(), []);
+
   // A press on the thumb drags it. A press on the track moves the thumb's middle there.
-  // Either seeks on release.
+  // Either seeks on release unless the thumb did not move. A lost focus cancels.
   const dragThumb = (e: React.MouseEvent, thumb: log.Thumb): void => {
     const y = (clientY: number): number => clientY - box.top(region);
     const pressed = y(e.clientY);
     const onThumb = pressed >= thumb.top && pressed <= thumb.top + thumb.height;
     const grab = onThumb ? pressed - thumb.top : thumb.height / 2;
     const regionHeight = box.height(region);
-    let progress = -1;
+    const pressedAt = progressAt(pressed, grab, thumb, regionHeight);
+    let progress = pressedAt;
+    let moved = !onThumb;
     const drag = (clientY: number): void => {
       const next = progressAt(y(clientY), grab, thumb, regionHeight);
+      if (next !== pressedAt) moved = true;
       progress = next;
       setState((s) => ({ ...s, dragProgress: next }));
     };
-    drag(e.clientY);
-    const handleMove = (move: MouseEvent): void => drag(move.clientY);
-    const handleUp = (): void => {
+    const stop = (): void => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
-      setState((s) => ({ ...s, dragProgress: -1 }));
-      methods.seekProgress(progress);
+      window.removeEventListener("blur", handleCancel);
+      stopThumbDragRef.current = null;
     };
+    const end = (seek: boolean): void => {
+      stop();
+      setState((s) => ({ ...s, dragProgress: -1 }));
+      if (seek && moved) methods.seekProgress(progress);
+    };
+    const handleUp = (): void => end(true);
+    const handleCancel = (): void => end(false);
+    // A release outside the window arrives only as a move with no button down.
+    const handleMove = (move: MouseEvent): void => {
+      if (move.buttons === 0) return handleUp();
+      drag(move.clientY);
+    };
+    stopThumbDragRef.current?.();
+    drag(e.clientY);
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
+    window.addEventListener("blur", handleCancel);
+    stopThumbDragRef.current = stop;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {

@@ -1477,6 +1477,50 @@ describe("StreamMultiChannelLog", () => {
         expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
       });
 
+      it("should read from a newer time inside the unread spans", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+        await settle(log, 1_800);
+        const times = timesOf(core, STORED);
+        log.seek(new TimeStamp(times[1_000]));
+        await until(
+          () => log.loadOlder(),
+          () => entriesOf(log).length > 0,
+        );
+        log.seek(new TimeStamp(times[5_000]));
+        expect(log.live).toBe(false);
+        expect(entriesOf(log)).toEqual([]);
+        await until(
+          () => log.loadOlder(),
+          () => entriesOf(log).length > 0,
+        );
+        expect(stampsOf(entriesOf(log)).at(-1)).toBe(times[5_000]);
+        await until(
+          () => log.loadNewer(),
+          () => stampsOf(entriesOf(log)).at(-1)! > times[5_000],
+        );
+        expectRun(core, a, log);
+      });
+
+      it("should move to a second time before the first page lands", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+        await settle(log, 1_800);
+        const times = timesOf(core, STORED);
+        for (const time of [times[1_000], times[5_000], times[500]]) {
+          log.seek(new TimeStamp(time));
+          log.loadOlder();
+        }
+        await until(
+          () => log.loadOlder(),
+          () => entriesOf(log).length > 0,
+        );
+        expect(stampsOf(entriesOf(log)).at(-1)).toBe(times[500]);
+        expectRun(core, a, log);
+      });
+
       it("should keep the entries for a time they reach", async () => {
         const core = deep();
         const [a] = core.data.map((c) => c.key);

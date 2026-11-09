@@ -279,12 +279,18 @@ export class StreamMultiChannelLog
    * Drops the entries so that older pages read the stored samples at or before time,
    * and newer reads the samples after it. Does nothing when the entries reach the time,
    * and returns to the newest samples when the time is past them. Entries of channels
-   * that store nothing do not come back.
+   * that store nothing do not come back. A live log with no entries does not move.
    */
   seek(time: TimeStamp): void {
     const { entries } = this;
-    if (entries.length === 0) return;
     const t = time.valueOf();
+    if (entries.length === 0) {
+      if (this.live) return;
+      const unread = this.unread.filter(({ end }) => end > t);
+      if (unread.length === 0) return this.resume();
+      unread[0].start = t;
+      return this.drop(t, unread);
+    }
     const last = entries[entries.length - 1].timestamp.valueOf();
     if (
       (t >= entries[0].timestamp.valueOf() || this.exhausted) &&
@@ -293,7 +299,6 @@ export class StreamMultiChannelLog
       return;
     const unread = this.unread.filter(({ end }) => end > t);
     if (t > last && unread.length === 0) return this.resume();
-    this.cancelPage();
     if (this.live) unread.push({ start: last, end: last, counts: new Map() });
     if (t < last) {
       const counts = new Map<channel.Key, number>();
@@ -302,12 +307,17 @@ export class StreamMultiChannelLog
           counts.set(channelKey, (counts.get(channelKey) ?? 0) + 1);
       unread.unshift({ start: t, end: last, counts });
     } else if (unread[0].start < t) unread[0].start = t;
+    this.drop(t, unread);
+  }
+
+  private drop(time: bigint, unread: Unread[]): void {
+    this.cancelPage();
     this.unread = unread;
     this.entries = [];
     this.metas.forEach((meta) => {
       if (!meta.stored) return;
       Object.assign(meta, {
-        oldest: { time: t + 1n, alignment: null },
+        oldest: { time: time + 1n, alignment: null },
         exhausted: false,
         pageSize: OLDER_PAGE_SIZE,
       });

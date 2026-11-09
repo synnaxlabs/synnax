@@ -1500,12 +1500,12 @@ describe("log/aether/Log", () => {
   describe("scrollbar drag", () => {
     const RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(199));
 
-    const paused = () => {
+    const paused = (overrides: Record<string, unknown> = {}) => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const handle = setup(entries);
+      const handle = setup(entries, REGION_500, overrides);
       handle.source.timeRange = RANGE;
-      handle.updateState({ scrolling: false, empty: false });
-      handle.updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      handle.updateState({ ...overrides, scrolling: false, empty: false });
+      handle.updateState({ ...overrides, scrolling: true, empty: false, wheelPos: 0 });
       handle.log.render();
       return handle;
     };
@@ -1589,12 +1589,81 @@ describe("log/aether/Log", () => {
       });
     });
 
-    it("should seek to the time at a progress down the track", () => {
-      const { log, source } = paused();
+    // Returns where the drawn thumb sits on its track, from 0 to 1.
+    const drawnProgress = (
+      log: Log,
+      recorder: ReturnType<typeof canvasTest.record>,
+    ): number => {
+      recorder.clear();
+      log.render();
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      return thumb.y / (box.height(REGION_500) - thumb.height);
+    };
+
+    it("should land the thumb where it was dropped", () => {
+      const { log, recorder } = paused();
       log.seekProgress(0.5);
-      expect(source.seeks.map((t) => t.valueOf())).toEqual([
-        TimeStamp.seconds(99.5).valueOf(),
-      ]);
+      expect(drawnProgress(log, recorder)).toBeCloseTo(0.5, 1);
+    });
+
+    it("should keep the view for a drop at the thumb's own place", () => {
+      const { log, recorder } = paused();
+      log.seekProgress(0.5);
+      const progress = drawnProgress(log, recorder);
+      const rows = log.state.rowEntries;
+      log.seekProgress(progress);
+      log.render();
+      expect(log.state.rowEntries).toEqual(rows);
+    });
+
+    it("should not seek a log that went live", () => {
+      const { log, source, updateState } = paused();
+      updateState({ scrolling: false, empty: false });
+      log.seekProgress(0.5);
+      expect(source.seeks).toEqual([]);
+    });
+
+    it("should show the time under a dragged thumb in the time zone", () => {
+      const { h, log, recorder } = paused({ timeZone: "UTC" });
+      h.setState((s) => ({ ...s, dragProgress: 1 }));
+      recorder.clear();
+      log.render();
+      const texts = recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]));
+      expect(texts).toContain(RANGE.end.toPreciseString("UTC"));
+    });
+
+    describe("without a time range", () => {
+      const unranged = () => {
+        const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+        const handle = setup(entries);
+        handle.updateState({ scrolling: false, empty: false });
+        handle.updateState({ scrolling: true, empty: false, wheelPos: 0 });
+        handle.log.render();
+        return handle;
+      };
+
+      it("should move the view by lines", () => {
+        const { log, source } = unranged();
+        assert(log.state.thumb != null);
+        log.seekProgress(0);
+        log.render();
+        expect(log.state.rowEntries[0]).toBe(0);
+        expect(source.seeks).toEqual([]);
+      });
+
+      it("should show the time of the line under a dragged thumb", () => {
+        const { h, log, recorder } = unranged();
+        h.setState((s) => ({ ...s, dragProgress: 1 }));
+        recorder.clear();
+        log.render();
+        const texts = recorder.lower2d.calls
+          .filter(({ op }) => op === "fillText")
+          .map(({ args }) => String(args[0]));
+        expect(texts).toContain(makeEntry(199).timestamp.toPreciseString("local"));
+      });
     });
   });
 
