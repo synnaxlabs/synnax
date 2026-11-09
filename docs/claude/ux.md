@@ -274,6 +274,8 @@ bound, a log precision, or the line plot X channel.
 - Context menus use 12 px text in 24 px items.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
@@ -460,6 +462,10 @@ says why in a sentence, then gives the raw error.
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
   and keep it for at least 300 ms. A plot draws its axes at once and streams data in.
 - Every command that a key runs also has a button or a menu item.
+- Cmd+C on selected tree items copies their names, one per line. The HTML form makes
+  each name a link when a link opens its type, so a paste into chat or email opens the
+  resource. The tree menu has the same Copy item. A text selection, such as a name in a
+  rename, copies as text.
 - Hover can show rare actions, never the current state. A control that shows on hover
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,

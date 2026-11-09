@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -130,6 +132,19 @@ var _ = Describe("Graph", func() {
 			Expect(params[1].Name).To(Equal("b"))
 			Expect(params[1].Type).To(Equal(types.I64()))
 		})
+
+		DescribeTable("constant errors in a function body",
+			func(ctx SpecContext, body string, code diagnostics.ErrorCode) {
+				g := MustSucceed(graph.Parse(graph.Graph{
+					Functions: []ir.Function{{Key: "f", Body: ir.Body{Raw: body}}},
+				}))
+				_, diags := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(*diags).To(HaveLen(1), diags.String())
+				Expect((*diags)[0].Code).To(Equal(code))
+			},
+			Entry("overflow", "{\n x i8 := 100 + 100\n}", codes.ConstantOverflow),
+			Entry("division by zero", "{\n x := 1 / 0\n}", codes.DivisionByZero),
+		)
 
 		It("Should correctly analyze a complete program", func(ctx SpecContext) {
 			nodes, inputs := buildNodes(

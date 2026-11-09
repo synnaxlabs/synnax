@@ -147,7 +147,12 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
               Import components
             </Menu.Item>
           )}
-          <Menu.Divider />
+        </>
+      )}
+      <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <>
           <Export.ContextMenuItem
             onClick={() =>
               handleExport({
@@ -238,6 +243,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
+  linkable: true,
   icon: <Icon.Project />,
   useOnSelect,
   children,

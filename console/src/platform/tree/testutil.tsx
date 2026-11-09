@@ -9,12 +9,15 @@
 
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { array } from "@synnaxlabs/x";
+import { array, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
+  getConfig,
   type Matcher,
   type MatcherFunction,
   render,
@@ -31,10 +34,13 @@ import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 import {
+  CaptureStatuses,
+  type ConsolePreloadedState,
   createConsoleWrapper,
   createTestStore,
   getIconButton,
   renderSuspended,
+  renderWithConsole,
   selectTestProject,
   type TestStore,
   uniqueName,
@@ -267,6 +273,43 @@ export const createBaseProps = ({
   ...overrides,
 });
 
+export interface RenderCopyContextMenuItemOptions {
+  /** Resources backing the tree state. */
+  resources: Tree.Resource[];
+  /** The selected ids; defaults to every resource. */
+  selected?: resource.ID[];
+  items?: Tree.Items;
+  preloadedState?: ConsolePreloadedState;
+}
+
+/**
+ * Renders Tree.CopyContextMenuItem in a menu. Returns a getter for the statuses it
+ * raises.
+ */
+export const renderCopyContextMenuItem = async ({
+  resources,
+  selected,
+  items = {},
+  preloadedState,
+}: RenderCopyContextMenuItemOptions): Promise<() => Status.NotificationSpec[]> => {
+  const store = await createTestStore({ preloadedState });
+  const props: Tree.CopyContextMenuItemProps = {
+    selection: createSelection({ ids: selected ?? resources.map(({ id }) => id) }),
+    state: createState(resources),
+  };
+  let statuses: Status.NotificationSpec[] = [];
+  await renderWithConsole(
+    <Tree.Provider items={items}>
+      <Menu.Menu>
+        <Tree.CopyContextMenuItem {...props} />
+      </Menu.Menu>
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+    </Tree.Provider>,
+    { store },
+  );
+  return () => statuses;
+};
+
 export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
   root: resource.ID | null;
@@ -279,6 +322,7 @@ export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtErro
   projectClient?: Synnax;
   /** Renders a search action and field above the tree. */
   search?: Tree.UseSearch;
+  preloadedState?: ConsolePreloadedState;
   contextMenus?: Tree.ContextMenus;
 }
 
@@ -324,8 +368,9 @@ export const renderLiveTree = async ({
   search,
   contextMenus,
   onCaughtError,
+  preloadedState,
 }: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   await selectTestProject(store, projectClient);
   const SearchableTree = search == null ? null : createSearchableTree(search);
   const rendered = render(
@@ -364,12 +409,8 @@ const SCROLL_STEP = 200;
 const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";
 const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
 
-/**
- * Finds the tree label matching text, scrolling the tree when the row sits outside the
- * window. The tree keeps only the rows near the window mounted, so a label further down
- * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
- * label was found, and back at the top when there is none.
- */
+const SWEEP_INTERVAL = TimeSpan.milliseconds(50);
+
 const rowsHeight = (): number => {
   const rows = document.querySelector<HTMLElement>(
     `${VISIBLE_TREE} .lyra-list__virtualizer`,
@@ -378,12 +419,11 @@ const rowsHeight = (): number => {
 };
 
 // Sweeps from the top by default: a previous lookup can leave the tree scrolled past
-// the row.
+// the row. Rows can land during the sweep, so it reads the height at each step.
 const sweepTree = async (text: Matcher, from = 0): Promise<HTMLElement | null> => {
   const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
   if (tree == null) return null;
-  const total = rowsHeight();
-  for (let offset = from; offset <= total; offset += SCROLL_STEP) {
+  for (let offset = from; offset <= rowsHeight(); offset += SCROLL_STEP) {
     await act(async () => {
       tree.scrollTop = offset;
       fireEvent.scroll(tree);
@@ -421,19 +461,22 @@ const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
   return null;
 };
 
+/**
+ * Finds the tree label matching text, scrolling the tree when the row sits outside the
+ * window and loading the next pages of a folder. The tree keeps only the rows near the
+ * window mounted, so a label further down reaches the DOM the same way a user reaches
+ * it. Tries again until the label loads or the async util timeout passes. Leaves the
+ * tree scrolled where the label was found.
+ */
 const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
-  const mounted = screen.queryByText(text, QUERY_OPTIONS);
-  if (mounted != null) return mounted;
-  const swept = await sweepTree(text);
-  if (swept != null) return swept;
-  // Absent from the data rather than the window: wait for it to load, then sweep again.
-  try {
-    return await screen.findByText(text, QUERY_OPTIONS);
-  } catch (err) {
-    const retried = (await sweepTree(text)) ?? (await pageTo(text));
-    if (retried != null) return retried;
-    throw err instanceof Error ? err : new Error(String(err), { cause: err });
+  const deadline = performance.now() + getConfig().asyncUtilTimeout;
+  const attempt = async () => (await sweepTree(text)) ?? (await pageTo(text));
+  let label = screen.queryByText(text, QUERY_OPTIONS) ?? (await attempt());
+  while (label == null && performance.now() < deadline) {
+    await act(async () => await sleep.sleep(SWEEP_INTERVAL));
+    label = await attempt();
   }
+  return label ?? screen.getByText(text, QUERY_OPTIONS);
 };
 
 /**
@@ -499,6 +542,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   stateOverrides?: StateOptions;
   /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** The tree items the menu reads, as the tree provides them. */
+  items?: Tree.Items;
 }
 
 export interface TreeContextMenuHandle {
@@ -524,6 +569,7 @@ export const renderTreeContextMenu = async (
     stateOverrides = {},
     onCaughtError,
     extra,
+    items = {},
   }: RenderTreeContextMenuOptions,
 ): Promise<TreeContextMenuHandle> => {
   const resolvedStore = store ?? (await createTestStore());
@@ -542,13 +588,13 @@ export const renderTreeContextMenu = async (
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   await renderSuspended(
-    <>
+    <Tree.Provider items={items}>
       <Errors.SuspenseBoundary loading={null}>
         <TreeContextMenu {...props} />
       </Errors.SuspenseBoundary>
       <Modals.Stack />
       {extra}
-    </>,
+    </Tree.Provider>,
     { wrapper, onCaughtError },
   );
   return { store: resolvedStore, props };
