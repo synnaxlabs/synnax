@@ -18,6 +18,7 @@ import {
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
+import { Device } from "@/platform/device";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -66,10 +67,7 @@ describe("useResultSlave", () => {
     await waitFor(() => expect(result.current?.name).toEqual("Original Name"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        name: "Updated Name",
-      });
+      await client.devices.rename(dev.key, "Updated Name");
     });
 
     await waitFor(() => {
@@ -229,10 +227,11 @@ describe("useCommonNetwork", () => {
     await waitFor(() => expect(result.current).toEqual("original-network"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        properties: { ...dev.properties, network: "updated-network" },
-      });
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties: { ...dev.properties, network: "updated-network" } },
+        EtherCAT.Device.SLAVE_SCHEMAS,
+      );
     });
 
     await waitFor(() => expect(result.current).toEqual("updated-network"));
