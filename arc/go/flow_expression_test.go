@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -80,6 +82,56 @@ var _ = Describe("Literal expressions in flows", func() {
 		Entry("i32", "v i32 := 0", "1 + 2", types.I32(), 3.0),
 		Entry("f32", "v f32 := 0.0", "1.5 * 2.0", types.F32(), 3.0),
 		Entry("stateful f32", "v f32 $= 0.0", "1.5 * 2.0", types.F32(), 3.0),
+	)
+
+	DescribeTable("Should write a computed value at its declared type",
+		func(ctx SpecContext, source string, dt types.Type, expected float64) {
+			dataType := dt.ToTelem()
+			h := newRuntimeHarness(ctx, strings.ReplaceAll(source, "T", dt.String()),
+				channelSymbols(map[string]channelDef{
+					"go":  {types.Bool(), 100},
+					"out": {dt, 200},
+				}),
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
+				channels.Digest{Key: 200, DataType: dataType},
+			)
+			defer h.Close(ctx)
+			for range 3 {
+				h.Ingest(100, telem.NewSeriesV(true))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			series := out.Get(200).Series
+			Expect(series).ToNot(BeEmpty())
+			want := telem.NewSeriesFromAny(expected, dataType).Data
+			last := series[len(series)-1].Data
+			Expect(last[len(last)-len(want):]).To(Equal(want))
+		},
+		Entry(
+			"a stateful initializer",
+			"sequence main {\n v T $= 1.5 * 2.0\n stage a {\n v -> out\n }\n}\ngo => main",
+			types.F32(),
+			3.0,
+		),
+		Entry(
+			"an integer stateful initializer",
+			"sequence main {\n v T $= 1 + 2\n stage a {\n v -> out\n }\n}\ngo => main",
+			types.U8(),
+			3.0,
+		),
+		Entry(
+			"a sequence initializer",
+			"sequence main {\n v T := 1.5 * 2.0\n stage a {\n v -> out\n }\n}\ngo => main",
+			types.F32(),
+			3.0,
+		),
+		Entry(
+			"a call input",
+			"func f(a T) {v bool} T {\n return a\n}\ngo -> f(a=1.5 * 2.0) -> out",
+			types.F32(),
+			3.0,
+		),
 	)
 
 	It("Should type each placeholder literal on its own", func(ctx SpecContext) {
