@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
@@ -33,7 +34,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypeProject, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -74,13 +75,6 @@ var _ = Describe("Resource", func() {
 				Expect(id.Key).To(Equal(key.String()))
 			},
 		)
-	})
-	Describe("ResourceIDs", func() {
-		It("Should map a slice of keys to resource IDs", func() {
-			a, b := uuid.New(), uuid.New()
-			Expect(project.ResourceIDs([]project.Key{a, b})).
-				To(ConsistOf(project.ResourceID(a), project.ResourceID(b)))
-		})
 	})
 	Describe("ResourceIDsFromProjects", func() {
 		It("Should map a slice of projects to resource IDs", func() {
@@ -126,8 +120,12 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				a := project.Project{Key: uuid.New(), Name: "turbopump test"}
 				b := project.Project{Key: uuid.New(), Name: "turbopump"}
-				Expect(writer.Create(ctx, &a)).To(Succeed())
-				Expect(writer.Create(ctx, &b)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &b)
+				})).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 				Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 					To(Equal([]resource.ID{b.ResourceID(), a.ResourceID()}))

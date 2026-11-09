@@ -12,10 +12,7 @@ package resource
 import (
 	"context"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -28,10 +25,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Resource *resource.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -43,7 +36,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Resource = override.Nil(c.Resource, other.Resource)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -51,14 +43,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.resource")
 	v.NotNil("resource", c.Resource)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service is the API for searching and naming records of every type.
 type Service struct {
 	internal *resource.Service
-	access   *rbac.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -67,7 +57,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Resource, access: cfg.RBAC}, nil
+	return &Service{internal: cfg.Resource}, nil
 }
 
 type (
@@ -94,21 +84,14 @@ type (
 // closest match first. It leaves out the rest and still fills each page.
 func (s *Service) Search(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req SearchRequest,
 ) (SearchResponse, error) {
-	allowed, err := s.access.NewEnforcer(nil).Allowed(
-		ctx,
-		auth.GetSubject(ctx),
-		access.ActionRetrieve,
-	)
-	if err != nil {
-		return SearchResponse{}, err
-	}
-	resources, err := s.internal.Search(ctx, nil, resource.SearchQuery{
+	resources, err := s.internal.Search(ctx, snap, resource.SearchQuery{
 		Term:   req.SearchTerm,
 		Types:  req.Types,
 		Limit:  req.Limit,
-		Except: func(id resource.ID) bool { return !allowed(id) },
+		Except: func(id resource.ID) bool { return !snap.Allowed(id) },
 	})
 	if err != nil {
 		return SearchResponse{}, err
@@ -128,23 +111,19 @@ type (
 	}
 )
 
-// Retrieve returns the resources that req names. It returns access.ErrDenied when the
-// caller cannot retrieve one of them.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named.
+func (r RetrieveRequest) Named() []resource.ID { return r.IDs }
+
+// Retrieve returns the resources that req names.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	resources, err := s.internal.Retrieve(ctx, nil, req.IDs...)
+	resources, err := s.internal.Retrieve(ctx, snap, req.IDs...)
 	if err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: lo.Map(resources, func(r resource.Resource, _ int) resource.ID {
-			return r.ID
-		}),
-	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Resources: resources}, nil

@@ -9,12 +9,13 @@
 
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/rack/v1"
+import "schemas/synnax/versions/status/v2"
 
 Key = v0.Key
 
 StatusDetails = v1.StatusDetails
 
-Status = v1.Status
+Status = status.Status<StatusDetails>
 
 Device struct<
     Properties extends record = record,

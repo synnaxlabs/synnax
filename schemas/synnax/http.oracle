@@ -133,6 +133,7 @@ ReadField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
         @ref on_delete restrict
     }
     pointer     string = "" {
@@ -193,6 +194,7 @@ ReadEndpoint struct {
 ReadConfig struct extends task.PersistConfig {
     device           device.Key = "" {
         @doc value     "is the key of the HTTP server device to poll."
+        @ref kind      use
         @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
@@ -217,6 +219,7 @@ ReadConfig struct extends task.PersistConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -258,6 +261,7 @@ ChannelField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax command channel that triggers the request."
+        @ref kind      use
         @ref on_delete restrict
     }
     name        string = "" {
@@ -362,6 +366,7 @@ WriteEndpoint struct {
 WriteConfig struct extends task.StartConfig {
     device    device.Key = "" {
         @doc value     "is the key of the HTTP server device to write to."
+        @ref kind      use
         @ref on_delete restrict
     }
     endpoints WriteEndpoint[] {
@@ -375,6 +380,7 @@ WriteConfig struct extends task.StartConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
 
@@ -383,4 +389,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

@@ -169,6 +169,18 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ]),
     );
 
+/** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
+export const LIST_FIELDS: readonly string[] = [
+  "key",
+  "rack",
+  "location",
+  "make",
+  "model",
+  "name",
+  "group",
+  "parent",
+];
+
 /** @returns the position of record in order, or in key order when order is absent. */
 export const cursor = (record: Device, order?: Order): Cursor => {
   if (order == null) return { key: record.key };

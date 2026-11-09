@@ -62,7 +62,6 @@ var (
 	arcSvc      *arc.Service
 	testRack    rack.Rack
 	projectSvc  *project.Service
-	writer      project.Writer
 	tx          gorp.Tx
 )
 
@@ -98,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:         db,
 		Status:     statusSvc,
 		HostKey:    node.Identity.HostKey,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -114,7 +113,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	testRack = rack.Rack{Name: "Project Test Rack"}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, &testRack)
+	})).To(Succeed())
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      db,
@@ -134,7 +135,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	resourceSvc = MustSucceed(resource.NewService(resource.ServiceConfig{
-		DB: db,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:      arcSvc.Resources(),
 			resource.TypeChannel:  channelSvc.Resources(),
@@ -150,14 +150,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	svc = MustSucceed(bundle.NewService(bundle.Config{
-		DB:       db,
 		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,
 		Panel:    panelSvc,
 		ImEx:     imexSvc,
 	}))
-	writer = projectSvc.NewWriter(nil)
 })
 
 // textOf returns the text of the text-mode Arc b, failing the spec otherwise.
