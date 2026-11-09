@@ -34,6 +34,7 @@ interface Domain<K extends record.Key, R extends Named, A> {
   dispatch(key: K, actions: A | A[]): Promise<void>;
   rename(key: K, name: string): Promise<void>;
   watch(key: K): query.Live<R>;
+  retrieve(params: Record<string, never>): Promise<R[]>;
   retrieve(key: K): Promise<R>;
 }
 
@@ -44,6 +45,8 @@ interface Created {
   dispatch: (c: Synnax, set: patch.Set) => Promise<void>;
   cachedName: (c: Synnax) => string | undefined;
   storedName: (c: Synnax) => Promise<string>;
+  /** The name that a fetch of every record of the type returns. */
+  listedName: (c: Synnax) => Promise<string | undefined>;
 }
 
 interface Case {
@@ -73,6 +76,8 @@ const defineCase = <K extends record.Key, R extends Named & record.Keyed<K>, A>(
         return query.isLive(cached) ? cached.name : undefined;
       },
       storedName: async (c) => (await domain(c).retrieve(key)).name,
+      listedName: async (c) =>
+        (await domain(c).retrieve({})).find((r) => r.key === key)?.name,
     };
   },
 });
@@ -248,6 +253,15 @@ describe("record dispatch", () => {
       const name = uniqueName();
       await rec.dispatch(remote, { path: ["name"], value: name, guards: [] });
       await expect.poll(() => rec.cachedName(client)).toBe(name);
+    });
+
+    it("should read a later remote edit on a client with no change stream", async () => {
+      const unstreamed = createTestClient({ cache: false });
+      const rec = await create(unstreamed);
+      await rec.rename(unstreamed, uniqueName());
+      const name = uniqueName();
+      await rec.rename(remote, name);
+      expect(await rec.listedName(unstreamed)).toBe(name);
     });
 
     it("should ingest a record that another client creates", async () => {

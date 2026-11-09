@@ -101,6 +101,8 @@ const setupStore = (
     now: opts.now,
     listed: opts.listed,
   });
+  // A live change stream, so echoes arrive.
+  epochs.notify(1);
   return { errors, docs, epochs, controller, send };
 };
 
@@ -1509,6 +1511,19 @@ describe("actions.Controller", () => {
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
       expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+    });
+
+    it("settles a dispatch when its send resolves in epoch 0, which has no stream", async () => {
+      const { docs, epochs, controller } = setupStore({
+        send: async () => [set("h", 9)],
+      });
+      epochs.notify(0);
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+      docs.set("k", { values: { a: 5 } });
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
     it("keeps a staged transaction pending across an epoch change", () => {

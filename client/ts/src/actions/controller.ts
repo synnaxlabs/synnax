@@ -618,8 +618,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
     p.echo = [...p.actions, ...added];
-    // The echo may have been lost when the epoch changed during the send.
-    if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.echo);
+    // No echo arrives in epoch 0, which has no change stream. The echo may also have
+    // been lost when the epoch changed during the send.
+    if (this.epoch === 0 || p.epoch !== this.epoch)
+      this.settle(key, r, dispatchKey, p.echo);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
