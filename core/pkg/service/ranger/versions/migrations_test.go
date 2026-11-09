@@ -32,6 +32,7 @@ var _ = Describe("Migrations", func() {
 			"range_color_nullable",
 			"v61_range_shape",
 			"v61_range_parent_labels",
+			"v61_range_parent_cycles",
 			"v61_color_alpha_byte",
 		}))
 	})
