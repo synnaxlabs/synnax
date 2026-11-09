@@ -230,10 +230,11 @@ rejects them from a client.
 The list operator types (`List`, `ValueList`) are generic structs in
 `schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
 generates an `Apply` method on each record for its update type, built from the typed
-helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service writer applies the update, validates the result, writes
-it, and attaches the update to the dispatch, as it attaches actions today. A writer that
-has a side effect reads the applied update. A channel rename, for example, renames
-storage before the commit when `name` is set.
+helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service
+writer applies the update, validates the result, writes it, and attaches the update to
+the dispatch, as it attaches actions today. A writer that has a side effect reads the
+applied update. A channel rename, for example, renames storage before the commit when
+`name` is set.
 
 A task's `config` is a generic record at the task level. The task writer passes the
 config part to the config store of the task's type, which decodes it into that type's
