@@ -924,16 +924,23 @@ var _ = Describe("Service", func() {
 					To(BeTrue())
 			},
 		)
-		It("Should require update on the user and on its role", func(ctx SpecContext) {
+		It("Should require delete on the user and update on its role", func(
+			ctx SpecContext,
+		) {
 			u := createUser(ctx, "delete-role-"+uuid.New().String())
 			fctx, subject := nonRootCtx(ctx)
 			grantOnUsers(ctx, subject, access.ActionDelete)
 			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
-				Error().To(denied(subject, access.ActionUpdate, u.ResourceID()))
-			grantRoleChange(ctx, subject)
-			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
 				Error().To(beDeniedUpdateOn(roleOf(ctx, u.Key)))
-			grantRoleChange(ctx, subject, roleOf(ctx, u.Key))
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				subject.Key,
+				[]access.Action{access.ActionUpdate},
+				role.ResourceID(roleOf(ctx, u.Key)),
+			))
 			MustSucceed(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}}))
 			Expect(login(ctx, u.Name, "p")).Error().
 				To(MatchError(auth.ErrInvalidCredentials))

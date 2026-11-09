@@ -11,12 +11,16 @@
 
 package cmd
 
-import "os"
+import (
+	"os"
+
+	"github.com/synnaxlabs/synnax/cmd/exit"
+)
 
 // RunMain is the entry point for the Synnax CLI on non-Windows platforms. It simply
 // delegates to Execute() since Windows Service mode is not applicable.
 func RunMain() {
 	if err := Cmd.Execute(); err != nil {
-		os.Exit(1)
+		os.Exit(exit.Code(err))
 	}
 }

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -23,6 +24,7 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apichannel.ServiceConfig {
 		return apichannel.ServiceConfig{
 			DB:      &gorp.DB{},
+			RBAC:    &rbac.Service{},
 			Channel: &channel.Service{},
 			Status:  &status.Service{},
 			Alias:   &alias.Service{},
@@ -47,6 +49,11 @@ var _ = Describe("ServiceConfig", func() {
 				"db: must be non-nil",
 			),
 			Entry(
+				"rbac",
+				func(c *apichannel.ServiceConfig) { c.RBAC = nil },
+				"rbac: must be non-nil",
+			),
+			Entry(
 				"channel",
 				func(c *apichannel.ServiceConfig) { c.Channel = nil },
 				"channel: must be non-nil",
@@ -69,6 +76,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apichannel.ServiceConfig{}.Override(cfg)
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
@@ -78,6 +86,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := cfg.Override(apichannel.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))

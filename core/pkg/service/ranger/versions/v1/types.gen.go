@@ -16,7 +16,7 @@ import (
 	"encoding/json/v2"
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
