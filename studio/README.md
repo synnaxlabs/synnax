@@ -74,7 +74,8 @@ docs site's Video component uses. The CDN serves `docs/<id>/<version>-light.mp4`
 `docs/<id>/<version>-dark.mp4`, where `<version>` hashes the pair. Upload writes each
 version to `site/docs/src/components/media/videos.json`, where the Video component finds
 it. A new version never replaces a file that a docs site serves, so you can upload a
-video before the docs that use it ship. Commit `videos.json` with the docs change.
+video before the docs that use it ship. Commit `videos.json` with the docs change. Only
+an entry here can get a version, so every new docs video needs one.
 
 ```bash
 # use `pnpm run` for flagged invocations: the bare `pnpm <script>` shorthand

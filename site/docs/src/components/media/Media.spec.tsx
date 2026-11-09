@@ -46,7 +46,7 @@ describe("Media", () => {
 
     it("should throw for a video with no uploaded version", () => {
       expect(() => renderToString(<Media.Video id="console/missing" />)).toThrow(
-        "no version of video console/missing: run pnpm upload console/missing in studio/",
+        "no version of video console/missing: add an entry to studio/videos.ts, then run pnpm upload console/missing in studio/",
       );
     });
 

@@ -47,7 +47,9 @@ export interface VideoProps
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   const version = VERSIONS[id];
   if (version == null)
-    throw new Error(`no version of video ${id}: run pnpm upload ${id} in studio/`);
+    throw new Error(
+      `no version of video ${id}: add an entry to studio/videos.ts, then run pnpm upload ${id} in studio/`,
+    );
   // The time fragment makes iOS Safari render the first frame before playback.
   const src = (theme?: string): string => `${CDN.video(id, version, theme)}#t=0.001`;
   return (
