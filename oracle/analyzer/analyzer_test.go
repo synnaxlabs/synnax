@@ -3254,6 +3254,62 @@ Node union on variant {
 					"actions Set and Replace of Container both alias test.Set",
 				))
 			})
+
+			It(
+				"Should accept two actions that alias one struct with different type "+
+					"arguments",
+				func(ctx SpecContext) {
+					source := `
+					Box struct<T> {
+						data T
+					}
+
+					IntBox = Box<int32>
+
+					StringBox = Box<string>
+
+					Container struct {
+						key uuid
+
+						action LoadInt = IntBox
+
+						action LoadString = StringBox
+					}
+				`
+					_, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+				},
+			)
+
+			It(
+				"Should reject two actions that alias one struct with the same type "+
+					"arguments",
+				func(ctx SpecContext) {
+					source := `
+					Box struct<T> {
+						data T
+					}
+
+					IntBox = Box<int32>
+
+					CountBox = Box<int32>
+
+					Container struct {
+						key uuid
+
+						action LoadInt = IntBox
+
+						action LoadCount = CountBox
+					}
+				`
+					_, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.Error()).To(ContainSubstring(
+						"actions LoadInt and LoadCount of Container both alias " +
+							"test.Box<int32>",
+					))
+				},
+			)
 		})
 	})
 

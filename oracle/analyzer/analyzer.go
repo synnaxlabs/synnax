@@ -2111,8 +2111,8 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 }
 
 // validateActionAliases checks that every action alias names a struct with no unbound
-// type parameters, and that no two actions of typ alias the same struct, which a C++
-// std::variant cannot hold twice.
+// type parameters, and that no two actions of typ alias the same struct with the same
+// type arguments, which a C++ std::variant cannot hold twice.
 func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 	aliased := make(map[string]string)
 	for _, action := range typ.Actions() {
@@ -2142,7 +2142,8 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 			))
 			continue
 		}
-		if first, dup := aliased[target.QualifiedName]; dup {
+		key := refName(ref)
+		if first, dup := aliased[key]; dup {
 			c.report(diagnostics.Errorf(
 				nil,
 				"actions %s and %s of %s both alias %s; give each action its own "+
@@ -2150,12 +2151,24 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 				first,
 				action.Name,
 				typ.Name,
-				target.QualifiedName,
+				key,
 			))
 			continue
 		}
-		aliased[target.QualifiedName] = action.Name
+		aliased[key] = action.Name
 	}
+}
+
+// refName renders ref with its type arguments, such as test.Box<int32>.
+func refName(ref resolution.TypeRef) string {
+	if len(ref.TypeArgs) == 0 {
+		return ref.Name
+	}
+	args := make([]string, len(ref.TypeArgs))
+	for i, arg := range ref.TypeArgs {
+		args[i] = refName(arg)
+	}
+	return ref.Name + "<" + strings.Join(args, ", ") + ">"
 }
 
 // finalizeActions flattens each action's extends clause, prepending the inherited
