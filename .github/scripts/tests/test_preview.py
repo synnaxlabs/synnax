@@ -124,7 +124,7 @@ class TestUp:
         assert host.site(12).read_text() == (
             "pr-12.preview.example.com {\n"
             "\treverse_proxy synnax-pr-12:9090 {\n"
-            "\t\tstream_close_delay 5m\n"
+            "\t\tstream_close_delay 1h\n"
             "\t}\n"
             "}\n"
         )
