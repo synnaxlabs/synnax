@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type arc,
   NotFoundError,
   type panel,
+  query,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -60,6 +62,7 @@ interface CreateTaskOptions {
 // render. Track created resources and remove them after each test.
 const createdTasks: task.Key[] = [];
 const createdRacks: number[] = [];
+const createdArcs: arc.Key[] = [];
 
 // Deletion tests already removed their task, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -67,6 +70,7 @@ const ignoreNotFound = (err: unknown) => {
 };
 
 afterEach(async () => {
+  await client.arcs.delete(createdArcs.splice(0)).catch(ignoreNotFound);
   await client.tasks.delete(createdTasks.splice(0)).catch(ignoreNotFound);
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
@@ -145,6 +149,133 @@ const openContextMenuUntil = async (name: string, text: string): Promise<void> =
   await openContextMenu(name);
   await screen.findByText(text);
 };
+
+const createArc = async (): Promise<arc.Arc> => {
+  const a = await client.arcs.create({
+    name: uniqueName("arc"),
+    type: "automation",
+    source: { mode: "text" },
+  });
+  createdArcs.push(a.key);
+  return a;
+};
+
+// Binding an Arc to a rack gives it a task.
+const createBoundArc = async (): Promise<{ arc: arc.Arc; task: task.Task }> => {
+  const a = await createArc();
+  const rack = await client.racks.create({ name: uniqueName("rack") });
+  createdRacks.push(rack.key);
+  const t = await client.arcs.updateTask(a.key, { rack: rack.key });
+  assertDefined(t, "binding the Arc to a rack made no task");
+  return { arc: a, task: t };
+};
+
+// Returns the key of the first Arc tab in the panel.
+const awaitArcTab = async ({ client, panelKey }: CreatedPanel): Promise<arc.Key> =>
+  await waitFor(() => {
+    const doc = client.panels.watch(panelKey).getCached();
+    if (!query.isLive(doc) || doc.root.variant !== "leaf")
+      throw new Error("panel doc not found");
+    const match = doc.root.tabs.find(
+      (t) => t.variant === "resource" && t.resource.type === "arc",
+    );
+    if (match?.variant !== "resource") throw new Error("Arc tab not found");
+    return match.resource.key;
+  });
+
+const tabCount = async ({ client, panelKey }: CreatedPanel): Promise<number> => {
+  const doc = await client.panels.retrieve(panelKey);
+  if (doc.root.variant !== "leaf") throw new Error("expected a leaf panel root");
+  return doc.root.tabs.length;
+};
+
+describe("task/Toolbar Arc rows", () => {
+  it("shows an Arc that has a task with its deployment state", async () => {
+    const { arc: a } = await createBoundArc();
+    await renderToolbar();
+    expect(await screen.findByText(a.name)).toBeTruthy();
+    expect((await screen.findAllByText("Stopped")).length).toBeGreaterThan(0);
+  });
+
+  it("leaves out an Arc that has no task", async () => {
+    const unbound = await createArc();
+    const { arc: bound } = await createBoundArc();
+    await renderToolbar();
+    await screen.findByText(bound.name);
+    expect(screen.queryByText(unbound.name)).toBeNull();
+  });
+
+  it("opens the Arc editor on double click", async () => {
+    const { arc: a } = await createBoundArc();
+    const { created } = await renderToolbar();
+    await screen.findByText(a.name);
+    fireEvent.doubleClick(screen.getByText(a.name));
+    expect(await awaitArcTab(created)).toBe(a.key);
+  });
+
+  it("starts the Arc from its start button", async () => {
+    const { arc: a, task: t } = await createBoundArc();
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      await renderToolbar();
+      await screen.findByText(a.name);
+      const start = await waitFor(() => {
+        const row = document.getElementById(t.key);
+        if (row == null) throw new Error(`no list item for ${a.name}`);
+        return getIconButton(row, "play");
+      });
+      fireEvent.click(start);
+      expect((await awaitCommand(streamer, t.key)).type).toBe("start");
+    } finally {
+      streamer.close();
+    }
+  });
+
+  it("keeps the editor closed when the start button is double clicked", async () => {
+    const { arc: started, task: t } = await createBoundArc();
+    const { arc: opened } = await createBoundArc();
+    const { created } = await renderToolbar();
+    await screen.findByText(started.name);
+    await screen.findByText(opened.name);
+    // The start button mounts only once the update permission resolves, so poll the
+    // row for it instead of reading it off the first render.
+    const start = await waitFor(() => {
+      const row = document.getElementById(t.key);
+      if (row == null) throw new Error(`no list item for ${started.name}`);
+      return getIconButton(row, "play");
+    });
+    fireEvent.doubleClick(start);
+    // Opening the other Arc gives a leaked double click time to land, so the tab count
+    // below is not read before the editor would have appeared.
+    fireEvent.doubleClick(screen.getByText(opened.name));
+    expect(await awaitArcTab(created)).toBe(opened.key);
+    expect(await tabCount(created)).toBe(1);
+  });
+
+  describe("context menu", () => {
+    it("opens the Arc editor from Edit", async () => {
+      const { arc: a } = await createBoundArc();
+      const { created } = await renderToolbar();
+      await openContextMenuUntil(a.name, "Edit");
+      fireEvent.click(screen.getByText("Edit"));
+      expect(await awaitArcTab(created)).toBe(a.key);
+    });
+
+    it("deletes the Arc after confirmation", async () => {
+      const { arc: a } = await createBoundArc();
+      await renderToolbar();
+      await openContextMenuUntil(a.name, "Delete");
+      fireEvent.click(screen.getByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${a.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(async () => {
+        await expect(client.arcs.retrieve({ key: a.key })).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+      });
+    });
+  });
+});
 
 describe("task/Toolbar", () => {
   it("renders a created task with its parsed type", async () => {

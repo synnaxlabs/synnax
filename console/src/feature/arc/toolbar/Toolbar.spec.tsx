@@ -219,36 +219,3 @@ describe("arc/Toolbar search", () => {
     expect(await focusedResourceKey(store)).toBe(arc.key);
   });
 });
-
-// Cases for the flat list of Arcs in Toolbar.tsx. They stay here with that list.
-//
-// import { type panel } from "@synnaxlabs/client";
-//
-// const openTabs = async (store: TestStore): Promise<panel.Tab[]> => {
-//   const panelKey = Session.Panel.selectSelected(store.getState());
-//   if (panelKey == null) throw new Error("no panel selected");
-//   const { root } = await client.panels.retrieve(panelKey);
-//   if (root.variant !== "leaf") throw new Error("expected a leaf panel root");
-//   return root.tabs;
-// };
-//
-//   it("keeps the editor closed when the start button is double clicked", async () => {
-//     const started = await createArc();
-//     const opened = await createArc();
-//     const { store } = await renderToolbar();
-//     await screen.findByText(started.name);
-//     await screen.findByText(opened.name);
-//     // The start button mounts only once the update permission resolves, so poll the
-//     // row for it instead of reading it off the first render.
-//     const start = await waitFor(() => {
-//       const row = document.getElementById(started.key);
-//       if (row == null) throw new Error(`no list item for ${started.name}`);
-//       return getIconButton(row, "play");
-//     });
-//     fireEvent.doubleClick(start);
-//     // Opening the other arc gives a leaked double click time to land, so the tab
-//     // count below is not read before the editor would have appeared.
-//     fireEvent.doubleClick(screen.getByText(opened.name));
-//     expect(await focusedResourceKey(store)).toBe(opened.key);
-//     expect(await openTabs(store)).toHaveLength(1);
-//   });
