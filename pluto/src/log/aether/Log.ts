@@ -79,9 +79,17 @@ const lineZ = z.object({ text: z.string(), color: z.string() });
 /** A selected line as a copy writes it. An empty color follows the theme. */
 export interface Line extends z.infer<typeof lineZ> {}
 
+const selectionZ = z.object({ lines: z.array(lineZ), partial: z.boolean() });
+
+/**
+ * The selected lines as a copy writes them. partial is true when the selection is a
+ * select-all and the channels store values the log does not hold.
+ */
+export interface Selection extends z.infer<typeof selectionZ> {}
+
 export const methodsZ = {
-  /** Returns the selected lines at the time of the call. */
-  selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+  /** Returns the selection at the time of the call. */
+  selection: z.function({ input: z.tuple([]), output: selectionZ }),
 };
 
 /**
@@ -763,13 +771,15 @@ export class Log
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
-  // SELECT_ALL_END or a row of the view, which stay open.
+  // SELECT_ALL_END or a row of the view, which stay open. A select-all leaves its
+  // start open too, so it covers the entries that older pages add.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
       i >= SELECT_ROW ? undefined : this.entries[Math.min(i, last)];
+    const all = selectionStart === 0 && selectionEnd === SELECT_ALL_END;
     this.anchors = {
-      start: anchor(selectionStart),
+      start: all ? undefined : anchor(selectionStart),
       end: anchor(selectionEnd),
       scroll: this.state.scrolling
         ? this.entries[this.scrollState.offset - 1]
@@ -925,18 +935,24 @@ export class Log
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  selectedLines(): Line[] {
+  selection(): Selection {
     const { selectionStart } = this.state;
     const selectionEnd = this.resolveRow();
-    if (selectionStart < 0 || selectionEnd < 0) return [];
+    if (selectionStart < 0 || selectionEnd < 0) return { lines: [], partial: false };
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
-    const { valueColors } = this.internal;
-    return this.entries.slice(selMin, selMax + 1).map((entry) => {
+    const { valueColors, telem } = this.internal;
+    const lines = this.entries.slice(selMin, selMax + 1).map((entry) => {
       const { line, channelKey } = this.formatEntry(entry, true);
       const lineColor = valueColors[channelKey];
       return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
     });
+    const { exhausted, live } = telem.wrapped;
+    const partial =
+      selMin === 0 &&
+      selMax === SELECT_ALL_END &&
+      (exhausted === false || live === false);
+    return { lines, partial };
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

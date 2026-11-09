@@ -37,7 +37,8 @@ pair into the consolidated out/videos/ directory. A stills entry skips the rende
 its stills land in out/stills/<id>/, and their regions at the entry's regions path.
 Entries whose script, the modules it imports from scripts/, and options are
 unchanged since their last successful production are skipped.
-  --exact           treat [filter] as a full id instead of a substring
+  --exact           treat [filter] as a comma-separated list of full ids instead of
+                    a substring
   --draft           fast review renders: higher crf + fast encoder preset
   --force           re-produce even when unchanged
   --keep-frames     keep captured frames after a successful render (default:

@@ -13,7 +13,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
-import { moveRequests } from "@/platform/group/move";
 import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
@@ -33,7 +32,7 @@ const base = Flux.createUpdate<CreateParams>({
       throw new Error("Cannot group items that sit under more than one parent");
     await client.batch.send([
       client.groups.createRequest({ key, name, ...placement(parentID, rootID) }),
-      ...moveRequests(client, top, group.resourceID(key)),
+      ...client.groups.moveRequests(top, group.resourceID(key)),
     ]);
     return data;
   },
