@@ -42,8 +42,8 @@ int start(x::args::Parser &args) {
     // an error.
     auto early_shutdown = std::make_shared<std::atomic<bool>>(false);
     const std::function on_shutdown = [early_shutdown] {
-        x::shutdown::signal_shutdown();
         early_shutdown->store(true);
+        x::shutdown::signal_shutdown();
     };
 
     r.start(args, on_shutdown);
