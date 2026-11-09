@@ -97,7 +97,7 @@ const Info = () => {
         message: `Console ${found.update.version} cannot work with Core ${found.coreVersion}`,
         description:
           "The Console cannot open the workspace of this Core until you update the Core to the same minor version.",
-        confirm: { label: "Update Console", variant: "warning" },
+        confirm: { label: "Update", variant: "warning" },
         title: "Update Console",
       }))
     )

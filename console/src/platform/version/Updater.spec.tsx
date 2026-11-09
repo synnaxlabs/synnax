@@ -12,7 +12,9 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreEmbedded?: boolean } => ({
+  engine: "tauri",
+}));
 
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -47,6 +49,7 @@ const versionOf = (check: Version.Check): string | null =>
 describe("version Provider", () => {
   beforeEach(() => {
     mocks.engine = "tauri";
+    mocks.coreEmbedded = false;
   });
 
   afterEach(async () => {
@@ -73,6 +76,15 @@ describe("version Provider", () => {
     const ipc = mockUpdater({ served: "1.4.0" });
     const { result } = await renderCheck({ coreVersion: null });
     await waitFor(() => expect(result.current).toEqual(NONE));
+    expect(callsOf(ipc, "updater_check")).toHaveLength(0);
+  });
+
+  it("should find a Synnax Desktop update on the docs site without a Core", async () => {
+    mocks.coreEmbedded = true;
+    const ipc = mockUpdater({ served: "1.6.0", latest: "1.5.3" });
+    const { result } = await renderCheck({ coreVersion: null });
+    await waitFor(() => expect(versionOf(result.current)).toBe("1.5.3"));
+    expect(result.current).toMatchObject({ available: { breaking: false } });
     expect(callsOf(ipc, "updater_check")).toHaveLength(0);
   });
 
