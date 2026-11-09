@@ -50,6 +50,7 @@ struct Transport {
     std::shared_ptr<task::CreateClient> task_create;
     std::shared_ptr<task::RetrieveClient> task_retrieve;
     std::shared_ptr<task::DeleteClient> task_delete;
+    std::shared_ptr<task::DispatchClient> task_dispatch;
     std::unique_ptr<device::CreateClient> device_create;
     std::unique_ptr<device::RetrieveClient> device_retrieve;
     std::unique_ptr<device::DeleteClient> device_delete;

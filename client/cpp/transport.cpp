@@ -137,6 +137,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::task::DeleteRequest,
         google::protobuf::Empty,
         grpc::task::TaskDeleteService>>(pool, base_target);
+    this->task_dispatch = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::task::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::task::TaskDispatchService>>(pool, base_target);
     this->device_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::CreateRequest,
         grpc::device::CreateResponse,
@@ -212,6 +216,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     task_create->use(mw);
     task_retrieve->use(mw);
     task_delete->use(mw);
+    task_dispatch->use(mw);
     device_create->use(mw);
     device_retrieve->use(mw);
     device_delete->use(mw);
