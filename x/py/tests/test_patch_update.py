@@ -28,9 +28,9 @@ class SettingsUpdate(TypedDict, total=False):
 
 class Holder(TypedDict, total=False):
     name: str
-    group: str | None
+    group: patch.Change[str]
     settings: patch.Struct[SettingsUpdate, Settings]
-    extra: patch.Struct[SettingsUpdate, Settings] | None
+    extra: patch.Change[patch.Struct[SettingsUpdate, Settings]]
 
 
 HOLDER = TypeAdapter(Holder)

@@ -25,18 +25,29 @@ export type Change<T extends z.ZodType> = z.infer<ReturnType<typeof changeZ<T>>>
 const holdsSet = (value: unknown): boolean =>
   narrow.isObject(value) && Object.hasOwn(value, "set");
 
+/** The schemas of the field that {@link structZ} changes. */
+export interface StructSchemas<U extends z.ZodType, T extends z.ZodType> {
+  /** The schema of a partial of the field. */
+  u: U;
+  /** The schema of the whole field. */
+  t: T;
+}
+
 /**
  * Builds the schema of a change to a struct field of an update: a partial merges into
  * the field, and an object with only a `set` member replaces the field. An optional
- * struct field takes `changeZ(structZ(update, full))`, whose null clears the field.
+ * struct field takes `changeZ(structZ({ u, t }))`, whose null clears the field.
  */
-export const structZ = <U extends z.ZodType, T extends z.ZodType>(update: U, full: T) =>
+export const structZ = <U extends z.ZodType, T extends z.ZodType>({
+  u,
+  t,
+}: StructSchemas<U, T>) =>
   mark(
     z.union([
-      z.strictObject({ set: full }),
-      z.custom<unknown>((v) => !holdsSet(v)).pipe(update),
+      z.strictObject({ set: t }),
+      z.custom<unknown>((v) => !holdsSet(v)).pipe(u),
     ]),
-    { kind: "struct", update, full },
+    { kind: "struct", update: u, full: t },
   );
 export type Struct<U extends z.ZodType, T extends z.ZodType> = z.infer<
   ReturnType<typeof structZ<U, T>>

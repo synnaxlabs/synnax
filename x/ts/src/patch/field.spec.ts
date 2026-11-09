@@ -20,8 +20,8 @@ const settingsUpdateZ = z.object({
 const updateZ = z.object({
   name: patch.changeZ(z.string()).optional(),
   group: patch.changeZ(z.string()).optional(),
-  settings: patch.structZ(settingsUpdateZ, settingsZ).optional(),
-  extra: patch.changeZ(patch.structZ(settingsUpdateZ, settingsZ)).optional(),
+  settings: patch.structZ({ u: settingsUpdateZ, t: settingsZ }).optional(),
+  extra: patch.changeZ(patch.structZ({ u: settingsUpdateZ, t: settingsZ })).optional(),
   tags: patch.valueListZ(z.string()).optional(),
   channels: patch
     .listZ({
