@@ -24,11 +24,11 @@ import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
-import { Secret } from "@/feature/secret";
-import { createSecret } from "@/feature/secret/testutil";
-import { Validity } from "@/feature/secret/validity";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { Secret } from "@/platform/secret";
+import { createSecret } from "@/platform/secret/testutil";
+import { Validity } from "@/platform/secret/validity";
 import {
   awaitGranted,
   createConsoleWrapper,

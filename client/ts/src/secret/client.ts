@@ -92,9 +92,6 @@ const singleQueryZ = z
   ])
   .transform(normalizeSingle);
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
-
 /** The resources that use a secret, keyed by the secret. */
 type Uses = Pick<Base, "key" | "uses">;
 
@@ -141,17 +138,21 @@ export class Client extends query.Retriever<
           await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
         ).map(toUses),
     });
-    // The Core announces no change to uses. The cache handles frames at the same time,
-    // so refetches run one at a time to keep an older reply from overwriting a newer
-    // one. A change that arrives while a refetch waits joins it.
+    // The Core announces no change to uses. Refetches run outside the change stream and
+    // one at a time, so an older reply cannot overwrite a newer one. A change that
+    // arrives while a refetch waits joins it.
     const refetchMu = sync.newMutex({ waiting: false });
-    const refetchUses = async () => {
+    const refetchUses = () => {
       if (refetchMu.waiting) return;
       refetchMu.waiting = true;
-      await refetchMu.runExclusive(async () => {
-        refetchMu.waiting = false;
-        await usesStore.reconcile();
-      });
+      refetchMu
+        .runExclusive(async () => {
+          refetchMu.waiting = false;
+          await usesStore.reconcile();
+        })
+        .catch((exc: unknown) =>
+          cache.onError(new Error("failed to refetch secret uses", { cause: exc })),
+        );
     };
     cfg.usesChannels.forEach((channel) =>
       cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
@@ -180,10 +181,12 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (secret, req) => matches(secret, req.where),
-        // Only the Core knows uses, so a change refetches a query that reads them.
-        serverComputed: (req) => req.includeUses === true || serverComputed(req.where),
-        serverFields: SERVER_FIELDS,
+        // A secret whose uses the client does not hold fetches the query again.
+        matches: (secret, req) =>
+          req.includeUses === true && usesStore.get(secret.key) == null
+            ? null
+            : matches(secret, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         triggers: [usesTrigger],
       },
       compose: (record, q) =>

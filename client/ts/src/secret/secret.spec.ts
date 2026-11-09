@@ -21,6 +21,7 @@ import {
   expectDeleted,
   expectLive,
   holdResponses,
+  spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -173,6 +174,35 @@ describe("Secret", () => {
       }
     });
 
+    it("should page a list that reads uses with a cursor", async () => {
+      const client = createTestClient();
+      const prefix = id.create();
+      for (const i of [0, 1])
+        await client.secrets.create({
+          name: `${prefix}-${i}`,
+          source: "stored",
+          value: "abc",
+        });
+      const send = spyOnSend(client);
+      const list = client.secrets.watch({
+        name: { startsWith: prefix },
+        includeUses: true,
+        limit: 1,
+      });
+      const off = list.onChange(() => {});
+      try {
+        await list.retrieve();
+        const window = await list.more(1);
+        expect(window.records.map(({ uses }) => uses)).toEqual([[], []]);
+        const afters = send.mock.calls
+          .filter(([target]) => target === "/secret/retrieve")
+          .map(([, req]) => (req as { after?: unknown }).after);
+        expect(afters).toEqual([undefined, expect.anything()]);
+      } finally {
+        off();
+      }
+    });
+
     it("should refetch the uses of a secret for a new subscriber", async () => {
       const client = createTestClient();
       await waitForStreamLive(client.connection);
@@ -281,6 +311,38 @@ describe("Secret", () => {
         );
       } finally {
         off();
+      }
+    });
+
+    it("should apply other changes while it refetches uses", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Waiting routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const offUses = client.secrets.watch(q).onChange(() => {});
+      const off = client.secrets.watch(s.key).onChange(() => {});
+      try {
+        await client.secrets.retrieve(q);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Waiting uses" });
+        await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await createTestClient().secrets.rename(s.key, "Renamed routing key");
+        await expect
+          .poll(() => expectLive(client.secrets.watch(s.key).getCached()).name)
+          .toBe("Renamed routing key");
+        held.release();
+      } finally {
+        off();
+        offUses();
       }
     });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/secret/Field.css";
+import "@/platform/secret/Field.css";
 
 import { NotFoundError, secret } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -23,10 +23,10 @@ import { Access, Flux, Secret } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useCreateModal } from "@/feature/secret/useCreateModal";
-import { Validity } from "@/feature/secret/validity";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
+import { useCreateModal } from "@/platform/secret/useCreateModal";
+import { Validity } from "@/platform/secret/validity";
 
 const ListItem = (props: List.ItemRenderProps<secret.Key>): ReactElement | null => {
   const s = List.useItem<secret.Key, secret.Secret>(props.itemKey);
@@ -35,9 +35,7 @@ const ListItem = (props: List.ItemRenderProps<secret.Key>): ReactElement | null 
     <Select.Item {...props} align="center" gap="medium">
       <Icon.Secret className={CSS.BE("secret-field", "icon")} />
       <Flex.Box y empty grow className={CSS.BE("secret-field", "text")}>
-        <Text.Text overflow="fade" weight={450}>
-          {s.name}
-        </Text.Text>
+        <Text.Text overflow="fade">{s.name}</Text.Text>
         <Text.Text level="tiny" color={9} overflow="fade">
           {Validity.describeSecret(s)}
         </Text.Text>
@@ -89,7 +87,6 @@ const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
           <Text.Text
             el="span"
             overflow="fade"
-            weight={450}
             className={CSS.BE("secret-field", "text")}
           >
             {result.data.name}
