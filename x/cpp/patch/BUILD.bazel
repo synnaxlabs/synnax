@@ -12,6 +12,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "patch",
     hdrs = [
+        "change.h",
         "json.gen.h",
         "types.gen.h",
     ],

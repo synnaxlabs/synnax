@@ -1,0 +1,103 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { z } from "zod";
+
+import { narrow } from "@/narrow";
+import { mark } from "@/patch/kind";
+import { listMoveZ } from "@/patch/types.gen";
+import { zod } from "@/zod";
+
+/**
+ * Builds the schema of a change to a scalar field of an update: a value sets the field,
+ * and null clears it. A generated update makes the field optional, and an absent field
+ * does not change.
+ */
+export const changeZ = <T extends z.ZodType>(value: T) =>
+  mark(value.nullable(), { kind: "change", value });
+export type Change<T extends z.ZodType> = z.infer<ReturnType<typeof changeZ<T>>>;
+
+const holdsSet = (value: unknown): boolean =>
+  narrow.isObject(value) && Object.hasOwn(value, "set");
+
+/**
+ * Builds the schema of a change to a struct field of an update: a partial merges into
+ * the field, an object with only a `set` member replaces the field, and null clears
+ * it.
+ */
+export const structZ = <U extends z.ZodType, T extends z.ZodType>(update: U, full: T) =>
+  mark(
+    z
+      .union([
+        z.strictObject({ set: full }),
+        z.custom<unknown>((v) => !holdsSet(v)).pipe(update),
+      ])
+      .nullable(),
+    { kind: "struct", update, full },
+  );
+export type Struct<U extends z.ZodType, T extends z.ZodType> = z.infer<
+  ReturnType<typeof structZ<U, T>>
+>;
+
+/** The schemas of the entries of a list that {@link listZ} changes. */
+export interface ListSchemas<
+  E extends z.ZodType,
+  K extends z.ZodType,
+  U extends z.ZodType,
+> {
+  /** The schema of an entry. */
+  e: E;
+  /** The schema of the key of an entry. */
+  k: K;
+  /** The schema of a partial entry, which holds its key. */
+  u: U;
+}
+
+/**
+ * Builds the schema of the operators that change a list of entries with a key. The
+ * operators apply in the order remove, update, insert, then move, and set replaces the
+ * list alone.
+ */
+export const listZ = <E extends z.ZodType, K extends z.ZodType, U extends z.ZodType>({
+  e,
+  k,
+  u,
+}: ListSchemas<E, K, U>) =>
+  mark(
+    z.strictObject({
+      set: zod.nullToUndefined(e.array()),
+      insert: zod.nullToUndefined(e.array()),
+      remove: zod.nullToUndefined(k.array()),
+      update: zod.nullToUndefined(u.array()),
+      move: zod.nullToUndefined(listMoveZ(k).array()),
+    }),
+    { kind: "list", entry: e, update: u },
+  );
+export type List<
+  E extends z.ZodType,
+  K extends z.ZodType,
+  U extends z.ZodType,
+> = z.infer<ReturnType<typeof listZ<E, K, U>>>;
+
+/**
+ * Builds the schema of the operators that change a list of values that are their own
+ * keys. The operators apply in the order remove, insert, then move, and set replaces
+ * the list alone.
+ */
+export const valueListZ = <E extends z.ZodType>(e: E) =>
+  mark(
+    z.strictObject({
+      set: zod.nullToUndefined(e.array()),
+      insert: zod.nullToUndefined(e.array()),
+      remove: zod.nullToUndefined(e.array()),
+      move: zod.nullToUndefined(listMoveZ(e).array()),
+    }),
+    { kind: "valueList", entry: e },
+  );
+export type ValueList<E extends z.ZodType> = z.infer<ReturnType<typeof valueListZ<E>>>;

@@ -28,6 +28,13 @@ export const guardZ = z.object({
 });
 export interface Guard extends z.infer<typeof guardZ> {}
 
+export const listMoveZ = <K extends z.ZodType>(k: K) =>
+  z.object({
+    key: k,
+    after: k.optional(),
+  });
+export type ListMove<K extends z.ZodType> = z.infer<ReturnType<typeof listMoveZ<K>>>;
+
 /**
  * Set replaces the value at a path. It creates the absent objects on the path, and does
  * nothing when the path goes through a missing list entry.
@@ -99,3 +106,10 @@ export const moveZ = z.object({
   guards: guardZ.array().default(() => []),
 });
 export interface Move extends z.infer<typeof moveZ> {}
+
+export const updateZ = <V extends z.ZodType>(v: V) =>
+  z.object({
+    value: v,
+    guards: guardZ.array().default(() => []),
+  });
+export type Update<V extends z.ZodType> = z.infer<ReturnType<typeof updateZ<V>>>;

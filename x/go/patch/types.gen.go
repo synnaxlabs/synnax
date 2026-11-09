@@ -67,3 +67,51 @@ type Move struct {
 	// Guards are the variant guards for the path.
 	Guards []Guard `json:"guards" msgpack:"guards"`
 }
+
+// ListMove moves an entry of a list after another entry.
+type ListMove[K any] struct {
+	// Key is the key of the entry to move.
+	Key K `json:"key" msgpack:"key"`
+	// After is the key of the entry that the moved entry goes after. The entry goes
+	// first when after is absent or null.
+	After *K `json:"after,omitzero" msgpack:"after,omitempty"`
+}
+
+// List changes a list of entries that have a key. The operators apply in the order
+// remove, update, insert, then move. A key that is missing, or an insert of a key that
+// exists, fails the update.
+type List[E any, K any, U any] struct {
+	// Set replaces the whole list. It cannot hold any other operator.
+	Set []E `json:"set,omitzero" msgpack:"set,omitempty"`
+	// Insert adds entries at the end of the list.
+	Insert []E `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	// Remove removes the entries with these keys.
+	Remove []K `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	// Update merges partial entries into the entries with the same keys.
+	Update []U `json:"update,omitzero" msgpack:"update,omitempty"`
+	// Move moves entries in the order given.
+	Move []ListMove[K] `json:"move,omitzero" msgpack:"move,omitempty"`
+}
+
+// ValueList changes a list of values that are their own keys. The operators apply in
+// the order remove, insert, then move. A value that is missing, or an insert of a value
+// that exists, fails the update.
+type ValueList[E any] struct {
+	// Set replaces the whole list. It cannot hold any other operator.
+	Set []E `json:"set,omitzero" msgpack:"set,omitempty"`
+	// Insert adds values at the end of the list.
+	Insert []E `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	// Remove removes these values.
+	Remove []E `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	// Move moves values in the order given.
+	Move []ListMove[E] `json:"move,omitzero" msgpack:"move,omitempty"`
+}
+
+// Update changes a record by a partial record.
+type Update[V any] struct {
+	// Value is the partial record that the update applies.
+	Value V `json:"value" msgpack:"value"`
+	// Guards are the variant guards that must hold in the stored record before the
+	// update applies.
+	Guards []Guard `json:"guards" msgpack:"guards"`
+}

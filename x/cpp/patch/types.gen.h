@@ -13,6 +13,7 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -34,6 +35,19 @@ struct Guard {
     std::string value;
 
     static Guard parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ListMove moves an entry of a list after another entry.
+template<typename K>
+struct ListMove {
+    /// @brief key is the key of the entry to move.
+    K key;
+    /// @brief after is the key of the entry that the moved entry goes after. The entry
+    /// goes first when after is absent or null.
+    std::optional<K> after;
+
+    static ListMove parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -95,6 +109,57 @@ struct Move {
     std::vector<Guard> guards = {};
 
     static Move parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update changes a record by a partial record.
+template<typename V>
+struct Update {
+    /// @brief value is the partial record that the update applies.
+    V value;
+    /// @brief guards are the variant guards that must hold in the stored record before
+    /// the update applies.
+    std::vector<Guard> guards = {};
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief List changes a list of entries that have a key. The operators apply in the
+/// order remove, update, insert, then move. A key that is missing, or an insert of a
+/// key that exists, fails the update.
+template<typename E, typename K, typename U>
+struct List {
+    /// @brief set replaces the whole list. It cannot hold any other operator.
+    std::optional<std::vector<E>> set;
+    /// @brief insert adds entries at the end of the list.
+    std::optional<std::vector<E>> insert;
+    /// @brief remove removes the entries with these keys.
+    std::optional<std::vector<K>> remove;
+    /// @brief update merges partial entries into the entries with the same keys.
+    std::optional<std::vector<U>> update;
+    /// @brief move moves entries in the order given.
+    std::optional<std::vector<ListMove<K>>> move;
+
+    static List parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ValueList changes a list of values that are their own keys. The operators
+/// apply in the order remove, insert, then move. A value that is missing, or an insert
+/// of a value that exists, fails the update.
+template<typename E>
+struct ValueList {
+    /// @brief set replaces the whole list. It cannot hold any other operator.
+    std::optional<std::vector<E>> set;
+    /// @brief insert adds values at the end of the list.
+    std::optional<std::vector<E>> insert;
+    /// @brief remove removes these values.
+    std::optional<std::vector<E>> remove;
+    /// @brief move moves values in the order given.
+    std::optional<std::vector<ListMove<E>>> move;
+
+    static ValueList parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

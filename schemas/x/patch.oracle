@@ -102,3 +102,84 @@ Move struct {
 
     @doc value "moves an entry in a list. It does nothing when the entry is missing."
 }
+
+ListMove struct<K> {
+    key   K  {
+        @doc value "is the key of the entry to move."
+    }
+    after K? {
+        @doc value """
+            is the key of the entry that the moved entry goes after. The entry goes
+            first when after is absent or null.
+        """
+    }
+
+    @doc value "moves an entry of a list after another entry."
+    @pb omit
+}
+
+List struct<E, K, U> {
+    set    E[]?           {
+        @doc value "replaces the whole list. It cannot hold any other operator."
+    }
+    insert E[]?           {
+        @doc value "adds entries at the end of the list."
+    }
+    remove K[]?           {
+        @doc value "removes the entries with these keys."
+    }
+    update U[]?           {
+        @doc value "merges partial entries into the entries with the same keys."
+    }
+    move   ListMove<K>[]? {
+        @doc value "moves entries in the order given."
+    }
+
+    @doc value  """
+        changes a list of entries that have a key. The operators apply in the order
+        remove, update, insert, then move. A key that is missing, or an insert of a key
+        that exists, fails the update.
+    """
+    @pb omit
+    @ts hand
+    @ts include "x/ts/src/patch/field"
+}
+
+ValueList struct<E> {
+    set    E[]?           {
+        @doc value "replaces the whole list. It cannot hold any other operator."
+    }
+    insert E[]?           {
+        @doc value "adds values at the end of the list."
+    }
+    remove E[]?           {
+        @doc value "removes these values."
+    }
+    move   ListMove<E>[]? {
+        @doc value "moves values in the order given."
+    }
+
+    @doc value  """
+        changes a list of values that are their own keys. The operators apply in the
+        order remove, insert, then move. A value that is missing, or an insert of a
+        value that exists, fails the update.
+    """
+    @pb omit
+    @ts hand
+    @ts include "x/ts/src/patch/field"
+}
+
+Update struct<V> {
+    value  V       {
+        @doc value "is the partial record that the update applies."
+    }
+    guards Guard[] = [] {
+        @doc value """
+            are the variant guards that must hold in the stored record before the update
+            applies.
+        """
+    }
+
+    @doc value "changes a record by a partial record."
+    @pb omit
+}

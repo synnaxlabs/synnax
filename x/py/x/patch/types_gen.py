@@ -11,7 +11,17 @@
 
 from __future__ import annotations
 
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel, Field, JsonValue
+
+K = TypeVar("K")
+
+V = TypeVar("V")
+
+E = TypeVar("E")
+
+U = TypeVar("U")
 
 
 class Guard(BaseModel):
@@ -25,6 +35,19 @@ class Guard(BaseModel):
 
     path: list[str] = Field(default_factory=list)
     value: str
+
+
+class ListMove(BaseModel, Generic[K]):
+    """Moves an entry of a list after another entry.
+
+    Attributes:
+        key: Is the key of the entry to move.
+        after: Is the key of the entry that the moved entry goes after. The entry goes
+            first when after is absent or null.
+    """
+
+    key: K
+    after: K | None = None
 
 
 class Set(BaseModel):
@@ -88,3 +111,54 @@ class Move(BaseModel):
     key: str
     after: str | None = None
     guards: list[Guard] = Field(default_factory=list)
+
+
+class Update(BaseModel, Generic[V]):
+    """Changes a record by a partial record.
+
+    Attributes:
+        value: Is the partial record that the update applies.
+        guards: Are the variant guards that must hold in the stored record before the
+            update applies.
+    """
+
+    value: V
+    guards: list[Guard] = Field(default_factory=list)
+
+
+class List(BaseModel, Generic[E, K, U]):
+    """Changes a list of entries that have a key. The operators apply in the order
+    remove, update, insert, then move. A key that is missing, or an insert of a key that
+    exists, fails the update.
+
+    Attributes:
+        set: Replaces the whole list. It cannot hold any other operator.
+        insert: Adds entries at the end of the list.
+        remove: Removes the entries with these keys.
+        update: Merges partial entries into the entries with the same keys.
+        move: Moves entries in the order given.
+    """
+
+    set: list[E] | None = None
+    insert: list[E] | None = None
+    remove: list[K] | None = None
+    update: list[U] | None = None
+    move: list[ListMove[K]] | None = None
+
+
+class ValueList(BaseModel, Generic[E]):
+    """Changes a list of values that are their own keys. The operators apply in the
+    order remove, insert, then move. A value that is missing, or an insert of a value
+    that exists, fails the update.
+
+    Attributes:
+        set: Replaces the whole list. It cannot hold any other operator.
+        insert: Adds values at the end of the list.
+        remove: Removes these values.
+        move: Moves values in the order given.
+    """
+
+    set: list[E] | None = None
+    insert: list[E] | None = None
+    remove: list[E] | None = None
+    move: list[ListMove[E]] | None = None

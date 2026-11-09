@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -112,6 +113,80 @@ inline x::json::json Move::to_json() const {
     j["path"] = this->path;
     j["key"] = this->key;
     if (this->after.has_value()) j["after"] = *this->after;
+    j["guards"] = x::json::to_array(this->guards);
+    return j;
+}
+
+template<typename K>
+ListMove<K> ListMove<K>::parse(x::json::Parser parser) {
+    return ListMove<K>{
+        .key = parser.field<K>("key"),
+        .after = parser.field<std::optional<K>>("after"),
+    };
+}
+
+template<typename K>
+x::json::json ListMove<K>::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = x::json::to_json(this->key);
+    if (this->after.has_value()) j["after"] = x::json::to_json(*this->after);
+    return j;
+}
+
+template<typename E, typename K, typename U>
+List<E, K, U> List<E, K, U>::parse(x::json::Parser parser) {
+    return List<E, K, U>{
+        .set = parser.field<std::optional<std::vector<E>>>("set"),
+        .insert = parser.field<std::optional<std::vector<E>>>("insert"),
+        .remove = parser.field<std::optional<std::vector<K>>>("remove"),
+        .update = parser.field<std::optional<std::vector<U>>>("update"),
+        .move = parser.field<std::optional<std::vector<ListMove<K>>>>("move"),
+    };
+}
+
+template<typename E, typename K, typename U>
+x::json::json List<E, K, U>::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->set.has_value()) j["set"] = x::json::to_array(*this->set);
+    if (this->insert.has_value()) j["insert"] = x::json::to_array(*this->insert);
+    if (this->remove.has_value()) j["remove"] = x::json::to_array(*this->remove);
+    if (this->update.has_value()) j["update"] = x::json::to_array(*this->update);
+    if (this->move.has_value()) j["move"] = x::json::to_array(*this->move);
+    return j;
+}
+
+template<typename E>
+ValueList<E> ValueList<E>::parse(x::json::Parser parser) {
+    return ValueList<E>{
+        .set = parser.field<std::optional<std::vector<E>>>("set"),
+        .insert = parser.field<std::optional<std::vector<E>>>("insert"),
+        .remove = parser.field<std::optional<std::vector<E>>>("remove"),
+        .move = parser.field<std::optional<std::vector<ListMove<E>>>>("move"),
+    };
+}
+
+template<typename E>
+x::json::json ValueList<E>::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->set.has_value()) j["set"] = x::json::to_array(*this->set);
+    if (this->insert.has_value()) j["insert"] = x::json::to_array(*this->insert);
+    if (this->remove.has_value()) j["remove"] = x::json::to_array(*this->remove);
+    if (this->move.has_value()) j["move"] = x::json::to_array(*this->move);
+    return j;
+}
+
+template<typename V>
+Update<V> Update<V>::parse(x::json::Parser parser) {
+    return Update<V>{
+        .value = parser.field<V>("value"),
+        .guards = parser.field<std::vector<Guard>>("guards", std::vector<Guard>{}),
+    };
+}
+
+template<typename V>
+x::json::json Update<V>::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = x::json::to_json(this->value);
     j["guards"] = x::json::to_array(this->guards);
     return j;
 }
