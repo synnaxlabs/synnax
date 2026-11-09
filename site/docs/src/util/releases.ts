@@ -117,12 +117,11 @@ export const highest = (
   return best?.version ?? null;
 };
 
-/** Lists the trains with a stable release of a product, newest first. */
-export const trains = (releases: Release[], product: Product): string[] => {
-  const newest = new Map<string, number[]>();
+const trains = (releases: Release[], product: Product): string[] => {
+  const orders = new Map<string, number[]>();
   for (const parsed of published(releases, product, "stable"))
-    newest.set(trainOf(parsed), parsed.order);
-  return [...newest].sort(([, a], [, b]) => compare(b, a)).map(([train]) => train);
+    orders.set(trainOf(parsed), parsed.order);
+  return [...orders].sort(([, a], [, b]) => compare(b, a)).map(([train]) => train);
 };
 
 export interface Options {
