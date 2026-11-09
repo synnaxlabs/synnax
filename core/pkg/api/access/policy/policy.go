@@ -12,7 +12,6 @@ package policy
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -97,9 +96,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, rbacpolicy.ResourceID)
 }
 
-// Retrieve returns the policies that req selects and that the subject can retrieve. A
-// request that selects the policies of subjects needs retrieve on each match, so a
-// subject that cannot read its own policies gets an access error, not an empty set.
+// Retrieve returns the policies that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -110,20 +107,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.Where == nil || len(req.Where.Subjects) == 0 {
-		if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).
-			Exec(ctx, snap); err != nil {
-			return RetrieveResponse{}, err
-		}
-		return res, nil
-	}
-	if err = q.Exec(ctx, snap); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = snap.Enforce(lo.Map(
-		res.Policies,
-		func(p rbacpolicy.Policy, _ int) resource.ID { return rbacpolicy.ResourceID(p.Key) },
-	)...); err != nil {
+	if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
