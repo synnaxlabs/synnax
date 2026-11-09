@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -80,7 +81,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.ReadMigration},
+			Migrations:         []gorp.Migration{v2.ReadMigration, v3.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			PatchEntry:         (*ReadConfig).Patch,
 			HashEntry:          (*ReadConfig).HashContent,
