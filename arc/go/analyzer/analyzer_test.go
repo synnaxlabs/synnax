@@ -534,7 +534,7 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
-				"cannot reassign top-level variable 'COUNT'",
+				"cannot reassign a top-level variable",
 			))
 		})
 	})

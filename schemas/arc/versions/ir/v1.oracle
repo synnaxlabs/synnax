@@ -34,8 +34,6 @@ Function struct {
         @doc value "contains channel read/write declarations."
     }
 
-    @go fields  "Symbol *symbol.Symbol `json:\"-\"`"
-    @go imports "github.com/synnaxlabs/arc/symbol"
     @go marshal
 }
 
