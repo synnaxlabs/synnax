@@ -58,7 +58,11 @@ func (f *Float) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case '0':
 		v, err := tok.Float()
 		if err != nil {
-			return err
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot decode a float: %v",
+				err,
+			)
 		}
 		*f = Float(v)
 		return nil
@@ -97,7 +101,7 @@ func (i Integer) MarshalJSONTo(enc *jsontext.Encoder) error {
 func (i *Integer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	n, err := xjson.UnmarshalStringInt64From(dec)
 	if err != nil {
-		return err
+		return errors.Wrapf(validate.ErrValidation, "cannot decode an integer: %v", err)
 	}
 	*i = Integer(n)
 	return nil
@@ -113,7 +117,11 @@ func (u Unsigned) MarshalJSONTo(enc *jsontext.Encoder) error {
 func (u *Unsigned) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	n, err := xjson.UnmarshalStringUint64From(dec)
 	if err != nil {
-		return err
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot decode an unsigned integer: %v",
+			err,
+		)
 	}
 	*u = Unsigned(n)
 	return nil

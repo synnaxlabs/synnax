@@ -12,7 +12,6 @@ package v0_test
 import (
 	"encoding/json/v2"
 	"math"
-	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,6 +55,7 @@ var _ = Describe("Number", func() {
 			Entry("other text", `"inf"`),
 			Entry("boolean", "true"),
 			Entry("null", "null"),
+			Entry("overflow", "1e400"),
 		)
 	})
 
@@ -73,11 +73,15 @@ var _ = Describe("Number", func() {
 			Entry("string", `"9223372036854775807"`, v0.Integer(math.MaxInt64)),
 			Entry("number", "-12", v0.Integer(-12)),
 		)
-		It("Should reject a value out of range", func() {
-			var i v0.Integer
-			Expect(json.Unmarshal([]byte(`"9223372036854775808"`), &i)).
-				To(MatchError(strconv.ErrRange))
-		})
+		DescribeTable("Should reject a value that is not a signed 64-bit integer",
+			func(data string) {
+				var i v0.Integer
+				Expect(json.Unmarshal([]byte(data), &i)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("out of range", `"9223372036854775808"`),
+			Entry("boolean", "true"),
+		)
 	})
 
 	Describe("Unsigned", func() {
@@ -92,7 +96,9 @@ var _ = Describe("Number", func() {
 		})
 		It("Should reject a negative value", func() {
 			var u v0.Unsigned
-			Expect(json.Unmarshal([]byte(`"-1"`), &u)).To(MatchError(strconv.ErrSyntax))
+			Expect(
+				json.Unmarshal([]byte(`"-1"`), &u),
+			).To(MatchError(validate.ErrValidation))
 		})
 	})
 
