@@ -178,10 +178,11 @@ where a group with no committed offset starts:
 | Earliest       | `earliest` | The oldest record that the topic keeps.                         |
 | Committed only | `none`     | Nowhere. The task does not start until the group has an offset. |
 
-Delivery is at least once, so a restart can read a record again. Right after a start,
-the task skips records with a timestamp at or before the last one in the index channel.
-On a topic with more than one partition, a replayed record that arrives after a newer
-one follows the rules in [timestamps](#timestamps), so it can be written again.
+Delivery is at least once, so a restart or a rebalance of the group can read a record
+again. After the task starts, and after the group assigns it partitions, it skips
+records with a timestamp at or before the last one in the index channel. On a topic with
+more than one partition, a replayed record that arrives after a newer one follows the
+rules in [timestamps](#timestamps), so it can be written again.
 
 <Divider.Divider x />
 
