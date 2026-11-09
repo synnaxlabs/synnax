@@ -29,7 +29,8 @@ import (
 // (including the originator, which skips its own echo) applies it.
 //
 // When the transaction of w commits, the Arc's task config gets a debounced rewrite, so
-// a burst of edits produces one rewrite instead of one per edit.
+// a burst of edits produces one rewrite instead of one per edit. A text edit moves the
+// Arc's last edit time only when the transaction commits.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var sweep []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
@@ -60,14 +61,17 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 					return a, err
 				}
 			}
-			// A rolled back edit stays recorded. That only delays a sweep, and the
-			// next dispatch must not sweep before the edit that this one commits.
-			if containsTextEdit(acts) {
-				w.sweeper.recordEdit(key)
-			}
 			return a, nil
 		}).Exec(ctx, w.tx); err != nil {
 		return err
+	}
+	// The edit time moves before the lock releases, so a later transaction cannot sweep
+	// the characters that this one deletes.
+	if containsTextEdit(acts) {
+		gorp.BeforeCommit(w.tx, func(context.Context) error {
+			w.sweeper.recordEdit(key)
+			return nil
+		})
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	if len(sweep) > 0 {

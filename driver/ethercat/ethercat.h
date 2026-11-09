@@ -35,9 +35,6 @@ const std::string WRITE_TASK_TYPE = "ethercat_write";
 /// @brief task type for scan tasks.
 const std::string SCAN_TASK_TYPE = "ethercat_scan";
 
-/// @brief creates the default manager for the current platform.
-std::unique_ptr<master::Manager> default_manager();
-
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
@@ -96,13 +93,6 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override;
-
-    /// @brief checks if a master has an active engine.
-    [[nodiscard]] bool is_interface_active(const std::string &key) const;
-
-    /// @brief returns cached slaves for a master.
-    [[nodiscard]] std::vector<slave::Properties>
-    get_cached_slaves(const std::string &key) const;
 };
 
 }

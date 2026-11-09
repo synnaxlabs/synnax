@@ -15,7 +15,9 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.util import request_where, returns_one, sole
 from synnax.view.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Type,
@@ -144,7 +146,8 @@ class Client:
         types: list[Type] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[View]: ...
 
@@ -156,7 +159,8 @@ class Client:
         types: list[Type] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> View | list[View]:
@@ -176,16 +180,18 @@ class Client:
         :param types: Keeps views of one of these types.
         :param search_term: A fuzzy search term matched against view names.
         :param limit: The maximum number of views to retrieve.
-        :param offset: The number of views to skip.
+        :param order: The order of the views. Defaults to key order.
+        :param after: Retrieves the views past this position in the order: the key of
+            the last view of the page before, and its value of the order field.
         :param one: Returns one view for any filter.
         :returns: One view for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of views. The list leaves out keys that do not exist.
         :raises NotFoundError: If one view is wanted and none matches.
         :raises MultipleFoundError: If one view is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one view is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             type=None if types is None else filter.Set[Type](in_=types),
@@ -194,7 +200,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/view/retrieve", req, RetrieveResponse)
         return sole("view", req, res.views) if single else res.views

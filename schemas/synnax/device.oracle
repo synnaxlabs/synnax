@@ -11,6 +11,7 @@ import "schemas/synnax/group"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/device"
 @go output  "core/pkg/service/legacy/device"
@@ -88,6 +89,7 @@ Device struct<
     name       string     {
         @doc value         "is a human-readable name for the device."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -122,6 +124,43 @@ Device struct<
         @ref acyclic
         @ref kind      place
         @ref on_delete cascade
+    }
+
+    action Create {
+        device Device
+
+        @doc value """
+            replaces the device with the given created state. Emitted by the Core when a
+            device is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the device."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the device.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the device."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the device."
+    }
+
+    action SetRack {
+        rack   rack.Key
+        parent Key?
+
+        @doc value """
+            moves the device to a rack, under parent when it is set, or directly on the
+            rack when it is empty. The device leaves its group.
+        """
     }
 
     @create
