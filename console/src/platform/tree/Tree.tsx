@@ -81,10 +81,7 @@ const MoreItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     (handler) => store.subscribeKey(handler, itemKey),
     () => store.isLoading(itemKey),
   );
-  const handleMore = () => {
-    const folder = store.getParent(itemKey);
-    if (folder != null) store.more(folder);
-  };
+  const handleMore = () => store.more(itemKey);
   return (
     <Base.Item
       {...rest}
