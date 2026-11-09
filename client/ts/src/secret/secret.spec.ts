@@ -22,7 +22,7 @@ import {
   waitForStreamLive,
 } from "@/testutil";
 
-const { pem: PEM, privateKey: PRIVATE_KEY } = CERTIFICATE;
+const { pem: PEM, privateKeyPem: PRIVATE_KEY } = CERTIFICATE;
 
 describe("Secret", () => {
   describe("create", () => {
