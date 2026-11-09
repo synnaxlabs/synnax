@@ -1252,6 +1252,6 @@ var _ = Describe("Source limits", func() {
 		src := "func f() f64 { return " + strings.Repeat("(", n) + "1.0" +
 			strings.Repeat(")", n) + " }"
 		Expect(arc.CompileText(ctx, arc.Text{Raw: src}, root())).Error().
-			To(MatchError(ContainSubstring("nesting is deeper than the limit")))
+			To(MatchError(ContainSubstring("nesting is deeper than the parser allows")))
 	})
 })

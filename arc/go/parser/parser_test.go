@@ -11,6 +11,7 @@ package parser_test
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -2441,33 +2442,42 @@ func allStageDecls(
 }
 
 var _ = Describe("Limits", func() {
-	const tooDeep = "nesting is deeper than the limit"
+	const tooDeep = "nesting is deeper than the parser allows"
 	nested := func(open, close string, n int) string {
 		return strings.Repeat(open, n) + "1" + strings.Repeat(close, n)
 	}
-	DescribeTable("Should return a diagnostic past MaxDepth", func(src string) {
+	DescribeTable("Should return a diagnostic for deep nesting", func(src string) {
 		Expect(parser.ParseExpression(src)).Error().
 			To(MatchError(ContainSubstring(tooDeep)))
 	},
 		Entry("parentheses", nested("(", ")", 100_000)),
-		Entry("brackets", "x"+nested("[", "]", parser.MaxDepth+1)),
-		Entry("unary minus", strings.Repeat("-", parser.MaxDepth+1)+"1"),
-		Entry("not", strings.Repeat("not ", parser.MaxDepth+1)+"true"),
-		Entry("power", strings.Repeat("2^", parser.MaxDepth+1)+"2"),
-		Entry("unmatched closers first", ")"+nested("(", ")", parser.MaxDepth+1)),
+		Entry("brackets", "x"+nested("[", "]", 1_000)),
+		Entry("unary minus", strings.Repeat("-", 100_000)+"1"),
+		Entry("not", strings.Repeat("not ", 100_000)+"true"),
+		Entry("power", strings.Repeat("2^", 100_000)+"2"),
+		Entry("casts after unary minus", strings.Repeat("-f64(", 100_000)+"1"),
 	)
 
-	It("Should return a diagnostic for deep blocks", func() {
-		src := "func f() " + strings.Repeat("{", 100_000) +
-			strings.Repeat("}", 100_000)
+	DescribeTable("Should return a diagnostic for a deep program", func(src string) {
 		Expect(parser.Parse(src)).Error().To(MatchError(ContainSubstring(tooDeep)))
+	},
+		Entry(
+			"blocks",
+			"func f() {"+strings.Repeat("if x {", 10_000)+strings.Repeat("}", 10_001),
+		),
+	)
+
+	It("Should return a diagnostic, not a crash, for stray closers", func() {
+		src := "func f() f64 { return " + strings.Repeat("x((x])", 10_000) + " }"
+		Expect(parser.Parse(src)).Error().
+			To(MatchError(ContainSubstring("extraneous input ']'")))
 	})
 
 	DescribeTable("Should parse source within the limits", func(src string) {
 		MustSucceed(parser.ParseExpression(src))
 	},
-		Entry("parentheses at MaxDepth", nested("(", ")", parser.MaxDepth)),
-		Entry("unary minus at MaxDepth", strings.Repeat("-", parser.MaxDepth)+"1"),
+		Entry("100 levels of parentheses", nested("(", ")", 100)),
+		Entry("100 unary minus", strings.Repeat("-", 100)+"1"),
 		Entry("a long chain of binary operators", strings.Repeat("1 - ", 10_000)+"1"),
 	)
 
@@ -2476,3 +2486,19 @@ var _ = Describe("Limits", func() {
 			To(MatchError(ContainSubstring("more than the limit")))
 	})
 })
+
+func BenchmarkParse(b *testing.B) {
+	src := strings.Repeat(`
+		func control() {in f64} f64 {
+			if in > 10.0 and not (in < 0.0) {
+				return -(in * 2.0 + 1.0) ^ 2.0
+			}
+			return in
+		}
+	`, 50)
+	for b.Loop() {
+		if _, diag := parser.Parse(src); diag != nil {
+			b.Fatal(diag)
+		}
+	}
+}
