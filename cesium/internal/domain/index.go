@@ -250,18 +250,25 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-// next returns the domain after the one that starts at start, and its position. It
-// finds both under one lock, so a concurrent insert cannot shift one off the other.
-func (idx *index) next(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+// next returns the first domain that starts at or after end, the end of the current
+// domain, and its position. It finds both under one lock, so a concurrent insert
+// cannot shift one off the other. A delete can trim the start of the current domain but
+// not its end.
+func (idx *index) next(end telem.TimeStamp) (i int, ptr pointer, ok bool) {
 	idx.read(func() {
-		i, _ = idx.unprotectedSearch(start.SpanRange(0))
-		i++
+		var exact bool
+		i, exact = idx.unprotectedSearch(end.SpanRange(0))
+		if !exact || idx.mu.pointers[i].Start != end {
+			i++
+		}
 		ptr, ok = idx.unprotectedGet(i)
 	})
 	return i, ptr, ok
 }
 
-// prev is next for the domain before the one that starts at start.
+// prev returns the last domain that starts before start, the start of the current
+// domain, and its position. A delete can trim the end of the current domain but not its
+// start.
 func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
 	idx.read(func() {
 		var exact bool
