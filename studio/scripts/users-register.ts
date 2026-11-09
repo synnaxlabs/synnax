@@ -71,8 +71,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(drawer.getByText("Operator", { exact: true }).first(), {
       text: true,
     });
-    // Tree entries show the username, not the full name.
-    const created = drawer.getByText("grace", { exact: true }).first();
+    const created = drawer.getByText("Grace Hopper", { exact: true }).first();
     await session.waitFor(created);
     // Park clear of the component buttons, so none shows a hover state.
     await session.moveTo({ x: 1300, y: 780 });
