@@ -55,20 +55,20 @@ describe("license", () => {
 
   describe("cache", () => {
     it("should cache nothing before the first read", () => {
-      expect(createClient(ACTIVATED).getCached()).toBeUndefined();
+      expect(createClient(ACTIVATED).watch().getCached()).toBeUndefined();
     });
 
     it("should cache the license a read returns", async () => {
       const licenses = createClient(ACTIVATED);
       const info = await licenses.retrieve();
       expect(info).toEqual(ACTIVATED);
-      expect(licenses.getCached()).toEqual(ACTIVATED);
+      expect(licenses.watch().getCached()).toEqual(ACTIVATED);
     });
 
     it("should cache an activated license", async () => {
       const licenses = createClient(ACTIVATED);
       await licenses.activate("key");
-      expect(licenses.getCached()).toEqual(ACTIVATED);
+      expect(licenses.watch().getCached()).toEqual(ACTIVATED);
     });
 
     it("should cache the state a deactivation returns", async () => {
@@ -79,13 +79,13 @@ describe("license", () => {
       };
       const licenses = createClient(missing);
       await licenses.deactivate("8f0f3c52-4c6a-4d6c-9a33-2e4b6a1f7d10");
-      expect(licenses.getCached()).toEqual(missing);
+      expect(licenses.watch().getCached()).toEqual(missing);
     });
 
     it("should notify subscribers of an activated license", async () => {
       const licenses = createClient(ACTIVATED);
       const handler = vi.fn();
-      const disconnect = licenses.onChange(handler);
+      const disconnect = licenses.watch().onChange(handler);
       await licenses.activate("key");
       expect(handler).toHaveBeenCalledWith(ACTIVATED);
       disconnect();

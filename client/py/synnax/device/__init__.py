@@ -11,8 +11,10 @@ from synnax.device.client import Client
 from synnax.device.properties import ensure_object
 from synnax.device.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Device,
     Key,
+    Order,
     Status,
     StatusDetails,
     Where,
@@ -23,8 +25,10 @@ from synnax.device.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Device",
     "Key",
+    "Order",
     "Status",
     "StatusDetails",
     "Where",

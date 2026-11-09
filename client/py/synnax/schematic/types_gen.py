@@ -44,6 +44,11 @@ PAGE_TYPE_TABLE: Literal["table"] = "table"
 
 PageType = Literal["schematic", "lineplot", "log", "table"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 COMPONENT_SIZE_TINY: Literal["tiny"] = "tiny"
 
 COMPONENT_SIZE_SMALL: Literal["small"] = "small"
@@ -219,6 +224,18 @@ class ScaledConfig(BaseModel):
     scale: float = 1
 
 
+class Order(BaseModel):
+    """Is a sort of schematics.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Where(BaseModel):
     """Is a filter that selects schematics.
 
@@ -269,6 +286,19 @@ WhereInput = TypedDict(
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of schematics: the sort value and the key of a
+    schematic.
+
+    Attributes:
+        key: Is the key of the schematic at the position.
+        name: Is the name of the schematic at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class Edge(BaseModel):
@@ -350,16 +380,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the schematics to retrieve. An absent where selects all of them.
         search_term: Keeps the schematics that match the term, closest match first.
+        order: Sorts the schematics. An absent order sorts them by key.
+        after: Starts the schematics strictly past this position in their order.
         limit: Is the most schematics to return.
-        offset: Is the number of matching schematics to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):

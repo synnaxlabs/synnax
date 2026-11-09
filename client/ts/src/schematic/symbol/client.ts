@@ -28,7 +28,13 @@ import {
   type Symbol,
   symbolZ,
 } from "@/schematic/symbol/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -89,6 +95,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       name: "schematic symbol",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (sym, req) => matches(group.MEMBER_LINES, sym, req.where),

@@ -14,6 +14,7 @@ import { type destructor, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
+import { type Draft } from "@/platform/tree/store";
 import { type Session } from "@/session";
 
 /** A record that a tree shows: its resource ID and name, and the record itself. */
@@ -27,10 +28,13 @@ export interface GetResource {
 }
 
 export interface TreeState {
-  nodes: Tree.Node[];
   shape: Tree.Shape;
-  setNodes: (nodes: Tree.Node[]) => void;
-  setResource: (resource: Resource | Resource[]) => void;
+  /** Returns the shown children of an open node, or undefined. */
+  getChildren: (key: string) => string[] | undefined;
+  /** Returns the key of the node's parent, or undefined for a node not shown. */
+  getParent: (key: string) => string | undefined;
+  /** Shows the draft until the returned function ends it. */
+  addDraft: (draft: Draft) => destructor.Destructor;
   getResource: GetResource;
   /** Calls the handler when the resource with the given key changes. */
   subscribeResource: (handler: () => void, key: string) => destructor.Destructor;

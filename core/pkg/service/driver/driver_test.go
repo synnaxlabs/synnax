@@ -1970,6 +1970,91 @@ var _ = Describe("Driver", func() {
 			Expect(driver.Close()).To(Succeed())
 			Expect(driver.Close()).To(Succeed())
 		})
+
+		DescribeTable(
+			"should stop a task that a start in flight deploys",
+			func(ctx SpecContext, redeploy bool) {
+				var (
+					other, target = uuid.New(), uuid.New()
+					started       = make(chan task.Key, 1)
+					otherStopped  = make(chan struct{})
+					deploying     = make(chan struct{})
+					released      = make(chan struct{})
+					deployedStop  = make(chan bool, 1)
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						inFlight := t.ConfigHash == "in-flight"
+						if inFlight {
+							close(deploying)
+							<-released
+						}
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(context.Context, task.Command) error {
+								started <- t.Key
+								return nil
+							},
+							stopFunc: func(sendStatus bool) error {
+								switch {
+								case inFlight:
+									deployedStop <- sendStatus
+								case t.Key == other:
+									close(otherStopped)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				d := openDriver(ctx, factory)
+				var releaseOnce sync.Once
+				release := func() { releaseOnce.Do(func() { close(released) }) }
+				DeferCleanup(release)
+				rackKey := embeddedRackKey(ctx)
+				create := func(key task.Key, hash string) task.Task {
+					t := newTask(rackKey)
+					t.Key, t.ConfigHash = key, hash
+					createTask(ctx, t)
+					return t
+				}
+				start := func(key task.Key) {
+					writeCommand(
+						ctx,
+						task.Command{Task: key, Type: "start", Key: "cmd"},
+					)
+				}
+				create(other, "")
+				start(other)
+				Eventually(started).Should(Receive(Equal(other)))
+				if redeploy {
+					t := create(target, "deployed")
+					start(target)
+					Eventually(started).Should(Receive(Equal(target)))
+					t.ConfigHash = "in-flight"
+					Expect(
+						gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db),
+					).
+						To(Succeed())
+				} else {
+					create(target, "in-flight")
+				}
+				start(target)
+				Eventually(deploying).Should(BeClosed())
+				closed := make(chan error, 1)
+				go func() { closed <- d.Close() }()
+				Consistently(otherStopped).ShouldNot(BeClosed())
+				release()
+				Eventually(closed).Should(Receive(BeNil()))
+				Expect(deployedStop).To(Receive(BeTrue()))
+			},
+			Entry("new task", false),
+			Entry("task whose config changed", true),
+		)
 	})
 
 	Describe("Heartbeat", func() {
