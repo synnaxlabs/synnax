@@ -21,7 +21,9 @@ import (
 // NotExportedError is returned when a user module holds the member but does not
 // export it.
 type NotExportedError struct {
-	Name   string
+	// Name is the member that the module does not export.
+	Name string
+	// Module is the import path of the module that holds the member.
 	Module string
 }
 
