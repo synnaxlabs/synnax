@@ -12,14 +12,15 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { role } from "@/access/role";
 import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * User is an account entity representing a person accessing the Synnax system. Users
- * can have roles assigned for permission management.
+ * User is an account entity representing a person accessing the Synnax system. Each
+ * user holds one role, which grants its permissions.
  */
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
@@ -31,6 +32,8 @@ export const userZ = z.object({
    * cannot be deleted.
    */
   rootUser: z.boolean().default(false),
+  /** role is the role that grants the user its permissions. */
+  role: role.keyZ.min(1, "role is required"),
 });
 export interface User extends z.infer<typeof userZ> {}
 
@@ -41,6 +44,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   usernames?: string[];
+  roles?: role.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -59,6 +63,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** usernames matches the users whose password has any of the given usernames. */
   usernames: zod.nullToUndefined(z.string().array()),
+  /** roles matches the users that hold any of the given roles. */
+  roles: zod.nullToUndefined(role.keyZ.array()),
 });
 
 export const newZ = userZ

@@ -94,19 +94,6 @@ func typeTakenError(kind, typ string) error {
 	return errors.Wrapf(ErrTypeTaken, "%s for type %q", kind, typ)
 }
 
-// ImporterType returns the ontology resource type created by the Importer registered
-// under t. It returns a validation error scoped to the "type" field when no importer is
-// registered for t.
-func (s *Service) ImporterType(t string) (resource.Type, error) {
-	s.mu.RLock()
-	imp, ok := s.importers[t]
-	s.mu.RUnlock()
-	if !ok {
-		return "", notFoundError(t, "importer")
-	}
-	return imp.Type(), nil
-}
-
 func notFoundError[T ~string](typ T, kind string) error {
 	return validate.PathedError(
 		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, typ),
@@ -143,18 +130,15 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 
 // Import routes envelope to its Importer, persists it on tx, and returns the created
 // resource's ID. The opts.FileName fallback is applied before routing; opts then
-// reaches the importer untouched. It returns a validation error scoped to "parent" when
-// opts.Parent is zero, to "type" when nothing is registered, and to "name" when the
-// envelope is still nameless after the fallback.
+// reaches the importer untouched. It returns a validation error scoped to "type" when
+// nothing is registered, and to "name" when the envelope is still nameless after the
+// fallback.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
 	opts ImportOptions,
 ) (resource.ID, error) {
-	if opts.Parent.IsZero() {
-		return resource.ID{}, validate.PathedError(validate.ErrRequired, "parent")
-	}
 	if envelope.Type == "" {
 		typ, err := s.ResolveType(envelope)
 		if err != nil {
@@ -181,10 +165,12 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// Export routes resource to its Exporter and returns the resulting envelope. It returns
-// a validation error scoped to the "type" field when no Exporter is registered.
+// Export routes resource to its Exporter, which reads it from snap, and returns the
+// resulting envelope. It returns a validation error scoped to the "type" field when no
+// Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	resource resource.ID,
 ) (Envelope, error) {
 	s.mu.RLock()
@@ -193,7 +179,7 @@ func (s *Service) Export(
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	env, err := exporter.Export(ctx, resource)
+	env, err := exporter.Export(ctx, snap, resource)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "export resource")
 	}

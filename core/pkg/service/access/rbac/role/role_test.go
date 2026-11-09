@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -29,10 +28,9 @@ var _ = Describe("Writer", func() {
 		w  role.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
 		It("Should reject a role with an empty name", func(ctx SpecContext) {
@@ -58,39 +56,6 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(key))
-		})
-
-		It("Should define role in ontology", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "engineer",
-				Description: "Engineering role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.ID.Key).To(Equal(r.Key.String()))
-			Expect(res.Name).To(Equal(r.Name))
-		})
-
-		It("Should create relationship to Users group", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "operator",
-				Description: "Operator role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(r.ResourceID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes("group").
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).ToNot(BeEmpty())
 		})
 
 		It(
@@ -161,11 +126,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(roles[0].Key)).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -180,11 +144,10 @@ var _ = Describe("Writer", func() {
 				Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
 				var retrieved role.Role
-				err := svc.NewRetrieve().
+				Expect(svc.NewRetrieve().
 					Where(role.MatchKeys(r.Key)).
 					Entry(&retrieved).
-					Exec(ctx, tx)
-				Expect(err).To(MatchError(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -205,98 +168,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
-
-	Describe("AssignRole", func() {
-		var (
-			r       *role.Role
-			subject resource.ID
-		)
-		BeforeEach(func(ctx SpecContext) {
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = resource.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
-		})
-
-		It("Should assign role to subject", func(ctx SpecContext) {
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				ExcludeFieldData(true).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Key).To(Equal(r.Key.String()))
-		})
-
-		It("Should be idempotent", func(ctx SpecContext) {
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				ExcludeFieldData(true).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-		})
-	})
-
-	Describe("UnassignRole", func() {
-		var (
-			r       *role.Role
-			subject resource.ID
-		)
-		BeforeEach(func(ctx SpecContext) {
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			subject = resource.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
-			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
-		})
-
-		It("Should unassign role from subject", func(ctx SpecContext) {
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(BeEmpty())
-		})
-
-		It("Should be idempotent", func(ctx SpecContext) {
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-			Expect(w.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(subject).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(resource.TypeRole).
-				Entries(&parents).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).To(BeEmpty())
-		})
-	})
 })
 
 var _ = Describe("Retrieve", func() {
@@ -306,7 +177,7 @@ var _ = Describe("Retrieve", func() {
 		roles []role.Role
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
 			{Name: "admin", Description: "Administrator"},
@@ -317,7 +188,6 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.Create(ctx, &roles[i])).To(Succeed())
 		}
 	})
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
 		It("Should retrieve a single role by key", func(ctx SpecContext) {
@@ -341,11 +211,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchKeys(uuid.New())).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -361,11 +230,10 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should return error when name not found", func(ctx SpecContext) {
 			var r role.Role
-			err := svc.NewRetrieve().
+			Expect(svc.NewRetrieve().
 				Where(role.MatchNames("nonexistent")).
 				Entry(&r).
-				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -444,14 +312,15 @@ var _ = Describe("Retrieve", func() {
 
 var _ = Describe("Search", func() {
 	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
-		w := svc.NewWriter(nil, true)
 		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
-		Expect(w.Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx, true).Create(ctx, &r)
+		})).To(Succeed())
 		var rs []role.Role
 		Expect(svc.NewRetrieve().
 			Search("quasar").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
 
@@ -460,50 +329,14 @@ var _ = Describe("Search", func() {
 		Expect(svc.NewRetrieve().
 			Search("zzz-no-such-role").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(BeEmpty())
 	})
 })
 
-var _ = Describe("Ontology Integration", func() {
+var _ = Describe("Resources", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
-
-	Describe("Type", func() {
-		It("Should return correct ontology type", func(ctx SpecContext) {
-			Expect(svc.Type()).To(Equal(resource.TypeRole))
-		})
-	})
-
-	Describe("RetrieveResource", func() {
-		It("Should retrieve a role as an ontology resource", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, true)
-			r := &role.Role{
-				Name:        "resource-test",
-				Description: "Resource test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			res := MustSucceed(svc.RetrieveResource(ctx, r.Key.String(), tx))
-			Expect(res.ID.Key).To(Equal(r.Key.String()))
-			Expect(res.Name).To(Equal(r.Name))
-		})
-
-		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, "invalid-uuid", tx),
-			).Error().
-				To(MatchError("invalid uuid"))
-		})
-
-		It("Should return error for non-existent role", func(ctx SpecContext) {
-			Expect(
-				svc.RetrieveResource(ctx, uuid.New().String(), tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
+	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Search", func() {
 		It(
@@ -515,10 +348,25 @@ var _ = Describe("Ontology Integration", func() {
 				}
 				Expect(svc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
 				q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{r.ResourceID()}))
 			},
 		)
+	})
+
+	Describe("ResourceIDs", func() {
+		It("Should return an empty slice when given no keys", func() {
+			Expect(role.ResourceIDs(nil)).To(BeEmpty())
+			Expect(role.ResourceIDs([]role.Key{})).To(BeEmpty())
+		})
+
+		It("Should map each key to its role resource ID in order", func() {
+			keys := []role.Key{uuid.New(), uuid.New()}
+			Expect(role.ResourceIDs(keys)).To(Equal([]resource.ID{
+				{Type: resource.TypeRole, Key: keys[0].String()},
+				{Type: resource.TypeRole, Key: keys[1].String()},
+			}))
+		})
 	})
 
 	Describe("ResourceIDsFromRoles", func() {

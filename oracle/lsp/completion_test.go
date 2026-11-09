@@ -11,6 +11,7 @@ package lsp_test
 
 import (
 	"context"
+	"log"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,8 @@ func serve() protocol.Server {
 	GinkgoHelper()
 	serverSide, clientSide := net.Pipe()
 	served := make(chan error, 1)
-	go func() { served <- lsp.New().Serve(context.Background(), serverSide) }()
+	logger := log.New(GinkgoWriter, "", 0)
+	go func() { served <- lsp.New(logger).Serve(context.Background(), serverSide) }()
 	_, conn, server := protocol.NewClient(
 		context.Background(),
 		&MockClient{},
@@ -202,7 +204,7 @@ var _ = Describe("Completion", func() {
 
 var _ = Describe("Initialize", func() {
 	It("should return server capabilities", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		result := MustSucceed(server.Initialize(
 			context.Background(),
 			&protocol.InitializeParams{},
@@ -216,7 +218,7 @@ var _ = Describe("Initialize", func() {
 
 var _ = Describe("Initialized", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Initialized(
 			context.Background(),
 			&protocol.InitializedParams{},
@@ -226,7 +228,7 @@ var _ = Describe("Initialized", func() {
 
 var _ = Describe("Shutdown", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Shutdown(context.Background())).To(Succeed())
 	})
 })

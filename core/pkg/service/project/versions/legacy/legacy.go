@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
@@ -181,13 +182,13 @@ type mosaicTab struct {
 }
 
 // CreatePanels recreates layoutData's tiling as panels on tx, one per window whose tabs
-// resolve through refs, main window first, each parented under parent. Best-effort: an
-// unrecognized tiling shape creates no panels instead of failing.
+// resolve through refs, main window first, each owned by the project proj. Best-effort:
+// an unrecognized tiling shape creates no panels instead of failing.
 func CreatePanels(
 	ctx context.Context,
 	tx gorp.Tx,
 	svc *panel.Service,
-	parent resource.ID,
+	proj project.Key,
 	layoutData []byte,
 	refs map[string]resource.ID,
 ) error {
@@ -195,9 +196,11 @@ func CreatePanels(
 	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return nil
 	}
-	var slice layoutSlice
 	// The slice only names panels, so a failed decode falls back to window keys.
-	_ = imex.Codec.Decode(ctx, layoutData, &slice)
+	var slice layoutSlice
+	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+		slice = layoutSlice{}
+	}
 	writer := svc.NewWriter(tx)
 	for _, windowKey := range sortedWindowKeys(t.Mosaics) {
 		root := convertNode(t.Mosaics[windowKey].Root, refs)
@@ -205,9 +208,9 @@ func CreatePanels(
 			continue
 		}
 		p := panel.Panel{
-			Name:   panelName(slice.Layouts, windowKey),
-			Root:   *root,
-			Parent: &parent,
+			Name:    panelName(slice.Layouts, windowKey),
+			Root:    *root,
+			Project: &proj,
 		}
 		if err := writer.Create(ctx, &p); err != nil {
 			return errors.Wrap(err, LayoutFileName)
@@ -280,25 +283,6 @@ func convertNode(n *mosaicNode, refs map[string]resource.ID) *panel.Node {
 		return nil
 	}
 	return &panel.Node{Variant: panel.LeafNode{Tabs: tabs}}
-}
-
-// HasPanels reports whether layoutData's tiling would convert to at least one panel, so
-// callers can enforce access before any import work.
-func HasPanels(ctx context.Context, layoutData []byte, members []Member) bool {
-	var t tiling
-	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
-		return false
-	}
-	refs := make(map[string]resource.ID, len(members))
-	for _, m := range members {
-		refs[m.LayoutKey] = resource.ID{}
-	}
-	for _, m := range t.Mosaics {
-		if convertNode(m.Root, refs) != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func convertDirection(d string) spatial.Direction {

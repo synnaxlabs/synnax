@@ -74,9 +74,10 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Entries(es *[]Foo) Retrieve",
 							"func (r Retrieve) Limit(limit int) Retrieve",
 							"func (r Retrieve) Offset(offset int) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
-							"func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error)",
-							"func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error)",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
+							"return r.gorp.Exec(ctx, snap)",
+							"func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error)",
+							"func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error)",
 						).
 						ToNotContain(
 							"Search(",
@@ -283,8 +284,31 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 				Entry("filter", "@filter", "matcher"),
 				Entry("index", "@index lookup", "index"),
+				Entry("ref", "@ref on_delete restrict", "index"),
 				Entry("search", "@search", "index"),
 			)
+
+			It("Should reject a @ref on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						owner uuid @ref on_delete restrict
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"view.View: @ref is not supported on union fields (owner)",
+				)))
+			})
 		})
 
 		Context("inherited key", func() {
@@ -819,7 +843,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func MatchKeys(keys ...uint32) Filter",
 							"func (r Retrieve) Entry(e *Rack) Retrieve",
 							"func (r Retrieve) Entries(es *[]Rack) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
 							"func (r Retrieve) Search(term string) Retrieve",
 						).
 						ToNotContain("type Retrieve struct")
@@ -1208,7 +1232,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\"context\"", "/gorp\"").
-						ToNotContain("service/search", "service/ontology")
+						ToNotContain("service/search", "service/resource")
 				},
 			)
 		})

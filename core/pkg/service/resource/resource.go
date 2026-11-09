@@ -10,9 +10,12 @@
 package resource
 
 import (
+	"context"
 	"strings"
+	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -39,12 +42,33 @@ func ParseID(key string) (ID, error) {
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
 
-// ParseIDs parses the given keys into IDs.
-func ParseIDs(keys []string) ([]ID, error) {
-	return lo.MapErr(keys, func(key string, _ int) (ID, error) { return ParseID(key) })
+// ParseUUIDKey parses the key of id as a UUID. A malformed key is a validation error.
+func ParseUUIDKey(id ID) (uuid.UUID, error) {
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return uuid.Nil(), errors.Wrapf(
+			validate.ErrValidation,
+			"invalid %s key %q",
+			id.Type,
+			id.Key,
+		)
+	}
+	return key, nil
 }
 
-// IDsToKeys converts a slice of IDs to a slice of their string representations.
-func IDsToKeys(ids []ID) []string {
-	return lo.Map(ids, func(id ID, _ int) string { return id.String() })
+// Dependents returns the ID of every record that references the entry of table with
+// key, as seen by snap. It blocks and fails as gorp.Table.Dependents does.
+func Dependents[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	snap gorp.Snapshot,
+	table *gorp.Table[K, E],
+	key K,
+) ([]ID, error) {
+	deps, err := table.Dependents(ctx, snap, key)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(deps, func(d gorp.Target, _ int) ID {
+		return ID{Type: Type(d.Table), Key: d.Key}
+	}), nil
 }

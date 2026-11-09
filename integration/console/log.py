@@ -9,8 +9,7 @@
 
 import re
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient

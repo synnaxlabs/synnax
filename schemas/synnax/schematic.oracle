@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
+import "schemas/synnax/project"
+import "schemas/synnax/ranger"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
@@ -915,6 +918,7 @@ Schematic struct {
     }
     snapshot bool = false {
         @doc value "is true if this schematic is an immutable snapshot copy."
+        @filter
     }
     nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
@@ -928,6 +932,27 @@ Schematic struct {
             each value selects the symbol or edge style it configures.
         """
         @ts preserve_keys
+    }
+    group    group.Key?                 {
+        @doc value     "is the group the schematic sits in, if any."
+        @ref kind      place
+        @ref on_delete detach
+    }
+    project  project.Key?               {
+        @doc value     """
+            is the project that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
+    }
+    range    ranger.Key?                {
+        @doc value     """
+            is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
     }
 
     action Create {
@@ -943,6 +968,24 @@ Schematic struct {
         name string
 
         @doc value "renames the schematic."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the schematic into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the schematic; clients never dispatch it.
+        """
+    }
+
+    action SetProject {
+        project project.Key
+
+        @doc value """
+            moves the schematic into a project. Emitted by the Core when it moves the
+            schematic; clients never dispatch it.
+        """
     }
 
     action SetNodePosition {
@@ -966,7 +1009,10 @@ Schematic struct {
     action RemoveNode {
         key string
 
-        @doc value "removes a node and any config stored under its key."
+        @doc value """
+            removes the node, its config, and the edges that connect to it and their
+            configs. No-op when no node has the key.
+        """
     }
 
     action AddEdge {
@@ -974,14 +1020,14 @@ Schematic struct {
 
         @doc value """
             appends the edge to the schematic. No-op when an edge with the same key
-            already exists.
+            already exists, or when the source or target node does not exist.
         """
     }
 
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key, if present."
+        @doc value "removes the edge with the given key and its config, if present."
     }
 
     action SetConfig {
@@ -989,27 +1035,37 @@ Schematic struct {
         config ElementConfig
 
         @doc value """
-            replaces the config entry stored under the given node or edge key.
+            replaces the config entry stored under the given node or edge key. No-op
+            when no node or edge has the key.
         """
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the schematic's element configs."
+        @doc value """
+            replaces the value at a path in the schematic's element configs. No-op when
+            no node or edge has the config's key.
+        """
     }
 
     action Remove extends patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
-            element configs.
+            element configs. No-op when no node or edge has the config's key.
         """
     }
 
     action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the schematic's element configs."
+        @doc value """
+            adds an entry to a list in the schematic's element configs. No-op when no
+            node or edge has the config's key.
+        """
     }
 
     action Move extends patch.Move {
-        @doc value "moves an entry in a list in the schematic's element configs."
+        @doc value """
+            moves an entry in a list in the schematic's element configs. No-op when no
+            node or edge has the config's key.
+        """
     }
 
     @create
@@ -1027,6 +1083,19 @@ Schematic struct {
 
 Where filter Schematic {
     key
+    snapshot
+    groups   group.Key[]   {
+        @doc value "matches the schematics in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the schematics in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the schematics owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the schematics owned by any of the given ranges."
+    }
 
     @doc value         "is a filter that selects schematics."
     @go request_output "core/pkg/api/schematic"

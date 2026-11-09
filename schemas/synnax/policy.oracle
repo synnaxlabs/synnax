@@ -9,6 +9,7 @@
 
 import "schemas/synnax/access"
 import "schemas/synnax/resource"
+import "schemas/synnax/role"
 import "schemas/x/filter"
 
 @go output "core/pkg/service/access/rbac/policy"
@@ -31,7 +32,7 @@ Policy struct {
         @validate required
     }
     objects  resource.ID[]   {
-        @doc value "is the list of ontology resources this policy applies to."
+        @doc value "is the list of resources this policy applies to."
     }
     actions  access.Action[] {
         @doc value "is the list of actions this policy permits."
@@ -40,12 +41,17 @@ Policy struct {
         @doc value "is true if this is a built-in system policy that cannot be deleted."
         @filter
     }
+    role     role.Key        {
+        @doc value     "is the role that grants this policy to its subjects."
+        @ref kind      place
+        @ref on_delete cascade
+    }
 
     @create
     @doc value       """
         is an access control policy that defines which actions are permitted on which
-        resources. Policies are attached to roles, and roles are assigned to users via
-        ontology relationships.
+        resources. Each policy belongs to one role, and a subject holds the policies of
+        each role in its roles.
     """
     @go marshal
     @go migrate
@@ -60,6 +66,9 @@ Where filter Policy {
         @doc value """
             matches the policies of the roles that any of the given subjects hold.
         """
+    }
+    roles    role.Key[]    {
+        @doc value "matches the policies of any of the given roles."
     }
 
     @doc value         "is a filter that selects policies."

@@ -123,7 +123,6 @@ type IteratorResponse struct {
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
 	Frame         *pb.Frame              `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
@@ -181,13 +180,6 @@ func (x *IteratorResponse) GetFrame() *pb.Frame {
 		return x.Frame
 	}
 	return nil
-}
-
-func (x *IteratorResponse) GetNodeKey() int32 {
-	if x != nil {
-		return x.NodeKey
-	}
-	return 0
 }
 
 func (x *IteratorResponse) GetAck() bool {
@@ -397,7 +389,6 @@ func (x *WriterRequest) GetBuffer() []byte {
 type WriterResponse struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Command int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	NodeKey int32                  `protobuf:"varint,2,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Counter int32                  `protobuf:"varint,3,opt,name=counter,proto3" json:"counter,omitempty"`
 	Error   *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 	End     int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`
@@ -441,13 +432,6 @@ func (*WriterResponse) Descriptor() ([]byte, []int) {
 func (x *WriterResponse) GetCommand() int32 {
 	if x != nil {
 		return x.Command
-	}
-	return 0
-}
-
-func (x *WriterResponse) GetNodeKey() int32 {
-	if x != nil {
-		return x.NodeKey
 	}
 	return 0
 }
@@ -688,12 +672,11 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\x05stamp\x18\x04 \x01(\x03R\x05stamp\x12\x12\n" +
 	"\x04keys\x18\x05 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
-	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xf6\x01\n" +
+	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xdb\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
-	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x19\n" +
-	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x16\n" +
@@ -713,10 +696,9 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +
 	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
-	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xbe\x01\n" +
+	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xa3\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x19\n" +
-	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
 	"\x03end\x18\x05 \x01(\x03R\x03end\x12\"\n" +

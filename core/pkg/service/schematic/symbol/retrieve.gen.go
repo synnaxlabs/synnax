@@ -15,12 +15,16 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
+
+// tableName names the Symbol table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "schematic_symbol"
 
 // Retrieve is used to retrieve Symbol records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Symbol]
 	indexes indexes
 }
@@ -30,6 +34,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	group  *gorp.KeyReference[Key, Symbol, group.Key]
 	search *gorp.SearchIndex[Key, Symbol]
 }
 
@@ -38,6 +43,19 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Symbol) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Symbol, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, Symbol](
 			"search",
 			func(e *Symbol) []string {
@@ -52,6 +70,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Symbol] {
 	return []gorp.Index[Key, Symbol]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Symbol] {
+	return []gorp.Reference[Key, Symbol]{
+		i.group,
 	}
 }
 
@@ -115,6 +141,38 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchGroups returns a filter for symbols
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Symbol] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for symbols whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Symbol] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// symbols with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Symbol],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Symbol] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
+		Change(func(_ gorp.Context, e Symbol) Symbol {
+			e.Group = v
+			return e
+		})
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -156,17 +214,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of symbols matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of symbols in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any symbols match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any symbols in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

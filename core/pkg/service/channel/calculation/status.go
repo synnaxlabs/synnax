@@ -18,14 +18,11 @@ import (
 // Status is a calculated channel status entry.
 type Status = status.Status[struct{}]
 
-// StatusKey returns the status key for the given channel key.
-func StatusKey(key channel.Key) status.Key { return channel.ResourceID(key).String() }
-
 // StatusFromError builds the error status for a calculated channel whose expression
 // fails to compile.
 func StatusFromError(key channel.Key, name string, err error) *Status {
 	return &Status{
-		Key:         StatusKey(key),
+		Owner:       new(channel.ResourceID(key)),
 		Name:        name,
 		Variant:     status.VariantError,
 		Message:     "Failed to compile calculation",

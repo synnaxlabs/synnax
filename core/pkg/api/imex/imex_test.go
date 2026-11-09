@@ -19,8 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -42,10 +48,23 @@ func (r *recordingImporter) Import(
 }
 
 // Match claims typeless envelopes carrying the legacy_marker key so specs can exercise
-// type resolution ahead of access control.
+// type resolution.
 func (*recordingImporter) Match(body map[string]any) bool {
 	_, ok := body["legacy_marker"]
 	return ok
+}
+
+// namingExporter exports a channel as an envelope named by the key of the channel.
+type namingExporter struct{}
+
+func (namingExporter) Type() resource.Type { return resource.TypeChannel }
+
+func (namingExporter) Export(
+	_ context.Context,
+	_ gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
+	return imex.Envelope{Version: 1, Type: string(id.Type), Name: id.Key}, nil
 }
 
 func testEnvelope(name string) apiimex.ImportRequest {
@@ -59,19 +78,34 @@ func testEnvelope(name string) apiimex.ImportRequest {
 
 var _ = Describe("Import", func() {
 	It(
-		"Should hand the file_name and parent params to the importer",
+		"Should hand the file_name, parent, and group params to the importer",
 		func(ctx SpecContext) {
 			key := uuid.New()
+			groupKey := uuid.New()
 			fctx := rootCtx(ctx)
 			fctx.Set("params", fmt.Sprintf(
-				`{"file_name":"Metrics Log.json","parent":"project:%s"}`, key,
+				`{"file_name":"Metrics Log.json","parent":"project:%s","group":%q}`,
+				key,
+				groupKey,
 			))
-			id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
+			id := MustSucceed(importEnvelope(fctx, testEnvelope("with-options")))
 			Expect(id.Key).To(Equal("with-options"))
 			Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
 			Expect(importer.opts.Parent).To(Equal(resource.ID{
 				Type: resource.TypeProject, Key: key.String(),
 			}))
+			Expect(importer.opts.Group).To(Equal(&groupKey))
+		},
+	)
+
+	It(
+		"Should hand no parent and no group to the importer when params omit them",
+		func(ctx SpecContext) {
+			fctx := rootCtx(ctx)
+			fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
+			MustSucceed(importEnvelope(fctx, testEnvelope("no-parent")))
+			Expect(importer.opts.Parent.IsZero()).To(BeTrue())
+			Expect(importer.opts.Group).To(BeNil())
 		},
 	)
 
@@ -86,8 +120,28 @@ var _ = Describe("Import", func() {
 			fctx.Set("params", fmt.Sprintf(
 				`{"file_name":"Legacy State.json","parent":"project:%s"}`, uuid.New(),
 			))
-			id := MustSucceed(apiSvc.Import(fctx, db, env))
+			id := MustSucceed(
+				importEnvelope(fctx, env),
+			)
 			Expect(id.Key).To(Equal("Legacy State"))
+		},
+	)
+
+	It(
+		"Should need no access on a parent that the importer does not write",
+		func(ctx SpecContext) {
+			u := MustSucceed(
+				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+					Name: "parentless-" + uuid.New().String(),
+				}),
+			)
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Metrics Log.json","parent":"project:%s"}`,
+				uuid.New(),
+			))
+			id := MustSucceed(importEnvelope(fctx, testEnvelope("ignored-parent")))
+			Expect(id.Key).To(Equal("ignored-parent"))
 		},
 	)
 
@@ -100,13 +154,13 @@ var _ = Describe("Import", func() {
 		fctx.Set("params", fmt.Sprintf(
 			`{"file_name":"Mystery.json","parent":"project:%s"}`, uuid.New(),
 		))
-		Expect(apiSvc.Import(fctx, db, env)).Error().To(
+		Expect(importEnvelope(fctx, env)).Error().To(
 			MatchError(ContainSubstring("does not match any known resource format")),
 		)
 	})
 
 	It("Should reject a request with no params", func(ctx SpecContext) {
-		Expect(apiSvc.Import(rootCtx(ctx), db, testEnvelope("no-params"))).Error().
+		Expect(importEnvelope(rootCtx(ctx), testEnvelope("no-params"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("params")),
 				MatchError(ContainSubstring("required")),
@@ -116,7 +170,7 @@ var _ = Describe("Import", func() {
 	It("Should reject empty params", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("empty-params"))).Error().
+		Expect(importEnvelope(fctx, testEnvelope("empty-params"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("params")),
 				MatchError(ContainSubstring("required")),
@@ -126,19 +180,9 @@ var _ = Describe("Import", func() {
 	It("Should reject params without a file_name", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", fmt.Sprintf(`{"parent":"project:%s"}`, uuid.New()))
-		Expect(apiSvc.Import(fctx, db, testEnvelope("no-file-name"))).Error().
+		Expect(importEnvelope(fctx, testEnvelope("no-file-name"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("file_name")),
-				MatchError(ContainSubstring("required")),
-			))
-	})
-
-	It("Should reject params without a parent", func(ctx SpecContext) {
-		fctx := rootCtx(ctx)
-		fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
-		Expect(apiSvc.Import(fctx, db, testEnvelope("no-parent"))).Error().
-			To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
 				MatchError(ContainSubstring("required")),
 			))
 	})
@@ -146,7 +190,7 @@ var _ = Describe("Import", func() {
 	It("Should reject a parent with an empty key", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"project:"}`)
-		Expect(apiSvc.Import(fctx, db, testEnvelope("empty-parent-key"))).Error().
+		Expect(importEnvelope(fctx, testEnvelope("empty-parent-key"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
 				MatchError(ContainSubstring("must carry a non-empty key")),
@@ -156,9 +200,7 @@ var _ = Describe("Import", func() {
 	It("Should reject a parent that is not a valid resource ID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", `{"file_name":"Metrics Log.json","parent":"no-colon"}`)
-		Expect(
-			apiSvc.Import(fctx, db, testEnvelope("bad-parent")),
-		).Error().
+		Expect(importEnvelope(fctx, testEnvelope("bad-parent"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("failed to parse id: no-colon")),
 				MatchError(ContainSubstring("validation error")),
@@ -168,13 +210,145 @@ var _ = Describe("Import", func() {
 	It("Should reject params that are not valid JSON", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "not-json")
-		Expect(
-			apiSvc.Import(fctx, db, testEnvelope("bad-params")),
-		).Error().
+		Expect(importEnvelope(fctx, testEnvelope("bad-params"))).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("invalid params")),
 				MatchError(ContainSubstring("validation error")),
 			))
+	})
+
+	Context("With an importer that creates a record", func() {
+		var (
+			u user.User
+			g group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = MustSucceed(
+				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+					Name: "importer-" + uuid.New().String(),
+				}),
+			)
+			g = group.Group{Name: "Imported", Scope: resource.TypeSchematicSymbol}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+		})
+		grant := func(ctx SpecContext, action access.Action, object resource.ID) {
+			GinkgoHelper()
+			MustSucceed(rbactestutil.Grant(
+				ctx, db, rbacSvc, userSvc, u.Key, []access.Action{action}, object,
+			))
+		}
+		importSymbol := func(ctx SpecContext) (resource.ID, error) {
+			var env imex.Envelope
+			Expect(json.Unmarshal([]byte(
+				`{"version":2,"type":"schematic_symbol",`+
+					`"data":{"svg":"<svg/>","variant":"valve"}}`,
+			), &env)).To(Succeed())
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Inlet.json","group":%q}`, g.Key,
+			))
+			return importEnvelope(fctx, env)
+		}
+		symbolType := resource.ID{Type: resource.TypeSchematicSymbol}
+		importLog := func(ctx SpecContext) (resource.ID, error) {
+			var env imex.Envelope
+			Expect(json.Unmarshal(fmt.Appendf(nil,
+				`{"version":2,"type":"log","name":"Pressures",`+
+					`"channels":[{"channel":%d}]}`,
+				ch,
+			), &env)).To(Succeed())
+			fctx := subjectCtx(ctx, u)
+			fctx.Set("params", fmt.Sprintf(
+				`{"file_name":"Pressures.json","parent":"project:%s"}`, proj.Key,
+			))
+			return importEnvelope(fctx, env)
+		}
+		grantLogImport := func(ctx SpecContext) {
+			GinkgoHelper()
+			grant(ctx, access.ActionCreate, resource.ID{Type: resource.TypeLog})
+			grant(ctx, access.ActionUpdate, project.ResourceID(proj.Key))
+		}
+
+		It(
+			"Should import the record with create on it and update on its group",
+			func(ctx SpecContext) {
+				grant(ctx, access.ActionCreate, symbolType)
+				grant(ctx, access.ActionUpdate, g.ResourceID())
+				Expect(MustSucceed(importSymbol(ctx)).Type).
+					To(Equal(resource.TypeSchematicSymbol))
+			},
+		)
+		It("Should reject the request without create on the record", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, access.ActionUpdate, g.ResourceID())
+			Expect(importSymbol(ctx)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot create %s:",
+					u.ResourceID(),
+					resource.TypeSchematicSymbol,
+				)),
+			))
+		})
+		It("Should reject the request without update on its group", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, access.ActionCreate, symbolType)
+			Expect(importSymbol(ctx)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot update %s",
+					u.ResourceID(),
+					g.ResourceID(),
+				)),
+			))
+		})
+		It("Should import a log with retrieve on the channel it uses", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			grant(ctx, access.ActionRetrieve, channel.ResourceID(ch))
+			Expect(MustSucceed(importLog(ctx)).Type).To(Equal(resource.TypeLog))
+		})
+		It("Should reject a log without retrieve on the channel it uses", func(
+			ctx SpecContext,
+		) {
+			grantLogImport(ctx)
+			Expect(importLog(ctx)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot retrieve %s",
+					u.ResourceID(),
+					channel.ResourceID(ch),
+				)),
+			))
+		})
+	})
+})
+
+var _ = Describe("Export", func() {
+	id := resource.ID{Type: resource.TypeChannel, Key: "12"}
+
+	It("Should export a resource the subject can retrieve", func(ctx SpecContext) {
+		Expect(MustSucceed(export(rootCtx(ctx), apiimex.ExportRequest(id))).Name).
+			To(Equal("12"))
+	})
+
+	It("Should deny a resource the subject cannot retrieve", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "exporter-" + uuid.New().String(),
+		}))
+		Expect(export(subjectCtx(ctx, u), apiimex.ExportRequest(id))).Error().To(
+			SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(
+					ContainSubstring("%s cannot retrieve %s", u.ResourceID(), id),
+				),
+			),
+		)
 	})
 })
 
@@ -224,9 +398,10 @@ var _ = Describe("ResolveEncoding", func() {
 			To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})
 	It("Should reject an unsupported encoding", func() {
-		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("encoding")),
-			MatchError(ContainSubstring("YAML")),
-		))
+		Expect(apiimex.ResolveEncoding("YAML")).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("encoding")),
+				MatchError(ContainSubstring("YAML")),
+			))
 	})
 })

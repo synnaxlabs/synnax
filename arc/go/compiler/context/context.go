@@ -37,7 +37,9 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Writer   *wasm.Writer
 	Module   *wasm.Module
 	TypeMap  map[antlr.ParserRuleContext]types.Type
-	WriterID int
+	// FmtStrings holds the segments of each format string the analyzer split.
+	FmtStrings parser.FmtStrings
+	WriterID   int
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	Hint             types.Type
@@ -62,6 +64,7 @@ func (ctx Context[P]) Child[ASTNode antlr.ParserRuleContext](
 		Writer:           ctx.Writer,
 		Module:           ctx.Module,
 		TypeMap:          ctx.TypeMap,
+		FmtStrings:       ctx.FmtStrings,
 		AST:              node,
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,

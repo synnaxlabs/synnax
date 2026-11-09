@@ -17,13 +17,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,7 +37,7 @@ var _ = Describe("Signals", func() {
 		GinkgoHelper()
 		var ch channel.Channel
 		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
@@ -59,7 +58,7 @@ var _ = Describe("Signals", func() {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}
@@ -69,12 +68,16 @@ var _ = Describe("Signals", func() {
 		"Should broadcast a dispatched action vector on the set channel",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
-			p := panel.Panel{Name: "sig", Parent: &parentID}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
+			p := panel.Panel{Name: "sig", Project: &proj.Key}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, p.Key)
+				})).To(Succeed())
 			})
-			Expect(svc.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+			Expect(dispatch(ctx, p.Key, "dk-1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 			})).To(Succeed())
 			var decoded []actions.Scoped[panel.Key, panel.Action]
@@ -102,12 +105,14 @@ var _ = Describe("Signals", func() {
 	)
 
 	It(
-		"Should not broadcast a create rejected by ontology validation",
+		"Should not broadcast a create rejected by a reference check",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
-			missing := user.ResourceID(uuid.New())
-			p := panel.Panel{Name: "sig-reject", Parent: &missing}
-			Expect(writer.Create(ctx, &p)).To(MatchError(query.ErrNotFound))
+			missing := uuid.New()
+			p := panel.Panel{Name: "sig-reject", Project: &missing}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(MatchError(ContainSubstring("does not exist")))
 			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 		},
 	)
@@ -116,9 +121,13 @@ var _ = Describe("Signals", func() {
 		"Should emit the deleted panel key on the delete channel",
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, deleteChannelName)
-			p := panel.Panel{Name: "sig-del", Parent: &parentID}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
-			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			p := panel.Panel{Name: "sig-del", Project: &proj.Key}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(Succeed())
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 			var keys []uuid.UUID

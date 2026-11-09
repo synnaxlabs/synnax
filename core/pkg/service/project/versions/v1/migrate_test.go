@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -31,14 +31,10 @@ import (
 // runMigrations runs the full project migration chain against db.
 func runMigrations(ctx context.Context, db *gorp.DB) {
 	GinkgoHelper()
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:        db,
-		Namespace: "Project",
-		Migrations: append(
-			[]gorp.Migration{v0.Migration},
-			v1.NewMigrations(v1.MigrationsConfig{Ontology: otg})...,
-		),
+		DB:         db,
+		Namespace:  "Project",
+		Migrations: append([]gorp.Migration{v0.Migration}, v1.Migrations...),
 	})).To(Succeed())
 }
 

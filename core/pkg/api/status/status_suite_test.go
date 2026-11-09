@@ -15,18 +15,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -41,57 +43,85 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db        *gorp.DB
-	otg       *ontology.Ontology
 	rbacSvc   *rbac.Service
 	statusSvc *status.Service
 	labelSvc  *label.Service
 	apiSvc    *apistatus.Service
 	author    user.User
 	userSvc   *user.Service
+	rackSvc   *rack.Service
+	devices   *gorp.Table[device.Key, device.Device]
+	tasks     *gorp.Table[task.Key, task.Task]
+	// The handlers below run their routes as the API layer binds them.
+	setStatuses    freighter.UnaryHandler[apistatus.SetRequest, apistatus.SetResponse]
+	del            freighter.UnaryHandler[apistatus.DeleteRequest, struct{}]
+	rename         freighter.UnaryHandler[apistatus.RenameRequest, struct{}]
+	setByKeyOrName freighter.UnaryHandler[
+		apistatus.SetByKeyOrNameRequest,
+		apistatus.SetByKeyOrNameResponse,
+	]
+	retrieve freighter.UnaryHandler[
+		apistatus.RetrieveRequest,
+		apistatus.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg,
-	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Password: passwordSvc,
+		DB: db, Password: passwordSvc,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: g,
+		DB: db,
 	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, User: userSvc,
+	// A status owner must exist, so the owner tables must be open.
+	devices = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[device.Key, device.Device]{
+		DB: db, Name: string(resource.TypeDevice),
+	}))
+	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
+		DB: db, Name: string(resource.TypeTask),
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc,
+		DB: db,
 	}))
+	svcs := MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     db,
+		User:   userSvc,
+		Status: statusSvc,
+	}))
+	rbacSvc, rackSvc = svcs.RBAC, svcs.Rack
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
-		Label:  labelSvc,
-		RBAC:   rbacSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	setStatuses = bind.Write(binder, apiSvc.Set)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	setByKeyOrName = bind.Write(binder, apiSvc.SetByKeyOrName)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)
 })
 
-// freshUser creates a user with no role assignments. Use this for "unauthorized"
+// freshUser creates a user that can do nothing. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.
 func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
-		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
+		rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "anon-" + uuid.New().String()},
+		),
 	)
 }
 
-// grantOn assigns a role granting the given actions on the given objects to the
-// subject. Mirrors the schematic suite helper.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -99,16 +129,6 @@ func grantOn(
 	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

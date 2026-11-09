@@ -15,10 +15,9 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
@@ -27,6 +26,7 @@ import (
 var _ = Describe("Modules", func() {
 	const source = "export func f() i64 { return 1 }"
 	var (
+		tx   gorp.Tx
 		w    arc.Writer
 		root directory.Key
 	)
@@ -49,65 +49,73 @@ var _ = Describe("Modules", func() {
 	textSource := func(raw string) arc.Source {
 		return arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: raw}}}
 	}
-	BeforeEach(func(ctx SpecContext) {
-		w = svc.NewWriter(tx)
-		var roots []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(ontology.RootID).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(resource.TypeArcDirectory).
-			Entries(&roots).
-			Exec(ctx, tx)).To(Succeed())
-		root = MustSucceed(directory.KeyFromResourceID(roots[0].ID))
-	})
+	Context("ResolveModule", func() {
+		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
+			w = svc.NewWriter(tx)
+			root = rootDirectory(ctx, tx).Key
+		})
 
-	It("Should resolve a module directly under Arcs", func(ctx SpecContext) {
-		createArc(ctx, arc.TypeModule, "m", textSource(source))
-		mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "m"))
-		Expect(mod.Kind).To(Equal(symbol.KindModule))
-		Expect(mod.FindChild("f").Exported).To(BeTrue())
-	})
+		It("Should resolve a module directly under Arcs", func(ctx SpecContext) {
+			createArc(ctx, arc.TypeModule, "m", textSource(source))
+			mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "m"))
+			Expect(mod.Kind).To(Equal(symbol.KindModule))
+			Expect(mod.FindChild("f").Exported).To(BeTrue())
+		})
 
-	It("Should resolve a module by its directory path", func(ctx SpecContext) {
-		lib := createDirectory(ctx, "lib", root)
-		sub := createDirectory(ctx, "sub", lib.Key)
-		a := createArc(ctx, arc.TypeModule, "m", textSource(source))
-		Expect(w.Move(ctx, root, sub.Key, a.ResourceID())).To(Succeed())
-		mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "lib.sub.m"))
-		Expect(mod.Name).To(Equal("lib.sub.m"))
-		Expect(svc.NewRoot(tx).ResolveModule(ctx, "m")).Error().
-			To(MatchError(symbol.ErrModuleNotFound))
-	})
+		It("Should resolve a module by its directory path", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "lib", root)
+			sub := createDirectory(ctx, "sub", lib.Key)
+			a := createArc(ctx, arc.TypeModule, "m", textSource(source))
+			Expect(w.Move(ctx, root, sub.Key, a.ResourceID())).To(Succeed())
+			mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "lib.sub.m"))
+			Expect(mod.Name).To(Equal("lib.sub.m"))
+			Expect(svc.NewRoot(tx).ResolveModule(ctx, "m")).Error().
+				To(MatchError(symbol.ErrModuleNotFound))
+		})
 
-	It("Should report a path through a missing directory", func(ctx SpecContext) {
-		Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope.m")).Error().
-			To(MatchError(symbol.ErrModuleNotFound))
-	})
+		It("Should report a path through a missing directory", func(ctx SpecContext) {
+			Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope.m")).Error().
+				To(MatchError(symbol.ErrModuleNotFound))
+		})
 
-	It("Should refuse to import an automation", func(ctx SpecContext) {
-		createArc(ctx, arc.TypeAutomation, "a", textSource(source))
-		Expect(svc.NewRoot(tx).ResolveModule(ctx, "a")).Error().To(MatchError(
-			ContainSubstring(`"a" is an automation and cannot be imported`),
-		))
-	})
+		It("Should refuse to import an automation", func(ctx SpecContext) {
+			createArc(ctx, arc.TypeAutomation, "a", textSource(source))
+			Expect(svc.NewRoot(tx).ResolveModule(ctx, "a")).Error().To(MatchError(
+				ContainSubstring(`"a" is an automation and cannot be imported`),
+			))
+		})
 
-	It("Should refuse to import a graph module", func(ctx SpecContext) {
-		createArc(
-			ctx,
-			arc.TypeModule,
-			"g",
-			arc.Source{Variant: arc.GraphSource{}},
-		)
-		Expect(svc.NewRoot(tx).ResolveModule(ctx, "g")).Error().To(MatchError(
-			ContainSubstring(`module "g" is a graph and cannot be imported`),
-		))
+		It("Should refuse to import a graph module", func(ctx SpecContext) {
+			createArc(
+				ctx,
+				arc.TypeModule,
+				"g",
+				arc.Source{Variant: arc.GraphSource{}},
+			)
+			Expect(svc.NewRoot(tx).ResolveModule(ctx, "g")).Error().To(MatchError(
+				ContainSubstring(`module "g" is a graph and cannot be imported`),
+			))
+		})
+
+		It("Should report an unknown module", func(ctx SpecContext) {
+			Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope")).Error().
+				To(MatchError(symbol.ErrModuleNotFound))
+		})
 	})
 
 	It("Should resolve a user module in the LSP", func(ctx SpecContext) {
-		w = svc.NewWriter(nil)
-		a := createArc(ctx, arc.TypeModule, "lsp_module", textSource(source))
+		a := newArc(
+			arc.TypeModule,
+			arc.Base{Name: "lsp_module", Source: textSource(source)},
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
 		})
 		server := MustSucceed(svc.NewLSP())
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
@@ -120,10 +128,5 @@ var _ = Describe("Modules", func() {
 			"import lsp_module\n\nfunc g() i64 { return lsp_module.f() }",
 		)
 		Expect(client.Diagnostics()).To(BeEmpty())
-	})
-
-	It("Should report an unknown module", func(ctx SpecContext) {
-		Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope")).Error().
-			To(MatchError(symbol.ErrModuleNotFound))
 	})
 })

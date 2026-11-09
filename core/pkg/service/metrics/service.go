@@ -19,10 +19,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -42,10 +41,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider identifies the current host for channel naming.
+	// HostKey is the key of the host node. The metrics channel names include it.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
@@ -58,11 +57,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
-	// Ontology is used to create relationships between metrics and other entities in
-	// the Synnax resource graph.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	// Group is used to create a metrics group for the node.
 	//
 	// [REQUIRED]
@@ -87,7 +81,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.CollectionInterval = override.Numeric(
 		c.CollectionInterval,
@@ -95,7 +89,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -104,11 +97,10 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
-	v.NotNil("host_provider", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("storage", c.Storage)
 	v.Positive("collection_interval", c.CollectionInterval)
 	v.NotNil("group", c.Group)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -140,11 +132,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
 	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Metrics", cfg.Channel.Group().ResourceID(),
+		ctx, "Metrics", resource.TypeChannel,
 	); err != nil {
 		return nil, err
 	}
-	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
+	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostKey)
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
@@ -154,6 +146,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Name:     namePrefix + "time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
+		Group:    &s.group.Key,
 	}
 	var metricsChannels []channel.Channel
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -162,52 +155,25 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			ctx,
 			&idx,
 			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
-		); err != nil {
-			return err
-		}
-		otgWriter := cfg.Ontology.NewWriter(tx)
-		if err := s.maybeDefineGroupRelationship(
-			ctx,
-			tx,
-			[]resource.ID{idx.ResourceID()},
 		); err != nil {
 			return err
 		}
 		metrics := s.createMetrics(namePrefix, idx.LocalKey)
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
+			m.ch.Group = &s.group.Key
 			return m.ch
 		})
 		if err = chWriter.CreateMany(
 			ctx,
 			&metricsChannels,
 			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
-		}
-		// delete any existing relationships between the parent Channels group and the
-		// metrics channels
-		for _, ch := range metricsChannels {
-			if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-				From: cfg.Channel.Group().ResourceID(),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   ch.ResourceID(),
-			}); err != nil {
-				return err
-			}
 		}
 		for i, ch := range metricsChannels {
 			metrics[i].ch = ch
 		}
 		c.metrics = metrics
-		if err = s.maybeDefineGroupRelationship(
-			ctx,
-			tx,
-			channel.ResourceIDsFromChannels(metricsChannels),
-		); err != nil {
-			return err
-		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -216,22 +182,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	// calculated channel expressions.
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		calculatedChannels := createCalculatedMetrics(namePrefix)
-		if err = cfg.Channel.NewWriter(tx).CreateMany(
+		for i := range calculatedChannels {
+			calculatedChannels[i].Group = &s.group.Key
+		}
+		return cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&calculatedChannels,
 			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
-		); err != nil {
-			return err
-		}
-		if err = s.maybeDefineGroupRelationship(
-			ctx,
-			tx,
-			channel.ResourceIDsFromChannels(calculatedChannels),
-		); err != nil {
-			return err
-		}
-		return nil
+		)
 	}); err != nil {
 		return nil, err
 	}
@@ -239,7 +197,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		framer.WriterConfig{
 			ControlSubject: control.Subject{
-				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostProvider.HostKey()),
+				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostKey),
 			},
 			Keys:                     channel.KeysFromChannels(metricsChannels),
 			AutoIndex:                new(true),
@@ -270,37 +228,3 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 // Close gracefully stops the service, waiting for all internal goroutines to exit.
 func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }
-
-// maybeDefineGroupRelationship checks each channel for an existing parent group
-// relationship. If a channel already has a parent group, it is skipped. If a channel
-// doesn't have a parent group, it is attached to the service's metrics group.
-func (s *Service) maybeDefineGroupRelationship(
-	ctx context.Context,
-	tx gorp.Tx,
-	channelIDs []resource.ID,
-) error {
-	otgWriter := s.cfg.Ontology.NewWriter(tx)
-	for _, chID := range channelIDs {
-		var parents []ontology.Resource
-		if err := s.cfg.Ontology.NewRetrieve().
-			WhereIDs(chID).
-			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(resource.TypeGroup).
-			Entries(&parents).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		if len(parents) > 0 {
-			continue
-		}
-		if err := otgWriter.DefineRelationships(
-			ctx,
-			s.group.ResourceID(),
-			ontology.RelationshipTypeParentOf,
-			chID,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}

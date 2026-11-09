@@ -12,6 +12,7 @@
 package rack
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/x/filter"
 )
@@ -20,9 +21,6 @@ import (
 // the low 16 bits contain the local sequential key. A rack is leased to the Core named
 // in its high bits, so writes route to the Core running its Driver.
 type Key = versions.Key
-
-// StatusDetails contains rack-specific status details.
-type StatusDetails = versions.StatusDetails
 
 // Status is rack-specific status information including operational state.
 type Status = versions.Status
@@ -48,7 +46,8 @@ type Where struct {
 	Embedded *filter.Bool `json:"embedded,omitzero" msgpack:"embedded,omitempty"`
 	// Integrations selects by integrations.
 	Integrations *filter.Contains[string] `json:"integrations,omitzero" msgpack:"integrations,omitempty"`
-	// HostIsNode matches racks on the Core that serves the request, or racks on other
-	// Cores when false.
-	HostIsNode *bool `json:"host_is_node,omitzero" msgpack:"host_is_node,omitempty"`
+	// Groups matches the racks in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the racks in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

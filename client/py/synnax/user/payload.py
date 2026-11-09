@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
 
 from pydantic import BaseModel
 
 from synnax import resource
+from synnax.access import role as role_
 from synnax.user.types_gen import Key
 
 
@@ -19,12 +19,14 @@ class New(BaseModel):
     username: str
     password: str
     name: str = ""
-    key: UUID | None = None
+    key: Key | None = None
+    role: role_.Key
 
 
 class User(BaseModel):
-    key: UUID
+    key: Key
     name: str
+    role: role_.Key
 
     @property
     def resource_id(self) -> resource.ID:

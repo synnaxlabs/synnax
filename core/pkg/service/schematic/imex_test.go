@@ -10,12 +10,16 @@
 package schematic_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
@@ -38,9 +42,15 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a schematic as a versioned envelope", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "exported", Snapshot: true}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, schematic.ResourceID(s.Key)))
+			s := schematic.Schematic{
+				Project:  &proj.Key,
+				Name:     "exported",
+				Snapshot: true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, schematic.ResourceID(s.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
@@ -57,12 +67,15 @@ var _ = Describe("ImEx", func() {
 				Type: resource.TypeSchematic,
 				Key:  uuid.New().String(),
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeSchematic, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -71,7 +84,11 @@ var _ = Describe("ImEx", func() {
 			ctx SpecContext, path string, opts imex.ImportOptions,
 		) schematic.Schematic {
 			GinkgoHelper()
-			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, LoadEnvelope(path), opts)
+				return err
+			})).To(Succeed())
 			Expect(id.Type).To(Equal(resource.TypeSchematic))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res schematic.Schematic
@@ -140,23 +157,67 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It(
+			"Should refuse a group that is not in the parent project",
+			func(ctx SpecContext) {
+				other := project.Project{Name: "other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				g := group.Group{
+					Name:   "in other",
+					Parent: new(project.ResourceID(other.Key)),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_v7.json"),
+						imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+					)
+					return err
+				})).To(SatisfyAll(
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"group: group %s is not in project %s", g.Key, proj.Key,
+					))),
+					MatchError(ContainSubstring("validation error")),
+				))
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchGroups(g.Key)).
+					Count(ctx, db)).To(BeZero())
+			},
+		)
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				LoadEnvelope("versions/testdata/import_v7.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(
+					ctx,
+					tx,
+					LoadEnvelope("versions/testdata/import_v7.json"),
+					imex.ImportOptions{},
+				)
+				return err
+			})).To(SatisfyAll(
+				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
+				MatchError(ContainSubstring("validation error")),
 			))
 		})
 
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_version.json"),
+						imex.ImportOptions{Parent: proj.ResourceID()},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring("schematic version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
@@ -166,14 +227,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope(
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, LoadEnvelope(
 						"versions/testdata/import_v7.json",
 					),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
 		)
@@ -184,24 +245,27 @@ var _ = Describe("ImEx", func() {
 			"Should preserve schematic content through export then import",
 			func(ctx SpecContext) {
 				original := schematic.Schematic{
-					Name:  "round-trip",
-					Nodes: []schematic.Node{{Key: "n1", ZIndex: 5}},
+					Project: &proj.Key,
+					Name:    "round-trip",
+					Nodes:   []schematic.Node{{Key: "n1", ZIndex: 5}},
 					Edges: []schematic.Edge{{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
 						Target: schematic.Handle{Node: "n2", Param: "in"},
 					}},
 				}
-				Expect(
-					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
-				).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, schematic.ResourceID(original.Key)))
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					WireRoundTrip(env),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
+				env := MustSucceed(
+					svc.Export(ctx, db, schematic.ResourceID(original.Key)),
+				)
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))
 				var res schematic.Schematic

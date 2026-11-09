@@ -14,16 +14,22 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
-// CreateDriverRole defines a role in the ontology for a rack service to give new racks,
-// and returns its key.
-func CreateDriverRole(ctx context.Context, otg *ontology.Ontology) (role.Key, error) {
-	k := uuid.New()
-	if err := otg.NewWriter(nil).DefineResources(ctx, role.ResourceID(k)); err != nil {
+// CreateDriverRole creates a role in db for a rack service to give new racks, and
+// returns its key.
+func CreateDriverRole(
+	ctx context.Context,
+	db *gorp.DB,
+	roles *role.Service,
+) (role.Key, error) {
+	r := role.Role{Name: "Driver", Internal: true}
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return roles.NewWriter(tx, true).Create(ctx, &r)
+	}); err != nil {
 		return uuid.Nil(), err
 	}
-	return k, nil
+	return r.Key, nil
 }

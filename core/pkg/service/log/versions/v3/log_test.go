@@ -32,11 +32,6 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Log{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the log resource identifier", func() {
 			k := uuid.New()
@@ -176,8 +171,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 87 bytes", func() {
-			Expect(encode()).To(HaveLen(87))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -205,6 +200,9 @@ var _ = Describe("Log", func() {
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
 			Entry("time zone", 85),
+			Entry("group presence", 87),
+			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

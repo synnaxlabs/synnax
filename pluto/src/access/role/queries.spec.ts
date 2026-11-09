@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, user } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type access, NotFoundError } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createTestClient,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -206,74 +210,55 @@ describe("queries", () => {
   });
 
   describe("useResultForUser", () => {
-    const createUser = async (prefix: string) =>
+    const createUser = async (prefix: string, role: access.role.Key) =>
       await client.users.create({
         username: `${prefix}-${id.create()}`,
         name: "Test User",
         password: "password123",
+        role,
       });
 
-    it("should return the roles assigned to the user", async () => {
-      const role = await client.access.roles.create({
-        name: `assigned-${id.create()}`,
-        description: "Assigned role",
-      });
-      const u = await createUser("for-user");
-      await client.access.roles.assign({ user: u.key, role: role.key });
+    it("should return the role the user holds", async () => {
+      const role = await createEmptyRole(client);
+      const u = await createUser("for-user", role.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
       });
-      await waitFor(() => expect(result.current.data).toHaveLength(1));
-      expect(result.current.data?.[0].name).toEqual(role.name);
+      await waitFor(() => expect(result.current.data?.key).toEqual(role.key));
+      expect(result.current.data?.name).toEqual(role.name);
     });
 
-    it("should return an empty list for a user holding no role", async () => {
-      const u = await createUser("roleless");
-
-      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toEqual([]);
-    });
-
-    it("should pick up a role assigned by another client", async () => {
+    it("should pick up a role given by another client", async () => {
       const remote = createTestClient();
-      const u = await createUser("late-assign");
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
+      const u = await createUser("late-assign", from.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
       });
-      await waitFor(() => expect(result.current.data).toEqual([]));
-      const role = await remote.access.roles.create({
-        name: `late-${id.create()}`,
-        description: "Late role",
-      });
-      await remote.access.roles.assign({ user: u.key, role: role.key });
-      await waitFor(() => expect(result.current.data).toHaveLength(1));
-      expect(result.current.data?.[0].key).toEqual(role.key);
+      await waitFor(() => expect(result.current.data?.key).toEqual(from.key));
+      await remote.users.setRole(u.key, to.key);
+      await waitFor(() => expect(result.current.data?.key).toEqual(to.key));
     });
 
-    it("should pick up an edit to an assigned role by another client", async () => {
+    it("should pick up an edit to the held role by another client", async () => {
       const remote = createTestClient();
       const role = await client.access.roles.create({
         name: `edited-${id.create()}`,
         description: "Before",
       });
-      const u = await createUser("role-edit");
-      await client.access.roles.assign({ user: u.key, role: role.key });
+      const u = await createUser("role-edit", role.key);
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
       });
-      await waitFor(() =>
-        expect(result.current.data?.[0]?.description).toEqual("Before"),
-      );
+      await waitFor(() => expect(result.current.data?.description).toEqual("Before"));
       await remote.access.roles.create({ ...role, description: "After" });
-      await waitFor(() =>
-        expect(result.current.data?.[0]?.description).toEqual("After"),
-      );
+      await waitFor(() => expect(result.current.data?.description).toEqual("After"));
     });
 
     it("should not read at all when the query is null", async () => {
@@ -359,21 +344,36 @@ describe("queries", () => {
         );
       });
     });
+
+    it("should report an error when a user holds the role", async () => {
+      const role = await createEmptyRole(client);
+      const u = await client.users.create({
+        username: `holder-${id.create()}`,
+        password: "password123",
+        role: role.key,
+      });
+
+      const { result } = renderHook(() => Role.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(role.key);
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.message).toEqual("Failed to delete role");
+      expect(result.current.status.description).toEqual(
+        `cannot delete role ${role.name} because user ${u.name} ` +
+          "uses it as its role: validation error",
+      );
+      expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
+    });
   });
 
   describe("useChangeRoleForm", () => {
     it("should retrieve the current role for a user", async () => {
-      const role = await client.access.roles.create({
-        name: `retrieveForRole-${Date.now()}`,
-        description: "Role for retrieve test",
-      });
+      const role = await createEmptyRole(client);
       const testUser = await client.users.create({
-        username: `retrieve-for-${Date.now()}`,
+        username: `retrieve-for-${id.create()}`,
         name: "Test User",
         password: "password123",
-      });
-      await client.access.roles.assign({
-        user: testUser.key,
         role: role.key,
       });
 
@@ -386,39 +386,16 @@ describe("queries", () => {
       expect(result.current.form.value().role).toEqual(role.key);
     });
 
-    it("should have empty role when user has no role assigned", async () => {
-      const testUser = await client.users.create({
-        username: `no-role-${Date.now()}`,
-        name: "No Role",
-        password: "password123",
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().role).toEqual("");
-    });
-
     it("should change a user's role when saved", async () => {
-      const role1 = await client.access.roles.create({
-        name: `changeFrom-${Date.now()}`,
-        description: "Original role",
-      });
-      const role2 = await client.access.roles.create({
-        name: `changeTo-${Date.now()}`,
-        description: "New role",
-      });
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
       const testUser = await client.users.create({
-        username: `change-role-${Date.now()}`,
+        username: `change-role-${id.create()}`,
         name: "Change Role",
         password: "password123",
-      });
-      await client.access.roles.assign({
-        user: testUser.key,
-        role: role1.key,
+        role: from.key,
       });
 
       const { result } = await renderHookSuspended(
@@ -427,10 +404,10 @@ describe("queries", () => {
       );
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().role).toEqual(role1.key);
+      expect(result.current.form.value().role).toEqual(from.key);
 
       act(() => {
-        result.current.form.set(path.role, role2.key);
+        result.current.form.set(path.role, to.key);
       });
 
       await act(async () => {
@@ -439,49 +416,35 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Verify role changed via direct API call
-      const parents = await client.ontology.parents.retrieve({
-        ids: user.resourceID(testUser.key),
-        types: ["role"],
-      });
-      expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role2.key);
+      const stored = await createTestClient().users.retrieve(testUser.key);
+      expect(stored.role).toEqual(to.key);
     });
 
-    it("should assign a role to a user with no previous role", async () => {
-      const role = await client.access.roles.create({
-        name: `assignNew-${Date.now()}`,
-        description: "New role assignment",
-      });
-      const testUser = await client.users.create({
-        username: `no-prev-role-${Date.now()}`,
-        name: "No Previous",
-        password: "password123",
+    it("should report an error when the Core refuses the change", async () => {
+      const role = await createEmptyRole(client);
+      const root = await client.users.retrieve({
+        username: TEST_CREDENTIALS.username,
       });
 
       const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        () => Role.useChangeRoleForm({ query: { key: root.key } }),
         { wrapper },
       );
-
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       act(() => {
         result.current.form.set(path.role, role.key);
       });
-
       await act(async () => {
         result.current.save();
       });
 
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const parents = await client.ontology.parents.retrieve({
-        ids: user.resourceID(testUser.key),
-        types: ["role"],
-      });
-      expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role.key);
+      await waitFor(() => expect(result.current.variant).toEqual("error"));
+      expect(result.current.status.description).toEqual(
+        `cannot change the role of root user ${root.name}: validation error`,
+      );
+      const stored = await createTestClient().users.retrieve(root.key);
+      expect(stored.role).toEqual(root.role);
     });
   });
 });

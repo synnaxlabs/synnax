@@ -10,24 +10,25 @@
 package panel_test
 
 import (
+	"context"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -39,43 +40,33 @@ func TestPanel(t *testing.T) {
 var (
 	node       testutil.Node
 	db         *gorp.DB
-	otg        *ontology.Ontology
 	groupSvc   *group.Service
 	svc        *panel.Service
-	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
-	parentID   resource.ID
-	tx         gorp.Tx
+	projectSvc *project.Service
+	plotSvc    *lineplot.Service
+	proj       project.Project
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	}))
 	db = node.DB
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: node.DB,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
@@ -91,29 +82,43 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      db,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  node.Framer,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Signals:  sigs,
+		DB:      node.DB,
+		Signals: sigs,
 	}))
-	writer = svc.NewWriter(nil)
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+	MustOpen(sigs.Start(ctx))
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: node.DB,
 	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Password: passwordSvc,
+	proj = project.Project{Name: "panel-project"}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
+		DB:   node.DB,
+		ImEx: imex.NewService(),
 	}))
-	parent := MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "panel-parent"}),
-	)
-	parentID = parent.ResourceID()
 })
 
-var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+// createPlot stores the line plot that tab(key) displays.
+func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {
+	GinkgoHelper()
+	p := lineplot.LinePlot{Key: key, Name: "plot", Project: &proj.Key}
+	Expect(plotSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+}
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key panel.Key,
+	dispatchKey string,
+	acts []panel.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+	})
+}

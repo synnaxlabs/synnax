@@ -170,7 +170,6 @@ func (t frameIteratorResponseTranslator) Forward(
 	res := &IteratorResponse{
 		Variant: int32(msg.Variant),
 		Command: int32(msg.Command),
-		NodeKey: int32(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
 		Error:   fgrpc.EncodeError(ctx, msg.Error, false),

@@ -17,13 +17,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Where", func() {
-	v := MustSucceed(testutil.ReadVectors[ranger.Range, ranger.Where]("ranges"))
+	v := MustSucceed(vectors.Read[ranger.Range, ranger.Where]("ranges"))
 	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		r ranger.Range,
@@ -32,25 +32,16 @@ var _ = Describe("Where", func() {
 	})
 
 	BeforeEach(func(ctx SpecContext) {
-		labels := make(map[label.Key]label.Label)
-		for _, r := range v.Records {
-			r.Labels = nil
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-		}
-		for _, r := range v.Records {
-			for _, l := range r.Labels {
-				labels[l.Key] = l
-			}
-		}
-		for _, l := range labels {
+		openTx()
+		for _, k := range lo.Uniq(lo.FlatMap(
+			lo.Values(v.Records),
+			func(r ranger.Range, _ int) []label.Key { return r.Labels },
+		)) {
+			l := label.Label{Key: k, Name: k.String()}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
 		for _, r := range v.Records {
-			Expect(labelSvc.NewWriter(tx).Label(
-				ctx,
-				r.ResourceID(),
-				lo.Map(r.Labels, func(l label.Label, _ int) label.Key { return l.Key }),
-			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 		}
 	})
 
@@ -68,7 +59,7 @@ var _ = Describe("Where", func() {
 				return keys[r.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[ranger.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[ranger.Where], _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)

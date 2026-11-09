@@ -12,9 +12,9 @@ package policy
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -25,7 +25,7 @@ import (
 
 // ServiceConfig is the configuration for the policy API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC stores and retrieves policies.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -73,19 +73,12 @@ type (
 	CreateResponse = CreateRequest
 )
 
-// Create creates the policies in the request.
+// Create creates or overwrites the policies in the request.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []resource.ID{{Type: resource.TypePolicy}},
-		Action:  access.ActionCreate,
-	}); err != nil {
-		return CreateRequest{}, err
-	}
 	w := s.internal.Policy.NewWriter(tx, allowInternal)
 	if err := w.CreateMany(ctx, &req.Policies); err != nil {
 		return CreateRequest{}, err
@@ -93,24 +86,44 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// Retrieve retrieves the policies that the request selects.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the policies that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, rbacpolicy.ResourceID)
+}
+
+// Retrieve returns the policies that req selects and that the subject can retrieve. A
+// request that selects the policies of subjects needs retrieve on each match, so a
+// subject that cannot read its own policies gets an access error, not an empty set.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.Policy.NewRetrieve().Entries(&res.Policies))
+	q, err := ApplyRetrieve(req, s.internal.NewPolicyRetrieve().Entries(&res.Policies))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	if req.Where == nil || len(req.Where.Subjects) == 0 {
+		if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).
+			Exec(ctx, snap); err != nil {
+			return RetrieveResponse{}, err
+		}
+		return res, nil
+	}
+	if err = q.Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rbacpolicy.ResourceIDsFromPolicies(res.Policies),
-	}); err != nil {
+	if err = snap.Enforce(lo.Map(
+		res.Policies,
+		func(p rbacpolicy.Policy, _ int) resource.ID { return rbacpolicy.ResourceID(p.Key) },
+	)...); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -121,19 +134,12 @@ type DeleteRequest struct {
 	Keys []rbacpolicy.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the policies in the request.
+// Delete deletes the policies with the keys in the request.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: rbacpolicy.ResourceIDs(req.Keys),
-		Action:  access.ActionDelete,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
 		Delete(ctx, req.Keys...)
 }

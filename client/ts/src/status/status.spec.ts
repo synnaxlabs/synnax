@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
-import { group } from "@/group";
-import { NotFoundError, ValidationError } from "@/index";
-import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { channel } from "@/channel";
+import { DataType, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import {
@@ -37,7 +34,7 @@ describe("Status", () => {
       await waitForStreamLive(local.connection);
       await local.statuses.retrieve(s.key);
       const { responded, release } = holdResponses(local, "/status/retrieve");
-      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      const fetching = local.statuses.retrieve({ key: { eq: s.key } });
       await responded;
       await client.statuses.set({ ...s, message: "after" });
       await expect
@@ -59,6 +56,13 @@ describe("Status", () => {
       expect(s.name).toBe("Test Status");
       expect(s.variant).toBe("info");
       expect(s.message).toBe("This is a test status");
+    });
+
+    it("should give a status with no key a UUID key", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "keyless" });
+      expect(z.uuid().safeParse(s.key).success).toBe(true);
+      const local = status.create({ variant: "info", message: "local" });
+      expect(z.uuid().safeParse(local.key).success).toBe(true);
     });
 
     it("should update an existing status", async () => {
@@ -108,31 +112,155 @@ describe("Status", () => {
       expect(statuses[1].key).toBe("batch-2");
     });
 
-    it("should set a status with a parent", async () => {
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "Parent Group",
+    it("should keep the stored labels on an update and ignore the carried ones", async () => {
+      const [held, carried] = await client.labels.create([
+        { name: "Held", color: color.construct("#0000FF") },
+        { name: "Carried", color: color.construct("#FF0000") },
+      ]);
+      const key = uuid.create();
+      await client.statuses.set({
+        key,
+        variant: "info",
+        message: "a",
+        labels: [held.key],
       });
-      const parentResourceID = group.resourceID(parentGroup.key);
-      const s = await client.statuses.set(
+      let duringWrite: status.Status["labels"] | undefined;
+      const updated = await client.statuses.set(
+        { key, variant: "info", message: "b", labels: [carried.key] },
         {
-          name: "Child Status",
-          key: "child-status",
-          variant: "info",
-          message: "Status with parent",
-          time: TimeStamp.now(),
+          onOptimistic: () => {
+            duringWrite = client.statuses.store.get(key)?.labels;
+          },
         },
-        { parent: parentResourceID },
+      );
+      expect(duringWrite).toEqual([held.key]);
+      expect(updated.labels).toEqual([held.key]);
+    });
+  });
+
+  describe("owner", () => {
+    const createOwner = async () =>
+      channel.resourceID(
+        (
+          await client.channels.create({
+            name: `owner_${id.create()}`,
+            dataType: DataType.FLOAT32,
+            virtual: true,
+          })
+        ).key,
       );
 
-      expect(s.key).toBe("child-status");
-
-      const resources = await client.ontology.children.retrieve({
-        ids: parentResourceID,
+    it("should write an owned status to the status its owner holds", async () => {
+      const owner = await createOwner();
+      const first = await client.statuses.set({ owner, variant: "info", message: "a" });
+      const second = await client.statuses.set({
+        owner,
+        key: uuid.create(),
+        variant: "warning",
+        message: "b",
       });
+      expect(second.key).toEqual(first.key);
+      expect(second.message).toEqual("b");
+      expect(second.owner).toEqual(owner);
+    });
 
-      const statusResource = resources.find((r) => r.id.key === "child-status");
-      expect(statusResource).toBeDefined();
+    it("should keep the stored owner in the optimistic status of a set by key", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      let duringWrite: string | undefined;
+      await client.statuses.set(
+        { key: created.key, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = client.statuses.ownedBy(owner)?.key;
+          },
+        },
+      );
+      expect(duringWrite).toEqual(created.key);
+    });
+
+    it("should retrieve the statuses that resources own", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const res = await client.statuses.retrieve({ owners: [owner] });
+      expect(res.map(({ key }) => key)).toEqual([created.key]);
+    });
+
+    it("should find the cached status a resource owns", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(client.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should retrieve the statuses of several owners in one request", async () => {
+      const owners = await Promise.all([createOwner(), createOwner()]);
+      await Promise.all(
+        owners.map(
+          async (owner) =>
+            await client.statuses.set({ owner, variant: "info", message: "a" }),
+        ),
+      );
+      const local = createTestClient();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        owners.map(async (owner) => await local.statuses.retrieveOwned([owner])),
+      );
+      expect(res.map((statuses) => statuses.map((s) => s.owner))).toEqual(
+        owners.map((owner) => [owner]),
+      );
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
+    });
+
+    it("should not cache an owned status it holds no key for before the write commits", async () => {
+      const owner = await createOwner();
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      const observer = createTestClient();
+      let duringWrite: status.Status | undefined;
+      const updated = await observer.statuses.set(
+        { owner, variant: "warning", message: "b" },
+        {
+          onOptimistic: () => {
+            duringWrite = observer.statuses.ownedBy(owner);
+          },
+        },
+      );
+      expect(duringWrite).toBeUndefined();
+      expect(updated.key).toEqual(created.key);
+      expect(observer.statuses.ownedBy(owner)?.key).toEqual(created.key);
+    });
+
+    it("should replace a local status with the status the Core sets", async () => {
+      const owner = await createOwner();
+      const local = status.create({ owner, variant: "loading", message: "local" });
+      client.statuses.setLocal(local);
+      const created = await client.statuses.set({
+        owner,
+        variant: "info",
+        message: "a",
+      });
+      expect(created.key).toEqual(local.key);
+      expect(client.statuses.ownedBy(owner)).toMatchObject({
+        key: created.key,
+        variant: "info",
+        message: "a",
+      });
     });
   });
 
@@ -393,17 +521,9 @@ describe("Status", () => {
         });
       }
 
-      const page1 = await client.statuses.retrieve({
-        where: { key: { in: keys } },
-        limit: 2,
-        offset: 0,
-      });
+      const page1 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 0 });
 
-      const page2 = await client.statuses.retrieve({
-        where: { key: { in: keys } },
-        limit: 2,
-        offset: 2,
-      });
+      const page2 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 2 });
 
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);
@@ -522,9 +642,7 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      expect(
-        await client.statuses.retrieve({ where: { key: { in: keys } } }),
-      ).toHaveLength(0);
+      expect(await client.statuses.retrieve({ key: keys })).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -567,9 +685,12 @@ describe("Status", () => {
         replace: true,
       });
 
-      const retrievedStat = await client.statuses.retrieve({ key: stat.key });
+      const local = createTestClient();
+      const retrievedStat = await local.statuses.retrieve({ key: stat.key });
       expect(retrievedStat.key).toEqual(stat.key);
-      expect(retrievedStat.labels).toHaveLength(2);
+      expect(retrievedStat.labels.toSorted()).toEqual(
+        [label1.key, label2.key].toSorted(),
+      );
     });
 
     it("should update a subscribed labels answer when labels change", async () => {
@@ -649,10 +770,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        where: {
-          key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
-          variant: { eq: "error" },
-        },
+        key: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(1);
@@ -686,10 +805,8 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        where: {
-          key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
-          variant: { in: ["info", "success"] },
-        },
+        key: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
+        variant: ["info", "success"],
       });
 
       expect(results).toHaveLength(2);
@@ -710,7 +827,8 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        where: { key: { eq: `${prefix}-info` }, variant: { eq: "error" } },
+        key: [`${prefix}-info`],
+        variant: "error",
       });
 
       expect(results).toHaveLength(0);
@@ -1193,61 +1311,5 @@ describe("toString", () => {
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
     );
-  });
-});
-
-describe("label backfill", () => {
-  // Labels a status with a label the client lacks, so the client fetches it through
-  // retrieveLabel.
-  const backfillLabel = (retrieveLabel: () => Promise<never>) => {
-    let fetched = (): void => {};
-    const fetching = new Promise<void>((resolve) => (fetched = resolve));
-    const unary: UnaryClient = {
-      use: () => {},
-      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
-        target: string,
-        _req: z.input<RQ> | z.infer<RQ>,
-        _reqZ: RQ,
-        resZ: RS,
-      ): Promise<z.infer<RS>> => {
-        if (target !== "/label/retrieve") return resZ.parse({});
-        fetched();
-        return await retrieveLabel();
-      },
-    };
-    const onError = vi.fn();
-    const cache = new query.Cache({ openStreamer: null, onError });
-    const ont = new ontology.Client({ unary, cache });
-    const labels = new label.Client({ unary, cache, ontology: ont });
-    new status.Client({ unary, cache, ontology: ont, labels });
-    const rel: ontology.Relationship = {
-      from: status.resourceID(uuid.create()),
-      type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-      to: label.resourceID(uuid.create()),
-    };
-    ont.cache.relationships.set(ontology.relationshipToString(rel), rel);
-    return { cache, onError, fetching };
-  };
-
-  it("should report no error when the client closes during a backfill", async () => {
-    const { cache, onError, fetching } = backfillLabel(
-      async () => await new Promise(() => {}),
-    );
-    await fetching;
-    await cache.close();
-    // Lets the rejection reach the error handler.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it("should report a backfill that fails for another reason", async () => {
-    const err = new ValidationError("bad request");
-    const { cache, onError } = backfillLabel(async () => {
-      throw err;
-    });
-    await vi.waitFor(() =>
-      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: err })),
-    );
-    await cache.close();
   });
 });

@@ -84,6 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,
+			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ethercat_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -95,8 +96,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
-				return v3.ResolveReadConfig(ctx, tx, slaves, c)
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *ReadConfig,
+			) error {
+				return v3.ResolveReadConfig(ctx, snap, slaves, c)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -104,17 +109,25 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations: []gorp.Migration{
+				v2.NewWriteMigration(slaves),
+				v3.WriteMigration,
+			},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
-				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *WriteConfig,
+			) error {
+				return v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
 		},
 	); !ok(err, s.Write) {
@@ -151,14 +164,14 @@ func (s *Service) Stores() []config.Store {
 func slavesOf(svc *device.Service) v2.Slaves {
 	return func(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		keys []string,
 	) (map[string]v2.Slave, error) {
 		var devices []device.Device
 		if err := svc.NewRetrieve().
 			Where(device.And(device.MatchKeys(keys...), device.MatchMakes("ethercat"))).
 			Entries(&devices).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		slaves := make(map[string]v2.Slave, len(devices))

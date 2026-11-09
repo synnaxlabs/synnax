@@ -30,11 +30,6 @@ var _ = Describe("Arc", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Arc{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the Arc resource identifier", func() {
 			k := uuid.New()

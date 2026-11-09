@@ -2177,7 +2177,7 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
+              await client.ranges.retrieve({ key: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
               client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
@@ -2270,7 +2270,7 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client, query }) =>
-              await client.ranges.retrieve({ where: { key: { in: query.keys } } }),
+              await client.ranges.retrieve({ key: query.keys }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client, query }, handler) =>
               client.ranges.onChange({ where: { key: { in: query.keys } } }, handler),
@@ -2310,7 +2310,7 @@ describe("list", () => {
 
     it("should update a read item that the list painted from the cache", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
+      await client.ranges.retrieve({ key: [rng.key] });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
@@ -2332,7 +2332,7 @@ describe("list", () => {
     it("should keep a read item that a rename moves out of the cached query", async () => {
       const name = `Test Range ${uuid.create()}`;
       const rng = await createRange(name);
-      await client.ranges.retrieve({ where: { name: { in: [name] } } });
+      await client.ranges.retrieve({ name: [name] });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
@@ -2353,7 +2353,7 @@ describe("list", () => {
 
     it("should clear a read item painted from the cache when it is deleted", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
+      await client.ranges.retrieve({ key: [rng.key] });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
@@ -2377,7 +2377,7 @@ describe("list", () => {
       async (mode) => {
         const rng = await createRange("Test Range");
         const other = await createRange("Other Range");
-        await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
+        await client.ranges.retrieve({ key: [rng.key, other.key] });
         const { result, rerender } = renderHook(
           ({ key }: { key: ranger.Key }) => {
             const { getItem, subscribe, retrieveAsync } = useRangeList({
@@ -2407,7 +2407,7 @@ describe("list", () => {
     it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
       const rng = await createRange("Test Range");
       const other = await createRange("Other Range");
-      await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
+      await client.ranges.retrieve({ key: [rng.key, other.key] });
       const retrieve = vi.spyOn(client.ranges, "retrieve");
       const { result } = renderHook(
         () => {
@@ -2452,7 +2452,7 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
+              await client.ranges.retrieve({ key: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
               client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
@@ -2495,8 +2495,7 @@ describe("list", () => {
         () =>
           Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ where: { key: { in: keys } } }),
+            retrieve: async ({ client }) => await client.ranges.retrieve({ key: keys }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
               client.ranges.onChange({ where: { key: { in: keys } } }, handler),

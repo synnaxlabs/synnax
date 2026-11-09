@@ -180,13 +180,43 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"package log",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
 					`"github.com/synnaxlabs/synnax/pkg/service/resource"`,
-					"func (s *Service) Export(ctx context.Context, id resource.ID) "+
-						"(imex.Envelope, error)",
+					"func (s *Service) Export(\n\tctx context.Context,\n"+
+						"\tsnap gorp.Snapshot,\n\tid resource.ID,\n"+
+						") (imex.Envelope, error)",
+					"Exec(ctx, snap)",
 					"var v Log",
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
 					"env.Encode(v)",
 				).ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should leave the reference fields out of the export",
+			func(ctx SpecContext) {
+				const live = `
+@go output "core/pkg/service/log"
+
+Log struct {
+	key   uuid @key
+	name  string
+	group uuid? {
+		@ref on_delete detach
+	}
+	owner_key uuid? {
+		@ref on_delete cascade
+	}
+	@go imex
+}
+`
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain(`env.Encode(v, "group", "owner_key")`).
+					ToBeValidGoSource()
 			},
 		)
 

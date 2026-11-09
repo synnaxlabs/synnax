@@ -21,9 +21,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding"
@@ -65,36 +65,50 @@ func (e failEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) e
 
 func (failEncoder) Extension() string { return xjson.Codec.Extension() }
 
-// ExportGroup reads committed data, so every fixture below is created outside the
-// per-spec tx and deleted afterwards to keep the shared DB's counts intact.
+// ExportGroup reads committed data, so every fixture below is deleted afterwards to
+// keep the shared DB's counts intact.
 var _ = Describe("ExportGroup", func() {
-	createGroup := func(ctx SpecContext, name string, parent resource.ID) group.Group {
+	createGroup := func(ctx SpecContext, name string, parent *resource.ID) group.Group {
 		GinkgoHelper()
-		g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, parent))
+		g := group.Group{
+			Name:   name,
+			Scope:  resource.TypeSchematicSymbol,
+			Parent: parent,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
 		})
 		return g
 	}
 	createRoot := func(ctx SpecContext, name string) group.Group {
 		GinkgoHelper()
-		return createGroup(ctx, name, proj.ResourceID())
+		return createGroup(ctx, name, nil)
 	}
 	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 		GinkgoHelper()
 		sym := symbol.Symbol{
-			Name: name,
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Name:  name,
+			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Group: &g.Key,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym, g.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &sym)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
 		return sym
 	}
 	exportFiles := func(ctx SpecContext, key group.Key) zip.Files {
 		GinkgoHelper()
-		files, _ := MustSucceed2(svc.ExportGroup(ctx, key, xjson.Codec))
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, db, key, xjson.Codec))
 		return files
 	}
 	fileNames := func(files zip.Files) []string {
@@ -124,19 +138,19 @@ var _ = Describe("ExportGroup", func() {
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		env := MustSucceed(svc.Export(ctx, symbol.ResourceID(sym.Key)))
+		env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
 			To(MatchJSON(MustSucceed(xjson.Codec.Encode(ctx, env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		_, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		_, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
 	It("Should export an empty group as a manifest alone", func(ctx SpecContext) {
 		g := createRoot(ctx, "Empty")
-		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		files, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json"))
 		Expect(members).To(BeEmpty())
 		Expect(manifestOf(files).Name).To(Equal("Empty"))
@@ -167,14 +181,14 @@ var _ = Describe("ExportGroup", func() {
 			To(ConsistOf("manifest.json", HaveLen(255)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
-		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
+		Expect(svc.ExportGroup(ctx, db, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
-		createGroup(ctx, "Nested", g.ResourceID())
+		createGroup(ctx, "Nested", new(g.ResourceID()))
 		sym := createSymbol(ctx, g, "Ball Valve")
-		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		files, members := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 		Expect(fileNames(files)).To(ConsistOf("manifest.json", "Ball Valve.json"))
 		Expect(members).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
@@ -183,7 +197,7 @@ var _ = Describe("ExportGroup", func() {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, first)
 			createSymbol(ctx, g, second)
-			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 			Expect(fileNames(files)).
 				To(ConsistOf("manifest.json", firstFile, secondFile))
 		},
@@ -201,7 +215,7 @@ var _ = Describe("ExportGroup", func() {
 		func(ctx SpecContext, name, file string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, name)
-			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, db, g.Key, xjson.Codec))
 			Expect(fileNames(files)).To(ConsistOf("manifest.json", file))
 		},
 		Entry("manifest", "manifest", "manifest (1).json"),
@@ -212,7 +226,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{})).Error().
+		Expect(svc.ExportGroup(ctx, db, g.Key, failEncoder{})).Error().
 			To(MatchError(errEncode))
 	})
 	It("Should return the encoder's error when the manifest fails to encode", func(
@@ -220,7 +234,7 @@ var _ = Describe("ExportGroup", func() {
 	) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{onManifest: true})).Error().
+		Expect(svc.ExportGroup(ctx, db, g.Key, failEncoder{onManifest: true})).Error().
 			To(MatchError(errEncode))
 	})
 })
@@ -228,6 +242,8 @@ var _ = Describe("ExportGroup", func() {
 // Imports run on the per-spec tx so created rows roll back and the shared DB's counts
 // stay intact for the other specs.
 var _ = Describe("ImportGroup", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	manifest := func(version int, name string) []byte {
 		GinkgoHelper()
 		return MustSucceed(json.Marshal(map[string]any{
@@ -247,34 +263,27 @@ var _ = Describe("ImportGroup", func() {
 		GinkgoHelper()
 		return MustSucceed(svc.ImportGroup(ctx, tx, files))
 	}
-	childrenOf := func(ctx SpecContext, id resource.ID) []ontology.Resource {
-		GinkgoHelper()
-		var children []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(id).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			Exec(ctx, tx)).To(Succeed())
-		return children
-	}
 	childNames := func(ctx SpecContext, g group.Group) []string {
 		GinkgoHelper()
-		children := childrenOf(ctx, g.ResourceID())
-		names := make([]string, len(children))
-		for i, child := range children {
-			Expect(child.ID.Type).To(Equal(resource.TypeSchematicSymbol))
-			names[i] = child.Name
+		var symbols []symbol.Symbol
+		Expect(svc.NewRetrieve().
+			Where(symbol.MatchGroups(g.Key)).
+			Entries(&symbols).
+			Exec(ctx, tx)).To(Succeed())
+		names := make([]string, len(symbols))
+		for i, sym := range symbols {
+			names[i] = sym.Name
 		}
 		return names
 	}
 
-	It("Should create a group named by the manifest under the permanent group", func(
+	It("Should create a top-level symbol group named by the manifest", func(
 		ctx SpecContext,
 	) {
 		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Valves")})
 		Expect(g.Name).To(Equal("Valves"))
-		Expect(childrenOf(ctx, svc.Group().ResourceID())).
-			To(ContainElement(HaveField("ID", g.ResourceID())))
+		Expect(g.Scope).To(Equal(resource.TypeSchematicSymbol))
+		Expect(g.Parent).To(BeNil())
 	})
 	It("Should import every member into the created group", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{
@@ -287,24 +296,30 @@ var _ = Describe("ImportGroup", func() {
 	It("Should import an exported bundle back as an equal group", func(
 		ctx SpecContext,
 	) {
-		src := MustSucceed(
-			groupSvc.NewWriter(nil).Create(ctx, "Valves", proj.ResourceID()),
-		)
+		src := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
+		Expect(groupSvc.NewWriter(tx).Create(ctx, &src)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
+			})).To(Succeed())
 		})
 		sym := symbol.Symbol{
-			Name: "Inlet",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Name:  "Inlet",
+			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			Group: &src.Key,
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.ResourceID())).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
 		})
-		files, _ := MustSucceed2(svc.ExportGroup(ctx, src.Key, xjson.Codec))
+		Expect(tx.Commit(ctx)).To(Succeed())
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, db, src.Key, xjson.Codec))
+		tx = DeferClose(db.OpenTx())
 		g := importGroup(ctx, files)
 		Expect(g.Key).ToNot(Equal(src.Key))
-		Expect(g.Name).To(Equal("Valves"))
+		Expect(g.Name).To(Equal(src.Name))
 		Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
 	})
 	It("Should name a nameless member after its file", func(ctx SpecContext) {
@@ -338,7 +353,7 @@ var _ = Describe("ImportGroup", func() {
 	})
 	It("Should import a manifest alone as an empty group", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Empty")})
-		Expect(childrenOf(ctx, g.ResourceID())).To(BeEmpty())
+		Expect(childNames(ctx, g)).To(BeEmpty())
 	})
 
 	Describe("Legacy version 1 manifests", func() {

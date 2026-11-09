@@ -139,7 +139,7 @@ export const ensureRange = async (
         name: spec.name,
         timeRange: spec.timeRange,
         ...(spec.key != null && { key: spec.key }),
-        ...(spec.parent != null && { parent: { key: spec.parent } }),
+        ...(spec.parent != null && { parent: spec.parent }),
       }));
     if (spec.labels != null && spec.labels.length > 0)
       await client.labels.label(range.resourceID, spec.labels);
@@ -165,7 +165,9 @@ export const clearWorkspace = async (opts: ConnectionOptions = {}): Promise<void
   }
 };
 
-/** removeRanges deletes every range with one of the names, so a shot can recreate it. */
+/**
+ * removeRanges deletes every range with one of the names, so a shot can recreate it.
+ */
 export const removeRanges = async (
   names: string[],
   opts: ConnectionOptions = {},
@@ -200,8 +202,8 @@ export interface UserSpec {
   password?: string;
   firstName?: string;
   lastName?: string;
-  /** Name of a built-in role to assign; a user without one stays hidden. */
-  role?: string;
+  /** Name of the built-in role the user holds. */
+  role: string;
 }
 
 /** createUsers registers users on the cluster so user-management shots have rows. */
@@ -211,17 +213,18 @@ export const createUsers = async (
 ): Promise<void> => {
   const client = connect(opts);
   try {
-    const users = await client.users.create(
-      specs.map(({ role: _role, ...s }) => ({ password: "seldon-demo", ...s })),
-    );
     const roles = await client.access.roles.retrieve({});
-    await Promise.all(
-      specs.map(async ({ role }, i) => {
-        if (role == null) return;
-        const match = roles.find((r) => r.name === role);
-        if (match == null) throw new Error(`role ${role} not found`);
-        await client.access.roles.assign({ role: match.key, user: users[i].key });
-      }),
+    const roleKey = (name: string): string => {
+      const match = roles.find((r) => r.name === name);
+      if (match == null) throw new Error(`role ${name} not found`);
+      return match.key;
+    };
+    await client.users.create(
+      specs.map(({ role, ...s }) => ({
+        password: "seldon-demo",
+        ...s,
+        role: roleKey(role),
+      })),
     );
   } finally {
     await client.close();

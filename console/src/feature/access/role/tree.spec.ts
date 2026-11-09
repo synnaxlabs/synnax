@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError, user } from "@synnaxlabs/client";
+import { access, NotFoundError, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { User as PUser } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
@@ -22,10 +24,10 @@ import {
   expandTreeRow,
   findModalButton,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { assertDefined, queryIcon, uniqueName } from "@/testutil";
+import { assertDefined, CaptureStatuses, queryIcon, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -39,7 +41,7 @@ const createRole = async () =>
 const roleResource = (key: string, name: string, internal: boolean) =>
   createResource(access.role.resourceID(key), name, { internal });
 
-describe("role ontology service", () => {
+describe("role tree item", () => {
   it("should expose rename and delete for a non-internal role", async () => {
     const role = await createRole();
     assertDefined(RoleItem.ContextMenu);
@@ -104,31 +106,73 @@ describe("role ontology service", () => {
     });
   });
 
+  it("should report a refused delete of a role that a user holds", async () => {
+    const role = await createRole();
+    const u = await client.users.create({
+      username: uniqueName("user"),
+      password: "password",
+      role: role.key,
+    });
+    const statuses: Status.NotificationSpec[] = [];
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
+      client,
+      resources: [roleResource(role.key, role.name, false)],
+      extra: createElement(CaptureStatuses, {
+        onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+      }),
+    });
+    fireEvent.click(await screen.findByText("Delete"));
+    await screen.findByText(`Are you sure you want to delete ${role.name}?`);
+    fireEvent.click(findModalButton("Delete"));
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          message: "Failed to delete role",
+          description:
+            `cannot delete role ${role.name} because user ${u.name} ` +
+            "uses it as its role: validation error",
+        }),
+      ),
+    );
+    expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
+  });
+
   describe("drop", () => {
-    const { canDrop } = RoleItem;
     const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
+    const destination = roleResource("r1", "role", false);
+    const root = access.role.TYPE_RESOURCE_ID;
+    const canDrop = (items: Haul.Item[]): boolean =>
+      RoleItem.canDrop({
+        source,
+        items,
+        root,
+        destination,
+        ancestors: [root],
+        moved: Tree.filterHaulItems(items).map(({ key }) => ({
+          id: resource.parseID(key),
+          ancestors: [resource.parseID("role:r0"), root],
+        })),
+      });
     // A tree drag carries a tree item for each resource and the resource's own items.
     const dragUser = (rootUser: boolean): Haul.Item[] => [
       Tree.createHaulItem("user:u1"),
-      PUser.createHaulItem({
-        key: "u1",
-        name: "",
-        rootUser,
-      }),
+      PUser.createHaulItem({ key: "u1", name: "", rootUser, role: "r0" }),
     ];
 
     it("should accept a dragged user", () => {
-      expect(canDrop({ source, items: dragUser(false) })).toBe(true);
+      expect(canDrop(dragUser(false))).toBe(true);
     });
 
     it("should refuse the root user", () => {
-      expect(canDrop({ source, items: dragUser(true) })).toBe(false);
+      expect(canDrop(dragUser(true))).toBe(false);
     });
 
     it("should refuse a resource that is not a user", () => {
       const items = [Tree.createHaulItem("channel:1")];
-      expect(canDrop({ source, items })).toBe(false);
-      expect(canDrop({ source, items: [...dragUser(false), ...items] })).toBe(false);
+      expect(canDrop(items)).toBe(false);
+      expect(canDrop([...dragUser(false), ...items])).toBe(false);
     });
 
     it("should move a user to the role it is dropped on", async () => {
@@ -137,14 +181,12 @@ describe("role ontology service", () => {
       const u = await client.users.create({
         username: uniqueName("user"),
         password: "password",
+        role: from.key,
       });
-      await client.access.roles.assign({ user: u.key, role: from.key });
-      const [rolesGroup] = await client.ontology.parents.retrieve({
-        ids: access.role.resourceID(from.key),
-      });
-      await renderOntologyTree({
+      await renderLiveTree({
         client,
-        root: rolesGroup.id,
+        root: access.role.TYPE_RESOURCE_ID,
+        listRoot: Access.Role.listTreeRoot,
         items: { ...Access.Role.TREE_ITEMS, ...User.TREE_ITEMS },
       });
       await findTreeRow(from.name);
@@ -152,23 +194,17 @@ describe("role ontology service", () => {
       fireEvent.dragStart(await findTreeRow(u.name));
       fireEvent.drop(await findTreeRow(to.name));
       await waitFor(async () => {
-        const roles = await client.ontology.parents.retrieve({
-          ids: user.resourceID(u.key),
-          types: [access.role.TYPE_RESOURCE_ID.type],
-        });
-        expect(roles.map(({ id }) => id.key)).toEqual([to.key]);
+        expect((await client.users.retrieve(u.key)).role).toEqual(to.key);
       });
     });
   });
 
   it("should render each built-in role's icon and fall back for custom roles", async () => {
     const role = await createRole();
-    const [rolesGroup] = await client.ontology.parents.retrieve({
-      ids: access.role.resourceID(role.key),
-    });
-    await renderOntologyTree({
+    await renderLiveTree({
       client,
-      root: rolesGroup.id,
+      root: access.role.TYPE_RESOURCE_ID,
+      listRoot: Access.Role.listTreeRoot,
       items: Access.Role.TREE_ITEMS,
     });
     const cases: [string, string][] = [
@@ -184,7 +220,7 @@ describe("role ontology service", () => {
   });
 });
 
-describe("policy ontology service", () => {
+describe("policy tree item", () => {
   it("should stay hidden in the tree and declare no children", () => {
     expect(PolicyItem.type).toBe("policy");
     expect(

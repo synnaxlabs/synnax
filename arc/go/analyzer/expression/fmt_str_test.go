@@ -212,6 +212,86 @@ trig -> f()`
 		)
 	})
 
+	DescribeTable("Should place a placeholder diagnostic after non-ASCII text",
+		func(specCtx SpecContext, placeholder, message string) {
+			diags := analyze(
+				specCtx,
+				"func f() {\n    log = f\"温度 "+placeholder+"\"\n}",
+			)
+			d := findError(diags, message)
+			Expect(d).ToNot(BeNil(), diags.String())
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(15)))
+			Expect(d.Range.End.Character).To(Equal(uint32(15 + len(placeholder))))
+		},
+		Entry("an empty placeholder", "{}", "must contain an expression"),
+		Entry("a parse error", "{1 +}", "invalid placeholder expression"),
+		Entry("a bad format spec", "{1:q}", "invalid format spec"),
+	)
+
+	It("Should count placeholder columns in runes", func(specCtx SpecContext) {
+		code := "func f() {\n    log = f\"温度°: {1 + undeclared}\"\n}"
+		diags := analyze(specCtx, code)
+		d := findError(diags, "undeclared")
+		Expect(d).ToNot(BeNil(), diags.String())
+		Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+		Expect(d.Range.Start.Character).To(Equal(uint32(22)))
+	})
+
+	It("Should reuse the placeholders of a format string analyzed twice", func(
+		specCtx SpecContext,
+	) {
+		expr := MustSucceed(parser.ParseExpression(`f"{1 + 2} {1 +} x"`))
+		strTerm := parser.StringTerminal(parser.GetLiteral(expr))
+		ctx := acontext.NewRoot(specCtx, expr, fmtResolver())
+		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		first := ctx.FmtStrings[strTerm]
+		Expect(first).To(HaveLen(4))
+		Expect(first[0].Expr).ToNot(BeNil())
+		Expect(first[2].Expr).To(BeNil())
+		Expect(first[3]).To(Equal(parser.FmtSegment{Text: " x"}))
+		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		second := ctx.FmtStrings[strTerm]
+		Expect(second[0].Expr).To(BeIdenticalTo(first[0].Expr))
+		Expect(second[2].Expr).To(BeNil())
+	})
+
+	It("Should report an invalid escape in literal text", func(specCtx SpecContext) {
+		diags := analyze(specCtx, "func f() {\n    log = f\"\\u00zz{1}\"\n}")
+		Expect(findError(diags, "invalid \\u escape")).ToNot(BeNil(), diags.String())
+	})
+
+	It("Should parse each placeholder at its position in the source", func(
+		specCtx SpecContext,
+	) {
+		code := "func f() {\n    log = f`a {1 + 2}\n  {trig}`\n}\ntrig -> f()"
+		ast := MustSucceed(parser.Parse(code))
+		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.FmtStrings).To(HaveLen(1))
+		var starts [][2]int
+		for _, segments := range ctx.FmtStrings {
+			for _, seg := range segments {
+				if seg.Expr != nil {
+					start := seg.Expr.GetStart()
+					starts = append(starts, [2]int{start.GetLine(), start.GetColumn()})
+				}
+			}
+		}
+		Expect(starts).To(Equal([][2]int{{2, 15}, {3, 3}}))
+	})
+
+	It("Should anchor an error inside a placeholder on the expression", func(
+		specCtx SpecContext,
+	) {
+		diags := analyze(specCtx, "func f() {\n    log = f\"pre {1 + undeclared}\"\n}")
+		d := findError(diags, "undeclared")
+		Expect(d).ToNot(BeNil(), diags.String())
+		Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+		Expect(d.Range.Start.Character).To(Equal(uint32(21)))
+	})
+
 	Describe("Format spec validation", func() {
 		DescribeTable("rejects float-only specs on integer placeholders",
 			func(specCtx SpecContext, body string) {

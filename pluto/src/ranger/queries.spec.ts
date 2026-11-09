@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -148,30 +148,8 @@ describe("queries", () => {
       });
     });
 
-    it("should attach the labels of each range", async () => {
-      const rangeLabel = await client.labels.create({
-        name: "rangeLabel",
-        color: "#FF0000",
-      });
-      const testRange = await client.ranges.create({
-        name: "labeledRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-      await client.labels.label(ranger.resourceID(testRange.key), [rangeLabel.key]);
-
-      const { result } = renderHook(() => Ranger.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedRange = result.current.getItem(testRange.key);
-      expect(retrievedRange?.labels?.map((l) => l.key)).toEqual([rangeLabel.key]);
-    });
-
-    it("should attach the parent of each range", async () => {
+    it("should hold the label keys and the parent key of a range", async () => {
+      const lbl = await client.labels.create({ name: "listed", color: "#FF0000" });
       const parentRange = await client.ranges.create({
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
@@ -179,24 +157,20 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "childRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
+        labels: [lbl.key],
       });
-
-      const { result } = renderHook(() => Ranger.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Ranger.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
+        result.current.retrieve(
+          { where: { key: { in: [childRange.key] } } },
+          { signal: controller.signal },
+        );
       });
-      await waitFor(() =>
-        expect(
-          result.current.variant,
-          `${result.current.status.message}:${result.current.status.description}`,
-        ).toEqual("success"),
-      );
-
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
       const retrievedChild = result.current.getItem(childRange.key);
-      expect(retrievedChild?.parent?.key).toEqual(parentRange.key);
+      expect(retrievedChild?.labels).toEqual([lbl.key]);
+      expect(retrievedChild?.parent).toEqual(parentRange.key);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -366,7 +340,7 @@ describe("queries", () => {
       expect(retrievedRange?.color).toEqual(color.construct("#E774D0"));
     });
 
-    it("should update range when a label is deleted", async () => {
+    it("should update a range when a label is removed from it", async () => {
       const label1 = await client.labels.create({
         name: "labelToDelete",
         color: "#FF0000",
@@ -393,16 +367,39 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const rangeBeforeDelete = result.current.getItem(testRange.key);
-      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label1.key);
-      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+      expect(rangeBeforeDelete?.labels).toContain(label1.key);
+      expect(rangeBeforeDelete?.labels).toContain(label2.key);
 
       await client.labels.remove(testRange.resourceID, [label1.key]);
 
       await waitFor(() => {
         const rangeAfterDelete = result.current.getItem(testRange.key);
-        expect(rangeAfterDelete?.labels?.map((l) => l.key)).not.toContain(label1.key);
-        expect(rangeAfterDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+        expect(rangeAfterDelete?.labels).toEqual([label2.key]);
       });
+    });
+
+    it("should update a range when a label it holds is deleted", async () => {
+      const [kept, deleted] = await client.labels.create([
+        { name: "labelToKeep", color: "#00FF00" },
+        { name: "labelToDelete", color: "#FF0000" },
+      ]);
+      const testRange = await client.ranges.create({
+        name: "rangeWithLabels",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        labels: [kept.key, deleted.key],
+      });
+      const { result } = renderHook(() => Ranger.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve(
+          { where: { key: { in: [testRange.key] } } },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await client.labels.delete(deleted.key);
+      await waitFor(() =>
+        expect(result.current.getItem(testRange.key)?.labels).toEqual([kept.key]),
+      );
     });
 
     it("should handle ranges with different time spans", async () => {
@@ -443,12 +440,12 @@ describe("queries", () => {
       const child1 = await client.ranges.create({
         name: "child1",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
       const child2 = await client.ranges.create({
         name: "child2",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -476,11 +473,11 @@ describe("queries", () => {
           client.ranges.create({
             name: `pagedChild${i}`,
             timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-            parent: parentRange,
+            parent: parentRange.key,
           }),
         ),
       );
-      const spy = vi.spyOn(client.ranges.children, "retrieve");
+      const spy = vi.spyOn(client.ranges, "retrieve");
       try {
         const { result } = renderHook(() => Ranger.useListChildren(), { wrapper });
         act(() => {
@@ -491,7 +488,11 @@ describe("queries", () => {
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toHaveLength(2);
-        expect(spy).toHaveBeenCalledWith({ key: parentRange.key, limit: 2, offset: 0 });
+        expect(spy).toHaveBeenCalledWith({
+          parents: [parentRange.key],
+          limit: 2,
+          offset: 0,
+        });
       } finally {
         spy.mockRestore();
       }
@@ -506,7 +507,7 @@ describe("queries", () => {
         name: "testChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
         color: "#00FF00",
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -569,7 +570,7 @@ describe("queries", () => {
       const newChild = await client.ranges.create({
         name: "newChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       await waitFor(() => {
@@ -586,7 +587,7 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "originalChild",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -618,7 +619,7 @@ describe("queries", () => {
       const childRange = await client.ranges.create({
         name: "childToDelete",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -650,12 +651,12 @@ describe("queries", () => {
       const parentRange = await client.ranges.create({
         name: "parent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
-        parent: grandparentRange,
+        parent: grandparentRange.key,
       });
       const childRange = await client.ranges.create({
         name: "child",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
-        parent: parentRange,
+        parent: parentRange.key,
       });
 
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
@@ -697,7 +698,7 @@ describe("queries", () => {
         const child = await client.ranges.create({
           name: `level1_child_${i}`,
           timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
-          parent: rootRange,
+          parent: rootRange.key,
         });
         children.push(child);
       }
@@ -1107,8 +1108,8 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
 
-      // Warm the flux store (range + labels + parent relationship) through the
-      // async retrieve path so the composed cache fast-path can resolve.
+      // Warm the flux store through the async retrieve path so the cache fast-path can
+      // resolve.
       const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
         wrapper,
       });
@@ -1137,6 +1138,57 @@ describe("queries", () => {
       expect(utils.queryByTestId("fallback")).toBeNull();
       expect(utils.queryByTestId("name")?.textContent).toBe("cached_fastpath");
     });
+  });
+});
+
+describe("useLabels", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    await waitForStreamLive(client.connection);
+  });
+
+  const keysOf = (labels: label.Label[] | undefined) =>
+    labels?.map(({ key }) => key).toSorted();
+
+  it("should resolve the labels of a range and follow its label edits", async () => {
+    const [first, second] = await client.labels.create([
+      { name: "first", color: "#FF0000" },
+      { name: "second", color: "#00FF00" },
+    ]);
+    const rng = await client.ranges.create({
+      name: "labeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [first.key],
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(keysOf(result.current)).toEqual([first.key]));
+    await client.labels.label(rng.resourceID, [second.key]);
+    await waitFor(() =>
+      expect(keysOf(result.current)).toEqual([first.key, second.key].toSorted()),
+    );
+  });
+
+  it("should show the new name of a label the range holds", async () => {
+    const lbl = await client.labels.create({ name: "original", color: "#FF0000" });
+    const rng = await client.ranges.create({
+      name: "labeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [lbl.key],
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(result.current?.[0]?.name).toEqual("original"));
+    await client.labels.create({ ...lbl, name: "renamed" });
+    await waitFor(() => expect(result.current?.[0]?.name).toEqual("renamed"));
+  });
+
+  it("should answer a range with no labels with an empty list", async () => {
+    const rng = await client.ranges.create({
+      name: "unlabeled",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
+    await waitFor(() => expect(result.current).toEqual([]));
   });
 });
 

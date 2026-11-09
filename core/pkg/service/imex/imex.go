@@ -12,8 +12,8 @@
 //
 //	{"version":1,"type":"log","name":"...","channels":[...]}
 //
-// Version, Type, and Name are promoted to typed fields for routing, access control, and
-// file naming; the rest of the body is opaque, decoded by Decode and built by Encode.
+// Version, Type, and Name are promoted to typed fields for routing and file naming; the
+// rest of the body is opaque, decoded by Decode and built by Encode.
 // Services register with the Service registry and are routed by Type.
 package imex
 
@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
@@ -239,8 +240,10 @@ type BodyExporter interface {
 // error env is left untouched.
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
-// A BodyExporter is reduced through ExportBody instead of directly.
-func (env *Envelope) Encode[T any](data T) error {
+// A BodyExporter is reduced through ExportBody instead of directly. references names
+// the top-level fields that hold Gorp references. Encode leaves them out, since they
+// hold keys local to this Core.
+func (env *Envelope) Encode[T any](data T, references ...string) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {
 		value = b.ExportBody()
@@ -254,6 +257,9 @@ func (env *Envelope) Encode[T any](data T) error {
 		if body, err = structToMap(value); err != nil {
 			return errors.Wrap(err, "encode envelope")
 		}
+	}
+	for _, ref := range references {
+		delete(body, ref)
 	}
 	// Importers mint a fresh key, so a key on the wire is noise at best and a collision
 	// hazard at worst.
@@ -383,8 +389,7 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 }
 
 // ImportOptions carries the per-request settings for an import that arrive out-of-band
-// from the envelope body — transport metadata like the source file's name and the
-// desired parent resource.
+// from the envelope body: the source file's name, the parent resource, and the group.
 type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from, possibly carrying
 	// directory segments. When the envelope body has no `name` field, the file's base
@@ -392,11 +397,13 @@ type ImportOptions struct {
 	// `name` in the body always wins. The registry applies the fallback before the
 	// envelope reaches an Importer.
 	FileName string
-	// Parent is the ontology resource to create the imported resource under — a project
-	// for workspace items, a group for symbols. Required: Service.Import rejects a zero
-	// Parent. The registry passes it through untouched; each Importer decides how the
-	// parent applies to its resource type.
+	// Parent is the resource to create the imported resource under, such as the project
+	// of a workspace item. The registry passes it through untouched; each Importer
+	// decides how the parent applies to its resource type, and whether it needs one.
 	Parent resource.ID
+	// Group is the group a groupable resource sits in, or nil for none. An importer
+	// ignores any group the envelope carries.
+	Group *group.Key
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's
@@ -406,8 +413,8 @@ type Importer interface {
 	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
 	// by the time Import is called — the registry has already applied the file-name
 	// fallback — so importers should treat it as the resource's name rather than
-	// re-deriving one from the body. The importer owns all ontology writes for the
-	// resource, including attaching it under opts.Parent when one is given.
+	// re-deriving one from the body. The importer attaches the resource under
+	// opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (resource.ID, error)
 	// Match reports whether the envelope body, decoded as a flat map, is this
 	// importer's resource. It routes envelopes carrying no `type` header: some legacy
@@ -416,25 +423,20 @@ type Importer interface {
 	// markers Match tests are frozen — they describe historical file shapes. Importers
 	// with no typeless legacy formats return false.
 	Match(map[string]any) bool
-	// Type returns the broader resource type the importer creates. For services with
-	// asymmetric registration (e.g. a task service registered under "http_read" and
-	// "opc_scan") this is the coarser resource type ("task"); it is the resource type
-	// used for access control and ontology accounting.
-	Type() resource.Type
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by id and serializes it, stamping the
-	// exporter's per-schema Version.
-	Export(context.Context, resource.ID) (Envelope, error)
-	// Type returns the ontology resource type this exporter handles.
+	// Export retrieves the resource identified by id from the snapshot and serializes
+	// it, stamping the exporter's per-schema Version.
+	Export(context.Context, gorp.Snapshot, resource.ID) (Envelope, error)
+	// Type returns the resource type this exporter handles.
 	Type() resource.Type
 }
 
 // ImportExporter is a service that implements both Importer and Exporter under the same
-// ontology resource type and can be registered with Service.RegisterImportExporter.
+// resource type and can be registered with Service.RegisterImportExporter.
 type ImportExporter interface {
 	Importer
 	Exporter

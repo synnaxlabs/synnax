@@ -19,7 +19,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -159,9 +159,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -213,7 +213,7 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
   onTestFinished(client.panels.onChange(doc.key, () => {}));
@@ -573,8 +573,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -592,7 +592,7 @@ export const reportTaskStopped = async (
     ...tsk,
     status: createTaskStatus({
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
   });
 };
@@ -618,7 +618,7 @@ export const answerCommand = async (
     ...tsk.payload,
     status: createTaskStatus({
       ...answer,
-      details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
+      details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
   });
 };

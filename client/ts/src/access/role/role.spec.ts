@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   type BuiltInRole,
@@ -68,16 +68,12 @@ describe("role", () => {
       });
 
       // Retrieve only internal roles (built-in system roles)
-      const internalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: true } },
-      });
+      const internalRoles = await client.access.roles.retrieve({ internal: true });
       expect(internalRoles.length).toBeGreaterThan(0);
       expect(internalRoles.every((r) => r.internal === true)).toBe(true);
       expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
 
-      const nonInternalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: false } },
-      });
+      const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
     });
@@ -106,24 +102,42 @@ describe("role", () => {
         NotFoundError,
       );
     });
-  });
 
-  describe("assign", () => {
-    it("should allow the caller to assign a role to a user", async () => {
-      const role = await client.access.roles.create({
-        name: "test",
-        description: "test",
+    it("should delete the role's policies", async () => {
+      const doomed = await client.access.roles.create({
+        name: `doomed-${id.create()}`,
       });
-      const username = id.create();
+      const p = await client.access.policies.create({
+        role: doomed.key,
+        name: "doomed",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      await client.access.roles.delete(doomed.key);
+      // A client with an empty cache reads what the Core stores.
+      const fresh = createTestClient();
+      await expect(fresh.access.policies.retrieve(p.key)).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should refuse to delete a role that a user holds", async () => {
+      const held = await client.access.roles.create({ name: `held-${id.create()}` });
       const u = await client.users.create({
-        username,
+        username: id.create(),
         password: "test",
-        name: "test",
+        role: held.key,
       });
-      await client.access.roles.assign({
-        user: u.key,
-        role: role.key,
-      });
+      await expect(client.access.roles.delete(held.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete role ${held.name} because user ${u.name} ` +
+            "uses it as its role: validation error",
+        ),
+      );
+      expect(expectLive(client.access.roles.getCached(held.key)).key).toEqual(held.key);
+      const fresh = createTestClient();
+      expect((await fresh.access.roles.retrieve(held.key)).key).toEqual(held.key);
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(held.key);
     });
   });
 

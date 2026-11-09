@@ -54,7 +54,7 @@ var paths = []struct {
 	name        string
 	leaseholder node.Key
 }{
-	{name: "gateway"},
+	{name: "host"},
 	{name: "free", leaseholder: node.KeyFree},
 }
 

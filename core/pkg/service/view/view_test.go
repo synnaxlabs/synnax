@@ -15,8 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,33 +39,18 @@ func statusView(name string) view.View {
 
 var _ = Describe("View", func() {
 	var (
-		otg *ontology.Ontology
 		svc *view.Service
 		w   view.Writer
 		tx  gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{
-			DB: db,
-		}))
-		g := MustOpen(
-			group.OpenService(
-				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg},
-			),
-		)
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {
@@ -235,8 +218,6 @@ var _ = Describe("View", func() {
 				rangeView("View B"),
 				statusView("View C"),
 			}
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})
 
@@ -333,7 +314,9 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.GorpKey()
 					}
-					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, keys...)
+					})).To(Succeed())
 				})
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
@@ -358,10 +341,10 @@ var _ = Describe("View", func() {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
 				q := search.Query[resource.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
 					To(Equal([]resource.ID{b}))
 			},
 		)
@@ -371,7 +354,9 @@ var _ = Describe("View", func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector")
 				q := search.Query[resource.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})

@@ -18,9 +18,8 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	pb2 "github.com/synnaxlabs/x/filter/pb"
+	pb1 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -36,19 +35,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// rack is the key of the rack this device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	// device is the device identifier.
-	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
 	// connected is true while the Driver confirms that it can reach the device. A device
 	// whose state is unknown is not connected.
-	Connected bool `protobuf:"varint,3,opt,name=connected,proto3" json:"connected,omitempty"`
+	Connected bool `protobuf:"varint,2,opt,name=connected,proto3" json:"connected,omitempty"`
 	// data contains device-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -90,13 +87,6 @@ func (x *StatusDetails) GetRack() uint32 {
 	return 0
 }
 
-func (x *StatusDetails) GetDevice() string {
-	if x != nil {
-		return x.Device
-	}
-	return ""
-}
-
 func (x *StatusDetails) GetConnected() bool {
 	if x != nil {
 		return x.Connected
@@ -136,9 +126,11 @@ type Device struct {
 	Properties *structpb.Struct `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	// status is the current operational status of the device.
 	Status *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	// parent is an optional parent resource ID for hierarchical device organization
-	// (e.g., NI chassis containing modules).
-	Parent        *pb1.ID `protobuf:"bytes,10,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	// group is the group the device sits in, if any.
+	Group *string `protobuf:"bytes,10,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	// parent is the key of the device that holds this device, such as the NI chassis of a
+	// module. Empty for a device that sits directly on its rack.
+	Parent        *string `protobuf:"bytes,11,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -236,11 +228,18 @@ func (x *Device) GetStatus() *pb.Status {
 	return nil
 }
 
-func (x *Device) GetParent() *pb1.ID {
-	if x != nil {
-		return x.Parent
+func (x *Device) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
 	}
-	return nil
+	return ""
+}
+
+func (x *Device) GetParent() string {
+	if x != nil && x.Parent != nil {
+		return *x.Parent
+	}
+	return ""
 }
 
 type WhereList struct {
@@ -487,6 +486,94 @@ func (x *RackKeySet) GetIn() *RackKeyList {
 	return nil
 }
 
+type GroupKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GroupKeyList) Reset() {
+	*x = GroupKeyList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GroupKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GroupKeyList) ProtoMessage() {}
+
+func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GroupKeyList.ProtoReflect.Descriptor instead.
+func (*GroupKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GroupKeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type KeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyList) Reset() {
+	*x = KeyList{}
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyList) ProtoMessage() {}
+
+func (x *KeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
+func (*KeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *KeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 // Where is a filter that selects devices.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -499,22 +586,31 @@ type Where struct {
 	// key selects by key.
 	Key *StringSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
 	// name selects by name.
-	Name *pb2.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	// make selects by make.
-	Make *pb2.String `protobuf:"bytes,6,opt,name=make,proto3,oneof" json:"make,omitempty"`
+	Make *pb1.String `protobuf:"bytes,6,opt,name=make,proto3,oneof" json:"make,omitempty"`
 	// model selects by model.
-	Model *pb2.String `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	Model *pb1.String `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
 	// location selects by location.
-	Location *pb2.String `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	Location *pb1.String `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// rack selects by rack.
-	Rack          *RackKeySet `protobuf:"bytes,9,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	Rack *RackKeySet `protobuf:"bytes,9,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	// groups matches the devices in any of the given groups.
+	Groups *GroupKeyList `protobuf:"bytes,10,opt,name=groups,proto3" json:"groups,omitempty"`
+	// grouped matches the devices in a group, or in no group when false.
+	Grouped *bool `protobuf:"varint,11,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
+	// parents matches the devices that any of the given devices hold.
+	Parents *KeyList `protobuf:"bytes,12,opt,name=parents,proto3" json:"parents,omitempty"`
+	// nested matches the devices that another device holds, or the devices that sit
+	// directly on their rack when false.
+	Nested        *bool `protobuf:"varint,13,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Where) Reset() {
 	*x = Where{}
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -526,7 +622,7 @@ func (x *Where) String() string {
 func (*Where) ProtoMessage() {}
 
 func (x *Where) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -539,7 +635,7 @@ func (x *Where) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Where.ProtoReflect.Descriptor instead.
 func (*Where) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Where) GetAnd() *WhereList {
@@ -570,28 +666,28 @@ func (x *Where) GetKey() *StringSet {
 	return nil
 }
 
-func (x *Where) GetName() *pb2.String {
+func (x *Where) GetName() *pb1.String {
 	if x != nil {
 		return x.Name
 	}
 	return nil
 }
 
-func (x *Where) GetMake() *pb2.String {
+func (x *Where) GetMake() *pb1.String {
 	if x != nil {
 		return x.Make
 	}
 	return nil
 }
 
-func (x *Where) GetModel() *pb2.String {
+func (x *Where) GetModel() *pb1.String {
 	if x != nil {
 		return x.Model
 	}
 	return nil
 }
 
-func (x *Where) GetLocation() *pb2.String {
+func (x *Where) GetLocation() *pb1.String {
 	if x != nil {
 		return x.Location
 	}
@@ -605,17 +701,44 @@ func (x *Where) GetRack() *RackKeySet {
 	return nil
 }
 
+func (x *Where) GetGroups() *GroupKeyList {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+func (x *Where) GetGrouped() bool {
+	if x != nil && x.Grouped != nil {
+		return *x.Grouped
+	}
+	return false
+}
+
+func (x *Where) GetParents() *KeyList {
+	if x != nil {
+		return x.Parents
+	}
+	return nil
+}
+
+func (x *Where) GetNested() bool {
+	if x != nil && x.Nested != nil {
+		return *x.Nested
+	}
+	return false
+}
+
 var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x94\x01\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"|\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\x12\x1c\n" +
-	"\tconnected\x18\x03 \x01(\bR\tconnected\x120\n" +
-	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xe5\x02\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x1c\n" +
+	"\tconnected\x18\x02 \x01(\bR\tconnected\x120\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\xf1\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -629,10 +752,12 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
 	"properties\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
 	"properties\x126\n" +
-	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x124\n" +
-	"\x06parent\x18\n" +
-	" \x01(\v2\x17.service.resource.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
-	"\a_statusB\t\n" +
+	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
+	"\x05group\x18\n" +
+	" \x01(\tH\x01R\x05group\x88\x01\x01\x12\x1b\n" +
+	"\x06parent\x18\v \x01(\tH\x02R\x06parent\x88\x01\x01B\t\n" +
+	"\a_statusB\b\n" +
+	"\x06_groupB\t\n" +
 	"\a_parent\"=\n" +
 	"\tWhereList\x120\n" +
 	"\x06values\x18\x01 \x03(\v2\x18.service.device.pb.WhereR\x06values\"$\n" +
@@ -649,7 +774,11 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12.\n" +
 	"\x02in\x18\x02 \x01(\v2\x1e.service.device.pb.RackKeyListR\x02inB\x05\n" +
-	"\x03_eq\"\x87\x04\n" +
+	"\x03_eq\"&\n" +
+	"\fGroupKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"!\n" +
+	"\aKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xc9\x05\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.device.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.device.pb.WhereListR\x02or\x12/\n" +
@@ -659,14 +788,22 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\x04make\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04make\x88\x01\x01\x12.\n" +
 	"\x05model\x18\a \x01(\v2\x13.x.filter.pb.StringH\x04R\x05model\x88\x01\x01\x124\n" +
 	"\blocation\x18\b \x01(\v2\x13.x.filter.pb.StringH\x05R\blocation\x88\x01\x01\x126\n" +
-	"\x04rack\x18\t \x01(\v2\x1d.service.device.pb.RackKeySetH\x06R\x04rack\x88\x01\x01B\x06\n" +
+	"\x04rack\x18\t \x01(\v2\x1d.service.device.pb.RackKeySetH\x06R\x04rack\x88\x01\x01\x127\n" +
+	"\x06groups\x18\n" +
+	" \x01(\v2\x1f.service.device.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\v \x01(\bH\aR\agrouped\x88\x01\x01\x124\n" +
+	"\aparents\x18\f \x01(\v2\x1a.service.device.pb.KeyListR\aparents\x12\x1b\n" +
+	"\x06nested\x18\r \x01(\bH\bR\x06nested\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\a\n" +
 	"\x05_makeB\b\n" +
 	"\x06_modelB\v\n" +
 	"\t_locationB\a\n" +
-	"\x05_rackB\xc5\x01\n" +
+	"\x05_rackB\n" +
+	"\n" +
+	"\b_groupedB\t\n" +
+	"\a_nestedB\xc5\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
 var (
@@ -681,7 +818,7 @@ func file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescData
 }
 
-var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
 	(*Device)(nil),          // 1: service.device.pb.Device
@@ -690,34 +827,36 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*StringSet)(nil),       // 4: service.device.pb.StringSet
 	(*RackKeyList)(nil),     // 5: service.device.pb.RackKeyList
 	(*RackKeySet)(nil),      // 6: service.device.pb.RackKeySet
-	(*Where)(nil),           // 7: service.device.pb.Where
-	(*structpb.Struct)(nil), // 8: google.protobuf.Struct
-	(*pb.Status)(nil),       // 9: service.status.pb.Status
-	(*pb1.ID)(nil),          // 10: service.resource.pb.ID
-	(*pb2.String)(nil),      // 11: x.filter.pb.String
+	(*GroupKeyList)(nil),    // 7: service.device.pb.GroupKeyList
+	(*KeyList)(nil),         // 8: service.device.pb.KeyList
+	(*Where)(nil),           // 9: service.device.pb.Where
+	(*structpb.Struct)(nil), // 10: google.protobuf.Struct
+	(*pb.Status)(nil),       // 11: service.status.pb.Status
+	(*pb1.String)(nil),      // 12: x.filter.pb.String
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
-	8,  // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	8,  // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	9,  // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	10, // 3: service.device.pb.Device.parent:type_name -> service.resource.pb.ID
-	7,  // 4: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
-	3,  // 5: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
-	5,  // 6: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
-	2,  // 7: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
-	2,  // 8: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
-	7,  // 9: service.device.pb.Where.not:type_name -> service.device.pb.Where
-	4,  // 10: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
-	11, // 11: service.device.pb.Where.name:type_name -> x.filter.pb.String
-	11, // 12: service.device.pb.Where.make:type_name -> x.filter.pb.String
-	11, // 13: service.device.pb.Where.model:type_name -> x.filter.pb.String
-	11, // 14: service.device.pb.Where.location:type_name -> x.filter.pb.String
-	6,  // 15: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	10, // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	10, // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	11, // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
+	9,  // 3: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
+	3,  // 4: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
+	5,  // 5: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
+	2,  // 6: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
+	2,  // 7: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
+	9,  // 8: service.device.pb.Where.not:type_name -> service.device.pb.Where
+	4,  // 9: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
+	12, // 10: service.device.pb.Where.name:type_name -> x.filter.pb.String
+	12, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
+	12, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
+	12, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
+	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
+	7,  // 15: service.device.pb.Where.groups:type_name -> service.device.pb.GroupKeyList
+	8,  // 16: service.device.pb.Where.parents:type_name -> service.device.pb.KeyList
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
@@ -729,14 +868,14 @@ func file_core_pkg_service_legacy_device_pb_device_proto_init() {
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6].OneofWrappers = []any{}
-	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc), len(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
