@@ -84,9 +84,9 @@ type Input struct {
 	Name string `json:"name" msgpack:"name"`
 	// Pem is the leaf-first chain of a stored certificate.
 	Pem string `json:"pem" msgpack:"pem"`
-	// PrivateKey is the PEM private key of a stored certificate. The Core saves it as a
-	// secret, and no endpoint returns it.
-	PrivateKey string `json:"private_key" msgpack:"private_key"`
+	// PrivateKeyPem is the PEM private key of a stored certificate. The Core saves it
+	// as a secret, and no endpoint returns it.
+	PrivateKeyPem string `json:"private_key_pem" msgpack:"private_key_pem"`
 	// CertificatePath is the path of a file certificate on the computer that uses it.
 	CertificatePath string `json:"certificate_path" msgpack:"certificate_path"`
 	// Key selects the certificate to replace. A zero key creates a new certificate.
@@ -146,7 +146,7 @@ func (s *Service) Create(
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err = w.Create(ctx, &c, []byte(in.PrivateKey)); err != nil {
+		if err = w.Create(ctx, &c, []byte(in.PrivateKeyPem)); err != nil {
 			return CreateResponse{}, err
 		}
 		res.Certificates[i] = c
@@ -202,8 +202,7 @@ func (s *Service) Rename(
 
 // DispatchRequest carries an action sequence to apply to a single certificate.
 // DispatchKey is a client-generated identifier for the batch, echoed on the broadcast
-// so
-// the sender recognizes its own echo.
+// so the sender recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[certificate.Key, certificate.Action]
 
 // Dispatch applies the action sequence to the target certificate atomically.
