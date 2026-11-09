@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -54,6 +54,15 @@ describe("useList", () => {
 
   const byName = () =>
     ({ where: { labels: [lbl.key] }, order: { field: "name" } }) as const;
+
+  // A late change signal from a create reads that one range by key. Only a read in the
+  // list's order is a list read.
+  const listReads = (send: ReturnType<typeof spyOnSend>) =>
+    send.mock.calls.filter(
+      ([target, req]) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null,
+    );
 
   it("should list the matching records in the declared order", async () => {
     const b = await create("b");
@@ -316,9 +325,7 @@ describe("useList", () => {
       result.current.more();
     });
     await waitFor(() => expect(result.current.data).toHaveLength(2));
-    expect(
-      send.mock.calls.filter(([target]) => target === "/range/retrieve"),
-    ).toHaveLength(1);
+    expect(listReads(send)).toHaveLength(1);
   });
 
   it("should read nothing on more once the list is complete", async () => {
@@ -333,7 +340,7 @@ describe("useList", () => {
     const send = spyOnSend(local);
     act(() => result.current.more());
     await sleep.sleep(TimeSpan.milliseconds(20));
-    expect(send).not.toHaveBeenCalled();
+    expect(listReads(send)).toHaveLength(0);
   });
 
   it("should show the cached records on a remount before the first more", async () => {
