@@ -10,6 +10,7 @@
 package io_test
 
 import (
+	stdio "io"
 	"os"
 	"sync"
 
@@ -42,6 +43,27 @@ var _ = Describe("Counter", func() {
 				)
 				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
 				c := MustSucceed(io.NewInt32Counter(f))
+				Expect(c.Value()).To(Equal(int32(277)))
+				Expect(f.Close()).To(Succeed())
+			})
+			It("Should fail to open a counter from a torn file", func() {
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1})).To(Equal(2))
+				Expect(io.NewInt32Counter(f)).Error().
+					To(MatchError(stdio.ErrUnexpectedEOF))
+				Expect(f.Close()).To(Succeed())
+			})
+			It("Should keep its value when a write fails", func() {
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
+				Expect(f.Close()).To(Succeed())
+				f = MustSucceed(fs.Open("counterfile", os.O_RDONLY))
+				c := MustSucceed(io.NewInt32Counter(f))
+				Expect(c.Add(1)).Error().To(MatchError(ContainSubstring("bad file")))
 				Expect(c.Value()).To(Equal(int32(277)))
 				Expect(f.Close()).To(Succeed())
 			})
