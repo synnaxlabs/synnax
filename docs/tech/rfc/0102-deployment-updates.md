@@ -222,13 +222,19 @@ update run at that connect, before any task starts again.
 | macOS       | A new launchd service with `KeepAlive` restarts it.           |
 | `start -s`  | No self-update; the rack status names the version to install. |
 
-On Linux, the binary moves to `/var/lib/synnax-driver/bin/`, which the `synnax` service
-user owns, because today root owns `/usr/local/bin/synnax-driver`
-(`driver/daemon/common.cpp:26`). `install` creates it and makes
-`/usr/local/bin/synnax-driver` a link to it, so the commands on `PATH` run the binary
-that the service runs. The unit lists it in `StateDirectory`. The NI Linux RT init
-script runs the Driver as root (`driver/daemon/daemon_nilinuxrt.cpp:110-112`), so its
-binary stays in `/usr/local/bin/synnax-driver`.
+On Linux, the binary moves to `/var/lib/synnax-driver/bin/synnax-driver`. The `synnax`
+service user owns its folder, because today root owns `/usr/local/bin/synnax-driver`
+(`driver/daemon/common.cpp:26`). `install` creates the folder and makes
+`/usr/local/bin/synnax-driver` a link to the new binary, so the commands on `PATH` run
+the binary that the service runs. The unit lists the folder in `StateDirectory`. An
+admin who runs `sudo synnax-driver` then runs a file that the `synnax` user can write,
+so code that takes over the Driver process can get root at the next such command. That
+risk is accepted: the Driver must replace itself without root, and that code already
+controls the hardware and the Core login of the Driver. On macOS and Windows, the
+service runs as root or LocalSystem, so `install` copies the binary to a folder that
+only admins can change, and the Driver replaces it there. The NI Linux RT init script
+runs the Driver as root (`driver/daemon/daemon_nilinuxrt.cpp:110-112`), so its binary
+stays in `/usr/local/bin/synnax-driver`.
 
 Today an early shutdown exits 0 (`driver/cmd/start.cpp:64`), so systemd does not restart
 it; that changes to a non-zero exit. Release builds sign the Core and Driver binaries
