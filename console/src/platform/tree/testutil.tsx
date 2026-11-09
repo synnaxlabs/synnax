@@ -440,8 +440,11 @@ const BOTTOM_SPAN = 5 * SCROLL_STEP;
 
 // Loads the next page of a folder, as a user does, until the label shows. A page that
 // lands where the show more node was, so the label sweep starts there. The last folder
-// pages near the bottom, so the node sweep starts there.
+// pages near the bottom, so the node sweep starts there. A tree with no rows has no
+// page to load. Rows that land during its node sweeps would only pass under them and
+// use up the timeout, so the next label sweep looks for them instead.
 const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
+  if (rowsHeight() === 0) return null;
   for (let page = 0; page < MAX_PAGES; page++) {
     const height = rowsHeight();
     const bottom = Math.max(0, height - BOTTOM_SPAN);
