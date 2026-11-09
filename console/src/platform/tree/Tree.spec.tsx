@@ -17,6 +17,7 @@ import {
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Channel } from "@synnaxlabs/pluto";
@@ -49,9 +50,11 @@ import {
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
+  CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
   uniqueName,
@@ -727,6 +730,101 @@ describe("Tree.Tree", () => {
     expect(
       await retrieveChildGroupKeys(client, group.resourceID(source.key)),
     ).not.toContain(moved.key);
+  });
+
+  describe("copying", () => {
+    const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
+
+    const renderCopyTree = async (items: Tree.Items) => {
+      const tok = uniqueToken();
+      const root = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("root"),
+      });
+      const rootID = group.resourceID(root.key);
+      const a = await client.groups.create({ parent: rootID, name: `R&D <a> ${tok}` });
+      const b = await client.groups.create({ parent: rootID, name: `b ${tok}` });
+      let statuses: Status.NotificationSpec[] = [];
+      await renderLiveTree({
+        client,
+        root: rootID,
+        items,
+        preloadedState: createCoreState([CORE], CORE.key),
+        extra: <CaptureStatuses onStatuses={(s) => (statuses = s)} />,
+      });
+      await screen.findByText(b.name);
+      return { a, b, tok, statuses: () => statuses };
+    };
+
+    const copy = (target: HTMLElement) => {
+      const setData = vi.fn();
+      const allowed = fireEvent.copy(target, { clipboardData: { setData } });
+      return { setData, allowed };
+    };
+
+    it("should copy the selected names as text, and as links for a type a link opens", async () => {
+      const { a, b, tok, statuses } = await renderCopyTree({
+        group: createGroupItem({ linkable: true }),
+      });
+      fireEvent.click(getTreeRow(a.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+      const { setData, allowed } = copy(getTreeRow(b.name));
+      expect(allowed).toBe(false);
+      expect(setData).toHaveBeenCalledWith("text/plain", `${a.name}\n${b.name}`);
+      const href = (key: string) => `synnax://cluster/cluster-9/group/${key}`;
+      expect(setData).toHaveBeenCalledWith(
+        "text/html",
+        `<a href="${href(a.key)}">R&amp;D &lt;a&gt; ${tok}</a><br>` +
+          `<a href="${href(b.key)}">${b.name}</a>`,
+      );
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "success",
+            message: "Copied 2 names to clipboard",
+          }),
+        ),
+      );
+    });
+
+    it("should copy names without links for a type a link cannot open", async () => {
+      const { a, tok, statuses } = await renderCopyTree(GROUP_ITEMS);
+      fireEvent.click(getTreeRow(a.name));
+      const { setData } = copy(getTreeRow(a.name));
+      expect(setData).toHaveBeenCalledWith("text/html", `R&amp;D &lt;a&gt; ${tok}`);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            name: a.name,
+            message: "Copied name to clipboard",
+          }),
+        ),
+      );
+    });
+
+    it("should leave a text selection to the browser", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      const row = getTreeRow(a.name);
+      fireEvent.click(row);
+      const range = document.createRange();
+      range.selectNodeContents(row);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      try {
+        const { setData, allowed } = copy(row);
+        expect(allowed).toBe(true);
+        expect(setData).not.toHaveBeenCalled();
+      } finally {
+        getSelection()?.removeAllRanges();
+      }
+    });
+
+    it("should leave the copy to the browser when nothing is selected", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      const { setData, allowed } = copy(getTreeRow(a.name));
+      expect(allowed).toBe(true);
+      expect(setData).not.toHaveBeenCalled();
+    });
   });
 
   describe("dragging a multiple selection", () => {

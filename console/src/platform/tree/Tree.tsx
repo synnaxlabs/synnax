@@ -30,6 +30,7 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Group, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type destructor, type observe, unique } from "@synnaxlabs/x";
 import {
+  type ClipboardEvent,
   type DragEvent,
   type FC,
   type KeyboardEvent,
@@ -78,6 +79,7 @@ import {
   type Resource,
   type TreeState,
 } from "@/platform/tree/types";
+import { useCopy } from "@/platform/tree/useCopy";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
@@ -883,6 +885,15 @@ const Internal = ({
       <SelectionContextMenu menu={M} {...props} />
     );
   };
+  const { intoEvent } = useCopy();
+  const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
+    // A text selection, such as part of a name being renamed, copies as text.
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    const resources = getItem(selectedRef.current);
+    if (resources.length === 0) return;
+    e.preventDefault();
+    intoEvent(resources, e.clipboardData);
+  };
   const handleContextMenu = (props: Menu.ContextMenuMenuProps) => (
     <Errors.SuspenseBoundary loading={null}>
       {renderContextMenu(props)}
@@ -912,6 +923,7 @@ const Internal = ({
         className={className}
         pinned={pinned}
         onContextMenu={menuProps.open}
+        onCopy={handleCopy}
         ref={ref}
         onKeyDown={onKeyDown}
       >

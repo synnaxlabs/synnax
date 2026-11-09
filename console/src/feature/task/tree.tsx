@@ -80,6 +80,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         />
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
@@ -100,6 +101,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const TreeItem = Tree.createItem({
   type: "task",
+  linkable: true,
   icon: <Icon.Task />,
   useOnSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],

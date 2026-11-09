@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/tree/children";
+export * from "@/platform/tree/CopyContextMenuItem";
 export * from "@/platform/tree/CopyPropertiesContextMenuItem";
 export * from "@/platform/tree/createUseDelete";
 export * from "@/platform/tree/createUseRename";

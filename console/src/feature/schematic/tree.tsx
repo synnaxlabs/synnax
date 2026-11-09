@@ -37,7 +37,7 @@ const useDelete = Tree.createUseDelete({
   },
 });
 
-const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
+const useDuplicate = (props: Tree.ContextMenuProps): (() => void) => {
   const {
     selection: { ids },
     state: { getResource },
@@ -115,7 +115,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const handleCopy = useCopy(props);
+  const handleDuplicate = useDuplicate(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Export.useResource();
   const handleLink = Core.useCopyLinkToClipboard();
@@ -143,13 +143,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
-          <Menu.Item itemKey="copy" onClick={handleCopy}>
+          <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
             <Icon.Copy />
-            Copy
+            Duplicate
           </Menu.Item>
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
@@ -180,6 +181,7 @@ export const GROUP_MEMBER: Group.Member = {
 
 const TreeItem = Tree.createItem({
   type: "schematic",
+  linkable: true,
   icon: <Icon.Schematic />,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],

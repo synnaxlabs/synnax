@@ -32,6 +32,7 @@ import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 import {
+  type ConsolePreloadedState,
   createConsoleWrapper,
   createTestStore,
   getIconButton,
@@ -244,6 +245,7 @@ export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtErro
   projectClient?: Synnax;
   /** Renders a search action and field above the tree. */
   search?: Tree.UseSearch;
+  preloadedState?: ConsolePreloadedState;
 }
 
 export interface LiveTreeHandle extends RenderResult {
@@ -287,8 +289,9 @@ export const renderLiveTree = async ({
   projectClient = client,
   search,
   onCaughtError,
+  preloadedState,
 }: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   await selectTestProject(store, projectClient);
   const SearchableTree = search == null ? null : createSearchableTree(search);
   const rendered = render(
@@ -416,6 +419,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   stateOverrides?: Partial<Tree.TreeState>;
   /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** The tree items the menu reads, as the tree provides them. */
+  items?: Tree.Items;
 }
 
 export interface TreeContextMenuHandle {
@@ -441,6 +446,7 @@ export const renderTreeContextMenu = async (
     stateOverrides = {},
     onCaughtError,
     extra,
+    items = {},
   }: RenderTreeContextMenuOptions,
 ): Promise<TreeContextMenuHandle> => {
   const resolvedStore = store ?? (await createTestStore());
@@ -459,13 +465,13 @@ export const renderTreeContextMenu = async (
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   await renderSuspended(
-    <>
+    <Tree.Provider items={items}>
       <Errors.SuspenseBoundary loading={null}>
         <TreeContextMenu {...props} />
       </Errors.SuspenseBoundary>
       <Modals.Stack />
       {extra}
-    </>,
+    </Tree.Provider>,
     { wrapper, onCaughtError },
   );
   return { store: resolvedStore, props };

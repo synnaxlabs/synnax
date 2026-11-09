@@ -197,6 +197,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           </>
         )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
@@ -277,6 +278,7 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
 
 const TreeItem = Tree.createItem({
   type: "channel",
+  linkable: true,
   icon: <Icon.Channel />,
   useOnSelect: useOpen,
   haulItems,
