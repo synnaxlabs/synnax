@@ -471,6 +471,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// TaskKeys returns the keys of the tasks of the Arcs with the given keys, read through
+// snap. Writer.Delete deletes the same tasks.
+func (s *Service) TaskKeys(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys ...Key,
+) ([]task.Key, error) {
+	return retrieveTaskKeys(ctx, s.cfg.Task, snap, s.cfg.MatchTasks(keys...))
+}
+
 // NewRetrieve opens a new query builder for retrieving Arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
