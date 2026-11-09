@@ -16,11 +16,16 @@ import { type ContextMenuProps } from "@/platform/tree/types";
 import { useCopy } from "@/platform/tree/useCopy";
 import { useResources } from "@/platform/tree/useResource";
 
+export interface CopyContextMenuItemProps extends Pick<
+  ContextMenuProps,
+  "selection" | "state"
+> {}
+
 /** Copies the selected resources, as Cmd+C does in the tree. */
 export const CopyContextMenuItem = ({
   selection: { ids },
   state,
-}: ContextMenuProps): ReactElement | null => {
+}: CopyContextMenuItemProps): ReactElement | null => {
   const resources = useResources(state, ids);
   const { toClipboard } = useCopy();
   if (resources.length === 0) return null;

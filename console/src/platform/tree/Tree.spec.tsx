@@ -834,6 +834,26 @@ describe("Tree.Tree", () => {
       );
     });
 
+    it("should copy the selected names while text outside the tree is selected", async () => {
+      const { a } = await renderCopyTree(GROUP_ITEMS);
+      fireEvent.click(getTreeRow(a.name));
+      const outside = document.createElement("p");
+      outside.textContent = "a line of a log";
+      document.body.append(outside);
+      const range = document.createRange();
+      range.selectNodeContents(outside);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      try {
+        const { setData, allowed } = copy(getTreeRow(a.name));
+        expect(allowed).toBe(false);
+        expect(setData).toHaveBeenCalledWith("text/plain", a.name);
+      } finally {
+        getSelection()?.removeAllRanges();
+        outside.remove();
+      }
+    });
+
     it("should leave the copy to the browser when nothing is selected", async () => {
       const { a } = await renderCopyTree(GROUP_ITEMS);
       const { setData, allowed } = copy(getTreeRow(a.name));

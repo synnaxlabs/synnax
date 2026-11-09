@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWrite, stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,8 +15,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Tree } from "@/platform/tree";
 import { createResource, renderCopyContextMenuItem } from "@/platform/tree/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
-
-const client = createTestClient();
 
 const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
 
@@ -28,7 +25,6 @@ const ITEMS: Tree.Items = {
 
 const render = async (resources: Tree.Resource[], selected?: resource.ID[]) =>
   await renderCopyContextMenuItem({
-    client,
     resources,
     selected,
     items: ITEMS,

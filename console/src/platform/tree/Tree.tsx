@@ -277,8 +277,15 @@ const Internal = ({
   const menuProps = Menu.useContextMenu();
   const { intoEvent } = useCopy();
   const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
-    // A text selection, such as part of a name being renamed, copies as text.
-    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    // A text selection in the tree, such as part of a name being renamed, copies as
+    // text. A selection elsewhere stays behind after a click on a row.
+    const text = window.getSelection();
+    if (
+      text != null &&
+      !text.isCollapsed &&
+      text.getRangeAt(0).intersectsNode(e.currentTarget)
+    )
+      return;
     const resources = getItem(selectedRef.current);
     if (resources.length === 0) return;
     e.preventDefault();

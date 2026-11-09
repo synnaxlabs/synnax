@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWrite } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +26,6 @@ describe("CopyContextMenuItem", () => {
   it("should copy names without links, since a link opens nothing", async () => {
     const write = stubClipboardWrite();
     await renderCopyContextMenuItem({
-      client: createTestClient(),
       resources: [createResource(resource.idZ.parse("channel:1"), "pressure")],
       items: { channel: Tree.createItem({ type: "channel", linkable: true }) },
       preloadedState: createCoreState([CORE], CORE.key),

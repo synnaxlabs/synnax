@@ -259,7 +259,6 @@ export const createBaseProps = ({
 });
 
 export interface RenderCopyContextMenuItemOptions {
-  client: Synnax;
   /** Resources backing the tree state. */
   resources: Tree.Resource[];
   /** The selected ids; defaults to every resource. */
@@ -273,15 +272,13 @@ export interface RenderCopyContextMenuItemOptions {
  * raises.
  */
 export const renderCopyContextMenuItem = async ({
-  client,
   resources,
   selected,
   items = {},
   preloadedState,
 }: RenderCopyContextMenuItemOptions): Promise<() => Status.NotificationSpec[]> => {
   const store = await createTestStore({ preloadedState });
-  const props: Tree.ContextMenuProps = {
-    ...createBaseProps({ client, store }),
+  const props: Tree.CopyContextMenuItemProps = {
     selection: createSelection({ ids: selected ?? resources.map(({ id }) => id) }),
     state: createState(resources),
   };
