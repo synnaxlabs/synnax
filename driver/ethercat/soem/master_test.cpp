@@ -26,6 +26,7 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
 
@@ -418,12 +419,6 @@ TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
     EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
 }
 
-/// @brief it should return a master init error when it counts slaves before
-/// initialization.
-TEST_F(SOEMMasterTest, CountSlavesFailsBeforeInitialize) {
-    ASSERT_OCCURRED_AS_P(this->master->count_slaves(), errors::MASTER_INIT_ERROR);
-}
-
 /// @brief it should scan again without an error.
 TEST_F(SOEMMasterTest, ScanIdempotent) {
     this->initialize_with_slave();
@@ -792,18 +787,6 @@ TEST_F(SOEMMasterTest, ActivateClearsProcessDataSMsBeforeTheMapping) {
     this->initialize_with_slave();
     this->activate_master();
     EXPECT_TRUE(this->mock->sms_cleared_at_map);
-}
-
-/// @brief it should reject an activate before a scan.
-TEST_F(SOEMMasterTest, ActivateNotInitialized) {
-    ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
-}
-
-/// @brief it should reject a second activate.
-TEST_F(SOEMMasterTest, ActivateAlreadyActivated) {
-    this->initialize_with_slave();
-    this->activate_master();
-    ASSERT_OCCURRED_AS(this->activate(), errors::ACTIVATION_ERROR);
 }
 
 /// @brief it should fail to activate when SOEM cannot map the process data.
@@ -1564,11 +1547,6 @@ TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
 
 ////////////////////// Receive //////////////////////
 
-/// @brief it should reject a receive before activate.
-TEST_F(SOEMMasterTest, ReceiveNotActivated) {
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
-}
-
 /// @brief it should fail a receive when no frame comes back.
 TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
@@ -1595,11 +1573,6 @@ TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
 }
 
 ////////////////////// Send //////////////////////
-
-/// @brief it should reject a send before activate.
-TEST_F(SOEMMasterTest, SendNotActivated) {
-    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
-}
 
 /// @brief it should fail a send that SOEM cannot put on the wire.
 TEST_F(SOEMMasterTest, SendReturnsZero) {
@@ -2725,4 +2698,59 @@ TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
     this->master->check(this->brk);
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 1}));
 }
+
+namespace {
+/// @brief a SOEM master on its mock for the master contract.
+class Bus {
+    MockAPI *api;
+    Master m;
+
+    explicit Bus(std::unique_ptr<MockAPI> api):
+        api(api.get()),
+        m(std::move(api),
+          "eth0",
+          {
+              .pre_op_timeout = x::telem::MILLISECOND * 100,
+              .state_change_timeout = x::telem::MILLISECOND * 100,
+              .init_timeout = x::telem::MILLISECOND * 100,
+              .dc_settle_timeout = x::telem::MILLISECOND * 50,
+          }) {}
+
+public:
+    Bus(): Bus(std::make_unique<MockAPI>()) {}
+
+    Master &master() { return this->m; }
+
+    void add_slave() {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.name = "Slave " + std::to_string(this->api->slave_infos.size() + 1);
+        slave.mbx_proto = ECT_MBXPROT_COE;
+        slave.Ibits = 16;
+        slave.input_offset = this->api->ibytes;
+        slave.sdo_objects = {
+            {{0x1C00, 0}, 4},
+            {{0x1C00, 3}, 3},
+            {{0x1C00, 4}, 4},
+            {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+            {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+            {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+            {{0x1A00, 0}, 1},
+            {{0x1A00, 1}, 0x60000110},
+        };
+        this->api->slave_infos.push_back(std::move(slave));
+        this->api->ibytes += 2;
+    }
+
+    void refuse(const uint16_t position) {
+        this->api->slave_infos[position - 1].ALstatuscode = 0x0026;
+        this->api->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP +
+                                                            EC_STATE_ERROR;
+    }
+};
+}
+}
+
+namespace driver::ethercat::master::contract {
+INSTANTIATE_TYPED_TEST_SUITE_P(SOEM, Contract, soem::Bus);
 }

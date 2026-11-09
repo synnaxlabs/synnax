@@ -82,7 +82,7 @@ protected:
         mock_master = std::make_shared<testutil::Master>();
         mock_master->add_slave(
             slave::Properties{
-                .position = 0,
+                .position = 1,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
                 .serial = SLAVE_SERIAL,
@@ -112,7 +112,7 @@ protected:
         uint32_t serial,
         const x::json::json &input_pdos,
         const x::json::json &output_pdos,
-        uint16_t position = 0
+        uint16_t position = 1
     ) {
         x::json::json props = {
             {"serial", serial},
@@ -128,7 +128,7 @@ protected:
         synnax::device::Device dev{
             .key = "ecat_slave_" + std::to_string(serial),
             .rack = rack.key,
-            .location = NETWORK_INTERFACE + ".Slot 0",
+            .location = NETWORK_INTERFACE + ".Slot 1",
             .make = "DEWESoft",
             .model = "TestModule",
             .name = "Test Slave SN:" + std::to_string(serial),
@@ -566,15 +566,15 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
-    auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     ASSERT_NIL(this->client->devices.create(on_network));
-    auto off_network = this->create_configured_slave("eth1", 2, nullptr);
+    auto off_network = this->create_configured_slave("eth1", 3, nullptr);
     ASSERT_NIL(this->client->devices.create(off_network));
     synnax::task::Command start{.task = task.key, .type = "start"};
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_FALSE(this->mock_master->slave_enabled(1));
-    EXPECT_TRUE(this->mock_master->slave_enabled(2));
+    EXPECT_FALSE(this->mock_master->config(2).enabled);
+    EXPECT_TRUE(this->mock_master->config(3).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }
@@ -606,7 +606,7 @@ TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
     synnax::task::Command start{.task = task.key, .type = "start"};
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_EQ(this->mock_master->chosen_mode(1), choice);
+    EXPECT_EQ(this->mock_master->config(1).op_mode, choice);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }
@@ -640,7 +640,7 @@ TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_EQ(
-        this->mock_master->startup_parameters(1),
+        this->mock_master->config(1).startup_parameters,
         (std::vector<slave::StartupParameter>{{
             .index = 0x8000,
             .sub_index = 0x15,
@@ -676,12 +676,12 @@ TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     synnax::task::Command start{.task = task.key, .type = "start"};
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(start);
-    ASSERT_FALSE(this->mock_master->slave_enabled(1));
+    ASSERT_FALSE(this->mock_master->config(1).enabled);
     read_task->exec(stop);
     ASSERT_NIL(this->client->devices.del(saved.key));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_TRUE(this->mock_master->slave_enabled(1));
+    EXPECT_TRUE(this->mock_master->config(1).enabled);
     read_task->exec(stop);
 }
 
@@ -759,10 +759,10 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
 /// @brief it should fail to start, naming both devices, when two devices at one
 /// position have different settings, and start once their settings match.
 TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
-    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 1, false);
+    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
     ASSERT_NIL(this->client->devices.create(removed));
-    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 1, true);
+    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
     replacement.name = "EL3102";
     replacement.properties["serial"] = 54321;
@@ -789,7 +789,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 1 "
+        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 2 "
         "on eth0 with different settings. Give them the same settings, or delete the "
         "device that is no longer on the bus."
     );
@@ -797,7 +797,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     ASSERT_NIL(this->client->devices.create(replacement));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_FALSE(this->mock_master->slave_enabled(1));
+    EXPECT_FALSE(this->mock_master->config(2).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
 }
@@ -848,7 +848,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto mismatched_master = std::make_shared<testutil::Master>();
     mismatched_master->add_slave(
         slave::Properties{
-            .position = 0,
+            .position = 1,
             .vendor_id = 0x99,
             .product_code = 0x2,
             .serial = SLAVE_SERIAL,

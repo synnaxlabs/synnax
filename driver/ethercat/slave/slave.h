@@ -216,7 +216,7 @@ struct Config {
 struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
-    /// @brief position of the slave on the EtherCAT bus (0-based index).
+    /// @brief position of the slave on the bus, counting from 1.
     uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
     uint32_t vendor_id{};
@@ -270,7 +270,13 @@ struct Properties {
         props.revision = parser.field<uint32_t>("revision");
         props.name = parser.field<std::string>("name");
         props.network = parser.field<std::string>("network", "");
-        props.position = static_cast<uint16_t>(parser.field<int>("position"));
+        const auto errors_before = parser.errors->size();
+        const auto position = parser.field<double>("position");
+        if (position >= 1 && position <= std::numeric_limits<uint16_t>::max() &&
+            position == std::trunc(position))
+            props.position = static_cast<uint16_t>(position);
+        else if (parser.errors->size() == errors_before)
+            parser.field_err("position", "must be a whole number from 1 to 65535");
         props.enabled = parser.field<bool>("enabled");
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
         props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");

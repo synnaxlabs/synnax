@@ -628,7 +628,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {nullptr, err};
     }
-    auto [offsets, err] = this->offsets_locked(entries, this->image.inputs.size());
+    auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
         if (started) this->stop_locked();
         return {nullptr, err};
@@ -668,7 +668,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {nullptr, err};
     }
-    auto [offsets, err] = this->offsets_locked(pdo_entries, this->image.outputs.size());
+    auto [offsets, err] = this->offsets_locked(pdo_entries);
     if (err) {
         if (started) this->stop_locked();
         return {nullptr, err};
@@ -721,10 +721,8 @@ Engine::rediscover_locked() {
     return {std::move(slaves), x::errors::NIL};
 }
 
-std::pair<std::vector<pdo::Offset>, x::errors::Error> Engine::offsets_locked(
-    const std::vector<pdo::Entry> &entries,
-    const size_t image_size
-) const {
+std::pair<std::vector<pdo::Offset>, x::errors::Error>
+Engine::offsets_locked(const std::vector<pdo::Entry> &entries) const {
     std::vector<pdo::Offset> offsets;
     offsets.reserve(entries.size());
     for (const auto &entry: entries) {
@@ -733,19 +731,6 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> Engine::offsets_locked(
             return {{}, left_out_error(pos, it->second.name, it->second.refusal)};
         const auto [offset, err] = this->image.offset(entry);
         if (err) return {{}, err};
-        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
-            image_size)
-            return {
-                {},
-                x::errors::Error(
-                    errors::PDO_MAPPING_ERROR,
-                    std::format(
-                        "PDO {} on slave {} lies outside the process image",
-                        telem::format_index_sub_index(entry.index, entry.sub_index),
-                        entry.slave_position
-                    )
-                )
-            };
         offsets.push_back(offset);
     }
     return {offsets, x::errors::NIL};

@@ -9,10 +9,15 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <format>
+#include <optional>
+#include <string_view>
 #include <system_error>
 
 #include "absl/log/log.h"
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
@@ -21,6 +26,11 @@
 
 namespace driver::ethercat::igh {
 namespace {
+/// @brief where the IgH kernel module lists its masters, as EtherCAT<n>.
+constexpr auto SYSFS_PATH = "/sys/class/EtherCAT";
+/// @brief the device of the first IgH master.
+constexpr auto DEVICE_PATH = "/dev/EtherCAT0";
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
@@ -50,11 +60,68 @@ read_layout(const API &api, ec_master_t *master, const uint16_t position) {
         coe::OnError::FAIL
     );
 }
+
+/// @brief returns the reason for ret, the negative error code of an IgH call.
+std::string reason(const int ret) {
+    return std::generic_category().message(-ret);
 }
 
-Master::Master(std::shared_ptr<API> api, const unsigned int master_index):
+/// @brief the time between reads of the slave states while the slaves move to OP.
+const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+
+/// @brief returns the state that a slave in state moves to next on its way to OP.
+std::string next_state(const slave::State state) {
+    switch (state) {
+        case slave::State::SAFE_OP:
+            return "OP";
+        case slave::State::PRE_OP:
+            return "SAFE-OP";
+        default:
+            return "PRE-OP";
+    }
+}
+
+/// @brief returns the IgH ring position, which counts from 0, of the slave at position.
+uint16_t ring_position(const uint16_t position) {
+    return position - 1;
+}
+
+/// @brief returns errors::SLAVE_CONFIG_ERROR when config enables slave in a mode that
+/// the IgH master cannot run.
+x::errors::Error
+check_op_mode(const slave::Properties &slave, const slave::Config &config) {
+    if (!config.enabled || !config.op_mode) return x::errors::NIL;
+    const auto err = config.op_mode->assign_activate != 0
+                       ? x::errors::Error(
+                             errors::SLAVE_CONFIG_ERROR,
+                             "the IgH master does not run DC sync"
+                         )
+                       : dc::check_cycles({}, config.op_mode->cycles);
+    if (!err) return x::errors::NIL;
+    return x::errors::Error(
+        errors::SLAVE_CONFIG_ERROR,
+        std::format(
+            "slave {} ({}) cannot use its chosen mode: {}",
+            slave.position,
+            slave.name,
+            err.data
+        )
+    );
+}
+
+/// @brief returns s as a decimal number, or nullopt when s holds anything else.
+std::optional<unsigned int> parse_index(const std::string_view s) {
+    unsigned int index = 0;
+    const auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), index);
+    if (ec != std::errc{} || end != s.data() + s.size()) return std::nullopt;
+    return index;
+}
+}
+
+Master::Master(std::shared_ptr<API> api, const unsigned int master_index, Config cfg):
     api(std::move(api)),
     master_index(master_index),
+    cfg(std::move(cfg)),
     ec_master(nullptr),
     input_domain(nullptr),
     output_domain(nullptr),
@@ -74,7 +141,6 @@ Master::~Master() {
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
     if (!this->initialized)
         if (auto err = this->initialize()) return {{}, err};
-    std::lock_guard lock(this->mu);
     return {this->cached_slaves, x::errors::NIL};
 }
 
@@ -105,23 +171,26 @@ x::errors::Error Master::initialize() {
         if (const int ret = this->api
                                 ->master_get_slave(this->ec_master, i, &slave_info);
             ret != 0)
-            return fail(
-                std::format(
-                    "failed to read slave {}: {}",
-                    i,
-                    std::generic_category().message(-ret)
-                )
-            );
+            return fail(std::format("failed to read slave {}: {}", i + 1, reason(ret)));
         slave::DiscoveryResult result{};
         result.properties.network = "igh:" + std::to_string(this->master_index);
-        result.properties.position = static_cast<uint16_t>(i);
+        result.properties.position = static_cast<uint16_t>(i + 1);
         result.properties.vendor_id = slave_info.vendor_id;
         result.properties.product_code = slave_info.product_code;
         result.properties.revision = slave_info.revision_number;
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
         result.status.state = slave::State::INIT;
-        this->discover_slave_pdos(result, slave_info.sync_count);
+        for (uint8_t sm = 0; sm < slave_info.sync_count; ++sm)
+            if (const auto err = this->append_scanned_pdos(result.properties, sm)) {
+                result.properties.input_pdos.clear();
+                result.properties.output_pdos.clear();
+                result.status.pdo_discovery_error = "failed to read the PDO layout: " +
+                                                    err.data;
+                break;
+            }
+        result.status.pdos_discovered = true;
+        esi::fill(result);
         this->cached_slaves.push_back(std::move(result));
     }
 
@@ -162,7 +231,7 @@ x::errors::Error Master::add_startup_parameters(
         uint32_t abort_code = 0;
         if (this->api->master_sdo_download(
                 this->ec_master,
-                slave.position,
+                ring_position(slave.position),
                 param.index,
                 param.sub_index,
                 data.data(),
@@ -198,55 +267,28 @@ master::Activation Master::activate(
         return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "not initialized")};
     if (this->activated)
         return {.err = x::errors::Error(errors::ACTIVATION_ERROR, "already activated")};
-    if (!this->output_domain || !this->input_domain)
-        return {
-            .err = x::errors::Error(errors::ACTIVATION_ERROR, "domains not created")
-        };
-    {
-        std::lock_guard lock(this->mu);
-        this->disabled_slaves.clear();
-        this->chosen_modes.clear();
-        this->startup_parameters.clear();
-        for (const auto &[position, config]: plan.slaves) {
-            if (!config.enabled) this->disabled_slaves.insert(position);
-            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-            this->startup_parameters[position] = config.startup_parameters;
-        }
-    }
-
+    const auto config_of = [&plan](const uint16_t pos) {
+        const auto it = plan.slaves.find(pos);
+        return it == plan.slaves.end() ? slave::Config{} : it->second;
+    };
+    for (const auto &slave: this->cached_slaves)
+        if (auto err = check_op_mode(
+                slave.properties,
+                config_of(slave.properties.position)
+            ))
+            return {.err = err};
     master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
-        std::vector<slave::StartupParameter> params;
-        {
-            std::lock_guard lock(this->mu);
-            if (this->disabled_slaves.contains(pos)) continue;
-            const auto choice = this->chosen_modes.find(pos);
-            if (choice != this->chosen_modes.end()) {
-                const auto err = choice->second.assign_activate != 0
-                                   ? x::errors::Error(
-                                         errors::SLAVE_CONFIG_ERROR,
-                                         "the IgH master does not run DC sync"
-                                     )
-                                   : dc::check_cycles({}, choice->second.cycles);
-                if (err)
-                    return {
-                        .err = x::errors::Error(
-                            errors::SLAVE_CONFIG_ERROR,
-                            std::format(
-                                "slave {} ({}) cannot use its chosen mode: {}",
-                                pos,
-                                slave.properties.name,
-                                err.data
-                            )
-                        )
-                    };
-            }
-            if (const auto it = this->startup_parameters.find(pos);
-                it != this->startup_parameters.end())
-                params = it->second;
-        }
-        auto *sc = this->get_or_create_slave_config(pos);
+        const auto config = config_of(pos);
+        if (!config.enabled) continue;
+        auto *sc = this->api->master_slave_config(
+            this->ec_master,
+            0,
+            ring_position(pos),
+            slave.properties.vendor_id,
+            slave.properties.product_code
+        );
         if (sc == nullptr)
             return {
                 .err = x::errors::Error(
@@ -255,6 +297,8 @@ master::Activation Master::activate(
                         slave.properties.name + ")"
                 )
             };
+        this->slave_configs.emplace_back(pos, sc);
+        const auto &params = config.startup_parameters;
         if (auto err = this->add_startup_parameters(slave.properties, sc, params))
             return {.err = err};
         if (!params.empty())
@@ -280,25 +324,6 @@ master::Activation Master::activate(
     this->output_domain_data = this->api->domain_data(this->output_domain);
     this->input_domain_data = this->api->domain_data(this->input_domain);
 
-    if (!this->output_domain_data && this->output_sz > 0) {
-        this->api->master_deactivate(this->ec_master);
-        return {
-            .err = x::errors::Error(
-                errors::ACTIVATION_ERROR,
-                "failed to get output domain data pointer"
-            )
-        };
-    }
-    if (!this->input_domain_data && this->input_sz > 0) {
-        this->api->master_deactivate(this->ec_master);
-        return {
-            .err = x::errors::Error(
-                errors::ACTIVATION_ERROR,
-                "failed to get input domain data pointer"
-            )
-        };
-    }
-
     this->activated = true;
     LOG(INFO) << "[ethercat.igh] master " << this->master_index
               << " activated successfully";
@@ -307,31 +332,82 @@ master::Activation Master::activate(
             << ", input_domain_data=" << static_cast<void *>(this->input_domain_data)
             << ", output_sz=" << this->output_sz << ", input_sz=" << this->input_sz;
 
-    for (const auto &[pos, sc]: this->slave_configs) {
-        ec_slave_config_state_t state;
-        this->api->slave_config_state(sc, &state);
-        VLOG(1) << "[ethercat.igh] slave " << pos << " state after activation: "
-                << "al_state=0x" << std::hex << static_cast<int>(state.al_state)
-                << std::dec << " ("
-                << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
-                << ", online=" << state.online << ", operational=" << state.operational;
-    }
     image.inputs = {this->input_domain_data, this->input_sz};
     image.outputs = {this->output_domain_data, this->output_sz};
-    {
-        std::lock_guard lock(this->mu);
-        image.slaves = this->cached_slaves;
-    }
+    image.slaves = this->cached_slaves;
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
-    return {};
+    return this->wait_for_op();
+}
+
+master::Activation Master::wait_for_op() {
+    const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    while (true) {
+        std::vector<uint16_t> pending;
+        for (const auto &[pos, sc]: this->slave_configs) {
+            ec_slave_config_state_t state{};
+            if (this->api->slave_config_state(sc, &state) != 0 ||
+                state.operational == 0)
+                pending.push_back(pos);
+        }
+        if (pending.empty()) return {};
+        if (this->cfg.clock.steady() >= deadline) return this->op_error(pending);
+        this->cfg.clock.sleep(OP_POLL_INTERVAL);
+    }
+}
+
+master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
+    master::Activation activation;
+    std::string msg;
+    for (const auto pos: pending) {
+        const auto &name = this->cached_slaves[pos - 1].properties.name;
+        ec_slave_info_t info{};
+        if (const int ret = this->api->master_get_slave(
+                this->ec_master,
+                ring_position(pos),
+                &info
+            );
+            ret != 0) {
+            if (!msg.empty()) msg += "; ";
+            msg += std::format(
+                "slave {} ({}): failed to read its state: {}",
+                pos,
+                name,
+                reason(ret)
+            );
+            continue;
+        }
+        const auto state = slave::from_al_state(info.al_state);
+        // The slave can reach OP after the last poll and before this read.
+        if (state == slave::State::OP) continue;
+        if (!msg.empty()) msg += "; ";
+        msg += std::format(
+            "slave {} ({}) is in {}",
+            pos,
+            name,
+            slave::slave_state_to_string(state)
+        );
+        if (info.error_flag == 0) continue;
+        msg += " with an AL error";
+        activation.refusals[pos] = {.reason = "refused " + next_state(state)};
+    }
+    if (msg.empty()) return activation;
+    activation.err = x::errors::Error(
+        activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
+                                    : errors::STATE_CHANGE_REFUSED,
+        "failed to reach OP within " + this->cfg.op_timeout.to_string() + ": " + msg
+    );
+    return activation;
 }
 
 void Master::deactivate() {
     if (!this->initialized) return;
 
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " deactivating";
-    if (this->activated) this->api->master_deactivate(this->ec_master);
+    if (this->activated)
+        if (const int ret = this->api->master_deactivate(this->ec_master); ret != 0)
+            LOG(WARNING) << "[ethercat.igh] master " << this->master_index
+                         << " failed to deactivate: " << reason(ret);
     if (this->ec_master) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
@@ -352,13 +428,25 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
-    this->api->master_receive(this->ec_master);
-
-    this->api->domain_process(this->output_domain);
-    this->api->domain_process(this->input_domain);
-
-    this->api->domain_state(this->output_domain, &this->output_domain_state);
-    this->api->domain_state(this->input_domain, &this->input_domain_state);
+    if (const int ret = this->api->master_receive(this->ec_master); ret != 0)
+        return x::errors::Error(
+            errors::CYCLIC_ERROR,
+            "failed to receive frames: " + reason(ret)
+        );
+    for (const auto &[domain, state]:
+         {std::pair{this->output_domain, &this->output_domain_state},
+          std::pair{this->input_domain, &this->input_domain_state}}) {
+        if (const int ret = this->api->domain_process(domain); ret != 0)
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "failed to process a domain: " + reason(ret)
+            );
+        if (const int ret = this->api->domain_state(domain, state); ret != 0)
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "failed to read a domain state: " + reason(ret)
+            );
+    }
 
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
     if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
@@ -381,79 +469,53 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
-    this->api->domain_queue(this->output_domain);
-    this->api->domain_queue(this->input_domain);
-    this->api->master_send(this->ec_master);
-
+    for (auto *domain: {this->output_domain, this->input_domain})
+        if (const int ret = this->api->domain_queue(domain); ret != 0)
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "failed to queue a domain: " + reason(ret)
+            );
+    if (const int ret = this->api->master_send(this->ec_master); ret != 0)
+        return x::errors::Error(
+            errors::CYCLIC_ERROR,
+            "failed to send frames: " + reason(ret)
+        );
     return x::errors::NIL;
 }
 
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
-    std::vector<std::pair<uint16_t, ec_slave_config_t *>> configs;
-    {
-        std::lock_guard lock(this->mu);
-        configs.assign(this->slave_configs.begin(), this->slave_configs.end());
-    }
-    std::ranges::sort(configs);
     std::vector<slave::Health> health;
-    health.reserve(configs.size());
-    for (const auto &[pos, sc]: configs) {
+    health.reserve(this->slave_configs.size());
+    for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state{};
-        this->api->slave_config_state(sc, &state);
         ec_slave_info_t info{};
-        const bool faulted = this->api->master_get_slave(this->ec_master, pos, &info) ==
-                                 0 &&
-                             info.error_flag != 0;
+        // A slave the master cannot read is not responding.
+        const bool read = this->api->slave_config_state(sc, &state) == 0 &&
+                          this->api->master_get_slave(
+                              this->ec_master,
+                              ring_position(pos),
+                              &info
+                          ) == 0;
         health.push_back({
             .position = pos,
             .state = slave::from_al_state(state.al_state),
-            .faulted = faulted,
-            .lost = state.online == 0,
+            .faulted = read && info.error_flag != 0,
+            .lost = !read || state.online == 0,
         });
     }
     return health;
 }
 
-ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
-    std::lock_guard lock(this->mu);
-
-    if (this->disabled_slaves.contains(position)) {
-        VLOG(1) << "[ethercat.igh] skipping slave config for disabled slave "
-                << position;
-        return nullptr;
-    }
-
-    auto it = this->slave_configs.find(position);
-    if (it != this->slave_configs.end()) return it->second;
-
-    if (position >= this->cached_slaves.size()) return nullptr;
-
-    const auto &slave = this->cached_slaves[position].properties;
-    ec_slave_config_t *sc = this->api->master_slave_config(
-        this->ec_master,
-        0,
-        position,
-        slave.vendor_id,
-        slave.product_code
-    );
-
-    if (!sc) {
-        LOG(ERROR) << "[ethercat.igh] failed to get slave config for position "
-                   << position << " (vendor=0x" << std::hex << slave.vendor_id
-                   << ", product=0x" << slave.product_code << std::dec << ")";
-        return nullptr;
-    }
-
-    this->slave_configs[position] = sc;
-    return sc;
-}
-
 x::errors::Error
 Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) {
-    auto props = this->cached_slaves[position].properties;
+    auto props = this->cached_slaves[position - 1].properties;
     const auto slave_name = "slave " + std::to_string(position) + " (" + props.name +
                             ")";
-    const auto [syncs, err] = read_layout(*this->api, this->ec_master, position);
+    const auto [syncs, err] = read_layout(
+        *this->api,
+        this->ec_master,
+        ring_position(position)
+    );
     if (err)
         return x::errors::Error(
             errors::PDO_DISCOVERY_ERROR,
@@ -468,7 +530,6 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     if (!assignable(true) && !assignable(false)) return x::errors::NIL;
     std::vector<std::vector<ec_pdo_entry_info_t>> entry_infos;
     std::vector<std::vector<ec_pdo_info_t>> pdo_infos;
-    pdo_infos.reserve(syncs.size());
     std::vector<ec_sync_info_t> sync_infos;
     std::vector<uint8_t> empty_syncs;
     std::vector<uint16_t> empty_pdos;
@@ -477,7 +538,13 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     if (assignable(false)) props.output_pdos.clear();
     for (const auto &sync: syncs) {
         if (sync.fixed) {
-            if (assignable(sync.is_input)) this->append_scanned_pdos(props, sync.index);
+            if (!assignable(sync.is_input)) continue;
+            if (const auto scan_err = this->append_scanned_pdos(props, sync.index))
+                return x::errors::Error(
+                    errors::PDO_DISCOVERY_ERROR,
+                    "failed to read the PDO layout of " + slave_name + ": " +
+                        scan_err.data
+                );
             continue;
         }
         auto &infos = pdo_infos.emplace_back();
@@ -535,8 +602,7 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 "failed to clear the PDO mapping of " + slave_name
             );
     esi::fill_known_entries(props);
-    std::lock_guard lock(this->mu);
-    this->cached_slaves[position].properties = std::move(props);
+    this->cached_slaves[position - 1].properties = std::move(props);
     return x::errors::NIL;
 }
 
@@ -566,7 +632,7 @@ void Master::register_pdo_entries(
                         telem::format_index_sub_index(pdo.index, pdo.sub_index),
                         slave.position,
                         slave.name,
-                        std::generic_category().message(-offset)
+                        reason(offset)
                     )
                 )
             );
@@ -584,38 +650,62 @@ void Master::register_pdo_entries(
         add(pdo, this->input_domain);
 }
 
-void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_index) {
+x::errors::Error
+Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_index) {
+    const auto pos = ring_position(props.position);
     ec_sync_info_t sync_info{};
-    if (this->api->master_get_sync_manager(
+    if (const int ret = this->api->master_get_sync_manager(
             this->ec_master,
-            props.position,
+            pos,
             sync_index,
             &sync_info
-        ) != 0)
-        return;
+        );
+        ret != 0)
+        return x::errors::Error(
+            errors::PDO_DISCOVERY_ERROR,
+            std::format("failed to read sync manager {}: {}", sync_index, reason(ret))
+        );
     const bool is_input = sync_info.dir == EC_DIR_INPUT;
     for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
         ec_pdo_info_t pdo_info{};
-        if (this->api->master_get_pdo(
+        if (const int ret = this->api->master_get_pdo(
                 this->ec_master,
-                props.position,
+                pos,
                 sync_index,
                 static_cast<uint16_t>(pdo_pos),
                 &pdo_info
-            ) != 0)
-            continue;
+            );
+            ret != 0)
+            return x::errors::Error(
+                errors::PDO_DISCOVERY_ERROR,
+                std::format(
+                    "failed to read PDO {} of sync manager {}: {}",
+                    pdo_pos,
+                    sync_index,
+                    reason(ret)
+                )
+            );
         pdo::PDO pdo{.index = pdo_info.index, .entries = {}};
         for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries; ++entry_pos) {
             ec_pdo_entry_info_t entry{};
-            if (this->api->master_get_pdo_entry(
+            if (const int ret = this->api->master_get_pdo_entry(
                     this->ec_master,
-                    props.position,
+                    pos,
                     sync_index,
                     static_cast<uint16_t>(pdo_pos),
                     static_cast<uint16_t>(entry_pos),
                     &entry
-                ) != 0)
-                continue;
+                );
+                ret != 0)
+                return x::errors::Error(
+                    errors::PDO_DISCOVERY_ERROR,
+                    std::format(
+                        "failed to read entry {} of PDO {:#06x}: {}",
+                        entry_pos,
+                        pdo_info.index,
+                        reason(ret)
+                    )
+                );
             pdo.entries.push_back({
                 .index = entry.index,
                 .sub_index = entry.subindex,
@@ -624,15 +714,54 @@ void Master::append_scanned_pdos(slave::Properties &props, const uint8_t sync_in
         }
         pdo::append(is_input ? props.input_pdos : props.output_pdos, is_input, pdo);
     }
+    return x::errors::NIL;
 }
 
-void Master::discover_slave_pdos(
-    slave::DiscoveryResult &slave,
-    const uint8_t sync_count
-) {
-    for (uint8_t sm = 0; sm < sync_count; ++sm)
-        this->append_scanned_pdos(slave.properties, sm);
-    slave.status.pdos_discovered = true;
-    esi::fill(slave);
+std::pair<std::unique_ptr<Manager>, x::errors::Error> Manager::open() {
+    struct stat st{};
+    if (stat(DEVICE_PATH, &st) != 0)
+        return {
+            nullptr,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "IgH device not found")
+        };
+    auto [api, err] = API::load();
+    if (err) return {nullptr, err};
+    return {std::make_unique<Manager>(std::move(api)), x::errors::NIL};
+}
+
+std::vector<master::Info> Manager::enumerate() {
+    constexpr std::string_view prefix = "EtherCAT";
+    std::vector<master::Info> masters;
+    DIR *dir = opendir(SYSFS_PATH);
+    if (dir == nullptr) return masters;
+    while (const dirent *entry = readdir(dir)) {
+        const std::string_view name = entry->d_name;
+        if (!name.starts_with(prefix)) continue;
+        const auto index = parse_index(name.substr(prefix.size()));
+        if (!index) continue;
+        masters.push_back({
+            .key = "igh:" + std::to_string(*index),
+            .description = "IgH EtherCAT Master " + std::to_string(*index),
+        });
+    }
+    closedir(dir);
+    return masters;
+}
+
+std::pair<std::shared_ptr<master::Master>, x::errors::Error>
+Manager::create(const std::string &key) {
+    constexpr std::string_view prefix = "igh:";
+    const auto index = key.starts_with(prefix)
+                         ? parse_index(std::string_view(key).substr(prefix.size()))
+                         : std::nullopt;
+    if (!index)
+        return {
+            nullptr,
+            x::errors::Error(
+                errors::MASTER_INIT_ERROR,
+                "invalid IgH master key '" + key + "': expected format 'igh:N'"
+            )
+        };
+    return {std::make_shared<Master>(this->api, *index), x::errors::NIL};
 }
 }

@@ -24,16 +24,16 @@
 
 namespace driver::ethercat::igh {
 /// @brief library path for the IgH EtherCAT master shared library.
-const std::string IGH_LIBRARY_NAME = "libethercat.so.1";
+inline const std::string LIBRARY_NAME = "libethercat.so.1";
 
 /// @brief library information for error messages.
-const driver::LibraryInfo IGH_LIB_INFO = {
+inline const driver::LibraryInfo LIBRARY_INFO = {
     "IgH EtherCAT Master",
     "https://gitlab.com/etherlab.org/ethercat"
 };
 
 /// @brief error returned when the IgH library cannot be loaded.
-const auto LOAD_ERROR = driver::errors::missing_lib(IGH_LIB_INFO);
+inline const auto LOAD_ERROR = driver::errors::missing_lib(LIBRARY_INFO);
 
 /// @brief API wrapper for IgH EtherCAT master library functions with dynamic loading.
 class API {
@@ -89,7 +89,7 @@ public:
     /// @returns x::lib::LOAD_ERROR when the library is not installed, or when it lacks
     /// a function that the Driver calls.
     static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
-        auto lib = std::make_unique<x::lib::Shared>(IGH_LIBRARY_NAME);
+        auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         FunctionPointers f{};
         std::string missing;
@@ -131,9 +131,9 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::lib::LOAD_ERROR,
-                    IGH_LIB_INFO.name + " library " + IGH_LIBRARY_NAME +
+                    LIBRARY_INFO.name + " library " + LIBRARY_NAME +
                         " has no function " + missing +
-                        ". Install a newer version: " + IGH_LIB_INFO.url + "."
+                        ". Install a newer version: " + LIBRARY_INFO.url + "."
                 )
             };
         return {std::shared_ptr<API>(new API(std::move(lib), f)), x::errors::NIL};
@@ -182,7 +182,7 @@ public:
     }
 
     /// @brief deactivates the master.
-    virtual int master_deactivate(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
     }
 
@@ -202,28 +202,28 @@ public:
     }
 
     /// @brief processes received datagrams.
-    virtual int domain_process(ec_domain_t *domain) const {
+    [[nodiscard]] virtual int domain_process(ec_domain_t *domain) const {
         return this->func_ptrs.domain_process(domain);
     }
 
     /// @brief queues domain datagrams for sending.
-    virtual int domain_queue(ec_domain_t *domain) const {
+    [[nodiscard]] virtual int domain_queue(ec_domain_t *domain) const {
         return this->func_ptrs.domain_queue(domain);
     }
 
     /// @brief returns the current domain state.
-    virtual int
+    [[nodiscard]] virtual int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
         return this->func_ptrs.domain_state(domain, state);
     }
 
     /// @brief sends all queued datagrams.
-    virtual int master_send(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_send(ec_master_t *master) const {
         return this->func_ptrs.master_send(master);
     }
 
     /// @brief fetches received frames from the hardware.
-    virtual int master_receive(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_receive(ec_master_t *master) const {
         return this->func_ptrs.master_receive(master);
     }
 
@@ -255,7 +255,7 @@ public:
     }
 
     /// @brief returns the state of a slave configuration.
-    virtual int slave_config_state(
+    [[nodiscard]] virtual int slave_config_state(
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const {

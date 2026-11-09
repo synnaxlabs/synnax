@@ -10,18 +10,13 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
 #include <functional>
-#include <map>
-#include <mutex>
-#include <span>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include <dirent.h>
-#include <sys/stat.h>
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/igh/api.h"
@@ -31,6 +26,14 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::igh {
+/// @brief how the IgH master waits for its slaves.
+struct Config {
+    /// @brief how long the slaves get to reach OP after activation. Some slaves take up
+    /// to 9 s.
+    x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
+    /// @brief the host clock that the master waits on.
+    x::loop::HostClock clock;
+};
 
 /// @brief IgH EtherLab implementation of the Master interface.
 class Master final : public master::Master {
@@ -38,6 +41,8 @@ class Master final : public master::Master {
     std::shared_ptr<API> api;
     /// @brief IgH master index (typically 0, configured in /etc/ethercat.conf).
     unsigned int master_index;
+    /// @brief how long the master waits for the slaves.
+    Config cfg;
 
     // Non-owning pointers managed by IgH kernel module via ecrt_release_master().
 
@@ -57,18 +62,8 @@ class Master final : public master::Master {
     size_t output_sz;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
-    /// @brief lazily configured slave handles (position -> slave_config).
-    std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
-    /// @brief slaves that are disabled (excluded from cyclic exchange).
-    std::unordered_set<uint16_t> disabled_slaves;
-    /// @brief the mode the user chose for each slave that has a choice, keyed by
-    /// position.
-    std::map<uint16_t, dc::Choice> chosen_modes;
-    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
-    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
-        startup_parameters;
-    /// @brief protects slave state queries and configuration.
-    mutable std::mutex mu;
+    /// @brief the configuration of each enabled slave, in position order.
+    std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
     /// @brief whether the master has been initialized.
     bool initialized;
     /// @brief whether the master has been activated.
@@ -80,7 +75,11 @@ class Master final : public master::Master {
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
-    explicit Master(std::shared_ptr<API> api, unsigned int master_index = 0);
+    explicit Master(
+        std::shared_ptr<API> api,
+        unsigned int master_index = 0,
+        Config cfg = {}
+    );
 
     ~Master() override;
 
@@ -91,10 +90,12 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    /// @brief does what master::Master::activate does, but ignores the period and
-    /// starts no DC sync yet, so a slave that needs DC sync refuses SAFE-OP. Returns no
-    /// refusals, since the IgH master moves the slaves to OP on its own after
-    /// activate() returns.
+    /// @brief does what master::Master::activate does, but ignores the period and runs
+    /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
+    /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
+    /// of a slave is one that the IgH master cannot run. The IgH master moves the
+    /// slaves to OP on its own, so a slave that has its AL error flag set at
+    /// Config::op_timeout counts as a refusal.
     master::Activation activate(
         const master::Plan &plan,
         const std::function<void(const master::Image &)> &start_cycle
@@ -111,14 +112,23 @@ public:
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
-    std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
+    [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
+        return std::nullopt;
+    }
 
 private:
     /// @brief opens the master, reads each slave on the bus, and creates the domains.
     x::errors::Error initialize();
 
-    /// @brief returns or creates the configuration of the slave at a position.
-    ec_slave_config_t *get_or_create_slave_config(uint16_t position);
+    /// @brief waits until every enabled slave reaches OP.
+    /// @returns errors::STATE_CHANGE_REFUSED with the refusals when a slave still has
+    /// its AL error flag set at Config::op_timeout, or errors::STATE_CHANGE_ERROR when
+    /// none has.
+    master::Activation wait_for_op();
+
+    /// @brief builds the activation for the slaves at pending that are still below OP,
+    /// or returns no error when all of them reached OP since the last poll.
+    master::Activation op_error(const std::vector<uint16_t> &pending);
 
     /// @brief reads the PDO layout a slave holds after its startup parameters, since a
     /// parameter can change it, and makes that layout the slave's config and cached
@@ -141,95 +151,28 @@ private:
         const std::vector<slave::StartupParameter> &parameters
     );
 
-    /// @brief discovers the PDO entries of a slave from the layout IgH scanned for its
-    /// sync_count sync managers.
-    void discover_slave_pdos(slave::DiscoveryResult &slave, uint8_t sync_count);
-
     /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
-    void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
+    /// Returns PDO_DISCOVERY_ERROR when IgH fails to give a part of the layout.
+    x::errors::Error append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
 };
-
-/// @brief sysfs path where IgH EtherCAT masters are exposed.
-/// The IgH EtherCAT master kernel module exposes masters as
-/// /sys/class/EtherCAT/EtherCAT<n>.
-const std::string SYSFS_ETHERCAT_PATH = "/sys/class/EtherCAT";
-
-/// @brief length of "EtherCAT" prefix in sysfs device names.
-constexpr size_t IGH_SYSFS_PREFIX_LEN = 8;
-
-/// @brief device path for the first IgH EtherCAT master kernel module device.
-const std::string IGH_DEVICE_PATH = "/dev/EtherCAT0";
 
 /// @brief IgH-based implementation of master::Manager.
 class Manager final : public master::Manager {
-    /// @brief API instance loaded during open().
     std::shared_ptr<API> api;
 
+public:
+    /// @brief creates a manager whose masters make their IgH calls through api.
     explicit Manager(std::shared_ptr<API> api): api(std::move(api)) {}
 
-public:
-    /// @brief opens the IgH manager, checking device availability and loading the API.
-    /// @return pair of manager instance and error (nil on success).
-    static std::pair<std::unique_ptr<Manager>, x::errors::Error> open() {
-        struct stat st{};
-        if (stat(IGH_DEVICE_PATH.c_str(), &st) != 0)
-            return {
-                nullptr,
-                x::errors::Error(errors::MASTER_INIT_ERROR, "IgH device not found")
-            };
-        auto [api, err] = API::load();
-        if (err) return {nullptr, err};
-        return {std::unique_ptr<Manager>(new Manager(std::move(api))), x::errors::NIL};
-    }
+    /// @brief opens the IgH manager.
+    /// @returns errors::MASTER_INIT_ERROR when the IgH device is missing, or the error
+    /// of loading the IgH library.
+    static std::pair<std::unique_ptr<Manager>, x::errors::Error> open();
 
-    [[nodiscard]] std::vector<master::Info> enumerate() override {
-        std::vector<master::Info> masters;
-        DIR *dir = opendir(SYSFS_ETHERCAT_PATH.c_str());
-        if (dir == nullptr) return masters;
-
-        while (dirent *entry = readdir(dir)) {
-            if (std::strncmp(entry->d_name, "EtherCAT", IGH_SYSFS_PREFIX_LEN) != 0)
-                continue;
-
-            const char *index_str = entry->d_name + IGH_SYSFS_PREFIX_LEN;
-            char *end = nullptr;
-            const long index = std::strtol(index_str, &end, 10);
-            if (end == index_str || *end != '\0') continue;
-
-            master::Info info;
-            info.key = "igh:" + std::to_string(index);
-            info.description = "IgH EtherCAT Master " + std::to_string(index);
-            masters.push_back(std::move(info));
-        }
-
-        closedir(dir);
-        return masters;
-    }
+    [[nodiscard]] std::vector<master::Info> enumerate() override;
 
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
-    create(const std::string &key) override {
-        if (key.size() < 5 || !key.starts_with("igh:"))
-            return {
-                nullptr,
-                x::errors::Error(
-                    errors::MASTER_INIT_ERROR,
-                    "invalid IgH master key '" + key + "': expected format 'igh:N'"
-                )
-            };
-
-        try {
-            const int index = std::stoi(key.substr(4));
-            return {std::make_shared<Master>(this->api, index), x::errors::NIL};
-        } catch (const std::exception &) {
-            return {
-                nullptr,
-                x::errors::Error(
-                    errors::MASTER_INIT_ERROR,
-                    "invalid IgH master key '" + key + "': could not parse index"
-                )
-            };
-        }
-    }
+    create(const std::string &key) override;
 };
 
 }

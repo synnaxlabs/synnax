@@ -14,247 +14,166 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
-#include <optional>
 #include <span>
-#include <tuple>
-#include <unordered_map>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "driver/ethercat/igh/api.h"
 
 namespace driver::ethercat::igh {
-
-/// @brief mock implementation of the IgH API for unit testing without hardware.
+/// @brief a fake IgH master for tests. Each slave has its own object dictionary and PDO
+/// layout, and each configured slave moves to its state when the master activates.
+/// Positions count from 0, as IgH counts them.
 class MockAPI final : public API {
-    /// @brief sentinel pointer for the ec_master_t handle.
-    ec_master_t *sentinel_master = reinterpret_cast<ec_master_t *>(0x1);
-    /// @brief sentinel pointer for the output domain handle.
-    ec_domain_t *sentinel_output_domain = reinterpret_cast<ec_domain_t *>(0x2);
-    /// @brief sentinel pointer for the input domain handle.
-    ec_domain_t *sentinel_input_domain = reinterpret_cast<ec_domain_t *>(0x3);
-    /// @brief tracks the number of domains created for returning alternating sentinels.
-    int domain_create_count = 0;
-    /// @brief configurable return value for check_device.
-    x::errors::Error check_device_err = x::errors::NIL;
-    /// @brief configurable return value for request_master.
-    ec_master_t *request_master_result;
-    /// @brief configurable return value for master() (get info).
-    int master_info_result = 0;
-    /// @brief configurable master info to populate.
-    ec_master_info_t mock_master_info{};
-    /// @brief configurable slave info entries.
-    std::vector<ec_slave_info_t> mock_slaves;
-    /// @brief configurable return value for master_create_domain.
-    bool create_domain_fails_output = false;
-    /// @brief configurable return value for master_create_domain (input).
-    bool create_domain_fails_input = false;
-    /// @brief configurable return value for master_activate.
-    int activate_result = 0;
-    /// @brief configurable return value for master_slave_config.
-    bool slave_config_fails = false;
-    /// @brief whether slave_config_sdo fails.
-    bool config_sdo_fails = false;
-
-    /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
-    size_t output_domain_offset = 0;
-    /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
-    size_t input_domain_offset = 0;
-
-    /// @brief configurable output domain size.
-    size_t output_domain_sz = 0;
-    /// @brief configurable input domain size.
-    size_t input_domain_sz = 0;
-    /// @brief output domain data buffer.
-    std::vector<uint8_t> output_data_buf;
-    /// @brief input domain data buffer.
-    std::vector<uint8_t> input_data_buf;
-
-    /// @brief configurable domain state for output domain.
-    ec_domain_state_t output_domain_state_val{};
-    /// @brief configurable domain state for input domain.
-    ec_domain_state_t input_domain_state_val{};
-
-    /// @brief configurable slave config states keyed by slave config pointer.
-    std::unordered_map<uintptr_t, ec_slave_config_state_t> slave_config_states;
-    /// @brief tracks slave config pointers per position.
-    std::unordered_map<uint16_t, ec_slave_config_t *> created_slave_configs;
-    /// @brief next sentinel address for slave config allocation.
-    uintptr_t next_slave_config_addr = 0x100;
-
-    /// @brief abort codes for objects that reject SDO downloads, keyed by index and
-    /// sub-index. A code of 0 makes the download time out.
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_download_aborts;
-
-    /// @brief tracks whether release_master was called.
-    bool release_master_called_val = false;
-    /// @brief tracks whether master_deactivate was called.
-    bool master_deactivate_called_val = false;
+    static constexpr uintptr_t CONFIG_BASE = 0x100;
+    ec_master_t *const handle = reinterpret_cast<ec_master_t *>(0x1);
+    ec_domain_t *const output_domain = reinterpret_cast<ec_domain_t *>(0x2);
+    ec_domain_t *const input_domain = reinterpret_cast<ec_domain_t *>(0x3);
+    mutable int domains_created = 0;
+    mutable bool activated = false;
 
 public:
-    /// @brief one PDO a fake sync manager reports during discovery.
-    struct FakePDO {
-        uint16_t index;
-        std::vector<ec_pdo_entry_info_t> entries;
-    };
-    /// @brief one sync manager the fake reports during discovery.
-    struct FakeSync {
-        ec_direction_t dir;
-        std::vector<FakePDO> pdos;
-    };
-    /// @brief sync managers reported for every slave during discovery.
-    std::vector<FakeSync> fake_syncs;
-    /// @brief the position of a slave that master_get_slave fails to read.
-    std::optional<uint16_t> unreadable_slave;
-    /// @brief the index and sub-index of an entry that slave_config_reg_pdo_entry
-    /// rejects.
-    std::optional<std::pair<uint16_t, uint8_t>> rejected_entry;
-    /// @brief (index, sub_index) pairs passed to slave_config_reg_pdo_entry.
-    std::vector<std::pair<uint16_t, uint8_t>> registered_entries;
-    /// @brief one SDO write: slave position, index, sub-index, and bytes.
-    struct SDOWrite {
-        uint16_t position;
-        uint16_t index;
-        uint8_t sub_index;
-        std::vector<uint8_t> data;
-
-        bool operator==(const SDOWrite &) const = default;
-    };
-    /// @brief SDO downloads in call order.
-    std::vector<SDOWrite> sdo_downloads;
-    /// @brief SDOs added to slave configs, in call order.
-    std::vector<SDOWrite> config_sdos;
-    /// @brief the object dictionary of each slave, keyed by position, index, and
-    /// sub-index. A download writes to it, and an upload of a missing object aborts.
-    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
-    /// @brief one entry of a PDO passed to slave_config_pdos.
-    struct ConfiguredEntry {
-        uint16_t position;
-        uint8_t sync_index;
-        uint16_t pdo_index;
+    /// @brief an object that a PDO maps.
+    struct Entry {
         uint16_t index;
         uint8_t sub_index;
         uint8_t bit_length;
 
-        bool operator==(const ConfiguredEntry &) const = default;
+        bool operator==(const Entry &) const = default;
     };
-    /// @brief the PDO entries passed to slave_config_pdos, in call order.
-    std::vector<ConfiguredEntry> configured_entries;
-    /// @brief the slave position and sync manager of each cleared PDO assignment.
-    std::vector<std::pair<uint16_t, uint8_t>> cleared_assignments;
-    /// @brief the slave position and PDO index of each cleared PDO mapping.
-    std::vector<std::pair<uint16_t, uint16_t>> cleared_mappings;
 
-    MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
+    /// @brief a PDO and the objects it maps.
+    struct PDO {
+        uint16_t index;
+        std::vector<Entry> entries;
 
-    void set_sdo_download_abort(uint16_t index, uint8_t sub_index, uint32_t code) {
-        this->sdo_download_aborts[{index, sub_index}] = code;
-    }
+        bool operator==(const PDO &) const = default;
+    };
 
-    void set_check_device_err(const x::errors::Error &err) {
-        this->check_device_err = err;
-    }
+    /// @brief a sync manager and the PDOs it carries.
+    struct Sync {
+        ec_direction_t dir;
+        std::vector<PDO> pdos;
+    };
 
-    void set_request_master_result(ec_master_t *result) {
-        this->request_master_result = result;
-    }
+    /// @brief one SDO write: index, sub-index, and bytes.
+    struct SDO {
+        uint16_t index;
+        uint8_t sub_index;
+        std::vector<uint8_t> data;
 
-    void set_master_info_result(int result) { this->master_info_result = result; }
+        bool operator==(const SDO &) const = default;
+    };
 
-    void set_slave_count(unsigned int count) {
-        this->mock_master_info.slave_count = count;
-    }
+    /// @brief a process data domain.
+    struct Domain {
+        /// @brief the size in bytes, which grows with each registered entry.
+        size_t size = 0;
+        std::vector<uint8_t> data;
+        ec_domain_state_t state{.working_counter = 0, .wc_state = EC_WC_COMPLETE};
+    };
 
-    void add_slave(
-        uint16_t position,
-        uint32_t vendor_id,
-        uint32_t product_code,
-        uint32_t revision,
-        uint32_t serial,
-        const std::string &name
-    ) {
+    /// @brief a slave on the bus.
+    struct Slave {
+        /// @brief the identity and name that master_get_slave reads, with the state and
+        /// AL error flag of the slave.
         ec_slave_info_t info{};
-        info.position = position;
-        info.vendor_id = vendor_id;
-        info.product_code = product_code;
-        info.revision_number = revision;
-        info.serial_number = serial;
-        std::strncpy(info.name, name.c_str(), EC_MAX_STRING_LENGTH - 1);
-        info.name[EC_MAX_STRING_LENGTH - 1] = '\0';
+        /// @brief the PDO layout that IgH scanned, by sync manager.
+        std::vector<Sync> syncs;
+        /// @brief the object dictionary, keyed by index and sub-index. A download
+        /// writes to it, and an upload of a missing object aborts.
+        std::map<std::pair<uint16_t, uint8_t>, uint32_t> objects;
+        /// @brief abort codes for objects that reject downloads. A code of 0 makes the
+        /// download time out.
+        std::map<std::pair<uint16_t, uint8_t>, uint32_t> download_aborts;
+        /// @brief whether master_get_slave fails for the slave.
+        bool unreadable = false;
+        /// @brief whether slave_config_state fails for the slave.
+        bool state_unreadable = false;
+        /// @brief whether master_get_pdo fails for the slave.
+        bool layout_unreadable = false;
+        bool online = true;
+        /// @brief the state the slave reaches after activation.
+        uint8_t reaches = EC_AL_STATE_OP;
+        /// @brief whether the slave sets its AL error flag when it reaches a state
+        /// below OP.
+        bool refuses = false;
+        /// @brief how many state reads after activation the slave takes to reach its
+        /// state.
+        int reads_to_reach = 0;
+        bool configured = false;
+        bool settled = false;
+        /// @brief the SDO downloads, in call order.
+        std::vector<SDO> downloads;
+        /// @brief the SDOs added to the config, in call order.
+        std::vector<SDO> startup_sdos;
+        /// @brief the PDOs that the config assigns to each sync manager.
+        std::map<uint8_t, std::vector<PDO>> assigned;
+        /// @brief the index and sub-index of each registered entry, in call order.
+        std::vector<std::pair<uint16_t, uint8_t>> registered;
 
-        if (this->mock_slaves.size() <= position)
-            this->mock_slaves.resize(position + 1);
-        this->mock_slaves[position] = info;
-        this->mock_master_info.slave_count = static_cast<unsigned int>(
-            this->mock_slaves.size()
-        );
-    }
+        /// @brief returns the PDOs of every sync manager after configuration.
+        [[nodiscard]] std::vector<PDO> layout() const {
+            std::vector<PDO> pdos;
+            for (size_t sm = 0; sm < this->syncs.size(); sm++)
+                if (!this->assigned.contains(static_cast<uint8_t>(sm)))
+                    pdos.insert(
+                        pdos.end(),
+                        this->syncs[sm].pdos.begin(),
+                        this->syncs[sm].pdos.end()
+                    );
+            for (const auto &[sm, assigned]: this->assigned)
+                pdos.insert(pdos.end(), assigned.begin(), assigned.end());
+            return pdos;
+        }
 
-    void set_create_domain_fails_output(bool fails) {
-        this->create_domain_fails_output = fails;
-    }
+        /// @brief returns the scanned mapping of pdo_index.
+        [[nodiscard]] std::vector<Entry>
+        default_mapping(const uint16_t pdo_index) const {
+            for (const auto &sync: this->syncs)
+                for (const auto &pdo: sync.pdos)
+                    if (pdo.index == pdo_index) return pdo.entries;
+            return {};
+        }
+    };
 
-    void set_create_domain_fails_input(bool fails) {
-        this->create_domain_fails_input = fails;
-    }
+    mutable std::vector<Slave> slaves;
+    mutable Domain outputs;
+    mutable Domain inputs;
+    x::errors::Error check_device_err = x::errors::NIL;
+    bool request_master_fails = false;
+    int master_info_result = 0;
+    bool output_domain_fails = false;
+    bool input_domain_fails = false;
+    int activate_result = 0;
+    bool slave_config_fails = false;
+    bool config_sdo_fails = false;
+    /// @brief the results of master_receive, master_send, domain_process,
+    /// domain_queue, and domain_state.
+    int receive_result = 0;
+    int send_result = 0;
+    int domain_process_result = 0;
+    int domain_queue_result = 0;
+    int domain_state_result = 0;
+    mutable bool released = false;
+    mutable bool deactivated = false;
 
-    void set_activate_result(int result) { this->activate_result = result; }
+    MockAPI(): API(MockTag{}) {}
 
-    void set_slave_config_fails(bool fails) { this->slave_config_fails = fails; }
-
-    void set_config_sdo_fails(bool fails) { this->config_sdo_fails = fails; }
-
-    void set_output_domain_size(size_t sz) {
-        this->output_domain_sz = sz;
-        this->output_data_buf.resize(sz, 0);
-    }
-
-    void set_input_domain_size(size_t sz) {
-        this->input_domain_sz = sz;
-        this->input_data_buf.resize(sz, 0);
-    }
-
-    void set_output_domain_state(ec_domain_state_t state) {
-        this->output_domain_state_val = state;
-    }
-
-    void set_input_domain_state(ec_domain_state_t state) {
-        this->input_domain_state_val = state;
-    }
-
-    void set_slave_config_state(uint16_t position, ec_slave_config_state_t state) {
-        auto it = this->created_slave_configs.find(position);
-        if (it != this->created_slave_configs.end())
-            this->slave_config_states[reinterpret_cast<uintptr_t>(it->second)] = state;
-    }
-
-    void set_all_slaves_al_state(uint8_t al_state) {
-        for (auto &[addr, state]: this->slave_config_states)
-            state.al_state = al_state;
-    }
-
-    void set_slave_error_flag(uint16_t position, uint8_t flag) {
-        this->mock_slaves[position].error_flag = flag;
-    }
-
-    [[nodiscard]] size_t slave_config_count() const {
-        return this->created_slave_configs.size();
-    }
-
-    [[nodiscard]] bool release_master_called() const {
-        return this->release_master_called_val;
-    }
-
-    [[nodiscard]] bool master_deactivate_called() const {
-        return this->master_deactivate_called_val;
-    }
-
-    [[nodiscard]] ec_domain_t *get_output_domain() const {
-        return this->sentinel_output_domain;
-    }
-
-    [[nodiscard]] ec_domain_t *get_input_domain() const {
-        return this->sentinel_input_domain;
+    /// @brief adds a slave after the last one, in PRE-OP, and returns it.
+    Slave &add_slave(
+        const std::string &name = "TestSlave",
+        const uint32_t vendor_id = 0xBEEF,
+        const uint32_t product_code = 0xCAFE
+    ) {
+        auto &slave = this->slaves.emplace_back();
+        slave.info.position = static_cast<uint16_t>(this->slaves.size() - 1);
+        slave.info.vendor_id = vendor_id;
+        slave.info.product_code = product_code;
+        slave.info.al_state = EC_AL_STATE_PREOP;
+        std::strncpy(slave.info.name, name.c_str(), EC_MAX_STRING_LENGTH - 1);
+        return slave;
     }
 
     [[nodiscard]] x::errors::Error check_device(unsigned int) const override {
@@ -262,83 +181,79 @@ public:
     }
 
     [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
-        return this->request_master_result;
+        return this->request_master_fails ? nullptr : this->handle;
     }
 
     void release_master(ec_master_t *) const override {
-        const_cast<MockAPI *>(this)->release_master_called_val = true;
+        this->released = true;
+        this->domains_created = 0;
+        this->activated = false;
+        for (auto &slave: this->slaves) {
+            slave.configured = false;
+            slave.settled = false;
+        }
     }
 
-    int master_activate(ec_master_t *) const override { return this->activate_result; }
+    int master_activate(ec_master_t *) const override {
+        if (this->activate_result < 0) return this->activate_result;
+        this->activated = true;
+        this->outputs.data.resize(this->outputs.size);
+        this->inputs.data.resize(this->inputs.size);
+        return 0;
+    }
 
     int master_deactivate(ec_master_t *) const override {
-        const_cast<MockAPI *>(this)->master_deactivate_called_val = true;
+        this->deactivated = true;
         return 0;
     }
 
     ec_domain_t *master_create_domain(ec_master_t *) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        self->domain_create_count++;
-        if (self->domain_create_count == 1) {
-            if (this->create_domain_fails_output) return nullptr;
-            return this->sentinel_output_domain;
-        }
-        if (this->create_domain_fails_input) return nullptr;
-        return this->sentinel_input_domain;
+        if (++this->domains_created == 1)
+            return this->output_domain_fails ? nullptr : this->output_domain;
+        return this->input_domain_fails ? nullptr : this->input_domain;
     }
 
     size_t domain_size(const ec_domain_t *domain) const override {
-        if (domain == this->sentinel_output_domain) return this->output_domain_sz;
-        if (domain == this->sentinel_input_domain) return this->input_domain_sz;
-        return 0;
+        return this->domain(domain).size;
     }
 
     uint8_t *domain_data(const ec_domain_t *domain) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        if (domain == this->sentinel_output_domain) {
-            if (self->output_data_buf.empty()) return nullptr;
-            return self->output_data_buf.data();
-        }
-        if (domain == this->sentinel_input_domain) {
-            if (self->input_data_buf.empty()) return nullptr;
-            return self->input_data_buf.data();
-        }
-        return nullptr;
+        auto &d = this->domain(domain);
+        return d.data.empty() ? nullptr : d.data.data();
     }
 
-    int domain_process(ec_domain_t *) const override { return 0; }
+    int domain_process(ec_domain_t *) const override {
+        return this->domain_process_result;
+    }
 
-    int domain_queue(ec_domain_t *) const override { return 0; }
+    int domain_queue(ec_domain_t *) const override { return this->domain_queue_result; }
 
     int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const override {
-        if (domain == this->sentinel_output_domain)
-            *state = this->output_domain_state_val;
-        else if (domain == this->sentinel_input_domain)
-            *state = this->input_domain_state_val;
-        return 0;
+        *state = this->domain(domain).state;
+        return this->domain_state_result;
     }
 
-    int master_send(ec_master_t *) const override { return 0; }
+    int master_send(ec_master_t *) const override { return this->send_result; }
 
-    int master_receive(ec_master_t *) const override { return 0; }
+    int master_receive(ec_master_t *) const override { return this->receive_result; }
 
     int master(ec_master_t *, ec_master_info_t *info) const override {
         if (this->master_info_result < 0) return this->master_info_result;
-        *info = this->mock_master_info;
-        return this->master_info_result;
+        info->slave_count = static_cast<unsigned int>(this->slaves.size());
+        return 0;
     }
 
     int master_get_slave(
         ec_master_t *,
-        uint16_t slave_position,
-        ec_slave_info_t *slave_info
+        uint16_t position,
+        ec_slave_info_t *info
     ) const override {
-        if (slave_position >= this->mock_slaves.size() ||
-            slave_position == this->unreadable_slave)
+        if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
-        *slave_info = this->mock_slaves[slave_position];
-        slave_info->sync_count = static_cast<uint8_t>(this->fake_syncs.size());
+        const auto &slave = this->slaves[position];
+        *info = slave.info;
+        info->sync_count = static_cast<uint8_t>(slave.syncs.size());
         return 0;
     }
 
@@ -349,56 +264,90 @@ public:
         uint32_t,
         uint32_t
     ) const override {
-        if (this->slave_config_fails) return nullptr;
-        auto *self = const_cast<MockAPI *>(this);
-        auto it = self->created_slave_configs.find(position);
-        if (it != self->created_slave_configs.end()) return it->second;
-        auto *sc = reinterpret_cast<ec_slave_config_t *>(self->next_slave_config_addr);
-        self->next_slave_config_addr += 0x10;
-        self->created_slave_configs[position] = sc;
-        ec_slave_config_state_t initial_state{};
-        initial_state.al_state = 0x01;
-        initial_state.online = 1;
-        self->slave_config_states[reinterpret_cast<uintptr_t>(sc)] = initial_state;
-        return sc;
+        if (this->slave_config_fails || position >= this->slaves.size()) return nullptr;
+        this->slaves[position].configured = true;
+        return reinterpret_cast<ec_slave_config_t *>(CONFIG_BASE + position);
+    }
+
+    int slave_config_state(
+        const ec_slave_config_t *sc,
+        ec_slave_config_state_t *state
+    ) const override {
+        auto &slave = this->slave(sc);
+        if (slave.state_unreadable) return -EIO;
+        if (this->activated && !slave.settled) {
+            if (slave.reads_to_reach > 0)
+                slave.reads_to_reach--;
+            else {
+                slave.settled = true;
+                slave.info.al_state = slave.reaches;
+                slave.info.error_flag = slave.reaches != EC_AL_STATE_OP &&
+                                        slave.refuses;
+            }
+        }
+        *state = {};
+        state->online = slave.online ? 1 : 0;
+        state->operational = slave.online && slave.info.al_state == EC_AL_STATE_OP;
+        state->al_state = slave.info.al_state;
+        return 0;
+    }
+
+    int slave_config_reg_pdo_entry(
+        ec_slave_config_t *sc,
+        uint16_t index,
+        uint8_t sub_index,
+        ec_domain_t *domain,
+        unsigned int *bit_position
+    ) const override {
+        auto &slave = this->slave(sc);
+        for (const auto &pdo: slave.layout())
+            for (const auto &entry: pdo.entries) {
+                if (entry.index != index || entry.sub_index != sub_index) continue;
+                slave.registered.emplace_back(index, sub_index);
+                auto &d = this->domain(domain);
+                const auto offset = d.size;
+                d.size += (entry.bit_length + 7) / 8;
+                *bit_position = 0;
+                return static_cast<int>(offset);
+            }
+        return -ENOENT;
     }
 
     int slave_config_sdo(
         ec_slave_config_t *sc,
         uint16_t index,
-        uint8_t subindex,
+        uint8_t sub_index,
         const uint8_t *data,
         size_t size
     ) const override {
         if (this->config_sdo_fails) return -ENOMEM;
-        auto *self = const_cast<MockAPI *>(this);
-        for (const auto &[pos, config]: this->created_slave_configs)
-            if (config == sc)
-                self->config_sdos.push_back(
-                    {pos, index, subindex, std::vector(data, data + size)}
-                );
+        this->slave(sc).startup_sdos.push_back(
+            {index, sub_index, std::vector(data, data + size)}
+        );
         return 0;
     }
 
+    /// @brief configures the PDOs as ecrt_slave_config_pdos does: a sync manager with
+    /// no PDOs keeps its assignment, and a PDO with no entries keeps its mapping.
     int slave_config_pdos(
         ec_slave_config_t *sc,
         unsigned int n_syncs,
         const ec_sync_info_t syncs[]
     ) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        for (const auto &[pos, config]: this->created_slave_configs) {
-            if (config != sc) continue;
-            for (const auto &sync: std::span(syncs, n_syncs))
-                for (const auto &pdo: std::span(sync.pdos, sync.n_pdos))
-                    for (const auto &entry: std::span(pdo.entries, pdo.n_entries))
-                        self->configured_entries.push_back({
-                            .position = pos,
-                            .sync_index = sync.index,
-                            .pdo_index = pdo.index,
-                            .index = entry.index,
-                            .sub_index = entry.subindex,
-                            .bit_length = entry.bit_length,
-                        });
+        auto &slave = this->slave(sc);
+        for (const auto &sync: std::span(syncs, n_syncs)) {
+            if (sync.n_pdos == 0) continue;
+            auto &pdos = slave.assigned[sync.index];
+            pdos.clear();
+            for (const auto &info: std::span(sync.pdos, sync.n_pdos)) {
+                auto &pdo = pdos.emplace_back(
+                    PDO{info.index, slave.default_mapping(info.index)}
+                );
+                if (info.n_entries == 0) continue;
+                pdo.entries.clear();
+                for (const auto &e: std::span(info.entries, info.n_entries))
+                    pdo.entries.push_back({e.index, e.subindex, e.bit_length});
+            }
         }
         return 0;
     }
@@ -407,9 +356,7 @@ public:
         ec_slave_config_t *sc,
         uint8_t sync_index
     ) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        for (const auto &[pos, config]: this->created_slave_configs)
-            if (config == sc) self->cleared_assignments.emplace_back(pos, sync_index);
+        this->slave(sc).assigned[sync_index].clear();
         return 0;
     }
 
@@ -417,49 +364,48 @@ public:
         ec_slave_config_t *sc,
         uint16_t pdo_index
     ) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        for (const auto &[pos, config]: this->created_slave_configs)
-            if (config == sc) self->cleared_mappings.emplace_back(pos, pdo_index);
+        for (auto &[sm, pdos]: this->slave(sc).assigned)
+            for (auto &pdo: pdos)
+                if (pdo.index == pdo_index) pdo.entries.clear();
         return 0;
     }
 
     int master_sdo_download(
         ec_master_t *,
-        uint16_t slave_position,
+        uint16_t position,
         uint16_t index,
-        uint8_t subindex,
+        uint8_t sub_index,
         const uint8_t *data,
-        size_t data_size,
+        size_t size,
         uint32_t *abort_code
     ) const override {
-        auto *self = const_cast<MockAPI *>(this);
-        self->sdo_downloads.push_back(
-            {slave_position, index, subindex, std::vector(data, data + data_size)}
-        );
-        const auto it = this->sdo_download_aborts.find({index, subindex});
-        if (it != this->sdo_download_aborts.end()) {
+        auto &slave = this->slaves.at(position);
+        slave.downloads.push_back({index, sub_index, std::vector(data, data + size)});
+        if (const auto it = slave.download_aborts.find({index, sub_index});
+            it != slave.download_aborts.end()) {
             *abort_code = it->second;
             return -EIO;
         }
         uint32_t value = 0;
-        for (size_t i = 0; i < data_size && i < sizeof(value); i++)
+        for (size_t i = 0; i < size && i < sizeof(value); i++)
             value |= static_cast<uint32_t>(data[i]) << (8 * i);
-        self->objects[{slave_position, index, subindex}] = value;
+        slave.objects[{index, sub_index}] = value;
         return 0;
     }
 
     int master_sdo_upload(
         ec_master_t *,
-        uint16_t slave_position,
+        uint16_t position,
         uint16_t index,
-        uint8_t subindex,
+        uint8_t sub_index,
         uint8_t *target,
         size_t target_size,
         size_t *result_size,
         uint32_t *abort_code
     ) const override {
-        const auto it = this->objects.find({slave_position, index, subindex});
-        if (it == this->objects.end()) {
+        const auto &objects = this->slaves.at(position).objects;
+        const auto it = objects.find({index, sub_index});
+        if (it == objects.end()) {
             *abort_code = 0x06020000;
             return -EIO;
         }
@@ -470,84 +416,64 @@ public:
         return 0;
     }
 
-    int slave_config_state(
-        const ec_slave_config_t *sc,
-        ec_slave_config_state_t *state
-    ) const override {
-        auto it = this->slave_config_states.find(reinterpret_cast<uintptr_t>(sc));
-        if (it != this->slave_config_states.end()) {
-            *state = it->second;
-            return 0;
-        }
-        std::memset(state, 0, sizeof(*state));
-        return 0;
-    }
-
-    int slave_config_reg_pdo_entry(
-        ec_slave_config_t *,
-        uint16_t index,
-        uint8_t sub_index,
-        ec_domain_t *domain,
-        unsigned int *bit_position
-    ) const override {
-        if (std::pair{index, sub_index} == this->rejected_entry) return -ENOENT;
-        auto *self = const_cast<MockAPI *>(this);
-        self->registered_entries.emplace_back(index, sub_index);
-        *bit_position = 0;
-        if (domain == this->sentinel_output_domain) {
-            size_t offset = self->output_domain_offset;
-            self->output_domain_offset += 2;
-            return static_cast<int>(offset);
-        }
-        size_t offset = self->input_domain_offset;
-        self->input_domain_offset += 2;
-        return static_cast<int>(offset);
-    }
-
     int master_get_sync_manager(
         ec_master_t *,
-        uint16_t,
+        uint16_t position,
         uint8_t sync_index,
         ec_sync_info_t *sync
     ) const override {
-        if (sync_index >= this->fake_syncs.size()) return -1;
-        const auto &fake = this->fake_syncs[sync_index];
+        const auto &syncs = this->slaves.at(position).syncs;
+        if (sync_index >= syncs.size()) return -ENOENT;
         sync->index = sync_index;
-        sync->dir = fake.dir;
-        sync->n_pdos = static_cast<unsigned int>(fake.pdos.size());
+        sync->dir = syncs[sync_index].dir;
+        sync->n_pdos = static_cast<unsigned int>(syncs[sync_index].pdos.size());
         return 0;
     }
 
     int master_get_pdo(
         ec_master_t *,
-        uint16_t,
+        uint16_t position,
         uint8_t sync_index,
         uint16_t pos,
         ec_pdo_info_t *pdo
     ) const override {
-        if (sync_index >= this->fake_syncs.size()) return -1;
-        const auto &pdos = this->fake_syncs[sync_index].pdos;
-        if (pos >= pdos.size()) return -1;
-        pdo->index = pdos[pos].index;
-        pdo->n_entries = static_cast<unsigned int>(pdos[pos].entries.size());
+        const auto &slave = this->slaves.at(position);
+        if (slave.layout_unreadable) return -EIO;
+        const auto &syncs = slave.syncs;
+        if (sync_index >= syncs.size() || pos >= syncs[sync_index].pdos.size())
+            return -ENOENT;
+        const auto &fake = syncs[sync_index].pdos[pos];
+        pdo->index = fake.index;
+        pdo->n_entries = static_cast<unsigned int>(fake.entries.size());
         return 0;
     }
 
     int master_get_pdo_entry(
         ec_master_t *,
-        uint16_t,
+        uint16_t position,
         uint8_t sync_index,
         uint16_t pdo_pos,
         uint16_t entry_pos,
         ec_pdo_entry_info_t *entry
     ) const override {
-        if (sync_index >= this->fake_syncs.size()) return -1;
-        const auto &pdos = this->fake_syncs[sync_index].pdos;
-        if (pdo_pos >= pdos.size() || entry_pos >= pdos[pdo_pos].entries.size())
-            return -1;
-        *entry = pdos[pdo_pos].entries[entry_pos];
+        const auto &syncs = this->slaves.at(position).syncs;
+        if (sync_index >= syncs.size() || pdo_pos >= syncs[sync_index].pdos.size() ||
+            entry_pos >= syncs[sync_index].pdos[pdo_pos].entries.size())
+            return -ENOENT;
+        const auto &fake = syncs[sync_index].pdos[pdo_pos].entries[entry_pos];
+        entry->index = fake.index;
+        entry->subindex = fake.sub_index;
+        entry->bit_length = fake.bit_length;
         return 0;
     }
-};
 
+private:
+    Domain &domain(const ec_domain_t *domain) const {
+        return domain == this->output_domain ? this->outputs : this->inputs;
+    }
+
+    Slave &slave(const ec_slave_config_t *sc) const {
+        return this->slaves.at(reinterpret_cast<uintptr_t>(sc) - CONFIG_BASE);
+    }
+};
 }

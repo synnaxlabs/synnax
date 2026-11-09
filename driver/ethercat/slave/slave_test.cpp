@@ -204,7 +204,7 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
 /// @brief it should parse a device stored before slaves listed their OpModes as a slave
 /// with no OpModes.
 TEST(PropertiesParse, DefaultsToNoOpModes) {
-    auto j = Properties{.name = "EL2008", .enabled = true}.to_json();
+    auto j = Properties{.position = 1, .name = "EL2008", .enabled = true}.to_json();
     j.erase("op_modes");
     auto parser = x::json::Parser(j);
     const auto props = Properties::parse(parser);
@@ -216,6 +216,7 @@ TEST(PropertiesParse, DefaultsToNoOpModes) {
 /// trip.
 TEST(PropertiesParse, RoundTripsOpModes) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
         .op_modes =
             {{.name = "SM-Synchron", .sync0_factor = 1},
@@ -236,6 +237,7 @@ TEST(PropertiesParse, RoundTripsOpModes) {
 /// pass it to the master in the slave settings.
 TEST(PropertiesParse, RoundTripsTheChosenMode) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
         .op_mode =
             dc::Choice{
@@ -477,7 +479,7 @@ TEST(Properties, ParsesStartupParameters) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
@@ -504,7 +506,7 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
@@ -527,6 +529,35 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
     EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
 }
 
+/// @brief it should reject a position that no slave on a bus can have.
+TEST(Properties, RejectsAPositionOutsideTheBus) {
+    for (const auto &position:
+         {x::json::json(0),
+          x::json::json(-1),
+          x::json::json(65536),
+          x::json::json(1.5)}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"serial", 1},
+                {"vendor_id", 2},
+                {"product_code", 3},
+                {"revision", 4},
+                {"name", "EL3102"},
+                {"position", position},
+                {"enabled", true},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            }
+        );
+        Properties::parse(parser);
+        const auto errors = parser.error_json()["errors"];
+        ASSERT_EQ(errors.size(), 1) << position;
+        EXPECT_EQ(errors[0]["path"], "position");
+        EXPECT_EQ(errors[0]["message"], "must be a whole number from 1 to 65535");
+    }
+}
+
 /// @brief it should parse a slave that has no startup parameters field.
 TEST(Properties, ParsesWithoutStartupParameters) {
     x::json::Parser parser(
@@ -536,7 +567,7 @@ TEST(Properties, ParsesWithoutStartupParameters) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},

@@ -734,7 +734,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
-    EXPECT_EQ(this->master->scan_call_count(), 0);
+    EXPECT_EQ(this->master->call_count("scan"), 0);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -761,7 +761,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
     EXPECT_TRUE(this->engine->running());
-    EXPECT_EQ(this->master->scan_call_count(), 1);
+    EXPECT_EQ(this->master->call_count("scan"), 1);
 }
 
 /// @brief it should read the slave settings again when the bus ran and stopped while an
@@ -835,7 +835,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
     const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100));
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
-    EXPECT_EQ(this->master->scan_call_count(), 0);
+    EXPECT_EQ(this->master->call_count("scan"), 0);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -862,7 +862,7 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
         this->engine->open_writer({{on_slave(OUT_I32, 1), 0}}, x::telem::Rate(100))
     );
     EXPECT_TRUE(this->engine->running());
-    EXPECT_EQ(this->master->scan_call_count(), 1);
+    EXPECT_EQ(this->master->call_count("scan"), 1);
 }
 
 /// @brief it should pass the startup parameters in the slave settings to the master
@@ -886,7 +886,7 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
-    EXPECT_EQ(this->master->startup_parameters(1), params);
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
 /// @brief it should return the error that kept the master from initializing once the
@@ -899,7 +899,7 @@ TEST_F(EngineTest, InitializeErrorPropagates) {
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(res.second.data, "init failed");
-    EXPECT_EQ(this->master->scan_call_count(), 3);
+    EXPECT_EQ(this->master->call_count("scan"), 3);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -935,7 +935,7 @@ TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    EXPECT_EQ(this->master->activated_period(), x::telem::MILLISECOND * 10);
+    EXPECT_EQ(this->master->plan().period, x::telem::MILLISECOND * 10);
 }
 
 /// @brief it should return at once, without a retry, when the config of a slave cannot
