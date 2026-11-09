@@ -16,6 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
+// tableName names the Alias table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "range-alias"
+
 // indexes bundles the per-Service secondary indexes registered on the
 // Alias table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes

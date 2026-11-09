@@ -18,8 +18,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -124,7 +123,7 @@ type AnalogReadChannel struct {
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`
 	// Scale is the scale applied to raw samples after acquisition.
-	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
+	Scale task.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (AnalogReadChannel) isReadChannelVariant() {}
@@ -141,7 +140,7 @@ func (a *AnalogReadChannel) ApplyDefaults() {
 		a.NegChan = 199
 	}
 	if a.Scale.Variant == nil {
-		a.Scale.Variant = taskv2.NoneScale{}
+		a.Scale.Variant = task.NoneScale{}
 	}
 	a.Scale.ApplyDefaults()
 }
@@ -180,7 +179,7 @@ type ThermocoupleReadChannel struct {
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// Scale is the scale applied to raw samples after acquisition.
-	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
+	Scale task.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (ThermocoupleReadChannel) isReadChannelVariant() {}
@@ -206,7 +205,7 @@ func (t *ThermocoupleReadChannel) ApplyDefaults() {
 		t.Units = TemperatureUnitsKelvin
 	}
 	if t.Scale.Variant == nil {
-		t.Scale.Variant = taskv2.NoneScale{}
+		t.Scale.Variant = task.NoneScale{}
 	}
 	t.Scale.ApplyDefaults()
 }

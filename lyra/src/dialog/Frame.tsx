@@ -23,7 +23,7 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
-import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
+import { contains, PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
@@ -203,7 +203,8 @@ const selectModalPosition = (
 
 /**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
- * it in whatever space the viewport leaves.
+ * it in whatever space the viewport leaves. A dialog that is not modal closes when a
+ * click or the focus lands outside it and its trigger.
  *
  * @example
  * <Dialog.Frame>
@@ -405,6 +406,31 @@ export const Frame = ({
   };
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
+
+  useEffect(() => {
+    if (!visible || variant === "modal") return;
+    // A window that comes back gives the focus to the same element again.
+    let last = document.activeElement;
+    const handleFocusIn = ({ target }: FocusEvent): void => {
+      const frame = targetRef.current;
+      const moved = target !== last;
+      last = target instanceof Element ? target : null;
+      if (
+        !moved ||
+        frame == null ||
+        !(target instanceof Element) ||
+        contains(frame, target) ||
+        anchor?.contains(target) === true ||
+        // A context menu opened over the dialog acts on it.
+        target.closest(`.${CONTEXT_MENU_CLASS}`) != null
+      )
+        return;
+      close();
+    };
+    document.addEventListener("focusin", handleFocusIn);
+    return () => document.removeEventListener("focusin", handleFocusIn);
+  }, [visible, variant, anchor, close]);
+
   Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,

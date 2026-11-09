@@ -331,39 +331,32 @@ public:
     /// @returns seconds since Unix epoch as a double.
     [[nodiscard]] double seconds() const { return static_cast<double>(value) / 1e9; }
 
-    /// @brief returns the timestamp as an ISO 8601 UTC string.
+    /// @brief returns the timestamp as an ISO 8601 string, offset_seconds east of UTC.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
-    [[nodiscard]] std::string iso8601() const {
-        const int64_t sec = value / 1000000000 - (value % 1000000000 != 0 && value < 0);
-        const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
-        const int64_t sod = sec - day * 86400;
-        const date::Date d = date::civil_from_days(static_cast<int32_t>(day));
-        const auto hh = sod / 3600;
-        const auto mm = (sod / 60) % 60;
-        const auto ss = sod % 60;
+    [[nodiscard]] std::string iso8601(const int32_t offset_seconds = 0) const {
+        const date::CivilTime c = date::civil_from_nanoseconds(value, offset_seconds);
 
-        char buf[30];
-        strings::write_number(buf + 0, d.year, 4);
+        char buf[40];
+        strings::write_number(buf + 0, c.year, 4);
         buf[4] = '-';
-        strings::write_number(buf + 5, d.month, 2);
+        strings::write_number(buf + 5, c.month, 2);
         buf[7] = '-';
-        strings::write_number(buf + 8, d.day, 2);
+        strings::write_number(buf + 8, c.day, 2);
         buf[10] = 'T';
-        strings::write_number(buf + 11, static_cast<int>(hh), 2);
+        strings::write_number(buf + 11, c.hour, 2);
         buf[13] = ':';
-        strings::write_number(buf + 14, static_cast<int>(mm), 2);
+        strings::write_number(buf + 14, c.minute, 2);
         buf[16] = ':';
-        strings::write_number(buf + 17, static_cast<int>(ss), 2);
+        strings::write_number(buf + 17, c.second, 2);
 
         int len = 19;
 
-        if (frac_ns != 0) {
+        if (c.nanosecond != 0) {
             buf[len++] = '.';
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            strings::write_number(frac, static_cast<int>(frac_ns), 9);
+            strings::write_number(frac, c.nanosecond, 9);
 
             // find last non-zero digit
             int8_t last = 8;
@@ -375,7 +368,18 @@ public:
                 buf[len++] = frac[i];
         }
 
-        buf[len++] = 'Z';
+        if (offset_seconds == 0) {
+            buf[len++] = 'Z';
+            return std::string(buf, (size_t) len);
+        }
+        int minutes = offset_seconds / 60;
+        buf[len++] = minutes < 0 ? '-' : '+';
+        if (minutes < 0) minutes = -minutes;
+        strings::write_number(buf + len, minutes / 60, 2);
+        len += 2;
+        buf[len++] = ':';
+        strings::write_number(buf + len, minutes % 60, 2);
+        len += 2;
         return std::string(buf, (size_t) len);
     }
 
@@ -667,21 +671,18 @@ public:
 };
 
 class Rate {
-    float value;
+    double value;
 
 public:
-    [[nodiscard]] float hz() const { return this->value; }
+    [[nodiscard]] double hz() const { return this->value; }
 
     Rate() = default;
 
-    explicit Rate(const float i): value(i) {}
+    explicit Rate(const int i): value(i) {}
 
-    explicit Rate(const int i): value(static_cast<float>(i)) {}
+    explicit Rate(const double i): value(i) {}
 
-    explicit Rate(const double i): value(static_cast<float>(i)) {}
-
-    explicit Rate(const TimeSpan period):
-        value(static_cast<float>(1 / period.seconds())) {}
+    explicit Rate(const TimeSpan period): value(1 / period.seconds()) {}
 
     bool operator==(const Rate &other) const { return value == other.value; }
 
@@ -705,31 +706,31 @@ public:
         return static_cast<size_t>(value / other.value);
     }
 
-    friend Rate operator+(const float &lhs, const Rate &rhs) {
+    friend Rate operator+(const double &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
-    Rate operator+(const float &other) const { return Rate(value + other); }
+    Rate operator+(const double &other) const { return Rate(value + other); }
 
-    friend Rate operator-(const float &lhs, const Rate &rhs) {
+    friend Rate operator-(const double &lhs, const Rate &rhs) {
         return Rate(lhs - rhs.value);
     }
 
-    Rate operator-(const float &other) const { return Rate(value - other); }
+    Rate operator-(const double &other) const { return Rate(value - other); }
 
-    friend Rate operator*(const float &lhs, const Rate &rhs) {
+    friend Rate operator*(const double &lhs, const Rate &rhs) {
         return Rate(lhs * rhs.value);
     }
 
-    Rate operator*(const float &other) const { return Rate(value * other); }
+    Rate operator*(const double &other) const { return Rate(value * other); }
 
-    Rate operator/(const float &other) const { return Rate(value / other); }
+    Rate operator/(const double &other) const { return Rate(value / other); }
 
     Rate operator/(const int &other) const {
-        return Rate(value / static_cast<float>(other));
+        return Rate(value / static_cast<double>(other));
     }
 
     Rate operator/(const size_t &other) const {
-        return Rate(value / static_cast<float>(other));
+        return Rate(value / static_cast<double>(other));
     }
 
     [[nodiscard]] TimeSpan period() const {

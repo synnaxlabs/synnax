@@ -29,6 +29,27 @@ In the messages below, `<name>` stands for a value that changes.
 <Problem.List>
 
 <Problem.Item
+  code="ARC2004"
+  severity="error"
+  message={[
+    "<op> with <name> is always false, use <check> instead",
+    "!= with <name> is always true, use not <check> instead",
+  ]}
+>
+  <Problem.Cause>
+    The code compares a value to a NaN constant, such as `math.nan`, with `<op>`: `==`,
+    `<`, `>`, `<=`, or `>=`. NaN is not equal to, less than, or greater than any value.
+    `<name>` is the constant as the code writes it, and `<check>` is the `is_nan` of its
+    module, or `is_nan from the math module`.
+  </Problem.Cause>
+  <Problem.Fix>
+    Use `math.is_nan(x)` in place of `x == math.nan`, and `not math.is_nan(x)` in place
+    of `x != math.nan`. An ordered comparison with NaN never holds: test for NaN with
+    `math.is_nan(x)` first.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
   code="ARC3001"
   severity="error"
   message={[
@@ -67,6 +88,27 @@ In the messages below, `<name>` stands for a value that changes.
 >
   <Problem.Cause>The code imports a module and does not use it.</Problem.Cause>
   <Problem.Fix>Remove the import.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item code="ARC6001" severity="error" message="constant <value> overflows <T>">
+  <Problem.Cause>
+    An expression made only of integer literals has a value that does not fit its type,
+    such as `x i8 := 100 + 100`.
+  </Problem.Cause>
+  <Problem.Fix>Use a wider type, such as `i16`, or change the values.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  code="ARC6002"
+  severity="error"
+  message={["integer division by zero", "integer modulo by zero"]}
+>
+  <Problem.Cause>
+    An integer `/` or `%` divides by a zero made only of literals: `x := 1 / 0`.
+  </Problem.Cause>
+  <Problem.Fix>
+    Change the divisor. For an IEEE 754 result, use floats, such as `1.0 / 0.0`.
+  </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-status__list-item {
-    padding: 0 2rem 0 0.5rem;
+/* Leaves the room that a range item's stage button gives its icon, so the icons in the
+   two explorers line up. */
+.console-status__list-item-indicator {
+    margin-left: round(1.1667rem, 1px);
 }

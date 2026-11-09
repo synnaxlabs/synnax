@@ -153,6 +153,9 @@ type edgeNode struct {
 	task      task.Task
 	authority control.Authority
 	edge      *sparkplug.Edge
+	// clock stamps commands in rising order across runs, since two writes at one
+	// timestamp conflict. Only the writeCommands of the open session uses it.
+	clock telem.MonoClock
 	// mu guards the sequence, which continues from one run to the next, and the state
 	// of the current run. A sequenced publish encodes its message and hands it to the
 	// client under mu, so messages leave the client in sequence order. The wait for the
@@ -597,7 +600,7 @@ func (e *edgeSession) writeCommand(ctx context.Context, cmd sparkplug.Command) e
 	var (
 		fr   framer.Frame
 		keys channel.Keys
-		now  = telem.Now()
+		now  = e.clock.Now()
 	)
 	for _, m := range cmd.Metrics {
 		t, ok := e.byName[m.Name]
