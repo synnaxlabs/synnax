@@ -241,7 +241,7 @@ func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 // checkFits returns an error wrapping validate.ErrValidation when n does not convert
 // into dt without wrapping, truncating, or overflowing to infinity.
 func checkFits(n number, dt telem.DataType) error {
-	if n.kind == floatNumber && dt == telem.Float32T &&
+	if n.kind == floatNumber && dt == telem.Float32T && !math.IsInf(n.f, 0) &&
 		math.Abs(n.f) > math.MaxFloat32 {
 		return errors.Wrapf(validate.ErrValidation, "%s overflows %s", n, dt)
 	}

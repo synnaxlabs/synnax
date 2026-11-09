@@ -488,6 +488,8 @@ bool matches(const telem::SampleValue &entry, const telem::SampleValue &sample) 
                 std::is_floating_point_v<E> && std::is_floating_point_v<S>
             ) {
                 if (std::isnan(e)) return std::isnan(s);
+                if (std::isfinite(e) && std::abs(e) > std::numeric_limits<S>::max())
+                    return false;
                 return static_cast<S>(e) == s;
             } else if constexpr (std::is_floating_point_v<E>) {
                 return float_equals_integer(e, s);

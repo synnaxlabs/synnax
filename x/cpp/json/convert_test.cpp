@@ -1940,6 +1940,19 @@ TEST(FromSampleValue, EnumMatchFloat32Narrowed) {
     ASSERT_EQ(result, json("TENTH"));
 }
 
+/// @brief it should not match a double entry past the float32 range to infinity.
+TEST(FromSampleValue, EnumEntryPastFloat32DoesNotMatchInfinity) {
+    const x::json::ReverseEnumMap enums = {{1e39, "BIG"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<float>::infinity()),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("Infinity"));
+}
+
 /// @brief it should write a string sample as its enum label.
 TEST(FromSampleValue, EnumMatchString) {
     const x::json::ReverseEnumMap enums = {{std::string("1"), "ON"}};

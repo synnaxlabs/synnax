@@ -116,6 +116,9 @@ func encodeEnum(value telem.Series, dt telem.DataType) ([]byte, error) {
 		if err := checkFits(n, dt); err != nil {
 			return nil, err
 		}
+		if f := n.float(); dt == telem.BooleanT && f != 0 && f != 1 {
+			return nil, errors.Wrapf(validate.ErrValidation, "%s is not a boolean", n)
+		}
 		return appendNumber(nil, dt, n), nil
 	default:
 		return nil, errors.Wrapf(
