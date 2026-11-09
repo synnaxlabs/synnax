@@ -62,9 +62,10 @@ Run each script with `npx tsx <file>`.
 </Client.Tabs>
 
 The scripts connect to Synnax Desktop on the same computer. In Python, `sy.Synnax()`
-with no arguments finds it. In TypeScript, copy the host, the port, and the API key from
-the **Connect from code** dialog of Synnax Desktop. To connect to a Synnax Core instead,
-pass its address and a login. See [Connect to a Core](/reference/client/connect).
+with no arguments finds it, unless `sy login` saved a Core, which it then uses. In
+TypeScript, copy the host, the port, and the API key from the **Connect from code**
+dialog of Synnax Desktop. To connect to a Synnax Core instead, pass its address and a
+login. See [Connect to a Core](/reference/client/connect).
 
 Set `PORT` to the serial port of your Arduino, which the Arduino IDE shows.
 
@@ -105,7 +106,7 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-# Finds Synnax Desktop on this computer.
+# Finds Synnax Desktop, unless sy login saved a Core.
 client = sy.Synnax()
 
 time = client.channels.create(
@@ -236,7 +237,7 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-# Finds Synnax Desktop on this computer.
+# Finds Synnax Desktop, unless sy login saved a Core.
 client = sy.Synnax()
 
 client.channels.create(
@@ -358,7 +359,7 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-# Finds Synnax Desktop on this computer.
+# Finds Synnax Desktop, unless sy login saved a Core.
 client = sy.Synnax()
 
 client.channels.create(
