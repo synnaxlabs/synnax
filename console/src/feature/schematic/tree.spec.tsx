@@ -57,7 +57,7 @@ describe("Schematic.TREE_ITEMS", () => {
   it("hauls a mosaic tab create item keyed by the resource id", async () => {
     const s = await createSchematic();
     const id = schematic.resourceID(s.key);
-    const items = Item.haulItems(createResource(id, s.name));
+    const items = Item.haulItems(createResource(id, s.name), client);
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -95,7 +95,7 @@ describe("Schematic snapshot to the active range", () => {
         <Menu
           {...createBaseProps({ client, store })}
           selection={createSelection({ ids: [id] })}
-          state={createState([createResource(id, s.name, { snapshot: false })])}
+          state={createState([createResource(id, s.name)])}
         />
         <CaptureStatuses
           onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
@@ -182,15 +182,31 @@ describe("Schematic TreeContextMenu", () => {
   });
 });
 
+describe("snapshot schematics", () => {
+  it("should withhold copying from a snapshot", async () => {
+    const s = await createSchematic();
+    const snap = await client.schematics.copy({
+      key: s.key,
+      name: uniqueName("snap"),
+      snapshot: true,
+    });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(schematic.resourceID(snap.key), snap.name)],
+    });
+    expect(await screen.findByText("Delete")).toBeTruthy();
+    expect(screen.queryByText("Copy")).toBeNull();
+  });
+});
+
 describe("permission to write the schematic", () => {
   it("should offer Reload Console", async () => {
     const s = await createSchematic();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [
-        createResource(schematic.resourceID(s.key), s.name, { snapshot: false }),
-      ],
+      resources: [createResource(schematic.resourceID(s.key), s.name)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -200,9 +216,7 @@ describe("permission to write the schematic", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [
-        createResource(schematic.resourceID(s.key), s.name, { snapshot: false }),
-      ],
+      resources: [createResource(schematic.resourceID(s.key), s.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
