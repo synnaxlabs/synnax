@@ -464,12 +464,19 @@ std::string replace(std::string s, const std::string &from, const std::string &t
     return s;
 }
 
+/// @brief the sources that run a computed value: a function cannot read a top-level
+/// variable that holds one.
+const std::vector<std::string> COMPUTED_SOURCES(SOURCES.begin() + 1, SOURCES.end());
+
 /// @brief runs every source with the constant and returns each value written.
 template<typename T>
-std::vector<T> run(const std::string &constant, const x::telem::DataType &dt) {
+std::vector<T>
+run(const std::string &constant,
+    const x::telem::DataType &dt,
+    const std::vector<std::string> &sources = SOURCES) {
     const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
     std::vector<T> out;
-    for (const auto &source: SOURCES) {
+    for (const auto &source: sources) {
         Sequence h(
             "import math\n" + replace(replace(source, "T", type), "V", constant),
             {{"x", dt}, {"out", dt}}
@@ -500,6 +507,21 @@ TEST(StoredFloatTest, KeepsNonFiniteF32Values) {
 /// @brief it should keep NaN and infinity in stored f64 values.
 TEST(StoredFloatTest, KeepsNonFiniteF64Values) {
     stored_float::expect_all<double>(x::telem::FLOAT64_T);
+}
+
+/// @brief it should run an expression on a constant wherever a value is computed.
+TEST(StoredFloatTest, RunsComputedNonFiniteValues) {
+    using namespace stored_float;
+    const auto inf = std::numeric_limits<double>::infinity();
+    for (const auto v:
+         run<double>("math.inf * 2.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_EQ(v, inf);
+    for (const auto v:
+         run<double>("-math.inf * 2.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_EQ(v, -inf);
+    for (const auto v:
+         run<double>("math.nan + 1.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_TRUE(std::isnan(v));
 }
 
 namespace empty_series {
