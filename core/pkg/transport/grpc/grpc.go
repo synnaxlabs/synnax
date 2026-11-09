@@ -36,7 +36,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
-	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
