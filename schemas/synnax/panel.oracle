@@ -146,6 +146,7 @@ Panel struct {
     }
     group   group.Key?   {
         @doc value     "is the group the panel sits in, if any."
+        @ref kind      place
         @ref on_delete detach
     }
     project project.Key? {
@@ -153,6 +154,7 @@ Panel struct {
             is the project that owns the panel, if any. Exactly one of project and range
             is set.
         """
+        @ref kind      place
         @ref on_delete cascade
     }
     range   ranger.Key?  {
@@ -160,6 +162,7 @@ Panel struct {
             is the range that owns the panel, if any. Exactly one of project and range
             is set.
         """
+        @ref kind      place
         @ref on_delete cascade
     }
 

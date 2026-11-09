@@ -10,6 +10,7 @@
 package label_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -84,7 +85,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
 			Expect(
-				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func(ctx SpecContext) {
@@ -102,7 +103,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Delete(ctx, ls[0].Key, ls[1].Key)).To(Succeed())
 			for _, l := range ls {
 				Expect(
-					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 				).To(MatchError(query.ErrNotFound))
 			}
 		})
@@ -178,7 +179,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(svc.NewRetrieve().
 				Search("Searchable Critical").
 				Entries(&got).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(got).ToNot(BeEmpty())
 			Expect(got[0].Name).To(ContainSubstring("Searchable"))
 		})
@@ -215,5 +216,21 @@ var _ = Describe("Label", Ordered, func() {
 				).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("Changes", func() {
+		It("Should return the label that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			Expect(w.Create(ctx, &label.Label{Name: "observed"})).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"observed"}))
+		})
 	})
 })

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -33,10 +32,8 @@ import (
 // TaskType is the task type for tasks that execute an Arc module.
 const TaskType = "arc"
 
-// Writer is used to create, update, and delete arcs within Synnax. The writer
-// executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// Writer is used to create, update, and delete arcs within Synnax. The writer executes
+// all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
 	tx          gorp.Tx
 	root        directory.Key
@@ -47,15 +44,18 @@ type Writer struct {
 	status      *status.Service
 	table       *gorp.Table[Key, Arc]
 	dispatcher  actions.Dispatcher[Key, Action]
-	publish     func(context.Context, Key)
 	sweeper     textSweeper
-	taskSync    *debounce.Keyed[Key]
+	resyncs     *gorp.Attachment[Key]
+	deletes     *gorp.Attachment[Key]
+	// directoryDispatcher attaches the actions that change directories.
+	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	w.directoryDispatcher = w.directoryDispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
@@ -137,8 +137,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 			return err
 		}
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		b.Key,
 		NewCreateAction(CreatePayload{Arc: *a}),
@@ -170,10 +169,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		w.sweeper.forget(key)
-		w.taskSync.Forget(key)
-	}
+	w.deletes.Add(w.tx, keys...)
 	return nil
 }
 

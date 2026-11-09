@@ -26,6 +26,7 @@ import (
 var _ = Describe("Where", Ordered, func() {
 	var (
 		v   vectors.Vectors[rack.Rack, rack.Where]
+		db  *gorp.DB
 		svc *rack.Service
 	)
 	v = MustSucceed(vectors.Read[rack.Rack, rack.Where]("racks"))
@@ -38,10 +39,12 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 		}
 	})
 
@@ -54,7 +57,7 @@ var _ = Describe("Where", Ordered, func() {
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			// The service creates its own embedded rack, which the table does not hold.
 			matched := lo.FilterMap(res, func(r rack.Rack, _ int) (string, bool) {
 				alias, ok := aliases[r.Key]
