@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -41,6 +42,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 })
 

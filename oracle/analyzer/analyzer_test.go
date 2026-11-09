@@ -5338,4 +5338,58 @@ var _ = Describe("Union enum discriminator", func() {
 				"test.Method, which is omitted in ts",
 		))
 	})
+	Describe("Imported enum and variant bases", func() {
+		BeforeEach(func() {
+			loader.Add("schemas/x/payload", `
+				Kind enum {
+					float = "float"
+					json  = "json"
+				}
+				FloatRead struct {
+					fill float64?
+				}
+			`)
+		})
+		It("Should borrow an imported enum and extend imported variant bases", func(
+			ctx SpecContext,
+		) {
+			source := `
+				import "schemas/x/payload"
+				Base struct { key string }
+				ReadField union on type payload.Kind extends Base {
+					float extends payload.FloatRead {}
+					json {}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			field := table.MustGet("test.ReadField")
+			form := field.Form.(resolution.UnionForm)
+			Expect(form.BorrowsEnum()).To(BeTrue())
+			Expect(form.Enum.Name).To(Equal("payload.Kind"))
+			float := MustBeOk(form.Variant("float"))
+			names := make([]string, 0)
+			for _, f := range resolution.UnifiedVariantFields(field, float, table) {
+				names = append(names, f.Name)
+			}
+			Expect(names).To(Equal([]string{"key", "fill"}))
+		})
+		It("Should reject a variant the imported enum has no member for", func(
+			ctx SpecContext,
+		) {
+			source := `
+				import "schemas/x/payload"
+				ReadField union on type payload.Kind {
+					float extends payload.FloatRead {}
+					json {}
+					bytes {}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				`union ReadField declares variant "bytes", which enum Kind has no member`,
+			))
+		})
+	})
 })

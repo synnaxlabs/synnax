@@ -24,9 +24,8 @@ import {
   setChannelNamesHidden,
   setChannelNotation,
   setChannelPrecision,
-  setChannels,
   setChannelTimestampFormat,
-  setChannelTimestampTz,
+  setChannelTimestampTimeZone,
   setTimestampPrecision,
   setTimestampsHidden,
   setTimeZone,
@@ -137,30 +136,24 @@ const handlers: Handlers = {
     const inverse = [
       setChannelTimestampFormat({
         channel: payload.channel,
-        format: entry.timestamp.format,
+        format: entry.timestampConfig.format,
       }),
     ];
-    entry.timestamp.format = payload.format;
+    entry.timestampConfig.format = payload.format;
     return { inverse, targets: [`channel:${payload.channel}`] };
   },
 
-  setChannelTimestampTz: (state, payload) => {
+  setChannelTimestampTimeZone: (state, payload) => {
     const entry = state.channels.find((e) => e.channel === payload.channel);
     if (entry == null) return actions.NO_OP_RESULT;
     const inverse = [
-      setChannelTimestampTz({ channel: payload.channel, tz: entry.timestamp.tz }),
+      setChannelTimestampTimeZone({
+        channel: payload.channel,
+        timeZone: entry.timestampConfig.timeZone,
+      }),
     ];
-    entry.timestamp.tz = payload.tz;
+    entry.timestampConfig.timeZone = payload.timeZone;
     return { inverse, targets: [`channel:${payload.channel}`] };
-  },
-
-  setChannels: (state, payload) => {
-    const oldChannels = actions.snapshotDraft(state.channels);
-    const targets = new Set<string>();
-    oldChannels.forEach((e) => targets.add(`channel:${e.channel}`));
-    payload.channels.forEach((e) => targets.add(`channel:${e.channel}`));
-    state.channels = payload.channels;
-    return { inverse: [setChannels({ channels: oldChannels })], targets: [...targets] };
   },
 
   swapChannel: (state, payload) => {
@@ -244,8 +237,8 @@ export const kindOf = (actions: Action[]): string => {
       return `channel:${a.setChannelAlias.channel}`;
     case "set_channel_timestamp_format":
       return `channel:${a.setChannelTimestampFormat.channel}`;
-    case "set_channel_timestamp_tz":
-      return `channel:${a.setChannelTimestampTz.channel}`;
+    case "set_channel_timestamp_time_zone":
+      return `channel:${a.setChannelTimestampTimeZone.channel}`;
     default:
       return a.type;
   }
