@@ -105,12 +105,14 @@ TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
         "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
             " -> double()"
     );
-    constexpr std::uintptr_t LARGE = 256 * 1024 * 1024;
+    constexpr std::uintptr_t LARGE = std::uintptr_t{256} * 1024 * 1024;
     const auto before = mappings();
     const auto module = ASSERT_NIL_P(Module::open({.program = mod}));
-    for (const auto &[start, end]: mappings())
-        if (std::ranges::find(before, std::pair{start, end}) == before.end())
+    for (const auto &[start, end]: mappings()) {
+        if (std::ranges::find(before, std::pair{start, end}) == before.end()) {
             EXPECT_LT(end - start, LARGE);
+        }
+    }
 }
 #endif
 

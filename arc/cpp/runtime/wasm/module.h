@@ -180,9 +180,9 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 /// @brief address space Wasmtime sets aside for a module's linear memory, and again for
 /// each growth past it. Wasmtime's 4 GiB default counts against RLIMIT_MEMLOCK once the
 /// Driver locks its memory.
-constexpr std::uint64_t MEMORY_RESERVATION = 2 * 1024 * 1024;
+constexpr std::uint64_t MEMORY_RESERVATION = std::uint64_t{2} * 1024 * 1024;
 /// @brief size of each guard region around a module's linear memory.
-constexpr std::uint64_t MEMORY_GUARD_SIZE = 64 * 1024;
+constexpr std::uint64_t MEMORY_GUARD_SIZE = std::uint64_t{64} * 1024;
 
 struct ModuleConfig {
     program::Program program;
