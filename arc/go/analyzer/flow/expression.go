@@ -225,3 +225,29 @@ func LiftVarReads[T antlr.ParserRuleContext](
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}
 }
+
+// BindOutput binds the untyped output of the node registered for expr to t, the type
+// of the variable it writes, so its literals take t.
+func BindOutput[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	t types.Type,
+) {
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return
+	}
+	out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+	if !ok || out.Type.Unwrap().Kind != types.KindVariable {
+		return
+	}
+	if err := atypes.Check(
+		ctx.Constraints,
+		t,
+		out.Type,
+		expr,
+		"assignment",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+	}
+}

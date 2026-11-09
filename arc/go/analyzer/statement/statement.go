@@ -108,6 +108,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
+		flow.BindOutput(ctx, expr, sym.Type)
 		return
 	}
 	// Channel read/write and folded initializers already carry their value.
@@ -141,6 +142,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	// read-only channel. One that reads none is computed once per scope entry.
 	if local != nil {
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
+		flow.BindOutput(ctx, expr, sym.Type)
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
 			len(synth.Channels.Read) > 0 {
 			sym.Type = types.ReadChan(sym.Type)

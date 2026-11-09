@@ -141,6 +141,12 @@ func checkArgType[T antlr.ParserRuleContext](
 	signature string,
 ) {
 	argType := atypes.InferFromExpression(ctx.Child(arg.Expr))
+	// A computed argument runs as its own node, so the param types that node's output.
+	if synth, err := ctx.Scope.Root().GetChildByParserRule(arg.Expr); err == nil {
+		if out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			argType = out.Type
+		}
+	}
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}

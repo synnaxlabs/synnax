@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
-	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -67,7 +66,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		if expr := assign.Expression(); expr != nil &&
 			statement.CastConstValue(ctx, expr, sym.Type) == nil {
 			flow.AnalyzeSingleExpression(ctx.Child(expr))
-			bindExpressionOutput(ctx, expr, sym.Type.UnwrapChan())
+			flow.BindOutput(ctx, expr, sym.Type.UnwrapChan())
 		}
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
@@ -470,31 +469,5 @@ func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
-	}
-}
-
-// bindExpressionOutput binds the untyped output of the node registered for expr to t,
-// the type of the variable it writes, so its literals take t.
-func bindExpressionOutput[T antlr.ParserRuleContext](
-	ctx context.Context[T],
-	expr parser.IExpressionContext,
-	t types.Type,
-) {
-	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
-	if err != nil {
-		return
-	}
-	out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
-	if !ok || out.Type.Unwrap().Kind != types.KindVariable {
-		return
-	}
-	if err := atypes.Check(
-		ctx.Constraints,
-		t,
-		out.Type,
-		expr,
-		"assignment",
-	); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 	}
 }
