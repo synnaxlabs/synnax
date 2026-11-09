@@ -87,6 +87,13 @@ export const methodsZ = {
  */
 export const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 
+/**
+ * Selection ends at the top and bottom rows of the view. Each render turns them into
+ * the entry of that row, so a selection follows a scroll it starts.
+ */
+export const SELECT_TOP_ROW = Number.MAX_SAFE_INTEGER - 2;
+export const SELECT_BOTTOM_ROW = Number.MAX_SAFE_INTEGER - 1;
+
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
 // Floor on the thumb so it stays visible at the entry cap, where the proportional
@@ -636,6 +643,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const selectionEnd = this.resolveRow(this.state.selectionEnd, rowEntries);
+    const resolved = selectionEnd !== this.state.selectionEnd;
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -643,6 +652,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
+      resolved ||
       !sameEntries(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
@@ -651,7 +661,9 @@ export class Log
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
+        selectionEnd,
       }));
+    if (resolved) this.setAnchors(this.state.selectionStart, selectionEnd);
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
@@ -662,6 +674,12 @@ export class Log
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
+  }
+
+  private resolveRow(selectionEnd: number, rowEntries: number[]): number {
+    if (selectionEnd === SELECT_TOP_ROW) return rowEntries.at(0) ?? -1;
+    if (selectionEnd === SELECT_BOTTOM_ROW) return rowEntries.at(-1) ?? -1;
+    return selectionEnd;
   }
 
   // Returns where the rows sit in the times the source stores, from 0 to 1, or null
@@ -735,11 +753,11 @@ export class Log
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
-  // SELECT_ALL_END, which stays open.
+  // SELECT_ALL_END or a row of the view, which stay open.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
-      i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
+      i >= SELECT_TOP_ROW ? undefined : this.entries[Math.min(i, last)];
     this.anchors = {
       start: anchor(selectionStart),
       end: anchor(selectionEnd),

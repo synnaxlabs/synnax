@@ -12,7 +12,13 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
+import {
+  Log,
+  logStateZ,
+  SELECT_ALL_END,
+  SELECT_BOTTOM_ROW,
+  SELECT_TOP_ROW,
+} from "@/log/aether/Log";
 import {
   MockLogSource,
   mockLogSourceSpec,
@@ -642,6 +648,44 @@ describe("log/aether/Log", () => {
       source.notify();
       expect(log.state.selectionStart).toBe(2);
       expect(log.state.selectionEnd).toBe(16);
+    });
+
+    it("should end a selection at the top row of a scrolled view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      updateState({
+        scrolling: true,
+        empty: false,
+        wheelPos: 10 * log.lineHeight,
+        selectionStart: 90,
+        selectionEnd: SELECT_TOP_ROW,
+      });
+      log.render();
+      expect(log.state.selectionEnd).toBe(log.state.rowEntries[0]);
+      expect(log.state.rowEntries.at(-1)).toBe(89);
+    });
+
+    it("should end a selection at the bottom row of the view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 50,
+        selectionEnd: SELECT_BOTTOM_ROW,
+      });
+      log.render();
+      expect(log.state.selectionEnd).toBe(99);
+    });
+
+    it("should keep a selection end at a row open while entries arrive", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 5, selectionEnd: SELECT_BOTTOM_ROW });
+      source.setEntries([...entries, makeEntry(20)]);
+      source.notify();
+      log.render();
+      expect(log.state.selectionEnd).toBe(20);
     });
 
     it("should keep select-all open while entries are evicted", () => {

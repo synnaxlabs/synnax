@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { log } from "@/log/aether";
 import { Base } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -430,20 +431,6 @@ describe("log/Base", () => {
           state,
         );
 
-    const showRows = (
-      setState: ReturnType<typeof vi.fn>,
-      state: Record<string, unknown>,
-      rowEntries: number[],
-    ) => {
-      const last = mockAetherUse.mock.results[mockAetherUse.mock.results.length - 1];
-      mockAetherUse.mockReturnValue([
-        "test-key",
-        { ...state, rowEntries },
-        setState,
-        last.value[3],
-      ]);
-    };
-
     const advanceFrames = (frames: number) => {
       for (let i = 0; i < frames; i++)
         act(() => {
@@ -466,7 +453,7 @@ describe("log/Base", () => {
       const state = dragTo(-50, 3);
       expect(state.wheelPos).toBeGreaterThan(0);
       expect(state.scrolling).toBe(true);
-      expect(state.selectionEnd).toBe(10);
+      expect(state.selectionEnd).toBe(log.SELECT_TOP_ROW);
     });
 
     it("should pause the log when it scrolls up", () => {
@@ -478,7 +465,7 @@ describe("log/Base", () => {
     it("should scroll down and select the bottom row below the log", () => {
       const state = dragTo(550, 3);
       expect(state.wheelPos).toBeLessThan(0);
-      expect(state.selectionEnd).toBe(12);
+      expect(state.selectionEnd).toBe(log.SELECT_BOTTOM_ROW);
     });
 
     it("should scroll faster the farther the pointer is past the edge", () => {
@@ -488,7 +475,9 @@ describe("log/Base", () => {
     });
 
     it("should not scroll while the pointer is inside the log", () => {
-      expect(dragTo(100, 3).wheelPos).toBe(0);
+      const state = dragTo(100, 3);
+      expect(state.wheelPos).toBe(0);
+      expect(state.selectionEnd).toBe(12);
     });
 
     it("should stop scrolling on mouse up", () => {
@@ -525,60 +514,6 @@ describe("log/Base", () => {
       const callsAfterBlur = setState.mock.calls.length;
       advanceFrames(1);
       expect(setState.mock.calls.length).toBe(callsAfterBlur);
-    });
-
-    it("should select the edge row the scroll reveals", () => {
-      const { setState, state } = setupAether(ROWS);
-      const { container, rerender } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
-      advanceFrames(1);
-      const beforeRows = setState.mock.calls.length;
-      showRows(setState, state, [9, 10, 11]);
-      rerender(<Base />);
-      expect(applyCalls(setState, beforeRows, state).selectionEnd).toBe(9);
-    });
-
-    // Releases during an edge scroll, then shows the rows of a later wheel position.
-    const releaseThenShow = (rows: number[], wheelOffset: number) => {
-      const { setState, state } = setupAether(ROWS);
-      const { container, rerender } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
-      advanceFrames(1);
-      fireEvent.mouseUp(window);
-      const scrolled = applyCalls(setState, 0, state);
-      const shown = { ...scrolled, wheelPos: Number(scrolled.wheelPos) + wheelOffset };
-      const beforeRows = setState.mock.calls.length;
-      showRows(setState, shown, rows);
-      rerender(<Base />);
-      return {
-        calls: setState.mock.calls.length - beforeRows,
-        setState,
-        beforeRows,
-        shown,
-      };
-    };
-
-    it("should select the edge row of a scroll that lands after release", () => {
-      const { setState, beforeRows, shown } = releaseThenShow([9, 10, 11], 0);
-      expect(applyCalls(setState, beforeRows, shown).selectionEnd).toBe(9);
-    });
-
-    it("should not move the selection for rows of another scroll after release", () => {
-      expect(releaseThenShow([9, 10, 11], 16).calls).toBe(0);
-    });
-
-    it("should not move the selection when rows change inside the log", () => {
-      const { setState, state } = setupAether(ROWS);
-      const { container, rerender } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      fireEvent.mouseMove(window, { clientY: 100, buttons: 1 });
-      advanceFrames(1);
-      const beforeRows = setState.mock.calls.length;
-      showRows(setState, state, [11, 12, 13]);
-      rerender(<Base />);
-      expect(setState.mock.calls.length).toBe(beforeRows);
     });
   });
 
