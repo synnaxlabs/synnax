@@ -91,7 +91,7 @@ describe("queries", () => {
         name: "Uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKeyPem: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const { privateKey } = cert;
