@@ -12,22 +12,22 @@
 import { filter, type optional, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { group } from "@/group";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const keyZ = z.string();
-export type Key = z.infer<typeof keyZ>;
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /**
- * StatusDetails contains device-specific status details identifying the device and its
- * associated rack.
+ * StatusDetails contains device-specific status details, including the rack the device
+ * belongs to.
  */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack this device belongs to. */
   rack: rack.keyZ,
-  /** device is the device identifier. */
-  device: keyZ,
   /**
    * connected is true while the Driver confirms that it can reach the device. A device
    * whose state is unknown is not connected.
@@ -37,6 +37,21 @@ export const statusDetailsZ = z.object({
   data: zod.nullToUndefined(record.unknownZ()),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+/** Order is a sort of devices. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
+export const keyZ = z.string();
+export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = z.infer<typeof statusZ>;
 
 /** Where is a filter that selects devices. */
 export type Where = {
@@ -49,6 +64,10 @@ export type Where = {
   model?: filter.String;
   location?: filter.String;
   rack?: filter.Set<typeof rack.keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  parents?: Key[];
+  nested?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -75,27 +94,29 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   location: filter.stringZ.optional(),
   /** rack selects by rack. */
   rack: filter.setZ(rack.keyZ).optional(),
+  /** groups matches the devices in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the devices in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** parents matches the devices that any of the given devices hold. */
+  parents: zod.nullToUndefined(keyZ.array()),
+  /**
+   * nested matches the devices that another device holds, or the devices that sit
+   * directly on their rack when false.
+   */
+  nested: z.boolean().optional(),
 });
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = z.infer<typeof statusZ>;
-
-/** RetrieveRequest is a request to retrieve devices. */
-export const retrieveRequestZ = z.strictObject({
-  /** where selects the devices to retrieve. An absent where selects all of them. */
-  where: whereZ.optional(),
-  /** searchTerm keeps the devices that match the term, closest match first. */
-  searchTerm: z.string().optional(),
-  /** limit is the most devices to return. */
-  limit: z.uint32().optional(),
-  /** offset is the number of matching devices to skip. */
-  offset: z.uint32().optional(),
-  /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
-  /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
+/**
+ * Cursor is a position in an order of devices: the sort value and the key of a device.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the device at the position. */
+  key: keyZ,
+  /** name is the name of the device at the position, when the order sorts by it. */
+  name: z.string().optional(),
 });
-export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -122,7 +143,8 @@ export const deviceZ = <
     configured: z.boolean().default(false),
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
-    parent: ontology.idZ.optional(),
+    group: group.keyZ.optional(),
+    parent: keyZ.optional(),
   });
 export interface Device<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -138,8 +160,26 @@ export interface Device<
   configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
-  parent?: ontology.ID;
+  group?: group.Key;
+  parent?: Key;
 }
+
+/** RetrieveRequest is a request to retrieve devices. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the devices to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the devices that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** order sorts the devices. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the devices strictly past this position in their order. */
+  after: cursorZ.optional(),
+  /** limit is the most devices to return. */
+  limit: z.uint32().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
@@ -157,5 +197,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("device");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("device");
+export const TYPE_RESOURCE_ID = resourceID("");

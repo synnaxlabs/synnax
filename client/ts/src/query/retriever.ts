@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, zod } from "@synnaxlabs/x";
+import { type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
-import {
-  type Cached,
-  type ChangeHandler,
-  type Retrieves,
-  type Watch,
-} from "@/query/query";
+import { type List, type ListQuery, type Lists } from "@/query/list";
+import { type Live, type Retrieves, type Trigger } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
-const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -102,8 +98,8 @@ export type RequestInput<Z extends z.ZodType> =
 
 /**
  * The query objects a request schema accepts that return one record: those with a plain
- * `key` or `name` value beside any other fields, and those that set `one`. Neither takes
- * a limit or an offset, since a page could hide a second match.
+ * `key` or `name` value beside any other fields, and those that set `one`. Neither
+ * takes a limit or a cursor, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   | (z.input<Z> extends infer I
@@ -112,20 +108,34 @@ export type OneInput<Z extends z.ZodType> =
         : "where" extends keyof I
           ? never
           : {
-              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "offset"> & {
+              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "after"> & {
                 [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
-              } & { limit?: never; offset?: never };
+              } & { limit?: never; after?: never };
             }[("key" | "name") & keyof I]
       : never)
   | (RequestInput<Z> extends infer R
       ? R extends unknown
-        ? Omit<R, "one" | "limit" | "offset"> & {
+        ? Omit<R, "one" | "limit" | "after"> & {
             one: true;
             limit?: never;
-            offset?: never;
+            after?: never;
           }
         : never
       : never);
+
+/** The cursor type of a request: the type of its `after`. */
+export type CursorOf<Q> = Q extends { after?: infer C }
+  ? unknown extends C
+    ? never
+    : NonNullable<C>
+  : never;
+
+/** The order type of a request: the type of its `order`. */
+export type OrderOf<Q> = Q extends { order?: infer O }
+  ? unknown extends O
+    ? never
+    : NonNullable<O>
+  : never;
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
@@ -143,13 +153,13 @@ export const addressesOne = (params: unknown): boolean =>
 
 /**
  * @returns params without the `one` option.
- * @throws {ValidationError} if params return one record beside a limit or an offset.
+ * @throws {ValidationError} if params return one record beside a limit or a cursor.
  */
 export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
   if (!isObject(params)) return params as P extends unknown ? Omit<P, "one"> : never;
-  if (addressesOne(params) && (params.limit != null || params.offset != null))
+  if (addressesOne(params) && (params.limit != null || params.after != null))
     throw new ValidationError(
-      "a query for one record takes no limit or offset, since a page could hide a " +
+      "a query for one record takes no limit or cursor, since a page could hide a " +
         "second match",
     );
   if (!("one" in params)) return params as P extends unknown ? Omit<P, "one"> : never;
@@ -236,7 +246,19 @@ export type RetrieverParams<
     /** Rule 3: whether only the server can evaluate the query, such as a regex. */
     serverComputed?: (query: z.output<Z>) => boolean;
     /** Foreign tables whose events affect this space's answers. */
-    watch?: Array<Watch<z.output<Z>, K>>;
+    triggers?: Array<Trigger<z.output<Z>, K>>;
+    /**
+     * Positions records for lists, from the domain's generated `cursor` and
+     * `compareCursors`. Absent, the domain has no lists.
+     */
+    list?: {
+      cursor: (record: V, order?: OrderOf<z.output<Z>>) => CursorOf<z.output<Z>>;
+      compare: (
+        a: CursorOf<z.output<Z>>,
+        b: CursorOf<z.output<Z>>,
+        order?: OrderOf<z.output<Z>>,
+      ) => number;
+    };
   };
   /**
    * Reads a bare key, a bare name, or a list of either into a request in place of the
@@ -297,10 +319,21 @@ export abstract class Retriever<
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly oneSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
+  private readonly lists: Lists<
+    ListQuery<OrderOf<z.output<Z>>, CursorOf<z.output<Z>>> & {
+      readonly [key: string]: Params;
+    },
+    D,
+    K,
+    V,
+    CursorOf<z.output<Z>>,
+    OrderOf<z.output<Z>>
+  > | null;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
   private readonly readShortcut: ((params: unknown) => Params) | null;
   private readonly routes = new WeakMap<object, [Retrieves<Params, D | D[]>, Params]>();
+  private readonly listed = new WeakMap<object, List<D, CursorOf<z.output<Z>>>>();
 
   constructor(
     cache: Cache,
@@ -321,33 +354,72 @@ export abstract class Retriever<
       matches,
       serverFields = DEFAULT_SERVER_FIELDS,
       serverComputed,
-      watch,
+      triggers,
+      list,
     } = request;
-    this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
+    const requestSpace: Retrieves<z.output<Z>, D[]> = cache.queries<
+      z.output<Z>,
+      D[],
+      K,
+      V
+    >({
       name,
       table,
       fetch: async (query, options) => {
         const keys = keysOnly(query);
         if (keys != null) return (await table.retrieve(keys as K[])).map((r) => r.key);
-        const since = table.stamp();
-        const records = await fetch(query, options);
-        table.ingest(records, { since });
-        return records.map((r) => r.key);
+        return await table.track(async (since) => {
+          const records = await fetch(query, options);
+          table.ingest(records, { since });
+          return records.map((r) => r.key);
+        });
       },
       compose: (records, q) => records.map((r) => compose(r, q)),
       keysOf: (query) => keysOnly(query) as K[] | null,
       matches,
       serverFields,
       serverComputed,
-      watch,
-    }) as Retrieves<Params, D | D[]>;
-    this.oneSpace = cache.queries<z.output<Z>, D, K, V>({
+      triggers,
+    });
+    this.requestSpace = requestSpace as Retrieves<Params, D | D[]>;
+    this.lists =
+      list == null
+        ? null
+        : cache.lists({
+            name,
+            table,
+            fetch: async (query, options) => {
+              const keys = keysOnly(query);
+              if (keys != null) return await table.retrieve(keys as K[]);
+              return await fetch(query as z.output<Z>, options);
+            },
+            compose: (record, query) => compose(record, query),
+            keysOf: (query) => keysOnly(query) as K[] | null,
+            matches:
+              matches == null
+                ? undefined
+                : (record, query) => matches(record, query as z.output<Z>),
+            serverComputed:
+              serverComputed == null
+                ? undefined
+                : (query) => serverComputed(query as z.output<Z>),
+            cursor: list.cursor,
+            triggers: triggers?.map(({ attach, version, contentOnly }) => ({
+              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+              version,
+              contentOnly,
+            })),
+            compare: list.compare,
+          });
+    const oneSpace: Retrieves<z.output<Z>, D> = cache.queries<z.output<Z>, D, K, V>({
       name,
       table,
       fetch: async (query, options) => {
-        const since = table.stamp();
-        const records = await fetch(query, options);
-        table.ingest(records, { since });
+        const records = await table.track(async (since) => {
+          const records = await fetch(query, options);
+          table.ingest(records, { since });
+          return records;
+        });
         const { where, searchTerm } = isObject(query) ? query : {};
         checkForMultipleOrNoResults(
           name,
@@ -364,9 +436,10 @@ export abstract class Retriever<
       matches,
       serverFields,
       serverComputed,
-      watch,
+      triggers,
       single: true,
-    }) as Retrieves<Params, D | D[]>;
+    });
+    this.oneSpace = oneSpace as Retrieves<Params, D | D[]>;
     const singleSchema = single?.schema;
     this.normalizeRequest = (p) => {
       const res = schema.safeParse(p);
@@ -397,7 +470,7 @@ export abstract class Retriever<
     } else {
       // The default path binds SingleQuery = K: `{ key }` params resolve through the
       // table's fetch. The casts are the one seam the defaults can't prove.
-      this.singleSpace = cache.queries<K, D, K, V>({
+      const singleSpace: Retrieves<K, D> = cache.queries<K, D, K, V>({
         name,
         table,
         fetch: async (key) => {
@@ -409,7 +482,8 @@ export abstract class Retriever<
         compose: (records, q) => compose(records[0], q),
         keyOf: (query) => query,
         single: true,
-      }) as Retrieves<Params, D | D[]>;
+      });
+      this.singleSpace = singleSpace as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
         if (!isObject(p) || !isBareKey(p.key) || soleMember(p)?.[0] !== "key")
@@ -463,7 +537,7 @@ export abstract class Retriever<
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
-   * @throws {ValidationError} if params set `one` beside a limit or an offset.
+   * @throws {ValidationError} if params set `one` beside a limit or a cursor.
    * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
   retrieve(
@@ -493,35 +567,34 @@ export abstract class Retriever<
   }
 
   /**
-   * Subscribes to changes in the cached answer to the given query. The handler fires on
-   * every change or deletion. Returns a destructor that unsubscribes.
+   * Returns the live answer of the params, which stays current while a handler is
+   * subscribed. For params that address one record, or a bare key list, the `retrieve`
+   * of the answer is {@link retrieve}. Any other query returns a live list of the
+   * records that match it, in its `order`, or in key order without one. The list
+   * ignores `after`, and `limit` sets the least window its reads return. Equal queries
+   * return the same list.
+   * @throws {Error} if a query asks for a list, and the domain has no lists.
+   * @throws {zod.ParseError} if no schema of the domain accepts the params.
+   * @throws {ValidationError} if a list query sets a limit that is not positive.
    */
-  onChange(
-    params: Shortcut | SingleInput | OneInput<Z>,
-    handler: ChangeHandler<D>,
-  ): destructor.Destructor;
-  onChange(
-    params: Shortcut[] | RequestInput<Z>,
-    handler: ChangeHandler<D[]>,
-  ): destructor.Destructor;
-  onChange(
+  watch(params: Shortcut | SingleInput | OneInput<Z>): Live<D>;
+  watch(params: Shortcut[]): Live<D[]>;
+  watch(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>>;
+  watch(
     params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
-    handler: ChangeHandler<D> | ChangeHandler<D[]>,
-  ): destructor.Destructor {
+  ): Live<D> | Live<D[]> | List<D, CursorOf<z.output<Z>>> {
     const [space, query] = this.route(params);
-    return space.onChange(query, handler as ChangeHandler<D | D[]>);
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the network, or
-   * undefined when nothing is cached. May be stale for unsubscribed queries.
-   */
-  getCached(params: Shortcut | SingleInput | OneInput<Z>): Cached<D> | undefined;
-  getCached(params: Shortcut[] | RequestInput<Z>): Cached<D[]> | undefined;
-  getCached(
-    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
-  ): Cached<D> | Cached<D[]> | undefined {
-    const [space, query] = this.route(params);
-    return space.getCached(query) as Cached<D> | Cached<D[]> | undefined;
+    if (Array.isArray(params)) {
+      const live = space.watch(query) as Live<D[]>;
+      return { ...live, retrieve: async (o) => await this.retrieve(params, o) };
+    }
+    if (space !== this.requestSpace) return space.watch(query) as Live<D>;
+    if (this.lists == null) throw new Error(`${this.name} has no lists`);
+    // Params are readonly, so a repeat read of one object skips validation.
+    const held = this.listed.get(params as object);
+    if (held != null) return held;
+    const list = this.lists.list(query as never);
+    this.listed.set(params as object, list);
+    return list;
   }
 }

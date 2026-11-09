@@ -13,10 +13,20 @@ from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
+from synnax.rack.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    Rack,
+    RetrieveRequest,
+    Where,
+    WhereInput,
+)
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -33,11 +43,16 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: group_.Key | None = None
 
 
 class Client:
@@ -55,7 +70,9 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
+    def create(
+        self, *, key: Key = 0, name: str = "", group: group_.Key | None = None
+    ) -> Rack: ...
 
     @overload
     def create(self, racks: Rack) -> Rack: ...
@@ -67,12 +84,13 @@ class Client:
         self,
         racks: Rack | list[Rack] | None = None,
         *,
-        key: int = 0,
+        key: Key = 0,
         name: str = "",
+        group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
-            racks = [Rack(key=key, name=name)]
+            racks = [Rack(key=key, name=name, group=group)]
         elif isinstance(racks, Rack):
             racks = [racks]
         else:
@@ -83,7 +101,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
@@ -98,6 +116,15 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves racks into a group, or out of their group when group is None.
+
+        :param keys: The key of the rack to move, or a list of keys.
+        :param group: The key of the group to move the racks into.
+        """
+        req = _SetGroupRequest(keys=normalize(keys), group=group)
+        self._client.send("/rack/set-group", req, Empty)
+
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
 
@@ -109,7 +136,8 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -127,7 +155,8 @@ class Client:
         name: str,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -145,7 +174,8 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -166,7 +196,8 @@ class Client:
         name: list[str] | filter.StringDict | filter.String = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -176,7 +207,8 @@ class Client:
         integration: str | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Rack]: ...
@@ -191,7 +223,8 @@ class Client:
         integration: str | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -207,8 +240,9 @@ class Client:
         :param embedded: Keeps racks that are, or are not, embedded in a Core.
         :param integrations: Keeps racks that support this integration, or any
             integration in the list.
-        :param host_is_node: Keeps racks on the Core that serves the request, or racks
-            on other Cores when False.
+        :param groups: Keeps racks in any of these groups.
+        :param grouped: Keeps only racks in a group when True, and only racks in no
+            group when False.
         :param and_: Keeps racks that match every filter in the list.
         :param or_: Keeps racks that match any filter in the list.
         :param not_: Keeps racks that do not match the filter.
@@ -218,7 +252,9 @@ class Client:
         :param integration: Keeps racks that support this integration.
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to retrieve.
-        :param offset: The number of racks to skip.
+        :param order: The order of the racks. Defaults to key order.
+        :param after: Retrieves the racks past this position in the order: the key of
+            the last rack of the page before, and its value of the order field.
         :param include_status: Whether to populate each rack's status.
         :param one: Returns one rack for any filter.
         :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
@@ -226,11 +262,11 @@ class Client:
         :raises NotFoundError: If one rack is wanted and none matches.
         :raises MultipleFoundError: If one rack is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one rack is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -242,7 +278,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
@@ -250,7 +287,7 @@ class Client:
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
-            racks = self.retrieve(embedded=True, host_is_node=True, limit=1)
+            racks = self.retrieve(embedded=True, limit=1)
             if len(racks) == 0:
                 raise NotFoundError("Embedded rack not found")
             self._embedded_rack = racks[0]

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/status"
 import "schemas/synnax/versions/device/v1"
 import "schemas/synnax/versions/rack/v2"
+import "schemas/synnax/versions/status/v1"
 import "schemas/x/versions/telem/v0"
 
 Key = uuid {
@@ -17,9 +17,6 @@ Key = uuid {
 }
 
 StatusDetails struct<Data? = record> {
-    task        Key      {
-        @doc value "is the key of the task this status pertains to."
-    }
     running     bool     {
         @doc value "is true if the task is currently executing."
     }

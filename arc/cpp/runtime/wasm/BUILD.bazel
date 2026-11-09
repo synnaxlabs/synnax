@@ -38,6 +38,7 @@ cc_test(
     deps = [
         ":wasm",
         "//arc/cpp/runtime/testutil:compile",
+        "//arc/cpp/stl",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",

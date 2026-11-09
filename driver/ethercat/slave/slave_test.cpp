@@ -9,17 +9,20 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/testutil/testutil.h"
+
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::slave {
 
-TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
-    ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
-    ASSERT_EQ(slave_state_to_string(State::PRE_OP), "PRE-OP");
-    ASSERT_EQ(slave_state_to_string(State::SAFE_OP), "SAFE-OP");
-    ASSERT_EQ(slave_state_to_string(State::OP), "OP");
-    ASSERT_EQ(slave_state_to_string(State::BOOT), "BOOT");
-    ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
+/// @brief it should name each slave state as the EtherCAT standard does.
+TEST(StateToString, NamesEachState) {
+    ASSERT_EQ(to_string(State::INIT), "INIT");
+    ASSERT_EQ(to_string(State::PRE_OP), "PRE-OP");
+    ASSERT_EQ(to_string(State::SAFE_OP), "SAFE-OP");
+    ASSERT_EQ(to_string(State::OP), "OP");
+    ASSERT_EQ(to_string(State::BOOT), "BOOT");
+    ASSERT_EQ(to_string(State::UNKNOWN), "UNKNOWN");
 }
 
 TEST(FromAlState, ConvertsStandardStates) {
@@ -46,31 +49,6 @@ TEST(FromAlState, MasksErrorFlagBits) {
 TEST(FromAlState, AcceptsUint8Values) {
     const uint8_t igh_state = 0x08;
     ASSERT_EQ(from_al_state(igh_state), State::OP);
-}
-
-TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
-    Properties props;
-    ASSERT_EQ(props.pdo_count(), 0);
-}
-
-TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
-    Properties props{
-        .input_pdos =
-            {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 1,
-                 .bit_length = 16},
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 2,
-                 .bit_length = 16},
-            },
-        .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 8},
-        },
-    };
-    ASSERT_EQ(props.pdo_count(), 3);
 }
 
 Properties find_pdo_slave() {
@@ -166,7 +144,7 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_EQ(props.name, "EL2008");
     ASSERT_EQ(props.network, "eth0");
     ASSERT_EQ(props.position, 1);
-    ASSERT_TRUE(props.enabled);
+    ASSERT_TRUE(props.config.enabled);
 }
 
 TEST(PropertiesParse, ParsesWithPdos) {
@@ -227,7 +205,7 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
 /// @brief it should parse a device stored before slaves listed their OpModes as a slave
 /// with no OpModes.
 TEST(PropertiesParse, DefaultsToNoOpModes) {
-    auto j = Properties{.name = "EL2008", .enabled = true}.to_json();
+    auto j = Properties{.position = 1, .name = "EL2008"}.to_json();
     j.erase("op_modes");
     auto parser = x::json::Parser(j);
     const auto props = Properties::parse(parser);
@@ -239,15 +217,16 @@ TEST(PropertiesParse, DefaultsToNoOpModes) {
 /// trip.
 TEST(PropertiesParse, RoundTripsOpModes) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
-        .op_modes =
-            {{.name = "SM-Synchron", .sync0_factor = 1},
-             {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
-             {.name = "DC-bus1",
-              .assign_activate = 0x0700,
-              .sync0_cycle = 1000,
-              .sync1_factor = -1000}},
-        .enabled = true,
+        .op_modes = {
+            {.name = "SM-Synchron", .sync0_factor = 1},
+            {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+            {.name = "DC-bus1",
+             .assign_activate = 0x0700,
+             .sync0_cycle = 1000,
+             .sync1_factor = -1000}
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
@@ -255,24 +234,23 @@ TEST(PropertiesParse, RoundTripsOpModes) {
     EXPECT_EQ(parsed.op_modes, props.op_modes);
 }
 
-/// @brief it should give back the chosen mode of a slave after a JSON round trip, and
-/// pass it to the master in the slave settings.
+/// @brief it should give back the chosen mode of a slave after a JSON round trip.
 TEST(PropertiesParse, RoundTripsTheChosenMode) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
-        .op_mode =
-            dc::Choice{
+        .config = {
+            .op_mode = dc::Choice{
                 .index = 1,
                 .assign_activate = 0x0300,
                 .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
             },
-        .enabled = true,
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(parsed.op_mode, props.op_mode);
-    EXPECT_EQ(parsed.config().op_mode, props.op_mode);
+    EXPECT_EQ(parsed.config.op_mode, props.config.op_mode);
 }
 
 /// @brief it should leave out the chosen mode of a slave with no choice, as the Console
@@ -290,8 +268,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
         .revision = 1,
         .serial = 12345,
         .name = "EL3001",
-        .input_bits = 16,
-        .output_bits = 8,
         .input_pdos =
             {{.pdo_index = 0x1A00,
               .index = 0x6000,
@@ -300,16 +276,15 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .is_input = true,
               .name = "Value",
               .data_type = x::telem::INT16_T}},
-        .output_pdos =
-            {{.pdo_index = 0x1600,
-              .index = 0x7000,
-              .sub_index = 1,
-              .bit_length = 8,
-              .is_input = false,
-              .name = "Control",
-              .data_type = x::telem::UINT8_T}},
-        .coe_pdo_order_reliable = true,
-        .enabled = true,
+        .output_pdos = {
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 8,
+             .is_input = false,
+             .name = "Control",
+             .data_type = x::telem::UINT8_T}
+        },
     };
 
     auto j = props.to_json();
@@ -320,9 +295,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["name"], "EL3001");
     ASSERT_EQ(j["network"], "eth0");
     ASSERT_EQ(j["position"], 3);
-    ASSERT_EQ(j["input_bits"], 16);
-    ASSERT_EQ(j["output_bits"], 8);
-    ASSERT_EQ(j["pdo_order_reliable"], true);
     ASSERT_EQ(j["enabled"], true);
     ASSERT_EQ(j["pdos"]["inputs"].size(), 1);
     ASSERT_EQ(j["pdos"]["inputs"][0]["name"], "Value");
@@ -342,5 +314,266 @@ TEST(PropertiesToJson, OmitsPaddingEntries) {
     const auto j = props.to_json();
     ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
     EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
+
+/// @brief parses a startup parameter and returns it with the first field error, or an
+/// empty path and message when parsing succeeds.
+std::tuple<StartupParameter, std::string, std::string>
+parse_parameter(const x::json::json &json) {
+    x::json::Parser parser(json);
+    const auto param = StartupParameter::parse(parser);
+    if (parser.ok()) return {param, "", ""};
+    const auto err = parser.error_json()["errors"][0];
+    return {param, err["path"], err["message"]};
+}
+
+/// @brief it should parse each field of a startup parameter.
+TEST(StartupParameter, ParsesEachField) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 0x15},
+         {"data_type", "uint16"},
+         {"value", 3},
+         {"name", "Filter"}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(
+        param,
+        (StartupParameter{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+            .name = "Filter",
+        })
+    );
+}
+
+/// @brief it should reject an index that does not fit in 16 bits.
+TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(message, "must be a whole number from 0x0000 to 0xFFFF");
+}
+
+/// @brief it should reject a sub-index that does not fit in 8 bits.
+TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a data type that is not numeric.
+TEST(StartupParameter, RejectsANonNumericDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "string"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "data_type");
+    EXPECT_EQ(message, "unsupported data type string");
+}
+
+/// @brief it should reject a value outside the range of its data type.
+TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject a fractional value for an integer data type.
+TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from -32768 to 32767");
+}
+
+/// @brief it should reject a sub-index with a fraction instead of truncating it.
+TEST(StartupParameter, RejectsAFractionalSubIndex) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 21.9}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject an int64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAnInt64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", 9007199254740993}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(
+        message,
+        "must be a whole number from -9007199254740991 to 9007199254740991"
+    );
+}
+
+/// @brief it should accept the largest int64 magnitude that a double holds exactly.
+TEST(StartupParameter, AcceptsTheLargestExactInt64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", -9007199254740991}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(param.value, -9007199254740991.0);
+}
+
+/// @brief it should reject a uint64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAUint64ThatADoubleRounds) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "uint64"},
+         {"value", 18446744073709551615ULL}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "must be a whole number from 0 to 9007199254740991");
+}
+
+/// @brief it should reject a value above the float32 maximum.
+TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "float32"}, {"value", 1e39}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "1e+39 does not fit in float32");
+}
+
+/// @brief it should encode the value as the little-endian bytes of its data type.
+TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
+        (std::vector<uint8_t>{0x34, 0x12})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::INT32_T, .value = -2}).bytes(),
+        (std::vector<uint8_t>{0xFE, 0xFF, 0xFF, 0xFF})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::FLOAT32_T, .value = 1}).bytes(),
+        (std::vector<uint8_t>{0x00, 0x00, 0x80, 0x3F})
+    );
+}
+
+/// @brief it should parse the startup parameters of a slave.
+TEST(Properties, ParsesStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint16"},
+               {"value", 3}}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(props.config.startup_parameters.size(), 1);
+    EXPECT_EQ(props.config.startup_parameters[0].index, 0x8000);
+    EXPECT_FALSE(props.to_json().contains("startup_parameters"));
+}
+
+/// @brief it should report a field error for each invalid startup parameter.
+TEST(Properties, ReportsEveryInvalidStartupParameter) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint8"},
+               {"value", 300}},
+              {{"index", 0x8000},
+               {"sub_index", 0x19},
+               {"data_type", "uint16"},
+               {"value", 70000}}}},
+        }
+    );
+    Properties::parse(parser);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.value");
+    EXPECT_EQ(errors[1]["path"], "startup_parameters.1.value");
+    EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
+}
+
+/// @brief it should reject a position that no slave on a bus can have.
+TEST(Properties, RejectsAPositionOutsideTheBus) {
+    for (const auto &position:
+         {x::json::json(0),
+          x::json::json(-1),
+          x::json::json(65536),
+          x::json::json(1.5)}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"serial", 1},
+                {"vendor_id", 2},
+                {"product_code", 3},
+                {"revision", 4},
+                {"name", "EL3102"},
+                {"position", position},
+                {"enabled", true},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            }
+        );
+        Properties::parse(parser);
+        const auto errors = parser.error_json()["errors"];
+        ASSERT_EQ(errors.size(), 1) << position;
+        EXPECT_EQ(errors[0]["path"], "position");
+        EXPECT_EQ(errors[0]["message"], "must be a whole number from 1 to 65535");
+    }
+}
+
+/// @brief it should parse a slave that has no startup parameters field.
+TEST(Properties, ParsesWithoutStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 1},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_TRUE(props.config.startup_parameters.empty());
 }
 }

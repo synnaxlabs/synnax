@@ -25,13 +25,6 @@ export const createPayloadZ = z.object({
 
 export type CreatePayload = z.infer<typeof createPayloadZ>;
 
-/** Rename renames the table. */
-export const renamePayloadZ = z.object({
-  name: z.string(),
-});
-
-export type RenamePayload = z.infer<typeof renamePayloadZ>;
-
 /**
  * AddRow inserts a row with the given key at the given index. Three flows:
  *
@@ -170,7 +163,7 @@ export const eraseCellsPayloadZ = z.object({
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-/** Set replaces the value at a path in the table's cells. */
+/** Set replaces the value at a path in the table. */
 export const setPayloadZ = z.object({
   path: z
     .string()
@@ -182,9 +175,7 @@ export const setPayloadZ = z.object({
 
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
-/**
- * Remove removes an entry from a list or a field from an object in the table's cells.
- */
+/** Remove removes an entry from a list or a field from an object in the table. */
 export const removePayloadZ = z.object({
   path: z
     .string()
@@ -224,7 +215,6 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
-  | { type: "rename"; rename: RenamePayload }
   | { type: "add_row"; addRow: AddRowPayload }
   | { type: "remove_row"; removeRow: RemoveRowPayload }
   | { type: "add_col"; addCol: AddColPayload }
@@ -242,7 +232,6 @@ export type Action =
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
-  z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
   z.object({ type: z.literal("add_col"), addCol: addColPayloadZ }),
@@ -263,13 +252,6 @@ export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
     label: "table create action payload",
-  }),
-});
-
-export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
-  type: "rename",
-  rename: zod.parse(renamePayloadZ, payload, {
-    label: "table rename action payload",
   }),
 });
 
@@ -377,7 +359,6 @@ export type ReduceAllResult = actions.ReduceAllResult<Table, Action>;
 
 export interface Handlers {
   create: (state: Draft<Table>, payload: CreatePayload) => HandlerResult;
-  rename: (state: Draft<Table>, payload: RenamePayload) => HandlerResult;
   addRow: (state: Draft<Table>, payload: AddRowPayload) => HandlerResult;
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
   addCol: (state: Draft<Table>, payload: AddColPayload) => HandlerResult;
@@ -399,8 +380,6 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
-      case "rename":
-        return handlers.rename(state, action.rename);
       case "add_row":
         return handlers.addRow(state, action.addRow);
       case "remove_row":

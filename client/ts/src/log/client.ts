@@ -12,13 +12,14 @@ import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/log/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/log/actions.gen";
 import {
   type Key,
@@ -26,13 +27,19 @@ import {
   type Log,
   logZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/log/where.gen";
-import { type ontology } from "@/ontology";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/log/where.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -40,6 +47,8 @@ export const SET_CHANNEL_NAME = "sy_log_set";
 export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
+
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -54,7 +63,6 @@ export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   logs: logZ.array(),
 });
@@ -65,12 +73,15 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Log> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Log>;
+  /** Builds requests that move logs between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move logs out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Log, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -85,6 +96,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -97,29 +109,27 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       name: "log",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (log, req) => matches(log, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (log, req) => matches(LINES, log, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/log/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
+    this.setProjectRequest = project.createMoveRequest("/log/set-project", (keys, to) =>
+      project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(log: New, opts?: query.WriteOptions<Log[]>): Promise<Log>;
+  async create(logs: New[], opts?: query.WriteOptions<Log[]>): Promise<Log[]>;
   async create(
-    project: project.Key,
-    log: New,
-    opts?: query.WriteOptions<Log[]>,
-  ): Promise<Log>;
-  async create(
-    project: project.Key,
-    logs: New[],
-    opts?: query.WriteOptions<Log[]>,
-  ): Promise<Log[]>;
-  async create(
-    project: project.Key,
     logs: New | New[],
     opts: query.WriteOptions<Log[]> = {},
   ): Promise<Log | Log[]> {
@@ -136,7 +146,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/log/create",
-              { project, dispatchKey, logs: optimistic },
+              { dispatchKey, logs: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -151,10 +161,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
-        resource();
       };
     };
     const rollback = rename();
@@ -164,7 +172,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });
@@ -225,10 +233,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

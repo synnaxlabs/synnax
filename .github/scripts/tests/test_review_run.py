@@ -18,9 +18,18 @@ from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
-from review.__main__ import claude as launch
-from review.__main__ import main
+from review import (
+    Config,
+    Dismissal,
+    Doc,
+    Finding,
+    Lens,
+    PullRequest,
+    Window,
+    load,
+    run,
+)
+from review.__main__ import claude as launch, main
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path("/work")
@@ -227,8 +236,10 @@ class TestLoad:
         (home / "prompt.md").write_text("Review it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
-    def test_should_have_no_lenses_when_the_config_names_none(self) -> None:
-        assert load(ROOT).lenses == []
+    def test_should_load_the_lenses_of_the_repository(self) -> None:
+        lenses = load(ROOT).lenses
+        assert lenses
+        assert all(lens.focus.strip() for lens in lenses)
 
     def test_should_reject_an_unknown_key(self, tmp_path: Path) -> None:
         home = tmp_path / ".sedosaur"
@@ -286,6 +297,21 @@ class TestPrompt:
     def test_should_list_the_open_findings(self) -> None:
         stdin = review(pr=pull(open={("core/a.go", "Old bug")})).system
         assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
+
+    def test_should_list_the_dismissed_findings_with_their_reasons(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant.\n\nSee #1."),
+            Dismissal(path="b.go", title="Nit", reason=""),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert (
+            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.\n\n"
+            "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
+        assert "Dismissed findings" not in review().system
 
     def test_should_hide_every_review_in_the_body(self) -> None:
         body = (
@@ -417,6 +443,10 @@ class TestLenses:
         calls = claude.calls.values()
         assert len({c.flag("--append-system-prompt-file") for c in calls}) == 1
         assert all(c.system.startswith("Review the pull request.") for c in calls)
+
+    def test_should_skip_the_lenses_on_a_later_review(self) -> None:
+        claude, _ = self.lenses(pr=pull(reviewed=True))
+        assert list(claude.calls) == ["Rules"]
 
     def test_should_give_the_rules_only_to_the_pass_without_a_lens(self) -> None:
         claude, _ = self.lenses()
@@ -661,6 +691,7 @@ class TestLaunch:
         assert Path(out["cwd"]).resolve() == work.resolve()
         env = out["env"]
         assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
+        assert env["CLAUDE_CODE_PROMPT_CACHE_TTL"] == "5m"
         assert "GH_TOKEN" not in env
         assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
 
@@ -787,6 +818,41 @@ class TestMain:
             "limits": {},
         }
 
+    def test_should_show_the_open_and_dismissed_findings(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        def node(title: str, *replies: str) -> dict[str, Any]:
+            bot = {"__typename": "Bot", "login": "sedosaur"}
+            first = {"author": bot, "body": f"<img> **{title}**"}
+            person = {"__typename": "User", "login": "m"}
+            later = [
+                {"author": person, "authorAssociation": "MEMBER", "body": r}
+                for r in replies
+            ]
+            comments = [first, *later]
+            return {
+                "id": title,
+                "path": "a.go",
+                "resolved": bool(replies),
+                "comments": comments,
+            }
+
+        nodes = "".join(
+            json.dumps(n) + "\n"
+            for n in [node("Open bug"), node("Meant", "@sedosaur dismiss, on purpose")]
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('reviewThreads' in a for a in sys.argv):\n"
+            f"    print({nodes!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        assert "# Earlier findings still open\n\n- `a.go`: Open bug\n" in text
+        assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -798,9 +864,9 @@ class TestMain:
         assert json.loads(out.read_text())["review"]["score"] == 5
 
     @staticmethod
-    def prompt_after_reviews_of(tmp_path: Path, *commits: str) -> str:
+    def review_after_reviews_of(tmp_path: Path, *commits: str) -> dict[str, Any]:
         """Runs a review whose pull request body says that Sedosaur reviewed the
-        commits, newest first, and returns the section of new commits in the prompt."""
+        commits, newest first, and returns its record."""
         edits = "".join(
             json.dumps(
                 {
@@ -819,7 +885,15 @@ class TestMain:
             "elif any('userContentEdits' in a for a in sys.argv):\n"
             f"    print({edits!r}, end='')\n",
         )
-        main(["run", str(tmp_path / "review.json")])
+        out = tmp_path / "review.json"
+        main(["run", str(out)])
+        record: dict[str, Any] = json.loads(out.read_text())
+        return record
+
+    def prompt_after_reviews_of(self, tmp_path: Path, *commits: str) -> str:
+        """Runs a review after reviews of the commits, newest first, and returns the
+        section of new commits in the prompt."""
+        self.review_after_reviews_of(tmp_path, *commits)
         text = (tmp_path / "prompt.txt").read_text()
         _, found, new = text.partition("# Commits since your last review")
         return new.split("# Rules")[0] if found else ""
@@ -847,3 +921,33 @@ class TestMain:
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
         assert self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"]) == ""
+
+    def lenses_after_reviews_of(self, tmp_path: Path, *commits: str) -> list[str]:
+        """Runs a review with one lens after reviews of the commits, newest first, and
+        returns the lens of each pass."""
+        config = tmp_path / "policy" / ".sedosaur" / "config.toml"
+        with config.open("a") as f:
+            f.write('[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n')
+        record = self.review_after_reviews_of(tmp_path, *commits)
+        return [p["lens"] for p in record["passes"]]
+
+    def test_should_run_the_lenses_without_an_earlier_review(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path) == [None, "Races"]
+
+    def test_should_run_the_lenses_after_a_review_of_the_head_alone(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        lenses = self.lenses_after_reviews_of(tmp_path, env["HEAD_SHA"])
+        assert lenses == [None, "Races"]
+
+    def test_should_run_the_lenses_after_a_review_that_a_force_push_dropped(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path, "d" * 40) == [None, "Races"]
+
+    def test_should_skip_the_lenses_after_a_review_of_an_earlier_commit(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        assert self.lenses_after_reviews_of(tmp_path, env["BASE_SHA"]) == [None]

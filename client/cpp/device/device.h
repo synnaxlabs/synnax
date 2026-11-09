@@ -59,13 +59,6 @@ map_device_keys(const std::vector<Device> &devices) {
     return map;
 }
 
-/// @brief Returns a unique status key for a device.
-/// @param device The device.
-/// @returns A unique key for status updates, derived from the device key.
-inline std::string status_key(const Device &device) {
-    return ontology_id(device.key).string();
-}
-
 /// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:
@@ -111,7 +104,7 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the device, and an error that matches NOT_FOUND when no device
     /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit or an offset.
+    /// set a limit or a cursor.
     [[nodiscard]]
     std::pair<Device, x::errors::Error> retrieve(
         const Where &where,

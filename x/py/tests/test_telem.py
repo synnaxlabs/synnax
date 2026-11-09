@@ -18,8 +18,7 @@ import dateutil
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import ValidationError
 
 import x.telem as sy

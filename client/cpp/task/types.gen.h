@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "client/cpp/device/key.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
@@ -39,15 +39,44 @@ namespace synnax::task {
 struct KeyedConfig;
 struct Where;
 struct Command;
+struct Cursor;
 struct StartConfig;
 struct ScanConfig;
-struct RetrieveRequest;
+struct Order;
 struct PersistConfig;
+struct RetrieveRequest;
+struct RetrieveResponse;
 struct ReadConfig;
 struct WriteConfig;
-struct RetrieveResponse;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 using Key = x::uuid::UUID;
+
+/// @brief StatusDetails contains task-specific status details including execution
+/// state.
+struct StatusDetails {
+    /// @brief running is true if the task is currently executing.
+    bool running = false;
+    /// @brief cmd is the last command executed on this task.
+    std::string cmd = "";
+    /// @brief config_hash is the hash of the config the running task instance was built
+    /// from. Empty when no instance exists.
+    std::string config_hash = "";
+    /// @brief rack is the key of the rack running the task instance.
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
+    /// @brief data contains task-specific status data.
+    std::optional<x::json::json::object_t> data;
+
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::task::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::task::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::task::pb::StatusDetails &pb);
+};
 
 /// @brief KeyedConfig is the base for every stored task configuration record.
 struct KeyedConfig {
@@ -126,33 +155,6 @@ using Scale = std::
 
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);
-
-/// @brief StatusDetails contains task-specific status details including execution
-/// state.
-struct StatusDetails {
-    /// @brief task is the key of the task this status pertains to.
-    Key task;
-    /// @brief running is true if the task is currently executing.
-    bool running = false;
-    /// @brief cmd is the last command executed on this task.
-    std::string cmd = "";
-    /// @brief config_hash is the hash of the config the running task instance was built
-    /// from. Empty when no instance exists.
-    std::string config_hash = "";
-    /// @brief rack is the key of the rack running the task instance.
-    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
-    /// @brief data contains task-specific status data.
-    std::optional<x::json::json::object_t> data;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::task::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::task::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::task::pb::StatusDetails &pb);
-};
 
 /// @brief Where is a filter that selects tasks.
 struct Where {
@@ -238,6 +240,25 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
+/// @brief Cursor is a position in an order of tasks: the sort value and the key of a
+/// task.
+struct Cursor {
+    /// @brief key is the key of the task at the position.
+    Key key;
+    /// @brief name is the name of the task at the position, when the order sorts by it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::Cursor;
+    [[nodiscard]] std::pair<::api::task::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::task::pb::Cursor &pb);
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
 /// @brief StartConfig carries the configuration fields shared by every task.
 struct StartConfig : public KeyedConfig {
     /// @brief auto_start is true when the task should start as soon as it is
@@ -259,63 +280,20 @@ struct ScanConfig : public KeyedConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Order is a sort of tasks.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the tasks that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most tasks to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching tasks to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
-
-/// @brief RetrieveRequest is a request to retrieve tasks.
-struct RetrieveRequest {
-    /// @brief where selects the tasks to retrieve. An absent where selects all of them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the tasks that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most tasks to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching tasks to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .limit = options.limit,
-            .offset = options.offset,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::task::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::task::pb::RetrieveRequest &pb);
-};
-
-/// @brief PersistConfig carries the configuration fields shared by tasks that write
-/// telemetry.
-struct PersistConfig : public StartConfig {
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    bool data_saving_disabled = false;
-
-    static PersistConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
+    using proto_type = ::api::task::pb::Order;
+    [[nodiscard]] std::pair<::api::task::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::task::pb::Order &pb);
 };
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
@@ -357,6 +335,83 @@ struct Task {
     from_proto(const ::service::task::pb::Task &pb);
 };
 
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the tasks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the tasks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the tasks strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most tasks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve tasks.
+struct RetrieveRequest {
+    /// @brief where selects the tasks to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the tasks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the tasks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the tasks strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most tasks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::task::pb::RetrieveRequest &pb);
+};
+
+/// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief tasks are the tasks the request selects.
+    std::vector<Task> tasks;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::task::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::task::pb::RetrieveResponse &pb);
+};
+
 /// @brief ReadConfig carries the configuration fields shared by hardware acquisition
 /// tasks.
 struct ReadConfig : public PersistConfig {
@@ -380,24 +435,9 @@ struct WriteConfig : public PersistConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief tasks are the tasks the request selects.
-    std::vector<Task> tasks;
+const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::task::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::api::task::pb::RetrieveResponse &pb);
-};
-
-const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
-
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("task", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("task", key.to_string());
 }
 }

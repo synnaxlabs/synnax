@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/union"
 )
@@ -22,8 +23,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
 	ActionTypeAddChannel = "add_channel"
 	// ActionTypeRemoveChannel is the Type of an Action that carries
@@ -65,17 +64,20 @@ const (
 	ActionTypeSetTimestampsHidden = "set_timestamps_hidden"
 	// ActionTypeSetTimeZone is the Type of an Action that carries SetTimeZonePayload.
 	ActionTypeSetTimeZone = "set_time_zone"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Log Log `json:"log" msgpack:"log"`
-}
-
-// RenamePayload renames the log.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
 }
 
 // AddChannelPayload appends a default channel entry for the given channel. No-op when
@@ -177,12 +179,41 @@ type SetTimeZonePayload struct {
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 }
 
+// SetPayload replaces the value at a path in the log.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the log.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the log.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the log.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
 // Action is a discriminated union for all Log mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type                      string                            `json:"type" msgpack:"type"`
 	Create                    *CreatePayload                    `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename                    *RenamePayload                    `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	AddChannel                *AddChannelPayload                `json:"add_channel,omitzero" msgpack:"add_channel,omitempty"`
 	RemoveChannel             *RemoveChannelPayload             `json:"remove_channel,omitzero" msgpack:"remove_channel,omitempty"`
 	SetChannelEntry           *SetChannelEntryPayload           `json:"set_channel_entry,omitzero" msgpack:"set_channel_entry,omitempty"`
@@ -198,6 +229,10 @@ type Action struct {
 	SetChannelNamesHidden     *SetChannelNamesHiddenPayload     `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
 	SetTimestampsHidden       *SetTimestampsHiddenPayload       `json:"set_timestamps_hidden,omitzero" msgpack:"set_timestamps_hidden,omitempty"`
 	SetTimeZone               *SetTimeZonePayload               `json:"set_time_zone,omitzero" msgpack:"set_time_zone,omitempty"`
+	Set                       *SetPayload                       `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove                    *RemovePayload                    `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert                    *InsertPayload                    `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move                      *MovePayload                      `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -213,11 +248,6 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeAddChannel:
 			if a.AddChannel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -293,6 +323,26 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimeZone.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
 			return state, union.UnknownVariant(a.Type)
 		}
@@ -306,11 +356,6 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewAddChannelAction wraps a AddChannelPayload in an Action envelope.
@@ -386,4 +431,24 @@ func NewSetTimestampsHiddenAction(p SetTimestampsHiddenPayload) Action {
 // NewSetTimeZoneAction wraps a SetTimeZonePayload in an Action envelope.
 func NewSetTimeZoneAction(p SetTimeZonePayload) Action {
 	return Action{Type: ActionTypeSetTimeZone, SetTimeZone: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

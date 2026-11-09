@@ -16,13 +16,15 @@ from synnax.task.client import (
     assign_keys,
 )
 from synnax.task.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Command,
+    Cursor,
     Key,
     KeyedConfig,
     LinearScale,
     MapScale,
     NoneScale,
+    Order,
     Payload,
     PersistConfig,
     PolynomialScale,
@@ -36,19 +38,21 @@ from synnax.task.types_gen import (
     Where,
     WhereInput,
     WriteConfig,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Command",
+    "Cursor",
     "JSONConfigMixin",
     "Key",
     "KeyedConfig",
     "LinearScale",
     "MapScale",
     "NoneScale",
+    "Order",
     "Payload",
     "PersistConfig",
     "PolynomialScale",
@@ -66,5 +70,5 @@ __all__ = [
     "WhereInput",
     "WriteConfig",
     "assign_keys",
-    "ontology_id",
+    "resource_id",
 ]

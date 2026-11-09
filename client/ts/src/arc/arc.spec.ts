@@ -88,9 +88,7 @@ describe("arc", () => {
 
     it("should omit missing keys from a filter on keys", async () => {
       const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
-      const res = await client.arcs.retrieve({
-        where: { key: { in: [created.key, uuid.create()] } },
-      });
+      const res = await client.arcs.retrieve({ key: [created.key, uuid.create()] });
       expect(res.map(({ key }) => key)).toEqual([created.key]);
     });
   });
@@ -156,16 +154,11 @@ describe("arc", () => {
   describe("task", () => {
     const attachTask = async (arcKey: arc.Key): Promise<task.Task> => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const tsk = await rack.createTask({
+      return await rack.createTask({
         name: `arc-task-${id.create()}`,
         type: "arc",
-        config: {},
+        config: { arcKey },
       });
-      await client.ontology.addChildren(
-        arc.ontologyID(arcKey),
-        task.ontologyID(tsk.key),
-      );
-      return tsk;
     };
 
     it("resolves null for an arc with no task", async () => {
@@ -177,25 +170,32 @@ describe("arc", () => {
       expect(await client.arcs.task.retrieve(uuid.create())).toBeNull();
     });
 
+    it("resolves null for an arc whose task runs another arc", async () => {
+      const owner = await client.arcs.create(newTextArc(`task-own-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`task-other-${id.create()}`));
+      await attachTask(owner.key);
+      expect(await client.arcs.task.retrieve(other.key)).toBeNull();
+    });
+
     it("retrieves the task attached to an arc and caches the answer", async () => {
       const created = await client.arcs.create(newTextArc(`task-${id.create()}`));
       const tsk = await attachTask(created.key);
       const res = await client.arcs.task.retrieve(created.key);
       expect(res?.key).toEqual(tsk.key);
       expect(res?.config).toMatchObject({ key: expect.any(String) });
-      const cached = client.arcs.task.getCached(created.key);
+      const cached = client.arcs.task.watch(created.key).getCached();
       expect(expectLive(cached)?.key).toEqual(tsk.key);
     });
 
     it("delivers a task attached while subscribed", async () => {
       const created = await client.arcs.create(newTextArc(`task-sub-${id.create()}`));
-      const off = client.arcs.task.onChange(created.key, vi.fn());
+      const off = client.arcs.task.watch(created.key).onChange(vi.fn());
       try {
         expect(await client.arcs.task.retrieve(created.key)).toBeNull();
         const tsk = await attachTask(created.key);
         await expect
           .poll(() => {
-            const cached = client.arcs.task.getCached(created.key);
+            const cached = client.arcs.task.watch(created.key).getCached();
             return query.isLive(cached) && cached?.key === tsk.key;
           })
           .toBe(true);
@@ -209,17 +209,16 @@ describe("arc", () => {
         newTextArc(`task-status-${id.create()}`),
       );
       const tsk = await attachTask(created.key);
-      const off = client.arcs.task.onChange(created.key, vi.fn());
+      const off = client.arcs.task.watch(created.key).onChange(vi.fn());
       try {
         const res = await client.arcs.task.retrieve(created.key);
         expect(res?.key).toEqual(tsk.key);
         await client.statuses.set(
           status.create<ReturnType<typeof task.statusDetailsZ>>({
-            key: task.statusKey(tsk.key),
+            owner: task.resourceID(tsk.key),
             variant: "error",
             message: "Task failed",
             details: {
-              task: tsk.key,
               running: false,
               cmd: "",
               configHash: "",
@@ -230,7 +229,7 @@ describe("arc", () => {
         );
         await expect
           .poll(() => {
-            const cached = client.arcs.task.getCached(created.key);
+            const cached = client.arcs.task.watch(created.key).getCached();
             return (
               query.isLive(cached) &&
               cached?.status?.variant === "error" &&
@@ -255,6 +254,16 @@ describe("arc", () => {
       expect(tsk?.config.arcKey).toEqual(created.key);
       expect(tsk?.config.hash).not.toEqual("");
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
+    });
+
+    it("finds the task through the task client by its Arc", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const deployed = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`by-arc-${id.create()}`));
+      const tsk = await client.arcs.updateTask(deployed.key, { rack: rack.key });
+      await client.arcs.updateTask(other.key, { rack: rack.key });
+      const found = await client.tasks.retrieve({ arcs: [deployed.key] });
+      expect(found.map(({ key }) => key)).toEqual([tsk?.key]);
     });
 
     it("reuses the task across rebinds and rack moves", async () => {
@@ -312,6 +321,19 @@ describe("arc", () => {
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
     });
 
+    it("does not serve a snapshot of the task after an unbind", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`snap-${id.create()}`));
+      const tsk = await client.arcs.updateTask(created.key, { rack: rack.key });
+      if (tsk == null) throw new Error("expected a deployment task");
+      expect((await client.arcs.task.retrieve(created.key))?.key).toEqual(tsk.key);
+      await client.tasks.copy(tsk.key, "Snapshot", true);
+      await client.arcs.updateTask(created.key, { rack: 0 });
+      await expect
+        .poll(async () => await client.arcs.task.retrieve(created.key))
+        .toBeNull();
+    });
+
     it("defaults a new task to auto performance", async () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`auto-${id.create()}`));
@@ -346,7 +368,7 @@ describe("arc", () => {
       if (tsk == null) throw new Error("expected a deployment task");
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID(""), task.ontologyID("")],
+        objects: [arc.resourceID(""), task.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(

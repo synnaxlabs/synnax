@@ -7,12 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, type ontology } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
 export const RESOURCE_NAME = "directory";
+
+export type RetrieveRootQuery = Record<string, never>;
+
+/** Returns the key of the directory that holds every other directory and Arc. */
+export const { use: useRootKey } = Flux.createRetrieve<
+  RetrieveRootQuery,
+  arc.directory.Key
+>({
+  name: "root directory",
+  retrieve: async ({ client }) => (await client.arcs.directories.retrieveRoot()).key,
+});
 
 export interface CreateParams extends arc.directory.CreateParams {}
 
@@ -45,29 +56,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.arcs.directories.delete(data);
-    return data;
-  },
-});
-
-export interface MoveParams {
-  source: ontology.ID;
-  destination: ontology.ID;
-  ids: ontology.ID[];
-}
-
-const MOVE_VERBS: verbs.Verbs = {
-  present: "move",
-  participle: "moving",
-  past: "moved",
-};
-
-export const { useUpdate: useMove } = Flux.createUpdate<MoveParams>({
-  name: RESOURCE_NAME,
-  verbs: MOVE_VERBS,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { source, destination, ids } = data;
-    await onOptimisticComplete(data);
-    await client.arcs.directories.move(source, destination, ...ids);
     return data;
   },
 });

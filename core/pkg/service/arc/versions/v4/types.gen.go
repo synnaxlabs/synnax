@@ -14,6 +14,7 @@ package v4
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"uuid"
 
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/program"
@@ -35,6 +36,26 @@ const (
 	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = v3.ModeGraph
 )
+
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type string
+
+const (
+	TypeAutomation Type = "automation"
+	TypeModule     Type = "module"
+)
+
+// IsValid reports whether t is one of the defined Type
+// values.
+func (t Type) IsValid() bool {
+	switch t {
+	case TypeAutomation, TypeModule:
+		return true
+	default:
+		return false
+	}
+}
 
 // SourceVariant is implemented by every Source variant.
 type SourceVariant interface {
@@ -167,6 +188,8 @@ type Base struct {
 	Name string `json:"name" msgpack:"name"`
 	// Source is the Arc's source code, written as text or drawn as a graph.
 	Source Source `json:"source" msgpack:"source"`
+	// Directory is the key of the directory that holds the Arc.
+	Directory *uuid.UUID `json:"directory,omitzero" msgpack:"directory,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -364,25 +387,5 @@ func (u *Arc) SetBase(base Base) {
 		u.Variant = variant
 	default:
 		panic(errors.Newf("Arc: cannot set the base of variant %T", variant))
-	}
-}
-
-// Type specifies whether an Arc runs on a rack as an automation or holds code for other
-// Arcs to import as a module.
-type Type string
-
-const (
-	TypeAutomation Type = "automation"
-	TypeModule     Type = "module"
-)
-
-// IsValid reports whether t is one of the defined Type
-// values.
-func (t Type) IsValid() bool {
-	switch t {
-	case TypeAutomation, TypeModule:
-		return true
-	default:
-		return false
 	}
 }

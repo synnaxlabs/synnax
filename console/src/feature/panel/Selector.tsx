@@ -44,7 +44,7 @@ import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const ids = panel.ontologyID(keys);
+  const ids = panel.resourceID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Modals.useConfirmDelete({ type: "Panel" });
@@ -59,7 +59,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       const panelKeys = array.toArray(data);
       if (panelKeys.length === 0) return false;
       const items = panelKeys.map((key) => {
-        const cached = client?.panels.getCached(key);
+        const cached = client?.panels.watch(key).getCached();
         return { name: query.isLive(cached) ? cached.name : "this panel" };
       });
       if (!(await confirm(items))) return false;
@@ -217,7 +217,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
 // hold the tab, the drag twin of the picker's "New panel" entry.
 const CreateButton = (): ReactElement | null => {
   const selected = Session.Panel.useSelectSelected();
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const handleCreate = useCreate();
   const moveToNewPanel = useMoveTabToNewPanel();
   const { className, ...dropProps } = useTabDrop(undefined, moveToNewPanel);

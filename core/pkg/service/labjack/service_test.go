@@ -14,16 +14,38 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *labjack.Service
+	var (
+		svc        *labjack.Service
+		channelSvc *channel.Service
+		tasks      *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB: db,
+		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
+		}))
 		svc = MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Status: statusSvc,
+			Stores: svc.Stores(),
 		}))
 	})
 
@@ -52,19 +74,20 @@ var _ = Describe("Service", func() {
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":    "analog",
 					"key":     "chan-1",
 					"port":    "AIN0",
-					"channel": 42,
+					"channel": ch,
 					"scale":   map[string]any{"type": "none"},
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -73,9 +96,8 @@ var _ = Describe("Service", func() {
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
 		})
@@ -83,18 +105,16 @@ var _ = Describe("Service", func() {
 		It("Should apply write config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 10))
 		})
 
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 			Expect(data["tcp_scan_multiplier"]).To(BeNumerically("==", 10))
 		})
@@ -102,7 +122,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid channel", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",

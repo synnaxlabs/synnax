@@ -10,25 +10,29 @@
 from synnax.device.client import Client
 from synnax.device.properties import ensure_object
 from synnax.device.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
+    Cursor,
     Device,
     Key,
+    Order,
     Status,
     StatusDetails,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Device",
     "Key",
+    "Order",
     "Status",
     "StatusDetails",
     "Where",
     "WhereInput",
     "ensure_object",
-    "ontology_id",
+    "resource_id",
 ]

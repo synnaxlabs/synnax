@@ -13,8 +13,7 @@ import re
 import tempfile
 from typing import TypeVar
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 import synnax as sy
@@ -623,34 +622,34 @@ class PagesClient(ResourceClient):
         self.ctx_menu.action(last, f"Snapshot to {range_name}")
         self.layout.close_left_toolbar()
 
-    def copy(self, name: str, new_name: str) -> None:
-        """Make a copy of a page via context menu.
+    def duplicate(self, name: str, new_name: str) -> None:
+        """Duplicate a page via context menu.
 
-        :param name: Name of the page to copy.
-        :param new_name: Name for the new copy.
+        :param name: Name of the page to duplicate.
+        :param new_name: Name for the duplicate.
         """
         self.expand_active()
         page_item = self.get(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, "Copy")
+        self.ctx_menu.action(page_item, "Duplicate")
 
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.get(new_name).wait_for(state="visible", timeout=5000)
         self.layout.close_left_toolbar()
 
-    def copy_many(self, names: list[str]) -> None:
-        """Copy multiple pages via context menu.
+    def duplicate_many(self, names: list[str]) -> None:
+        """Duplicate multiple pages via context menu.
 
-        Each copy gets a " (copy)" suffix automatically.
+        Each duplicate gets a " (copy)" suffix automatically.
 
-        :param names: List of page names to copy.
+        :param names: List of page names to duplicate.
         """
         if not names:
             return
         self.expand_active()
         last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
-        self.ctx_menu.action(last, "Copy")
+        self.ctx_menu.action(last, "Duplicate")
         for name in names:
             copy_name = f"{name} (copy)"
             self.get(copy_name).wait_for(state="visible", timeout=5000)

@@ -21,25 +21,29 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -47,12 +51,15 @@ import (
 )
 
 var (
+	// hookedKV stores the node, so a spec can intercept the commits of db.
+	hookedKV   *hookkv.DB
 	db         *gorp.DB
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	deviceSvc  *device.Service
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
+	taskSvc    *task.Service
 	cluster    *kfake.Cluster
 )
 
@@ -63,46 +70,39 @@ func TestKafka(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	hookedKV = hookkv.Wrap(st.KV)
+	node := testutil.NewNode(ctx, distribution.LayerConfig{
+		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+	})
 	db = node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: db,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackSvc,
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -115,6 +115,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(kafkaSvc.Stores()...)),
+	}))
 	cluster = MustSucceed(kfake.NewCluster(
 		kfake.NumBrokers(1),
 		kfake.AllowAutoTopicCreation(),
@@ -124,33 +133,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
-type gatedDB struct {
-	kv.DB
-	gated   atomic.Bool
-	held    chan struct{}
-	release chan struct{}
-}
+var errCommit = errors.New("commit failed")
 
-func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
+// refuse fails the commit it intercepts.
+func refuse(func() error) error { return errCommit }
 
-type gatedTx struct {
-	kv.Tx
-	db *gatedDB
-}
-
-func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
-	GinkgoHelper()
-	// A task commits on its own goroutine, where a failed assertion needs a recover.
-	defer GinkgoRecover()
-	if t.db.gated.CompareAndSwap(true, false) {
-		close(t.db.held)
-		Eventually(t.db.release).WithTimeout(15 * time.Second).Should(BeClosed())
-	}
-	return t.Tx.Commit(ctx, opts...)
-}
-
-// newFactory opens a Kafka factory over the suite's services.
 func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
 	GinkgoHelper()
 	return MustSucceed(kafka.NewFactory(append([]kafka.FactoryConfig{{
@@ -191,7 +178,9 @@ func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 		Configured: true,
 		Properties: toJSON(props),
 	}
-	Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+	})).To(Succeed())
 	return dev
 }
 
@@ -207,26 +196,39 @@ func createIndexed(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &index)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &index)
+	})).To(Succeed())
 	data = channel.Channel{
 		Name:       "data_" + suffix,
 		DataType:   dt,
 		LocalIndex: index.LocalKey,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &data)
+	})).To(Succeed())
 	return index, data
 }
 
-// newTask returns a stored task row of typ holding cfg.
-func newTask(typ string, cfg any) task.Task {
+// newTask stores and returns a task of typ holding cfg. It skips task.Writer, which
+// writes a status of its own, so a spec sees only the statuses the factory writes.
+func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	GinkgoHelper()
-	return task.Task{
+	t := task.Task{
 		Key:    uuid.New(),
 		Rack:   rackSvc.EmbeddedKey,
 		Name:   "test-" + typ,
 		Type:   typ,
 		Config: toJSON(cfg),
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
+	})
+	return t
 }
 
 // taskStatus retrieves the status of t.
@@ -234,9 +236,9 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 
@@ -245,9 +247,9 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+		Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 

@@ -73,9 +73,7 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
   const result = render(<div>{loaders}</div>, { wrapper });
   for (const k of keys) await screen.findByText(`loaded:${k}`);
-  const resources = devices.map((d) =>
-    createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
-  );
+  const resources = devices.map((d) => createDeviceResource(d));
   const props = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: resources.map((r) => r.id) }),
@@ -233,7 +231,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
     if (readTab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(readTab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(readTab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const read = await client.tasks.retrieve({ key: readTab.resource.key });
     expect(read.type).toBe(EtherCAT.Task.READ_TYPE);
     fireEvent.click(screen.getByText("Create write task"));

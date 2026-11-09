@@ -27,7 +27,7 @@ beforeAll(async () => {
 });
 
 const createSchematic = async (): Promise<schematic.Schematic> =>
-  await client.schematics.create(proj.key, { name: uniqueName("schematic") });
+  await client.schematics.create({ project: proj.key, name: uniqueName("schematic") });
 
 const preloadWith = (...keys: string[]): Partial<Session.State> => ({
   [Session.Schematic.SLICE_NAME]: {

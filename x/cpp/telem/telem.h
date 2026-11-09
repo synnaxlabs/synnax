@@ -331,39 +331,32 @@ public:
     /// @returns seconds since Unix epoch as a double.
     [[nodiscard]] double seconds() const { return static_cast<double>(value) / 1e9; }
 
-    /// @brief returns the timestamp as an ISO 8601 UTC string.
+    /// @brief returns the timestamp as an ISO 8601 string, offset_seconds east of UTC.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
-    [[nodiscard]] std::string iso8601() const {
-        const int64_t sec = value / 1000000000 - (value % 1000000000 != 0 && value < 0);
-        const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
-        const int64_t sod = sec - day * 86400;
-        const date::Date d = date::civil_from_days(static_cast<int32_t>(day));
-        const auto hh = sod / 3600;
-        const auto mm = (sod / 60) % 60;
-        const auto ss = sod % 60;
+    [[nodiscard]] std::string iso8601(const int32_t offset_seconds = 0) const {
+        const date::CivilTime c = date::civil_from_nanoseconds(value, offset_seconds);
 
-        char buf[30];
-        strings::write_number(buf + 0, d.year, 4);
+        char buf[40];
+        strings::write_number(buf + 0, c.year, 4);
         buf[4] = '-';
-        strings::write_number(buf + 5, d.month, 2);
+        strings::write_number(buf + 5, c.month, 2);
         buf[7] = '-';
-        strings::write_number(buf + 8, d.day, 2);
+        strings::write_number(buf + 8, c.day, 2);
         buf[10] = 'T';
-        strings::write_number(buf + 11, static_cast<int>(hh), 2);
+        strings::write_number(buf + 11, c.hour, 2);
         buf[13] = ':';
-        strings::write_number(buf + 14, static_cast<int>(mm), 2);
+        strings::write_number(buf + 14, c.minute, 2);
         buf[16] = ':';
-        strings::write_number(buf + 17, static_cast<int>(ss), 2);
+        strings::write_number(buf + 17, c.second, 2);
 
         int len = 19;
 
-        if (frac_ns != 0) {
+        if (c.nanosecond != 0) {
             buf[len++] = '.';
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            strings::write_number(frac, static_cast<int>(frac_ns), 9);
+            strings::write_number(frac, c.nanosecond, 9);
 
             // find last non-zero digit
             int8_t last = 8;
@@ -375,7 +368,18 @@ public:
                 buf[len++] = frac[i];
         }
 
-        buf[len++] = 'Z';
+        if (offset_seconds == 0) {
+            buf[len++] = 'Z';
+            return std::string(buf, (size_t) len);
+        }
+        int minutes = offset_seconds / 60;
+        buf[len++] = minutes < 0 ? '-' : '+';
+        if (minutes < 0) minutes = -minutes;
+        strings::write_number(buf + len, minutes / 60, 2);
+        len += 2;
+        buf[len++] = ':';
+        strings::write_number(buf + len, minutes % 60, 2);
+        len += 2;
         return std::string(buf, (size_t) len);
     }
 
@@ -646,24 +650,24 @@ TimeRange::from_proto(const pb::TimeRange &pb) {
 /// This class provides a simple interface for timing code execution and returns
 /// results as telem::TimeSpan for consistency with other time-related utilities.
 class Stopwatch {
-    std::chrono::steady_clock::time_point start_;
+    std::chrono::steady_clock::time_point start;
 
 public:
     /// @brief Constructs a Stopwatch and starts timing immediately.
-    Stopwatch(): start_(std::chrono::steady_clock::now()) {}
+    Stopwatch(): start(std::chrono::steady_clock::now()) {}
 
     /// @brief Returns the elapsed time since construction or last reset.
     [[nodiscard]] TimeSpan elapsed() const {
         const auto now = std::chrono::steady_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                            now - this->start_
+                            now - this->start
         )
                             .count();
         return TimeSpan(ns);
     }
 
     /// @brief Resets the stopwatch to start timing from now.
-    void reset() { this->start_ = std::chrono::steady_clock::now(); }
+    void reset() { this->start = std::chrono::steady_clock::now(); }
 };
 
 class Rate {
@@ -951,7 +955,7 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
-    size_t density_ = 0;
+    size_t bytes_per_sample = 0;
 
 public:
     DataType() = default;
@@ -960,7 +964,7 @@ public:
     explicit DataType(std::string data_type): value(std::move(data_type)) {
         const auto cached_density_iter = DENSITIES.find(value);
         if (cached_density_iter != DENSITIES.end())
-            this->density_ = cached_density_iter->second;
+            this->bytes_per_sample = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -1032,7 +1036,7 @@ public:
     }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return this->density_; }
+    [[nodiscard]] size_t density() const { return this->bytes_per_sample; }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(details::VARIABLE_TYPES);

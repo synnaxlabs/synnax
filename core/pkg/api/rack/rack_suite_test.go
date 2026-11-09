@@ -15,14 +15,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,56 +39,69 @@ func TestAPIRack(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db        *gorp.DB
 	svc       *service.Layer
 	apiSvc    *apirack.Service
 	statusAPI *apistatus.Service
+	// create, rename, setGroup, del, and retrieve run their routes as the API layer
+	// binds them.
+	create   freighter.UnaryHandler[apirack.CreateRequest, apirack.CreateResponse]
+	rename   freighter.UnaryHandler[apirack.RenameRequest, struct{}]
+	setGroup freighter.UnaryHandler[apirack.SetGroupRequest, struct{}]
+	dispatch freighter.UnaryHandler[apirack.DispatchRequest, struct{}]
+	del      freighter.UnaryHandler[apirack.DeleteRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apirack.RetrieveRequest,
+		apirack.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apirack.NewService(apirack.ServiceConfig{
 		Rack:   svc.Rack,
-		Device: svc.Device,
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
-		Auth:   svc.Auth,
 	}))
 	statusAPI = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: svc.Status,
-		Label:  svc.Label,
-		RBAC:   svc.RBAC,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	rename = bind.Write(binder, apiSvc.Rename)
+	del = bind.Write(binder, apiSvc.Delete)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-// grant grants the action on the given objects to the subject through a fresh role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	action access.Action,
-	subject ontology.ID,
-	objects ...ontology.ID,
+	subject resource.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

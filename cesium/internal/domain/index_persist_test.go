@@ -65,15 +65,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					FileSize:        5 * telem.Byte,
 					GCThreshold:     0,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Concurrent writers", func() {
@@ -101,7 +98,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					}
 					wg.Wait()
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
@@ -223,7 +220,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
@@ -282,7 +279,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 				It("Should persist an empty index", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
@@ -297,7 +294,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 				reopen := func(fs xfs.FS) {
 					GinkgoHelper()
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        telem.Megabyte,
 						GCThreshold:     0,
@@ -466,7 +463,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						Expect(db.Close()).To(Succeed())
 						// A domain inserted before the last one notifies the history
 						// change after its write prepares and before it runs.
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              hooked,
 							FileSize:        telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -517,7 +514,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					func(ctx SpecContext) {
 						prepared := make(chan struct{}, 1)
 						Expect(db.Close()).To(Succeed())
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              hooked,
 							FileSize:        telem.Megabyte,
 							Instrumentation: PanicLogger(),

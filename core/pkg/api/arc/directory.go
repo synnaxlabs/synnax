@@ -13,11 +13,33 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
+
+// RetrieveDirectories returns the Arc directories that req selects and that the subject
+// can retrieve.
+func (s *Service) RetrieveDirectories(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req apidirectory.RetrieveRequest,
+) (apidirectory.RetrieveResponse, error) {
+	var res apidirectory.RetrieveResponse
+	q, err := apidirectory.ApplyRetrieve(
+		req,
+		s.internal.NewDirectoryRetrieve().Entries(&res.Directories),
+	)
+	if err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	if err = q.Where(bind.Filter(snap, directory.Match)).Exec(ctx, snap); err != nil {
+		return apidirectory.RetrieveResponse{}, err
+	}
+	return res, nil
+}
 
 type (
 	// CreateDirectoryRequest creates Directory in the directory Parent.
@@ -31,20 +53,12 @@ type (
 	}
 )
 
-// CreateDirectory creates a directory of Arcs. The caller must hold create access to
-// directories.
+// CreateDirectory creates a directory of Arcs.
 func (s *Service) CreateDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateDirectoryRequest,
 ) (CreateDirectoryResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeArcDirectory}},
-	}); err != nil {
-		return CreateDirectoryResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		CreateDirectory(ctx, &req.Directory, req.Parent); err != nil {
 		return CreateDirectoryResponse{}, err
@@ -58,20 +72,27 @@ type RenameDirectoryRequest struct {
 	Name string        `json:"name" msgpack:"name"`
 }
 
-// RenameDirectory renames a directory. The caller must hold update access to it.
+// RenameDirectory renames a directory.
 func (s *Service) RenameDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameDirectoryRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{directory.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).RenameDirectory(ctx, req.Key, req.Name)
+}
+
+// DispatchDirectoryRequest carries a sequence of actions to apply to one directory.
+type DispatchDirectoryRequest = actions.DispatchRequest[directory.Key, directory.Action]
+
+// DispatchDirectory applies the action sequence to the directory in tx.
+func (s *Service) DispatchDirectory(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchDirectoryRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		ApplyDirectory(ctx, req.Key, req.Actions...)
 }
 
 // DeleteDirectoryRequest deletes the directories with Keys.
@@ -79,24 +100,12 @@ type DeleteDirectoryRequest struct {
 	Keys []directory.Key `json:"keys" msgpack:"keys"`
 }
 
-// DeleteDirectory deletes empty directories. The caller must hold delete access to
-// them.
+// DeleteDirectory deletes empty directories.
 func (s *Service) DeleteDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteDirectoryRequest,
 ) (struct{}, error) {
-	ids := make([]ontology.ID, len(req.Keys))
-	for i, k := range req.Keys {
-		ids[i] = directory.OntologyID(k)
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: ids,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).DeleteDirectory(ctx, req.Keys...)
 }
 
@@ -105,26 +114,14 @@ func (s *Service) DeleteDirectory(
 type MoveRequest struct {
 	From directory.Key `json:"from" msgpack:"from"`
 	To   directory.Key `json:"to"   msgpack:"to"`
-	IDs  []ontology.ID `json:"ids"  msgpack:"ids"`
+	IDs  []resource.ID `json:"ids"  msgpack:"ids"`
 }
 
-// Move moves Arcs and directories between directories. The caller must hold update
-// access to each moved entry, to the source, and to the destination.
+// Move moves Arcs and directories between directories in one transaction.
 func (s *Service) Move(
 	ctx context.Context,
 	tx gorp.Tx,
 	req MoveRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(
-			req.IDs,
-			directory.OntologyID(req.From),
-			directory.OntologyID(req.To),
-		),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Move(ctx, req.From, req.To, req.IDs...)
 }
