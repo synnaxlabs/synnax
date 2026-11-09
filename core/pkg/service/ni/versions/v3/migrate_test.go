@@ -143,14 +143,14 @@ var _ = Describe("MigrateCIChannel", func() {
 			}))
 			Expect(got.Variant.(v3.CIFrequencyChannel).Divisor).To(Equal(want))
 		},
-		Entry("below 1", int32(0), uint32(1)),
+		Entry("absent", int32(0), uint32(0)),
 		Entry("negative", int32(-5), uint32(1)),
 		Entry("at the maximum", int32(math.MaxInt32), uint32(math.MaxInt32)),
 	)
 
 	It("Should clamp the period divisor to at least 1", func(ctx SpecContext) {
 		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
-			Variant: v2.CIPeriodChannel{Divisor: 0},
+			Variant: v2.CIPeriodChannel{Divisor: -1},
 		}))
 		Expect(got.Variant.(v3.CIPeriodChannel).Divisor).To(Equal(uint32(1)))
 	})
@@ -163,6 +163,7 @@ var _ = Describe("MigrateCIChannel", func() {
 			Expect(got.Variant.(v3.CIPositionAngularChannel).PulsesPerRev).
 				To(Equal(want))
 		},
+		Entry("absent", 0.0, uint32(0)),
 		Entry("below 1", 0.5, uint32(1)),
 		Entry("a fraction", 24.9, uint32(24)),
 		Entry("above uint32", 1e12, uint32(math.MaxUint32)),
@@ -254,10 +255,89 @@ var _ = Describe("DigitalReadMigration", func() {
 			line := changes[0].ContextMap()
 			Expect(line).To(HaveKeyWithValue("config", stored.Key.String()))
 			Expect(line).To(HaveKeyWithValue("channel", "bad"))
-			Expect(line).To(HaveKeyWithValue("field", "line"))
-			Expect(line).To(HaveKeyWithValue("old", 40.0))
-			Expect(line).To(HaveKeyWithValue("new", 31.0))
-			Expect(changes[1].ContextMap()).To(HaveKeyWithValue("field", "disabled"))
+			Expect(line).To(HaveKeyWithValue("field", "Line"))
+			Expect(line["old"]).To(BeNumerically("==", 40))
+			Expect(line["new"]).To(BeNumerically("==", 31))
+			Expect(changes[1].ContextMap()).To(HaveKeyWithValue("field", "Disabled"))
 		},
 	)
+})
+
+var _ = Describe("CounterReadMigration", func() {
+	It("Should migrate a NaN pulse count and log the change", func(ctx SpecContext) {
+		stored := v2.CounterReadConfig{
+			Key: uuid.New(),
+			Channels: []v2.CIChannel{{Variant: v2.CIPositionAngularChannel{
+				BaseCIChannel: v2.BaseCIChannel{Key: "enc", Port: -1},
+				CustomScale: v2.CustomScale{
+					CustomScale: v2.Scale{Variant: v2.NoneScale{}},
+				},
+				PulsesPerRev: math.NaN(),
+			}}},
+		}
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[uuid.UUID, v2.CounterReadConfig]{DB: db},
+		))
+		Expect(gorp.NewCreate[uuid.UUID, v2.CounterReadConfig]().
+			Entry(&stored).Exec(ctx, db)).To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "ni_counter_read_config",
+			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+		})).To(Succeed())
+		var got v3.CounterReadConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.CounterReadConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.CounterReadConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		ch := got.Channels[0].Variant.(v3.CIPositionAngularChannel)
+		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
+		Expect(ch.Port).To(BeZero())
+		Expect(ch.Disabled).To(BeTrue())
+		fields := []any{}
+		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
+			fields = append(fields, e.ContextMap()["field"])
+		}
+		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
+	})
+})
+
+var _ = Describe("AnalogReadMigration", func() {
+	It("Should log a clamped cold-junction port", func(ctx SpecContext) {
+		stored := v2.AnalogReadConfig{
+			Key: uuid.New(),
+			Channels: []v2.AIChannel{{Variant: v2.AIThermocoupleChannel{
+				BaseAIChannel: v2.BaseAIChannel{Key: "tc", Port: 1},
+				Cjc:           v2.CJC{Variant: v2.ChanCJC{Port: -1}},
+			}}},
+		}
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[uuid.UUID, v2.AnalogReadConfig]{DB: db},
+		))
+		Expect(gorp.NewCreate[uuid.UUID, v2.AnalogReadConfig]().
+			Entry(&stored).Exec(ctx, db)).To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "ni_analog_read_config",
+			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+		})).To(Succeed())
+		fields := []any{}
+		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
+			fields = append(fields, e.ContextMap()["field"])
+		}
+		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
+	})
 })

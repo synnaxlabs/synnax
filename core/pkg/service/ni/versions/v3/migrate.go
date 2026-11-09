@@ -11,7 +11,6 @@ package v3
 
 import (
 	"context"
-	"encoding/json/v2"
 	"math"
 	"reflect"
 	"uuid"
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +50,24 @@ func narrowCount(old float64, lower uint32) uint32 {
 	return uint32(min(old, math.MaxUint32))
 }
 
+// narrowCountOrDefault is narrowCount, except that 0 stays 0 so that ApplyDefaults
+// fills the schema default, as it did at v2.
+func narrowCountOrDefault(old float64, lower uint32) uint32 {
+	if old == 0 {
+		return 0
+	}
+	return narrowCount(old, lower)
+}
+
+// narrowDivisor clamps a divisor to at least 1. 0 stays 0 so that ApplyDefaults fills
+// the schema default, as it did at v2.
+func narrowDivisor(old int32) uint32 {
+	if old == 0 {
+		return 0
+	}
+	return uint32(max(old, 1))
+}
+
 // MigrateBaseAIChannel lifts a v2 analog input base to v3. A negative port becomes 0
 // and disables the channel.
 func MigrateBaseAIChannel(
@@ -59,10 +75,13 @@ func MigrateBaseAIChannel(
 	old v2.BaseAIChannel,
 ) (BaseAIChannel, error) {
 	base, err := autoMigrateBaseAIChannel(ctx, old)
+	if err != nil {
+		return BaseAIChannel{}, err
+	}
 	var clamped bool
 	base.Port, clamped = narrowPort(old.Port)
 	base.Disabled = base.Disabled || clamped
-	return base, err
+	return base, nil
 }
 
 // MigrateBaseAOChannel lifts a v2 analog output base to v3. A negative port becomes 0
@@ -72,10 +91,13 @@ func MigrateBaseAOChannel(
 	old v2.BaseAOChannel,
 ) (BaseAOChannel, error) {
 	base, err := autoMigrateBaseAOChannel(ctx, old)
+	if err != nil {
+		return BaseAOChannel{}, err
+	}
 	var clamped bool
 	base.Port, clamped = narrowPort(old.Port)
 	base.Disabled = base.Disabled || clamped
-	return base, err
+	return base, nil
 }
 
 // MigrateBaseCIChannel lifts a v2 counter input base to v3. A negative port becomes 0
@@ -85,38 +107,45 @@ func MigrateBaseCIChannel(
 	old v2.BaseCIChannel,
 ) (BaseCIChannel, error) {
 	base, err := autoMigrateBaseCIChannel(ctx, old)
+	if err != nil {
+		return BaseCIChannel{}, err
+	}
 	var clamped bool
 	base.Port, clamped = narrowPort(old.Port)
 	base.Disabled = base.Disabled || clamped
-	return base, err
+	return base, nil
 }
 
 // MigrateCJC lifts a v2 cold-junction source to v3. A negative port becomes 0.
 // MigrateAnalogReadConfig disables the channel that holds it.
 func MigrateCJC(ctx context.Context, old v2.CJC) (CJC, error) {
 	cjc, err := autoMigrateCJC(ctx, old)
+	if err != nil {
+		return CJC{}, err
+	}
 	if c, ok := old.Variant.(v2.ChanCJC); ok {
 		port, _ := narrowPort(c.Port)
 		cjc.Variant = ChanCJC{Port: port}
 	}
-	return cjc, err
+	return cjc, nil
 }
 
-// MigrateCIChannel lifts a v2 counter input channel to v3. A divisor and a pulse count
-// below 1 become 1, a negative initial count becomes 0, and a fraction truncates.
+// MigrateCIChannel lifts a v2 counter input channel to v3. A divisor or pulse count
+// below 1 becomes 1, a negative initial count becomes 0, and a fraction truncates. An
+// absent divisor or pulse count stays absent for ApplyDefaults to fill.
 func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) {
 	ch, err := autoMigrateCIChannel(ctx, old)
 	if err != nil {
-		return ch, err
+		return CIChannel{}, err
 	}
 	switch o := old.Variant.(type) {
 	case v2.CIFrequencyChannel:
 		n := ch.Variant.(CIFrequencyChannel)
-		n.Divisor = uint32(max(o.Divisor, 1))
+		n.Divisor = narrowDivisor(o.Divisor)
 		ch.Variant = n
 	case v2.CIPeriodChannel:
 		n := ch.Variant.(CIPeriodChannel)
-		n.Divisor = uint32(max(o.Divisor, 1))
+		n.Divisor = narrowDivisor(o.Divisor)
 		ch.Variant = n
 	case v2.CIEdgeCountChannel:
 		n := ch.Variant.(CIEdgeCountChannel)
@@ -124,11 +153,11 @@ func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) 
 		ch.Variant = n
 	case v2.CIVelocityAngularChannel:
 		n := ch.Variant.(CIVelocityAngularChannel)
-		n.PulsesPerRev = narrowCount(o.PulsesPerRev, 1)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1)
 		ch.Variant = n
 	case v2.CIPositionAngularChannel:
 		n := ch.Variant.(CIPositionAngularChannel)
-		n.PulsesPerRev = narrowCount(o.PulsesPerRev, 1)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1)
 		ch.Variant = n
 	}
 	return ch, nil
@@ -138,22 +167,28 @@ func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) 
 // clamps and disables the channel.
 func MigrateDIChannel(ctx context.Context, old v2.DIChannel) (DIChannel, error) {
 	ch, err := autoMigrateDIChannel(ctx, old)
+	if err != nil {
+		return DIChannel{}, err
+	}
 	var portClamped, lineClamped bool
 	ch.Port, portClamped = narrowPort(old.Port)
 	ch.Line, lineClamped = narrowLine(old.Line)
 	ch.Disabled = ch.Disabled || portClamped || lineClamped
-	return ch, err
+	return ch, nil
 }
 
 // MigrateDOChannel lifts a v2 digital output channel to v3. A port or line out of range
 // clamps and disables the channel.
 func MigrateDOChannel(ctx context.Context, old v2.DOChannel) (DOChannel, error) {
 	ch, err := autoMigrateDOChannel(ctx, old)
+	if err != nil {
+		return DOChannel{}, err
+	}
 	var portClamped, lineClamped bool
 	ch.Port, portClamped = narrowPort(old.Port)
 	ch.Line, lineClamped = narrowLine(old.Line)
 	ch.Disabled = ch.Disabled || portClamped || lineClamped
-	return ch, err
+	return ch, nil
 }
 
 // MigrateAnalogReadConfig lifts a v2 analog read config to v3. A thermocouple whose
@@ -164,7 +199,7 @@ func MigrateAnalogReadConfig(
 ) (AnalogReadConfig, error) {
 	cfg, err := autoMigrateAnalogReadConfig(ctx, old)
 	if err != nil {
-		return cfg, err
+		return AnalogReadConfig{}, err
 	}
 	for i, ch := range old.Channels {
 		tc, ok := ch.Variant.(v2.AIThermocoupleChannel)
@@ -212,37 +247,100 @@ func MigrateDigitalWriteConfig(
 	return autoMigrateDigitalWriteConfig(ctx, old)
 }
 
-// narrowedFields are the channel fields a migration can change, with the CJC port as
-// "cjc.port".
+// narrowedFields are the Go names of the channel fields a migration can change.
 var narrowedFields = []string{
-	"port",
-	"line",
-	"divisor",
-	"initial_count",
-	"pulses_per_rev",
-	"cjc.port",
-	"disabled",
+	"Port",
+	"Line",
+	"Divisor",
+	"InitialCount",
+	"PulsesPerRev",
+	"Disabled",
 }
 
-// channelFields decodes the channels of a config into JSON objects, with the CJC port
-// lifted to "cjc.port".
-func channelFields(cfg any) ([]map[string]any, error) {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, err
+// channelValue returns the struct a channel holds: the variant of a union, or the
+// channel itself.
+func channelValue(ch reflect.Value) reflect.Value {
+	if v := ch.FieldByName("Variant"); v.IsValid() {
+		return v.Elem()
 	}
-	var view struct {
-		Channels []map[string]any `json:"channels"`
+	return ch
+}
+
+// fieldOf returns the named field of a channel, and false when it has no such field.
+func fieldOf(ch reflect.Value, name string) (any, bool) {
+	if !ch.IsValid() {
+		return nil, false
 	}
-	if err = json.Unmarshal(b, &view); err != nil {
-		return nil, err
+	f := ch.FieldByName(name)
+	if !f.IsValid() {
+		return nil, false
 	}
-	for _, ch := range view.Channels {
-		if cjc, ok := ch["cjc"].(map[string]any); ok {
-			ch["cjc.port"] = cjc["port"]
+	return f.Interface(), true
+}
+
+// sameValue reports whether two narrowed field values are equal, comparing numbers of
+// different types by value.
+func sameValue(a, b any) bool {
+	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
+	if av.CanFloat() || av.CanInt() || av.CanUint() {
+		return asFloat(av) == asFloat(bv)
+	}
+	return a == b
+}
+
+func asFloat(v reflect.Value) float64 {
+	switch {
+	case v.CanInt():
+		return float64(v.Int())
+	case v.CanUint():
+		return float64(v.Uint())
+	default:
+		return v.Float()
+	}
+}
+
+// logChanges logs each narrowed channel field that differs between a stored config
+// and its migration.
+func logChanges(ins alamos.Instrumentation, key uuid.UUID, old, migrated any) {
+	oldChannels := reflect.ValueOf(old).FieldByName("Channels")
+	newChannels := reflect.ValueOf(migrated).FieldByName("Channels")
+	for i := range oldChannels.Len() {
+		o := channelValue(oldChannels.Index(i))
+		n := channelValue(newChannels.Index(i))
+		channelKey, _ := fieldOf(o, "Key")
+		log := func(field string, before, after any) {
+			ins.L.Warn(
+				"narrowed an NI channel field",
+				zap.Stringer("config", key),
+				zap.Any("channel", channelKey),
+				zap.String("field", field),
+				zap.Any("old", before),
+				zap.Any("new", after),
+			)
+		}
+		for _, name := range narrowedFields {
+			before, ok := fieldOf(o, name)
+			if !ok {
+				continue
+			}
+			if after, _ := fieldOf(n, name); !sameValue(before, after) {
+				log(name, before, after)
+			}
+		}
+		oldCJC, ok := fieldOf(o, "Cjc")
+		if !ok {
+			continue
+		}
+		newCJC, _ := fieldOf(n, "Cjc")
+		before, ok := fieldOf(channelValue(reflect.ValueOf(oldCJC)), "Port")
+		if !ok {
+			continue
+		}
+		after, _ := fieldOf(channelValue(reflect.ValueOf(newCJC)), "Port")
+		if !sameValue(before, after) {
+			log("Cjc.Port", before, after)
 		}
 	}
-	return view.Channels, nil
 }
 
 // logged wraps a config migration so that it logs each channel field it changes.
@@ -252,36 +350,10 @@ func logged[O gorp.Entry[uuid.UUID], N any](
 	return func(ctx context.Context, old O, ins alamos.Instrumentation) (N, error) {
 		migrated, err := migrateFn(ctx, old)
 		if err != nil {
-			return migrated, err
+			var zero N
+			return zero, err
 		}
-		oldFields, err := channelFields(old)
-		if err != nil {
-			return migrated, err
-		}
-		newFields, err := channelFields(migrated)
-		if err != nil {
-			return migrated, err
-		}
-		if len(oldFields) != len(newFields) {
-			return migrated, errors.Newf(
-				"migrated %d channels into %d", len(oldFields), len(newFields),
-			)
-		}
-		for i, o := range oldFields {
-			for _, f := range narrowedFields {
-				if reflect.DeepEqual(o[f], newFields[i][f]) {
-					continue
-				}
-				ins.L.Warn(
-					"narrowed an NI channel field",
-					zap.Stringer("config", old.GorpKey()),
-					zap.Any("channel", o["key"]),
-					zap.String("field", f),
-					zap.Any("old", o[f]),
-					zap.Any("new", newFields[i][f]),
-				)
-			}
-		}
+		logChanges(ins, old.GorpKey(), old, migrated)
 		return migrated, nil
 	}
 }
