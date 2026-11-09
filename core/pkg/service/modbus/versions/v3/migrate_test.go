@@ -183,7 +183,7 @@ var _ = Describe("ReadMigration", func() {
 			Key:      uuid.New(),
 			Channels: []v2.ReadChannel{str("short", 0), str("ok", 8), str("long", 400)},
 		}
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
 			DB: db,
 		}))
 		Expect(gorp.NewCreate[uuid.UUID, v2.ReadConfig]().
