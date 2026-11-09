@@ -619,6 +619,101 @@ var _ = Describe("Service", func() {
 					MatchError(ContainSubstring("decoding versioned_test config")),
 				))
 		})
+
+		Context("With a reconcile hook", func() {
+			var (
+				reconciling *config.Service[arctask.Config]
+				reconcile   func(context.Context, gorp.Tx, *arctask.Config) error
+				reconDB     *gorp.DB
+			)
+			BeforeEach(func(ctx SpecContext) {
+				reconDB = DeferClose(gorp.Wrap(memkv.New()))
+				reconciling = MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:                 reconDB,
+						Type:               "reconcile_test",
+						Ladder:             arcversions.ConfigLadder,
+						SetEntryKey:        (*arctask.Config).SetKey,
+						PatchEntry:         (*arctask.Config).Patch,
+						HashEntry:          (*arctask.Config).HashContent,
+						ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+						ReconcileEntry: func(
+							ctx context.Context,
+							tx gorp.Tx,
+							c *arctask.Config,
+						) error {
+							return reconcile(ctx, tx, c)
+						},
+					},
+				))
+			})
+
+			It("Should reconcile the entry with a write the transaction holds", func(
+				ctx SpecContext,
+			) {
+				key := []byte("reconcile_test_performance")
+				reconcile = func(
+					ctx context.Context,
+					tx gorp.Tx,
+					c *arctask.Config,
+				) error {
+					v, closer, err := tx.Get(ctx, key)
+					if err != nil {
+						return err
+					}
+					c.Performance = arctask.Performance(v)
+					return closer.Close()
+				}
+				var out msgpack.EncodedJSON
+				Expect(reconDB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					if err = tx.Set(ctx, key, []byte("low")); err != nil {
+						return err
+					}
+					out, err = reconciling.Normalize(
+						ctx,
+						tx,
+						arcversions.Latest,
+						msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+					)
+					return err
+				})).To(Succeed())
+				Expect(out).To(HaveKeyWithValue("performance", "low"))
+			})
+
+			It("Should reconcile the entry after applying its defaults", func(
+				ctx SpecContext,
+			) {
+				reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+					Expect(c.Performance).To(Equal(arctask.PerformanceAuto))
+					c.Performance = arctask.PerformanceHigh
+					return nil
+				}
+				out := MustSucceed(reconciling.Normalize(ctx, reconDB, 0,
+					msgpack.EncodedJSON{"arcKey": uuid.New().String()},
+				))
+				Expect(out).To(HaveKeyWithValue("performance", "high"))
+			})
+
+			It("Should return the hook's error", func(ctx SpecContext) {
+				reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
+					return errors.New("reconcile failed")
+				}
+				Expect(reconciling.Normalize(ctx, reconDB, arcversions.Latest,
+					msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				)).Error().To(MatchError("reconcile failed"))
+			})
+
+			It("Should not reconcile a prepared entry", func(ctx SpecContext) {
+				reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
+					Fail("Prepare ran the reconcile hook")
+					return nil
+				}
+				Expect(reconciling.Prepare(ctx, reconDB, uuid.New(),
+					msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				)).Error().ToNot(HaveOccurred())
+			})
+		})
 	})
 
 	Describe("Version", func() {
