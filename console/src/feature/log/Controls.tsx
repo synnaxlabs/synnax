@@ -28,6 +28,7 @@ const Search = (): ReactElement => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const search = Session.Log.useSelectSearch();
+  const { jump, status } = Base.useJump();
   const [open, setOpen] = useState(false);
   const set = (change: Partial<Session.Log.SearchState>): void => {
     dispatch(Session.Log.setSearch({ key, ...change }));
@@ -63,8 +64,27 @@ const Search = (): ReactElement => {
           status={invalid ? "error" : undefined}
           onKeyDown={(e) => {
             if (e.key === "Escape") setOpen(false);
+            else if (e.key === "Enter") jump(e.shiftKey ? "previous" : "next");
           }}
         />
+        <Button.Button
+          size="small"
+          variant="text"
+          onClick={() => jump("previous")}
+          tooltip="Previous match"
+          aria-label="Previous match"
+        >
+          <Icon.Caret.Up />
+        </Button.Button>
+        <Button.Button
+          size="small"
+          variant="text"
+          onClick={() => jump("next")}
+          tooltip="Next match"
+          aria-label="Next match"
+        >
+          <Icon.Caret.Down />
+        </Button.Button>
         <Button.Toggle
           value={search.mode === "regex"}
           onChange={(regex) => set({ mode: regex ? "regex" : "text" })}
@@ -94,6 +114,8 @@ const Search = (): ReactElement => {
         </Button.Button>
       </Flex.Box>
       {invalid && <Input.HelpText variant="error">Invalid regex</Input.HelpText>}
+      {status === "reading" && <Input.HelpText>Reading stored lines</Input.HelpText>}
+      {status === "none" && <Input.HelpText>No more matches</Input.HelpText>}
     </Flex.Box>
   );
 };

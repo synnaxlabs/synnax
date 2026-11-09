@@ -584,6 +584,70 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("jump", () => {
+    const SEARCH = {
+      timestampsHidden: true,
+      channelNamesHidden: true,
+      search: { text: "err" },
+    };
+
+    // Returns count entries, of which the ones at matches match the search.
+    const lines = (count: number, matches: number[]): LogEntry[] =>
+      Array.from({ length: count }, (_, i) => ({
+        ...makeEntry(i),
+        value: matches.includes(i) ? `err ${i}` : `ok ${i}`,
+      }));
+
+    const jumpTo = (
+      updateState: (overrides: Record<string, unknown>) => void,
+      direction: string,
+      request: number,
+    ): void =>
+      updateState({ ...SEARCH, scrolling: true, jump: { direction, request } });
+
+    it("should move the view to the newest match before it", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should move from the last match in either direction", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      log.render();
+      expect(log.state.rowEntries).toContain(20);
+      expect(log.state.rowEntries).not.toContain(150);
+      jumpTo(updateState, "next", 3);
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+    });
+
+    it("should read older lines until it finds a match", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      expect(log.state.jumpStatus).toBe("reading");
+      const older = { ...makeEntry(-5), value: "err older" };
+      source.setEntries([older, ...lines(1_000, [])]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(0);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should report no more matches once the stored lines run out", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      jumpTo(updateState, "next", 2);
+      expect(log.state.jumpStatus).toBe("none");
+    });
+  });
+
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { log } = setup([makeEntry(0)]);
