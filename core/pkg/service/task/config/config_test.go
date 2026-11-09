@@ -704,15 +704,35 @@ var _ = Describe("Service", func() {
 				)).Error().To(MatchError("reconcile failed"))
 			})
 
-			It("Should not reconcile a prepared entry", func(ctx SpecContext) {
-				reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
-					Fail("Prepare ran the reconcile hook")
-					return nil
-				}
-				Expect(reconciling.Prepare(ctx, reconDB, uuid.New(),
-					msgpack.EncodedJSON{"arc_key": uuid.New().String()},
-				)).Error().ToNot(HaveOccurred())
-			})
+			It(
+				"Should not reconcile a prepared or edited entry",
+				func(ctx SpecContext) {
+					reconcileTasks := MustOpen(tasktestutil.OpenTasks(
+						ctx,
+						tasktestutil.TasksConfig{
+							DB:     reconDB,
+							Stores: []config.Store{reconciling},
+						},
+					))
+					reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
+						Fail("ran the reconcile hook outside Normalize")
+						return nil
+					}
+					key := MustSucceed(reconcileTasks.Create(ctx, reconciling,
+						msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+					))
+					cursor := MustSucceed(patch.Begin(patch.Set{
+						Path:  []string{"config", "performance"},
+						Value: "high",
+					})).Next()
+					rec, _ := MustSucceed2(reconciling.Edit(
+						ctx, reconDB, key, []patch.Cursor{cursor},
+					))
+					Expect(MustSucceed(rec.Data())).To(
+						HaveKeyWithValue("performance", "high"),
+					)
+				},
+			)
 		})
 	})
 
