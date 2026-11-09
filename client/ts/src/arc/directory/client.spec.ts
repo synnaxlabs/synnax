@@ -93,7 +93,6 @@ describe("arc.directory", () => {
     });
     const a = await createArc();
     await client.arcs.directories.move(
-      arc.directory.resourceID(root.key),
       arc.directory.resourceID(d.key),
       arc.resourceID(a.key),
     );
@@ -101,25 +100,43 @@ describe("arc.directory", () => {
     expect(res.directory).toBe(d.key);
   });
 
-  it("should reject a move whose source does not hold the Arc", async () => {
+  it("should move an Arc and a directory in one call", async () => {
     const root = await client.arcs.directories.retrieveRoot();
-    const named = await client.arcs.directories.create({
-      parent: root.key,
-      name: uniqueName(),
-    });
+    const [dest, moved] = await Promise.all(
+      [uniqueName(), uniqueName()].map(
+        async (name) =>
+          await client.arcs.directories.create({ parent: root.key, name }),
+      ),
+    );
+    const a = await createArc();
+    await client.arcs.directories.move(
+      arc.directory.resourceID(dest.key),
+      arc.resourceID(a.key),
+      arc.directory.resourceID(moved.key),
+    );
+    expect((await client.arcs.retrieve({ key: a.key })).directory).toBe(dest.key);
+    const [res] = await createTestClient().arcs.directories.retrieve([moved.key]);
+    expect(res.parent).toBe(dest.key);
+  });
+
+  it("should move nothing when one entry cannot move", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
     const dest = await client.arcs.directories.create({
       parent: root.key,
       name: uniqueName(),
     });
+    const name = uniqueName();
+    await client.arcs.directories.create({ parent: dest.key, name });
+    const clash = await client.arcs.directories.create({ parent: root.key, name });
     const a = await createArc();
     await expect(
       client.arcs.directories.move(
-        arc.directory.resourceID(named.key),
         arc.directory.resourceID(dest.key),
         arc.resourceID(a.key),
+        arc.directory.resourceID(clash.key),
       ),
     ).rejects.toSatisfy(ValidationError.matches);
-    const res = await client.arcs.retrieve({ key: a.key });
+    const res = await createTestClient().arcs.retrieve({ key: a.key });
     expect(res.directory).toBe(root.key);
   });
 
@@ -162,7 +179,6 @@ describe("arc.directory", () => {
         name: uniqueName(),
       });
       await client.arcs.directories.move(
-        arc.directory.resourceID(root.key),
         arc.directory.resourceID(dest.key),
         arc.directory.resourceID(dir.key),
       );

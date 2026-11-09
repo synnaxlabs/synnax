@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ, dispatchResZ, set } from "@/device/actions.gen";
 import {
   type Device,
   type DeviceSchemas,
@@ -53,7 +54,6 @@ const createResZ = <
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
@@ -209,7 +209,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/device/set-group", (keys, to) =>
+    this.setGroupRequest = group.createMoveRequest("/device/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -347,14 +347,23 @@ export class Client extends query.Retriever<
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/device/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the device in one transaction.
+   * @throws {ValidationError} if the device cannot hold an action.
+   * @throws {NotFoundError} if the device does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/device/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
