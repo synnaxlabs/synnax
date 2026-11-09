@@ -53,7 +53,7 @@ var _ = Describe("Deleter", Ordered, func() {
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					))).To(BeTrue())
-					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+					Expect(MustCommit(w)).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
 					i = MustOpen(
 						s.dist.Framer.OpenIterator(
@@ -107,6 +107,23 @@ var _ = Describe("Deleter", Ordered, func() {
 					).To(Succeed())
 					Expect(i.SeekFirst()).To(BeFalse())
 				})
+				It(
+					"Should leave the data of a canceled delete in place",
+					func(ctx SpecContext) {
+						canceled, cancel := context.WithCancel(ctx)
+						cancel()
+						Expect(
+							s.dist.Framer.DeleteTimeRange(
+								canceled,
+								s.keys,
+								telem.TimeRangeMax,
+							),
+						).To(MatchError(context.Canceled))
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
+					},
+				)
 				It(
 					"Should be idempotent when deleting an empty range",
 					func(ctx SpecContext) {

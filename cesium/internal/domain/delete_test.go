@@ -563,6 +563,24 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					},
 				)
+
+				It(
+					"Should step past a domain whose start was deleted",
+					func(ctx SpecContext) {
+						iter := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(db.Delete(
+							ctx,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
+							fixedOffset(1),
+						)).To(Succeed())
+						Expect(iter.Next()).To(BeTrue())
+						Expect(iter.TimeRange()).
+							To(Equal((22 * telem.SecondTS).SpanRange(8 * telem.Second)))
+						Expect(iter.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Context("Edge cases", func() {

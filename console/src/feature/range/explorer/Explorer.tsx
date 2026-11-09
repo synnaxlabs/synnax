@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
 import { location, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -55,7 +56,7 @@ interface Listing {
 
 const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listing) => {
   const staged = Ranger.stageWhere(stage, listing.at);
-  return Flux.useList((client) => client.ranges, {
+  const list = Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: {
       where: where == null ? staged : { and: [where as ranger.Where, staged] },
@@ -64,6 +65,13 @@ const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listi
     pageSize: PAGE_SIZE,
     initialSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
   });
+  // The explorer reads the ranges in render, so it subscribes to them.
+  const ranges = Store.useItems({
+    keys: list.data,
+    subscribe: list.subscribe,
+    getItem: list.getItem,
+  });
+  return { ...list, ranges };
 };
 
 type Stage = ReturnType<typeof useStage>;
@@ -78,8 +86,8 @@ const leaves = (stage: Ranger.Stage, range: ranger.Range): TimeStamp | null => {
 
 const nextCrossing = (stages: Stage[], now: TimeStamp): TimeStamp | null => {
   let next: TimeStamp | null = null;
-  stages.forEach(({ data, getItem }, i) =>
-    getItem(data).forEach((range) => {
+  stages.forEach(({ ranges }, i) =>
+    ranges.forEach((range) => {
       const instant = leaves(Ranger.STAGES[i], range);
       if (instant?.after(now) === true && (next == null || instant.before(next)))
         next = instant;
@@ -104,8 +112,8 @@ const Internal = () => {
   // A range that left its stage, such as one created to start at once, lists again
   // under the new time. Each stage reads as many ranges as it holds, so the list keeps
   // its place.
-  const crossed = stages.some(({ data, getItem }, i) =>
-    getItem(data).some(
+  const crossed = stages.some(({ ranges }, i) =>
+    ranges.some(
       ({ timeRange }) =>
         Ranger.getStage(timeRange, listing.at) === Ranger.STAGES[i] &&
         Ranger.getStage(timeRange, now) !== Ranger.STAGES[i],

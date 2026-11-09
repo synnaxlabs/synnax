@@ -17,6 +17,7 @@ import (
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
 	gofilter "github.com/synnaxlabs/oracle/plugin/go/filter"
+	gogroup "github.com/synnaxlabs/oracle/plugin/go/group"
 	goimex "github.com/synnaxlabs/oracle/plugin/go/imex"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
@@ -29,6 +30,7 @@ import (
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
 	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
+	tsgroup "github.com/synnaxlabs/oracle/plugin/ts/group"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
@@ -55,12 +57,14 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		gopb.New(gopb.DefaultOptions()),
 		goquery.New(goquery.DefaultOptions()),
 		gofilter.New(gofilter.DefaultOptions()),
+		gogroup.New(gogroup.DefaultOptions()),
 		gomarshal.New(gomarshal.DefaultOptions()),
 		goactions.New(goactions.DefaultOptions()),
 		gopatch.New(gopatch.DefaultOptions()),
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
+		tsgroup.New(tsgroup.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err

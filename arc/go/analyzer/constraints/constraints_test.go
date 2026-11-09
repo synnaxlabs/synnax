@@ -61,6 +61,27 @@ var _ = Describe("Constraint System", func() {
 		})
 	})
 
+	Describe("AddVariable", func() {
+		It("Should resolve a variable that nothing else constrains", func() {
+			c := types.FloatConstraint()
+			tv := types.Variable("F", &c)
+			system.AddVariable(tv)
+			Expect(system.HasTypeVariables()).To(BeTrue())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(tv)).To(Equal(types.F64()))
+		})
+
+		It("Should record the element variable of a series", func() {
+			system.AddVariable(types.Series(types.Variable("E", nil)))
+			Expect(system.TypeVars).To(HaveKey("E"))
+		})
+
+		It("Should ignore a concrete type", func() {
+			system.AddVariable(types.F32())
+			Expect(system.HasTypeVariables()).To(BeFalse())
+		})
+	})
+
 	Describe("HasTypeVariables", func() {
 		It("should return false when no type variables exist", func() {
 			Expect(system.HasTypeVariables()).To(BeFalse())

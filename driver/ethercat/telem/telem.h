@@ -67,11 +67,10 @@ enum class DataType : uint16_t {
 };
 
 /// @brief returns how many times b fits into a, or nullopt when a is not a whole
-/// multiple of b. Rate stores a float, so the ratio need only be whole to within one
-/// part per million.
+/// multiple of b. The ratio need only be whole to within one part per million.
 inline std::optional<size_t>
 whole_ratio(const x::telem::Rate a, const x::telem::Rate b) {
-    const double ratio = static_cast<double>(a.hz()) / b.hz();
+    const double ratio = a.hz() / b.hz();
     const double whole = std::round(ratio);
     if (whole < 1 || std::abs(ratio - whole) > whole * 1e-6) return std::nullopt;
     return static_cast<size_t>(whole);

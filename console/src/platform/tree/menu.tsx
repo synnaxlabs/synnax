@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
-import { type Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -18,18 +18,32 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
-import { findAncestors, findContainedKeys } from "@/platform/tree/ancestry";
-import { type DefaultContextMenuProps } from "@/platform/tree/DefaultContextMenu";
+import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
 import { type Item } from "@/platform/tree/item";
-import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
-import { type ResultNodes } from "@/platform/tree/search";
-import { type Store } from "@/platform/tree/store";
-import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
+import { isMoreKey, type Store } from "@/platform/tree/store";
+import {
+  type ContextMenuProps,
+  type RootContextMenuProps,
+  type TreeState,
+} from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
-const FallbackContextMenu = (): ReactElement => (
+/** A menu that holds only the reload of the Console. */
+export const FallbackContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
+    <ContextMenu.ReloadConsoleItem />
+  </ContextMenu.Menu>
+);
+
+/**
+ * A menu that holds Copy and the reload of the Console, for a selection with no menu of
+ * its own. Cmd+C copies a resource of any type.
+ */
+export const CopyContextMenu = (props: ContextMenuProps): ReactElement => (
+  <ContextMenu.Menu>
+    <CopyContextMenuItem {...props} />
+    <Menu.Divider />
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
 );
@@ -50,11 +64,12 @@ export interface UseMenuProps {
   client: Client;
   store: Store;
   root: resource.ID;
-  results?: ResultNodes;
   selected: string[];
   state: TreeState;
   /** The menu for a right-click on empty space. */
-  rootContextMenu: FC<DefaultContextMenuProps>;
+  rootContextMenu: FC<RootContextMenuProps>;
+  /** The menu for a selection of more than one resource type. */
+  mixedContextMenu: FC<ContextMenuProps>;
   resolveItem: (type: resource.Type) => Item;
   handleError: Status.ErrorHandler;
 }
@@ -64,34 +79,36 @@ export const useMenu = ({
   client,
   store,
   root,
-  results,
   selected,
   state,
   rootContextMenu: RootContextMenu,
+  mixedContextMenu,
   resolveItem,
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
-  const addStatus = Status.useAdder();
   const session = useStore<State, Action>();
 
-  const render = ({ keys: clicked }: Menu.ContextMenuMenuProps): ReactElement => {
+  const render = ({ keys: targets }: Menu.ContextMenuMenuProps): ReactElement => {
+    // The node that loads more names no resource, so it opens the root menu.
+    const clicked = targets.filter((key) => !isMoreKey(key));
+    const chosen = selected.filter((key) => !isMoreKey(key));
     if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    const rightClickedButNotSelected = clicked.find((v) => !chosen.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise
     // the selection state gives the keys, since the virtual tree can lack the DOM
     // elements.
     const keys =
-      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : chosen;
     const ids = keys.map((key) => resource.parseID(key));
     // A selected node's own children do not count, since an action on the node carries
     // them along. Flat search results show both at the same depth.
-    const contained = findContainedKeys(store, keys, results?.ancestors);
+    const contained = store.getContained(keys);
     const top = Base.getAllNodesOfMinDepth(
       Base.filterShape(state.shape, (key) => keys.includes(key) && !contained.has(key)),
     );
     const parents = unique.by(
-      top.map((key) => findAncestors(store, key, root, results?.paths)[0]),
+      top.map((key) => store.getAncestors(key)[0]),
       (id) => resource.idToString(id),
     );
     const props: ContextMenuProps = {
@@ -105,14 +122,12 @@ export const useMenu = ({
       client,
       store: session,
       openTab,
-      addStatus,
       handleError,
     };
     const allSameType = ids.every((id) => id.type === ids[0].type);
     const M = allSameType
-      ? resolveItem(ids[0].type).ContextMenu
-      : MultipleSelectionContextMenu;
-    if (M == null) return <FallbackContextMenu />;
+      ? (resolveItem(ids[0].type).ContextMenu ?? CopyContextMenu)
+      : mixedContextMenu;
     return <SelectionContextMenu menu={M} {...props} />;
   };
 
