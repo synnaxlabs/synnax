@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -233,6 +234,14 @@ func Analyze(
 	// Step 6: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
+	}
+	for _, fn := range g.Functions {
+		if fn.Body.Raw != "" {
+			constant.Check(aCtx.Child(fn.Body.AST))
+		}
+	}
+	if !aCtx.Diagnostics.Ok() {
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
