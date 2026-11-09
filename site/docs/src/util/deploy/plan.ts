@@ -27,15 +27,12 @@ export interface Deployment {
 export interface Options {
   /** Builds this ref instead. It needs exactly one version. */
   ref?: string;
-  /**
-   * A train that a release changed. It deploys only if it has a stable Core release,
-   * since a train without one has no site.
-   */
+  /** A train that a release changed. It deploys only if it has a site. */
   released?: string;
 }
 
 export interface Lookups {
-  /** Lists the trains with a stable Core release, newest first. */
+  /** Lists the trains with a docs site, newest first. */
   trains: () => Promise<string[]>;
   /** Returns the newest stable Core release on a train, such as `0.60.1`. */
   newest: (train: string) => Promise<string>;
@@ -49,8 +46,8 @@ export interface Lookups {
  * Core tag.
  * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
- * @throws {Error} if GitHub lists no train, if a version is neither `next` nor a train
- * with a stable Core release, or if `ref` comes with more than one version.
+ * @throws {Error} if no train has a site, if a version is neither `next` nor a train
+ * with a site, or if `ref` comes with more than one version.
  */
 export const plan = async (
   requested: string[],
@@ -58,7 +55,7 @@ export const plan = async (
   { trains: listTrains, newest, branched }: Lookups,
 ): Promise<Deployment[]> => {
   const trains = await listTrains();
-  if (trains.length === 0) throw new Error("GitHub lists no stable Core release");
+  if (trains.length === 0) throw new Error("No train has a docs site");
   const expand = (name: string): string[] => {
     if (name === LATEST) return trains.slice(0, 1);
     if (name === PREVIOUS) return trains.slice(1, 2);

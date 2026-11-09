@@ -50,7 +50,7 @@ describe("plan", () => {
     expect(deployments.map(({ version }) => version)).toEqual(["0.61"]);
   });
 
-  it("should add a released train that has a stable release", async () => {
+  it("should add a released train that has a site", async () => {
     const deployments = await plan(
       ["next", "latest"],
       { released: "0.60" },
@@ -59,7 +59,7 @@ describe("plan", () => {
     expect(deployments.map(({ version }) => version)).toEqual(["next", "0.61", "0.60"]);
   });
 
-  it("should skip a released train with no stable Core release", async () => {
+  it("should skip a released train with no site", async () => {
     const deployments = await plan(
       ["next", "latest"],
       { released: "0.62" },
@@ -80,15 +80,15 @@ describe("plan", () => {
     ).rejects.toThrow("A ref builds exactly one version, not 2");
   });
 
-  it("should reject a train with no stable release", async () => {
+  it("should reject a train with no site", async () => {
     await expect(plan(["0.62"], {}, lookups(["0.61"]))).rejects.toThrow(
-      "Train 0.62 has no stable Core release",
+      "Train 0.62 has no docs site",
     );
   });
 
-  it("should reject a plan when GitHub lists no train", async () => {
+  it("should reject a plan when no train has a site", async () => {
     await expect(plan(["latest"], {}, lookups([]))).rejects.toThrow(
-      "GitHub lists no stable Core release",
+      "No train has a docs site",
     );
   });
 });

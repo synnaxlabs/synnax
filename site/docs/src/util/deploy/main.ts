@@ -13,6 +13,7 @@
 
 import { plan } from "@/util/deploy/plan";
 import { Releases } from "@/util/releases";
+import { withSites } from "@/util/version";
 
 const BRANCHES_URL = "https://api.github.com/repos/synnaxlabs/synnax/branches";
 
@@ -38,7 +39,7 @@ const deployments = await plan(
   requested,
   { ref: optional(process.env.REF), released: optional(process.env.RELEASED) },
   {
-    trains: async () => await releases.trains("core"),
+    trains: async () => withSites(await releases.trains("core")),
     newest: async (train) => await releases.onTrain("core", train),
     branched,
   },
