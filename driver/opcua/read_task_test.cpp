@@ -729,13 +729,15 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
     ASSERT_NIL(source->start());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     server->stop();
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
@@ -934,13 +936,15 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto rt = create_task();
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     rt->start("start");
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop", true);
@@ -962,16 +966,18 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     auto secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4861";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
     conn_cfg.server_certificate = server_id.certificate;
-    dev.properties["connection"] = testutil::connection_json(conn_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(conn_cfg)}
+        )}
+    ));
     auto p = x::json::Parser(task_cfg_json);
     UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
     ASSERT_NIL(source.start());
