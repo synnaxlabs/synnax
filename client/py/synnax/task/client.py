@@ -30,7 +30,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
-from synnax.status import VARIANT_INFO, VARIANT_LOADING, VARIANT_SUCCESS
+from synnax.status import VARIANT_LOADING, VARIANT_WARNING
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -88,8 +88,6 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
-# The rack monitor marks a rack whose Driver is alive with one of these.
-_HEALTHY_RACK_VARIANTS = {VARIANT_SUCCESS, VARIANT_INFO}
 
 
 class _Keyed(BaseProtocol):
@@ -259,6 +257,8 @@ class Task:
                 # A frame can carry several statuses, and only some of them answer
                 # this command.
                 for sample in frame[_TASK_STATE_CHANNEL]:
+                    if rack_id is not None:
+                        _raise_if_rack_down(sample, rack_id)
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
@@ -269,15 +269,19 @@ class Task:
                         if status.variant != VARIANT_LOADING:
                             return status
                         acknowledged = True
-                    elif rack_id is not None and status.owner == rack_id:
-                        _raise_if_rack_down(status)
 
 
-def _raise_if_rack_down(rack_status: Status) -> None:
-    """Raises a rack status as an error when it reports that the Driver of the rack
-    is down. A down Driver never replies, so the status ends the wait.
+def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
+    """Raises a status of the rack as an error when it reports that the Driver of the
+    rack is down. A down Driver never replies, so the status ends the wait.
     """
-    if rack_status.variant in _HEALTHY_RACK_VARIANTS:
+    try:
+        rack_status = rack_.Status.model_validate(sample)
+    except ValidationError:
+        return
+    # Only the Core writes warnings to rack statuses, when it stops hearing from the
+    # Driver.
+    if rack_status.owner != rack_id or rack_status.variant != VARIANT_WARNING:
         return
     message = rack_status.message
     if rack_status.description:
