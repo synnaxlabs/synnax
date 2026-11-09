@@ -21,7 +21,6 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -210,13 +209,14 @@ func (x *DeleteRequest) GetKeys() []uint32 {
 	return nil
 }
 
-// DispatchRequest applies actions to one rack. Each action is the JSON object that the
-// HTTP dispatch route takes, such as {"type": "set", "set": {...}}.
+// DispatchRequest applies actions to one rack.
 type DispatchRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
-	DispatchKey   string                 `protobuf:"bytes,2,opt,name=dispatch_key,json=dispatchKey,proto3" json:"dispatch_key,omitempty"`
-	Actions       []*structpb.Struct     `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Key         uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	DispatchKey string                 `protobuf:"bytes,2,opt,name=dispatch_key,json=dispatchKey,proto3" json:"dispatch_key,omitempty"`
+	// actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+	// route takes, such as {"type": "set", "set": {...}}.
+	Actions       [][]byte `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -265,7 +265,7 @@ func (x *DispatchRequest) GetDispatchKey() string {
 	return ""
 }
 
-func (x *DispatchRequest) GetActions() []*structpb.Struct {
+func (x *DispatchRequest) GetActions() [][]byte {
 	if x != nil {
 		return x.Actions
 	}
@@ -276,7 +276,7 @@ var File_core_pkg_transport_grpc_rack_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_rack_rack_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/rack/rack.proto\x12\tgrpc.rack\x1a\x1fcore/pkg/api/rack/pb/rack.proto\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\"<\n" +
+	"'core/pkg/transport/grpc/rack/rack.proto\x12\tgrpc.rack\x1a\x1fcore/pkg/api/rack/pb/rack.proto\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
 	"\rCreateRequest\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
@@ -284,11 +284,11 @@ const file_core_pkg_transport_grpc_rack_rack_proto_rawDesc = "" +
 	"\x0fRetrieveRequest\x126\n" +
 	"\arequest\x18\x05 \x01(\v2\x1c.api.rack.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\x04keysR\x05namesR\vintegrationR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\"y\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"`\n" +
 	"\x0fDispatchRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12!\n" +
-	"\fdispatch_key\x18\x02 \x01(\tR\vdispatchKey\x121\n" +
-	"\aactions\x18\x03 \x03(\v2\x17.google.protobuf.StructR\aactions2P\n" +
+	"\fdispatch_key\x18\x02 \x01(\tR\vdispatchKey\x12\x18\n" +
+	"\aactions\x18\x03 \x03(\fR\aactions2P\n" +
 	"\x11RackCreateService\x12;\n" +
 	"\x04Exec\x12\x18.grpc.rack.CreateRequest\x1a\x19.grpc.rack.CreateResponse2X\n" +
 	"\x13RackRetrieveService\x12A\n" +
@@ -321,28 +321,26 @@ var file_core_pkg_transport_grpc_rack_rack_proto_goTypes = []any{
 	(*DispatchRequest)(nil),      // 4: grpc.rack.DispatchRequest
 	(*pb.Rack)(nil),              // 5: service.rack.pb.Rack
 	(*pb1.RetrieveRequest)(nil),  // 6: api.rack.pb.RetrieveRequest
-	(*structpb.Struct)(nil),      // 7: google.protobuf.Struct
-	(*pb1.RetrieveResponse)(nil), // 8: api.rack.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
+	(*pb1.RetrieveResponse)(nil), // 7: api.rack.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_rack_rack_proto_depIdxs = []int32{
 	5, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.pb.Rack
 	5, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.pb.Rack
 	6, // 2: grpc.rack.RetrieveRequest.request:type_name -> api.rack.pb.RetrieveRequest
-	7, // 3: grpc.rack.DispatchRequest.actions:type_name -> google.protobuf.Struct
-	0, // 4: grpc.rack.RackCreateService.Exec:input_type -> grpc.rack.CreateRequest
-	2, // 5: grpc.rack.RackRetrieveService.Exec:input_type -> grpc.rack.RetrieveRequest
-	3, // 6: grpc.rack.RackDeleteService.Exec:input_type -> grpc.rack.DeleteRequest
-	4, // 7: grpc.rack.RackDispatchService.Exec:input_type -> grpc.rack.DispatchRequest
-	1, // 8: grpc.rack.RackCreateService.Exec:output_type -> grpc.rack.CreateResponse
-	8, // 9: grpc.rack.RackRetrieveService.Exec:output_type -> api.rack.pb.RetrieveResponse
-	9, // 10: grpc.rack.RackDeleteService.Exec:output_type -> google.protobuf.Empty
-	9, // 11: grpc.rack.RackDispatchService.Exec:output_type -> google.protobuf.Empty
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 3: grpc.rack.RackCreateService.Exec:input_type -> grpc.rack.CreateRequest
+	2, // 4: grpc.rack.RackRetrieveService.Exec:input_type -> grpc.rack.RetrieveRequest
+	3, // 5: grpc.rack.RackDeleteService.Exec:input_type -> grpc.rack.DeleteRequest
+	4, // 6: grpc.rack.RackDispatchService.Exec:input_type -> grpc.rack.DispatchRequest
+	1, // 7: grpc.rack.RackCreateService.Exec:output_type -> grpc.rack.CreateResponse
+	7, // 8: grpc.rack.RackRetrieveService.Exec:output_type -> api.rack.pb.RetrieveResponse
+	8, // 9: grpc.rack.RackDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // 10: grpc.rack.RackDispatchService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_rack_rack_proto_init() }

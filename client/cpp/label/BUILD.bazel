@@ -12,6 +12,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "label",
     hdrs = [
+        "actions.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
@@ -23,6 +24,7 @@ cc_library(
         "//x/cpp/color",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/cpp/uuid",
         "//x/go/color:color_grpc",

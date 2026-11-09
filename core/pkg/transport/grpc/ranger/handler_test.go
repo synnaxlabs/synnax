@@ -15,16 +15,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	grpcranger "github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -115,14 +117,14 @@ var _ = Describe("Dispatch", func() {
 		ctx SpecContext,
 	) {
 		key := uuid.New()
-		set := MustSucceed(structpb.NewStruct(map[string]any{
-			"type": "set",
-			"set":  map[string]any{"path": []any{"name"}, "value": "Cold flow"},
-		}))
 		MustSucceed(client.Exec(ctx, &grpcranger.DispatchRequest{
 			Key:         key.String(),
 			DispatchKey: "dk",
-			Actions:     []*structpb.Struct{set},
+			Actions: [][]byte{
+				[]byte(
+					`{"type": "set", "set": {"path": ["name"], "value": "Cold flow"}}`,
+				),
+			},
 		}))
 		Expect(received).To(Equal(ranger.DispatchRequest{
 			Key:         key,
@@ -135,10 +137,53 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject an action that does not decode", func(ctx SpecContext) {
-		bad := MustSucceed(structpb.NewStruct(map[string]any{"type": 1.0}))
 		Expect(client.Exec(ctx, &grpcranger.DispatchRequest{
 			Key:     uuid.New().String(),
-			Actions: []*structpb.Struct{bad},
+			Actions: [][]byte{[]byte(`{"type": 1}`)},
 		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+})
+
+var _ = Describe("Dispatch to a range", func() {
+	It("Should store a time range end above 2^53 exactly", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc := MustOpen(svcranger.OpenService(ctx, svcranger.ServiceConfig{
+			DB:    db,
+			Group: groups,
+		}))
+		r := svcranger.Range{
+			Name:      "Hot fire",
+			TimeRange: telem.TimeRange{Start: 1, End: 2},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
+		transport.RangeDispatch.BindHandler(func(
+			ctx context.Context,
+			req ranger.DispatchRequest,
+		) (struct{}, error) {
+			return struct{}{}, db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					WithDispatchKey(req.DispatchKey).
+					Apply(ctx, req.Key, req.Actions...)
+			})
+		})
+		MustSucceed(grpcranger.NewRangeDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcranger.DispatchRequest{
+				Key: r.Key.String(),
+				Actions: [][]byte{[]byte(`{"type": "set", "set": {
+					"path": ["time_range", "end"],
+					"value": "1700000000000000123"
+				}}`)},
+			},
+		))
+		var stored svcranger.Range
+		Expect(svc.NewRetrieve().
+			Where(svcranger.MatchKeys(r.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.TimeRange.End).To(Equal(telem.TimeStamp(1700000000000000123)))
 	})
 })

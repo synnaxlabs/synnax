@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -20,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -242,12 +245,15 @@ func (setEndRequestTranslator) Backward(
 }
 
 func (dispatchRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	r ranger.DispatchRequest,
 ) (*DispatchRequest, error) {
-	acts, err := xpb.ToStructs(r.Actions)
-	if err != nil {
-		return nil, err
+	acts := make([][]byte, len(r.Actions))
+	for i, a := range r.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(ctx, a); err != nil {
+			return nil, err
+		}
 	}
 	return &DispatchRequest{
 		Key:         r.Key.String(),
@@ -257,16 +263,22 @@ func (dispatchRequestTranslator) Forward(
 }
 
 func (dispatchRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	r *DispatchRequest,
 ) (ranger.DispatchRequest, error) {
 	key, err := uuid.Parse(r.Key)
 	if err != nil {
 		return ranger.DispatchRequest{}, err
 	}
-	acts, err := xpb.FromStructs[svcranger.Action](r.Actions)
-	if err != nil {
-		return ranger.DispatchRequest{}, validate.PathedError(err, "actions")
+	acts := make([]svcranger.Action, len(r.Actions))
+	for i, b := range r.Actions {
+		if err := json.Codec.Decode(ctx, b, &acts[i]); err != nil {
+			return ranger.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
 	}
 	return ranger.DispatchRequest{
 		Key:         key,

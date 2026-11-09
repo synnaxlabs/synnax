@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -18,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
@@ -198,12 +201,15 @@ func New(t *api.Transport) grpc.BindableTransport {
 }
 
 func (dispatchRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	req rack.DispatchRequest,
 ) (*DispatchRequest, error) {
-	acts, err := xpb.ToStructs(req.Actions)
-	if err != nil {
-		return nil, err
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(ctx, a); err != nil {
+			return nil, err
+		}
 	}
 	return &DispatchRequest{
 		Key:         uint32(req.Key),
@@ -213,12 +219,18 @@ func (dispatchRequestTranslator) Forward(
 }
 
 func (dispatchRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	req *DispatchRequest,
 ) (rack.DispatchRequest, error) {
-	acts, err := xpb.FromStructs[svcrack.Action](req.Actions)
-	if err != nil {
-		return rack.DispatchRequest{}, validate.PathedError(err, "actions")
+	acts := make([]svcrack.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(ctx, b, &acts[i]); err != nil {
+			return rack.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
 	}
 	return rack.DispatchRequest{
 		Key:         svcrack.Key(req.Key),
