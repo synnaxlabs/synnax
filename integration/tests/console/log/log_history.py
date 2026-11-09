@@ -32,6 +32,11 @@ def _has_newest(lines: list[str]) -> bool:
     return any(NEWEST in ln for ln in lines)
 
 
+def _shows_older(lines: list[str]) -> bool:
+    indices = _entry_indices(lines)
+    return bool(indices) and max(indices) < ENTRY_COUNT - 1
+
+
 def _has_long_value(lines: list[str]) -> bool:
     return any(LONG_VALUE in ln for ln in lines)
 
@@ -108,11 +113,9 @@ class LogHistory(ConsoleCase):
         log.scroll_back(2000)
         assert log.wait_until_scrolling_paused(), "Scrolling back should pause the log"
 
-        entries = log.wait_for_copied_entries()
-        indices = _entry_indices(entries)
-        assert indices, f"Scrolled-back log should show entries, got {entries!r}"
-        assert max(indices) < ENTRY_COUNT - 1, (
-            f"Scrolled-back log should show older entries, got {indices!r}"
+        entries = log.wait_for_copied_entries(until=_shows_older)
+        assert _shows_older(entries), (
+            f"Scrolled-back log should show older entries, got {entries!r}"
         )
 
         log.resume_scrolling()
@@ -126,7 +129,10 @@ class LogHistory(ConsoleCase):
         self.log("Testing log entry wrap")
 
         now = sy.TimeStamp.now()
-        self.client.write(now, {self.idx_name: [now], self.data_name: [LONG_VALUE]})
+        with self.client.open_writer(
+            start=now, channels=[self.idx_name, self.data_name]
+        ) as writer:
+            writer.write({self.idx_name: [now], self.data_name: [LONG_VALUE]})
 
         entries = log.wait_for_copied_entries(until=_has_long_value)
         assert _has_long_value(entries), (
