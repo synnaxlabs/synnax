@@ -222,7 +222,9 @@ var _ = Describe("Dispatch", func() {
 			Actions:     acts,
 		})
 	}
-	rename := lineplot.NewRenameAction(lineplot.RenamePayload{Name: "Renamed"})
+	rename := lineplot.NewSetAction(
+		lineplot.SetPayload{Path: []string{"name"}, Value: "Renamed"},
+	)
 	It(
 		"Should refuse a dispatch without update on the line plot and write nothing",
 		func(ctx SpecContext) {
@@ -243,33 +245,21 @@ var _ = Describe("Dispatch", func() {
 		)))
 	})
 	DescribeTable(
-		"Should refuse an action that only the Core dispatches",
-		func(ctx SpecContext, act func() lineplot.Action, what string) {
+		"Should refuse a patch of a field that only the Core sets",
+		func(ctx SpecContext, field string) {
 			grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
-			Expect(dispatchAs(ctx, act())).Error().To(SatisfyAll(
+			act := lineplot.NewSetAction(
+				lineplot.SetPayload{Path: []string{field}, Value: uuid.New()},
+			)
+			Expect(dispatchAs(ctx, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches %s", what)),
+				MatchError(ContainSubstring("unknown object member name %q", field)),
 			))
 			Expect(retrieveLinePlot(ctx, lp.Key).Project).To(Equal(&proj.Key))
 			Expect(rec.Snapshot()).To(BeEmpty())
 		},
-		Entry(
-			"a set group",
-			func() lineplot.Action {
-				g := uuid.New()
-				return lineplot.NewSetGroupAction(lineplot.SetGroupPayload{Group: &g})
-			},
-			"a line plot group change",
-		),
-		Entry(
-			"a set project",
-			func() lineplot.Action {
-				return lineplot.NewSetProjectAction(
-					lineplot.SetProjectPayload{Project: uuid.New()},
-				)
-			},
-			"a line plot project change",
-		),
+		Entry("the group", "group"),
+		Entry("the project", "project"),
 	)
 })
 

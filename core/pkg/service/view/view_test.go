@@ -292,19 +292,11 @@ var _ = Describe("View", func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var views []view.View
 				Expect(
 					svc.NewRetrieve().Limit(2).Entries(&views).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(views).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var views []view.View
-				Expect(
-					svc.NewRetrieve().Offset(1).Limit(2).Entries(&views).Exec(ctx, tx),
 				).To(Succeed())
 				Expect(views).To(HaveLen(2))
 			})

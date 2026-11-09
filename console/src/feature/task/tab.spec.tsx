@@ -150,7 +150,9 @@ describe("task tab", () => {
     await client.tasks.retrieve({ key: created.key, includeStatus: true });
     await client.tasks.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.tasks.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
 
     const project = await client.projects.create({

@@ -28,6 +28,8 @@ import {
   roleZ,
 } from "@/access/role/types.gen";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -88,6 +90,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (role, req) => matches(role, req.where),

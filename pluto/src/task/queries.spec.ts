@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, status, task } from "@synnaxlabs/client";
+import { status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { Task } from "@/task";
@@ -29,300 +29,83 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should return a list of task keys", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const task1 = await rack.createTask({
-        name: "task1",
-        type: "pagerduty_alert",
-        config: {},
-      });
-      const task2 = await rack.createTask({
-        name: "task2",
-        type: "pagerduty_alert",
-        config: {},
-      });
+    const setStatus = async (key: task.Key) =>
+      await client.statuses.set(
+        status.create<task.StatusDetailsZodObject>({
+          owner: task.resourceID(key),
+          variant: "error",
+          message: "Task failed",
+          details: { running: false, cmd: "", configHash: "", rack: 0, data: {} },
+        }),
+      );
 
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(task1.key);
-      expect(result.current.data).toContain(task2.key);
-    });
-
-    it("should leave out internal tasks unless the query asks for them", async () => {
+    it("should leave out internal tasks unless the query sets where.internal", async () => {
       const rack = await client.racks.create({ name: "testRack" });
-      const internal = await rack.createTask({
-        name: "internal",
-        type: "pagerduty_alert",
-        config: {},
-        internal: true,
-      });
-      const { result } = renderHook(() => Task.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({ where: { rack: { eq: rack.key } } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).not.toContain(internal.key);
-      act(() => {
-        result.current.retrieve({
-          where: { rack: { eq: rack.key }, internal: { eq: true } },
-        });
-      });
-      await waitFor(() => expect(result.current.data).toEqual([internal.key]));
-    });
-
-    it("should get individual tasks using getItem", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "testTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedTask = result.current.getItem(testTask.key);
-      expect(retrievedTask?.key).toEqual(testTask.key);
-      expect(retrievedTask?.name).toEqual("testTask");
-    });
-
-    it("should filter tasks by search term", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      await rack.createTask({
-        name: "ordinary",
-        type: "pagerduty_alert",
-        config: {},
-      });
-      await rack.createTask({
-        name: "special",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ searchTerm: "special" });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-        expect(
-          result.current.data
-            .map((key: task.Key) => result.current.getItem(key)?.name)
-            .includes("special"),
-        ).toBe(true);
-      });
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      for (let i = 0; i < 5; i++)
-        await rack.createTask({
-          name: `paginationTask${i}`,
+      const [visible, internal] = await Promise.all([
+        rack.createTask({ name: "visible", type: "pagerduty_alert", config: {} }),
+        rack.createTask({
+          name: "internal",
           type: "pagerduty_alert",
           config: {},
-        });
-
-      const { result } = renderHook(() => Task.useList({ useCachedList: false }), {
-        wrapper,
-      });
+          internal: true,
+        }),
+      ]);
+      const { result } = renderHook(
+        () => ({
+          visible: Task.useList({ query: { where: { rack: { eq: rack.key } } } }),
+          internal: Task.useList({
+            query: { where: { rack: { eq: rack.key }, internal: { eq: true } } },
+          }),
+        }),
+        { wrapper },
+      );
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.visible.more();
+        result.current.internal.more();
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-    });
-
-    it("should update the list when a task is created", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const newTask = await rack.createTask({
-        name: "newTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(newTask.key));
-    });
-
-    it("should update the list when a task is updated", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "original",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.getItem(testTask.key)?.name).toEqual("original");
-
-      await client.tasks.rename(testTask.key, "updated");
-
       await waitFor(() => {
-        expect(result.current.getItem(testTask.key)?.name).toEqual("updated");
+        expect(result.current.visible.data).toEqual([visible.key]);
+        expect(result.current.internal.data).toEqual([internal.key]);
       });
     });
 
-    it("should remove task from list when deleted", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "toDelete",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(testTask.key);
-
-      await client.tasks.delete([testTask.key]);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testTask.key);
-      });
-    });
-
-    it("should update task status in the list", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+    it("should update the status of a task in the list", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const t = await rack.createTask({
         name: "statusTask",
         type: "pagerduty_alert",
         config: {},
       });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        owner: task.resourceID(testTask.key),
-        variant: "error",
-        message: "Task failed",
-        details: {
-          running: false,
-          cmd: "",
-          configHash: "",
-          rack: 0,
-          data: {},
-        },
-      });
-
-      await act(async () => {
-        await client.statuses.set(taskStatus);
-      });
-
-      await waitFor(() => {
-        const taskInList = result.current.getItem(testTask.key);
-        expect(taskInList?.status?.variant).toEqual("error");
-        expect(taskInList?.status?.message).toEqual("Task failed");
-      });
+      const { result } = renderHook(
+        () => Task.useList({ query: { where: { rack: { eq: rack.key } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([t.key]));
+      await setStatus(t.key);
+      await waitFor(() =>
+        expect(result.current.getItem(t.key)?.status?.variant).toEqual("error"),
+      );
     });
 
-    it("should update task status when a command is executed", async () => {
-      const testRack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await testRack.createTask({
-        name: "commandTask",
+    it("should read the status of a task outside the list", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const t = await rack.createTask({
+        name: "statusTask",
         type: "pagerduty_alert",
         config: {},
       });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      // A rack with no Driver goes down within seconds of its creation, and a
-      // command on a down rack shows its warning rather than a wait for an answer.
-      await act(async () => {
-        await client.statuses.set(
-          status.create({
-            owner: rack.resourceID(testRack.key),
-            variant: "success",
-            message: "Driver is running",
-          }),
-        );
-      });
-
-      const command: task.Command = {
-        key: id.create(),
-        task: testTask.key,
-        type: "start",
-        configHash: "",
-        args: {},
-        pinned: false,
-      };
-
-      await act(async () => {
-        const writer = await client.openWriter([task.COMMAND_CHANNEL_NAME]);
-        await writer.write(task.COMMAND_CHANNEL_NAME, [command]);
-        await writer.close();
-      });
-
-      await waitFor(() => {
-        const taskInList = result.current.getItem(testTask.key);
-        expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Sending start command");
-        expect(taskInList?.status?.details.running).toBe(true);
-      });
+      await setStatus(t.key);
+      const missing = id.create();
+      const { result } = renderHook(
+        () => Task.useList({ query: { where: { name: { eq: missing } } } }),
+        { wrapper },
+      );
+      const callback = vi.fn();
+      const release = result.current.subscribe(callback, t.key);
+      await waitFor(() => expect(callback).toHaveBeenCalled());
+      expect(result.current.getItem(t.key)?.status?.variant).toEqual("error");
+      release();
     });
   });
 
@@ -774,19 +557,14 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const list = Task.useList();
+          const list = Task.useList({ query: { where: { rack: { eq: rack.key } } } });
           const del = Task.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-      });
-      expect(result.current.list.data).toContain(testTask.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toEqual([testTask.key]));
 
       await act(async () => {
         await result.current.del.updateAsync(testTask.key);
@@ -813,18 +591,14 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const list = Task.useList();
+          const list = Task.useList({ query: { where: { rack: { eq: rack.key } } } });
           const del = Task.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
-      expect(result.current.list.data).toContain(task1.key);
-      expect(result.current.list.data).toContain(task2.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toHaveLength(2));
 
       await act(async () => {
         await result.current.del.updateAsync([task1.key, task2.key]);

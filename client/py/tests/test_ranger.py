@@ -727,7 +727,7 @@ class TestRangeRetrieveFilters:
 
     def test_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match"""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
 
     def test_none_field(self, client: sy.Synnax) -> None:
@@ -768,19 +768,40 @@ class TestRangeRetrieveFilters:
         res = client.ranges.retrieve(overlaps_with=tr)
         assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
 
-    def test_limit_offset(
+    def test_limit(
         self,
         client: sy.Synnax,
         window: sy.TimeRange,
         window_ranges: list[sy.Range],
     ) -> None:
-        """Should page through the matching ranges"""
+        """Should return at most the limit of the matching ranges"""
         first = client.ranges.retrieve(overlaps_with=window, limit=2)
-        rest = client.ranges.retrieve(overlaps_with=window, limit=2, offset=2)
         assert len(first) == 2
-        assert len(rest) == 1
-        keys = {r.key for r in first} | {r.key for r in rest}
-        assert keys == {r.key for r in window_ranges}
+        assert {r.key for r in first} <= {r.key for r in window_ranges}
+
+    def test_order_and_after(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges in order from a cursor"""
+        order = ranger.Order(field="name")
+        pages: list[list[sy.Range]] = []
+        after: ranger.Cursor | None = None
+        while True:
+            page = client.ranges.retrieve(
+                overlaps=window, order=order, after=after, limit=2
+            )
+            if len(page) == 0:
+                break
+            pages.append(page)
+            after = ranger.Cursor(key=page[-1].key, name=page[-1].name)
+        assert len(pages) == 2
+        # The Core orders text without regard to case.
+        assert [r.name for p in pages for r in p] == sorted(
+            (r.name for r in window_ranges), key=str.lower
+        )
 
     def test_search_term(
         self, client: sy.Synnax, window_ranges: list[sy.Range]

@@ -147,10 +147,12 @@ describe("Task", async () => {
       await responded;
       const name = `task-renamed-${id.create()}`;
       await client.tasks.rename(m.key, name);
-      await expect.poll(() => expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      await expect
+        .poll(() => expectLive(local.tasks.watch(m.key).getCached()).name)
+        .toBe(name);
       release();
       await fetching;
-      expect(expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      expect(expectLive(local.tasks.watch(m.key).getCached()).name).toBe(name);
     });
     it("should rename a task and keep its config", async () => {
       const m = await testRack.createTask({
@@ -459,11 +461,10 @@ describe("Task", async () => {
         expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
-      it("should support pagination with limit and offset", async () => {
+      it("should page with a limit and a cursor", async () => {
         const firstPage = await client.tasks.retrieve({
           rack: testRack.key,
           limit: 2,
-          offset: 0,
         });
         expect(firstPage.length).toBeLessThanOrEqual(2);
 
@@ -471,7 +472,7 @@ describe("Task", async () => {
           const secondPage = await client.tasks.retrieve({
             rack: testRack.key,
             limit: 2,
-            offset: 2,
+            after: { key: firstPage[1].key },
           });
 
           const firstPageKeys = firstPage.map((t) => t.key);
@@ -526,7 +527,7 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
       });
 
-      it("should handle limit without offset", async () => {
+      it("should handle a limit", async () => {
         const result = await client.tasks.retrieve({
           limit: 1,
         });
@@ -590,33 +591,6 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
         expect(result.every((t) => t.snapshot === false)).toBe(true);
       });
-    });
-  });
-
-  describe("list", () => {
-    it("should list all tasks excluding internal tasks", async () => {
-      const tasks = await client.tasks.list();
-      expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks.every((t) => t.internal === false)).toBe(true);
-    });
-
-    it("should list tasks on a specific rack", async () => {
-      const task1 = await testRack.createTask({
-        name: `list-test-${Date.now()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const tasks = await client.tasks.list(testRack.key);
-      expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
-    });
-
-    it("should exclude internal tasks by default", async () => {
-      const allTasks = await client.tasks.list();
-      const internalTasks = await client.tasks.retrieve({ internal: true });
-      const allTaskKeys = allTasks.map((t) => t.key);
-      const internalTaskKeys = internalTasks.map((t) => t.key);
-      expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
     });
   });
 
@@ -773,9 +747,11 @@ describe("Task", async () => {
       ]);
       expect(stored.configHash).not.toBe(t.configHash);
       await expect
-        .poll(() => expectLive(client.tasks.getCached(t.key)).configHash)
+        .poll(() => expectLive(client.tasks.watch(t.key).getCached()).configHash)
         .toBe(stored.configHash);
-      expect(expectLive(client.tasks.getCached(t.key)).config).toEqual(stored.config);
+      expect(expectLive(client.tasks.watch(t.key).getCached()).config).toEqual(
+        stored.config,
+      );
     });
   });
 
@@ -1361,7 +1337,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = client.tasks.onChange(params, vi.fn());
+      const off = client.tasks.watch(params).onChange(vi.fn());
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
@@ -1374,7 +1350,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.message;
           })
@@ -1390,10 +1366,10 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const params = { where: { key: { in: [t.key] } } };
-      const off = client.tasks.onChange(params, vi.fn());
+      const list = client.tasks.watch({ where: { key: { in: [t.key] } } });
+      const off = list.onChange(vi.fn());
       try {
-        await client.tasks.retrieve(params);
+        await list.retrieve();
         await client.statuses.set({
           owner: task.resourceID(t.key),
           name: "Task Status",
@@ -1404,9 +1380,8 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.status?.message;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.status?.message;
           })
           .toBe("task degraded");
       } finally {
@@ -1424,7 +1399,7 @@ describe("Task", async () => {
       // The optimistic status is transient: a real one from the cluster replaces it, so
       // it has to be captured as it is delivered rather than read back later.
       const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
+      const off = client.tasks.watch(params).onChange((cached) => {
         if (!query.isLive(cached)) return;
         const { status } = cached;
         if (status?.variant === "loading") loading.push(status);
@@ -1447,7 +1422,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.details.configHash;
           })
@@ -1967,7 +1942,7 @@ describe("Task", async () => {
       // before its stream goes live is never seen.
       await waitForStreamLive(remote.connection);
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         expect((await remote.tasks.retrieve(params)).config).toMatchObject({
           routingKey: "dog",
@@ -1983,7 +1958,7 @@ describe("Task", async () => {
         ).toBe(true);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.config : undefined;
           })
           .toMatchObject({ routingKey: "cat" });
@@ -2001,7 +1976,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         expect(
@@ -2013,7 +1988,7 @@ describe("Task", async () => {
         const stored = await createTestClient().tasks.retrieve(t.key);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return { config: cached.config, configHash: cached.configHash };
           })
@@ -2033,10 +2008,10 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      const params = { where: { rack: { eq: dest.key } } };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const list = remote.tasks.watch({ where: { rack: { eq: dest.key } } });
+      const off = list.onChange(vi.fn());
       try {
-        expect(await remote.tasks.retrieve(params)).toHaveLength(0);
+        expect((await list.retrieve()).records).toHaveLength(0);
         expect(
           await client.tasks.dispatch(
             t.key,
@@ -2045,9 +2020,8 @@ describe("Task", async () => {
         ).toBe(true);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.config;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.config;
           })
           .toMatchObject({ routingKey: "dog" });
       } finally {
@@ -2082,7 +2056,7 @@ describe("Task", async () => {
       );
       await waitForStreamLive(remote.connection);
       const params = { key: readable.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         const fetches = recordResponses(remote, "/task/retrieve");
@@ -2092,13 +2066,13 @@ describe("Task", async () => {
         await client.tasks.rename(readable.key, name);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.name : undefined;
           })
           .toBe(name);
         expect(fetches).toHaveLength(0);
         expect(onError).not.toHaveBeenCalled();
-        expect(remote.tasks.getCached({ key: denied.key })).toBeUndefined();
+        expect(remote.tasks.watch({ key: denied.key }).getCached()).toBeUndefined();
       } finally {
         off();
       }

@@ -1063,6 +1063,27 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(expected))
 		})
 
+		It("Should resume strictly past the key", func(ctx SpecContext) {
+			keys := make([]task.Key, 3)
+			for i := range keys {
+				t := &task.Task{Type: testType, Rack: testRack.Key, Name: "Paged"}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				keys[i] = t.Key
+			}
+			// Each key's cursor drops it and the keys before it in storage order.
+			counts := lo.Map(keys, func(k task.Key, _ int) int {
+				var res []task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(keys...)).
+					After(k).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).NotTo(ContainElement(HaveField("Key", k)))
+				return len(res)
+			})
+			Expect(counts).To(ConsistOf(0, 1, 2))
+		})
+
 		It(
 			"Should fail to filter by Arc on a service that cannot match Arcs",
 			func(ctx SpecContext) {

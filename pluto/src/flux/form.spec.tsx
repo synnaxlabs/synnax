@@ -868,7 +868,7 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.onChange(lbl.key, (result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });
@@ -922,7 +922,7 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.onChange(lbl.key, (result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });

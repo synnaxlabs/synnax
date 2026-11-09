@@ -123,19 +123,21 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		w.dispatcher.Attach(
 			w.tx,
 			k,
-			NewSetProjectAction(SetProjectPayload{Project: p}),
+			NewSetAction(SetPayload{Path: []string{"project"}, Value: p}),
 		)
 	}
 	return nil
 }
 
+// attachGroup attaches a set of the group of each panel with keys, or a remove of the
+// group when g is nil.
 func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
-		w.dispatcher.Attach(
-			w.tx,
-			k,
-			NewSetGroupAction(SetGroupPayload{Group: g}),
-		)
+		a := NewRemoveAction(RemovePayload{Key: "group"})
+		if g != nil {
+			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
+		}
+		w.dispatcher.Attach(w.tx, k, a)
 	}
 }
 

@@ -51,7 +51,7 @@ std::pair<Task, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value() || options.offset != 0)
+    if (options.limit.has_value() || options.after.has_value())
         return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};

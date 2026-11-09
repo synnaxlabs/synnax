@@ -28,6 +28,8 @@ import {
 } from "@/arc/directory/types.gen";
 import { LINES } from "@/arc/directory/where";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -98,6 +100,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (d, req) => matches(LINES, d, req.where),
@@ -114,16 +117,23 @@ export class Client extends query.Retriever<
     return root;
   }
 
-  /** Creates a directory in the directory parent. */
+  /**
+   * Creates a directory in the directory parent. A create with a key writes the
+   * directory to the cache first, and removes it if the Core rejects the create.
+   */
   async create({ parent, key, name }: CreateParams): Promise<Directory> {
-    const res = await this.cfg.unary.send(
-      "/arc/directory/create",
-      { parent, directory: { key, name } },
-      createReqZ,
-      createResZ,
-    );
-    this.store.set(res.directory);
-    return res.directory;
+    const { directory } = await query.optimistic({
+      rollbacks: key == null ? [] : [this.store.set({ key, name, parent })],
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/arc/directory/create",
+          { parent, directory: { key, name } },
+          createReqZ,
+          createResZ,
+        ),
+    });
+    this.store.set(directory);
+    return directory;
   }
 
   /** Renames the directory with key. */

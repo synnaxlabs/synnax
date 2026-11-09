@@ -167,7 +167,7 @@ class TestLabelClient:
 
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.labels.retrieve(name={"starts_with": "a"}, one=True, limit=1)  # type: ignore[call-overload]
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:

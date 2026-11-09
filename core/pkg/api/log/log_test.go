@@ -215,7 +215,9 @@ var _ = Describe("Dispatch", func() {
 			Actions: acts,
 		})
 	}
-	rename := log.NewRenameAction(log.RenamePayload{Name: "Renamed"})
+	rename := log.NewSetAction(
+		log.SetPayload{Path: []string{"name"}, Value: "Renamed"},
+	)
 	It(
 		"Should refuse a dispatch without update on the log and write nothing",
 		func(ctx SpecContext) {

@@ -14,6 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Group } from "@/group";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -34,42 +35,33 @@ describe("Group queries", () => {
     controller.abort();
   });
 
-  describe("useList", () => {
-    it("should return a list of groups for a given parent", async () => {
-      const parent = await client.groups.create({
-        scope: "channel",
-        name: "test-parent",
-      });
-      const group1 = await client.groups.create({
-        parent: group.resourceID(parent.key),
-        name: "group1",
-      });
-      const group2 = await client.groups.create({
-        parent: group.resourceID(parent.key),
-        name: "group2",
+  describe("list", () => {
+    const useGroups = (query: group.RetrieveMultipleParams) =>
+      Flux.useList((c) => c.groups, {
+        name: "groups",
+        query: { ...query, order: { field: "name" } },
       });
 
+    it("should list the groups of a parent in name order", async () => {
+      const parent = await client.groups.create({ scope: "channel", name: "parent" });
+      const b = await client.groups.create({
+        parent: group.resourceID(parent.key),
+        name: "b",
+      });
+      const a = await client.groups.create({
+        parent: group.resourceID(parent.key),
+        name: "a",
+      });
       const { result } = renderHook(
-        () => Group.useList({ query: { parents: [group.resourceID(parent.key)] } }),
+        () => useGroups({ parents: [group.resourceID(parent.key)] }),
         { wrapper },
       );
-
-      act(() => {
-        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
-      });
-
+      act(() => result.current.more());
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
-
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data).toContain(group1.key);
-      expect(result.current.data).toContain(group2.key);
-
-      const retrievedGroup1 = result.current.getItem(group1.key);
-      expect(retrievedGroup1?.name).toBe("group1");
-      const retrievedGroup2 = result.current.getItem(group2.key);
-      expect(retrievedGroup2?.name).toBe("group2");
+      expect(result.current.getItem(a.key)?.name).toBe("a");
     });
 
     it("should keep only the top-level groups of the queried scope", async () => {
@@ -79,120 +71,55 @@ describe("Group queries", () => {
       });
       const nested = await client.groups.create({
         parent: group.resourceID(top.key),
-        name: "nested",
+        name: `nested-${uuid.create()}`,
       });
       const other = await client.groups.create({
         scope: "project",
         name: `other-${uuid.create()}`,
       });
-      const query: Group.ListQuery = { scope: "channel", nested: false };
-      const { result } = renderHook(() => Group.useList({ query }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.retrieve(query);
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toContain(top.key);
-      });
-      expect(result.current.data).not.toContain(nested.key);
-      expect(result.current.data).not.toContain(other.key);
-    });
-
-    it("should respect limit and offset parameters", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        scope: "channel",
-        name: `test-parent-paginated-${uniqueId}`,
-      });
-      await Promise.all(
-        Array.from({ length: 5 }, (_, i) =>
-          client.groups.create({
-            parent: group.resourceID(parent.key),
-            name: `group${i}`,
-          }),
-        ),
-      );
-
       const { result } = renderHook(
         () =>
-          Group.useList({
-            query: {
-              parents: [group.resourceID(parent.key)],
-              limit: 2,
-              offset: 1,
-            },
+          useGroups({
+            scope: "channel",
+            nested: false,
+            name: [top.name, nested.name, other.name],
           }),
         { wrapper },
       );
-
-      act(() => {
-        result.current.retrieve({
-          parents: [group.resourceID(parent.key)],
-          limit: 2,
-          offset: 1,
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(2);
-      });
-
-      const groupItems = result.current.data.map((key) => result.current.getItem(key));
-      const names = groupItems.map((g) => g?.name).filter(Boolean);
-      // With offset 1 and limit 2, we should get items at index 1 and 2
-      // But the order might vary, so just check we got 2 of the 5 groups
-      expect(names).toHaveLength(2);
-      expect(names.every((name) => name?.startsWith("group"))).toBe(true);
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([top.key]));
     });
 
-    it("should update when a new group is added", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        scope: "channel",
-        name: `test-parent-live-${uniqueId}`,
+    it("should move a group between the lists of its parents", async () => {
+      const from = await client.groups.create({ scope: "channel", name: "from" });
+      const to = await client.groups.create({ scope: "channel", name: "to" });
+      const g = await client.groups.create({
+        parent: group.resourceID(from.key),
+        name: "moving",
       });
-      await client.groups.create({
-        parent: group.resourceID(parent.key),
-        name: "initial-group",
-      });
-
       const { result } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent.key)] },
-          }),
+        () => ({
+          from: useGroups({ parents: [group.resourceID(from.key)] }),
+          to: useGroups({ parents: [group.resourceID(to.key)] }),
+        }),
         { wrapper },
       );
-
       act(() => {
-        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
+        result.current.from.more();
+        result.current.to.more();
       });
-
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(1);
+        expect(result.current.from.data).toEqual([g.key]);
+        expect(result.current.to.answered).toBe(true);
       });
-
+      expect(result.current.to.data).toEqual([]);
       await act(async () => {
-        await client.groups.create({
-          parent: group.resourceID(parent.key),
-          name: "new-group",
-        });
+        await client.groups.setParent(g.key, group.resourceID(to.key));
       });
-
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(2);
+        expect(result.current.from.data).toEqual([]);
+        expect(result.current.to.data).toEqual([g.key]);
       });
-
-      const groupItems2 = result.current.data.map((key) => result.current.getItem(key));
-      const names = groupItems2.map((g) => g?.name).filter(Boolean);
-      expect(names).toContain("initial-group");
-      expect(names).toContain("new-group");
     });
   });
 
@@ -372,175 +299,6 @@ describe("Group queries", () => {
       await waitFor(() =>
         expect(keysOf(result.current.data)).toEqual([leaf.key, mid.key].sort()),
       );
-    });
-  });
-
-  describe("Flux store integration", () => {
-    it("should cache retrieved groups", async () => {
-      const parent = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-cache",
-      });
-      const g = await client.groups.create({
-        parent: group.resourceID(parent.key),
-        name: "cached-group",
-      });
-
-      const { result: result1 } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent.key)] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result1.current.retrieve({ parents: [group.resourceID(parent.key)] });
-      });
-
-      await waitFor(() => {
-        expect(result1.current.variant).toEqual("success");
-        expect(result1.current.data).toHaveLength(1);
-      });
-
-      const { result: result2 } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent.key)] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result2.current.retrieve({ parents: [group.resourceID(parent.key)] });
-      });
-
-      await waitFor(() => {
-        expect(result2.current.variant).toEqual("success");
-        expect(result2.current.data).toHaveLength(1);
-        expect(result2.current.data[0]).toBe(g.key);
-      });
-    });
-
-    it("should update cache when group is deleted via listener", async () => {
-      const parent = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-listener-delete",
-      });
-      const g = await client.groups.create({
-        parent: group.resourceID(parent.key),
-        name: "listener-delete-group",
-      });
-
-      const { result } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent.key)] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(1);
-      });
-
-      await act(async () => {
-        await client.groups.delete(g.key);
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(0);
-      });
-    });
-
-    it("should add a group to the list when a group is re-parented", async () => {
-      const parent1 = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-reparent-1",
-      });
-      const parent2 = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-reparent-2",
-      });
-      const g = await client.groups.create({
-        parent: group.resourceID(parent1.key),
-        name: "movable-group",
-      });
-
-      const { result } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent2.key)] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({ parents: [group.resourceID(parent2.key)] });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(0);
-      });
-
-      await act(async () => {
-        await client.groups.setParent(g.key, group.resourceID(parent2.key));
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(1);
-        expect(result.current.data[0]).toBe(g.key);
-      });
-
-      const retrievedGroup = result.current.getItem(g.key);
-      expect(retrievedGroup?.name).toBe("movable-group");
-    });
-
-    it("should remove a group from the list when a group is re-parented to a different parent", async () => {
-      const parent1 = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-remove-1",
-      });
-      const parent2 = await client.groups.create({
-        scope: "channel",
-        name: "test-parent-remove-2",
-      });
-      const g = await client.groups.create({
-        parent: group.resourceID(parent1.key),
-        name: "moving-away-group",
-      });
-
-      const { result } = renderHook(
-        () =>
-          Group.useList({
-            query: { parents: [group.resourceID(parent1.key)] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({ parents: [group.resourceID(parent1.key)] });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(1);
-        expect(result.current.data[0]).toBe(g.key);
-      });
-
-      await act(async () => {
-        await client.groups.setParent(g.key, group.resourceID(parent2.key));
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(0);
-      });
     });
   });
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, type resource } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -56,28 +56,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   verbs: verbs.DELETE,
   update: async ({ client, data }) => {
     await client.arcs.directories.delete(data);
-    return data;
-  },
-});
-
-export interface MoveParams {
-  destination: resource.ID;
-  ids: resource.ID[];
-}
-
-const MOVE_VERBS: verbs.Verbs = {
-  present: "move",
-  participle: "moving",
-  past: "moved",
-};
-
-export const { useUpdate: useMove } = Flux.createUpdate<MoveParams>({
-  name: RESOURCE_NAME,
-  verbs: MOVE_VERBS,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { destination, ids } = data;
-    await onOptimisticComplete(data);
-    await client.arcs.directories.move(destination, ...ids);
     return data;
   },
 });

@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -41,189 +41,37 @@ describe("queries", () => {
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
-  describe("useList", () => {
-    it("should update an item read by key when it changes", async () => {
-      const item = await client.labels.create({ name: "original", color: "#FF0000" });
+  describe("list", () => {
+    it("should list the matching labels in name order", async () => {
+      const [b, a] = await client.labels.create([
+        { name: "b", color: "#FF0000" },
+        { name: "a", color: "#00FF00" },
+      ]);
       const { result } = renderHook(
-        () => {
-          const list = Label.useList({ useCachedList: false });
-          return Flux.useListItem({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key: item.key,
-          });
-        },
+        () =>
+          Flux.useList((c) => c.labels, {
+            name: "labels",
+            query: { where: { key: { in: [a.key, b.key] } }, order: { field: "name" } },
+          }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current?.name).toEqual("original"));
-      await act(async () => {
-        await client.labels.dispatch(
-          item.key,
-          label.set({ path: ["name"], value: "updated" }),
-        );
-      });
-      await waitFor(() => expect(result.current?.name).toEqual("updated"));
-    });
-
-    it("should return a list of label keys", async () => {
-      const label1 = await client.labels.create({
-        name: "label1",
-        color: "#FF0000",
-      });
-      const label2 = await client.labels.create({
-        name: "label2",
-        color: "#00FF00",
-      });
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(label1.key);
-      expect(result.current.data).toContain(label2.key);
-    });
-
-    it("should get individual labels using getItem", async () => {
-      const testLabel = await client.labels.create({
-        name: "testLabel",
-        color: "#E774D0",
-      });
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedLabel = result.current.getItem(testLabel.key);
-      expect(retrievedLabel?.key).toEqual(testLabel.key);
-      expect(retrievedLabel?.name).toEqual("testLabel");
-      expect(retrievedLabel?.color).toEqual(color.construct("#E774D0"));
-    });
-
-    it("should filter labels by search term", async () => {
-      await client.labels.create({
-        name: "ordinary_label",
-        color: "#FF0000",
-      });
-      await client.labels.create({
-        name: "special_label",
-        color: "#00FF00",
-      });
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ searchTerm: "special" });
-      });
+      act(() => result.current.more());
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-        expect(
-          result.current.data
-            .map((key: label.Key) => result.current.getItem(key)?.name)
-            .includes("special_label"),
-        ).toBe(true);
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
+      expect(result.current.getItem(a.key)).toEqual(a);
     });
 
-    it("should handle pagination with limit and offset", async () => {
-      const labels = await Promise.all(
-        Array.from({ length: 5 }).map((_, i) =>
-          client.labels.create({
-            name: `paginationLabel${i}`,
-            color: "#0000FF",
-          }),
-        ),
+    it("should list the labels that match a search term", async () => {
+      const name = `special-${id.create()}`;
+      const match = await client.labels.create({ name, color: "#00FF00" });
+      const { result } = renderHook(
+        () => Flux.useList((c) => c.labels, { name: "labels", searchDebounce: 0 }),
+        { wrapper },
       );
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({
-          limit: 2,
-          offset: 1,
-          where: { key: { in: labels.map((l) => l.key) } },
-        });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-    });
-
-    it("should update the list when a label is created", async () => {
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const newLabel = await client.labels.create({
-        name: "newLabel",
-        color: "#FFFF00",
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(newLabel.key));
-    });
-
-    it("should update the list when a label is updated", async () => {
-      const testLabel = await client.labels.create({
-        name: "original",
-        color: "#FF0000",
-      });
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
-
-      await client.labels.dispatch(
-        testLabel.key,
-        label.set({ path: ["name"], value: "updated" }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.getItem(testLabel.key)?.name).toEqual("updated");
-      });
-    });
-
-    it("should remove label from list when deleted", async () => {
-      const testLabel = await client.labels.create({
-        name: "toDelete",
-        color: "#FF0000",
-      });
-
-      const { result } = renderHook(() => Label.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data).toContain(testLabel.key);
-
-      await client.labels.delete(testLabel.key);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testLabel.key);
-      });
+      act(() => result.current.search(name));
+      await waitFor(() => expect(result.current.data).toContain(match.key));
     });
   });
 
@@ -270,28 +118,6 @@ describe("queries", () => {
         await waitFor(() => {
           expect(result.current).toEqual(expect.arrayContaining(labels));
         });
-      });
-    });
-    describe("useList", () => {
-      it("should retrieve labels", async () => {
-        const labels = await client.labels.create([
-          { name: "label1", color: "#FF0000" },
-          { name: "label2", color: "#00FF00" },
-        ]);
-        const { result } = renderHook(
-          () =>
-            Label.useList({
-              query: { where: { key: { in: labels.map((l) => l.key) } } },
-            }),
-          { wrapper },
-        );
-        result.current.retrieve({});
-        await result.current.retrieveAsync({
-          where: { key: { in: labels.map((l) => l.key) } },
-        });
-        await waitFor(() => expect(result.current.variant).toEqual("success"));
-        const label = result.current.getItem(labels[0].key);
-        expect(label).toEqual(labels[0]);
       });
     });
   });
@@ -375,7 +201,7 @@ describe("queries", () => {
       expect(result.current.variant).toEqual("success");
       const expected = [kept.key, added.key].toSorted();
       await waitFor(() => {
-        const cached = observer.ranges.getCached(rng.key);
+        const cached = observer.ranges.watch(rng.key).getCached();
         expect(query.isLive(cached) && cached.labels.toSorted()).toEqual(expected);
       });
     });
