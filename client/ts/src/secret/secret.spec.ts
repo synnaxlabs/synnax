@@ -380,6 +380,35 @@ describe("Secret", () => {
       }
     });
 
+    it("should report no error for a uses refetch that a close stops", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({
+        onInternalError: (error) => internal.push(error),
+      });
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Closed routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      client.secrets.watch(q).onChange(() => {});
+      await client.secrets.retrieve(q);
+      const held = holdResponses(client, "/secret/retrieve");
+      const r = await client.racks.create({ name: "Closed uses" });
+      await r.createTask({
+        name: "Alerts",
+        type: "pagerduty_alert",
+        config: { routingKey: s.key },
+      });
+      await held.responded;
+      await client.close();
+      held.release();
+      // Long enough for the refetch to fail.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(internal).toEqual([]);
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
