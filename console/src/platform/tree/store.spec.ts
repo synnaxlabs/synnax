@@ -51,6 +51,7 @@ const createMemorySource = (fetched: Window, pages: Window[] = []): MemorySource
     more: async () => {
       const page = pages.shift();
       if (page != null) push(page);
+      return cached ?? fetched;
     },
     getCached: () => cached,
     onChange: (handler) => {
@@ -140,6 +141,17 @@ describe("tree store", () => {
       await expect.poll(() => markMore(keysOf(store))).toEqual(["group:a", MORE]);
     });
 
+    it("should keep the show more node when deletes empty a list with more", async () => {
+      const store = createStore({
+        [ROOT_KEY]: [
+          createMemorySource({ resources: [], more: true }),
+          createMemorySource(listed(res("channel", "1", "a"))),
+        ],
+      });
+      store.start();
+      await expect.poll(() => markMore(keysOf(store))).toEqual([MORE]);
+    });
+
     it("should fetch the next page of only the folder lists while one has more", async () => {
       const folders = createMemorySource({ resources: [GROUP_A], more: true });
       const records = createMemorySource({
@@ -187,8 +199,8 @@ describe("tree store", () => {
       const paged = createMemorySource({ resources: [GROUP_A], more: true });
       const more = vi.spyOn(paged, "more").mockImplementation(
         async () =>
-          await new Promise<void>((resolve) => {
-            release = resolve;
+          await new Promise<Window>((resolve) => {
+            release = () => resolve(listed(GROUP_A));
           }),
       );
       const store = createStore({ [ROOT_KEY]: [paged] });
@@ -258,7 +270,7 @@ describe("tree store", () => {
       const onError = vi.fn();
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
-        more: async () => {},
+        more: async () => await Promise.reject(new Error("unreachable")),
         getCached: () => undefined,
         onChange: () => () => {},
       };
@@ -366,7 +378,7 @@ describe("tree store", () => {
       const root = createMemorySource(listed(GROUP_A));
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
-        more: async () => {},
+        more: async () => await Promise.reject(new Error("unreachable")),
         getCached: () => undefined,
         onChange: () => () => {},
       };
