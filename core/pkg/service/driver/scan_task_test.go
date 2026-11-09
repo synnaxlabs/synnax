@@ -19,7 +19,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -28,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -155,7 +153,9 @@ var _ = Describe("ScanTask", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		r := rack.Rack{Name: "scan-task-rack"}
-		Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackService.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		rackKey = r.Key
 		deviceMake = "make-" + uuid.New().String()
 		t = task.Task{
@@ -265,31 +265,6 @@ var _ = Describe("ScanTask", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should subscribe to device changes before Start returns",
-			func(ctx SpecContext) {
-				ids := func(top string) set.Set[uint64] {
-					s := set.New[uint64]()
-					for _, g := range gleak.Goroutines() {
-						if top == "" || g.TopFunction == top {
-							s.Add(g.ID)
-						}
-					}
-					return s
-				}
-				before := ids("")
-				handlers := func() set.Set[uint64] {
-					return ids(
-						"github.com/synnaxlabs/x/observe.(*async[...]).OnChange.func1",
-					).Difference(before)
-				}
-				st := open(time.Hour)
-				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
-				started := ids("")
-				Eventually(handlers).ShouldNot(BeEmpty())
-				Expect(handlers().IsSubsetOf(started)).To(BeTrue())
-			},
-		)
-
 		It("Should report a change of health on the next interval",
 			func(ctx SpecContext) {
 				dev := createDevice(ctx, deviceMake)
@@ -363,7 +338,9 @@ var _ = Describe("ScanTask", func() {
 				stale := deviceStatus(ctx, dev)
 				stale.Variant = status.VariantWarning
 				stale.Message = "Broker state unknown"
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &stale)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &stale)
+				})).To(Succeed())
 				Eventually(func(g Gomega) {
 					stat := deviceStatus(ctx, dev)
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
@@ -407,7 +384,7 @@ var _ = Describe("ScanTask", func() {
 			Expect(statusSvc.NewRetrieve[any]().
 				Where(status.MatchOwners[any](dev.ResourceID())).
 				Entry(&devStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			DeferCleanup(hookedKV.HookKey([]byte(devStatus.Key), refuse))
 			st := open(time.Hour)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())

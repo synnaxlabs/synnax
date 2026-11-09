@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -43,6 +45,7 @@ func TestAPIProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	db         *gorp.DB
 	rbacSvc    *rbac.Service
 	groupSvc   *group.Service
 	projectSvc *project.Service
@@ -50,12 +53,31 @@ var (
 	panelSvc   *panel.Service
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
-	author     user.User
+	// create, del, rename, dispatch, importBundle, setGroup, retrieve, and export run
+	// their routes as the API layer binds them.
+	create freighter.UnaryHandler[
+		apiproject.CreateRequest,
+		apiproject.CreateResponse,
+	]
+	del          freighter.UnaryHandler[apiproject.DeleteRequest, struct{}]
+	rename       freighter.UnaryHandler[apiproject.RenameRequest, struct{}]
+	dispatch     freighter.UnaryHandler[apiproject.DispatchRequest, struct{}]
+	importBundle freighter.UnaryHandler[
+		apiproject.ImportRequest,
+		apiproject.ImportResponse,
+	]
+	setGroup freighter.UnaryHandler[apiproject.SetGroupRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apiproject.RetrieveRequest,
+		apiproject.RetrieveResponse,
+	]
+	export freighter.UnaryHandler[apiproject.ExportRequest, apiproject.ExportResponse]
+	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -93,7 +115,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	resourceSvc := MustSucceed(resource.NewService(resource.ServiceConfig{
-		DB: db,
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeGroup:   groupSvc.Resources(),
 			resource.TypeLog:     logSvc.Resources(),
@@ -102,7 +123,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	bundleSvc := MustSucceed(bundle.NewService(bundle.Config{
-		DB:       db,
 		Resource: resourceSvc,
 		Project:  projectSvc,
 		Group:    groupSvc,
@@ -110,18 +130,26 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:     imexSvc,
 	}))
 	apiSvc = MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
-		RBAC:    rbacSvc,
 		Project: projectSvc,
 		Bundle:  bundleSvc,
 	}))
-	author = MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	create = bind.Write(binder, apiSvc.Create)
+	del = bind.Write(binder, apiSvc.Delete)
+	rename = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	importBundle = bind.Write(binder, apiSvc.Import)
+	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	export = bind.Read(binder, apiSvc.Export)
+	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "import-" + uuid.New().String(),
 	}))
 }
@@ -129,14 +157,18 @@ func createUser(ctx SpecContext) user.User {
 func createProject(ctx SpecContext, name string) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: name}
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &p)
+	})).To(Succeed())
 	return p
 }
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
 	l := log.Log{Project: &proj, Name: name}
-	Expect(logSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return logSvc.NewWriter(tx).Create(ctx, &l)
+	})).To(Succeed())
 	return l
 }
 
@@ -150,7 +182,7 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }
 
 func grantRetrieveOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {

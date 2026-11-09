@@ -43,7 +43,6 @@ var (
 	logSvc       *log.Service
 	tableSvc     *table.Service
 	panelSvc     *panel.Service
-	writer       project.Writer
 	tx           gorp.Tx
 )
 
@@ -54,7 +53,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
-	writer = svc.NewWriter(nil)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))

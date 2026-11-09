@@ -10,6 +10,7 @@
 package lineplot_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,7 +77,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		&ch43,
 		&ch99,
 	}
-	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, len(chs)))
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, len(chs)))
 	for i, ch := range chs {
 		*ch = keys[i]
 	}
@@ -89,5 +90,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx: imexSvc,
 	}))
 	proj.Name = "test-project"
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
 })
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key lineplot.Key,
+	dispatchKey string,
+	acts []lineplot.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+	})
+}

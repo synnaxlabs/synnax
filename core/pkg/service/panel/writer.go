@@ -23,42 +23,23 @@ import (
 )
 
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Panel]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own that keeps the
-// dispatch key of w when w has no transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		bound := w.svc.NewWriter(tx)
-		bound.dispatcher = w.dispatcher
-		return f(bound)
-	})
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
 // The panel must belong to exactly one of a project and a range. An existing panel
 // keeps its group, project, and range. A new panel in a group belongs to the project
 // that holds the group.
-func (w Writer) Create(ctx context.Context, p *Panel) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, p) })
-}
-
-func (w Writer) create(
+func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
 ) (err error) {
@@ -102,8 +83,7 @@ func (w Writer) create(
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		p.Key,
 		NewCreateAction(CreatePayload{Panel: *p}),
@@ -114,44 +94,43 @@ func (w Writer) create(
 // SetGroup moves the panels with keys into g, or out of their group when g is nil. A
 // panel in a group belongs to the project that holds the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		p, err := project.GroupProject(ctx, w.tx, g, resource.TypePanel)
-		if err != nil {
-			return err
-		}
-		if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.notifyGroup(ctx, g, keys)
-		if p == nil {
-			return nil
-		}
-		return w.setProject(ctx, *p, keys...)
-	})
+	p, err := project.GroupProject(ctx, w.tx, g, resource.TypePanel)
+	if err != nil {
+		return err
+	}
+	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(g, keys)
+	if p == nil {
+		return nil
+	}
+	return w.setProject(ctx, *p, keys...)
 }
 
 // SetProject moves the panels with keys out of their group and into the project p. It
 // returns a validation error when a panel belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		w.notifyGroup(ctx, nil, keys)
-		return w.setProject(ctx, p, keys...)
-	})
+	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.attachGroup(nil, keys)
+	return w.setProject(ctx, p, keys...)
 }
 
-// setProject moves the panels with keys into the project p, and notifies a project
-// change for each one that was not in p.
+// setProject moves the panels with keys that are not in the project p into p, and
+// attaches a set project action for each one.
 func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
 	var moved []Key
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Panel](keys...),
+			gorp.Match(func(_ gorp.Context, e *Panel) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
 		ChangeErr(func(_ gorp.Context, e Panel) (Panel, error) {
-			if e.Project == nil || *e.Project != p {
-				moved = append(moved, e.Key)
-			}
+			moved = append(moved, e.Key)
 			e.Project = &p
 			return e, project.ValidateOwner(e.Project, e.Range)
 		}).
@@ -159,8 +138,7 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		return err
 	}
 	for _, k := range moved {
-		w.dispatcher.NotifyOnCommit(
-			ctx,
+		w.dispatcher.Attach(
 			w.tx,
 			k,
 			NewSetAction(SetPayload{Path: []string{"project"}, Value: p}),
@@ -169,15 +147,15 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// notifyGroup notifies a set of the group of each panel with keys, or a remove of the
+// attachGroup attaches a set of the group of each panel with keys, or a remove of the
 // group when g is nil.
-func (w Writer) notifyGroup(ctx context.Context, g *group.Key, keys []Key) {
+func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
 		a := NewRemoveAction(RemovePayload{Key: "group"})
 		if g != nil {
 			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
 		}
-		w.dispatcher.NotifyOnCommit(ctx, w.tx, k, a)
+		w.dispatcher.Attach(w.tx, k, a)
 	}
 }
 
@@ -200,4 +178,29 @@ func (w Writer) Delete(
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Panel](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// Apply applies a sequence of actions to the panel with the given key and attaches them
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
+// Returns a validation error, and stores nothing, if the actions leave the panel
+// invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
+		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
+			reduced, err := Reduce(p, acts...)
+			if err != nil {
+				return Panel{}, err
+			}
+			if err = validateTree(reduced.Root); err != nil {
+				return Panel{}, err
+			}
+			if err = reduced.Validate(); err != nil {
+				return Panel{}, err
+			}
+			return reduced, nil
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }

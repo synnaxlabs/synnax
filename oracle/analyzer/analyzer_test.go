@@ -116,6 +116,56 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Repeated field domain expressions", func() {
+		DescribeTable(
+			"Should reject an expression that a field declares twice",
+			func(ctx SpecContext, field string) {
+				source := `
+					Entry struct {
+						` + field + `
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"field value declares @validate max twice",
+				))
+			},
+			Entry("on two lines", `value int32 {
+				@validate max 10
+				@validate max 20
+			}`),
+			Entry("inline and on a line", `value int32 @validate max 10 {
+				@validate max 20
+			}`),
+			Entry("in one block", `value int32 {
+				@validate {
+					max 10
+					max 20
+				}
+			}`),
+		)
+
+		It("Should merge different expressions on two lines", func(ctx SpecContext) {
+			source := `
+				Entry struct {
+					value int32 {
+						@validate min 1
+						@validate max 20
+					}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := MustBeOk(entry.Form.(resolution.StructForm).Field("value"))
+			Expect(field.Domains["validate"].Expressions).To(HaveExactElements(
+				HaveField("Name", "min"),
+				HaveField("Name", "max"),
+			))
+		})
+	})
+
 	Describe("Retired version tag", func() {
 		It("Should reject a file-level @go version", func(ctx SpecContext) {
 			source := `

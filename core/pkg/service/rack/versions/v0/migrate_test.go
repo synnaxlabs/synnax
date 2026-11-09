@@ -84,7 +84,7 @@ var _ = Describe("Migration", func() {
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchOwners[v0.StatusDetails](r.ResourceID())).
 			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		key, _ := statusv2.MigrateKey(r.ResourceID().String())
 		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -185,7 +185,9 @@ var _ = Describe("Status backfill", func() {
 			}
 			// The rack table is not open during its own migration, so the status skips
 			// reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).
 				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
@@ -205,7 +207,7 @@ var _ = Describe("Status backfill", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](rackKey.ResourceID())).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal("legacy-rack-status"))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
 		},
