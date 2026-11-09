@@ -32,8 +32,8 @@ type Observable[T any] interface {
 type Observer[T any] interface {
 	Observable[T]
 	// Notify notifies all subscribers of the Value. It calls the handlers while it
-	// holds a lock, so a handler must not call OnChange or a Disconnect on the same
-	// Observer: the call deadlocks.
+	// holds a lock, so a handler must not call Notify, OnChange, or a Disconnect on the
+	// same Observer: the call can deadlock.
 	Notify(context.Context, T)
 }
 
