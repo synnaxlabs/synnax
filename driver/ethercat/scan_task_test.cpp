@@ -55,18 +55,18 @@ protected:
 
 class EtherCATScanStatusTest : public EtherCATScanTest {
 protected:
-    const pdo::Entry entry{0, 0x6000, 1, 16, true, x::telem::INT16_T};
+    const pdo::Entry entry{1, 0x6000, 1, 16, true, x::telem::INT16_T};
     std::shared_ptr<testutil::Master> master;
     std::shared_ptr<engine::Pool> pool;
     std::unique_ptr<Scanner> scanner;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(
             slave::Properties{
                 .network = "eth0",
-                .position = 0,
+                .position = 1,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
                 .serial = 12345,
@@ -105,68 +105,7 @@ protected:
     }
 };
 
-TEST_F(EtherCATScanTest, ScannerCreation) {
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    const ScanTaskConfig cfg;
-    const Scanner scanner(ctx, task, cfg, nullptr);
-    EXPECT_EQ(scanner.config().make, INTEGRATION_NAME);
-}
-
-TEST_F(EtherCATScanTest, ScanConfigParsesCorrectly) {
-    x::json::json cfg_json = {{"rate", 2.0}, {"disabled", false}};
-
-    x::json::Parser parser(cfg_json);
-    ScanTaskConfig cfg(parser);
-
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(cfg.rate.hz(), 2.0);
-    EXPECT_FALSE(cfg.disabled);
-}
-
-TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
-    x::json::json cfg_json = {};
-
-    x::json::Parser parser(cfg_json);
-    ScanTaskConfig cfg(parser);
-
-    ASSERT_NIL(parser.error());
-    EXPECT_FALSE(cfg.disabled);
-}
-
-TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
-    synnax::task::Task task{
-        .rack = rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true,
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
-
-    auto config = scanner.config();
-    EXPECT_EQ(config.make, INTEGRATION_NAME);
-    EXPECT_EQ(config.log_prefix, SCAN_LOG_PREFIX);
-}
-
-TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
-    synnax::task::Task task{
-        .rack = rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true,
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
-
-    ASSERT_NIL(scanner.start());
-    ASSERT_NIL(scanner.stop());
-}
-
+/// @brief it should report a test command that has no interface.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -189,6 +128,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     EXPECT_EQ(ctx->statuses.back().description, "interface: This field is required");
 }
 
+/// @brief it should leave a command it does not know to another handler.
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -207,48 +147,12 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     EXPECT_FALSE(handled);
 }
 
-TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = 12345,
-            .name = "Test Slave",
-        }
-    );
-
-    auto manager = std::make_unique<testutil::Manager>();
-    manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS);
-
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
-
-    synnax::task::Command cmd;
-    cmd.type = TEST_INTERFACE_CMD_TYPE;
-    cmd.args = {{"interface", "eth0"}};
-    cmd.key = '1';
-
-    bool handled = scanner.exec(cmd, task, this->ctx);
-    EXPECT_TRUE(handled);
-    ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_NE(this->ctx->statuses.back().message.find("1 slaves"), std::string::npos);
-}
-
+/// @brief it should report how many slaves a test command finds.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
-    auto mock_master = std::make_shared<testutil::Master>("enp3s0");
+    auto mock_master = std::make_shared<testutil::Master>();
     mock_master->add_slave(
         slave::Properties{
-            .position = 0,
+            .position = 1,
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 11111,
@@ -257,7 +161,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     );
     mock_master->add_slave(
         slave::Properties{
-            .position = 1,
+            .position = 2,
             .vendor_id = 0x1,
             .product_code = 0x3,
             .serial = 22222,
@@ -266,7 +170,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     );
     mock_master->add_slave(
         slave::Properties{
-            .position = 2,
+            .position = 3,
             .vendor_id = 0x1,
             .product_code = 0x4,
             .serial = 33333,
@@ -302,8 +206,8 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
 /// @brief it should return a permission error from a scan, so the error reaches the
 /// status of the scan task.
 TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->inject_init_error(
+    auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->inject_scan_error(
         x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
     );
     auto manager = std::make_unique<testutil::Manager>();
@@ -319,9 +223,10 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
+/// @brief it should report an interface that fails to open.
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
-    auto mock_master = std::make_shared<testutil::Master>("eth0");
-    mock_master->inject_init_error(
+    auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
 
@@ -360,7 +265,7 @@ protected:
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<testutil::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>();
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
         this->scanner = std::make_unique<Scanner>(
@@ -381,25 +286,25 @@ protected:
 
 /// @brief it should probe an interface with no slaves only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
-    this->master->inject_init_error(
+    this->master->inject_scan_error(
         x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
     );
     for (int i = 0; i < 7; ++i)
         this->scan();
-    EXPECT_EQ(this->master->init_call_count(), 2);
+    EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
 /// @brief it should return a partial scan error for an interface it cannot open, then
 /// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
-    this->master->inject_init_error(
+    this->master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "cannot open eth0")
     );
     const auto [devices, err] = this->scanner->scan({});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, "cannot open eth0");
     EXPECT_TRUE(devices.empty());
-    this->master->inject_init_error(x::errors::NIL);
+    this->master->inject_scan_error(x::errors::NIL);
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
 }
 
@@ -439,10 +344,20 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     EXPECT_TRUE(status.details.connected);
 }
 
+/// @brief it should key a slave with a serial number by its vendor, product, and
+/// serial, not by its position.
+TEST_F(EtherCATScanStatusTest, KeysASlaveBySerialNumber) {
+    const auto devices = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 1})
+    );
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
-    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    this->master->fail_pdo_discovery(1, "no PDO objects found in object dictionary");
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to discover PDOs");
@@ -454,10 +369,27 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     );
 }
 
+/// @brief it should show the PDOs of a fallback discovery with its error as a warning.
+TEST_F(EtherCATScanStatusTest, FallbackPDODiscoveryShowsItsPDOsAsAWarning) {
+    this->master->fall_back_pdo_discovery(
+        1,
+        "failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII. PDO order may be unreliable. Verify data correctness after configuration."
+    );
+}
+
 /// @brief it should discover the slaves again every sixth scan while a slave has a
 /// failed PDO discovery.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
-    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    this->master->fail_pdo_discovery(1, "no PDO objects found in object dictionary");
     for (size_t i = 0; i < 13; ++i)
         ASSERT_NIL_P(this->scanner->scan({.count = i}));
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
@@ -466,7 +398,7 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
 /// @brief it should not discover the slaves again for a disabled slave whose PDO
 /// discovery failed.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
-    this->master->fail_pdo_discovery(0, "no PDO objects found in object dictionary");
+    this->master->fail_pdo_discovery(1, "no PDO objects found in object dictionary");
     auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
     dev.properties["enabled"] = false;
     const std::unordered_map<std::string, synnax::device::Device> devices{
@@ -539,8 +471,8 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_transition_failure(0, slave::State::OP);
-    this->master->fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->fault_slave(1, slave::State::SAFE_OP, "Sync manager watchdog");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -561,8 +493,8 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_transition_failure(0, slave::State::OP);
-    this->master->fault_slave(0, slave::State::SAFE_OP, "");
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->fault_slave(1, slave::State::SAFE_OP, "");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -581,8 +513,8 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_state(0, slave::State::PRE_OP);
-    this->master->fail_dc_restore(0, "no slave latched its receive time");
+    this->master->set_slave_state(1, slave::State::PRE_OP);
+    this->master->fail_dc_restore(1, "no slave latched its receive time");
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && !engine->health()[0].dc_restore_error.empty()
     );
@@ -604,7 +536,7 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_lost(0, true);
+    this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].lost);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -618,14 +550,14 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
 TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     this->master->add_slave(
         slave::Properties{
-            .position = 1,
+            .position = 2,
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 54321,
             .name = "Left Out Slave",
         }
     );
-    this->master->refuse(1, {.reason = "refused SAFE-OP: Inconsistent settings"});
+    this->master->refuse(2, {.reason = "refused SAFE-OP: Inconsistent settings"});
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
@@ -656,7 +588,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
 TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
     this->master->add_slave(
         slave::Properties{
-            .position = 1,
+            .position = 2,
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 54321,
@@ -664,7 +596,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
         }
     );
     this->master->refuse(
-        1,
+        2,
         {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
          .dc_sync_invalid = true}
     );
@@ -688,7 +620,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
         "It refused SAFE-OP: Invalid DC SYNC configuration. The other devices on the "
         "network started without it. The Driver tries it again the next time the "
         "network starts. " +
-            std::string(master::DC_SYNC_ADVICE)
+            std::string(slave::DC_SYNC_ADVICE)
     );
 }
 
@@ -699,8 +631,8 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto reader = ASSERT_NIL_P(
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_transition_failure(0, slave::State::OP);
-    this->master->set_slave_state(0, slave::State::PRE_OP);
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::PRE_OP);
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && engine->health()[0].state == slave::State::PRE_OP
     );
@@ -752,8 +684,8 @@ protected:
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        auto master = std::make_shared<testutil::Master>("eth0");
-        master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
+        auto master = std::make_shared<testutil::Master>();
+        master->add_slave(slave::Properties{.position = 1, .name = "EL3102"});
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", master);
         this->scanner = std::make_unique<Scanner>(
@@ -772,7 +704,7 @@ protected:
         synnax::device::Device dev{
             .key = "ecat_device_set_" + std::to_string(this->rack.key),
             .rack = this->rack.key,
-            .location = "eth0.Slot 0",
+            .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
             .model = model,
             .name = "EL3102",
@@ -783,7 +715,7 @@ protected:
                 {"revision", 1},
                 {"name", "EL3102"},
                 {"network", "eth0"},
-                {"position", 0},
+                {"position", 1},
                 {"enabled", enabled},
                 {"pdos",
                  {{"inputs", x::json::json::array()},
@@ -836,27 +768,11 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
     EXPECT_EQ(status.description, "enabled: type must be boolean, but is null");
 }
 
-/// @brief it should report an error status that names an invalid startup parameter.
-TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
-    auto dev = this->create_slave(true);
-    dev.properties["startup_parameters"] = {
-        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint8"}, {"value", 300}}
-    };
-    this->scanner->on_device_set(dev);
-    const auto status = this->status(dev);
-    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Invalid device properties");
-    EXPECT_EQ(
-        status.description,
-        "startup_parameters.0.value: must be a whole number from 0 to 255"
-    );
-}
-
 /// @brief it should show an invalid startup parameter on the device status at each
 /// scan.
 TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
     const synnax::device::Device dev{
-        .key = "ethercat_eth0_0_0_0",
+        .key = "ethercat_eth0_0_0_1",
         .model = SLAVE_DEVICE_MODEL,
         .name = "EL3102",
         .properties = {

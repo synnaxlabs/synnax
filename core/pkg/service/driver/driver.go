@@ -711,8 +711,8 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 }
 
 func (d *Driver) Close() error {
-	// The stops run outside the lock: they write statuses, and the commit reader that
-	// those writes wait for takes the lock.
+	// The command sink drains first, so no command deploys a task after the stops.
+	err := d.closer.Close()
 	d.mu.Lock()
 	instances := d.mu.instances
 	d.mu.instances = make(map[task.Key]instance)
@@ -726,5 +726,5 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	return d.closer.Close()
+	return err
 }

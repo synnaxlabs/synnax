@@ -178,7 +178,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			ExpectContent(resp, "actions_gen.py").ToContain(
 				"from x import patch",
 				"path: list[str] = Field(default_factory=list)",
-				"value: JsonValue = None",
+				"value: JsonValue | None = None",
 				"guards: list[patch.Guard] = Field(default_factory=list)",
 				"def set(payload: SetPayload) -> SetAction:",
 			)

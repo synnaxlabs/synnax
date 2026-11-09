@@ -477,6 +477,16 @@ class TestTaskClient:
         assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
         assert [t.key for t in rng.snapshots()] == [snap.key]
 
+    def test_configure_rejects_snapshot(self, client: sy.Synnax) -> None:
+        """Should refuse to configure a snapshot."""
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(original.key, str(uuid4()), snapshot=True)
+        with pytest.raises(
+            sy.ValidationError,
+            match=f"task {snap.key} is a snapshot, so only its name can change",
+        ):
+            client.tasks.configure(snap)
+
     def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
         """Should delete the snapshots in a range when the range is deleted."""
         rng = client.ranges.create(

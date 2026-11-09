@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -463,7 +464,7 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
-		Entry("update on the user of a new API key", func(ctx context.Context) rule {
+		Entry("create on the user of a new API key", func(ctx context.Context) rule {
 			other := newUser(ctx)
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
@@ -471,11 +472,11 @@ var _ = Describe("Write", func() {
 						Create(ctx, other.ResourceID(), "key")
 					return err
 				},
-				needed: need{access.ActionUpdate, other.ResourceID()},
+				needed: need{access.ActionCreate, other.ResourceID()},
 			}
 		}),
 		Entry(
-			"update on the user of a deleted API key",
+			"delete on the user of a deleted API key",
 			func(ctx context.Context) rule {
 				other := newUser(ctx)
 				var k apikey.APIKey
@@ -488,11 +489,11 @@ var _ = Describe("Write", func() {
 					write: func(ctx context.Context, tx gorp.Tx) error {
 						return svc.APIKey.NewWriter(tx).Delete(ctx, k.Key)
 					},
-					needed: need{access.ActionUpdate, other.ResourceID()},
+					needed: need{access.ActionDelete, other.ResourceID()},
 				}
 			},
 		),
-		Entry("update on the user of a new password", func(ctx context.Context) rule {
+		Entry("create on the user of a new password", func(ctx context.Context) rule {
 			other := newUser(ctx)
 			h := MustSucceed(svc.Password.Hash("secret"))
 			return rule{
@@ -500,9 +501,31 @@ var _ = Describe("Write", func() {
 					return svc.Password.NewWriter(tx).
 						Set(ctx, other.ResourceID(), other.Name, h)
 				},
-				needed: need{access.ActionUpdate, other.ResourceID()},
+				needed: need{access.ActionCreate, other.ResourceID()},
 			}
 		}),
+		Entry(
+			"update on the user of a changed password",
+			func(ctx context.Context) rule {
+				other := newUser(ctx)
+				stored := MustSucceed(svc.Password.Hash("stored"))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Password.NewWriter(tx).
+						Set(ctx, other.ResourceID(), other.Name, stored)
+				})).To(Succeed())
+				changed := MustSucceed(svc.Password.Hash("changed"))
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Password.NewWriter(tx).Apply(
+							ctx,
+							other.ResourceID(),
+							password.NewSetHashAction(changed),
+						)
+					},
+					needed: need{access.ActionUpdate, other.ResourceID()},
+				}
+			},
+		),
 		Entry("create on a new range alias", func(ctx context.Context) rule {
 			r := createRange(ctx, nil)
 			ch := createChannel(ctx)

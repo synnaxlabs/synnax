@@ -26,6 +26,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -78,6 +79,131 @@ func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
 }
 
 var _ = Describe("Service", func() {
+	Describe("Create", func() {
+		var (
+			u              user.User
+			public, secret channel.Channel
+		)
+		calculate := func(input string) apichannel.Channel {
+			return apichannel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s * 2", input),
+			}
+		}
+		create := func(
+			ctx SpecContext,
+			channels ...apichannel.Channel,
+		) (apichannel.CreateResponse, error) {
+			return createChannels(
+				AuthedCtx(ctx, u),
+				apichannel.CreateRequest{Channels: channels},
+			)
+		}
+		BeforeEach(func(ctx SpecContext) {
+			u = MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "calculations-" + uuid.New().String()},
+			))
+			public = createChannel(ctx, telem.Float32T)
+			secret = createChannel(ctx, telem.Float32T)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				resource.ID{Type: resource.TypeChannel},
+			)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				framer.ResourceIDs(channel.Keys{public.Key()})...,
+			)
+		})
+		It(
+			"Should refuse a calculation that reads a channel the subject cannot read",
+			func(ctx SpecContext) {
+				Expect(create(ctx, calculate(secret.Name))).
+					Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a calculation reading an unreadable channel listed with it",
+			func(ctx SpecContext) {
+				listed := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				Expect(create(ctx, listed, calculate(listed.Name))).
+					Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a calculation reading an unreadable channel through a decoy",
+			func(ctx SpecContext) {
+				decoy := apichannel.Channel{
+					Name:       secret.Name,
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(createChannels(
+					AuthedCtx(ctx, u),
+					apichannel.CreateRequest{
+						Channels: []apichannel.Channel{
+							decoy,
+							calculate(secret.Name),
+						},
+						RetrieveIfNameExists: true,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse an edit that reads an unreadable channel through a stored one",
+			func(ctx SpecContext) {
+				stored := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Expression: fmt.Sprintf("return %s * 2", secret.Name),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					framer.ResourceIDs(channel.Keys{stored.Key()})...,
+				)
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				plain := apichannel.Channel{
+					Key:         stored.Key(),
+					Name:        stored.Name,
+					Leaseholder: stored.Leaseholder,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				}
+				calc.Expression = fmt.Sprintf("return %s * 2", stored.Name)
+				Expect(create(ctx, plain, calc)).
+					Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, calc.Key).Expression).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+		It(
+			"Should refuse an edit that makes a calculation read an unreadable channel",
+			func(ctx SpecContext) {
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				calc.Expression = fmt.Sprintf("return %s * 2", secret.Name)
+				Expect(create(ctx, calc)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, calc.Key).Expression).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+	})
+
 	Describe("Group", func() {
 		It(
 			"Should create a channel in a group and return the group on retrieve",

@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <functional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -137,6 +141,63 @@ x::json::json actions_json(const std::vector<synnax::device::Action> &actions) {
     return j;
 }
 
+/// @brief a stream of signal frames that a test sends to a scan task.
+class SignalQueue {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::deque<x::telem::Frame> frames;
+    size_t sent = 0;
+    size_t taken = 0;
+    size_t handled = 0;
+    bool closed = false;
+
+public:
+    /// @brief sends the frame, and blocks until the reader handles it.
+    void send(x::telem::Frame frame) {
+        std::unique_lock lock(this->mu);
+        this->frames.push_back(std::move(frame));
+        const auto seq = ++this->sent;
+        this->cv.notify_all();
+        this->cv.wait(lock, [&] { return this->handled >= seq || this->closed; });
+    }
+
+    /// @brief marks the frames read before as handled, then blocks until the next frame
+    /// arrives or the queue closes.
+    std::pair<x::telem::Frame, x::errors::Error> read() {
+        std::unique_lock lock(this->mu);
+        this->handled = this->taken;
+        this->cv.notify_all();
+        this->cv.wait(lock, [&] { return !this->frames.empty() || this->closed; });
+        if (this->closed) return {x::telem::Frame{}, x::errors::Error("closed")};
+        auto frame = std::move(this->frames.front());
+        this->frames.pop_front();
+        this->taken++;
+        return {std::move(frame), x::errors::NIL};
+    }
+
+    void close() {
+        std::lock_guard lock(this->mu);
+        this->closed = true;
+        this->cv.notify_all();
+    }
+};
+
+class QueueStreamer final : public pipeline::Streamer {
+    std::shared_ptr<SignalQueue> queue;
+
+public:
+    explicit QueueStreamer(std::shared_ptr<SignalQueue> queue):
+        queue(std::move(queue)) {}
+
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        return this->queue->read();
+    }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+
+    void close_send() override { this->queue->close(); }
+};
+
 class MockClusterAPI : public ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::device::Device>> remote;
@@ -154,6 +215,14 @@ public:
     /// @brief the errors that successive dispatch_device calls return.
     std::vector<x::errors::Error> dispatch_errors;
     size_t dispatch_count = 0;
+    /// @brief the number of dispatch_device calls.
+    size_t dispatch_attempts = 0;
+    /// @brief runs on the next dispatch, which returns its error.
+    std::function<x::errors::Error()> on_next_dispatch;
+    /// @brief the number of update_statuses calls. Each scan makes one.
+    std::atomic<size_t> scans = 0;
+    /// @brief the signal stream that open_streamer opens, when set.
+    std::shared_ptr<SignalQueue> signals;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::device::Device>> &remote_,
@@ -199,6 +268,11 @@ public:
         const std::string &key,
         const std::vector<synnax::device::Action> &actions
     ) override {
+        this->dispatch_attempts++;
+        if (this->on_next_dispatch) {
+            const auto hook = std::exchange(this->on_next_dispatch, nullptr);
+            if (const auto err = hook()) return err;
+        }
         if (this->dispatch_count < this->dispatch_errors.size())
             if (const auto err = this->dispatch_errors[this->dispatch_count++])
                 return err;
@@ -209,11 +283,14 @@ public:
     x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) override {
         propagated_statuses.push_back(statuses);
+        this->scans++;
         return x::errors::NIL;
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
+        if (this->signals)
+            return {std::make_unique<QueueStreamer>(this->signals), x::errors::NIL};
         if (streamer_factory) return streamer_factory->open_streamer(config);
         return {nullptr, x::errors::NIL};
     }
@@ -756,6 +833,241 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(cluster_api_ptr->retrieved.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
+}
+
+/// @brief it should look a device up again and retry the takeover when the takeover
+/// fails.
+TEST(TestScanTask, TestRetryFailedTakeOver) {
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 7;
+    synnax::device::Device scanned = stored;
+    scanned.rack = 1;
+    const auto created = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(std::vector{stored}),
+        created
+    );
+    const auto *cluster_api_ptr = cluster_api.get();
+    const x::errors::Error unreachable("unreachable", "Core unreachable");
+    cluster_api->dispatch_errors = {unreachable};
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{{scanned}, {scanned}},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_EQ(
+        cluster_api_ptr->retrieved,
+        (std::vector<std::vector<std::string>>{{"device1"}, {"device1"}})
+    );
+    ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
+    EXPECT_EQ(
+        actions_json(cluster_api_ptr->dispatched[0].second),
+        actions_json({synnax::device::set_rack({.rack = 1})})
+    );
+    EXPECT_TRUE(created->empty());
+}
+
+/// @brief it should create a device again when the Core no longer holds it.
+TEST(TestScanTask, TestRecreateDeviceMissingFromCore) {
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 1;
+    stored.location = "old_location";
+    synnax::device::Device scanned = stored;
+    scanned.location = "new_location";
+    const auto remote = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{stored}
+    );
+    const auto created = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(remote, created);
+    const auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->dispatch_errors = {x::errors::NOT_FOUND};
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{
+                {scanned},
+                {scanned},
+                {scanned}
+            },
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    remote->clear();
+    ASSERT_OCCURRED_AS(scan_task.scan(), x::errors::NOT_FOUND);
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_EQ(
+        cluster_api_ptr->retrieved,
+        std::vector<std::vector<std::string>>{{"device1"}}
+    );
+    ASSERT_EQ(created->size(), 1);
+    EXPECT_EQ(created->at(0).location, "new_location");
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_EQ(created->size(), 1);
+    EXPECT_EQ(cluster_api_ptr->dispatch_attempts, 1);
+}
+
+/// @brief it should compute the changes again from the newer device when a user edits
+/// the device while an update fails.
+TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
+    synnax::channel::Channel set_ch;
+    set_ch.key = 100;
+    set_ch.name = synnax::device::SET_CHANNEL;
+    synnax::channel::Channel delete_ch;
+    delete_ch.key = 101;
+    delete_ch.name = synnax::device::DELETE_CHANNEL;
+
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 1;
+    stored.location = "old_location";
+    stored.properties = {{"user", "a"}};
+    synnax::device::Device scanned = stored;
+    scanned.location = "new_location";
+    scanned.properties = {{"serial", "1"}};
+
+    const auto remote = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{stored}
+    );
+    const auto created = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(remote, created);
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {set_ch, delete_ch};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    const x::errors::Error unreachable("unreachable", "Core unreachable");
+    cluster_api->on_next_dispatch = [&] {
+        remote->at(0).properties = {{"user", "b"}, {"serial", "1"}};
+        x::telem::Frame frame(1);
+        frame.emplace(set_ch.key, x::telem::Series(remote->at(0).to_json().dump()));
+        cluster_api_ptr->signals->send(std::move(frame));
+        return unreachable;
+    };
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{
+                {scanned},
+                {scanned},
+                {scanned}
+            },
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 50,
+        std::move(cluster_api)
+    );
+
+    scan_task.start();
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 4);
+    scan_task.stop();
+    EXPECT_EQ(cluster_api_ptr->dispatch_attempts, 2);
+    ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
+    EXPECT_EQ(
+        actions_json(cluster_api_ptr->dispatched[0].second),
+        actions_json(
+            {synnax::device::set({.path = {"location"}, .value = "new_location"})}
+        )
+    );
+    EXPECT_TRUE(created->empty());
+}
+
+/// @brief it should create a device again, and not update it, when a user deletes the
+/// device while an update fails.
+TEST(TestScanTask, TestDeleteDuringFailedUpdate) {
+    synnax::channel::Channel set_ch;
+    set_ch.key = 100;
+    set_ch.name = synnax::device::SET_CHANNEL;
+    synnax::channel::Channel delete_ch;
+    delete_ch.key = 101;
+    delete_ch.name = synnax::device::DELETE_CHANNEL;
+
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 1;
+    stored.location = "old_location";
+    synnax::device::Device scanned = stored;
+    scanned.location = "new_location";
+
+    const auto remote = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{stored}
+    );
+    const auto created = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(remote, created);
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {set_ch, delete_ch};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    const x::errors::Error unreachable("unreachable", "Core unreachable");
+    cluster_api->on_next_dispatch = [&] {
+        remote->clear();
+        x::telem::Frame frame(1);
+        frame.emplace(delete_ch.key, x::telem::Series(stored.key));
+        cluster_api_ptr->signals->send(std::move(frame));
+        return unreachable;
+    };
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{
+                {scanned},
+                {scanned},
+                {scanned}
+            },
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 50,
+        std::move(cluster_api)
+    );
+
+    scan_task.start();
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 4);
+    scan_task.stop();
+    EXPECT_EQ(cluster_api_ptr->dispatch_attempts, 1);
+    EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
+    ASSERT_EQ(created->size(), 1);
+    EXPECT_EQ(created->at(0).location, "new_location");
 }
 
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {

@@ -11,22 +11,24 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "topology",
-    hdrs = ["topology.h"],
-    visibility = ["//visibility:public"],
+    name = "coe",
+    srcs = ["coe.cpp"],
+    hdrs = ["coe.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/errors",
-        "//driver/ethercat/master",
+        "//driver/ethercat/pdo",
+        "//driver/ethercat/telem",
         "//x/cpp/errors",
     ],
 )
 
 cc_test(
-    name = "topology_test",
-    srcs = ["topology_test.cpp"],
+    name = "coe_test",
+    srcs = ["coe_test.cpp"],
     deps = [
-        ":topology",
-        "//x/cpp/json",
+        ":coe",
+        "//driver/ethercat/errors",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

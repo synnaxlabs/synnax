@@ -819,6 +819,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		DB:      cfg.Distribution.DB,
+		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
 		Alias:   cfg.Service.Alias,

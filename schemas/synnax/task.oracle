@@ -72,11 +72,13 @@ Task struct<
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
+        @patch
         @search
         @validate required
     }
