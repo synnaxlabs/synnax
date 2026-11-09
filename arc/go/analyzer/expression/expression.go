@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -29,8 +30,43 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-func isBool(t basetypes.Type) bool    { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
+// operand is what an operator requires of its operands.
+type operand struct {
+	// accepts reports whether a type with a known kind fits.
+	accepts func(t basetypes.Type) bool
+	// bind constrains an unconstrained type variable, such as the element of an empty
+	// series literal, to fit, and reports whether it can. Nil accepts any variable.
+	bind func(
+		cs *constraints.System,
+		t basetypes.Type,
+		source antlr.ParserRuleContext,
+	) bool
+}
+
+var (
+	anyOperand     = operand{accepts: func(basetypes.Type) bool { return true }}
+	boolOperand    = operand{accepts: basetypes.Type.IsBool, bind: types.Bool}
+	numericOperand = operand{accepts: basetypes.Type.IsNumeric, bind: types.Numeric}
+	// A + of two untyped operands is numeric, which empty literals default to.
+	numericOrStringOperand = operand{
+		accepts: func(t basetypes.Type) bool {
+			return t.IsNumeric() || t.Kind == basetypes.KindString
+		},
+		bind: types.Numeric,
+	}
+)
+
+// fits reports whether t fits o. It binds an unconstrained type variable.
+func (o operand) fits(
+	cs *constraints.System,
+	t basetypes.Type,
+	source antlr.ParserRuleContext,
+) bool {
+	if t.Kind == basetypes.KindVariable && t.Constraint == nil {
+		return o.bind == nil || o.bind(cs, t, source)
+	}
+	return o.accepts(resolveConstraint(t))
+}
 
 // resolveConstraint replaces an unresolved constant's type variable with its
 // constraint so operand checks can classify it. Concrete types pass through.
@@ -39,12 +75,6 @@ func resolveConstraint(t basetypes.Type) basetypes.Type {
 		return *t.Constraint
 	}
 	return t
-}
-
-func isNumericOrString(
-	t basetypes.Type,
-) bool {
-	return t.IsNumeric() || t.Kind == basetypes.KindString
 }
 
 // tracksChannelRead reports whether reading resolved reads from a channel: a
@@ -62,7 +92,6 @@ func tracksChannelRead(resolved *symbol.Symbol) bool {
 		return false
 	}
 }
-func isAny(basetypes.Type) bool { return true }
 
 // getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
@@ -188,7 +217,7 @@ func validateType[T, N antlr.ParserRuleContext](
 	items []T,
 	opName string,
 	infer func(ctx context.Context[T]) basetypes.Type,
-	check func(t basetypes.Type) bool,
+	want operand,
 ) {
 	if len(items) <= 1 {
 		return
@@ -200,8 +229,7 @@ func validateType[T, N antlr.ParserRuleContext](
 		return
 	}
 
-	resolvedFirst := resolveConstraint(firstType)
-	if resolvedFirst.Kind != basetypes.KindVariable && !check(resolvedFirst) {
+	if !want.fits(ctx.Constraints, firstType, items[0]) {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
@@ -233,6 +261,15 @@ func validateType[T, N antlr.ParserRuleContext](
 
 		if firstType.Kind == basetypes.KindVariable ||
 			nextType.Kind == basetypes.KindVariable {
+			if !want.fits(ctx.Constraints, nextType, items[i]) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in %s operation",
+					nextType,
+					opName,
+				))
+				return
+			}
 			if err := ctx.Constraints.AddCompatible(
 				firstType,
 				nextType,
@@ -279,7 +316,7 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 		logicalAnds,
 		"or",
 		types.InferLogicalAnd,
-		func(t basetypes.Type) bool { return t.IsBool() },
+		boolOperand,
 	)
 }
 
@@ -288,7 +325,7 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 	for _, equality := range equalities {
 		analyzeEquality(ctx.Child(equality))
 	}
-	validateType(ctx, equalities, "and", types.InferEquality, isBool)
+	validateType(ctx, equalities, "and", types.InferEquality, boolOperand)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
@@ -301,7 +338,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		relExpressions,
 		getEqualityOperator(ctx.AST),
 		types.InferRelational,
-		isAny,
+		anyOperand,
 	)
 	checkNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
 }
@@ -356,7 +393,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 		additives,
 		getRelationalOperator(ctx.AST),
 		types.InferAdditive,
-		isNumeric,
+		numericOperand,
 	)
 	checkNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
 }
@@ -368,13 +405,11 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	}
 	// Determine the operator - strings are only allowed for + (concatenation)
 	op := getAdditiveOperator(ctx.AST)
-	var check func(basetypes.Type) bool
+	want := numericOperand
 	if op == "+" {
-		check = isNumericOrString
-	} else {
-		check = isNumeric
+		want = numericOrStringOperand
 	}
-	validateType(ctx, mults, op, types.InferMultiplicative, check)
+	validateType(ctx, mults, op, types.InferMultiplicative, want)
 }
 
 func analyzeMultiplicative(
@@ -389,7 +424,7 @@ func analyzeMultiplicative(
 		unaries,
 		getMultiplicativeOperator(ctx.AST),
 		types.InferFromUnaryExpression,
-		isNumeric,
+		numericOperand,
 	)
 }
 
@@ -433,7 +468,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		analyzeUnary(childCtx)
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
-			if !operandType.IsNumeric() {
+			if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
@@ -444,7 +479,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				return
 			}
 		} else if ctx.AST.NOT() != nil {
-			if !operandType.IsBool() {
+			if !types.Bool(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
@@ -612,6 +647,12 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		if strTerm := parser.StringTerminal(lit); strTerm != nil {
 			AnalyzeFmtStrLiteral(ctx, strTerm)
+		}
+		if series := lit.SeriesLiteral(); series != nil &&
+			series.ExpressionList() != nil {
+			for _, element := range series.ExpressionList().AllExpression() {
+				Analyze(ctx.Child(element))
+			}
 		}
 		return
 	}

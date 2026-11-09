@@ -955,6 +955,48 @@ var _ = Describe("Expressions", func() {
 			},
 		)
 
+		It("Should record a channel read in a series literal element", func(
+			specCtx SpecContext,
+		) {
+			ast := MustSucceed(parser.Parse(`
+			func f() f32 {
+				y := [ch + 1.0]
+				return y[0]
+			}`))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   10,
+			}))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+			Expect(fn.Channels.Read).To(HaveKey(uint32(10)))
+		})
+
+		It(
+			"Should record a call in a series literal element",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+			func g() f32 {
+				return 1.0
+			}
+			func f() f32 {
+				y := [g()]
+				return y[0]
+			}`))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				var calls []string
+				for _, edge := range *ctx.CallEdges {
+					calls = append(calls, edge.Caller.Name+"->"+edge.Callee.Name)
+				}
+				Expect(calls).To(ContainElement("f->g"))
+			},
+		)
+
 		It(
 			"Should record a channel read for a channel-alias variable",
 			func(specCtx SpecContext) {
@@ -1934,6 +1976,21 @@ var _ = Describe("Expressions", func() {
 				).To(ContainSubstring("dimensionless"))
 			},
 		)
+	})
+
+	Describe("Empty series operands", func() {
+		It("Should bind empty series to an arithmetic operator", func(ctx SpecContext) {
+			expectSuccess(ctx, "func f() {\na := []\nb := []\nz := a * b\n}", nil)
+		})
+
+		It("Should reject an empty series with a bool series", func(ctx SpecContext) {
+			expectFailure(
+				ctx,
+				"func f() {\nflags series bool := [true]\nz := [] * flags\n}",
+				nil,
+				"cannot use bool",
+			)
+		})
 	})
 
 	Describe("NaN and infinity", func() {

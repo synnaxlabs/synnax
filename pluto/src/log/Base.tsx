@@ -254,6 +254,7 @@ export const Base = ({
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={combinedRef}
+        role="log"
         tabIndex={-1}
         className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
