@@ -12,6 +12,7 @@ package migrate_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2151,7 +2152,7 @@ Tag struct {
 
 // generateMove builds a node chain whose v1 moves fields onto the types of a shared
 // resource. It returns the generated v1 migration, or the error Generate returns.
-func generateMove(shared, nodeV1, live string) (string, error) {
+func generateMove(shared, nodeV0, nodeV1, live string) (string, error) {
 	GinkgoHelper()
 	root := GinkgoT().TempDir()
 	write := func(rel, content string) {
@@ -2163,31 +2164,9 @@ func generateMove(shared, nodeV1, live string) (string, error) {
 	write("schemas/synnax/versions/shared/v0.oracle", shared)
 	write("schemas/synnax/shared.oracle", "@go output \"core/pkg/service/shared\"\n\n"+
 		shared)
-	write("schemas/synnax/versions/node/v0.oracle", `
-Format enum {
-	iso = "iso"
-	unix = "unix"
-}
-
-Entry struct {
-	label string
-	value float64
-
-	@go marshal
-}
-
-Node struct {
-	key uuid @key
-	format Format?
-	mode Format
-	entry Entry
-	entries Entry[]
-
-	@go marshal
-	@go migrate
-}
-`)
-	write("schemas/synnax/versions/node/v1.oracle", nodeV1)
+	write("schemas/synnax/versions/node/v0.oracle", nodeV0)
+	write("schemas/synnax/versions/node/v1.oracle",
+		"import \"schemas/synnax/versions/shared/v0\"\n\n"+nodeV1)
 	chains := MustSucceed(versions.Discover(root))
 	resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 	table := resolution.NewTable()
@@ -2214,7 +2193,7 @@ Node struct {
 }
 
 var _ = Describe("Moving a field type to another resource", func() {
-	const sameShape = `
+	const types = `
 Format enum {
 	iso = "iso"
 	unix = "unix"
@@ -2226,87 +2205,217 @@ Entry struct {
 
 	@go marshal
 }
-`
-	const movedNode = `
-import "schemas/synnax/versions/shared/v0"
 
+Reading struct {
+	format Format
+
+	@go marshal
+}
+
+Tree struct {
+	name string
+	children Tree[]
+
+	@go marshal
+}
+`
+	const nodeV0 = types + `
 Node struct {
 	key uuid @key
-	format shared.Format?
-	mode shared.Format
-	entry shared.Entry
-	entries shared.Entry[]
+	format Format?
+	mode Format
+	modes Format[]
+	entry Entry
+	maybe Entry?
+	entries Entry[]
+	reading Reading
+	tree Tree
 
 	@go marshal
 	@go migrate
 }
 `
-	const movedLive = `
+	const node = `
 Node struct {
 	key uuid @key
 	format shared.Format?
 	mode shared.Format
+	modes shared.Format[]
 	entry shared.Entry
+	maybe shared.Entry?
 	entries shared.Entry[]
-}
+	reading shared.Reading
+	tree shared.Tree
 `
+	const nodeV1 = node + "\n\t@go marshal\n\t@go migrate\n}\n"
+	const live = node + "}\n"
 
 	It("Should copy every field whose type keeps its shape", func() {
-		content := MustSucceed(generateMove(
-			sameShape,
-			movedNode,
-			movedLive,
-		))
+		content := MustSucceed(generateMove(types, nodeV0, nodeV1, live))
 		Expect(content).To(ContainSubstring("v := shared.Format(*old.Format)"))
 		Expect(content).To(MatchRegexp(`Format:\s+format,`))
 		Expect(content).To(MatchRegexp(`Mode:\s+shared\.Format\(old\.Mode\),`))
 		Expect(content).To(ContainSubstring(
-			"entry, err := autoMigrateEntry(ctx, old.Entry)",
+			"lo.Map(old.Modes, func(v v0.Format, _ int) shared.Format",
 		))
-		Expect(content).To(MatchRegexp(`Entry:\s+entry,`))
+		Expect(content).To(MatchRegexp(`Modes:\s+modes,`))
+		Expect(content).To(ContainSubstring(
+			"entry, err := autoMigrateEntryToSharedEntry(ctx, old.Entry)",
+		))
+		Expect(content).To(ContainSubstring(
+			"v, err := autoMigrateEntryToSharedEntry(ctx, *old.Maybe)",
+		))
+		Expect(content).To(MatchRegexp(`Maybe:\s+maybe,`))
 		Expect(content).To(ContainSubstring(
 			"func(v v0.Entry, _ int) (shared.Entry, error)",
 		))
 		Expect(content).To(MatchRegexp(`Entries:\s+entries,`))
-		Expect(content).To(ContainSubstring(
-			"func autoMigrateEntry(_ context.Context, old v0.Entry) (shared.Entry, error)",
-		))
+		Expect(content).To(ContainSubstring("func autoMigrateEntryToSharedEntry(" +
+			"_ context.Context, old v0.Entry) (shared.Entry, error)"))
 		Expect(content).To(MatchRegexp(`Label:\s+old\.Label,`))
 		Expect(content).To(MatchRegexp(`Value:\s+old\.Value,`))
 	})
 
-	DescribeTable("Should require a hand-written step when a moved type changes shape",
-		func(shared, call string) {
-			content := MustSucceed(generateMove(shared, movedNode, movedLive))
-			Expect(content).To(ContainSubstring(call))
-		},
-		Entry("an enum member is renamed", `
-Format enum {
-	iso = "iso"
-	unix_ms = "unix_ms"
-}
+	It("Should copy a moved type nested in a moved struct", func() {
+		content := MustSucceed(generateMove(types, nodeV0, nodeV1, live))
+		Expect(content).To(ContainSubstring("func autoMigrateReadingToSharedReading("))
+		Expect(content).To(MatchRegexp(`Format:\s+shared\.Format\(old\.Format\),`))
+	})
 
+	It("Should copy a moved struct that refers to itself", func() {
+		content := MustSucceed(generateMove(types, nodeV0, nodeV1, live))
+		Expect(content).To(ContainSubstring("func autoMigrateTreeToSharedTree("))
+		Expect(content).To(ContainSubstring(
+			"return autoMigrateTreeToSharedTree(ctx, v)",
+		))
+	})
+
+	It("Should keep the local step apart from the moved step", func() {
+		content := MustSucceed(generateMove(
+			types,
+			types+`
+Node struct {
+	key uuid @key
+	kept Entry
+	moved Entry
+
+	@go marshal
+	@go migrate
+}
+`,
+			`
 Entry struct {
 	label string
 	value float64
+	note string
 
 	@go marshal
 }
-`, "format, err := migrateNodeFormat(ctx, old.Format)"),
-		Entry("a struct field changes type", `
-Format enum {
+
+Node struct {
+	key uuid @key
+	kept Entry
+	moved shared.Entry
+
+	@go marshal
+	@go migrate
+}
+`,
+			`
+Entry struct {
+	label string
+	value float64
+	note string
+}
+
+Node struct {
+	key uuid @key
+	kept Entry
+	moved shared.Entry
+}
+`,
+		))
+		Expect(content).To(ContainSubstring(
+			"func autoMigrateEntry(_ context.Context, old v0.Entry) (Entry, error)",
+		))
+		Expect(content).To(ContainSubstring("func autoMigrateEntryToSharedEntry(" +
+			"_ context.Context, old v0.Entry) (shared.Entry, error)"))
+	})
+
+	DescribeTable("Should require a hand-written step when a moved type changes shape",
+		func(shared, call string) {
+			content := MustSucceed(generateMove(shared, nodeV0, nodeV1, live))
+			Expect(content).To(ContainSubstring(call))
+		},
+		Entry("an enum member is renamed",
+			strings.Replace(types, "unix = \"unix\"", "unix_ms = \"unix_ms\"", 1),
+			"format, err := migrateNodeFormat(ctx, old.Format)",
+		),
+		Entry("a struct field changes type",
+			strings.Replace(types, "value float64", "value int64", 1),
+			"entry, err := migrateNodeEntry(ctx, old.Entry)",
+		),
+		Entry("a nested field names a renamed declaration",
+			strings.Replace(types, "format Format\n", "format Mode\n", 1)+`
+Mode enum {
 	iso = "iso"
 	unix = "unix"
 }
+`,
+			"reading, err := migrateNodeReading(ctx, old.Reading)",
+		),
+	)
 
-Entry struct {
-	label string
-	value int64
+	It("Should require a hand-written step when a moved field turns optional", func() {
+		content := MustSucceed(generateMove(
+			types,
+			nodeV0,
+			strings.Replace(nodeV1, "mode shared.Format", "mode shared.Format?", 1),
+			strings.Replace(live, "mode shared.Format", "mode shared.Format?", 1),
+		))
+		Expect(
+			content,
+		).To(ContainSubstring("mode, err := migrateNodeMode(ctx, old.Mode)"))
+	})
+
+	It("Should fail when a field of an inline variant moves to a new shape", func() {
+		const shape = `
+Shape union on type {
+	circle {
+		format Format
+	}
 
 	@go marshal
 }
-`, "entry, err := migrateNodeEntry(ctx, old.Entry)"),
-	)
+`
+		Expect(generateMove(
+			types,
+			types+shape+`
+Node struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+	@go migrate
+}
+`,
+			strings.Replace(shape, "format Format", "format shared.Format?", 1)+`
+Node struct {
+	key uuid @key
+	shape Shape
+
+	@go marshal
+	@go migrate
+}
+`,
+			strings.Replace(shape, "format Format", "format shared.Format?", 1)+`
+Node struct {
+	key uuid @key
+	shape Shape
+}
+`,
+		)).Error().To(MatchError(ContainSubstring("variant field format")))
+	})
 })
 
 var _ = Describe("Plugin", func() {

@@ -518,27 +518,28 @@ func (c *collector) structFuncFromForms(
 		if domain.GetStringFromField(*newField, "go", "marshal") == "omit" {
 			continue
 		}
-		// A field the two versions shape differently — an optional appearing, a
-		// union replacing a struct, a declaration replacing a raw record, a leaf
-		// primitive Go cannot cast across — has no copy that type-checks; the
-		// hand-written migration carries it. A type moving to another resource
-		// copies when its shape holds, and otherwise needs a hand-written step.
-		if oldField.Optional != newField.Optional ||
-			c.unionMismatch(oldField.Type, newField.Type) ||
-			c.castMismatch(oldField.Type, newField.Type) {
-			continue
-		}
 		name := naming.GetFieldName(oldField)
-		if c.declarationMismatch(oldField.Type, newField.Type) {
-			if !c.movedResource(oldField.Type, newField.Type) {
-				continue
-			}
-			if c.sameShape(oldField.Type, newField.Type) {
+		// A type moving to another resource copies when its shape holds, and
+		// otherwise needs a hand-written step that the build requires.
+		if c.declarationMismatch(oldField.Type, newField.Type) &&
+			c.movedResource(oldField.Type, newField.Type) {
+			if oldField.Optional == newField.Optional &&
+				c.sameShape(oldField.Type, newField.Type) {
 				c.addMovedField(&fn, oldField.Type, newField.Type, recv+"."+name, name,
 					oldField.Optional)
 			} else {
 				c.addHandField(&fn, goName, *newField, recv+"."+name, name)
 			}
+			continue
+		}
+		// Any other field the two versions shape differently — an optional
+		// appearing, a union replacing a struct, a declaration replacing a raw
+		// record, a leaf primitive Go cannot cast across — has no copy that
+		// type-checks; the hand-written migration carries it.
+		if oldField.Optional != newField.Optional ||
+			c.unionMismatch(oldField.Type, newField.Type) ||
+			c.declarationMismatch(oldField.Type, newField.Type) ||
+			c.castMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		c.addField(&fn, oldField.Type, recv+"."+name, name, oldField.Optional)
@@ -699,22 +700,39 @@ func (c *collector) movedResource(oldRef, newRef resolution.TypeRef) bool {
 // for member and field for field: the same primitives, the same enum values, and
 // structs with the same fields in the same shapes.
 func (c *collector) sameShape(oldRef, newRef resolution.TypeRef) bool {
+	return c.sameShapeVisiting(oldRef, newRef, make(set.Set[string]))
+}
+
+// sameShapeVisiting is sameShape, treating a pair already in visiting as the same
+// shape so that recursive types terminate.
+func (c *collector) sameShapeVisiting(
+	oldRef, newRef resolution.TypeRef,
+	visiting set.Set[string],
+) bool {
 	if resolution.IsPrimitive(oldRef.Name) || resolution.IsPrimitive(newRef.Name) {
 		return oldRef.Name == newRef.Name
 	}
 	if !c.declarationMismatch(oldRef, newRef) {
 		return true
 	}
+	if !c.movedResource(oldRef, newRef) {
+		return false
+	}
 	if oldRef.Name == "Array" || newRef.Name == "Array" {
 		return oldRef.Name == newRef.Name && len(oldRef.TypeArgs) == 1 &&
 			len(newRef.TypeArgs) == 1 &&
-			c.sameShape(oldRef.TypeArgs[0], newRef.TypeArgs[0])
+			c.sameShapeVisiting(oldRef.TypeArgs[0], newRef.TypeArgs[0], visiting)
 	}
 	oldT, _, oldOk := resolution.Dealias(oldRef, c.oldTable)
 	newT, _, newOk := resolution.Dealias(newRef, c.newTable)
 	if !oldOk || !newOk {
 		return false
 	}
+	pair := oldT.QualifiedName + "->" + newT.QualifiedName
+	if visiting.Contains(pair) {
+		return true
+	}
+	visiting.Add(pair)
 	switch of := oldT.Form.(type) {
 	case resolution.EnumForm:
 		nf, ok := newT.Form.(resolution.EnumForm)
@@ -727,7 +745,8 @@ func (c *collector) sameShape(oldRef, newRef resolution.TypeRef) bool {
 		}
 		for _, f := range of.Fields {
 			g := findField(nf.Fields, f.Name)
-			if g == nil || f.Optional != g.Optional || !c.sameShape(f.Type, g.Type) {
+			if g == nil || f.Optional != g.Optional ||
+				!c.sameShapeVisiting(f.Type, g.Type, visiting) {
 				return false
 			}
 		}
@@ -846,17 +865,23 @@ func (c *collector) addHandField(
 // requireMovedFunc returns the step that copies a struct moved to another resource,
 // queueing its generation the first time.
 func (c *collector) requireMovedFunc(oldT, newT resolution.Type) string {
-	name := "autoMigrate" + naming.GetGoName(oldT)
-	if c.generated.Contains(oldT.QualifiedName) {
+	newName := c.resolveTypeName(newT, c.newTable)
+	goName := naming.GetGoName(oldT) + "To"
+	for part := range strings.SplitSeq(newName, ".") {
+		goName += strings.ToUpper(part[:1]) + part[1:]
+	}
+	name := "autoMigrate" + goName
+	key := oldT.QualifiedName + "->" + newT.QualifiedName
+	if c.generated.Contains(key) {
 		return name
 	}
-	c.generated.Add(oldT.QualifiedName)
+	c.generated.Add(key)
 	oldSF, _ := oldT.Form.(resolution.StructForm)
 	newSF, _ := newT.Form.(resolution.StructForm)
 	c.funcs = append(c.funcs, c.structFuncFromForms(
-		naming.GetGoName(oldT),
+		goName,
 		c.resolveTypeName(oldT, c.oldTable),
-		c.resolveTypeName(newT, c.newTable),
+		newName,
 		"old",
 		oldSF,
 		newSF,
