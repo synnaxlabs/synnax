@@ -108,7 +108,7 @@ Core again and stops with an error. The service keeps its settings in
 
 <Fragment slot="Docker">
 
-1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.59.0`, so you can
+1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.61.0`, so you can
    go back to the old image:
 
    ```bash
@@ -190,9 +190,12 @@ If you snapshot the data folder before each update, you can turn off the backup 
 The desktop Console does not open the workspace when its major or minor version differs
 from the Core. Click **Open in browser** to use the Console that the Core serves. A
 browser reloads the page by itself to get the Console that matches the Core. The client
-libraries warn and still connect. Upgrade the Core first, then the Console and Drivers.
-A Console older than 0.60 shows errors instead of the activation screen when a Core 0.60
-has no license, so upgrade the Console with the Core.
+libraries warn and still connect. A standalone Driver on another major or minor version
+starts no tasks, and its rack shows the status
+[`Driver ... cannot work with Core ...`](/reference/hardware/troubleshooting#driver--cannot-work-with-core-).
+Upgrade the Core first, then the Console and Drivers. A Console older than 0.60 shows
+errors instead of the activation screen when a Core 0.60 has no license, so upgrade the
+Console with the Core.
 
 Drivers after 0.60 number the EtherCAT modules on IgH from 1, as on the built-in master.
 If a Driver uses IgH, delete its
