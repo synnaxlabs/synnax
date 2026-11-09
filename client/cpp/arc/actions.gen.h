@@ -26,6 +26,7 @@
 #include "x/cpp/patch/types.gen.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/types.gen.h"
@@ -186,6 +187,17 @@ struct ForgetCharsPayload {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief SetDirectoryPayload moves the Arc into the directory with the given key. The
+/// root Arcs directory holds the Arcs at the top level.
+struct SetDirectoryPayload {
+    /// @brief TYPE is the type of the Action that carries the payload.
+    static constexpr auto TYPE = "set_directory";
+    x::uuid::UUID directory;
+
+    static SetDirectoryPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief SetPayload replaces the value at a path in the graph's node inputs.
 struct SetPayload {
     /// @brief TYPE is the type of the Action that carries the payload.
@@ -269,6 +281,7 @@ using Action = std::variant<
     InsertCharPayload,
     DeleteCharPayload,
     ForgetCharsPayload,
+    SetDirectoryPayload,
     SetPayload,
     RemovePayload,
     InsertPayload,
@@ -336,6 +349,11 @@ inline Action delete_char(DeleteCharPayload payload) {
 
 /// @brief returns an Action that carries the given payload.
 inline Action forget_chars(ForgetCharsPayload payload) {
+    return payload;
+}
+
+/// @brief returns an Action that carries the given payload.
+inline Action set_directory(SetDirectoryPayload payload) {
     return payload;
 }
 
@@ -520,6 +538,18 @@ inline x::json::json ForgetCharsPayload::to_json() const {
     return j;
 }
 
+inline SetDirectoryPayload SetDirectoryPayload::parse(x::json::Parser parser) {
+    return SetDirectoryPayload{
+        .directory = parser.field<x::uuid::UUID>("directory"),
+    };
+}
+
+inline x::json::json SetDirectoryPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["directory"] = this->directory.to_json();
+    return j;
+}
+
 inline SetPayload SetPayload::parse(x::json::Parser parser) {
     return SetPayload{
         .path = parser.field<std::vector<std::string>>(
@@ -640,6 +670,8 @@ inline Action parse_action(x::json::Parser parser) {
         return DeleteCharPayload::parse(parser.child(DeleteCharPayload::TYPE));
     if (type == ForgetCharsPayload::TYPE)
         return ForgetCharsPayload::parse(parser.child(ForgetCharsPayload::TYPE));
+    if (type == SetDirectoryPayload::TYPE)
+        return SetDirectoryPayload::parse(parser.child(SetDirectoryPayload::TYPE));
     if (type == SetPayload::TYPE)
         return SetPayload::parse(parser.child(SetPayload::TYPE));
     if (type == RemovePayload::TYPE)

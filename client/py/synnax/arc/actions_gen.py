@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, JsonValue
 
@@ -134,6 +135,14 @@ class ForgetCharsPayload(BaseModel):
     """
 
     ids: list[crdt.ID] = Field(default_factory=list)
+
+
+class SetDirectoryPayload(BaseModel):
+    """Moves the Arc into the directory with the given key. The root Arcs directory
+    holds the Arcs at the top level.
+    """
+
+    directory: UUID
 
 
 class SetPayload(BaseModel):
@@ -259,6 +268,11 @@ class ForgetCharsAction(BaseModel):
     forget_chars: ForgetCharsPayload
 
 
+class SetDirectoryAction(BaseModel):
+    type: Literal["set_directory"] = "set_directory"
+    set_directory: SetDirectoryPayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -293,6 +307,7 @@ Action = Annotated[
     | InsertCharAction
     | DeleteCharAction
     | ForgetCharsAction
+    | SetDirectoryAction
     | SetAction
     | RemoveAction
     | InsertAction
@@ -347,6 +362,10 @@ def delete_char(payload: DeleteCharPayload) -> DeleteCharAction:
 
 def forget_chars(payload: ForgetCharsPayload) -> ForgetCharsAction:
     return ForgetCharsAction(forget_chars=payload)
+
+
+def set_directory(payload: SetDirectoryPayload) -> SetDirectoryAction:
+    return SetDirectoryAction(set_directory=payload)
 
 
 def set(payload: SetPayload) -> SetAction:
