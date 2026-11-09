@@ -180,8 +180,10 @@ Update struct<V> {
         """
     }
 
-    @doc value "changes a record by a partial record."
+    @doc value  "changes a record by a partial record."
     @pb omit
+    @py hand
+    @py include "x/py/x/patch/update"
 }
 
 Change struct<T> {

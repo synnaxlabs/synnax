@@ -16,9 +16,9 @@ from x.patch.types_gen import (
     Move,
     Remove,
     Set,
-    Update,
     ValueList,
 )
+from x.patch.update import Update
 
 __all__ = [
     "Change",
