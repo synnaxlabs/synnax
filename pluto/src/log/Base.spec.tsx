@@ -362,6 +362,14 @@ describe("log/Base", () => {
       return typeof update === "function" ? update(from) : update;
     };
 
+    // Returns the state after every update the log made, in order, as React applies
+    // them.
+    const applied = (setState: ReturnType<typeof vi.fn>): State =>
+      setState.mock.calls.reduce<State>((state, [update]) => {
+        if (typeof update === "function") return update(state);
+        return { ...state, ...update };
+      }, DEFAULT_STATE);
+
     const WHOLE = { selectionStartChar: -1, selectionEndChar: -1 };
 
     it("should select the whole line a click lands on", async () => {
@@ -414,7 +422,7 @@ describe("log/Base", () => {
       await waitFor(() => expect(setState).toHaveBeenCalled());
       fireEvent.mouseMove(div, { clientX: 10, clientY: 90 });
       await waitFor(() =>
-        expect(lastState(setState)).toMatchObject({
+        expect(applied(setState)).toMatchObject({
           selectionStart: 1,
           selectionStartChar: 4,
           selectionEnd: 3,
@@ -457,15 +465,13 @@ describe("log/Base", () => {
       const div = getLogDiv(container);
       fireEvent.mouseDown(div, { button: 0 });
       await waitFor(() => expect(setState).toHaveBeenCalled());
-      // The press's update applies before the log renders it.
-      lastState(setState, DEFAULT_STATE);
       fireEvent.mouseMove(div, { clientY: 90 });
       await waitFor(() =>
-        expect(lastState(setState)).toMatchObject({ selectionEndChar: 2 }),
+        expect(applied(setState)).toMatchObject({ selectionEndChar: 2 }),
       );
       fireEvent.mouseMove(div, { clientY: 30 });
       await waitFor(() =>
-        expect(lastState(setState)).toMatchObject({
+        expect(applied(setState)).toMatchObject({
           selectionStart: 1,
           selectionEnd: 1,
           ...WHOLE,
@@ -492,6 +498,44 @@ describe("log/Base", () => {
           selectionEndChar: 2,
         }),
       );
+    });
+
+    it("should keep the start character the worker moved", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseMove(div, { clientY: 90 });
+      // The start line was evicted, so the worker moved the start to the oldest line.
+      const evicted = { ...DEFAULT_STATE, selectionStart: 0, selectionStartChar: 0 };
+      await waitFor(() =>
+        expect(lastState(setState, evicted)).toMatchObject({
+          selectionStart: 0,
+          selectionStartChar: 0,
+          selectionEnd: 8,
+        }),
+      );
+    });
+
+    it("should end a drag whose selection the worker cleared", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      // The press selected its line, then the worker evicted it and cleared the
+      // selection.
+      lastState(setState);
+      fireEvent.mouseMove(div, { clientY: 90 });
+      await waitFor(() => expect(hit).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(lastState(setState)).toEqual(DEFAULT_STATE));
+      fireEvent.mouseMove(div, { clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(2);
     });
 
     it("should start no drag on a shift-click", async () => {
