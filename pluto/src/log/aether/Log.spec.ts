@@ -350,6 +350,21 @@ describe("log/aether/Log", () => {
       expect(log.state.newLines).toBe(0);
     });
 
+    it("should count from a source that replaces the one it paused on", () => {
+      const { h } = pausedAfter(40);
+      const testId = `log-test-${++testIdCounter}`;
+      const replaced = new MockLogSource();
+      registerMockLogSource(testId, replaced);
+      h.setState(() =>
+        logStateZ.parse(
+          baseInput(testId, REGION_500, { scrolling: true, empty: false }),
+        ),
+      );
+      replaced.streamedLines = 3;
+      replaced.notify();
+      expect(h.component.state.newLines).toBe(3);
+    });
+
     it("should count from the next pause after a resume", () => {
       const { log, source, updateState } = pausedAfter(0);
       source.streamedLines = 3;

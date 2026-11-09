@@ -275,8 +275,8 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
-  // The streamed line count of the source when the log paused. Null while live.
-  private streamedAtPause: number | null = null;
+  // The source and its streamed line count when the log paused. Null while live.
+  private pause: { source: LogSource; streamed: number } | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -439,10 +439,12 @@ export class Log
   }
 
   private syncNewLines(): void {
-    const streamed = this.internal.telem.wrapped.streamedLines ?? 0;
-    if (!this.state.scrolling) this.streamedAtPause = null;
-    else this.streamedAtPause ??= streamed;
-    const newLines = streamed - (this.streamedAtPause ?? streamed);
+    const source = this.internal.telem.wrapped;
+    const streamed = source.streamedLines ?? 0;
+    if (!this.state.scrolling) this.pause = null;
+    // A new source counts from zero, so the count restarts from it.
+    else if (this.pause?.source !== source) this.pause = { source, streamed };
+    const newLines = this.pause == null ? 0 : streamed - this.pause.streamed;
     if (newLines !== this.state.newLines) this.setState((s) => ({ ...s, newLines }));
   }
 
