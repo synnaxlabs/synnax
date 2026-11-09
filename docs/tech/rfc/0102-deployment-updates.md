@@ -127,7 +127,8 @@ admin rights on the host, which is the access control for a Core update.
 2. Keeps the old binary as `<binary>.old` and puts the new one in its place.
 3. Starts the Core, which backs up, migrates, and commits or undoes the update (§3.0).
 4. Waits for the commit, up to `--timeout` (10 minutes by default). If the Core undoes
-   the update, puts the old binary back and starts the old Core.
+   the update, puts the old binary back and starts the old Core. At the timeout, it
+   stops waiting and leaves the new Core to finish.
 
 `synnax update undo` also puts `<binary>.old` back when it exists.
 
@@ -193,12 +194,13 @@ CI writes the Driver version into each Core at build time, as it does the Core v
 The Core serves that Driver release for every platform at
 `<core>/driver/update/<platform>`. It downloads a platform it does not embed
 (`core/pkg/driver/enabled_unix.go:16`) from `driver/vX.Y.Z` when a Driver first asks,
-checks the signature, and keeps it in `<data>/drivers/`, which backups skip. A Core
-built without the `driver` tag downloads every platform. A build with no Driver version,
-such as a source build, serves no Driver update. The `--no-driver-download` start flag
-turns the download off. Each Core release also uploads one bundle per OS: the Core
-binary and the four Driver binaries (about 310 MB together). `synnax update --file`
-loads the Drivers from it.
+checks the signature, and keeps it in `<data>/drivers/`, which backups skip. Each
+platform downloads once, and the file moves into place only after its signature checks.
+A Core built without the `driver` tag downloads every platform. A build with no Driver
+version, such as a source build, reports Driver `0.0.0` and serves no Driver update. The
+`--no-driver-download` start flag turns the download off. Each Core release also uploads
+one bundle per OS: the Core binary and the four Driver binaries (about 310 MB together).
+`synnax update --file` loads the Drivers from it.
 
 At each connect, a Driver on another minor than the Core's Driver, or on an older patch,
 downloads the Core's Driver, checks the signature, and replaces itself, as the Console
@@ -217,11 +219,14 @@ update run at that connect, before any task starts again.
 
 On Linux, the binary moves to `/var/lib/synnax-driver/bin/`, which the `synnax` service
 user owns, because today root owns `/usr/local/bin/synnax-driver`
-(`driver/daemon/common.cpp:26`).
+(`driver/daemon/common.cpp:26`). `install` creates it, and the unit lists it in
+`StateDirectory`.
 
 Today an early shutdown exits 0 (`driver/cmd/start.cpp:64`), so systemd does not restart
 it; that changes to a non-zero exit. Release builds sign the Core and Driver binaries
-with the minisign key that the Console updater already checks.
+with the minisign key that the Console updater already checks. The signer puts the file
+name in the trusted comment, and each check requires the name of the file it asked for,
+so a signed file of another product, platform, or version fails.
 
 A Driver on another patch that cannot update keeps its tasks running. A Driver on
 another minor starts no tasks until it updates. Its rack status says "Driver 0.59.3
@@ -310,6 +315,7 @@ manual update to a release with phase 10.
     kept. snapd also skips a revision that it reverted.
 14. **The Core and Driver reuse the Console's signing key**: A key per product was
     rejected. All the keys would live in the same CI secrets, so one leak would expose
-    all of them.
+    all of them. The file name check in §3.5 stops one product's file from passing as
+    another's.
 15. **The Driver version is set at build time**: Reading it from the embedded binary was
     rejected; a Core built without the `driver` tag has no binary to read.
