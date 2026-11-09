@@ -862,6 +862,15 @@ TEST_F(TestReadTask, testUnarySamplingByDefault) {
     ASSERT_OCCURRED_AS(strict_p.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should read arrays of one sample when array sampling has no size.
+TEST_F(TestReadTask, testArraySamplingSizeDefault) {
+    task_cfg_json["sampling"] = {{"type", "array"}};
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(std::get<::synnax::opcua::ArraySampling>(cfg.sampling).size, 1);
+}
+
 /// @brief it should reject an unknown sampling type.
 TEST_F(TestReadTask, testRejectsUnknownSampling) {
     task_cfg_json["sampling"] = {{"type", "burst"}};

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 from tests.task_targets import TaskTargets
@@ -138,6 +139,24 @@ class TestOPCReadTask:
         """Test that ReadConfig can parse various configurations correctly."""
         input_data = test_data["data"]
         sy.opcua.ReadConfig.model_validate(input_data)
+
+    def test_unary_sampling_by_default(self) -> None:
+        """Should sample one value per node when no sampling is given."""
+        task = sy.opcua.ReadTask(device="some-device-key")
+        assert task.config.model_dump()["sampling"] == {"type": "unary"}
+
+    def test_array_sampling(self) -> None:
+        """Should write the array sampling and its size."""
+        task = sy.opcua.ReadTask(
+            device="some-device-key",
+            sampling=sy.opcua.ArraySampling(size=5),
+        )
+        assert task.config.model_dump()["sampling"] == {"type": "array", "size": 5}
+
+    def test_array_sampling_rejects_zero_size(self) -> None:
+        """Should reject an array size of 0."""
+        with pytest.raises(ValidationError):
+            sy.opcua.ArraySampling(size=0)
 
     def test_create_and_retrieve_task(
         self, client: sy.Synnax, task_targets: TaskTargets

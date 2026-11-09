@@ -168,15 +168,18 @@ describe("OPC UA Read Task Config Validation", () => {
     ]);
   });
 
-  it("should reject a non-positive array size", () => {
+  it.each([0, 1.5])("should reject an array size of %d", (size) => {
     const config = {
       ...createConfig([{}]),
-      sampling: { type: "array", size: 0 },
+      sampling: { type: "array", size },
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
     expect(result.error?.issues).toEqual([
-      expect.objectContaining({ path: ["sampling", "size"] }),
+      expect.objectContaining({
+        path: ["sampling", "size"],
+        message: "Array size must be a positive integer",
+      }),
     ]);
   });
 

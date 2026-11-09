@@ -74,10 +74,20 @@ const validateIndexChannels = ({
   });
 };
 
+const ARRAY_SIZE_ERROR = "Array size must be a positive integer";
+
+const deploySamplingZ = z.discriminatedUnion("type", [
+  opcua.unarySamplingZ,
+  opcua.arraySamplingZ.extend({
+    size: z.uint32({ error: ARRAY_SIZE_ERROR }).min(1, { error: ARRAY_SIZE_ERROR }),
+  }),
+]);
+
 export const deployReadConfigZ = opcua.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(10000),
+    sampling: deploySamplingZ,
     channels: opcua.readChannelZ
       .array()
       .check(Task.validateReadChannels)
