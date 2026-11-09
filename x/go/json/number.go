@@ -179,12 +179,17 @@ func (n number) float() float64 {
 	}
 }
 
+// appendText appends n as text: NaN, Infinity, or -Infinity when it is not finite.
 func (n number) appendText(dst []byte) []byte {
-	switch n.kind {
-	case intNumber:
+	switch {
+	case n.kind == intNumber:
 		return strconv.AppendInt(dst, n.i, 10)
-	case uintNumber:
+	case n.kind == uintNumber:
 		return strconv.AppendUint(dst, n.u, 10)
+	case math.IsInf(n.f, 1):
+		return append(dst, "Infinity"...)
+	case math.IsInf(n.f, -1):
+		return append(dst, "-Infinity"...)
 	default:
 		return strconv.AppendFloat(dst, n.f, 'g', -1, 64)
 	}
