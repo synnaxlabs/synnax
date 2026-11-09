@@ -110,6 +110,9 @@ const OPCUADriverCertificateItem = ({
   );
 };
 
+const retrieve: Tree.Retrieve = async (c, key) =>
+  (await c.racks.retrieve({ key: Number(key) })).payload;
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
@@ -178,7 +181,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {isSingle && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      {isSingle && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
@@ -199,7 +204,6 @@ export const GROUP_MEMBER: Group.Member = {
 const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
 
 const TreeItem = Tree.createItem({
-  type: "rack",
   icon: <Icon.Rack />,
   children: ({ client, id }) => [
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),

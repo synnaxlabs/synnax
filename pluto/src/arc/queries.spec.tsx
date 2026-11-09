@@ -1273,6 +1273,26 @@ describe("Arc queries", () => {
     });
   });
 
+  describe("useResultType", () => {
+    it("should read the type of an Arc", async () => {
+      const [automation, mod] = await Promise.all([
+        createTestArc(),
+        createTestArc({ type: "module" }),
+      ]);
+      const { result } = renderHook(
+        () => ({
+          automation: Arc.useResultType({ key: automation.key }),
+          mod: Arc.useResultType({ key: mod.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.automation.data).toEqual("automation");
+        expect(result.current.mod.data).toEqual("module");
+      });
+    });
+  });
+
   describe("use", () => {
     it("serves the arc initially and on each change", async () => {
       const isolated = await createTestArc();

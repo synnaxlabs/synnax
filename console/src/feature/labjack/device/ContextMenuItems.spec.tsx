@@ -39,7 +39,7 @@ const renderItems = async () => {
   });
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("lj_dev") });
-  const resource = createDeviceResource({ ...dev, configured: true });
+  const resource = createDeviceResource(dev);
   const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
