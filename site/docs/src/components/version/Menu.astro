@@ -44,6 +44,8 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
 </details>
 
 <script>
+    import { track } from "@/components/version/links";
+
     const MENUS = ".version-menu";
 
     const close = (except?: EventTarget | null): void => {
@@ -52,13 +54,8 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
     };
 
     // The header persists across page loads, so each link follows the current page.
-    document.addEventListener("astro:page-load", () => {
-        for (const link of document.querySelectorAll<HTMLAnchorElement>(
-            `${MENUS} a[data-origin]`,
-        ))
-            link.href = `${link.dataset.origin}${location.pathname}`;
-        close();
-    });
+    track(`${MENUS} a[data-origin]`);
+    document.addEventListener("astro:page-load", () => close());
     document.addEventListener("click", ({ target }) => close(target));
     document.addEventListener("keydown", ({ key }) => {
         if (key === "Escape") close();
