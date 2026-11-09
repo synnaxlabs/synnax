@@ -524,10 +524,6 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		xio.CloserFunc(func() error {
 			defer cancelWriter()
-			defer time.AfterFunc(
-				t.factoryCfg.StopTimeout.Duration(),
-				cancelWriter,
-			).Stop()
 			return stopConsumer.Close()
 		}),
 	}
