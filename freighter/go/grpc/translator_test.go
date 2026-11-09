@@ -12,9 +12,14 @@ package grpc_test
 import (
 	"context"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/grpc"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/testutil"
+	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // The servers under test take the backward request and forward response translators
@@ -66,3 +71,13 @@ func (responseBackwardTranslator) Backward(
 ) (testutil.Response, error) {
 	return testutil.Response{ID: int(res.Id), Message: res.Message}, nil
 }
+
+var _ = Describe("DiscardTranslator", func() {
+	It("Should translate a response into an empty message", func(ctx SpecContext) {
+		res := MustSucceed(grpc.DiscardTranslator[testutil.Response]{}.Forward(
+			ctx,
+			testutil.Response{ID: 1, Message: "dropped"},
+		))
+		Expect(proto.Equal(res, &emptypb.Empty{})).To(BeTrue())
+	})
+})
