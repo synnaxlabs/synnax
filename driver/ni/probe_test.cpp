@@ -237,9 +237,9 @@ public:
 }
 
 /// @brief returns the negative port of each analog input port, keyed by port.
-std::unordered_map<std::int32_t, std::optional<std::int32_t>>
+std::unordered_map<std::uint32_t, std::optional<std::uint32_t>>
 negatives(const ::synnax::ni::Hardware &hw) {
-    std::unordered_map<std::int32_t, std::optional<std::int32_t>> out;
+    std::unordered_map<std::uint32_t, std::optional<std::uint32_t>> out;
     for (const auto &ai: hw.analog_inputs)
         out[ai.port] = ai.negative;
     return out;
@@ -261,9 +261,9 @@ TEST(ProbeTest, testPairsMSeriesPorts) {
     EXPECT_EQ(hw.product_type, "PCI-6221");
     ASSERT_EQ(hw.analog_inputs.size(), 16);
     const auto pairs = negatives(hw);
-    for (std::int32_t port = 0; port < 8; port++)
+    for (std::uint32_t port = 0; port < 8; port++)
         EXPECT_EQ(pairs.at(port), port + 8) << "ai" << port;
-    for (std::int32_t port = 8; port < 16; port++)
+    for (std::uint32_t port = 8; port < 16; port++)
         EXPECT_EQ(pairs.at(port), std::nullopt) << "ai" << port;
 }
 
@@ -274,11 +274,11 @@ TEST(ProbeTest, testPairsByProductType) {
     api->strings[DAQmx_Dev_ProductType] = "NI 9205";
     api->add_analog_inputs(32, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     const auto pairs = negatives(probe_api(api));
-    EXPECT_EQ(pairs.at(0), 8);
-    EXPECT_EQ(pairs.at(7), 15);
+    EXPECT_EQ(pairs.at(0), 8U);
+    EXPECT_EQ(pairs.at(7), 15U);
     EXPECT_EQ(pairs.at(8), std::nullopt);
-    EXPECT_EQ(pairs.at(16), 24);
-    EXPECT_EQ(pairs.at(23), 31);
+    EXPECT_EQ(pairs.at(16), 24U);
+    EXPECT_EQ(pairs.at(23), 31U);
     EXPECT_EQ(pairs.at(24), std::nullopt);
 }
 
@@ -289,9 +289,9 @@ TEST(ProbeTest, testPairsUSBPorts) {
     api->strings[DAQmx_Dev_ProductType] = "USB-6008";
     api->add_analog_inputs(8, RSE_DIFF, {DAQmx_Val_Voltage});
     const auto pairs = negatives(probe_api(api));
-    for (std::int32_t port = 0; port < 4; port++)
+    for (std::uint32_t port = 0; port < 4; port++)
         EXPECT_EQ(pairs.at(port), port + 4) << "ai" << port;
-    for (std::int32_t port = 4; port < 8; port++)
+    for (std::uint32_t port = 4; port < 8; port++)
         EXPECT_EQ(pairs.at(port), std::nullopt) << "ai" << port;
 }
 

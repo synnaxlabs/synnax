@@ -40,7 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
   await page.getByText("Open range explorer", { exact: true }).first().click();
-  await session.waitFor(page.locator(".console-range-explorer").first());
+  await session.waitFor(page.locator(".console-range__explorer-list").first());
   await session.settle(500);
   await session.moveTo({ x: 800, y: 450 });
 
@@ -77,7 +77,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitForHidden(name);
   await session.waitFor(
     page
-      .locator(".console-range-explorer")
+      .locator(".console-range__explorer-list")
       .getByText("Hotfire 05", { exact: true })
       .first(),
   );

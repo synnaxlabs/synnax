@@ -32,7 +32,7 @@ import {
 import {
   deployWriteConfigZ,
   nextChannel,
-  UNSUPPORTED_WRITE_DATA_TYPES,
+  UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -144,7 +144,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
         <DataTypeCell
           path={entry}
           channel={ch}
-          hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES}
+          hideDataTypes={UNSUPPORTED_DATA_TYPES}
         />
       </List.Cell>
       <List.Cell>

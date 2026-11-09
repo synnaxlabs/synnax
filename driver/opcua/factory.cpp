@@ -30,7 +30,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
-    if (cfg.array_mode)
+    if (cfg.array())
         s = std::make_unique<ArrayReadTaskSource>(ctx->client, pool, std::move(cfg));
     else
         s = std::make_unique<UnaryReadTaskSource>(ctx->client, pool, std::move(cfg));
