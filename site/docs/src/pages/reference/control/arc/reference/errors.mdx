@@ -90,6 +90,27 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Remove the import.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item code="ARC6001" severity="error" message="constant <value> overflows <T>">
+  <Problem.Cause>
+    An expression made only of integer literals has a value that does not fit its type,
+    such as `x i8 := 100 + 100`.
+  </Problem.Cause>
+  <Problem.Fix>Use a wider type, such as `i16`, or change the values.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  code="ARC6002"
+  severity="error"
+  message={["integer division by zero", "integer modulo by zero"]}
+>
+  <Problem.Cause>
+    An integer `/` or `%` divides by a zero made only of literals: `x := 1 / 0`.
+  </Problem.Cause>
+  <Problem.Fix>
+    Change the divisor. For an IEEE 754 result, use floats, such as `1.0 / 0.0`.
+  </Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 Codes ARC2001, ARC2003, ARC4001, and ARC4002 are reserved. The compiler does not emit

@@ -94,10 +94,16 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 }
 
 // Commit commits all writes since the last commit, returning the end timestamp of the
-// committed region.
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+// committed region. authorized is false if the writer lacks control of a channel with
+// samples to commit, and the end is then zero. authorized is also false if a write
+// since the last commit was refused for no control, but the commit applies and returns
+// its end. The writer stays open so that it can regain control.
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(Request{Command: CommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 // SetAuthority updates the control authorities the writer holds over its channels.

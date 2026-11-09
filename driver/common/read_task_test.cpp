@@ -16,16 +16,13 @@
 #include <thread>
 #include <vector>
 
-#include "absl/base/log_severity.h"
-#include "absl/log/log_entry.h"
-#include "absl/log/log_sink.h"
-#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/read_task.h"
+#include "driver/common/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
@@ -127,31 +124,6 @@ public:
         const auto i = std::min(this->reads.load(), this->script.size() - 1);
         this->reads++;
         return this->script[i];
-    }
-};
-
-/// @brief captures the text of every warning line while in scope.
-class WarningSink final : public absl::LogSink {
-    std::mutex mu;
-    std::vector<std::string> lines;
-
-public:
-    WarningSink() { absl::AddLogSink(this); }
-
-    ~WarningSink() override { absl::RemoveLogSink(this); }
-
-    void Send(const absl::LogEntry &entry) override {
-        if (entry.log_severity() != absl::LogSeverity::kWarning) return;
-        std::lock_guard lock(this->mu);
-        this->lines.emplace_back(entry.text_message());
-    }
-
-    /// @brief returns the number of captured lines that contain text.
-    size_t count(const std::string &text) {
-        std::lock_guard lock(this->mu);
-        return std::ranges::count_if(this->lines, [&](const std::string &line) {
-            return line.contains(text);
-        });
     }
 };
 

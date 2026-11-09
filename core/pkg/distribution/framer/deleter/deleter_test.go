@@ -53,7 +53,7 @@ var _ = Describe("Deleter", Ordered, func() {
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					))).To(BeTrue())
-					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+					Expect(MustCommit(w)).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
 					i = MustOpen(
 						s.dist.Framer.OpenIterator(

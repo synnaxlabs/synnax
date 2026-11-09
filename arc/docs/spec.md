@@ -132,7 +132,8 @@ TypeCast ::= Type '(' Expression ')'
 - Narrowing (e.g., `i8(i64_val)`) truncates
 - Signed ↔ Unsigned saturates at bounds
 - Float → Integer truncates toward zero, saturates on overflow
-- Integer overflow uses two's-complement wrapping
+- Integer overflow uses two's-complement wrapping. An expression made only of integer
+  literals that overflows its type is a compile error (`ARC6001`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -808,10 +809,15 @@ These simplify implementation while maintaining expressiveness:
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
 - **Operands**: Non-`bool` logical operands
+- **Constants**: An expression made only of integer literals that overflows its type
+  (`ARC6001`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`ARC6002`), such as `x := 1 / 0`. A negated literal is one signed value, so
+  `x i8 := -128` fits. A cast passes a constant through only when the target type holds
+  it. Float arithmetic follows IEEE 754 and is never a constant error.
 
 ### Runtime errors
 
-- **Arithmetic**: Division/modulo by zero
+- **Arithmetic**: Integer division/modulo by a zero that is not constant
 - **Array/String**: Out-of-bounds access, length mismatch in series operations
 - **Channel**: Type mismatches (if not statically verified)
 

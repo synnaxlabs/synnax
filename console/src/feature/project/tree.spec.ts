@@ -93,6 +93,20 @@ describe("project tree item", () => {
     expect(screen.getByText("Copy link")).toBeTruthy();
   });
 
+  it("should offer Copy, and no single-project actions, for a multiple selection", async () => {
+    const a = await createProject();
+    const b = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [projectResource(a.key, a.name), projectResource(b.key, b.name)],
+      store: await createStoreWithActive(a.key),
+    });
+    expect(await screen.findByText("Copy")).toBeTruthy();
+    expect(screen.queryByText("Copy link")).toBeNull();
+    expect(screen.queryByText("Export")).toBeNull();
+  });
+
   it("should export the clicked project rather than the active one", async () => {
     const p = await createProject();
     const logName = uniqueName("log");

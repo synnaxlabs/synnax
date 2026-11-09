@@ -181,6 +181,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
       )}
