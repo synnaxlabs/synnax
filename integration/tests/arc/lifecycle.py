@@ -232,7 +232,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.open(self.new_name)
 
         self.log("Verifying the renamed Arc runs with no redeploy")
-        assert self.console.arc.is_running(), "Renamed Arc stopped"
+        self.console.arc.wait_for_running()
         assert not self.console.arc.is_drifted(), "Rename asked for a redeploy"
 
         # --- 6. Stop, then delete and verify the tab tombstones ---

@@ -243,6 +243,12 @@ class ArcClient(ResourceClient):
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         return stop_btn.count() > 0 and stop_btn.is_visible()
 
+    def wait_for_running(self) -> None:
+        """Wait for the Stop button, which shows once the Arc's task runs."""
+        self._show_arc_panel()
+        stop_btn = self._get_controls().locator("button:has(.lyra-icon--stop)")
+        stop_btn.wait_for(state="visible", timeout=5000)
+
     def is_drifted(self) -> bool:
         """Check if the Arc's controls show the Redeploy button."""
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
