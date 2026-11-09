@@ -66,6 +66,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		if expr := assign.Expression(); expr != nil &&
 			statement.CastConstValue(ctx, expr, sym.Type) == nil {
 			flow.AnalyzeSingleExpression(ctx.Child(expr))
+			flow.BindOutput(ctx, expr, sym.Type.UnwrapChan())
 		}
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
