@@ -164,6 +164,7 @@ const SecretSection = ({
         data={list.data}
         getItem={list.getItem}
         subscribe={list.subscribe}
+        onFetchMore={list.more}
         value={selected}
         onChange={onSelect}
         allowNone
@@ -202,6 +203,7 @@ const CertificateSection = ({
         data={list.data}
         getItem={list.getItem}
         subscribe={list.subscribe}
+        onFetchMore={list.more}
         value={selected}
         onChange={onSelect}
         allowNone

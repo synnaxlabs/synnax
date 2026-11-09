@@ -17,20 +17,19 @@ const PLURAL_RESOURCE_NAME = "certificates";
 
 export type ListQuery = certificate.RetrieveMultipleParams;
 
-export const useList = Flux.createList<
-  ListQuery,
-  certificate.Key,
-  certificate.Certificate
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.certificates.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.certificates.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.certificates.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.certificates.onChange(key, handler),
-  getCached: ({ client, query }) => client.certificates.getCached(query),
-});
+/** Lists certificates by name, unless the query sets an order. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, certificate.Certificate>,
+  "name"
+> = {}): Flux.UseListReturn<certificate.Key, certificate.Certificate> =>
+  Flux.useList((client) => client.certificates, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { order: { field: "name" }, ...query },
+  });
 
 export type RetrieveQuery = certificate.RetrieveSingleParams;
 
@@ -39,8 +38,8 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, certificate.Certificat
   retrieve: async ({ client, query: { key } }) =>
     await client.certificates.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
-    client.certificates.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.certificates.getCached(key),
+    client.certificates.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.certificates.watch(key).getCached(),
 });
 
 export interface RenameParams extends Pick<certificate.Certificate, "key" | "name"> {}

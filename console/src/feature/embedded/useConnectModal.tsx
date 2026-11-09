@@ -20,10 +20,11 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
-import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { countSessions, ensure, replace } from "@/feature/embedded/apiKey";
 import { useStatus } from "@/feature/embedded/Provider";
+import { Code } from "@/platform/code";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
@@ -31,28 +32,11 @@ const CLIENT_DOCS_URL = "https://docs.synnaxlabs.com/reference/client";
 
 const MASK = "•".repeat(16);
 
-/** A run of code, colored by its kind when it has one. */
-type Token =
-  string | { kind: "keyword" | "string" | "function" | "comment"; text: string };
-
-/** Lines of tokens. One source gives both the colored code and the copied text. */
-type Code = Token[][];
-
-const keyword = (text: string): Token => ({ kind: "keyword", text });
-const quoted = (text: string): Token => ({ kind: "string", text: `"${text}"` });
-const call = (text: string): Token => ({ kind: "function", text });
-const comment = (text: string): Token => ({ kind: "comment", text });
-
-const toText = (code: Code): string =>
-  code
-    .map((line) => line.map((t) => (typeof t === "string" ? t : t.text)).join(""))
-    .join("\n");
-
-const PYTHON_CODE: Code = [
-  [keyword("import"), " synnax ", keyword("as"), " sy"],
+const PYTHON_CODE: Code.Lines = [
+  [Code.keyword("import"), " synnax ", Code.keyword("as"), " sy"],
   [],
-  [comment("# Finds Synnax Desktop on this computer.")],
-  ["client = sy.", call("Synnax"), "()"],
+  [Code.comment("# Finds Synnax Desktop on this computer.")],
+  ["client = sy.", Code.call("Synnax"), "()"],
 ];
 
 /**
@@ -65,66 +49,45 @@ const matchingRelease = (version: string | undefined): string | null => {
   return `${major}.${minor}.0`;
 };
 
-const pythonInstall = (release: string | null): Code => [
-  [call("pip"), " install ", release == null ? "synnax" : quoted(`synnax~=${release}`)],
-];
-
-const typeScriptInstall = (release: string | null): Code => [
-  [call("npm"), " install @synnaxlabs/client", release == null ? "" : `@~${release}`],
-];
-
-const typeScriptCode = (host: string, port: number, apiKey: string): Code => [
+const pythonInstall = (release: string | null): Code.Lines => [
   [
-    keyword("import"),
+    Code.call("pip"),
+    " install ",
+    release == null ? "synnax" : Code.quoted(`synnax~=${release}`),
+  ],
+];
+
+const typeScriptInstall = (release: string | null): Code.Lines => [
+  [
+    Code.call("npm"),
+    " install @synnaxlabs/client",
+    release == null ? "" : `@~${release}`,
+  ],
+];
+
+const typeScriptCode = (host: string, port: number, apiKey: string): Code.Lines => [
+  [
+    Code.keyword("import"),
     " { Synnax } ",
-    keyword("from"),
+    Code.keyword("from"),
     " ",
-    quoted("@synnaxlabs/client"),
+    Code.quoted("@synnaxlabs/client"),
     ";",
   ],
   [],
-  [keyword("const"), " client = ", keyword("new"), " ", call("Synnax"), "({"],
-  ["  host: ", quoted(host), ","],
+  [
+    Code.keyword("const"),
+    " client = ",
+    Code.keyword("new"),
+    " ",
+    Code.call("Synnax"),
+    "({",
+  ],
+  ["  host: ", Code.quoted(host), ","],
   [`  port: ${port},`],
-  ["  apiKey: ", quoted(apiKey), ","],
+  ["  apiKey: ", Code.quoted(apiKey), ","],
   ["});"],
 ];
-
-interface SnippetProps {
-  /** What the snippet holds, as assistive technology names it. */
-  label: string;
-  code: Code;
-  /** The code to copy, when it differs from what the snippet shows. */
-  copy?: Code;
-}
-
-const Snippet = ({ label, code, copy = code }: SnippetProps): ReactElement => (
-  <Flex.Box x align="start" className={CSS.BE("connect", "snippet")}>
-    <pre aria-label={label}>
-      {code.map((line, i) => (
-        <Fragment key={i}>
-          {i > 0 && "\n"}
-          {line.map((token, j) =>
-            typeof token === "string" ? (
-              token
-            ) : (
-              <span key={j} className={CSS.BEM("connect", "token", token.kind)}>
-                {token.text}
-              </span>
-            ),
-          )}
-        </Fragment>
-      ))}
-    </pre>
-    <Button.Copy
-      text={toText(copy)}
-      variant="text"
-      size="small"
-      textColor={9}
-      aria-label={`Copy ${label}`}
-    />
-  </Flex.Box>
-);
 
 interface StepProps extends PropsWithChildren {
   title: string;
@@ -147,10 +110,10 @@ interface TabProps {
 const PythonTab = ({ release }: TabProps): ReactElement => (
   <Flex.Box y gap="large">
     <Step title="Install">
-      <Snippet label="Python install command" code={pythonInstall(release)} />
+      <Code.Snippet label="Python install command" code={pythonInstall(release)} />
     </Step>
     <Step title="Connect">
-      <Snippet label="Python code" code={PYTHON_CODE} />
+      <Code.Snippet label="Python code" code={PYTHON_CODE} />
     </Step>
   </Flex.Box>
 );
@@ -169,10 +132,13 @@ const TypeScriptTab = ({
 }: TypeScriptTabProps): ReactElement => (
   <Flex.Box y gap="large">
     <Step title="Install">
-      <Snippet label="TypeScript install command" code={typeScriptInstall(release)} />
+      <Code.Snippet
+        label="TypeScript install command"
+        code={typeScriptInstall(release)}
+      />
     </Step>
     <Step title="Connect">
-      <Snippet
+      <Code.Snippet
         label="TypeScript code"
         code={typeScriptCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
         copy={typeScriptCode(host, port, apiKey)}

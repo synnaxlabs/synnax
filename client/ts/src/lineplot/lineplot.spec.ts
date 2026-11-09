@@ -133,19 +133,36 @@ const seedPlot = async (): Promise<lineplot.LinePlot> => {
 };
 
 const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {
-  const cached = client.lineplots.getCached(key);
+  const cached = client.lineplots.watch(key).getCached();
   return query.isLive(cached) ? cached.name : undefined;
 };
 
 describe("store", () => {
+  it("reduces a group move from the Core into the cached document", async () => {
+    await client.connect();
+    const proj = await client.projects.create({ name: "Line Plot" });
+    const plot = await client.lineplots.create({
+      project: proj.key,
+      name: "Line Plot",
+    });
+    const g = await client.groups.create({
+      parent: project.resourceID(proj.key),
+      name: "Line Plot",
+    });
+    await client.batch.send([client.lineplots.setGroupRequest(plot.key, g.key)]);
+    await expect
+      .poll(() => expectLive(client.lineplots.watch(plot.key).getCached()).group)
+      .toBe(g.key);
+  });
+
   it("tombstones deletes from live delete signals", async () => {
     await client.connect();
     const plot = await seedPlot();
     await client.lineplots.delete(plot.key);
     await expect
-      .poll(() => query.Deleted.matches(client.lineplots.getCached(plot.key)))
+      .poll(() => query.Deleted.matches(client.lineplots.watch(plot.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.lineplots.getCached(plot.key));
+    const cached = expectDeleted(client.lineplots.watch(plot.key).getCached());
     expect(cached.corpse.name).toEqual(plot.name);
   });
 
@@ -159,9 +176,9 @@ describe("store", () => {
       await client.connect();
       const plot = await seedPlot();
       await expect
-        .poll(() => query.isLive(remote.lineplots.getCached(plot.key)))
+        .poll(() => query.isLive(remote.lineplots.watch(plot.key).getCached()))
         .toBe(true);
-      const cached = remote.lineplots.getCached(plot.key);
+      const cached = remote.lineplots.watch(plot.key).getCached();
       if (query.isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
       await remote.close();
@@ -184,16 +201,18 @@ describe("store", () => {
     expect(plot.lines).toHaveLength(1);
     await client.channels.delete(ch.key);
     await expect
-      .poll(() => expectLive(client.lineplots.getCached(plot.key)).channels.y1)
+      .poll(() => expectLive(client.lineplots.watch(plot.key).getCached()).channels.y1)
       .toEqual([]);
-    expect(expectLive(client.lineplots.getCached(plot.key)).lines).toEqual([]);
+    expect(expectLive(client.lineplots.watch(plot.key).getCached()).lines).toEqual([]);
   });
 
   it("reduces broadcast dispatch frames into the cached document", async () => {
     await client.connect();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
-    await client.lineplots.dispatch(plot.key, [lineplot.rename({ name })]);
+    await client.lineplots.dispatch(plot.key, [
+      lineplot.set({ path: ["name"], value: name }),
+    ]);
     await expect.poll(() => cachedName(plot.key)).toBe(name);
   });
 });

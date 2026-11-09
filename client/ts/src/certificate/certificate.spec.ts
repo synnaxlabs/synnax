@@ -178,6 +178,39 @@ describe("Certificate", () => {
         .poll(async () => await client.certificates.retrieve({ searchTerm: name }))
         .toContainEqual(created);
     });
+
+    it("should retrieve a certificate by name", async () => {
+      const name = `${id.create()} root`;
+      const created = await createTestClient().certificates.create({
+        name,
+        source: "stored",
+        pem: PEM,
+      });
+      expect(await createTestClient().certificates.retrieve(name)).toEqual(created);
+    });
+
+    it("should page certificates in name order with a cursor", async () => {
+      const prefix = id.create();
+      const created = await createTestClient().certificates.create(
+        ["C", "A", "B"].map((n) => ({
+          name: `${prefix} ${n}`,
+          source: "stored" as const,
+          pem: PEM,
+        })),
+      );
+      const keys = created.map((c) => c.key);
+      const order = { field: "name" as const };
+      const client = createTestClient();
+      const first = await client.certificates.retrieve({ key: keys, order, limit: 2 });
+      expect(first.map((c) => c.name)).toEqual([`${prefix} A`, `${prefix} B`]);
+      const last = first[1];
+      const second = await client.certificates.retrieve({
+        key: keys,
+        order,
+        after: { key: last.key, name: last.name },
+      });
+      expect(second.map((c) => c.name)).toEqual([`${prefix} C`]);
+    });
   });
 
   describe("rename", () => {
