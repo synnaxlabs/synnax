@@ -63,7 +63,11 @@ func fromRelease(
 	}
 	got, err := binaryVersion(ctx, staged)
 	if err != nil {
-		return err
+		return errors.Wrapf(
+			err,
+			"The release file %s does not run on this computer",
+			name,
+		)
 	}
 	if got != to {
 		return errors.Newf("The release file %s holds Core %s.", name, got)

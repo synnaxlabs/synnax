@@ -234,11 +234,45 @@ var _ = Describe("Update with a Core service", func() {
 			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
 		})
 
+		It("Should keep the Core when the file does not run", func() {
+			core := []byte("#!/bin/sh\nexit 1\n")
+			publish("0.61.0", core, signer.Sign(core))
+			Expect(run("0.61.0")).To(MatchError(ContainSubstring(
+				"The release file synnax-v0.61.0-linux does not run on this computer",
+			)))
+			Expect(systemctl.Calls()).To(BeEmpty())
+			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+			Expect(binary + ".new").ToNot(BeAnExistingFile())
+		})
+
 		It("Should name the file that the release does not have", func() {
 			Expect(run("0.61.0")).To(MatchError(
 				"Core 0.61.0 has no release file synnax-v0.61.0-linux. Check the " +
 					"version.",
 			))
+			Expect(systemctl.Calls()).To(BeEmpty())
+		})
+
+		It("Should not download a version that failed before", func() {
+			Expect(os.WriteFile(
+				filepath.Join(data, "UPDATE_FAILED"),
+				[]byte("0.61.0"),
+				0o600,
+			)).To(Succeed())
+			Expect(run("0.61.0")).To(MatchError(
+				"The update to Core 0.61.0 failed before. Fix the cause, run `synnax " +
+					"update retry`, then update again.",
+			))
+			Expect(out.String()).To(BeEmpty())
+			Expect(systemctl.Calls()).To(BeEmpty())
+		})
+
+		It("Should not download an older Core", func() {
+			Expect(run("0.59.0")).To(MatchError(
+				"Core 0.59.0 is older than the installed Core 0.60.0. To go back, run " +
+					"`synnax update undo`.",
+			))
+			Expect(out.String()).To(BeEmpty())
 			Expect(systemctl.Calls()).To(BeEmpty())
 		})
 

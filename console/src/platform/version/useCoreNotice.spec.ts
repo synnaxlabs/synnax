@@ -11,6 +11,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
 
@@ -66,7 +67,7 @@ describe("version Core notice", () => {
           name: "Core",
           message: "Version 1.6.0 available",
           description:
-            "Run synnax update 1.6.0 as an administrator on the computer that runs the Core. In Docker, run the synnaxlabs/synnax:1.6.0 image.",
+            "Run synnax update 1.6.0 as an administrator on the computer that runs the Core. In Docker, or if the command fails, follow the upgrade guide at https://docs.synnaxlabs.com/reference/enterprise/upgrade.",
         }),
       ),
     );
@@ -96,6 +97,14 @@ describe("version Core notice", () => {
     const notifications = await renderNotifications(true);
     await waitFor(() => expect(warn).toHaveBeenCalledWith(new Error("offline")));
     expect(requestedLatestCore(fetch)).toBe(true);
+    expect(notifications.current).toEqual([]);
+  });
+
+  it("should say nothing when the docs site sends an invalid version", async () => {
+    mockLatestCore("1.6");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const notifications = await renderNotifications(true);
+    await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.any(z.ZodError)));
     expect(notifications.current).toEqual([]);
   });
 });

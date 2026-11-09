@@ -14,10 +14,12 @@ import { z } from "zod";
 
 import { isDev } from "@/platform/version/build";
 import { type Target } from "@/platform/version/check";
+import { Session } from "@/session";
 
 const RELEASE_URL = "https://docs.synnaxlabs.com/releases/core/latest.json";
+const UPGRADE_URL = "https://docs.synnaxlabs.com/reference/enterprise/upgrade";
 
-const releaseZ = z.object({ version: z.string() });
+const releaseZ = z.object({ version: migrate.semVerZ });
 
 /**
  * Adds a status when the newest stable Core release is newer than the Core at target
@@ -28,7 +30,13 @@ export const useCoreNotice = (target: Target | null): void => {
   const addStatus = Status.useAdder();
   useAsyncEffect(
     async (signal) => {
-      if (target == null || !target.latestGranted || isDev(target.version)) return;
+      if (
+        Session.Runtime.CORE_EMBEDDED ||
+        target == null ||
+        !target.latestGranted ||
+        isDev(target.version)
+      )
+        return;
       let latest: string;
       try {
         const res = await fetch(RELEASE_URL, { signal });
@@ -44,7 +52,7 @@ export const useCoreNotice = (target: Target | null): void => {
         variant: "info",
         name: "Core",
         message: `Version ${latest} available`,
-        description: `Run synnax update ${latest} as an administrator on the computer that runs the Core. In Docker, run the synnaxlabs/synnax:${latest} image.`,
+        description: `Run synnax update ${latest} as an administrator on the computer that runs the Core. In Docker, or if the command fails, follow the upgrade guide at ${UPGRADE_URL}.`,
       });
     },
     [target?.version, target?.latestGranted],
