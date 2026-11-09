@@ -218,6 +218,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("not a flow function"))
 			},
 			Entry("WASM-only function", "math.is_nan"),
+			Entry("module", "math"),
 		)
 
 		Describe("Polymorphic Stages", func() {
