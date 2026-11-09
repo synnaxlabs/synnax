@@ -467,15 +467,23 @@ class LayoutClient:
             .first
         )
 
+    def _dropdown_selection(self, dropdown_label: str) -> Locator:
+        # The trigger can also show content after the selection, such as a status badge.
+        return self._dropdown_button(dropdown_label).locator(
+            ":scope > .lyra-select__label"
+        )
+
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
-        dropdown_button = self._dropdown_button(dropdown_label)
-        dropdown_button.wait_for(state="attached", timeout=5000)
-        return dropdown_button.inner_text().strip()
+        selection = self._dropdown_selection(dropdown_label)
+        selection.wait_for(state="attached", timeout=5000)
+        return selection.inner_text().strip()
 
     def wait_for_dropdown_value(self, dropdown_label: str, value: str) -> None:
         """Wait until a dropdown, found by label, shows the given value."""
-        expect(self._dropdown_button(dropdown_label)).to_have_text(value, timeout=5000)
+        expect(self._dropdown_selection(dropdown_label)).to_have_text(
+            value, timeout=5000
+        )
 
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""

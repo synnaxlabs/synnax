@@ -29,6 +29,7 @@ import {
   type Channel,
   findOverlaps,
   type Overlaps,
+  spaceOf,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
@@ -131,7 +132,7 @@ export const RegisterMap = <C extends Channel>({
     const address = lo + Math.floor(((e.clientX - box.left) / box.width) * count);
     const used = spans.some(
       ({ channel, span }) =>
-        channel.type === type && span[0] <= address && address <= span[1],
+        spaceOf(channel.type) === type && span[0] <= address && address <= span[1],
     );
     setFree(used ? undefined : { type, address });
   };
@@ -150,15 +151,17 @@ export const RegisterMap = <C extends Channel>({
       )}
     >
       {REGISTER_TYPES.filter((t): t is C["type"] =>
-        channels.some((c) => c.type === t),
+        channels.some((c) => spaceOf(c.type) === t),
       ).map((t) => {
-        const lane = spans.filter(({ channel }) => channel.type === t);
+        const lane = spans.filter(({ channel }) => spaceOf(channel.type) === t);
         return (
           <div
             key={t}
             className={CSS.cls(
               CSS.BE("modbus", "lane"),
-              hoveredSpan?.channel.type === t && CSS.BEM("modbus", "lane", "hovered"),
+              hoveredSpan != null &&
+                spaceOf(hoveredSpan.channel.type) === t &&
+                CSS.BEM("modbus", "lane", "hovered"),
             )}
           >
             <span className={CSS.BE("modbus", "lane-name")}>

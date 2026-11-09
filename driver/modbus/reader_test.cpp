@@ -39,21 +39,20 @@ channel::InputRegister holding(
 channel::InputRegister input_string(
     const synnax::channel::Key key,
     const std::uint16_t address,
-    const std::int32_t length,
+    const std::uint16_t length,
     const bool bytes_swapped,
     const std::string &name
 ) {
     auto p = x::json::Parser(
         x::json::json{
-            {"type", "input_register"},
+            {"type", "input_register_string"},
             {"address", address},
             {"channel", key},
-            {"data_type", "string"},
-            {"string_length", length},
+            {"length", length},
             {"bytes_swapped", bytes_swapped},
         }
     );
-    const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(p);
+    const auto cfg = ::synnax::modbus::InputRegisterStringReadChannel::parse(p);
     channel::InputRegister ch(cfg, device::ConnectionConfig{});
     ch.ch = synnax::channel::Channel{
         .key = key,

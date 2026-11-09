@@ -102,7 +102,8 @@ class LoginForms(ConsoleCase):
         self.console.cluster.remove_core(self.core_name)
 
     def test_login_round_trip(self) -> None:
-        """Select a Core, navigate back, reject bad credentials, then log in."""
+        """Check Local's saved username, then log in to a Core added for the Core
+        under test."""
         cluster = self.console.cluster
         self.log("Selecting Local and checking the credentials step")
         cluster.select_core("Local")
@@ -117,7 +118,16 @@ class LoginForms(ConsoleCase):
         back.click(timeout=5000)
         self._wait(cluster.core_item("Local"))
 
-        cluster.select_core("Local")
+        login_core = f"Login_{self.suffix}"
+        self.log(f"Adding {login_core} and selecting it")
+        cluster.add_core(
+            name=login_core,
+            host=self.synnax_connection.server_address,
+            port=self.synnax_connection.port,
+        )
+        cluster.select_core(login_core)
+        self._wait(username)
+        username.fill(self.synnax_connection.username)
         self.log("Submitting bad credentials")
         password = self.page.get_by_label("Password", exact=True).first
         password.fill("wrong-password")

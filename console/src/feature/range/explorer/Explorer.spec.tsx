@@ -30,6 +30,7 @@ import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditing,
   commitTextEdit,
   countEditableText,
@@ -163,6 +164,32 @@ describe("range/Explorer", () => {
       () => expect(listedNames(word)).toEqual([`${word} later`, `${word} soon`]),
       { timeout: 5000 },
     );
+  });
+
+  it("moves a to-do range to in progress when an edit makes it start", async () => {
+    const word = uniqueRangeName("stage");
+    const later = TimeStamp.now().add(TimeSpan.hours(1));
+    const created = await Promise.all([
+      createRangeAt(`${word} a`, later),
+      createRangeAt(`${word} b`, later),
+    ]);
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() => expect(listedNames(word)).toHaveLength(2));
+    const [first, second] = listedNames(word);
+    const moved = created.find(({ name }) => name === first);
+    assertDefined(moved);
+    await client.ranges.create({
+      key: moved.key,
+      name: moved.name,
+      timeRange: new TimeRange(
+        TimeStamp.now().add(TimeSpan.seconds(2)),
+        TimeStamp.now().add(TimeSpan.minutes(1)),
+      ),
+    });
+    await waitFor(() => expect(listedNames(word)).toEqual([second, first]), {
+      timeout: 5000,
+    });
   });
 
   it("opens the create range modal from the toolbar button", async () => {

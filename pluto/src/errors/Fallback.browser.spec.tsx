@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  computed,
+  renderThemed,
+  resolve,
+  selectedByTripleClick,
+} from "@synnaxlabs/lyra/styletest";
+import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
 const WIDTH = 600;
-
-// The Console turns off text selection for every element but inputs and labels
-// (console/src/app/App.css).
-const CONSOLE_RULES = "*:not(:is(input, label)) { user-select: none !important; }";
 
 const renderFallback = async (message: string): Promise<Element> => {
   const error = new Error(message);
@@ -39,20 +40,12 @@ const part = (content: Element, element: string): Element => {
 };
 
 describe("Errors.Fallback", () => {
-  let consoleRules: HTMLStyleElement;
-
-  beforeEach(() => {
-    consoleRules = document.createElement("style");
-    consoleRules.textContent = CONSOLE_RULES;
-    document.head.appendChild(consoleRules);
-  });
-
-  afterEach(() => consoleRules.remove());
-
-  it("should let the user select the message inside the Console", async () => {
+  it("should let the user select the message and stack inside the Console", async () => {
     const content = await renderFallback("Something broke");
-    expect(computed(part(content, "message"), "user-select")).toBe("text");
-    expect(computed(part(content, "stack"), "user-select")).toBe("text");
+    expect(await selectedByTripleClick(part(content, "message"))).toContain(
+      "Something broke",
+    );
+    expect(await selectedByTripleClick(part(content, "stack"))).not.toBe("");
   });
 
   it("should border its content in the error color", async () => {

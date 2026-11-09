@@ -14,10 +14,13 @@
 #include <string>
 #include <type_traits>
 
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/date/date.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace x::json {
 
@@ -358,6 +361,23 @@ telem::SampleValue convert(
         return telem::SampleValue(value.dump());
     }
 
+    if (target == telem::JSON_T) return telem::SampleValue(value.dump());
+
+    if (target == telem::UUID_T || target == telem::BYTES_T) {
+        if (!value.is_string()) throw std::runtime_error("value is not a string");
+        const auto &str = value.get_ref<const std::string &>();
+        if (target == telem::BYTES_T) {
+            auto [bytes, err] = base64::decode_strict(str);
+            if (err) throw std::runtime_error(err.data);
+            return telem::SampleValue(std::move(bytes));
+        }
+        const auto [uuid, err] = uuid::UUID::parse(str);
+        if (err) throw std::runtime_error("not a valid UUID");
+        return telem::SampleValue(
+            std::string(reinterpret_cast<const char *>(uuid.data()), uuid.size())
+        );
+    }
+
     if (value.is_boolean()) return number_to_numeric(value.get<bool>() ? 1 : 0, target);
     if (value.is_number_unsigned())
         return number_to_numeric(value.get<uint64_t>(), target);
@@ -404,7 +424,31 @@ bool check_to_sample_value(const telem::DataType &target) {
            target == telem::INT16_T || target == telem::INT8_T ||
            target == telem::UINT64_T || target == telem::UINT32_T ||
            target == telem::UINT16_T || target == telem::UINT8_T ||
-           target == telem::TIMESTAMP_T || target == telem::STRING_T;
+           target == telem::TIMESTAMP_T || target == telem::STRING_T ||
+           target == telem::JSON_T || target == telem::UUID_T ||
+           target == telem::BYTES_T;
+}
+
+namespace {
+/// @brief returns CONVERSION_ERROR if v has no JSON form of type target. A NaN never
+/// matches an enum value, because NaN breaks the ordering of the enum map.
+template<typename T>
+errors::Error check_float(const T v, const Type target, const bool has_enum) {
+    if (std::isnan(v)) {
+        if (target == Type::Number)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON number"};
+        if (target == Type::Boolean)
+            return {CONVERSION_ERROR, "NaN is not a valid JSON boolean"};
+        if (has_enum) return {CONVERSION_ERROR, "NaN matches no enum value"};
+        return errors::NIL;
+    }
+    if (std::isinf(v) && target == Type::Number)
+        return {
+            CONVERSION_ERROR,
+            std::string(v > 0 ? "inf" : "-inf") + " is not a valid JSON number",
+        };
+    return errors::NIL;
+}
 }
 
 std::pair<nlohmann::json, errors::Error> from_sample_value(
@@ -422,6 +466,10 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return {nlohmann::json(), CONVERSION_ERROR};
             } else {
+                if constexpr (std::is_floating_point_v<T>) {
+                    if (auto err = check_float(v, target, enum_values != nullptr))
+                        return {nlohmann::json(), err};
+                }
                 if (enum_values != nullptr && target == Type::String) {
                     if (const auto it = enum_values->find(nlohmann::json(v));
                         it != enum_values->end())
@@ -452,6 +500,32 @@ errors::Error check_from_sample_value(const telem::DataType &type, Type target) 
         type == telem::UINT16_T || type == telem::UINT8_T)
         return errors::NIL;
     return CONVERSION_ERROR;
+}
+
+std::pair<nlohmann::json, errors::Error>
+from_series(const telem::Series &series, const int index) {
+    const auto &dt = series.data_type();
+    if (dt == telem::UUID_T)
+        return {series.at<uuid::UUID>(index).to_json(), errors::NIL};
+    if (dt == telem::BYTES_T)
+        return {base64::encode(series.at<std::string>(index)), errors::NIL};
+    if (dt == telem::JSON_T) {
+        const auto text = series.at<std::string>(index);
+        auto value = nlohmann::json::parse(text, nullptr, false);
+        if (value.is_discarded())
+            return {
+                nlohmann::json(),
+                errors::Error(CONVERSION_ERROR, "the sample is not valid JSON"),
+            };
+        return {std::move(value), errors::NIL};
+    }
+    return {
+        nlohmann::json(),
+        errors::Error(
+            CONVERSION_ERROR,
+            "cannot convert a " + dt.name() + " series sample to JSON"
+        ),
+    };
 }
 
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {

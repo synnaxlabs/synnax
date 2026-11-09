@@ -184,13 +184,13 @@ describe("log reducer", () => {
       {
         name: "setChannelTimestampFormat",
         action: log.setChannelTimestampFormat({ channel: 5, format: "time" }),
-        read: (e) => e.timestamp.format,
+        read: (e) => e.timestampConfig.format,
         expected: "time",
       },
       {
-        name: "setChannelTimestampTz",
-        action: log.setChannelTimestampTz({ channel: 5, tz: "UTC" }),
-        read: (e) => e.timestamp.tz,
+        name: "setChannelTimestampTimeZone",
+        action: log.setChannelTimestampTimeZone({ channel: 5, timeZone: "UTC" }),
+        read: (e) => e.timestampConfig.timeZone,
         expected: "UTC",
       },
     ];
@@ -217,36 +217,13 @@ describe("log reducer", () => {
       expect(log.reduceAll(withEntries(), [action]).targets).toEqual(["channel:5"]);
     });
 
+    it.each(cases)("$name keys its undoable by channel", ({ action }) => {
+      expect(log.kindOf([action])).toEqual("channel:5");
+    });
+
     it.each(cases)("$name is a no-op when the channel is absent", ({ action }) => {
       const state = createEmpty({ channels: [createChannelEntry(6)] });
       expect(apply(state, action).channels).toEqual([createChannelEntry(6)]);
-    });
-  });
-
-  describe("setChannels", () => {
-    it("should replace the entire ordered list", () => {
-      const state = createEmpty({ channels: [createChannelEntry(1)] });
-      const out = apply(
-        state,
-        log.setChannels({ channels: [createChannelEntry(2), createChannelEntry(3)] }),
-      );
-      expect(out.channels).toEqual([createChannelEntry(2), createChannelEntry(3)]);
-    });
-    it("should round-trip the previous list through its inverse", () => {
-      const state = createEmpty({
-        channels: [createChannelEntry(1), createChannelEntry(2)],
-      });
-      expect(
-        roundTrip(state, log.setChannels({ channels: [createChannelEntry(3)] }))
-          .channels,
-      ).toEqual(state.channels);
-    });
-    it("should target every channel in the old and new lists", () => {
-      const state = createEmpty({ channels: [createChannelEntry(1)] });
-      const { targets } = log.reduceAll(state, [
-        log.setChannels({ channels: [createChannelEntry(2)] }),
-      ]);
-      expect(new Set(targets)).toEqual(new Set(["channel:1", "channel:2"]));
     });
   });
 
