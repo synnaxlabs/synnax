@@ -303,7 +303,8 @@ export const Base = ({
             {new TimeStamp(BigInt(searchedTo)).toString("dateTime", timeZone)}
           </Text.Text>
         )}
-        {empty ? emptyContent : children}
+        {empty && emptyContent}
+        {children}
       </div>
     </Menu.ContextMenu>
   );
