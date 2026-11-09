@@ -449,10 +449,10 @@ export class Log
     this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const { data, status } = this.internal.telem.value();
-      this.entries = data;
+      this.entries = this.internal.telem.value().data;
+      // A seek from reanchor changes the status.
       this.reanchor();
-      this.syncStatus(status);
+      this.syncStatus(this.internal.telem.value().status);
       this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
@@ -751,6 +751,7 @@ export class Log
       const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
       const progress = span >= 1 ? 0 : shown.top / (1 - span);
       this.track = (p) => ({ time: timeAt(range, p * (1 - span) + span) });
+      this.drawRange(draw2d, range, span, height);
       return this.drawThumb(draw2d, progress, height);
     }
     const { totalHeight } = this;
@@ -786,7 +787,6 @@ export class Log
 
   // Draws the thumb at progress down its track, or where the user drags it.
   private drawThumb(draw2d: Draw2D, progress: number, height: number): Thumb {
-    this.drawRange(draw2d, height);
     const reg = this.state.region;
     const { dragProgress } = this.state;
     const at = dragProgress >= 0 ? dragProgress : progress;
@@ -803,24 +803,34 @@ export class Log
     return { top, height };
   }
 
-  // Shades the range on the track where the middle of a thumb of height seeks into it.
-  private drawRange(draw2d: Draw2D, height: number): void {
+  // Shades the owning range on the track where the middle of a dropped thumb of height
+  // seeks into it, for a view that shows span of the stored times. A range outside the
+  // stored times shades nothing.
+  private drawRange(
+    draw2d: Draw2D,
+    stored: TimeRange,
+    span: number,
+    height: number,
+  ): void {
     const { range, region: reg } = this.state;
-    const stored = this.internal.telem.wrapped.timeRange;
-    if (range == null || stored == null) return;
+    if (range == null) return;
     const start = stored.start.valueOf();
-    const total = Number(stored.end.valueOf() - start);
-    if (total <= 0) return;
-    const y = (time: string): number =>
-      box.top(reg) +
-      height / 2 +
-      bounds.clamp({ lower: 0, upper: 1 }, Number(BigInt(time) - start) / total) *
-        (box.height(reg) - height);
-    const top = y(range.start);
+    const end = stored.end.valueOf();
+    const [rangeStart, rangeEnd] = [BigInt(range.start), BigInt(range.end)];
+    if (rangeEnd < start || rangeStart > end) return;
+    const y = (time: bigint): number => {
+      const share = Number(time - start) / Number(end - start);
+      const progress = bounds.clamp(
+        { lower: 0, upper: 1 },
+        (share - span) / (1 - span),
+      );
+      return box.top(reg) + height / 2 + progress * (box.height(reg) - height);
+    };
+    const top = y(rangeStart);
     draw2d.container({
       region: box.construct(
         { x: box.right(reg) - SCROLLBAR_WIDTH, y: top },
-        { width: SCROLLBAR_WIDTH, height: Math.max(y(range.end) - top, 2) },
+        { width: SCROLLBAR_WIDTH, height: Math.max(y(rangeEnd) - top, 2) },
       ),
       bordered: false,
       rounded: false,

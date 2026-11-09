@@ -924,6 +924,21 @@ describe("log/aether/Log", () => {
       expect(log.scrollState.offset).toBe(101);
     });
 
+    it("should report loading while a seek on a change of the entries reads", () => {
+      const { log, source } = paused([]);
+      log.seek(timeOf(100));
+      source.seek = (time) => {
+        source.seeks.push(time);
+        source.setEntries([]);
+        source.status = telem.LOADING_STATUS;
+        source.notify();
+      };
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      expect(log.state.empty).toBe(false);
+    });
+
     it("should go to the oldest entry for a time before the first sample", () => {
       const { log, source } = paused();
       source.exhausted = true;
@@ -1556,29 +1571,45 @@ describe("log/aether/Log", () => {
       };
 
       const shaded = (start: TimeStamp, end: TimeStamp) => {
-        const { h, log, recorder } = paused();
-        h.setState((s) => ({
+        const handle = paused();
+        handle.h.setState((s) => ({
           ...s,
           range: { start: start.valueOf().toString(), end: end.valueOf().toString() },
         }));
-        recorder.clear();
-        log.render();
-        assert(log.state.thumb != null);
-        return { found: shading(recorder), thumb: log.state.thumb };
+        handle.recorder.clear();
+        handle.log.render();
+        const thumb = findThumb(handle.recorder);
+        assert(thumb != null);
+        // Drops the thumb with its middle at y, and returns the seconds it seeks to.
+        const dropAt = (y: number): number => {
+          const travel = box.height(REGION_500) - thumb.height;
+          handle.log.seekProgress((y - thumb.height / 2) / travel);
+          const time = handle.source.seeks.at(-1);
+          assert(time != null);
+          return Number(time.valueOf()) / 1e9;
+        };
+        return { found: shading(handle.recorder), thumb, dropAt };
       };
 
-      it("should shade the range where the track seeks into it", () => {
-        const { found, thumb } = shaded(TimeStamp.seconds(0), TimeStamp.seconds(99.5));
-        const travel = box.height(REGION_500) - thumb.height;
-        expect(found?.y).toBeCloseTo(thumb.height / 2, 0);
-        expect(found?.height).toBeCloseTo(travel / 2, 0);
+      it("should shade the range where a dropped thumb seeks into it", () => {
+        const { found, dropAt } = shaded(TimeStamp.seconds(0), TimeStamp.seconds(99.5));
+        assert(found != null);
+        expect(dropAt(found.y + found.height)).toBeCloseTo(99.5, 0);
       });
 
       it("should shade an open-ended range to the end of the track", () => {
-        const { found, thumb } = shaded(TimeStamp.seconds(99.5), TimeStamp.MAX);
-        const travel = box.height(REGION_500) - thumb.height;
-        expect(found?.y).toBeCloseTo(thumb.height / 2 + travel / 2, 0);
-        expect(found?.height).toBeCloseTo(travel / 2, 0);
+        const { found, thumb, dropAt } = shaded(TimeStamp.seconds(99.5), TimeStamp.MAX);
+        assert(found != null);
+        expect(dropAt(found.y)).toBeCloseTo(99.5, 0);
+        expect(found.y + found.height).toBeCloseTo(
+          box.height(REGION_500) - thumb.height / 2,
+          0,
+        );
+      });
+
+      it("should shade nothing for a range after the stored times", () => {
+        const { found } = shaded(TimeStamp.seconds(300), TimeStamp.seconds(400));
+        expect(found).toBeNull();
       });
 
       it("should shade nothing for a log with no range", () => {

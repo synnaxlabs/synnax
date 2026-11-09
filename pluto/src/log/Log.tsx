@@ -16,7 +16,7 @@ import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
-import { use as useRange } from "@/ranger/queries";
+import { Ranger } from "@/ranger";
 
 const useUndoRedo = (
   key: log.Key,
@@ -44,7 +44,7 @@ interface RangeProps extends BaseProps {
 }
 
 const Range = ({ rangeKey, ...rest }: RangeProps): ReactElement => {
-  const { timeRange } = useRange({ key: rangeKey });
+  const { timeRange } = Ranger.use({ key: rangeKey });
   return <Base range={timeRange} {...rest} />;
 };
 
