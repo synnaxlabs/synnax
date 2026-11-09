@@ -199,6 +199,11 @@ func (b *Base) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *Base) SetDefaults() {
+	b.Source.Variant = TextSource{}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b Base) Validate() error {
@@ -222,6 +227,11 @@ type AutomationArc struct {
 
 func (AutomationArc) isArcVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AutomationArc) SetDefaults() {
+	a.Base.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AutomationArc) ApplyDefaults() {
 	a.Base.ApplyDefaults()
@@ -241,6 +251,11 @@ type ModuleArc struct {
 }
 
 func (ModuleArc) isArcVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ModuleArc) SetDefaults() {
+	m.Base.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ModuleArc) ApplyDefaults() {
@@ -306,6 +321,7 @@ func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type Type `json:"type"`
 			AutomationArc
 		}
+		v.AutomationArc.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -315,6 +331,7 @@ func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type Type `json:"type"`
 			ModuleArc
 		}
+		v.ModuleArc.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
