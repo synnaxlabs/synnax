@@ -1593,6 +1593,17 @@ var _ = Describe("Read task", func() {
 					EnumValues: []http.EnumEntry{{Label: "BIG", Value: 200}},
 				}}
 			}, `enum label "BIG": 200 is out of range for int8`),
+		Entry("an enum value on a string channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.StringT)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.StringT,
+					EnumValues: []http.EnumEntry{{Label: "ON", Value: 1}},
+				}}
+			}, `enum label "ON": a float64 value does not convert to string`),
 		Entry("a pointer without a leading slash",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{
