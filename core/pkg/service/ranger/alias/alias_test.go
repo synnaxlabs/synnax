@@ -526,6 +526,34 @@ var _ = Describe("Alias", Ordered, func() {
 		)
 	})
 
+	Describe("Holders", func() {
+		It("Should return every channel that holds the alias", func(ctx SpecContext) {
+			a, b := createChannel(ctx), createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := createRange(ctx, tx, nil)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, r, a.Key(), "x")).To(Succeed())
+			Expect(w.Set(ctx, r, b.Key(), "y")).To(Succeed())
+			Expect(w.Apply(
+				ctx,
+				alias.Alias{Range: r, Channel: b.Key()}.GorpKey(),
+				alias.NewSetAction(
+					alias.SetPayload{Path: []string{"alias"}, Value: "x"},
+				),
+			)).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Holders(ctx, r, "x")).
+				To(ConsistOf(a.Key(), b.Key()))
+		})
+
+		It("Should return no channels for an alias no range has", func(
+			ctx SpecContext,
+		) {
+			tx := DeferClose(db.OpenTx())
+			r := createRange(ctx, tx, nil)
+			Expect(aliasSvc.NewReader(tx).Holders(ctx, r, "absent")).To(BeEmpty())
+		})
+	})
+
 	Describe("Resolve exactly", func() {
 		DescribeTable("Should not match an alias as a pattern", func(
 			ctx SpecContext,

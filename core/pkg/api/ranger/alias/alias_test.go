@@ -303,22 +303,42 @@ var _ = Describe("Read", func() {
 			}))
 		},
 	)
-	It("Should refuse to resolve an alias that two channels hold", func(
-		ctx SpecContext,
-	) {
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Alias.NewWriter(tx).Apply(
+	Context("Alias that two channels hold", func() {
+		BeforeEach(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Alias.NewWriter(tx).Apply(
+					ctx,
+					alias.Alias{Range: r.Key, Channel: blocked.Key()}.GorpKey(),
+					alias.NewSetAction(
+						alias.SetPayload{Path: []string{"alias"}, Value: "allowed"},
+					),
+				)
+			})).To(Succeed())
+		})
+		resolveAllowed := func(ctx SpecContext) (apialias.ResolveResponse, error) {
+			return resolve(AuthedCtx(ctx, u), apialias.ResolveRequest{
+				Range:   r.Key,
+				Aliases: []string{"allowed"},
+			})
+		}
+		It("Should refuse to resolve it when the subject can retrieve both", func(
+			ctx SpecContext,
+		) {
+			grant(
 				ctx,
-				alias.Alias{Range: r.Key, Channel: blocked.Key()}.GorpKey(),
-				alias.NewSetAction(
-					alias.SetPayload{Path: []string{"alias"}, Value: "allowed"},
-				),
+				u,
+				access.ActionRetrieve,
+				alias.ResourceID(r.Key, blocked.Key()),
 			)
-		})).To(Succeed())
-		Expect(resolve(AuthedCtx(ctx, u), apialias.ResolveRequest{
-			Range:   r.Key,
-			Aliases: []string{"allowed"},
-		})).Error().To(MatchError(alias.ErrAmbiguous))
+			Expect(resolveAllowed(ctx)).Error().To(MatchError(alias.ErrAmbiguous))
+		})
+		It("Should leave it out when the subject can retrieve only one", func(
+			ctx SpecContext,
+		) {
+			Expect(resolveAllowed(ctx)).To(Equal(apialias.ResolveResponse{
+				Aliases: map[string]channel.Key{},
+			}))
+		})
 	})
 	It("Should list only the aliases the subject can retrieve", func(ctx SpecContext) {
 		Expect(list(AuthedCtx(ctx, u), apialias.ListRequest{Range: r.Key})).

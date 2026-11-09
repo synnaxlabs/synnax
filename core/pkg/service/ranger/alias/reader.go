@@ -94,15 +94,14 @@ func (r Reader) Retrieve(
 	return res.Alias, nil
 }
 
-// Resolve returns the channel that holds the alias on the specified range. The alias
-// must match exactly. If the alias is not found on the range, it checks the ancestors
-// of the range. It returns ErrAmbiguous when more than one channel holds the alias on
-// the nearest range that has it.
-func (r Reader) Resolve(
+// Holders returns the channels that hold the alias on the nearest of the specified
+// range and its ancestors that has it. The alias must match exactly. It returns no
+// channels when no range has the alias.
+func (r Reader) Holders(
 	ctx context.Context,
 	rng ranger.Key,
 	alias string,
-) (channel.Key, error) {
+) ([]channel.Key, error) {
 	var res []Alias
 	if err := r.walk(ctx, rng, func(rng ranger.Key) (bool, error) {
 		err := r.table.NewRetrieve().
@@ -114,15 +113,31 @@ func (r Reader) Resolve(
 			Exec(ctx, r.snap)
 		return len(res) > 0, err
 	}); err != nil {
+		return nil, err
+	}
+	return lo.Map(res, func(a Alias, _ int) channel.Key { return a.Channel }), nil
+}
+
+// Resolve returns the channel that holds the alias on the specified range. The alias
+// must match exactly. If the alias is not found on the range, it checks the ancestors
+// of the range. It returns ErrAmbiguous when more than one channel holds the alias on
+// the nearest range that has it.
+func (r Reader) Resolve(
+	ctx context.Context,
+	rng ranger.Key,
+	alias string,
+) (channel.Key, error) {
+	holders, err := r.Holders(ctx, rng, alias)
+	if err != nil {
 		return 0, err
 	}
-	if len(res) == 0 {
+	if len(holders) == 0 {
 		return 0, errors.Wrapf(query.ErrNotFound, "no channel with alias %q", alias)
 	}
-	if len(res) > 1 {
+	if len(holders) > 1 {
 		return 0, errors.Wrapf(ErrAmbiguous, "alias %q", alias)
 	}
-	return res[0].Channel, nil
+	return holders[0], nil
 }
 
 // List retrieves all aliases on the specified range, including inherited
