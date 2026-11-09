@@ -42,7 +42,9 @@ variable holds depends on its value:
 | Sequence  | Yes  | Yes  | Yes | No                |
 | Stage     | Yes  | Yes  | Yes | No                |
 
-A top-level variable cannot be reassigned, even from a function, sequence, or stage.
+A top-level variable cannot be reassigned, even from a function, sequence, or stage. In
+a function, `=` on a channel alias writes the value to its channel. It does not reassign
+the alias.
 
 <Divider.Divider x />
 
