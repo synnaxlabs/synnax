@@ -346,7 +346,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 				h.stateString[key] = inner
 			}
 			if str, ok := inner[varID]; ok {
-				return h.strings.Create(str)
+				return h.strings.CreateView(str)
 			}
 			if initStr, ok := h.strings.Get(initHandle); ok {
 				inner[varID] = initStr
@@ -379,7 +379,7 @@ func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 				h.stateSeries[key] = inner
 			}
 			if s, ok := inner[varID]; ok {
-				return h.series.Store(s)
+				return h.series.StoreView(s)
 			}
 			if initS, ok := h.series.Get(initHandle); ok {
 				inner[varID] = initS.DeepCopy()
