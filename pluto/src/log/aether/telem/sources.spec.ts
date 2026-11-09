@@ -806,12 +806,16 @@ describe("StreamMultiChannelLog", () => {
       const errors = textOf(core, a, STORED).filter((v) => v.startsWith("ERROR"));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
       const reached = log.reached?.valueOf();
+      assert(reached != null);
+      log.loadOlder();
+      await expect.poll(() => log.reached?.valueOf() ?? 0n, POLL).toBeLessThan(reached);
       await until(
         () => log.loadOlder(),
         () => log.exhausted,
       );
       expect(valuesOf(entriesOf(log), a)).toEqual(errors);
-      expect(log.reached?.valueOf()).toBeLessThan(reached ?? 0n);
+      // A channel whose reads hold its oldest sample leaves nothing to search back to.
+      expect(log.reached).toBeNull();
     });
 
     it("should read no older pages of a hidden channel", async () => {
