@@ -381,6 +381,12 @@ describe("task/Toolbar Arc rows", () => {
         },
       ]);
       await renderToolbar(taskDeleter);
+      // The client sees Delete on the task alone, so its grants have loaded.
+      await openContextMenuUntil(t.name, "Delete");
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await waitFor(() =>
+        expect(document.querySelector(".lyra-menu-context")).toBeNull(),
+      );
       await selectRows(t.name, a.name);
       await openContextMenuUntil(a.name, "Reload Console");
       expect(screen.queryByText("Delete")).toBeNull();
