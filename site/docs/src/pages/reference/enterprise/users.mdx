@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Users"
 description:
-  "Register users, give them roles, and remove them. Includes the permissions of each
-  role."
+  "Register users, give each one a role, and remove them. Includes the permissions of
+  each role."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -15,9 +15,9 @@ import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Each person who uses a Synnax Core logs in as a user. A user's roles set what the user
-can see and change. Only users with the **Owner** role can register, change, or delete
-users.
+Each person who uses a Synnax Core logs in as a user. Each user holds one role, and the
+role sets what the user can see and change. Only users with the **Owner** role can
+register, change, or delete users.
 
 Owners manage users in the **Users** toolbar. To open it, click <Icon.User /> in the
 left navigation bar, or press **U**. Synnax Desktop has one user and no **Users**
@@ -95,7 +95,7 @@ Create a user with a role:
 ```python
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 user = client.users.create(
-    username="jdoe", password="secret", name="Jane Doe", roles=[engineer.key]
+    username="jdoe", password="secret", name="Jane Doe", role=engineer.key
 )
 ```
 
@@ -110,7 +110,7 @@ const user = await client.users.create({
   username: "jdoe",
   password: "secret",
   name: "Jane Doe",
-  roles: [engineer.key],
+  role: engineer.key,
 });
 ```
 
@@ -118,11 +118,11 @@ const user = await client.users.create({
 
 </Client.Tabs>
 
-A user created from code without roles has no permissions. A user can hold more than one
-role and gets the permissions of all of them. To change the roles of users, call
-`set_roles` in Python or `setRoles` in TypeScript with their keys, the roles to add, and
-the roles to remove. A user keeps each role that you do not remove. To delete users,
-call `client.users.delete` with their keys.
+To give users a different role, call `client.users.set_role(keys, role)` in Python or
+`client.users.setRole(keys, role)` in TypeScript. The new role replaces the role of each
+user. To delete users, call `client.users.delete` with their keys.
+
+You cannot delete a role that a user holds. First give its users a different role.
 
 <Divider.Divider x />
 
@@ -171,3 +171,7 @@ A Core has five roles. **All** means create, read, change, and delete.
 - **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
   rack, but cannot create or delete racks.
 - **Viewer** -> sees everything and changes nothing.
+
+An upgrade from v0.60 or earlier gives each user that held no role a new **No access**
+role, which grants no permissions. A user that held several roles keeps the one that
+grants the most access.

@@ -669,12 +669,7 @@ export class Client extends query.Retriever<
   }
 
   async list(rack?: RackKey): Promise<Task[]> {
-    return await this.retrieve({
-      where: {
-        internal: { eq: false },
-        rack: rack == null ? undefined : { eq: rack },
-      },
-    });
+    return await this.retrieve({ internal: false, ...(rack != null && { rack }) });
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(

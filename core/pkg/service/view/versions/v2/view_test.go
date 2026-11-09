@@ -69,23 +69,9 @@ var _ = Describe("View", func() {
 		})
 	})
 
-	Describe("WithName", func() {
-		It("Should set the name of each variant", func() {
-			Expect(ranges.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(status.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(ranges.Base().Name).ToNot(Equal("Renamed"))
-		})
-	})
-
 	Describe("GorpKey", func() {
 		It("Should return the view's key", func() {
 			Expect(ranges.GorpKey()).To(Equal(key))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(ranges.SetOptions()).To(BeNil())
 		})
 	})
 

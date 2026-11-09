@@ -12,16 +12,11 @@ package gorp
 import (
 	"context"
 	"io"
-	"iter"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
@@ -35,8 +30,8 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// usable. Already-applied migrations are skipped.
 	Migrations []Migration
 	// Indexes is the set of secondary indexes to register on this table. Each index is
-	// populated at open time from the current table contents, then kept in sync via the
-	// table's observer pipeline for the lifetime of the table. See NewLookupIndex,
+	// populated at open time from the current table contents, then kept in sync by
+	// every write to the table's entries while the table is open. See NewLookupIndex,
 	// NewSortedIndex, and NewSearchIndex for constructing index values.
 	Indexes []Index[K, E]
 	// Name names the table for references. A Reference names its target tables by
@@ -46,6 +41,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
+	// OnDetach runs in the transaction of each delete that detaches a target from an
+	// entry of the table, after Gorp writes the entry. It gets the entry as written. An
+	// error fails the delete.
+	OnDetach func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -65,18 +64,15 @@ type Table[K Key, E Entry[K]] struct {
 	references []Reference[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
-	// disconnectObserver releases the index observer subscription. Nil when no observer
-	// was installed.
-	disconnectObserver func()
 	// populateShutdown cancels the populate context and waits for the populate routine
 	// to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
-	// detaches notifies each entry that a delete of a target detached.
-	detaches observe.Observer[E]
+	// onDetach is TableConfig.OnDetach.
+	onDetach func(ctx context.Context, tx Tx, e E) error
 }
 
-// Close disconnects the table's index observer, cancels any running populate goroutine,
-// waits for it to exit, and releases related resources.
+// Close cancels any running populate goroutine, waits for it to exit, and releases
+// related resources.
 func (t *Table[K, E]) Close() error {
 	var err error
 	t.unregister()
@@ -86,10 +82,6 @@ func (t *Table[K, E]) Close() error {
 	if t.populateShutdown != nil {
 		err = t.populateShutdown.Close()
 		t.populateShutdown = nil
-	}
-	if t.disconnectObserver != nil {
-		t.disconnectObserver()
-		t.disconnectObserver = nil
 	}
 	return err
 }
@@ -117,7 +109,7 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:    slices.Clone(cfg.Indexes),
 		name:       cfg.Name,
 		references: cfg.References,
-		detaches:   observe.New[E](),
+		onDetach:   cfg.OnDetach,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
@@ -140,11 +132,8 @@ func OpenTable[K Key, E Entry[K]](
 	if len(t.indexes) == 0 {
 		return t, nil
 	}
-	// Acquire each index's populate lock synchronously before attaching the observer.
-	// If the observer were attached first, a remote write replicated through aspen
-	// could race the goroutine and apply via idx.set() before populate locks mu,
-	// leaving the bulk-load path to double-insert when the iterator later sees the same
-	// row.
+	// Acquire each index's populate lock before OpenTable returns, so that no commit
+	// reaches an index before the scan that would insert the same entry again.
 	var (
 		inserts  = make([]func(E), 0, len(t.indexes))
 		finishes = make([]func(error), 0, len(t.indexes))
@@ -156,10 +145,6 @@ func OpenTable[K Key, E Entry[K]](
 	}
 	// From here on, a writer that no table binds stages its writes against the indexes.
 	cfg.DB.registry.addIndexed(t.keyPrefix, t)
-	t.disconnectObserver = cfg.DB.attachIndexObserver(
-		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
-		t.indexes,
-	)
 	// Populate runs on an isolated signal context: the caller's ctx is the
 	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
 	// run for the Table's full lifetime. Termination flows through Table.Close().
@@ -212,29 +197,6 @@ func (t *Table[K, E]) runPopulate(
 			insert(e)
 		}
 	}
-}
-
-// attachIndexObserver subscribes to src and propagates every set and delete change into
-// every registered index. The returned function unregisters the subscription.
-func (db *DB) attachIndexObserver[K Key, E Entry[K]](
-	src observe.Observable[kv.TxReader],
-	indexes []Index[K, E],
-) func() {
-	return db.newObservable[K, E](src).
-		OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
-			for ch := range changes {
-				switch ch.Variant {
-				case change.VariantSet:
-					for _, idx := range indexes {
-						idx.set(ch.Value)
-					}
-				case change.VariantDelete:
-					for _, idx := range indexes {
-						idx.delete(ch.Key)
-					}
-				}
-			}
-		})
 }
 
 // NewCreate returns a Create query builder bound to this Table. Writes through the

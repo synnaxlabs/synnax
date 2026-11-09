@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -41,8 +42,10 @@ var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
 		It("Should export a table as a versioned envelope", func(ctx SpecContext) {
 			t := table.Table{Project: &proj.Key, Name: "exported"}
-			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, table.ResourceID(t.Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, table.ResourceID(t.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
@@ -56,12 +59,15 @@ var _ = Describe("ImEx", func() {
 				Type: resource.TypeTable,
 				Key:  uuid.New().String(),
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := resource.ID{Type: resource.TypeTable, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -70,7 +76,11 @@ var _ = Describe("ImEx", func() {
 			ctx SpecContext, path string, opts imex.ImportOptions,
 		) table.Table {
 			GinkgoHelper()
-			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, LoadEnvelope(path), opts)
+				return err
+			})).To(Succeed())
 			Expect(id.Type).To(Equal(resource.TypeTable))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res table.Table
@@ -140,16 +150,25 @@ var _ = Describe("ImEx", func() {
 			"Should refuse a group that is not in the parent project",
 			func(ctx SpecContext) {
 				other := project.Project{Name: "other"}
-				Expect(projectSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return projectSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
 				g := group.Group{
 					Name:   "in other",
 					Parent: new(project.ResourceID(other.Key)),
 				}
-				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_v1.json"),
-					imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_v1.json"),
+						imex.ImportOptions{Parent: proj.ResourceID(), Group: &g.Key},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"group: group %s is not in project %s", g.Key, proj.Key,
 					))),
@@ -162,10 +181,15 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
-			Expect(imexSvc.Import(ctx, db,
-				LoadEnvelope("versions/testdata/import_v1.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := imexSvc.Import(
+					ctx,
+					tx,
+					LoadEnvelope("versions/testdata/import_v1.json"),
+					imex.ImportOptions{},
+				)
+				return err
+			})).To(SatisfyAll(
 				MatchError(ContainSubstring(`parent: must be a project, got ""`)),
 				MatchError(ContainSubstring("validation error")),
 			))
@@ -174,10 +198,15 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_version.json"),
+						imex.ImportOptions{Parent: proj.ResourceID()},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring("table version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
@@ -187,14 +216,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope(
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, LoadEnvelope(
 						"versions/testdata/import_v1.json",
 					),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
 		)
@@ -210,16 +239,16 @@ var _ = Describe("ImEx", func() {
 					Rows:    []table.Row{{Key: "r0", Size: 42, Cells: []string{"c1"}}},
 					Columns: []table.Column{{Key: "c0", Size: 77}},
 				}
-				Expect(
-					svc.NewWriter(nil).Create(ctx, &original),
-				).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, table.ResourceID(original.Key)))
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					WireRoundTrip(env),
-					imex.ImportOptions{Parent: proj.ResourceID()},
-				))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, db, table.ResourceID(original.Key)))
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))
 				var res table.Table

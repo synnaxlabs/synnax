@@ -153,6 +153,7 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["api", "API", /^core\/pkg\/(api|transport|server)\//],
     ["distribution", "Distribution", /^core\/pkg\/distribution\//],
     ["services", "Services", /^core\//],
+    // Runs of older commits still hold Aspen tests.
     ["aspen", "Aspen", /^aspen\//],
     ["cesium", "Cesium", /^cesium\//],
     ["freighter", "Freighter", /^freighter\//],

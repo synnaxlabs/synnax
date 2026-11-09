@@ -204,6 +204,7 @@ class TestLogin:
         clusters: Clusters,
         login_info: tuple[str, int, str, str],
         client: sy.Synnax,
+        empty_role: sy.Role,
     ) -> None:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
@@ -217,7 +218,9 @@ class TestLogin:
         first = clusters.get()
         assert first is not None
         other_username = f"cli-{uuid4()}"
-        other = client.users.create(username=other_username, password="password123")
+        other = client.users.create(
+            username=other_username, password="password123", role=empty_role.key
+        )
         login(
             Context(
                 console=console.Mock(

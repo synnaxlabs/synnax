@@ -11,7 +11,6 @@ package log
 
 import (
 	"context"
-	"io"
 	"slices"
 
 	"github.com/samber/lo"
@@ -25,14 +24,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for opening a log service.
@@ -44,7 +40,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals is the optional cluster signals provider. When set, every successful
-	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
+	// Writer.Apply broadcasts a ScopedAction onto the sy_log_set channel, and
 	// deletes flow through sy_log_delete.
 	//
 	// [OPTIONAL]
@@ -108,32 +104,34 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
+		// A channel delete detaches the channel from the log, which no log write does,
+		// so the service sends the log as a create.
+		OnDetach: func(_ context.Context, tx gorp.Tx, l Log) error {
+			s.state.Dispatcher().
+				Attach(tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// A delete that detaches a target rewrites the log outside the writer. The service
-	// publishes the stored log as a create, in order with the dispatches on it.
-	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
-		func(ctx context.Context, l Log) { s.publishDetached(ctx, l.Key) },
-	)))
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "log",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_log_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+			Table:    tableName,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		deleteCfg.DisableSet = true
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Log]{
+			Changes:     s.table.Changes,
+			Resource:    ResourceID,
+			SetDisabled: new(true),
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -143,76 +141,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) publishDetached(ctx context.Context, key Key) {
-	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
-		var l Log
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Log](key)).
-			Entry(&l).
-			Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-		return []Action{NewCreateAction(CreatePayload{Log: l})}, nil
-	})
-	// A later delete can remove the log before the broadcast.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to publish a detached log",
-			zap.Stringer("log", key),
-			zap.Error(err),
-		)
-	}
-}
-
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies a sequence of actions atomically to the log with the given key.
-// Dispatches for the same log run one at a time, each in its own transaction committed
-// before the actions are notified, so two concurrent dispatches can never overwrite
-// each other's edits. dispatchKey is a client-generated identifier carried verbatim
-// onto the broadcast so the originating client can recognize its own echo.
-// Returns a validation error, and stores nothing, if the actions leave the log invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
-				ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
-					reduced, err := Reduce(l, acts...)
-					if err != nil {
-						return Log{}, err
-					}
-					if err = validateWrite(reduced); err != nil {
-						return Log{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
-}
-
-// NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
-// execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting logs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
@@ -223,7 +163,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }

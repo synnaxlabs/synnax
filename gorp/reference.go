@@ -51,6 +51,25 @@ func NewTarget[K Key](table string, k K) Target {
 	return Target{Table: table, Key: FormatKey(k)}
 }
 
+// LinkKind is what a link says about the record that holds it. The zero value is
+// invalid.
+type LinkKind uint8
+
+const (
+	// Place says where the record sits.
+	Place LinkKind = iota + 1
+	// Use says what the record depends on.
+	Use
+)
+
+// Link points from a record to one of the targets that it holds.
+type Link struct {
+	// Target is the record that the link points at.
+	Target Target
+	// Kind is what the link says about the record that holds it.
+	Kind LinkKind
+}
+
 // FormatKey returns the text form of k: the string itself for a string key, base 10
 // for an integer key, and the 8-4-4-4-12 lowercase hex form for a 16-byte key. A
 // Target holds a key in this form only.
@@ -80,6 +99,12 @@ type Reference[K Key, E Entry[K]] interface {
 	canDetach() bool
 	// check validates the targets that e holds against tx, for a write of e to t.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
+	// links appends the links that e holds to out.
+	links(out []Link, e *E) []Link
+	// indexedLinks appends to out the links that the index holds for the entry with key
+	// k, with the changes of tx applied. It reports false when the index has not
+	// loaded.
+	indexedLinks(out []Link, tx Tx, k K) ([]Link, bool)
 	registeredReference
 }
 
@@ -88,6 +113,7 @@ type referenceSpec struct {
 	name     string
 	tables   []string
 	onDelete OnDelete
+	kind     LinkKind
 	unique   bool
 	acyclic  bool
 	// textKeys is true when a target names its key as caller-provided text, which a
@@ -117,6 +143,7 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 		s.onDelete < Restrict || s.onDelete > Detach,
 		"must be Restrict, Cascade, or Detach",
 	)
+	v.Ternary("kind", s.kind < Place || s.kind > Use, "must be Place or Use")
 	v.Ternary(
 		"detach",
 		s.onDelete == Detach && !s.detachable,
@@ -189,6 +216,10 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)
+	// Kind is the kind of the link from e to each of its targets.
+	//
+	// [REQUIRED]
+	Kind LinkKind
 	// Unique allows at most one entry to hold each target.
 	Unique bool
 	// Acyclic rejects a write that makes a chain of references within the table return
@@ -212,6 +243,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		tables:      []string{table},
 		tablesField: "table",
 		onDelete:    cfg.OnDelete,
+		kind:        cfg.Kind,
 		unique:      cfg.Unique,
 		acyclic:     cfg.Acyclic,
 		detachable:  cfg.Detach != nil,
@@ -253,6 +285,10 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target Target)
+	// Kind is the kind of the link from e to each of its targets.
+	//
+	// [REQUIRED]
+	Kind LinkKind
 	// Unique allows at most one entry to hold each target.
 	Unique bool
 	// Acyclic rejects a write that makes a chain of references within the table return
@@ -276,6 +312,7 @@ func NewTargetReference[K Key, E Entry[K]](
 		tables:      cfg.Tables,
 		tablesField: "tables",
 		onDelete:    cfg.OnDelete,
+		kind:        cfg.Kind,
 		unique:      cfg.Unique,
 		acyclic:     cfg.Acyclic,
 		textKeys:    true,
@@ -348,6 +385,24 @@ func (r *reference[K, E, T]) targets(e *E) []Target {
 	return out
 }
 
+func (r *reference[K, E, T]) links(out []Link, e *E) []Link {
+	for _, t := range r.targetsOf(e) {
+		out = append(out, Link{Target: r.format(t), Kind: r.kind})
+	}
+	return out
+}
+
+func (r *reference[K, E, T]) indexedLinks(out []Link, tx Tx, k K) ([]Link, bool) {
+	held, known := r.store.Held(scopeOf(tx), k)
+	if !known {
+		return out, false
+	}
+	for _, t := range held {
+		out = append(out, Link{Target: r.format(t), Kind: r.kind})
+	}
+	return out, true
+}
+
 func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 	if r.detach == nil {
 		return false
@@ -358,15 +413,15 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 	return true
 }
 
-// Get returns the keys of the entries that hold any of targets, with the changes
-// staged against tx applied. Pass a nil tx to skip staged changes. See LookupIndex.Get
-// for its contract.
+// Get returns the keys of the entries that hold any of targets, with the changes staged
+// against snap applied. Pass a nil snap to skip staged changes. See LookupIndex.Get for
+// its contract.
 func (r *reference[K, E, T]) Get(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	targets ...T,
 ) ([]K, error) {
-	return probe(ctx, r.store, tx, targets)
+	return probe(ctx, r.store, snap, targets)
 }
 
 // Filter returns a Filter matching entries that hold any of targets. It sees the
@@ -385,7 +440,7 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 // index failed to populate.
 func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 				return resolved[K, E]{}, nil
 			} else if err != nil {
@@ -393,7 +448,7 @@ func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 			}
 			// eval drops the keys of a commit in flight that fails.
 			committing := r.store.CommittingHolding(holding)
-			keys, err := r.store.Holding(scopeOf(tx), holding)
+			keys, err := r.store.Holding(scopeOf(snap), holding)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -416,11 +471,11 @@ func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
 func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 	captured := slices.Clone(targets)
 	return Filter[K, F]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, F], error) {
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, F], error) {
 			if err := r.store.Wait(ctx); err != nil {
 				return resolved[K, F]{}, err
 			}
-			keys, err := r.store.Get(scopeOf(tx), captured...)
+			keys, err := r.store.Get(scopeOf(snap), captured...)
 			if err != nil {
 				return resolved[K, F]{}, err
 			}
@@ -437,14 +492,14 @@ func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 // dependents implements registeredReference.
 func (r *reference[K, E, T]) dependents(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	target Target,
 ) ([]string, error) {
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probe(ctx, r.store, tx, []T{t})
+	keys, err := probe(ctx, r.store, snap, []T{t})
 	if err != nil {
 		return nil, err
 	}

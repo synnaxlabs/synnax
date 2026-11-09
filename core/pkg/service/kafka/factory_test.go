@@ -18,8 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -85,7 +85,7 @@ var _ = Describe("Factory", func() {
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 					Entry(&stat).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -199,7 +199,9 @@ var _ = Describe("Factory", func() {
 				Name:       "box-" + uuid.New().String()[:8],
 				Configured: true,
 			}
-			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
 			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -223,7 +225,9 @@ var _ = Describe("Factory", func() {
 				Configured: true,
 				Properties: toJSON(map[string]any{"brokers": "localhost:9092"}),
 			}
-			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
 			t := newTask(ctx, typ, build(ctx, dev.Key, false))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 				To(MatchError(ContainSubstring("parsing properties")))
@@ -332,10 +336,9 @@ var _ = Describe("Factory", func() {
 				caPEM   string
 			)
 			BeforeEach(func() {
-				certs := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:      xfs.NewMem(),
-					KeySize: testutil.SmallKeySize,
-				}))
+				certs := MustSucceed(
+					cert.NewFactory(cert.FactoryConfig{FS: xfs.NewMem()}),
+				)
 				Expect(certs.CreateCAPair()).To(Succeed())
 				ca := MustSucceed(certs.Loader.LoadCAs())[0]
 				caPEM = string(

@@ -64,12 +64,9 @@ var _ = Describe("Delete", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Context("Single Pointer", func() {
@@ -615,7 +612,7 @@ var _ = Describe("Delete", Ordered, func() {
 					It(
 						"Should return errors when the startOffset is after the endOffset for same pointer deletion",
 						func(ctx SpecContext) {
-							err := db.Delete(
+							Expect(db.Delete(
 								ctx,
 								telem.TimeRange{
 									Start: 26 * telem.SecondTS,
@@ -623,10 +620,7 @@ var _ = Describe("Delete", Ordered, func() {
 								},
 								fixedOffset(7),
 								fixedOffset(5),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
+							)).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 						},
 					)
 

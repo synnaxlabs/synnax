@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	apipolicy "github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -32,7 +34,9 @@ var policyType = resource.ID{Type: resource.TypePolicy}
 func createPolicy(ctx SpecContext, r role.Key) policy.Policy {
 	GinkgoHelper()
 	p := newPolicy(r)
-	Expect(svc.RBAC.Policy.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
+	})).To(Succeed())
 	return p
 }
 
@@ -57,11 +61,24 @@ func createEditor(ctx SpecContext, action access.Action, roles ...role.Key) user
 	return u
 }
 
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
 func policyExists(ctx SpecContext, key policy.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(svc.RBAC.Policy.NewRetrieve().
 		Where(policy.MatchKeys(key)).
-		Exists(ctx, nil))
+		Exists(ctx, db))
 }
 
 // builtinPolicy returns a policy of the built-in Viewer role.
@@ -72,7 +89,7 @@ func builtinPolicy(ctx SpecContext) policy.Policy {
 		Where(policy.MatchRoles(svc.RBAC.Builtin.ViewerKey)).
 		Limit(1).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p
 }
 
@@ -82,12 +99,25 @@ var _ = Describe("Create", func() {
 	) {
 		r := createRole(ctx)
 		u := createEditor(ctx, access.ActionCreate)
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipolicy.CreateRequest{
+		Expect(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
 			Policies: []policy.Policy{newPolicy(r.Key)},
-		})).Error().To(MatchError(access.ErrDenied))
+		})).Error().To(denied(u, access.ActionUpdate, role.ResourceID(r.Key)))
 		Expect(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchRoles(r.Key)).
-			Exists(ctx, nil)).To(BeFalse())
+			Exists(ctx, db)).To(BeFalse())
+	})
+
+	It("Should refuse a subject that cannot create the policy", func(
+		ctx SpecContext,
+	) {
+		r := createRole(ctx)
+		u := createEditor(ctx, access.ActionUpdate, r.Key)
+		p := newPolicy(r.Key)
+		p.Key = uuid.New()
+		Expect(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
+			Policies: []policy.Policy{p},
+		})).Error().To(denied(u, access.ActionCreate, policy.ResourceID(p.Key)))
+		Expect(policyExists(ctx, p.Key)).To(BeFalse())
 	})
 
 	It("Should create a policy for a subject that can update its role", func(
@@ -95,9 +125,8 @@ var _ = Describe("Create", func() {
 	) {
 		r := createRole(ctx)
 		u := createEditor(ctx, access.ActionCreate, r.Key)
-		res := MustSucceed(apiSvc.Create(
+		res := MustSucceed(create(
 			AuthedCtx(ctx, u),
-			nil,
 			apipolicy.CreateRequest{Policies: []policy.Policy{newPolicy(r.Key)}},
 		))
 		Expect(res.Policies).To(HaveLen(1))
@@ -109,23 +138,40 @@ var _ = Describe("Create", func() {
 	) {
 		from, to := createRole(ctx), createRole(ctx)
 		p := createPolicy(ctx, from.Key)
-		u := createEditor(ctx, access.ActionCreate, to.Key)
+		u := createEditor(ctx, access.ActionUpdate, to.Key)
 		p.Role = to.Key
-		Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipolicy.CreateRequest{
+		Expect(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
 			Policies: []policy.Policy{p},
-		})).Error().To(MatchError(access.ErrDenied))
+		})).Error().To(denied(u, access.ActionUpdate, role.ResourceID(from.Key)))
 		var stored policy.Policy
 		Expect(svc.RBAC.Policy.NewRetrieve().
 			Where(policy.MatchKeys(p.Key)).
 			Entry(&stored).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Role).To(Equal(from.Key))
+	})
+
+	It("Should overwrite a policy that keeps its role with update on the policy", func(
+		ctx SpecContext,
+	) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createEditor(ctx, access.ActionUpdate)
+		p.Name = "renamed-" + p.Name
+		MustSucceed(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
+			Policies: []policy.Policy{p},
+		}))
+		var stored policy.Policy
+		Expect(svc.RBAC.Policy.NewRetrieve().
+			Where(policy.MatchKeys(p.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal(p.Name))
 	})
 
 	It("Should refuse a policy of a built-in role, even for the root user", func(
 		ctx SpecContext,
 	) {
-		Expect(apiSvc.Create(AuthedCtx(ctx, root), nil, apipolicy.CreateRequest{
+		Expect(create(AuthedCtx(ctx, root), apipolicy.CreateRequest{
 			Policies: []policy.Policy{newPolicy(svc.RBAC.Builtin.ViewerKey)},
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -140,7 +186,7 @@ var _ = Describe("Create", func() {
 	) {
 		overwrite := newPolicy(createRole(ctx).Key)
 		overwrite.Key = builtinPolicy(ctx).Key
-		Expect(apiSvc.Create(AuthedCtx(ctx, root), nil, apipolicy.CreateRequest{
+		Expect(create(AuthedCtx(ctx, root), apipolicy.CreateRequest{
 			Policies: []policy.Policy{overwrite},
 		})).Error().To(MatchError(ContainSubstring(
 			"cannot change the policies of built-in role Viewer",
@@ -149,31 +195,75 @@ var _ = Describe("Create", func() {
 })
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the policies that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createPolicy(ctx, createRole(ctx).Key)
+		createPolicy(ctx, createRole(ctx).Key)
+		own := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{}))
+		Expect(res.Policies).To(ConsistOf(
+			HaveField("Key", granted.Key),
+			HaveField("Key", own.Key),
+		))
+	})
+
 	It("Should return the policies of a subject when retrieve is granted", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		p := grantOn(ctx, u.ResourceID(), access.ActionRetrieve, policyType)
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
 			Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
 		}))
 		Expect(res.Policies).To(HaveExactElements(HaveField("Key", p.Key)))
 	})
 
-	It("Should reject the request when retrieve is not granted on a match", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		p := grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
-			Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &p.Key}},
-		})).Error().To(MatchError(access.ErrDenied))
+	Context("With no retrieve on policies", func() {
+		var (
+			u     user.User
+			own   policy.Policy
+			other policy.Policy
+		)
+		BeforeEach(func(ctx SpecContext) {
+			u = createUser(ctx)
+			own = grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
+			other = createPolicy(ctx, createRole(ctx).Key)
+		})
+		It("Should return the policies of the subject's role by subject", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Subjects: []resource.ID{u.ResourceID()}},
+			}))
+			Expect(res.Policies).To(HaveExactElements(HaveField("Key", own.Key)))
+		})
+		It("Should return a policy of the subject's role by key", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &own.Key}},
+			}))
+			Expect(res.Policies).To(HaveExactElements(HaveField("Key", own.Key)))
+		})
+		It("Should deny a policy of another role by key", func(ctx SpecContext) {
+			Expect(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Key: &filter.Set[policy.Key]{Eq: &other.Key}},
+			})).Error().To(denied(u, access.ActionRetrieve, other.ResourceID()))
+		})
+		It("Should leave out the policies of another role", func(ctx SpecContext) {
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apipolicy.RetrieveRequest{
+				Where: &policy.Where{Roles: []role.Key{other.Role}},
+			}))
+			Expect(res.Policies).To(BeEmpty())
+		})
 	})
 
 	It("Should retrieve the policies of the roles a subject holds", func(
 		ctx SpecContext,
 	) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{Subjects: []resource.ID{root.ResourceID()}},
@@ -185,7 +275,7 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	It("Should retrieve the policies of a role", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{Roles: []role.Key{svc.RBAC.Builtin.ViewerKey}},
@@ -196,10 +286,10 @@ var _ = Describe("Retrieve", func() {
 			To(HaveEach(HaveField("Role", svc.RBAC.Builtin.ViewerKey)))
 	})
 
-	It("Should retrieve no policies for a subject with no roles", func(
+	It("Should retrieve no policies for a subject whose role has none", func(
 		ctx SpecContext,
 	) {
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			AuthedCtx(ctx, root),
 			apipolicy.RetrieveRequest{
 				Where: &policy.Where{
@@ -215,11 +305,24 @@ var _ = Describe("Delete", func() {
 	It("Should refuse a subject that cannot update the role of the policy", func(
 		ctx SpecContext,
 	) {
-		p := createPolicy(ctx, createRole(ctx).Key)
+		r := createRole(ctx)
+		p := createPolicy(ctx, r.Key)
 		u := createEditor(ctx, access.ActionDelete)
-		Expect(apiSvc.Delete(AuthedCtx(ctx, u), nil, apipolicy.DeleteRequest{
+		Expect(del(AuthedCtx(ctx, u), apipolicy.DeleteRequest{
 			Keys: []policy.Key{p.Key},
-		})).Error().To(MatchError(access.ErrDenied))
+		})).Error().To(denied(u, access.ActionUpdate, role.ResourceID(r.Key)))
+		Expect(policyExists(ctx, p.Key)).To(BeTrue())
+	})
+
+	It("Should refuse a subject that cannot delete the policy", func(
+		ctx SpecContext,
+	) {
+		r := createRole(ctx)
+		p := createPolicy(ctx, r.Key)
+		u := createEditor(ctx, access.ActionUpdate, r.Key)
+		Expect(del(AuthedCtx(ctx, u), apipolicy.DeleteRequest{
+			Keys: []policy.Key{p.Key},
+		})).Error().To(denied(u, access.ActionDelete, p.ResourceID()))
 		Expect(policyExists(ctx, p.Key)).To(BeTrue())
 	})
 
@@ -229,7 +332,7 @@ var _ = Describe("Delete", func() {
 		r := createRole(ctx)
 		p := createPolicy(ctx, r.Key)
 		u := createEditor(ctx, access.ActionDelete, r.Key)
-		MustSucceed(apiSvc.Delete(AuthedCtx(ctx, u), nil, apipolicy.DeleteRequest{
+		MustSucceed(del(AuthedCtx(ctx, u), apipolicy.DeleteRequest{
 			Keys: []policy.Key{p.Key},
 		}))
 		Expect(policyExists(ctx, p.Key)).To(BeFalse())
@@ -237,11 +340,40 @@ var _ = Describe("Delete", func() {
 
 	It("Should refuse to delete a policy of a built-in role", func(ctx SpecContext) {
 		builtin := builtinPolicy(ctx)
-		Expect(apiSvc.Delete(AuthedCtx(ctx, root), nil, apipolicy.DeleteRequest{
+		Expect(del(AuthedCtx(ctx, root), apipolicy.DeleteRequest{
 			Keys: []policy.Key{builtin.Key},
 		})).Error().To(MatchError(ContainSubstring(
 			"cannot change the policies of built-in role Viewer",
 		)))
 		Expect(policyExists(ctx, builtin.Key)).To(BeTrue())
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	rename := func(p policy.Policy, name string) apipolicy.DispatchRequest {
+		return apipolicy.DispatchRequest{
+			Key: p.Key,
+			Actions: []policy.Action{policy.NewSetAction(policy.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
+	It("Should refuse a subject that cannot update the policy", func(ctx SpecContext) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createUser(ctx)
+		Expect(dispatch(AuthedCtx(ctx, u), rename(p, "renamed"))).Error().
+			To(denied(u, access.ActionUpdate, p.ResourceID()))
+	})
+	It("Should rename a policy the subject can update", func(ctx SpecContext) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createEditor(ctx, access.ActionUpdate)
+		MustSucceed(dispatch(AuthedCtx(ctx, u), rename(p, "renamed")))
+		var stored policy.Policy
+		Expect(svc.RBAC.Policy.NewRetrieve().
+			Where(policy.MatchKeys(p.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
 	})
 })
