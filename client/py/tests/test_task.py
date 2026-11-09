@@ -401,6 +401,42 @@ class TestTaskClient:
         assert status.message == "Started task"
         t.join()
 
+    def test_execute_command_sync_ends_when_no_final_status_follows_a_loading_reply(
+        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A Driver that restarts after a loading reply never sends the final status,
+        so the wait ends at its limit."""
+        monkeypatch.setattr(
+            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        )
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                client.statuses.set(
+                    sy.task.Status(
+                        variant=sy.status.VARIANT_LOADING,
+                        message="Starting task",
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        timer = sy.Timer()
+        with pytest.raises(TimeoutError) as err:
+            tsk.execute_command_sync("start", timeout=0.5)
+        assert str(err.value) == "timed out waiting for driver to finish start command"
+        assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
+        t.join()
+
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
     ) -> None:

@@ -88,6 +88,9 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+# The Driver fails an operation that takes longer than 60 s. A wait past this limit
+# lost its command, for example to a Driver restart.
+_FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
 
 
 class _Keyed(BaseProtocol):
@@ -222,9 +225,10 @@ class Task:
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
         :param timeout: How long to wait for the driver to acknowledge the command.
-        Once it does, the wait lasts until the final status.
-        :raises TimeoutError: If the timeout passes before the driver acknowledges the
-        command.
+        Once it does, the wait for the final status lasts two minutes or the timeout,
+        whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the command or send
+        its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
         while the command waits.
         """
@@ -235,19 +239,14 @@ class Task:
             timer = Timer()
             acknowledged = False
             while True:
-                # The channel carries every status in the cluster, so the wait for an
-                # acknowledgment is a deadline: a frame answering some other command
-                # must not renew it.
+                # The channel carries every status in the cluster, so the wait is a
+                # deadline: a frame answering some other command must not renew it.
                 remaining = span - timer.elapsed()
-                if acknowledged:
-                    frame: framer.Frame | None = s.read()
-                elif remaining > TimeSpan.ZERO:
-                    frame = s.read(timeout=remaining)
-                else:
-                    frame = None
+                frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
+                    step = "finish" if acknowledged else "acknowledge"
                     raise TimeoutError(
-                        f"timed out waiting for driver to acknowledge {type_} command"
+                        f"timed out waiting for driver to {step} {type_} command"
                     )
                 if _TASK_STATE_CHANNEL not in frame:
                     warnings.warn(
@@ -268,7 +267,10 @@ class Task:
                     if status.details is not None and status.details.cmd == key:
                         if status.variant != VARIANT_LOADING:
                             return status
-                        acknowledged = True
+                        if not acknowledged:
+                            acknowledged = True
+                            span = max(span, _FINAL_STATUS_TIMEOUT)
+                            timer = Timer()
 
 
 def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
@@ -323,9 +325,10 @@ class StarterStopperMixin:
         start.
 
         :param timeout: How long to wait for the driver to acknowledge the start. Once
-            it does, the wait lasts until the final status.
-        :raises TimeoutError: If the timeout is reached before the driver acknowledges
-            the start.
+            it does, the wait for the final status lasts two minutes or the timeout,
+            whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the start or send its
+            final status in time.
         :raises RuntimeError: If the driver of the task goes down during the wait.
         :raises Exception: If the Synnax cluster fails to start the task correctly.
         """
@@ -336,9 +339,10 @@ class StarterStopperMixin:
         stop.
 
         :param timeout: How long to wait for the driver to acknowledge the stop. Once
-            it does, the wait lasts until the final status.
-        :raises TimeoutError: If the timeout is reached before the driver acknowledges
-            the stop.
+            it does, the wait for the final status lasts two minutes or the timeout,
+            whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the stop or send its
+            final status in time.
         :raises RuntimeError: If the driver of the task goes down during the wait.
         :raises Exception: If the Synnax cluster fails to stop the task correctly.
         """
