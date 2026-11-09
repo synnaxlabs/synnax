@@ -18,11 +18,19 @@
         min-height: 0;
     }
 
+    .console-diagnostics__log-frame {
+        position: relative;
+        display: flex;
+        flex: 1 1 0;
+        min-height: 0;
+    }
+
+    /* Lines carry the inline padding, so a tinted line spans the whole box. */
     .console-diagnostics__log {
         flex: 1 1 0;
         min-height: 0;
         margin: 0;
-        padding: 2rem;
+        padding: 2rem 0;
         overflow: auto;
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
@@ -34,6 +42,41 @@
         overflow-wrap: anywhere;
         -webkit-user-select: text;
         user-select: text;
+    }
+
+    /* A wrapped line hangs its rest under the start of the line, past a 2ch indent. */
+    .console-diagnostics__line {
+        display: block;
+        padding-inline: calc(2rem + 2ch) 2rem;
+        text-indent: -2ch;
+    }
+
+    .console-diagnostics__time,
+    .console-diagnostics__logger,
+    .console-diagnostics__line--debug {
+        color: var(--pluto-gray-l9);
+    }
+
+    .console-diagnostics__line--warn {
+        background: color-mix(in srgb, var(--pluto-warning-z) 10%, transparent);
+
+        .console-diagnostics__level {
+            color: var(--pluto-warning-text);
+        }
+    }
+
+    .console-diagnostics__line--error {
+        background: color-mix(in srgb, var(--pluto-error-z) 10%, transparent);
+
+        .console-diagnostics__level {
+            color: var(--pluto-error-text);
+        }
+    }
+
+    .console-diagnostics__latest {
+        position: absolute;
+        right: 2rem;
+        bottom: 2rem;
     }
 
     .console-diagnostics__erase {
