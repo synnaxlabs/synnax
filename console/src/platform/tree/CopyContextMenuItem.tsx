@@ -20,9 +20,10 @@ import { useResources } from "@/platform/tree/useResource";
 export const CopyContextMenuItem = ({
   selection: { ids },
   state,
-}: ContextMenuProps): ReactElement => {
+}: ContextMenuProps): ReactElement | null => {
   const resources = useResources(state, ids);
   const { toClipboard } = useCopy();
+  if (resources.length === 0) return null;
   return (
     <Menu.Item
       itemKey="copy"

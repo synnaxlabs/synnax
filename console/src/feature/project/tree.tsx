@@ -145,8 +145,12 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
               Import components
             </Menu.Item>
           )}
-          <Menu.Divider />
-          <Tree.CopyContextMenuItem {...props} />
+        </>
+      )}
+      <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <>
           <Export.ContextMenuItem
             onClick={() =>
               handleExport({

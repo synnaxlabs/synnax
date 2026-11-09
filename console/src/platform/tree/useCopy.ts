@@ -50,7 +50,12 @@ export const useCopy = (): Copy => {
     const html = resources
       .map(({ id, name }) => {
         const escaped = strings.escapeHTML(name);
-        if (clusterKey == null || items[id.type]?.linkable !== true) return escaped;
+        if (
+          Session.Runtime.LINKS_DISABLED ||
+          clusterKey == null ||
+          items[id.type]?.linkable !== true
+        )
+          return escaped;
         const href = strings.escapeHTML(Link.create(clusterKey, id));
         return `<a href="${href}">${escaped}</a>`;
       })
