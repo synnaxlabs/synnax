@@ -205,7 +205,11 @@ var _ = Describe("Update with a Core service", func() {
 		}
 
 		It("Should download the signed Core and wait for the commit", func() {
-			publish("0.61.0", fakeCore("0.61.0"), signer.Sign(fakeCore("0.61.0")))
+			publish(
+				"0.61.0",
+				fakeCore("0.61.0"),
+				signer.Sign("synnax-v0.61.0-linux", fakeCore("0.61.0")),
+			)
 			systemctl.OnStart(fmt.Sprintf(
 				"printf 0.61.0 > %q",
 				filepath.Join(data, "VERSION"),
@@ -219,7 +223,11 @@ var _ = Describe("Update with a Core service", func() {
 		})
 
 		It("Should keep the Core when the file fails its signature", func() {
-			publish("0.61.0", fakeCore("0.61.0"), signer.Sign(fakeCore("0.62.0")))
+			publish(
+				"0.61.0",
+				fakeCore("0.61.0"),
+				signer.Sign("synnax-v0.61.0-linux", fakeCore("0.62.0")),
+			)
 			Expect(run("0.61.0")).To(MatchError(release.ErrSignature))
 			Expect(systemctl.Calls()).To(BeEmpty())
 			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
@@ -227,7 +235,11 @@ var _ = Describe("Update with a Core service", func() {
 		})
 
 		It("Should keep the Core when the file holds another version", func() {
-			publish("0.61.0", fakeCore("0.62.0"), signer.Sign(fakeCore("0.62.0")))
+			publish(
+				"0.61.0",
+				fakeCore("0.62.0"),
+				signer.Sign("synnax-v0.61.0-linux", fakeCore("0.62.0")),
+			)
 			Expect(run("0.61.0")).To(MatchError(
 				"The release file synnax-v0.61.0-linux holds Core 0.62.0.",
 			))
@@ -237,7 +249,7 @@ var _ = Describe("Update with a Core service", func() {
 
 		It("Should keep the Core when the file does not run", func() {
 			core := []byte("#!/bin/sh\nexit 1\n")
-			publish("0.61.0", core, signer.Sign(core))
+			publish("0.61.0", core, signer.Sign("synnax-v0.61.0-linux", core))
 			Expect(run("0.61.0")).To(MatchError(ContainSubstring(
 				"The release file synnax-v0.61.0-linux does not run on this computer",
 			)))

@@ -14,7 +14,9 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
+	"time"
 
 	"aead.dev/minisign"
 	"github.com/samber/lo"
@@ -33,9 +35,12 @@ func NewSigner() Signer {
 	return Signer{PublicKey: pub.String(), key: key}
 }
 
-// Sign returns the signature file of data, in the format of the Tauri signer.
-func (s Signer) Sign(data []byte) []byte {
+// Sign returns the signature file of data in the file name, in the format of the Tauri
+// signer.
+func (s Signer) Sign(name string, data []byte) []byte {
 	r := minisign.NewReader(bytes.NewReader(data))
 	lo.Must(io.Copy(io.Discard, r))
-	return []byte(base64.StdEncoding.EncodeToString(r.Sign(s.key)))
+	trusted := fmt.Sprintf("timestamp:%d\tfile:%s", time.Now().Unix(), name)
+	signature := r.SignWithComments(s.key, trusted, "signature from tauri secret key")
+	return []byte(base64.StdEncoding.EncodeToString(signature))
 }

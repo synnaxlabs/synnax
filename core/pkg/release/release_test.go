@@ -59,29 +59,36 @@ var _ = Describe("Download", func() {
 
 	It("Should download a file that matches its signature", func(ctx SpecContext) {
 		write("synnax", []byte("core"))
-		write("synnax.sig", signer.Sign([]byte("core")))
+		write("synnax.sig", signer.Sign("synnax", []byte("core")))
 		Expect(download(ctx)).To(Succeed())
 		Expect(os.ReadFile(dst)).To(Equal([]byte("core")))
 		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(os.FileMode(0o600)))
 	})
 
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {
-		write("synnax", MustSucceed(os.ReadFile("testdata/file")))
-		write("synnax.sig", MustSucceed(os.ReadFile("testdata/file.sig")))
+		write("file", MustSucceed(os.ReadFile("testdata/file")))
+		write("file.sig", MustSucceed(os.ReadFile("testdata/file.sig")))
 		cfg.PublicKey = tauriPublicKey
-		Expect(download(ctx)).To(Succeed())
+		Expect(release.Download(ctx, cfg, "core", "0.61.0", "file", dst)).To(Succeed())
+	})
+
+	It("Should reject the signed file of another name", func(ctx SpecContext) {
+		write("synnax", []byte("core"))
+		write("synnax.sig", signer.Sign("synnax-driver", []byte("core")))
+		Expect(download(ctx)).To(MatchError(release.ErrSignature))
+		Expect(dst).ToNot(BeAnExistingFile())
 	})
 
 	It("Should remove a file that does not match its signature", func(ctx SpecContext) {
 		write("synnax", []byte("changed core"))
-		write("synnax.sig", signer.Sign([]byte("core")))
+		write("synnax.sig", signer.Sign("synnax", []byte("core")))
 		Expect(download(ctx)).To(MatchError(release.ErrSignature))
 		Expect(dst).ToNot(BeAnExistingFile())
 	})
 
 	It("Should reject a signature from another key", func(ctx SpecContext) {
 		write("synnax", []byte("core"))
-		write("synnax.sig", testutil.NewSigner().Sign([]byte("core")))
+		write("synnax.sig", testutil.NewSigner().Sign("synnax", []byte("core")))
 		Expect(download(ctx)).To(MatchError(release.ErrSignature))
 		Expect(dst).ToNot(BeAnExistingFile())
 	})
@@ -96,7 +103,7 @@ var _ = Describe("Download", func() {
 	It(
 		"Should return ErrNotFound when the release has no file of the name",
 		func(ctx SpecContext) {
-			write("synnax.sig", signer.Sign([]byte("core")))
+			write("synnax.sig", signer.Sign("synnax", []byte("core")))
 			err := download(ctx)
 			Expect(err).To(MatchError(release.ErrNotFound))
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -130,7 +137,7 @@ var _ = Describe("Download", func() {
 				func(w http.ResponseWriter, r *http.Request) {
 					defer GinkgoRecover()
 					if strings.HasSuffix(r.URL.Path, ".sig") {
-						MustSucceed(w.Write(signer.Sign(data)))
+						MustSucceed(w.Write(signer.Sign("synnax", data)))
 						return
 					}
 					file(w, r)

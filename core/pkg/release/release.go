@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -56,8 +57,8 @@ const maxSignatureSize = 4096
 
 // Download downloads the file name of the release of product at version to dst, with
 // mode 0600, and checks the file against its signature. A signature file holds the
-// base64 text of a minisign signature, as the Tauri signer writes it. On any error,
-// Download removes dst.
+// base64 text of a minisign signature, as the Tauri signer writes it, and its trusted
+// comment must name the file. On any error, Download removes dst.
 func Download(
 	ctx context.Context,
 	cfg Config,
@@ -101,10 +102,20 @@ func Download(
 	if err = errors.Combine(err, f.Close()); err != nil {
 		return err
 	}
-	if !r.Verify(key, signature) {
+	if !r.Verify(key, signature) || !signs(signature, name) {
 		return errors.Wrapf(ErrSignature, "%s", url)
 	}
 	return nil
+}
+
+// signs reports whether the trusted comment of signature names the file name, so a
+// signed file of another product, platform, or version fails.
+func signs(signature []byte, name string) bool {
+	var s minisign.Signature
+	if s.UnmarshalText(signature) != nil {
+		return false
+	}
+	return slices.Contains(strings.Split(s.TrustedComment, "\t"), "file:"+name)
 }
 
 // fetch returns the body of url. The request fails when no data arrives for stall.
