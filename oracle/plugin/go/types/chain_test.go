@@ -2235,7 +2235,7 @@ Doc struct {
 	})
 })
 
-var _ = Describe("Frozen type that a later version embeds", func() {
+var _ = Describe("Frozen type that only a frozen version embeds", func() {
 	It(
 		"Should give the frozen type defaults but no decode hooks",
 		func(ctx SpecContext) {
@@ -2268,6 +2268,17 @@ Cfg struct extends Base {
 	@go marshal
 }
 `)
+			write("schemas/synnax/versions/cfg/v2.oracle", `
+Base = v0.Base
+
+Cfg struct {
+	key uuid @key
+	name string
+	rate float64 = 0.2
+
+	@go marshal
+}
+`)
 			chains := MustSucceed(versions.Discover(root))
 			resolver := versions.NewResolver(
 				chains,
@@ -2281,9 +2292,10 @@ Base struct {
 	rate float64 = 0.2
 }
 
-Cfg struct extends Base {
+Cfg struct {
 	key uuid @key
 	name string
+	rate float64 = 0.2
 }
 `, "schemas/synnax/cfg.oracle", "cfg", analyzer.NewStandardFileLoader(root), table)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -2293,12 +2305,11 @@ Cfg struct extends Base {
 				Versions:    resolver,
 			}
 			resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
-			var frozen string
+			files := make(map[string]string)
 			for _, f := range resp.Files {
-				if f.Path == "core/pkg/service/cfg/versions/v0/types.gen.go" {
-					frozen = string(f.Content)
-				}
+				files[f.Path] = string(f.Content)
 			}
+			frozen := files["core/pkg/service/cfg/versions/v0/types.gen.go"]
 			Expect(frozen).To(ContainSubstring("func (b *Base) SetDefaults() {"))
 			Expect(frozen).ToNot(ContainSubstring("func (b *Base) UnmarshalJSONFrom("))
 			Expect(frozen).ToNot(ContainSubstring("func (b *Base) DecodeMsgpack("))
