@@ -74,8 +74,9 @@ func (t *Type) UnmarshalText(text []byte) (err error) {
 // Enum pairs a JSON string label with a sample.
 type Enum struct {
 	Label string
-	// Value holds one sample. A numeric or boolean sample converts to any numeric or
-	// boolean data type that holds it exactly, and a string sample only to a string.
+	// Value holds one sample. A numeric or boolean sample converts to an integer or
+	// boolean data type that holds it exactly, or to the nearest value of a float data
+	// type. A string sample converts only to a string.
 	Value telem.Series
 }
 

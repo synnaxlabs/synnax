@@ -231,8 +231,8 @@ telem::SampleValue number_to_numeric(const V v, const telem::DataType &target) {
     throw std::runtime_error("");
 }
 
-/// @brief converts the sample of an enum entry to target exactly, throwing when it
-/// does not fit.
+/// @brief converts the sample of an enum entry to target, throwing when an integer
+/// target cannot hold it exactly. A float target takes the nearest value.
 telem::SampleValue
 enum_to_sample(const telem::SampleValue &sample, const telem::DataType &target) {
     return std::visit(
