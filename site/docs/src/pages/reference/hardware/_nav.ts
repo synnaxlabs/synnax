@@ -10,6 +10,7 @@
 import { type Nav } from "@/components/nav";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
+import { KAFKA_NAV } from "@/pages/reference/hardware/kafka/_nav";
 import { LABJACK_NAV } from "@/pages/reference/hardware/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/hardware/modbus/_nav";
 import { MQTT_NAV } from "@/pages/reference/hardware/mqtt/_nav";
@@ -42,6 +43,7 @@ export const HARDWARE_NAV: Nav.PageNavNode = {
     },
     ETHERCAT_NAV,
     HTTP_NAV,
+    KAFKA_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
     MQTT_NAV,
