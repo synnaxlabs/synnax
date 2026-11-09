@@ -2110,16 +2110,16 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateActionAliases checks that every action alias names a struct with no unbound
-// type parameters, and that no two actions of typ alias the same struct with the same
-// type arguments, which a C++ std::variant cannot hold twice.
+// validateActionAliases checks that every action alias names a struct with no type
+// parameters, and that no two actions of typ alias the same struct, which a C++
+// std::variant cannot hold twice.
 func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 	aliased := make(map[string]string)
 	for _, action := range typ.Actions() {
 		if !action.IsAlias() {
 			continue
 		}
-		target, ref, ok := resolution.Dealias(action.Alias, c.table)
+		target, _, ok := resolution.Dealias(action.Alias, c.table)
 		form, isStruct := target.Form.(resolution.StructForm)
 		if !ok || !isStruct {
 			c.report(diagnostics.Errorf(
@@ -2131,7 +2131,7 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 			))
 			continue
 		}
-		if len(form.TypeParams) > len(ref.TypeArgs) {
+		if len(form.TypeParams) > 0 {
 			c.report(diagnostics.Errorf(
 				nil,
 				"action %s of %s cannot alias generic struct %s, because an alias "+
@@ -2142,7 +2142,7 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 			))
 			continue
 		}
-		key := refName(ref, c.table)
+		key := target.QualifiedName
 		if first, dup := aliased[key]; dup {
 			c.report(diagnostics.Errorf(
 				nil,
@@ -2157,42 +2157,6 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 		}
 		aliased[key] = action.Name
 	}
-}
-
-// refName renders ref with its type arguments, such as test.Box<int32>. Each type
-// argument first resolves through aliases and distinct types, because C++ emits both
-// as using declarations: test.Box<rack.Key> and test.Box<uint32> are one C++ type.
-func refName(ref resolution.TypeRef, table *resolution.Table) string {
-	if len(ref.TypeArgs) == 0 {
-		return ref.Name
-	}
-	args := make([]string, len(ref.TypeArgs))
-	for i, arg := range ref.TypeArgs {
-		args[i] = refName(underlying(arg, table), table)
-	}
-	return ref.Name + "<" + strings.Join(args, ", ") + ">"
-}
-
-// underlying follows ref through aliases and distinct types to the type they stand
-// for.
-func underlying(ref resolution.TypeRef, table *resolution.Table) resolution.TypeRef {
-	visited := make(set.Set[string])
-	for !visited.Contains(ref.Name) {
-		visited.Add(ref.Name)
-		target, dealiased, ok := resolution.Dealias(ref, table)
-		if !ok {
-			return ref
-		}
-		form, distinct := target.Form.(resolution.DistinctForm)
-		if !distinct {
-			return dealiased
-		}
-		ref = resolution.SubstituteTypeRef(
-			form.Base,
-			resolution.TypeArgMap(form.TypeParams, dealiased.TypeArgs),
-		)
-	}
-	return ref
 }
 
 // finalizeActions flattens each action's extends clause, prepending the inherited

@@ -3192,7 +3192,7 @@ Node union on variant {
 			})
 
 			It(
-				"Should accept an alias of a struct alias with bound type arguments",
+				"Should reject an alias of a struct alias with bound type arguments",
 				func(ctx SpecContext) {
 					source := `
 					Box struct<T> {
@@ -3208,7 +3208,10 @@ Node union on variant {
 					}
 				`
 					_, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.Error()).To(ContainSubstring(
+						"action Load of Container cannot alias generic struct test.Box",
+					))
 				},
 			)
 
@@ -3254,104 +3257,6 @@ Node union on variant {
 					"actions Set and Replace of Container both alias test.Set",
 				))
 			})
-
-			It(
-				"Should accept two actions that alias one struct with different type "+
-					"arguments",
-				func(ctx SpecContext) {
-					source := `
-					Box struct<T> {
-						data T
-					}
-
-					IntBox = Box<int32>
-
-					StringBox = Box<string>
-
-					Container struct {
-						key uuid
-
-						action LoadInt = IntBox
-
-						action LoadString = StringBox
-					}
-				`
-					_, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeTrue(), diag.String())
-				},
-			)
-
-			It(
-				"Should reject two actions that alias one struct with the same type "+
-					"arguments",
-				func(ctx SpecContext) {
-					source := `
-					Box struct<T> {
-						data T
-					}
-
-					IntBox = Box<int32>
-
-					CountBox = Box<int32>
-
-					Container struct {
-						key uuid
-
-						action LoadInt = IntBox
-
-						action LoadCount = CountBox
-					}
-				`
-					_, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeFalse())
-					Expect(diag.Error()).To(ContainSubstring(
-						"actions LoadInt and LoadCount of Container both alias " +
-							"test.Box<int32>",
-					))
-				},
-			)
-
-			It(
-				"Should reject two actions whose type arguments name one type "+
-					"through an alias or a distinct type",
-				func(ctx SpecContext) {
-					source := `
-					Box struct<T> {
-						data T
-					}
-
-					Count = int32
-
-					Key int32
-
-					IntBox = Box<int32>
-
-					CountBox = Box<Count>
-
-					KeyBox = Box<Key>
-
-					Container struct {
-						key uuid
-
-						action LoadInt = IntBox
-
-						action LoadCount = CountBox
-
-						action LoadKey = KeyBox
-					}
-				`
-					_, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeFalse())
-					Expect(diag.Error()).To(ContainSubstring(
-						"actions LoadInt and LoadCount of Container both alias " +
-							"test.Box<int32>",
-					))
-					Expect(diag.Error()).To(ContainSubstring(
-						"actions LoadInt and LoadKey of Container both alias " +
-							"test.Box<int32>",
-					))
-				},
-			)
 		})
 	})
 
