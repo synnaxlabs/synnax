@@ -441,6 +441,22 @@ var _ = Describe("Go Filter Plugin", func() {
 			},
 		)
 
+		It("Should keep the decode doc for a request with no orders", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"\treturn q, nil\n}\n\n// UnmarshalJSONFrom decodes the request",
+				).
+				ToNotContain("func (r RetrieveRequest) order()")
+		})
+
 		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
 				import "schemas/x/filter"
