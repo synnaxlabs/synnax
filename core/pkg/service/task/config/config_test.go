@@ -259,13 +259,12 @@ var _ = Describe("Service", func() {
 
 		It("Should keep an explicit zero that an action sets", func(ctx SpecContext) {
 			key := createTask(ctx)
-			_, _, err := svc.Edit(
+			Expect(svc.Edit(
 				ctx,
 				db,
 				key,
 				[]patch.Cursor{set([]string{"performance"}, "")},
-			)
-			Expect(err).To(MatchError(ContainSubstring("invalid performance: ")))
+			)).Error().To(MatchError(ContainSubstring("invalid performance: ")))
 		})
 
 		It("Should report a change when a value lacks a member", func(
