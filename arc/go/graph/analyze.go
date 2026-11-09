@@ -120,7 +120,6 @@ func Analyze(
 			}
 		}
 		fn.Channels = funcScope.Channels
-		fn.Symbol = funcScope
 		g.Functions[i] = fn
 	}
 

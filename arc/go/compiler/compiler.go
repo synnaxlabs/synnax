@@ -151,9 +151,11 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 		cf, err := compileItem(
 			compCtx,
-			i,
+			i.Key,
+			i.Body.AST,
 			params,
 			returnType,
+			i.Outputs,
 			outputMemoryBase,
 		)
 		if err != nil {
@@ -184,13 +186,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 func compileItem(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
-	fn ir.Function,
+	key string,
+	body antlr.ParserRuleContext,
 	params types.Params,
 	results types.Type,
+	outputs types.Params,
 	outputMemoryBase uint32,
 ) (compiledFunction, error) {
-	key, body, outputs := fn.Key, fn.Body.AST, fn.Outputs
-	scope, err := functionScope(fn)
+	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
 	if err != nil {
 		return compiledFunction{}, err
 	}
@@ -248,20 +251,11 @@ func compileItem(
 	}
 
 	return compiledFunction{
-		scopeName: key,
+		scopeName: ctx.Scope.Name,
 		typeIdx:   typeIdx,
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
-}
-
-// functionScope returns the symbol fn compiles in. A function lowered from a module
-// keeps its own root, so resolving fn.Key against the program root would miss it.
-func functionScope(fn ir.Function) (*symbol.Symbol, error) {
-	if fn.Symbol == nil {
-		return nil, errors.Newf("function %q has no symbol", fn.Key)
-	}
-	return fn.Symbol, nil
 }
 
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
@@ -276,7 +270,7 @@ func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	scope, err := functionScope(fn)
+	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
 	if err != nil {
 		return compiledFunction{}, err
 	}

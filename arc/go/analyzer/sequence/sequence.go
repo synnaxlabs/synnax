@@ -25,9 +25,9 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// RejectReactiveAssignment reports that '=' cannot write to name in a reactive scope.
-// A flow must be used instead.
-func RejectReactiveAssignment(
+// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive
+// scope; a flow must be used instead.
+func rejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
 ) {
@@ -35,7 +35,7 @@ func RejectReactiveAssignment(
 	d.Add(
 		diagnostics.Errorf(
 			assign,
-			"use '<value> -> %s' to write to '%s'",
+			"cannot use '=' here; write to '%s' with a flow: <value> -> %s",
 			name,
 			name,
 		),
@@ -60,12 +60,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	}
 	switch {
 	case sym.IsChannelReadWrite():
-		target, ok := channelRebindTarget(ctx, assign.Expression())
-		if !ok {
-			RejectReactiveAssignment(ctx.Diagnostics, assign)
-			return
-		}
-		analyzeRebind(ctx.Child(assign), sym, target)
+		analyzeChannelReadWriteRebind(ctx, assign, sym)
 	case sym.IsValueVariable():
 		statement.AnalyzeAssignment(ctx.Child(assign))
 		if expr := assign.Expression(); expr != nil &&
@@ -74,35 +69,48 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 			flow.BindOutput(ctx, expr, sym.Type.UnwrapChan())
 		}
 	default:
-		RejectReactiveAssignment(ctx.Diagnostics, assign)
+		rejectReactiveAssignment(ctx.Diagnostics, assign)
 	}
 }
 
-// analyzeRebind re-points a channel alias at the channel rhs, recording rhs for read
-// and write routing. It rejects a top-level alias and a channel of another type.
-func analyzeRebind(
-	ctx context.Context[parser.IAssignmentContext],
-	alias, rhs *symbol.Symbol,
+// analyzeChannelReadWriteRebind checks that the channel read/write variable can be
+// rebound to the channel named by assign's right-hand side: the RHS must reference a
+// channel whose value type matches the channel read/write variable.
+func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	assign parser.IAssignmentContext,
+	channelReadWrite *symbol.Symbol,
 ) {
-	if ctx.RejectTopLevel(alias, alias.Name) {
+	name := assign.IDENTIFIER().GetText()
+	target, ok := channelRebindTarget(ctx, assign.Expression())
+	if !ok {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			assign,
+			"cannot rebind channel read/write variable %s; the right-hand side must be a channel",
+			name,
+		))
 		return
 	}
-	if !types.Equal(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
-			alias.Name, alias.Type, rhs.Name, rhs.Type))
+	if !types.Equal(channelReadWrite.Type.Unwrap(), target.Type.Unwrap()) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			assign,
+			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
+			name,
+			channelReadWrite.Type.Unwrap(),
+			target.Type.Unwrap(),
+		))
 		return
 	}
-	alias.Reassigned = true
-	if alias.Channels.Write == nil {
-		alias.Channels = types.NewChannels()
+	channelReadWrite.Reassigned = true
+	if channelReadWrite.Channels.Write == nil {
+		channelReadWrite.Channels = types.NewChannels()
 	}
-	key := uint32(rhs.ID)
-	if rhs.SourceID != nil {
-		key = uint32(*rhs.SourceID)
+	key := uint32(target.ID)
+	if target.SourceID != nil {
+		key = uint32(*target.SourceID)
 	}
-	alias.Channels.Read[key] = rhs.Name
-	alias.Channels.Write[key] = rhs.Name
+	channelReadWrite.Channels.Read[key] = target.Name
+	channelReadWrite.Channels.Write[key] = target.Name
 }
 
 // channelRebindTarget resolves expr to the global channel a channel read/write rebind
@@ -114,11 +122,11 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, false
 	}
-	sym, err := ctx.ResolveQualified(head, tail)
+	sym, err := ctx.Resolve(primary.IDENTIFIER().GetText())
 	if err != nil {
 		return nil, false
 	}

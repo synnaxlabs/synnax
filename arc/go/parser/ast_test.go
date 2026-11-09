@@ -100,6 +100,26 @@ var _ = Describe("AST Utilities", func() {
 		)
 	})
 
+	Describe("BareIdentifier", func() {
+		It("returns the identifier of a lone name", func() {
+			Expect(parser.BareIdentifier(parseExpr("x")).GetText()).To(Equal("x"))
+		})
+
+		DescribeTable(
+			"nil cases",
+			func(code string) { Expect(parser.BareIdentifier(parseExpr(code))).To(BeNil()) },
+			Entry("function call", "foo()"),
+			Entry("call with arguments", `len("abc")`),
+			Entry("index", "arr[0]"),
+			Entry("qualified name", "time.now"),
+			Entry("qualified call", "time.now()"),
+			Entry("parenthesized", "(x)"),
+			Entry("literal", "42"),
+			Entry("negation", "-x"),
+			Entry("addition", "x + 1"),
+		)
+	})
+
 	Describe("IsNegatedLiteral", func() {
 		DescribeTable(
 			"true cases",
@@ -312,34 +332,10 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("ExpressionNameParts", func() {
-		DescribeTable("returns the parts of a lone name",
-			func(code, head, tail string) {
-				h, t := parser.ExpressionNameParts(parseExpr(code))
-				Expect(h).To(Equal(head))
-				Expect(t).To(Equal(tail))
-			},
-			Entry("bare name", "x", "x", ""),
-			Entry("qualified name", "m.doubled", "m", "doubled"),
-			Entry("operator", "x + 1", "", ""),
-			Entry("call", "foo()", "", ""),
-			Entry("call with arguments", `len("abc")`, "", ""),
-			Entry("qualified call", "m.f()", "", ""),
-			Entry("index", "x[0]", "", ""),
-			Entry("parenthesized", "(x)", "", ""),
-			Entry("literal", "42", "", ""),
-			Entry("negation", "-x", "", ""),
-		)
-	})
-
-	Describe("CollectNamedPrimaries", func() {
-		DescribeTable("collects the names an expression reads",
+	Describe("CollectIdentifiers", func() {
+		DescribeTable("collects primary-expression identifiers",
 			func(code string, expected []string) {
-				var names []string
-				for _, pe := range parser.CollectNamedPrimaries(parseExpr(code)) {
-					names = append(names, parser.PrimaryName(pe))
-				}
-				Expect(names).To(Equal(expected))
+				Expect(parser.CollectIdentifiers(parseExpr(code))).To(Equal(expected))
 			},
 			Entry("single identifier", "x", []string{"x"}),
 			Entry("deduplicates repeats", "x + x", []string{"x"}),
@@ -351,7 +347,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("literal only", "42", nil),
 			Entry("format string braces are token text, not identifiers",
 				`f"hi {x}"`, nil),
-			Entry("qualified names", "m.doubled + x", []string{"m.doubled", "x"}),
+			Entry("qualified names are excluded", "math.avg + x", []string{"x"}),
 		)
 	})
 
