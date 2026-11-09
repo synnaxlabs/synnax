@@ -786,8 +786,8 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 // fields.
 var aliasedGoRules = set.New("to_any", "fields", "imports")
 
-// checkAliasedRules fails when the current version aliases a type from a frozen
-// definer and the live type's @validate, @default, or @go method rules differ from the
+// checkAliasedRules fails when the current version aliases a type from a frozen definer
+// and the live type's @validate, @default, or @go method rules differ from the
 // definer's. Inline variant payloads of an aliased union count as aliased.
 func checkAliasedRules(
 	ctx context.Context,
@@ -840,10 +840,9 @@ func checkAliasedRules(
 			})
 		}
 	}
-	// A frozen definer's package calls into every dependency its pins reach, directly
-	// or
-	// through the dependencies' own pins, by the dependency's version file. A live-only
-	// rule on a dependency at its current version therefore never runs either.
+	// A frozen definer's package calls every dependency its pins reach, directly or
+	// through the dependencies' own pins, by the dependency's version file, so a
+	// live-only rule on a dependency at its current version never runs.
 	type pin struct {
 		origin, version int
 		livePath        string
@@ -907,8 +906,8 @@ func checkAliasedRules(
 	}
 }
 
-// rulesDrift describes every rule that differs between livePath's live declaration
-// of def and def itself, including the inline variant payloads of a union. goRules
+// rulesDrift describes every rule that differs between livePath's live declaration of
+// def and def itself, including the inline variant payloads of a union. goRules
 // includes the @go method rules, which only an alias of def carries.
 func rulesDrift(
 	res *pipeline.Result,
@@ -937,8 +936,8 @@ func rulesDrift(
 	return drift
 }
 
-// ruleDrift describes every rule that differs between the live and frozen
-// declarations of one type.
+// ruleDrift describes every rule that differs between the live and frozen declarations
+// of one type.
 func ruleDrift(live, frozen resolution.Type, goRules bool) []string {
 	var drift []string
 	if goRules && goRulesKey(live) != goRulesKey(frozen) {
