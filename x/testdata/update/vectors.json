@@ -472,6 +472,27 @@
       }
     },
     {
+      "name": "a move after null puts the entry first",
+      "update": {
+        "value": {
+          "config": { "channels": { "move": [{ "key": "c2", "after": null }] } }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c2", "type": "di", "port": 1, "line": 3 },
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
       "name": "a move puts the entry after another",
       "update": {
         "value": {

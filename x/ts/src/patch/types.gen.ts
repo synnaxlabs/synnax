@@ -12,6 +12,7 @@
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { changeZ } from "@/patch/field";
 
 /**
  * Guard holds an action to the variant of a discriminated union that it was written
@@ -31,7 +32,7 @@ export interface Guard extends z.infer<typeof guardZ> {}
 export const listMoveZ = <K extends z.ZodType>(k: K) =>
   z.object({
     key: k,
-    after: k.optional(),
+    after: changeZ(k).optional(),
   });
 export type ListMove<K extends z.ZodType> = z.infer<ReturnType<typeof listMoveZ<K>>>;
 

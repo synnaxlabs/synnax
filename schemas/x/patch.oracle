@@ -104,10 +104,10 @@ Move struct {
 }
 
 ListMove struct<K> {
-    key   K  {
+    key   K          {
         @doc value "is the key of the entry to move."
     }
-    after K? {
+    after Change<K>? {
         @doc value """
             is the key of the entry that the moved entry goes after. The entry goes
             first when after is absent or null.
@@ -198,6 +198,7 @@ Change struct<T> {
     @pb omit
     @presence
     @py hand
+    @py include  "x/py/x/patch/struct"
     @ts hand
     @ts include  "x/ts/src/patch/field"
 }

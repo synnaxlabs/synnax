@@ -211,7 +211,7 @@ TEST(List, EmptySet) {
     EXPECT_TRUE(list.set->empty());
     EXPECT_FALSE(list.insert.has_value());
     ASSERT_TRUE(list.move.has_value());
-    EXPECT_FALSE(list.move->at(0).after.has_value());
+    EXPECT_TRUE(list.move->at(0).after.is_zero());
     EXPECT_EQ(list.to_json(), j);
 }
 

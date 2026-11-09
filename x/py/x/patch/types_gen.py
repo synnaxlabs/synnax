@@ -15,6 +15,8 @@ from typing import Generic, Required, TypedDict, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
+from x.patch.struct import Change
+
 K = TypeVar("K")
 
 E = TypeVar("E")
@@ -45,13 +47,13 @@ class ListMove(BaseModel, Generic[K]):
     """
 
     key: K
-    after: K | None = None
+    after: Change[K] | None = None
 
 
 # ListMoveDict is the dict form of ListMove.
 class ListMoveDict(TypedDict, Generic[K], total=False):
     key: Required[K]
-    after: K
+    after: Change[K]
 
 
 class Set(BaseModel):

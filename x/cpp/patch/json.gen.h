@@ -121,7 +121,7 @@ template<typename K>
 ListMove<K> ListMove<K>::parse(x::json::Parser parser) {
     return ListMove<K>{
         .key = parser.field<K>("key"),
-        .after = parser.field<std::optional<K>>("after"),
+        .after = Change<K>::parse(parser, "after"),
     };
 }
 
@@ -129,7 +129,7 @@ template<typename K>
 x::json::json ListMove<K>::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = x::json::to_json(this->key);
-    if (this->after.has_value()) j["after"] = x::json::to_json(*this->after);
+    this->after.to_json(j, "after");
     return j;
 }
 

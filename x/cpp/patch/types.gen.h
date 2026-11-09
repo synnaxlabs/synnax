@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 
 namespace x::patch {
 
@@ -35,19 +36,6 @@ struct Guard {
     std::string value;
 
     static Guard parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ListMove moves an entry of a list after another entry.
-template<typename K>
-struct ListMove {
-    /// @brief key is the key of the entry to move.
-    K key;
-    /// @brief after is the key of the entry that the moved entry goes after. The entry
-    /// goes first when after is absent or null.
-    std::optional<K> after;
-
-    static ListMove parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -122,6 +110,19 @@ struct Update {
     std::vector<Guard> guards = {};
 
     static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ListMove moves an entry of a list after another entry.
+template<typename K>
+struct ListMove {
+    /// @brief key is the key of the entry to move.
+    K key;
+    /// @brief after is the key of the entry that the moved entry goes after. The entry
+    /// goes first when after is absent or null.
+    Change<K> after;
+
+    static ListMove parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

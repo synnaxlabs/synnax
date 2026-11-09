@@ -56,8 +56,6 @@ func applyPorts(base []portEntry, ops ports) ([]portEntry, error) {
 	return base, err
 }
 
-func after(key string) *string { return &key }
-
 var _ = Describe("Apply", func() {
 	Describe("Change", func() {
 		It("Should set, keep, or refuse to clear a required field", func() {
@@ -207,8 +205,19 @@ var _ = Describe("Apply", func() {
 				},
 			),
 			Entry(
+				"a move after null to the start",
+				ports{Move: []patch.ListMove[string]{
+					{Key: "c", After: patch.Clear[string]()},
+				}},
+				[]portEntry{
+					{Key: "c", Port: 3},
+					{Key: "a", Port: 1},
+					{Key: "b", Port: 2},
+				},
+			),
+			Entry(
 				"a move after an entry",
-				ports{Move: []patch.ListMove[string]{{Key: "a", After: after("b")}}},
+				ports{Move: []patch.ListMove[string]{{Key: "a", After: patch.To("b")}}},
 				[]portEntry{
 					{Key: "b", Port: 2},
 					{Key: "a", Port: 1},
@@ -219,7 +228,7 @@ var _ = Describe("Apply", func() {
 				"moves in the order given",
 				ports{Move: []patch.ListMove[string]{
 					{Key: "c"},
-					{Key: "b", After: after("c")},
+					{Key: "b", After: patch.To("c")},
 				}},
 				[]portEntry{
 					{Key: "c", Port: 3},
@@ -314,13 +323,13 @@ var _ = Describe("Apply", func() {
 			),
 			Entry(
 				"a move after a missing key",
-				ports{Move: []patch.ListMove[string]{{Key: "a", After: after("c9")}}},
+				ports{Move: []patch.ListMove[string]{{Key: "a", After: patch.To("c9")}}},
 				patch.ErrStale,
 				"c9 not found",
 			),
 			Entry(
 				"a move after itself",
-				ports{Move: []patch.ListMove[string]{{Key: "a", After: after("a")}}},
+				ports{Move: []patch.ListMove[string]{{Key: "a", After: patch.To("a")}}},
 				validate.ErrValidation,
 				"a cannot move after itself",
 			),
@@ -333,7 +342,7 @@ var _ = Describe("Apply", func() {
 			Expect(patch.ApplyValueList(&tags, patch.ValueList[string]{
 				Remove: []string{"b"},
 				Insert: []string{"d"},
-				Move:   []patch.ListMove[string]{{Key: "d", After: after("a")}},
+				Move:   []patch.ListMove[string]{{Key: "d", After: patch.To("a")}},
 			})).To(Succeed())
 			Expect(tags).To(Equal([]string{"a", "d", "c"}))
 		})

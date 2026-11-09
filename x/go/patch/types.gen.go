@@ -11,6 +11,8 @@
 
 package patch
 
+import vmsgpack "github.com/vmihailenco/msgpack/v5"
+
 // Guard holds an action to the variant of a discriminated union that it was written
 // for. An action with a guard that does not match the document does nothing.
 type Guard struct {
@@ -74,7 +76,17 @@ type ListMove[K any] struct {
 	Key K `json:"key" msgpack:"key"`
 	// After is the key of the entry that the moved entry goes after. The entry goes
 	// first when after is absent or null.
-	After *K `json:"after,omitzero" msgpack:"after,omitempty"`
+	After Change[K] `json:"after,omitzero" msgpack:"after,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (l ListMove[K]) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return EncodeMsgpack(enc, l)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (l *ListMove[K]) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return DecodeMsgpack(dec, l)
 }
 
 // List changes a list of entries that have a key. The operators apply in the order

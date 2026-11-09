@@ -196,7 +196,8 @@ func ApplyList[E any, K comparable, U any](
 		return err
 	}
 	for _, m := range ops.Move {
-		if m.After != nil && *m.After == m.Key {
+		after, hasAfter := m.After.Get()
+		if hasAfter && after == m.Key {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"%v cannot move after itself",
@@ -210,8 +211,8 @@ func ApplyList[E any, K comparable, U any](
 		entry := list[i]
 		list = slices.Delete(list, i, i+1)
 		at := 0
-		if m.After != nil {
-			if at, err = indexOf(*m.After); err != nil {
+		if hasAfter {
+			if at, err = indexOf(after); err != nil {
 				return err
 			}
 			at++
