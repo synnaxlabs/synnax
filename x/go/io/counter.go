@@ -32,13 +32,13 @@ type Int32Counter struct {
 func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
 	c := &Int32Counter{f: f, buf: make([]byte, 4)}
 	n, err := f.ReadAt(c.buf, 0)
-	if errors.Is(err, io.EOF) {
+	if n < len(c.buf) && errors.Is(err, io.EOF) {
 		if n == 0 {
 			return c, nil
 		}
 		return nil, io.ErrUnexpectedEOF
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 	c.wrapped = int32(binary.LittleEndian.Uint32(c.buf))
