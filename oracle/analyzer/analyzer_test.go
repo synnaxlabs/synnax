@@ -3310,6 +3310,48 @@ Node union on variant {
 					))
 				},
 			)
+
+			It(
+				"Should reject two actions whose type arguments name one type "+
+					"through an alias or a distinct type",
+				func(ctx SpecContext) {
+					source := `
+					Box struct<T> {
+						data T
+					}
+
+					Count = int32
+
+					Key int32
+
+					IntBox = Box<int32>
+
+					CountBox = Box<Count>
+
+					KeyBox = Box<Key>
+
+					Container struct {
+						key uuid
+
+						action LoadInt = IntBox
+
+						action LoadCount = CountBox
+
+						action LoadKey = KeyBox
+					}
+				`
+					_, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.Error()).To(ContainSubstring(
+						"actions LoadInt and LoadCount of Container both alias " +
+							"test.Box<int32>",
+					))
+					Expect(diag.Error()).To(ContainSubstring(
+						"actions LoadInt and LoadKey of Container both alias " +
+							"test.Box<int32>",
+					))
+				},
+			)
 		})
 	})
 

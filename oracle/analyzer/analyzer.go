@@ -2142,7 +2142,7 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 			))
 			continue
 		}
-		key := refName(ref)
+		key := refName(ref, c.table)
 		if first, dup := aliased[key]; dup {
 			c.report(diagnostics.Errorf(
 				nil,
@@ -2159,16 +2159,40 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// refName renders ref with its type arguments, such as test.Box<int32>.
-func refName(ref resolution.TypeRef) string {
+// refName renders ref with its type arguments, such as test.Box<int32>. Each type
+// argument first resolves through aliases and distinct types, because C++ emits both
+// as using declarations: test.Box<rack.Key> and test.Box<uint32> are one C++ type.
+func refName(ref resolution.TypeRef, table *resolution.Table) string {
 	if len(ref.TypeArgs) == 0 {
 		return ref.Name
 	}
 	args := make([]string, len(ref.TypeArgs))
 	for i, arg := range ref.TypeArgs {
-		args[i] = refName(arg)
+		args[i] = refName(underlying(arg, table), table)
 	}
 	return ref.Name + "<" + strings.Join(args, ", ") + ">"
+}
+
+// underlying follows ref through aliases and distinct types to the type they stand
+// for.
+func underlying(ref resolution.TypeRef, table *resolution.Table) resolution.TypeRef {
+	visited := make(set.Set[string])
+	for !visited.Contains(ref.Name) {
+		visited.Add(ref.Name)
+		target, dealiased, ok := resolution.Dealias(ref, table)
+		if !ok {
+			return ref
+		}
+		form, distinct := target.Form.(resolution.DistinctForm)
+		if !distinct {
+			return dealiased
+		}
+		ref = resolution.SubstituteTypeRef(
+			form.Base,
+			resolution.TypeArgMap(form.TypeParams, dealiased.TypeArgs),
+		)
+	}
+	return ref
 }
 
 // finalizeActions flattens each action's extends clause, prepending the inherited
