@@ -531,13 +531,17 @@ var _ = Describe("Patch of lists, unions, and JSON values", func() {
 	})
 
 	Describe("Partial documents", func() {
-		partial := func(doc *config, a patch.Action) (bool, error) {
+		report := func(doc *config, a patch.Action) (patch.Report, error) {
+			var r patch.Report
 			c, err := patch.Begin(a)
 			if err != nil {
-				return false, err
+				return r, err
 			}
-			var filled bool
-			return filled, doc.Patch(c.Partial(&filled))
+			return r, doc.Patch(c.Partial(&r))
+		}
+		partial := func(doc *config, a patch.Action) (bool, error) {
+			r, err := report(doc, a)
+			return r.Filled, err
 		}
 
 		It("Should leave a zero value for a removal of a required field", func() {
@@ -545,6 +549,27 @@ var _ = Describe("Patch of lists, unions, and JSON values", func() {
 			Expect(MustSucceed(partial(&doc, patch.Remove{
 				Path: []string{"entries", "a"}, Key: "name",
 			}))).To(BeTrue())
+			Expect(doc.Entries[0].Name).To(BeEmpty())
+		})
+
+		It("Should report the path of a removed value", func() {
+			doc := base
+			r := MustSucceed(report(&doc, patch.Remove{
+				Path: []string{"entries", "a"}, Key: "name",
+			}))
+			Expect(r.Emptied).To(Equal([][]string{{"entries", "a", "name"}}))
+		})
+
+		It("Should report the path of a value set to null", func() {
+			doc := base
+			r := MustSucceed(report(&doc, set(nil, "entries", "a", "name")))
+			Expect(r.Emptied).To(Equal([][]string{{"entries", "a", "name"}}))
+		})
+
+		It("Should not report a value set to a zero value", func() {
+			doc := base
+			r := MustSucceed(report(&doc, set("", "entries", "a", "name")))
+			Expect(r.Emptied).To(BeEmpty())
 			Expect(doc.Entries[0].Name).To(BeEmpty())
 		})
 
