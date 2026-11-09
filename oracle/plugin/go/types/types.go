@@ -1453,6 +1453,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "gt"}}
+	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- end}}
@@ -1607,6 +1609,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "gt"}}
+	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- end}}
