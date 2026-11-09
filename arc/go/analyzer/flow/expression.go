@@ -117,13 +117,17 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 }
 
 // AnalyzeComputedArgs registers a synthetic function for each instance argument
-// that is neither a literal nor a bare name, so lowering can sample it per fire.
+// that is not a literal, a float constant, or a bare name, so lowering can sample it
+// per fire.
 func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
 		if parser.IsLiteral(arg.Expr) || parser.BareIdentifier(arg.Expr) != nil {
+			continue
+		}
+		if _, ok := ctx.FloatConstant(arg.Expr); ok {
 			continue
 		}
 		AnalyzeSingleExpression(ctx.Child(arg.Expr))
