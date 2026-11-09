@@ -13,6 +13,7 @@ import "schemas/synnax/ranger"
 import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
@@ -174,30 +175,6 @@ Panel struct {
         """
     }
 
-    action Rename {
-        name string
-
-        @doc value "renames the panel."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the panel into a group, or out of its group when group is empty.
-            Emitted by the Core when it moves the panel; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the panel into a project. Emitted by the Core when it moves the panel;
-            clients never dispatch it.
-        """
-    }
-
     action SetIcon {
         icon string?
 
@@ -307,6 +284,24 @@ Panel struct {
             place without changing the tab's identity or position. Clears any resource
             set on the tab.
         """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the panel."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the panel.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the panel."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the panel."
     }
 
     @create

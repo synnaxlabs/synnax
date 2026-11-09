@@ -21,8 +21,8 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
@@ -280,7 +280,7 @@ export class Client extends query.Retriever<
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });

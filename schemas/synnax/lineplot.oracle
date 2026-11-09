@@ -13,6 +13,7 @@ import "schemas/synnax/project"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 import "schemas/x/text"
 
@@ -353,30 +354,6 @@ LinePlot struct {
         """
     }
 
-    action Rename {
-        name string
-
-        @doc value "renames the line plot."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the line plot into a group, or out of its group when group is empty.
-            Emitted by the Core when it moves the line plot; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the line plot into a project. Emitted by the Core when it moves the
-            line plot; clients never dispatch it.
-        """
-    }
-
     action SetTitleVisible {
         visible bool
 
@@ -636,6 +613,24 @@ LinePlot struct {
         key string
 
         @doc value "removes the rule with the given key, if present."
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the line plot."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the line plot.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the line plot."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the line plot."
     }
 
     @create

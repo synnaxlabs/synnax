@@ -166,9 +166,11 @@ describe("Table", () => {
       });
     };
 
-    test("rename applies via dispatch", async () => {
+    test("a set of the name applies via dispatch", async () => {
       const t = await createTable();
-      await client.tables.dispatch(t.key, [table.rename({ name: "renamed" })]);
+      await client.tables.dispatch(t.key, [
+        table.set({ path: ["name"], value: "renamed" }),
+      ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("renamed");
     });
@@ -275,7 +277,7 @@ describe("Table", () => {
     test("multi-action sequence applies atomically", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, [
-        table.rename({ name: "multi" }),
+        table.set({ path: ["name"], value: "multi" }),
         table.addRow({
           index: 1,
           size: 40,
@@ -349,16 +351,12 @@ describe("Table", () => {
     };
 
     describe("inverses", () => {
-      test("rename produces a rename inverse with the old name", () => {
+      test("a set of the name produces a set inverse with the old name", () => {
         const { next, inverse } = table.reduceAll(emptyState("before"), [
-          table.rename({ name: "after" }),
+          table.set({ path: ["name"], value: "after" }),
         ]);
         expect(next.name).toEqual("after");
-        expect(inverse).toHaveLength(1);
-        expect(inverse[0].type).toEqual("rename");
-        expect(inverse[0].type === "rename" ? inverse[0].rename.name : null).toEqual(
-          "before",
-        );
+        expect(inverse).toEqual([table.set({ path: ["name"], value: "before" })]);
       });
 
       test("addRow inverse removes the added row by its key", () => {
@@ -865,7 +863,10 @@ describe("Table", () => {
       };
 
       test.for<{ name: string; action: table.Action }>([
-        { name: "rename", action: table.rename({ name: "after" }) },
+        {
+          name: "set of the name",
+          action: table.set({ path: ["name"], value: "after" }),
+        },
         {
           name: "addRow",
           action: table.addRow({

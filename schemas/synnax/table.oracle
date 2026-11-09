@@ -238,30 +238,6 @@ Table struct {
         """
     }
 
-    action Rename {
-        name string
-
-        @doc value "renames the table."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the table into a group, or out of its group when group is empty.
-            Emitted by the Core when it moves the table; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the table into a project. Emitted by the Core when it moves the table;
-            clients never dispatch it.
-        """
-    }
-
     action AddRow {
         index         uint32
         key           string = create
@@ -396,12 +372,12 @@ Table struct {
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the table's cells."
+        @doc value "replaces the value at a path in the table."
     }
 
     action Remove extends patch.Remove {
         @doc value """
-            removes an entry from a list or a field from an object in the table's cells.
+            removes an entry from a list or a field from an object in the table.
         """
     }
 

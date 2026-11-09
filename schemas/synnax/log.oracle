@@ -14,6 +14,7 @@ import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/notation"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/log"
@@ -125,30 +126,6 @@ Log struct {
         @doc value """
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the log."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the log into a group, or out of its group when group is empty. Emitted
-            by the Core when it moves the log; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the log into a project. Emitted by the Core when it moves the log;
-            clients never dispatch it.
         """
     }
 
@@ -286,6 +263,24 @@ Log struct {
         time_zone telem.TimeZone
 
         @doc value "sets the time zone of the line times and day rows of the log."
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the log."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the log.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the log."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the log."
     }
 
     @create

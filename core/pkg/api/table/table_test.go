@@ -179,7 +179,9 @@ var _ = Describe("Dispatch", func() {
 		return dispatch(AuthedCtx(ctx, u), apitable.DispatchRequest{
 			Key: t.Key,
 			Actions: []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "Renamed"}),
+				table.NewSetAction(
+					table.SetPayload{Path: []string{"name"}, Value: "Renamed"},
+				),
 			},
 		})
 	}

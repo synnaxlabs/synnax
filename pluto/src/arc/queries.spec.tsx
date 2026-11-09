@@ -137,7 +137,9 @@ describe("Arc queries", () => {
       );
       await waitFor(() => expect(result.current?.name).toEqual("original"));
       await act(async () => {
-        await client.arcs.dispatch(item.key, [arc.rename({ name: "updated" })]);
+        await client.arcs.dispatch(item.key, [
+          arc.set({ path: ["name"], value: "updated" }),
+        ]);
       });
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
     });
@@ -232,7 +234,9 @@ describe("Arc queries", () => {
       expect(result.current.list.getItem(key)?.name).toEqual("original-name");
 
       await act(async () => {
-        await client.arcs.dispatch(key, [arc.rename({ name: "updated-name" })]);
+        await client.arcs.dispatch(key, [
+          arc.set({ path: ["name"], value: "updated-name" }),
+        ]);
       });
 
       await waitFor(() => {
