@@ -15,7 +15,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import group as group_, project as project_
 from synnax.schematic.types_gen import Edge, ElementConfig, Node, Schematic
 from x import patch, spatial
 
@@ -26,28 +25,6 @@ class CreatePayload(BaseModel):
     """
 
     schematic: Schematic
-
-
-class RenamePayload(BaseModel):
-    """Renames the schematic."""
-
-    name: str
-
-
-class SetGroupPayload(BaseModel):
-    """Moves the schematic into a group, or out of its group when group is empty.
-    Emitted by the Core when it moves the schematic; clients never dispatch it.
-    """
-
-    group: group_.Key | None = None
-
-
-class SetProjectPayload(BaseModel):
-    """Moves the schematic into a project. Emitted by the Core when it moves the
-    schematic; clients never dispatch it.
-    """
-
-    project: project_.Key
 
 
 class SetNodePositionPayload(BaseModel):
@@ -99,8 +76,8 @@ class SetConfigPayload(BaseModel):
 
 
 class SetPayload(BaseModel):
-    """Replaces the value at a path in the schematic's element configs. No-op when no
-    node or edge has the config's key.
+    """Replaces the value at a path in the schematic's name or element configs. No-op
+    when no node or edge has the config's key.
 
     Attributes:
         path: Is the path to the value. A segment into a list names the key of an entry.
@@ -169,21 +146,6 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
-class RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: RenamePayload
-
-
-class SetGroupAction(BaseModel):
-    type: Literal["set_group"] = "set_group"
-    set_group: SetGroupPayload
-
-
-class SetProjectAction(BaseModel):
-    type: Literal["set_project"] = "set_project"
-    set_project: SetProjectPayload
-
-
 class SetNodePositionAction(BaseModel):
     type: Literal["set_node_position"] = "set_node_position"
     set_node_position: SetNodePositionPayload
@@ -237,9 +199,6 @@ class MoveAction(BaseModel):
 # Action is a discriminated union for all Schematic mutations.
 Action = Annotated[
     CreateAction
-    | RenameAction
-    | SetGroupAction
-    | SetProjectAction
     | SetNodePositionAction
     | SetNodeAction
     | RemoveNodeAction
@@ -256,18 +215,6 @@ Action = Annotated[
 
 def create(payload: CreatePayload) -> CreateAction:
     return CreateAction(create=payload)
-
-
-def rename(payload: RenamePayload) -> RenameAction:
-    return RenameAction(rename=payload)
-
-
-def set_group(payload: SetGroupPayload) -> SetGroupAction:
-    return SetGroupAction(set_group=payload)
-
-
-def set_project(payload: SetProjectPayload) -> SetProjectAction:
-    return SetProjectAction(set_project=payload)
 
 
 def set_node_position(payload: SetNodePositionPayload) -> SetNodePositionAction:

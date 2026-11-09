@@ -47,23 +47,12 @@ export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
   },
 });
 
-export type ListQuery = label.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
-  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.labels.onChange(key, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
-});
-
 const { useEnsure } = Flux.createRetrieve<RetrieveQuery, label.Label>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
-    client.labels.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.labels.getCached(key),
+    client.labels.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.labels.watch(key).getCached(),
 });
 
 export const createFormSchema = label.labelZ.partial({ key: true });
@@ -125,6 +114,6 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   retrieve: async ({ client, query: { keys } }) =>
     await client.labels.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.labels.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),
+    client.labels.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.labels.watch(keys).getCached(),
 });

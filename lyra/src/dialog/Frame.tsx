@@ -12,6 +12,7 @@ import {
   type CSSProperties,
   type ReactElement,
   type RefCallback,
+  type RefObject,
   useEffect,
   useId,
   useRef,
@@ -88,6 +89,11 @@ export interface ContextValue {
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
   location: location.XY;
+  /**
+   * Holds the element that opens the dialog, which a dropdown gives the focus back to.
+   * {@link Trigger} sets it, so only a custom trigger needs to.
+   */
+  triggerRef: RefCallback<HTMLElement>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -98,6 +104,7 @@ const [Context, useContext] = context.create<ContextValue>({
     toggle: () => {},
     variant: "floating",
     visible: false,
+    triggerRef: () => {},
   },
   displayName: "Dialog.Context",
 });
@@ -110,6 +117,8 @@ interface InternalContextValue extends Pick<
   ref: RefCallback<HTMLDivElement>;
   /** Ties the portaled dialog back to this frame for click-outside checks. */
   id: string;
+  /** The element that `triggerRef` holds. */
+  trigger: RefObject<HTMLElement | null>;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -237,6 +246,10 @@ export const Frame = ({
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const prevAvailableHeight = useRef<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLElement | null>(null);
+  const triggerRef = (el: HTMLElement | null) => {
+    trigger.current = el;
+  };
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
@@ -402,6 +415,7 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = {
     ref: combinedDialogRef,
     id,
+    trigger,
     targetCorner,
     dialogCorner,
     style,
@@ -416,6 +430,7 @@ export const Frame = ({
     onPointerEnter,
     variant,
     location: targetCorner,
+    triggerRef,
   };
 
   return (

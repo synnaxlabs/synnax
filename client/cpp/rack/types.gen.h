@@ -33,9 +33,13 @@
 namespace synnax::rack {
 
 struct Where;
+struct Cursor;
 struct Rack;
-struct RetrieveRequest;
+struct Order;
 struct RetrieveResponse;
+struct RetrieveRequest;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
 /// key, and the low 16 bits contain the local sequential key. A rack is leased to the
@@ -96,6 +100,23 @@ struct Where {
     from_proto(const ::service::rack::pb::Where &pb);
 };
 
+/// @brief Cursor is a position in an order of racks: the sort value and the key of a
+/// rack.
+struct Cursor {
+    /// @brief key is the key of the rack at the position.
+    Key key = 0;
+    /// @brief name is the name of the rack at the position, when the order sorts by it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::Cursor;
+    [[nodiscard]] std::pair<::api::rack::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::rack::pb::Cursor &pb);
+};
+
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific Core. Racks are the integration point between the Core and physical
 /// hardware through the Driver.
@@ -128,50 +149,20 @@ struct Rack {
     task::Client tasks;
 };
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the racks that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most racks to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
+/// @brief Order is a sort of racks.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveRequest is a request to retrieve racks.
-struct RetrieveRequest {
-    /// @brief where selects the racks to retrieve. An absent where selects all of them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the racks that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most racks to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .limit = options.limit,
-            .offset = options.offset,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::rack::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
+    using proto_type = ::api::rack::pb::Order;
+    [[nodiscard]] std::pair<::api::rack::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::rack::pb::Order &pb);
 };
 
 /// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
@@ -187,6 +178,57 @@ struct RetrieveResponse {
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
     from_proto(const ::api::rack::pb::RetrieveResponse &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the racks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the racks strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve racks.
+struct RetrieveRequest {
+    /// @brief where selects the racks to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the racks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the racks strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");
