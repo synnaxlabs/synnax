@@ -117,7 +117,7 @@ var _ = Describe("Service", func() {
 				"arc_key":     arcKey.String(),
 				"performance": "high",
 			}))
-			data := MustSucceed(svc.Config.Read(ctx, nil, key))
+			data := MustSucceed(svc.Config.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
 			Expect(data["performance"]).To(Equal("high"))
@@ -127,7 +127,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Config, msgpack.EncodedJSON{
 				"arc_key": arcKey.String(),
 			}))
-			data := MustSucceed(svc.Config.Read(ctx, nil, key))
+			data := MustSucceed(svc.Config.Read(ctx, db, key))
 			Expect(data["performance"]).To(Equal("auto"))
 		})
 
@@ -145,10 +145,10 @@ var _ = Describe("Service", func() {
 			func(
 				ctx SpecContext,
 			) {
-				Expect(svc.Config.Prepare(ctx, nil, uuid.New(), "", msgpack.EncodedJSON{
+				Expect(svc.Config.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"arc_key":     uuid.New().String(),
 					"performance": "BOGUS",
-				}, nil)).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+				})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 			},
 		)
 	})
@@ -158,7 +158,7 @@ var _ = Describe("Service", func() {
 			"Should convert the loop mode of a v1 config to a performance level",
 			func(ctx SpecContext) {
 				data := MustSucceed(
-					svc.Config.Normalize(ctx, nil, 1, msgpack.EncodedJSON{
+					svc.Config.Normalize(ctx, db, 1, msgpack.EncodedJSON{
 						"arc_key":        arcKey.String(),
 						"execution_mode": "BUSY_WAIT",
 						"rt_priority":    80,
@@ -172,7 +172,7 @@ var _ = Describe("Service", func() {
 		It("Should decode a current config without rewriting it", func(
 			ctx SpecContext,
 		) {
-			data := MustSucceed(svc.Config.Normalize(ctx, nil,
+			data := MustSucceed(svc.Config.Normalize(ctx, db,
 				versions.Latest,
 				msgpack.EncodedJSON{
 					"arc_key":        arcKey.String(),

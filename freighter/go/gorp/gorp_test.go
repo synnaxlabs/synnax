@@ -27,8 +27,6 @@ type entry struct {
 
 func (e entry) GorpKey() string { return e.ID }
 
-func (entry) SetOptions() []any { return nil }
-
 var errBoom = errors.New("boom")
 
 var _ = Describe("CreateWriteUnaryHandler", func() {

@@ -26,11 +26,6 @@ var _ = Describe("Policy", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Policy{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the policy resource identifier", func() {
 			k := uuid.New()

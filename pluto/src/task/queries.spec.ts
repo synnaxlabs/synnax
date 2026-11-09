@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { rack, status, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -628,7 +628,7 @@ describe("queries", () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
         const snapshots = await client.tasks.retrieve({
-          where: { name: { in: [firstSnapshotName, secondSnapshotName] } },
+          name: [firstSnapshotName, secondSnapshotName],
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
         const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
@@ -661,7 +661,7 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const inRange = await client.tasks.retrieve({ where: { ranges: [rng.key] } });
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
       expect(inRange.map(({ name }) => name)).toEqual([
         `${originalTask.name} (Snapshot)`,
       ]);
@@ -945,6 +945,9 @@ describe("queries", () => {
     it("should keep a local edit over a whole write from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
+      // The edit sends once its coalesce window ends, which can come before the remote
+      // write on a slow machine. The hold keeps the Core from applying it first.
+      const { release } = holdRequests(client, "/task/dispatch");
       act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
         await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
@@ -955,6 +958,7 @@ describe("queries", () => {
       expect(result.current.form.get(path.config.routingKey).value).toEqual(
         OTHER_ROUTING_KEY,
       );
+      release();
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");

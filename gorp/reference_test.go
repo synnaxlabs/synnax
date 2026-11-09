@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"context"
-	"iter"
 	"slices"
 	"time"
 
@@ -21,11 +20,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -35,13 +31,11 @@ import (
 
 type refRack struct{ Key uint32 }
 
-func (r refRack) GorpKey() uint32   { return r.Key }
-func (r refRack) SetOptions() []any { return nil }
+func (r refRack) GorpKey() uint32 { return r.Key }
 
 type refLabel struct{ Key string }
 
-func (l refLabel) GorpKey() string   { return l.Key }
-func (l refLabel) SetOptions() []any { return nil }
+func (l refLabel) GorpKey() string { return l.Key }
 
 type refDevice struct {
 	Key    string
@@ -50,14 +44,12 @@ type refDevice struct {
 	Labels []string
 }
 
-func (d refDevice) GorpKey() string   { return d.Key }
-func (d refDevice) SetOptions() []any { return nil }
+func (d refDevice) GorpKey() string { return d.Key }
 
 // refDeviceName reads the table of refDevice as another entry type.
 type refDeviceName struct{ Key string }
 
 func (d refDeviceName) GorpKey() string      { return d.Key }
-func (d refDeviceName) SetOptions() []any    { return nil }
 func (refDeviceName) CustomTypeName() string { return types.Name[refDevice]() }
 
 type refOwner struct {
@@ -70,21 +62,18 @@ type refStatus struct {
 	Owner *refOwner
 }
 
-func (s refStatus) GorpKey() string   { return s.Key }
-func (s refStatus) SetOptions() []any { return nil }
+func (s refStatus) GorpKey() string { return s.Key }
 
 type refProject struct{ Key string }
 
-func (p refProject) GorpKey() string   { return p.Key }
-func (p refProject) SetOptions() []any { return nil }
+func (p refProject) GorpKey() string { return p.Key }
 
 type refGroup struct {
 	Key     string
 	Project string
 }
 
-func (g refGroup) GorpKey() string   { return g.Key }
-func (g refGroup) SetOptions() []any { return nil }
+func (g refGroup) GorpKey() string { return g.Key }
 
 type refSchematic struct {
 	Key     string
@@ -92,8 +81,7 @@ type refSchematic struct {
 	Group   string
 }
 
-func (s refSchematic) GorpKey() string   { return s.Key }
-func (s refSchematic) SetOptions() []any { return nil }
+func (s refSchematic) GorpKey() string { return s.Key }
 
 // deviceRefs are the references of a refDevice, in the shape that Oracle generates.
 type deviceRefs struct {
@@ -108,6 +96,7 @@ func newDeviceRefs() deviceRefs {
 			Name:     "rack",
 			Table:    "rack",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
 			Targets:  func(d *refDevice) []uint32 { return []uint32{d.Rack} },
 		}),
 		parent: gorp.NewKeyReference(
@@ -115,6 +104,7 @@ func newDeviceRefs() deviceRefs {
 				Name:     "parent",
 				Table:    "device",
 				OnDelete: gorp.Cascade,
+				Kind:     gorp.Place,
 				Acyclic:  true,
 				Targets: func(d *refDevice) []string {
 					if d.Parent == "" {
@@ -129,6 +119,7 @@ func newDeviceRefs() deviceRefs {
 				Name:     "labels",
 				Table:    "label",
 				OnDelete: gorp.Detach,
+				Kind:     gorp.Use,
 				Targets:  func(d *refDevice) []string { return d.Labels },
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
@@ -152,6 +143,7 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 		Name:     "owner",
 		Tables:   []string{"rack", "device"},
 		OnDelete: gorp.Cascade,
+		Kind:     gorp.Place,
 		Unique:   true,
 		Targets: func(s *refStatus) []gorp.Target {
 			if s.Owner == nil {
@@ -171,7 +163,9 @@ var _ = Describe("Reference", func() {
 		statuses  *gorp.Table[string, refStatus]
 		deviceRef deviceRefs
 		ownerRef  *gorp.TargetReference[string, refStatus]
-		open      = func(ctx SpecContext, opts ...gorp.Option) {
+		// onDetach is the detach hook of the device table. Nil runs no hook.
+		onDetach func(ctx context.Context, tx gorp.Tx, d refDevice) error
+		open     = func(ctx SpecContext, opts ...gorp.Option) {
 			GinkgoHelper()
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
@@ -185,11 +179,18 @@ var _ = Describe("Reference", func() {
 				Name: "label",
 			}))
 			deviceRef = newDeviceRefs()
+			onDetach = nil
 			devices = MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 					DB:         db,
 					Name:       "device",
 					References: deviceRef.all(),
+					OnDetach: func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+						if onDetach == nil {
+							return nil
+						}
+						return onDetach(ctx, tx, d)
+					},
 				}),
 			)
 			ownerRef = newOwnerRef()
@@ -439,7 +440,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("NewUncheckedWriter", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It("Should keep the indexes current without checks", func(ctx SpecContext) {
@@ -464,7 +465,7 @@ var _ = Describe("Reference", func() {
 
 	Describe("Get", func() {
 		BeforeEach(func(ctx SpecContext) {
-			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+			open(ctx)
 		})
 
 		It(
@@ -474,7 +475,7 @@ var _ = Describe("Reference", func() {
 				var found []string
 				DeferCleanup(devices.Observe().OnChange(func(
 					context.Context,
-					iter.Seq[change.Change[string, refDevice]],
+					gorp.TxReader[string, refDevice],
 				) {
 					found = MustSucceed(deviceRef.rack.Get(ctx, nil, 1))
 				}))
@@ -651,6 +652,19 @@ var _ = Describe("Reference", func() {
 			Expect(racks.Dependents(ctx, db, 1)).To(BeEmpty())
 		})
 
+		It("Should list the entries that hold a target through a snapshot", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			var deps []gorp.Target
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				deps, err = racks.Dependents(ctx, snap, 1)
+				return err
+			})).To(Succeed())
+			Expect(deps).To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+		})
+
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
 			createRack(ctx, 1)
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
@@ -660,29 +674,6 @@ var _ = Describe("Reference", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(racks.Dependents(ctx, tx, 1)).To(BeEmpty())
 			Expect(racks.Dependents(ctx, db, 1)).To(HaveLen(1))
-		})
-	})
-
-	Describe("Targets", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
-
-		It("Should list the targets of every reference in order", func() {
-			Expect(devices.Targets(&refDevice{
-				Key:    "a",
-				Rack:   1,
-				Parent: "b",
-				Labels: []string{"x", "y"},
-			})).To(Equal([]gorp.Target{
-				{Table: "rack", Key: "1"},
-				{Table: "device", Key: "b"},
-				{Table: "label", Key: "x"},
-				{Table: "label", Key: "y"},
-			}))
-		})
-
-		It("Should leave out a reference that holds no target", func() {
-			Expect(devices.Targets(&refDevice{Key: "a", Rack: 1})).
-				To(Equal([]gorp.Target{{Table: "rack", Key: "1"}}))
 		})
 	})
 
@@ -824,14 +815,14 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
-		Describe("ObserveDetaches", func() {
+		Describe("OnDetach", func() {
 			var detached []refDevice
 			BeforeEach(func(ctx SpecContext) {
 				detached = nil
-				record := func(_ context.Context, d refDevice) {
+				onDetach = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
 					detached = append(detached, d)
+					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
 				}
-				DeferCleanup(devices.ObserveDetaches().OnChange(record))
 				createRack(ctx, 1)
 				createLabels(ctx, "l1", "l2")
 				Expect(createDevice(ctx, refDevice{
@@ -847,32 +838,36 @@ var _ = Describe("Reference", func() {
 			})
 
 			It(
-				"Should notify each detached entry after the delete commits",
+				"Should run the hook in the delete's transaction with the entry as written",
 				func(ctx SpecContext) {
-					tx := db.OpenTx()
+					tx := DeferClose(db.OpenTx())
 					Expect(labels.NewDelete().
 						Where(gorp.MatchKeys[string, refLabel]("l1")).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(detached).To(BeEmpty())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
 					Expect(detached).To(HaveLen(1))
 					Expect(detached[0].Key).To(Equal("d1"))
 					Expect(detached[0].Labels).To(Equal([]string{"l2"}))
+					Expect(rackExists(ctx, 7)).To(BeFalse())
+					Expect(tx.Commit(ctx)).To(Succeed())
+					Expect(rackExists(ctx, 7)).To(BeTrue())
 				},
 			)
 
-			It(
-				"Should not notify a detach that does not commit",
-				func(ctx SpecContext) {
-					tx := db.OpenTx()
-					Expect(labels.NewDelete().
-						Where(gorp.MatchKeys[string, refLabel]("l1")).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(tx.Close()).To(Succeed())
-					Expect(detached).To(BeEmpty())
-				},
-			)
+			It("Should fail the delete when the hook fails", func(ctx SpecContext) {
+				hookErr := errors.New("hook failed")
+				onDetach = func(context.Context, gorp.Tx, refDevice) error {
+					return hookErr
+				}
+				Expect(labels.NewDelete().
+					Where(gorp.MatchKeys[string, refLabel]("l1")).
+					Exec(ctx, db)).To(MatchError(hookErr))
+				var d refDevice
+				Expect(devices.NewRetrieve().
+					Where(gorp.MatchKeys[string, refDevice]("d1")).
+					Entry(&d).
+					Exec(ctx, db)).To(Succeed())
+				Expect(d.Labels).To(Equal([]string{"l1", "l2"}))
+			})
 		})
 	})
 
@@ -1080,6 +1075,27 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		It(
+			"Should refuse a second open table that stores under the same key prefix",
+			func(ctx SpecContext) {
+				Expect(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+					DB:   db,
+					Name: "other_rack",
+				})).Error().To(MatchError(
+					`[gorp] - table "other_rack" stores under the key prefix of open ` +
+						`table "rack"`,
+				))
+			},
+		)
+
+		It("Should free the key prefix of a closed table", func(ctx SpecContext) {
+			Expect(racks.Close()).To(Succeed())
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   db,
+				Name: "other_rack",
+			}))
+		})
+
 		DescribeTable(
 			"Should reject an invalid reference",
 			func(
@@ -1096,6 +1112,7 @@ var _ = Describe("Reference", func() {
 								Name:     "parent",
 								Table:    "project",
 								OnDelete: gorp.Cascade,
+								Kind:     gorp.Place,
 								Targets:  func(*refProject) []string { return nil },
 							},
 						),
@@ -1106,11 +1123,13 @@ var _ = Describe("Reference", func() {
 			Entry("with no name", gorp.KeyReferenceConfig[string, refProject, string]{
 				Table:    "label",
 				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
 				Targets:  func(*refProject) []string { return nil },
 			}, "project.references.1.name: required"),
 			Entry("with no table", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:     "label",
 				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
 				Targets:  func(*refProject) []string { return nil },
 			}, "project.references.1.table: must name at least one table"),
 			Entry(
@@ -1119,20 +1138,29 @@ var _ = Describe("Reference", func() {
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
 				},
 				"project.references.1.targets: must be non-nil",
 			),
 			Entry("with no policy", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:    "label",
 				Table:   "label",
+				Kind:    gorp.Use,
 				Targets: func(*refProject) []string { return nil },
 			}, "project.references.1.on_delete: must be Restrict, Cascade, or Detach"),
+			Entry("with no kind", gorp.KeyReferenceConfig[string, refProject, string]{
+				Name:     "label",
+				Table:    "label",
+				OnDelete: gorp.Restrict,
+				Targets:  func(*refProject) []string { return nil },
+			}, "project.references.1.kind: must be Place or Use"),
 			Entry(
 				"detaching with no Detach",
 				gorp.KeyReferenceConfig[string, refProject, string]{
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
 					Targets:  func(*refProject) []string { return nil },
 				},
 				"project.references.1.detach: must be set when on_delete is Detach",
@@ -1143,6 +1171,7 @@ var _ = Describe("Reference", func() {
 					Name:     "label",
 					Table:    "label",
 					OnDelete: gorp.Cascade,
+					Kind:     gorp.Use,
 					Acyclic:  true,
 					Targets:  func(*refProject) []string { return nil },
 				},
@@ -1178,6 +1207,7 @@ var _ = Describe("Reference closure", func() {
 					Name:     "project",
 					Table:    "project",
 					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
 					Targets:  func(g *refGroup) []string { return []string{g.Project} },
 				}),
 			},
@@ -1186,6 +1216,7 @@ var _ = Describe("Reference closure", func() {
 			Name:     "group",
 			Table:    "group",
 			OnDelete: policy,
+			Kind:     gorp.Place,
 			Targets: func(s *refSchematic) []string {
 				if s.Group == "" {
 					return nil
@@ -1207,6 +1238,7 @@ var _ = Describe("Reference closure", func() {
 							Name:     "project",
 							Table:    "project",
 							OnDelete: gorp.Cascade,
+							Kind:     gorp.Place,
 							Targets: func(s *refSchematic) []string {
 								return []string{s.Project}
 							},
@@ -1364,6 +1396,7 @@ var _ = Describe("DropDangling", func() {
 					Name:     "rack",
 					Tables:   []string{"rack"},
 					OnDelete: gorp.Restrict,
+					Kind:     gorp.Place,
 					Targets:  rack,
 					Detach:   rackDetach,
 				}),
@@ -1371,6 +1404,7 @@ var _ = Describe("DropDangling", func() {
 					Name:     "labels",
 					Table:    "label",
 					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
 					Targets:  func(d *refDevice) []string { return d.Labels },
 					Detach: func(d *refDevice, t string) {
 						d.Labels = slices.DeleteFunc(d.Labels, func(l string) bool {

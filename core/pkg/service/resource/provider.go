@@ -24,21 +24,21 @@ import (
 // Provider searches the records of one type and retrieves them by ID.
 type Provider interface {
 	// Search returns the IDs of the records whose text matches q, closest match first.
-	// Search reads the changes staged against tx.
+	// Search reads through snap.
 	Search(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		q search.Query[ID],
 	) (search.Result[ID], error)
 	// Retrieve returns the records that ids name. It leaves out each ID that names no
 	// record. Every ID has the type of the Provider.
-	Retrieve(ctx context.Context, tx gorp.Tx, ids []ID) ([]Resource, error)
+	Retrieve(ctx context.Context, snap gorp.Snapshot, ids []ID) ([]Resource, error)
 	// List returns at most limit records, in the same order on every call. It leaves
 	// out the records whose IDs except returns true for, and still returns limit
 	// records when that many remain. A nil except leaves out nothing.
 	List(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		limit int,
 		except func(ID) bool,
 	) ([]Resource, error)
@@ -48,12 +48,12 @@ type Provider interface {
 // a key.
 func SearchIndex[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	idx *gorp.SearchIndex[K, E],
 	id func(K) ID,
 	q search.Query[ID],
 ) (search.Result[ID], error) {
-	res, err := idx.Search(ctx, tx, search.Query[K]{
+	res, err := idx.Search(ctx, snap, search.Query[K]{
 		Term:   q.Term,
 		Except: func(key K) bool { return q.Except != nil && q.Except(id(key)) },
 		Limit:  q.Limit,
@@ -96,12 +96,12 @@ func NewTableProvider[K gorp.Key, E gorp.Entry[K]](
 // are not hidden.
 func (p *TableProvider[K, E]) Search(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	q search.Query[ID],
 ) (search.Result[ID], error) {
 	hidden := make(set.Set[K])
 	for {
-		res, err := p.cfg.Search.Search(ctx, tx, search.Query[K]{
+		res, err := p.cfg.Search.Search(ctx, snap, search.Query[K]{
 			Term: q.Term,
 			Except: func(key K) bool {
 				return hidden.Contains(key) ||
@@ -118,7 +118,7 @@ func (p *TableProvider[K, E]) Search(
 			Where(gorp.MatchKeys[K, E](res.Keys...)).
 			SkipMissingKeys().
 			Entries(&entries).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return search.Result[ID]{}, err
 		}
 		n := len(hidden)
@@ -138,7 +138,7 @@ func (p *TableProvider[K, E]) Search(
 // unchanged.
 func (p *TableProvider[K, E]) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	ids []ID,
 ) ([]Resource, error) {
 	keys, err := lo.MapErr(ids, func(id ID, _ int) (K, error) {
@@ -164,7 +164,7 @@ func (p *TableProvider[K, E]) Retrieve(
 	if err = p.cfg.Table.NewRetrieve().
 		Where(gorp.MatchKeys[K, E](keys...)).
 		Entries(&entries).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		Exec(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	return p.resources(entries), nil
@@ -173,7 +173,7 @@ func (p *TableProvider[K, E]) Retrieve(
 // List implements Provider. It lists the records in the order of their keys.
 func (p *TableProvider[K, E]) List(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	limit int,
 	except func(ID) bool,
 ) ([]Resource, error) {
@@ -185,7 +185,7 @@ func (p *TableProvider[K, E]) List(
 		}))
 	}
 	var entries []E
-	if err := q.Entries(&entries).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&entries).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	return p.resources(entries), nil

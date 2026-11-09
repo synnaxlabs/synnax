@@ -11,13 +11,10 @@ package secret
 
 import (
 	"context"
-	"encoding/json/v2"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Resources returns the resource.Provider of secrets.
@@ -31,14 +28,13 @@ func (s *Service) Resources() *resource.TableProvider[Key, Secret] {
 	})
 }
 
-// Uses returns the ID of every record that references the secret with key, as seen by
-// tx. If tx is nil, Uses reads directly from the DB.
+// Uses returns the ID of every record in snap that references the secret with key.
 func (s *Service) Uses(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 // ResourceID returns the resource ID of the secret with the given key.
@@ -54,28 +50,4 @@ func ResourceIDs(keys []Key) []resource.ID {
 // ResourceIDsFromSecrets returns the resource IDs of the given secrets.
 func ResourceIDsFromSecrets(secrets []Secret) []resource.ID {
 	return lo.Map(secrets, func(s Secret, _ int) resource.ID { return s.ResourceID() })
-}
-
-// SetRecord returns the resource ID of the secret that a sample of the set channel
-// carries.
-func SetRecord(sample []byte) (resource.ID, error) {
-	var s Secret
-	if err := json.Unmarshal(sample, &s); err != nil {
-		return resource.ID{}, err
-	}
-	return s.ResourceID(), nil
-}
-
-// DeleteRecord returns the resource ID of the secret that a sample of the delete
-// channel names. It returns a validation error when the sample is not a key.
-func DeleteRecord(sample []byte) (resource.ID, error) {
-	if len(sample) != len(Key{}) {
-		return resource.ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"secret delete sample is %d bytes, not %d",
-			len(sample),
-			len(Key{}),
-		)
-	}
-	return ResourceID(Key(sample)), nil
 }

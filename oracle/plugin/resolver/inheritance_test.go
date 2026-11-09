@@ -672,4 +672,60 @@ var _ = Describe("Inheritance", func() {
 			Expect(base.Name).To(Equal("test.Base"))
 		})
 	})
+
+	Describe("VariantFields", func() {
+		const source = `
+			@go output "pkg/test"
+
+			Base struct {
+				port string = ""
+			}
+
+			Gain struct {
+				gain float64 = 1
+			}
+
+			Chan union on type extends Base {
+				builtin {
+					units string = "c"
+				}
+				scaled Gain
+			}
+		`
+		// owned names each field with the type that declares it.
+		owned := func(fields []resolver.OwnedField) []string {
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Owner.Name + "." + f.Field.Name
+			}
+			return names
+		}
+
+		It("Should list the base fields before an inline payload", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "builtin")
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(
+				owned(fields),
+			).To(Equal([]string{"Base.port", "ChanBuiltinPayload.units"}))
+		})
+
+		It("Should list the base fields before a named payload", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "scaled")
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(owned(fields)).To(Equal([]string{"Base.port", "Gain.gain"}))
+		})
+
+		It("Should list only the base fields for a payload that does not resolve", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, source, "Chan", "scaled")
+			v.Type = resolution.TypeRef{Name: "test.Missing"}
+			fields := resolver.VariantFields(form, v, "go", table)
+			Expect(owned(fields)).To(Equal([]string{"Base.port"}))
+		})
+	})
 })

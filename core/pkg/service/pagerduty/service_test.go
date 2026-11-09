@@ -10,6 +10,7 @@
 package pagerduty_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const plainKey = "0123456789abcdef0123456789abcdef"
@@ -43,15 +45,21 @@ func routingKeyOf(data msgpack.EncodedJSON) secret.Key {
 
 // expectSecret asserts that the secret with key is named name and holds the plain
 // routing key.
-func expectSecret(ctx SpecContext, svc *secret.Service, key secret.Key, name string) {
+func expectSecret(
+	ctx SpecContext,
+	db *gorp.DB,
+	svc *secret.Service,
+	key secret.Key,
+	name string,
+) {
 	GinkgoHelper()
 	var s secret.Secret
 	Expect(svc.NewRetrieve().
 		Where(secret.MatchKeys(key)).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	Expect(s.Base().Name).To(Equal(name))
-	Expect(svc.Reveal(ctx, nil, key)).
+	Expect(svc.Reveal(ctx, db, key)).
 		To(Equal(map[secret.Key][]byte{key: []byte(plainKey)}))
 }
 
@@ -81,7 +89,9 @@ var _ = Describe("Service", func() {
 		s := secret.Secret{Variant: secret.StoredSecret{
 			Base: secret.Base{Name: "Routing key"},
 		}}
-		Expect(secrets.NewWriter(nil).Create(ctx, &s, []byte(plainKey))).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return secrets.NewWriter(tx).Create(ctx, &s, []byte(plainKey))
+		})).To(Succeed())
 		return s.Base().Key
 	}
 
@@ -115,8 +125,14 @@ var _ = Describe("Service", func() {
 				DB:     db,
 				Secret: secrets,
 			}))
-			data := MustSucceed(svc.Alert.Read(ctx, nil, old.Key))
-			expectSecret(ctx, secrets, routingKeyOf(data), "Pump alerts routing key")
+			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
+			expectSecret(
+				ctx,
+				db,
+				secrets,
+				routingKeyOf(data),
+				"Pump alerts routing key",
+			)
 			Expect(data["alerts"]).To(HaveLen(1))
 		})
 	})
@@ -145,60 +161,62 @@ var _ = Describe("Service", func() {
 					"status": "status-1",
 				}},
 			}))
-			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
+			data := MustSucceed(svc.Alert.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(routingKeyOf(data)).To(Equal(routingKey))
 			Expect(data["auto_start"]).To(BeTrue())
 		})
 
-		It("Should move a plain routing key into a secret in the same transaction",
+		It("Should move a plain routing key into a secret named after the task",
 			func(ctx SpecContext) {
-				tx := db.OpenTx()
-				rec := MustSucceed(svc.Alert.Prepare(
+				key := MustSucceed(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
+					"plain_routing_key": plainKey,
+				}))
+				data := MustSucceed(svc.Alert.Read(ctx, db, key))
+				expectSecret(
 					ctx,
-					tx,
-					uuid.New(),
-					"Pump alerts",
-					msgpack.EncodedJSON{"plain_routing_key": plainKey}, nil,
-				))
-				routingKey := routingKeyOf(rec.Data())
-				Expect(secrets.NewRetrieve().
-					Where(secret.MatchKeys(routingKey)).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
-				expectSecret(ctx, secrets, routingKey, "Pump alerts routing key")
+					db,
+					secrets,
+					routingKeyOf(data),
+					"pagerduty_alert routing key",
+				)
 			},
 		)
 
-		It("Should create no secret when the transaction aborts", func(
+		It("Should create the secret only when the record is written", func(
 			ctx SpecContext,
 		) {
-			tx := db.OpenTx()
 			rec := MustSucceed(svc.Alert.Prepare(
 				ctx,
-				tx,
+				db,
 				uuid.New(),
-				"Aborted",
-				msgpack.EncodedJSON{"plain_routing_key": plainKey}, nil,
+				"Pump alerts",
+				msgpack.EncodedJSON{"plain_routing_key": plainKey},
 			))
-			Expect(tx.Close()).To(Succeed())
+			routingKey := routingKeyOf(MustSucceed(rec.Data()))
 			Expect(secrets.NewRetrieve().
-				Where(secret.MatchKeys(routingKeyOf(rec.Data()))).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Where(secret.MatchKeys(routingKey)).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rec.Write(ctx, tx)
+			})).To(MatchError(validate.ErrValidation))
+			Expect(secrets.NewRetrieve().
+				Where(secret.MatchKeys(routingKey)).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Normalize", func() {
 		DescribeTable("Should store the routing key of an old shape as a secret",
 			func(ctx SpecContext, version imex.Version, blob msgpack.EncodedJSON) {
-				normalized := MustSucceed(svc.Alert.Normalize(ctx, nil, version, blob))
+				normalized := MustSucceed(svc.Alert.Normalize(ctx, db, version, blob))
 				Expect(normalized).To(HaveKeyWithValue("plain_routing_key", plainKey))
 				Expect(normalized).ToNot(HaveKey("routing_key"))
 				key := MustSucceed(tasks.Create(ctx, svc.Alert, normalized))
-				data := MustSucceed(svc.Alert.Read(ctx, nil, key))
+				data := MustSucceed(svc.Alert.Read(ctx, db, key))
 				expectSecret(
 					ctx,
+					db,
 					secrets,
 					routingKeyOf(data),
 					"pagerduty_alert routing key",
@@ -223,7 +241,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
 				"routing_key": routingKey.String(),
 			}))
-			Expect(secrets.Uses(ctx, nil, routingKey)).To(Equal([]resource.ID{{
+			Expect(secrets.Uses(ctx, db, routingKey)).To(Equal([]resource.ID{{
 				Type: resource.Type(config.TableName(pd.AlertTaskType)),
 				Key:  key.String(),
 			}}))
@@ -236,15 +254,18 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
 				"routing_key": routingKey.String(),
 			}))
-			Expect(secrets.NewWriter(nil).Delete(ctx, routingKey)).To(
-				MatchError(gorp.RestrictError{
-					Target:    gorp.NewTarget("secret", routingKey),
-					Holder:    gorp.NewTarget(config.TableName(pd.AlertTaskType), key),
-					Reference: "routing_key",
-				}),
-			)
-			Expect(svc.Alert.Delete(ctx, nil, key)).To(Succeed())
-			Expect(secrets.NewWriter(nil).Delete(ctx, routingKey)).To(Succeed())
+			deleteKey := func(ctx context.Context) error {
+				return db.WithTx(ctx, func(tx gorp.Tx) error {
+					return secrets.NewWriter(tx).Delete(ctx, routingKey)
+				})
+			}
+			Expect(deleteKey(ctx)).To(MatchError(gorp.RestrictError{
+				Target:    gorp.NewTarget("secret", routingKey),
+				Holder:    gorp.NewTarget(config.TableName(pd.AlertTaskType), key),
+				Reference: "routing_key",
+			}))
+			Expect(svc.Alert.Delete(ctx, db, key)).To(Succeed())
+			Expect(deleteKey(ctx)).To(Succeed())
 		})
 
 		It("Should reject a routing key that does not exist", func(ctx SpecContext) {

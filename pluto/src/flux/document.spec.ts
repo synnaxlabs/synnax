@@ -87,6 +87,16 @@ const fetchStored = async (key: task.Key): Promise<task.Task> =>
 const countDispatches = (send: ReturnType<typeof spyOnSend>): number =>
   send.mock.calls.filter(([target]) => target === "/task/dispatch").length;
 
+const dispatchedActions = (send: ReturnType<typeof spyOnSend>): unknown[] =>
+  send.mock.calls
+    .filter(([target]) => target === "/task/dispatch")
+    .map(([, req]) => (req as { actions: unknown[] }).actions);
+
+const setRoutingKey = (value: string) => ({
+  type: "set",
+  set: expect.objectContaining({ path: ["config", "routing_key"], value }),
+});
+
 describe("createDocumentForm", () => {
   let testRack: rack.Rack;
   let wrapper: FC<PropsWithChildren>;
@@ -161,6 +171,7 @@ describe("createDocumentForm", () => {
       result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
     });
     await waitFor(() => expect(countDispatches(send)).toBe(1));
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     await formClient.tasks.settled(t.key);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
@@ -272,7 +283,7 @@ describe("createDocumentForm", () => {
     });
     act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
     await act(async () => expect(await result.current.flush()).toBe(true));
-    expect(countDispatches(send)).toBe(1);
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
     });
@@ -528,21 +539,46 @@ describe("createDocumentForm", () => {
   );
 
   it("should guard a write inside a union on the value that picks its option", async () => {
+    // A Modbus write channel is a union on its type.
     const unionSchema = z.object({
       name: z.string(),
-      config: z.discriminatedUnion("routingKey", [
-        z.object({ routingKey: z.literal(ROUTING_KEY), alerts: alertZ.array() }),
-        z.object({ routingKey: z.literal(OTHER_ROUTING_KEY), alerts: alertZ.array() }),
-      ]),
+      config: z.object({
+        channels: z
+          .discriminatedUnion("type", [
+            z.object({ type: z.literal("coil"), key: z.string(), address: z.number() }),
+            z.object({
+              type: z.literal("holding_register"),
+              key: z.string(),
+              address: z.number(),
+            }),
+          ])
+          .array(),
+      }),
     });
-    const useUnionForm = createForm(unionSchema);
-    const t = await createTask();
+    type UnionValues = z.infer<typeof unionSchema>;
+    const unionPath = deep.path<UnionValues>();
+    const useUnionForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof unionSchema
+    >({
+      name: "Task",
+      schema: unionSchema,
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { name, config } }) => ({ name, config }) as UnionValues,
+    });
+    const t = await testRack.createTask({
+      name: `document-${id.create()}`,
+      type: "modbus_write",
+      config: { channels: [{ type: "coil", key: "a", address: 1 }] },
+    });
     const { result } = await renderHookSuspended(
       () => useUnionForm({ query: { key: t.key } }),
       { wrapper },
     );
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set(path.config.alerts.a.status, "st-b"));
+    act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const [, req] =
       send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
@@ -551,14 +587,14 @@ describe("createDocumentForm", () => {
         {
           type: "set",
           set: {
-            path: ["config", "alerts", "a", "status"],
-            guards: [{ path: ["config", "routing_key"], value: ROUTING_KEY }],
+            path: ["config", "channels", "a", "address"],
+            guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
           },
         },
       ],
     });
     expect((await fetchStored(t.key)).config).toMatchObject({
-      alerts: [{ key: "a", status: "st-b" }],
+      channels: [{ key: "a", address: 2 }],
     });
   });
 

@@ -21,7 +21,7 @@ from x import filter
 from x.testutil import assert_eventually
 
 
-def _device(rack: int) -> sy.Device:
+def _device(rack: sy.rack.Key) -> sy.Device:
     key = str(uuid4())
     return sy.Device(
         key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
@@ -203,7 +203,7 @@ class TestTaskClient:
         where = task.Where(
             or_=[
                 task.Where(name=filter.String(eq="t0")),
-                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+                task.Where(key=filter.Set[task.Key](eq=tasks[1].key)),
             ]
         )
         res = client.tasks.retrieve(where=where, rack=rack.key)

@@ -31,7 +31,7 @@ func (t *Table[K, E]) register(named bool) error {
 		}
 		r.bind(t.name, i)
 	}
-	if err := t.db.registry.register(t.name, t); err != nil {
+	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {
 		return err
 	}
 	t.registered = true
@@ -55,14 +55,19 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
-	t.db.registry.unregister(t.name)
+	t.db.registry.unregister(t.name, t.keyPrefix)
 	t.registered = false
 }
 
-// writer returns a Writer that stages against the table's indexes and checks the
-// table's references when checked is true.
+// writer returns a Writer that stages against the indexes of every open table of E on
+// the table's key prefix and checks the table's references when checked is true. A
+// table outside the registry writes as a Writer with no table does.
 func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
-	w := wrapWriter[K, E](tx, t.keyPrefix, t.indexes)
+	if !t.registered {
+		return wrapWriter[K, E](tx, "", t.keyPrefix, nil)
+	}
+	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, nil)
+	w.references = t.references
 	if checked && len(t.references) > 0 {
 		w.table = t
 	}
@@ -76,13 +81,17 @@ func (t *Table[K, E]) canonical(k string) bool {
 }
 
 // exists implements registeredTable.
-func (t *Table[K, E]) exists(ctx context.Context, tx Tx, k string) (bool, error) {
+func (t *Table[K, E]) exists(
+	ctx context.Context,
+	snap Snapshot,
+	k string,
+) (bool, error) {
 	pk, err := key.Parse[K](k)
 	if err != nil {
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := tx.Get(ctx, codec.Encode(pk))
+	_, closer, err := snap.Get(ctx, codec.Encode(pk))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}
@@ -102,6 +111,7 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 		return err
 	}
 	w := t.writer(tx, false)
+	w.derived = true
 	return w.Delete(ctx, pks...)
 }
 
@@ -127,46 +137,42 @@ func (t *Table[K, E]) detach(
 		t.references[op.ref].detachTarget(&e, op.target)
 	}
 	w := t.writer(tx, false)
-	if err = w.Set(ctx, e); err != nil {
+	w.derived = true
+	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
 		return err
 	}
-	OnCommit(tx, func() { t.detaches.Notify(ctx, e) })
-	return nil
+	return t.onDetach(ctx, tx, e)
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference
 // that points at them.
 func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
-	if !t.registered {
-		w := t.writer(tx, false)
-		return w.Delete(ctx, keys...)
+	if t.registered {
+		formatted := make([]string, len(keys))
+		for i, k := range keys {
+			formatted[i] = FormatKey(k)
+		}
+		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
+		if err != nil {
+			return err
+		}
+		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
+			return err
+		}
 	}
-	formatted := make([]string, len(keys))
-	for i, k := range keys {
-		formatted[i] = FormatKey(k)
-	}
-	plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
-	if err != nil {
-		return err
-	}
-	return t.db.registry.apply(ctx, tx, plan)
+	w := t.writer(tx, false)
+	return w.Delete(ctx, keys...)
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry
-// with key k, as seen by tx. It waits for each reference's index to populate, or for
+// with key k, as seen by snap. It waits for each reference's index to populate, or for
 // ctx to end, and returns ErrIndexInvalid if one failed to populate.
-func (t *Table[K, E]) Dependents(ctx context.Context, tx Tx, k K) ([]Target, error) {
-	return t.db.registry.dependents(ctx, tx, Target{Table: t.name, Key: FormatKey(k)})
-}
-
-// Targets returns the targets that the references of e hold, in the order of the
-// references. It does not check that the targets exist.
-func (t *Table[K, E]) Targets(e *E) []Target {
-	var targets []Target
-	for _, r := range t.references {
-		targets = append(targets, r.targets(e)...)
-	}
-	return targets
+func (t *Table[K, E]) Dependents(
+	ctx context.Context,
+	snap Snapshot,
+	k K,
+) ([]Target, error) {
+	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
 }
 
 // check validates the references e holds against tx.

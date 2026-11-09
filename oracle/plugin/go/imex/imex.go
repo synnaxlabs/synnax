@@ -91,8 +91,9 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // `@go imex body` adds an exported <Type>Ladder per type instead and deletes any
 // Export. It errors when a marked type has no version chain, when a bare marker shares
 // its package with another marked type, when body types in one package come from
-// different chains, when a version redeclares a type without its Migrate<Type> step, or
-// when a version package does not parse.
+// different chains, when a version redeclares a type without its Migrate<Type> step,
+// when an exported version's file marks no type @go imex, or when a version package
+// does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -144,7 +145,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	for _, outputPath := range paths {
 		if err := p.generatePackage(
-			req, resp, outputPath, packages[outputPath],
+			ctx, req, resp, outputPath, packages[outputPath],
 		); err != nil {
 			return nil, err
 		}
@@ -231,6 +232,7 @@ func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 const bodyMarker = "body"
 
 func (p *Plugin) generatePackage(
+	ctx context.Context,
 	req *plugin.Request,
 	resp *plugin.Response,
 	outputPath string,
@@ -238,21 +240,19 @@ func (p *Plugin) generatePackage(
 ) error {
 	var (
 		exported = make(set.Set[int])
-		names    = make([]string, 0, len(targets))
 		floor    = targets[0].floor
 	)
 	for _, t := range targets {
 		exported.Add(t.exported...)
-		names = append(names, t.goName)
 		floor = min(floor, t.floor)
-	}
-	subject := "the shapes"
-	if len(names) == 1 {
-		subject = "the " + names[0] + " shape"
 	}
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
 		path := versioning.VersionedPath(outputPath, k)
+		subject, err := versionSubject(ctx, req, targets[0].livePath, k)
+		if err != nil {
+			return err
+		}
 		var buf bytes.Buffer
 		if err := versionTemplate.Execute(&buf, &versionData{
 			Package: naming.DerivePackageName(path),
@@ -320,6 +320,11 @@ func (p *Plugin) generatePackage(
 		Versions: gomod.ResolveImportPath(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 		),
+		Gorp: gomod.ResolveImportPath(
+			"gorp",
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		),
 		Runtime:    p.options.RuntimeImportPath,
 		Resource:   p.options.ResourceImportPath,
 		References: targets[0].references,
@@ -331,6 +336,35 @@ func (p *Plugin) generatePackage(
 		Content: exportBuf.Bytes(),
 	})
 	return nil
+}
+
+// versionSubject names the @go imex shapes in version k of the chain at livePath. It
+// reads only k's version file, so a later version or a live change leaves vK unchanged.
+func versionSubject(
+	ctx context.Context,
+	req *plugin.Request,
+	livePath string,
+	k int,
+) (string, error) {
+	surf, err := req.Versions.Surface(ctx, livePath, k)
+	if err != nil {
+		return "", err
+	}
+	var names []string
+	for _, def := range surf {
+		if domain.HasExprFromType(def.Type, "go", "imex") {
+			names = append(names, naming.GetGoName(def.Type))
+		}
+	}
+	switch len(names) {
+	case 0:
+		return "", errors.Newf(
+			"version %d of %s exports no @go imex type", k, livePath,
+		)
+	case 1:
+		return "the " + names[0] + " shape", nil
+	}
+	return "the shapes", nil
 }
 
 func (p *Plugin) executeChain(buf *bytes.Buffer, t target, imports []string) error {
@@ -387,6 +421,7 @@ type exportData struct {
 	// Name is the selector that reads the exported entry's name.
 	Name       string
 	Versions   string
+	Gorp       string
 	Runtime    string
 	Resource   string
 	References []string
@@ -401,14 +436,19 @@ import (
 	"context"
 	"uuid"
 
+	"{{.Gorp}}"
 	"{{.Runtime}}"
 	"{{.Resource}}"
 	"{{.Versions}}"
 )
 
-// Export retrieves the {{.Type}} identified by id and serializes it, stamping
+// Export retrieves the {{.Type}} identified by id from snap and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no {{.Type}} has id.Key.
-func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -417,7 +457,7 @@ func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{

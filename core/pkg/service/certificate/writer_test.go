@@ -77,7 +77,7 @@ var _ = Describe("Writer", func() {
 			Expect(e.secrets.NewRetrieve().
 				Where(secret.MatchKeys(*secretKey)).
 				Entry(&s).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, e.db)).To(Succeed())
 			Expect(s.Base().Name).To(Equal("Plant private key"))
 			Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
 		})
@@ -139,7 +139,9 @@ var _ = Describe("Writer", func() {
 				msg string,
 			) {
 				c := stored("Plant", pemText())
-				Expect(e.svc.NewWriter(nil).Create(ctx, &c, privateKey())).
+				Expect(e.write(ctx, func(w certificate.Writer) error {
+					return w.Create(ctx, &c, privateKey())
+				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry(
@@ -192,7 +194,9 @@ var _ = Describe("Writer", func() {
 			Entry(
 				"a certificate in place of a private key",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
-				func() []byte { return []byte(newCertificate(newKey(), "b", time.Hour)) },
+				func() []byte {
+					return []byte(newCertificate(newKey(), "b", time.Hour))
+				},
 				"private_key: is not a PEM private key",
 			),
 			Entry(
@@ -209,12 +213,16 @@ var _ = Describe("Writer", func() {
 		)
 		It("Should reject a certificate with no name", func(ctx SpecContext) {
 			c := stored("", newCertificate(newKey(), "a", time.Hour))
-			Expect(e.svc.NewWriter(nil).Create(ctx, &c, nil)).
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Create(ctx, &c, nil)
+			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should reject a certificate with no source", func(ctx SpecContext) {
 			c := certificate.Certificate{}
-			Expect(e.svc.NewWriter(nil).Create(ctx, &c, nil)).
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Create(ctx, &c, nil)
+			})).
 				To(MatchError(ContainSubstring("source: required")))
 		})
 		DescribeTable("Should reject an invalid file certificate",
@@ -223,7 +231,9 @@ var _ = Describe("Writer", func() {
 					Base:            certificate.Base{Name: "Plant"},
 					CertificatePath: path,
 				}}
-				Expect(e.svc.NewWriter(nil).Create(ctx, &c, privateKey)).
+				Expect(e.write(ctx, func(w certificate.Writer) error {
+					return w.Create(ctx, &c, privateKey)
+				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("no path", "", nil, "certificate_path: required"),
@@ -286,7 +296,9 @@ var _ = Describe("Writer", func() {
 					variant := c.Variant.(certificate.StoredCertificate)
 					variant.Pem = newCertificate(newKey(), "b", time.Hour)
 					c.Variant = variant
-					Expect(e.svc.NewWriter(nil).Create(ctx, &c, nil)).To(MatchError(
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Create(ctx, &c, nil)
+					})).To(MatchError(
 						ContainSubstring(
 							"private_key: required, because the new certificate " +
 								"does not match the saved key",
@@ -311,7 +323,7 @@ var _ = Describe("Writer", func() {
 					}, nil)
 					Expect(e.secrets.NewRetrieve().
 						Where(secret.MatchKeys(secretKey)).
-						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
 				},
 			)
 		})
@@ -324,9 +336,9 @@ var _ = Describe("Writer", func() {
 				stored("Before", newCertificate(newKey(), "a", time.Hour)),
 				nil,
 			)
-			Expect(
-				e.svc.NewWriter(nil).Rename(ctx, c.Base().Key, "After"),
-			).To(Succeed())
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "After")
+			})).To(Succeed())
 			Expect(e.retrieve(ctx, c.Base().Key).Base().Name).To(Equal("After"))
 			Expect(e.expiry(ctx, c.Base().Key).Name).To(Equal("After"))
 		})
@@ -336,11 +348,15 @@ var _ = Describe("Writer", func() {
 				stored("Before", newCertificate(newKey(), "a", time.Hour)),
 				nil,
 			)
-			Expect(e.svc.NewWriter(nil).Rename(ctx, c.Base().Key, "")).
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "")
+			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should return not found for a missing certificate", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(nil).Rename(ctx, uuid.New(), "A")).
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, uuid.New(), "A")
+			})).
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -356,23 +372,27 @@ var _ = Describe("Writer", func() {
 					encodeKey(key),
 				)
 				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-				Expect(e.svc.NewWriter(nil).Delete(ctx, c.Base().Key)).To(Succeed())
+				Expect(e.write(ctx, func(w certificate.Writer) error {
+					return w.Delete(ctx, c.Base().Key)
+				})).To(Succeed())
 				Expect(e.svc.NewRetrieve().
 					Where(certificate.MatchKeys(c.Base().Key)).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
 				Expect(e.secrets.NewRetrieve().
 					Where(secret.MatchKeys(secretKey)).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, e.db)).To(MatchError(query.ErrNotFound))
 				var found []status.Status[any]
 				Expect(e.status.NewRetrieve[any]().
 					Where(status.MatchOwners[any](c.ResourceID())).
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				Expect(found).To(BeEmpty())
 			},
 		)
 		It("Should succeed for a missing certificate", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(nil).Delete(ctx, uuid.New())).To(Succeed())
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Delete(ctx, uuid.New())
+			})).To(Succeed())
 		})
 		It("Should keep the secret service from deleting a key in use",
 			func(ctx SpecContext) {
@@ -383,7 +403,9 @@ var _ = Describe("Writer", func() {
 					encodeKey(key),
 				)
 				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-				Expect(e.secrets.NewWriter(nil).Delete(ctx, secretKey)).To(
+				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+					return e.secrets.NewWriter(tx).Delete(ctx, secretKey)
+				})).To(
 					MatchError(gorp.RestrictError{
 						Target:    gorp.NewTarget("secret", secretKey),
 						Holder:    gorp.NewTarget("certificate", c.Base().Key),

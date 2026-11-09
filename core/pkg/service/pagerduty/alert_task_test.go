@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -115,7 +116,7 @@ var _ = Describe("AlertTask", func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
 				Expect(stat.Details.Running).To(Equal(running))
 			},
@@ -167,6 +168,35 @@ var _ = Describe("AlertTask", func() {
 				events := sender.getEvents()
 				Expect(events[0].Action).To(Equal("resolve"))
 				Expect(events[0].DedupKey).To(Equal("watched-resolve"))
+			},
+		)
+
+		It("Should send one event for each of two quick changes, in order",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "quick-blocker"},
+					pd.Alert{Status: "quick-flap"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+				release := sender.hold()
+				setStatus(ctx, "quick-blocker", status.VariantError, "Busy", nil)
+				setStatus(ctx, "quick-flap", status.VariantError, "Broke", nil)
+				setStatus(ctx, "quick-flap", status.VariantSuccess, "Fixed", nil)
+				release()
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(3))
+				Expect(sender.getEvents()).To(HaveExactElements(
+					HaveField("DedupKey", "quick-blocker"),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "trigger"),
+					),
+					And(
+						HaveField("DedupKey", "quick-flap"),
+						HaveField("Action", "resolve"),
+					),
+				))
 			},
 		)
 
@@ -293,12 +323,14 @@ var _ = Describe("AlertTask", func() {
 				cfg.RoutingKey = &other
 				rec := MustSucceed(alertSvc.Alert.Prepare(
 					ctx,
-					nil,
+					db,
 					t.Key,
 					t.Name,
-					encodeConfig(cfg), nil,
+					encodeConfig(cfg),
 				))
-				Expect(rec.Write(ctx, nil)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rec.Write(ctx, tx)
+				})).To(Succeed())
 
 				setStatus(ctx, "saved-key", status.VariantError, "Trigger", nil)
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -325,7 +357,7 @@ var _ = Describe("AlertTask", func() {
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
 					g.Expect(stat.Message).To(Equal("Failed to start task"))
 					g.Expect(stat.Description).
@@ -503,7 +535,7 @@ var _ = Describe("AlertTask", func() {
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 						Entry(&stat).
-						Exec(ctx, nil)).To(Succeed())
+						Exec(ctx, db)).To(Succeed())
 					return stat
 				}
 				const (

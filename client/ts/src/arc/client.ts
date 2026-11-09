@@ -426,9 +426,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
-    const [tsk] = await this.cfg.tasks.retrieve({
-      where: { arcs: [arcKey], snapshot: { eq: false } },
-    });
+    const [tsk] = await this.cfg.tasks.retrieve({ arcs: [arcKey], snapshot: false });
     return tsk ?? null;
   }
 }

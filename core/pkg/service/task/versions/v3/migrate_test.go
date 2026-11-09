@@ -131,14 +131,16 @@ var _ = Describe("NewMigration", func() {
 				Type:        "arc",
 				Ladder:      arcversions.ConfigLadder,
 				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
 				ResolveEntry: func(
 					_ context.Context,
-					_ gorp.Tx,
+					_ gorp.Snapshot,
 					name string,
 					_ *arctask.Config,
-				) error {
+				) (func(context.Context, gorp.Tx) error, error) {
 					names = append(names, name)
-					return nil
+					return nil, nil
 				},
 			},
 		))
@@ -175,7 +177,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(migrated.Type).To(Equal("arc"))
 			Expect(migrated.Config).To(BeEmpty())
 
-			record := MustSucceed(store.Read(ctx, nil, key))
+			record := MustSucceed(store.Read(ctx, db, key))
 			Expect(record).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(record).To(HaveKeyWithValue("hash", "abc123"))
 
@@ -215,7 +217,7 @@ var _ = Describe("NewMigration", func() {
 				Entry(&migrated).Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Type).To(Equal("rack_status"))
 			Expect(migrated.ConfigHash).To(HaveLen(16))
-			record := MustSucceed(rt.Status.Read(ctx, nil, key))
+			record := MustSucceed(rt.Status.Read(ctx, db, key))
 			Expect(record).To(HaveKeyWithValue("key", key.String()))
 		},
 	)
@@ -276,9 +278,9 @@ var _ = Describe("NewMigration", func() {
 			Entries(&migrated).Exec(ctx, db)).To(Succeed())
 		Expect(migrated).To(HaveLen(4))
 		for _, k := range arcKeys {
-			Expect(store.Read(ctx, nil, k)).To(HaveKeyWithValue("key", k.String()))
+			Expect(store.Read(ctx, db, k)).To(HaveKeyWithValue("key", k.String()))
 		}
-		Expect(rt.Status.Read(ctx, nil, statusKey)).
+		Expect(rt.Status.Read(ctx, db, statusKey)).
 			To(HaveKeyWithValue("key", statusKey.String()))
 	})
 
@@ -291,19 +293,21 @@ var _ = Describe("NewMigration", func() {
 			Config: msgpack.EncodedJSON{"anything": true},
 		})
 		taskID := resource.ID{Type: resource.TypeTask, Key: key.String()}
-		Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, status.Status[any]{
-			Key:     uuid.New().String(),
-			Owner:   &taskID,
-			Name:    "Bogus Task",
-			Variant: status.VariantSuccess,
-			Time:    telem.Now(),
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewMigrationWriter(tx).Set(ctx, status.Status[any]{
+				Key:     uuid.New().String(),
+				Owner:   &taskID,
+				Name:    "Bogus Task",
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+			})
 		})).To(Succeed())
 		run(ctx, openArcStore(ctx))
 
 		Expect(statusSvc.NewRetrieve[any]().
 			Where(status.MatchOwners[any](taskID)).
 			Entry(new(status.Status[any])).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
@@ -330,7 +334,7 @@ var _ = Describe("NewMigration", func() {
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
-		Expect(store.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+		Expect(store.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
 		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
 		Expect(string(staged)).To(ContainSubstring("Orphaned Arc Task"))
 		Expect(closer.Close()).To(Succeed())

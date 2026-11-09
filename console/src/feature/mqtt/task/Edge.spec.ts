@@ -192,9 +192,7 @@ describe("MQTT Edge form", () => {
         { commandChannel: 0, commandChannelName: cmdName },
       ]),
     );
-    expect(
-      await client.channels.retrieve({ where: { name: { eq: cmdName } } }),
-    ).toEqual([]);
+    expect(await client.channels.retrieve({ name: [cmdName] })).toEqual([]);
   });
 
   it("should mark a new command channel, unless its tag is disabled", async () => {
@@ -434,9 +432,7 @@ describe("MQTT Edge form", () => {
         MQTT.Task.EDGE_SCHEMAS,
       );
       expect(created.config.tags[1].commandChannel).toBe(0);
-      expect(
-        await client.channels.retrieve({ where: { name: { eq: disabledName } } }),
-      ).toEqual([]);
+      expect(await client.channels.retrieve({ name: [disabledName] })).toEqual([]);
     });
 
     it("should reuse the command channel of a failed deploy after the form reopens", async () => {
@@ -475,9 +471,7 @@ describe("MQTT Edge form", () => {
         first.draft.key,
         MQTT.Task.EDGE_SCHEMAS,
       );
-      const named = await client.channels.retrieve({
-        where: { name: { eq: cmdName } },
-      });
+      const named = await client.channels.retrieve({ name: [cmdName] });
       expect(named.map(({ key }) => key)).toEqual([
         created.config.tags[0].commandChannel,
       ]);

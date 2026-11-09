@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
@@ -33,7 +34,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypePanel, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),
@@ -72,11 +73,8 @@ var _ = Describe("Resource", func() {
 			Expect(id.Key).To(Equal(key.String()))
 		})
 
-		It("Should map keys and panels to resource IDs", func() {
+		It("Should map panels to resource IDs", func() {
 			a, b := uuid.New(), uuid.New()
-			Expect(panel.ResourceIDs([]panel.Key{a, b})).To(Equal([]resource.ID{
-				panel.ResourceID(a), panel.ResourceID(b),
-			}))
 			Expect(
 				panel.ResourceIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
 			).To(Equal(
@@ -104,9 +102,13 @@ var _ = Describe("Resource", func() {
 	Describe("Search", func() {
 		It("Should search panels by name", func(ctx SpecContext) {
 			p := panel.Panel{Name: "turbopump overview", Project: &proj.Key}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, p.Key)
+				})).To(Succeed())
 			})
 			q := search.Query[resource.ID]{Term: "turbopump", Limit: 10}
 			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).

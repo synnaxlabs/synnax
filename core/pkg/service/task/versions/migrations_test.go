@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -51,13 +50,17 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v0.Key(uint64(testRack.Key)<<32 | 42)
 			legacyRow := gorptestutil.SetPreV54Row(
@@ -94,18 +97,18 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Ancient Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config["routing_key"]).To(BeAssignableToTypeOf(""))
 			routingKey := uuid.MustParse(migrated.Config["routing_key"].(string))
-			Expect(secrets.Reveal(ctx, nil, routingKey)).
+			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-ancient")))
 			var routingSecret secret.Secret
 			Expect(secrets.NewRetrieve().
 				Where(secret.MatchKeys(routingKey)).
 				Entry(&routingSecret).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(routingSecret.Base().Name).To(Equal("Ancient Task routing key"))
 
 			By("Deleting the legacy-prefix row")

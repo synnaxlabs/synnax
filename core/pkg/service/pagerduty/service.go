@@ -11,7 +11,6 @@ package pagerduty
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -90,13 +89,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v2.NewMigration(create),
 			},
 			SetEntryKey: (*TaskConfig).SetKey,
+			PatchEntry:  (*TaskConfig).Patch,
+			HashEntry:   (*TaskConfig).HashContent,
 			ResolveEntry: func(
-				ctx context.Context,
-				tx gorp.Tx,
+				_ context.Context,
+				_ gorp.Snapshot,
 				name string,
 				c *TaskConfig,
-			) error {
-				return v2.ResolveTaskConfig(ctx, tx, create, name, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return v2.ResolveTaskConfig(create, name, c), nil
 			},
 		},
 	); !ok(err, s.Alert) {
@@ -118,13 +119,13 @@ func createSecret(svc *secret.Service) v2.CreateSecret {
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,
+		key secret.Key,
 		name string,
 		value []byte,
-	) (secret.Key, error) {
-		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
-		if err := svc.NewWriter(tx).Create(ctx, &s, value); err != nil {
-			return uuid.Nil(), err
-		}
-		return s.Base().Key, nil
+	) error {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: key, Name: name},
+		}}
+		return svc.NewWriter(tx).Create(ctx, &s, value)
 	}
 }

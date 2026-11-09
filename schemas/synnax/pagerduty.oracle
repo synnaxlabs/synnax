@@ -22,6 +22,7 @@ Alert struct {
     }
     status          status.Key = "" {
         @doc value     "is the key of the Synnax status the alert watches."
+        @ref kind      use
         @ref on_delete detach
     }
     errors_critical bool = false {
@@ -49,6 +50,7 @@ TaskConfig struct extends task.StartConfig {
         @doc value     """
             is the secret that holds the PagerDuty Events API v2 routing key.
         """
+        @ref kind      use
         @ref on_delete restrict
     }
     plain_routing_key string?     {
@@ -71,5 +73,6 @@ TaskConfig struct extends task.StartConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }
