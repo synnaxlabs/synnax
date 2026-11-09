@@ -191,13 +191,18 @@ func parseWithContext[T any](
 			position:    lexerPosition([]rune(source), position),
 		}
 	}
+	stream := antlr.NewCommonTokenStream(tokens, 0)
+	lexer.RemoveErrorListeners()
+	lexer.AddErrorListener(lexLis)
+	if limitDiag := limitError(source, stream); limitDiag != nil {
+		diag.Add(*limitDiag)
+		var zeroT T
+		return zeroT, diag
+	}
 	var (
-		stream = antlr.NewCommonTokenStream(tokens, 0)
 		parser = NewArcParser(stream)
 		sllErr = &syntaxErrorFlag{}
 	)
-	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(lexLis)
 	parser.RemoveErrorListeners()
 	// SLL prediction is much faster than LL, and when it reports no syntax error it
 	// returns the tree LL would. Only source that fails SLL is parsed again with LL.

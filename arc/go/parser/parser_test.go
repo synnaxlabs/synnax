@@ -10,6 +10,8 @@
 package parser_test
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2437,3 +2439,40 @@ func allStageDecls(
 	}
 	return stages
 }
+
+var _ = Describe("Limits", func() {
+	const tooDeep = "nesting is deeper than the limit"
+	nested := func(open, close string, n int) string {
+		return strings.Repeat(open, n) + "1" + strings.Repeat(close, n)
+	}
+	DescribeTable("Should return a diagnostic past MaxDepth", func(src string) {
+		Expect(parser.ParseExpression(src)).Error().
+			To(MatchError(ContainSubstring(tooDeep)))
+	},
+		Entry("parentheses", nested("(", ")", 100_000)),
+		Entry("brackets", "x"+nested("[", "]", parser.MaxDepth+1)),
+		Entry("unary minus", strings.Repeat("-", parser.MaxDepth+1)+"1"),
+		Entry("not", strings.Repeat("not ", parser.MaxDepth+1)+"true"),
+		Entry("power", strings.Repeat("2^", parser.MaxDepth+1)+"2"),
+		Entry("unmatched closers first", ")"+nested("(", ")", parser.MaxDepth+1)),
+	)
+
+	It("Should return a diagnostic for deep blocks", func() {
+		src := "func f() " + strings.Repeat("{", 100_000) +
+			strings.Repeat("}", 100_000)
+		Expect(parser.Parse(src)).Error().To(MatchError(ContainSubstring(tooDeep)))
+	})
+
+	DescribeTable("Should parse source within the limits", func(src string) {
+		MustSucceed(parser.ParseExpression(src))
+	},
+		Entry("parentheses at MaxDepth", nested("(", ")", parser.MaxDepth)),
+		Entry("unary minus at MaxDepth", strings.Repeat("-", parser.MaxDepth)+"1"),
+		Entry("a long chain of binary operators", strings.Repeat("1 - ", 10_000)+"1"),
+	)
+
+	It("Should return a diagnostic for source past MaxSourceSize", func() {
+		Expect(parser.Parse(strings.Repeat(" ", parser.MaxSourceSize+1))).Error().
+			To(MatchError(ContainSubstring("more than the limit")))
+	})
+})
