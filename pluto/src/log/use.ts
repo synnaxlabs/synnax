@@ -45,6 +45,8 @@ export interface UseProps
         | "channelDataTypes"
         | "channelColors"
         | "position"
+        | "thumb"
+        | "dragProgress"
       >,
       "visible"
     >,
@@ -68,7 +70,11 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
-  methods: { selection: () => Promise<log.Selection>; seek: (time: string) => void };
+  methods: {
+    selection: () => Promise<log.Selection>;
+    seek: (time: string) => void;
+    seekProgress: (progress: number) => void;
+  };
 }
 
 export const use = ({

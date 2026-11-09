@@ -1690,6 +1690,63 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("scrollbar drag", () => {
+    const RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(199));
+
+    const paused = () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const handle = setup(entries);
+      handle.source.timeRange = RANGE;
+      handle.updateState({ scrolling: false, empty: false });
+      handle.updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      handle.leaf.render();
+      return handle;
+    };
+
+    it("should map progress down the track to a time in the range", () => {
+      expect(log.timeAt(RANGE, 0).valueOf()).toBe(RANGE.start.valueOf());
+      expect(log.timeAt(RANGE, 1).valueOf()).toBe(RANGE.end.valueOf());
+      expect(log.timeAt(RANGE, 0.5).valueOf()).toBe(TimeStamp.seconds(99.5).valueOf());
+    });
+
+    it("should clamp progress off the track to the ends of the range", () => {
+      expect(log.timeAt(RANGE, -1).valueOf()).toBe(RANGE.start.valueOf());
+      expect(log.timeAt(RANGE, 2).valueOf()).toBe(RANGE.end.valueOf());
+    });
+
+    it("should report the thumb of a paused view", () => {
+      const { leaf: log } = paused();
+      assert(log.state.thumb != null);
+      expect(log.state.thumb.height).toBeGreaterThan(0);
+      expect(log.state.thumb.top + log.state.thumb.height).toBe(box.height(REGION_500));
+    });
+
+    it("should report no thumb while live", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { leaf: log, source } = setup(entries);
+      source.timeRange = RANGE;
+      log.render();
+      expect(log.state.thumb).toBeNull();
+    });
+
+    it("should draw a dragged thumb at its drag progress", () => {
+      const { h, leaf: log, recorder } = paused();
+      h.setState((s) => ({ ...s, dragProgress: 0 }));
+      recorder.clear();
+      log.render();
+      expect(findThumb(recorder)?.y).toBe(0);
+      expect(log.state.thumb?.top).toBe(0);
+    });
+
+    it("should seek to the time at a progress down the track", () => {
+      const { leaf: log, source } = paused();
+      log.seekProgress(0.5);
+      expect(source.seeks.map((t) => t.valueOf())).toEqual([
+        TimeStamp.seconds(99.5).valueOf(),
+      ]);
+    });
+  });
+
   describe("wide characters", () => {
     const rowsOf = (value: string): number => {
       const { leaf } = setup([{ ...makeEntry(0), value }]);

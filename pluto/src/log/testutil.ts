@@ -30,6 +30,8 @@ export const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  thumb: null,
+  dragProgress: -1,
 };
 
 const LINES = [
@@ -43,6 +45,7 @@ export interface AetherSetup {
   state: Record<string, unknown>;
   selection: Mock;
   seek: Mock;
+  seekProgress: Mock;
 }
 
 /**
@@ -56,8 +59,14 @@ export const createAetherSetup =
     const state = { ...DEFAULT_STATE, ...overrides };
     const selection = vi.fn(async () => ({ lines: LINES, partial }));
     const seek = vi.fn();
-    use.mockReturnValue(["test-key", state, setState, { selection, seek }]);
-    return { setState, state, selection, seek };
+    const seekProgress = vi.fn();
+    use.mockReturnValue([
+      "test-key",
+      state,
+      setState,
+      { selection, seek, seekProgress },
+    ]);
+    return { setState, state, selection, seek, seekProgress };
   };
 
 /** @returns the initial state of the first log that the `Aether.use` mock mounted. */
