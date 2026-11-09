@@ -1548,6 +1548,8 @@ Color struct {
 `)
 		Expect(generatedFile(resp, "x/go/color/versions/v0/types.gen.go")).
 			To(ContainSubstring("type Color struct"))
+		Expect(generatedFile(resp, "x/go/color/versions/v1/types.gen.go")).
+			To(ContainSubstring("type Tint = v0.Color"))
 		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
 		Expect(frozen).To(ContainSubstring("Tint color.Color"))
 		Expect(frozen).ToNot(ContainSubstring("color.Tint"))

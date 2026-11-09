@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -45,14 +46,23 @@ func chainPredecessors(
 		if err != nil {
 			return nil, err
 		}
+		prev, _ := e.chain.Predecessor(e.version)
+		surf, err := req.Versions.Surface(ctx, e.livePath, prev)
+		if err != nil {
+			return nil, err
+		}
 		aliased := make(set.Set[string], len(f.Aliases))
+		names := make(map[string]string, len(f.Aliases))
 		for name := range f.Aliases {
 			aliased.Add(e.resource + "." + name)
+			if def, ok := surf[name]; ok {
+				names[e.resource+"."+name] = naming.GetGoName(def.Type)
+			}
 		}
-		prev, _ := e.chain.Predecessor(e.version)
 		preds[versioning.VersionedPath(origPath, e.version)] = predecessor{
 			path:    versioning.VersionedPath(origPath, prev),
 			aliased: aliased,
+			names:   names,
 		}
 	}
 	return preds, nil
@@ -391,7 +401,10 @@ func isCurrentVersion(
 		return false, nil
 	}
 	ended, err := req.Versions.Ended(ctx, livePath)
-	return !ended, err
+	if err != nil {
+		return false, err
+	}
+	return !ended, nil
 }
 
 // versionedGoRoot finds the @go output path a live schema file's versions
