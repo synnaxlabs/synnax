@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -26,10 +27,18 @@ import (
 // executes all operations within the transaction provided to the Service.NewWriter
 // method.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Device]
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Device]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // resolveStatus returns the status to persist for d. The owner selects the status, so a
@@ -85,13 +94,14 @@ func (w Writer) writeStatus(
 	return w.status.Set(ctx, d.Status)
 }
 
-// Create creates or updates the given device. Create writes the parent as sent, so an
-// update must carry the current parent. A new device with a parent cannot sit in a
-// group. An existing device keeps its group unless it moves to another rack or has a
-// parent. A status provided on the device replaces the stored status if the device is
-// new, renamed, or moved to another rack or parent. With no provided status, the stored
-// status stays, and only a device with no stored status gets the default "unknown"
-// status. Create sets device.Status to the resulting status.
+// Create creates or updates the given device and attaches a create action that holds
+// it. Create writes the parent as sent, so an update must carry the current parent. A
+// new device with a parent cannot sit in a group. An existing device keeps its group
+// unless it moves to another rack or has a parent. A status provided on the device
+// replaces the stored status if the device is new, renamed, or moved to another rack or
+// parent. With no provided status, the stored status stays, and only a device with no
+// stored status gets the default "unknown" status. Create sets device.Status to the
+// resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	if err := device.Validate(); err != nil {
 		return err
@@ -127,7 +137,15 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		device.Rack == existing.Rack &&
 		lo.FromPtr(device.Parent) == lo.FromPtr(existing.Parent)
 	overwritable := !unmoved || device.Name != existing.Name
-	return w.writeStatus(ctx, device, providedStatus, overwritable)
+	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(
+		w.tx,
+		device.Key,
+		NewCreateAction(CreatePayload{Device: *device}),
+	)
+	return nil
 }
 
 // CreateMany creates or updates the given devices. If devices with the same key already
@@ -141,15 +159,17 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	return nil
 }
 
-// SetGroup moves the devices with keys into g, or out of their group when g is nil. It
-// returns a validation error when g does not sit under a device's rack, or when a
-// device has a parent.
+// SetGroup applies a set of the group to each device with keys, moving it into g, or
+// out of its group when g is nil. It returns a validation error when g does not sit
+// under a device's rack, or when a device has a parent.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return setGroup(w.table, g, keys...).
-		ChangeErr(func(ctx gorp.Context, d Device) (Device, error) {
-			return d, w.checkGroup(ctx, g, d)
-		}).
-		Exec(ctx, w.tx)
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, set); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w Writer) checkGroup(ctx context.Context, key *group.Key, d Device) error {
@@ -160,27 +180,50 @@ func (w Writer) checkGroup(ctx context.Context, key *group.Key, d Device) error 
 	return group.CheckMember(ctx, w.tx, key, resource.TypeDevice, &holder)
 }
 
-// Rename renames the device with the given key and its status, keeping every other
-// field. It returns query.ErrNotFound if no device with the key exists and a validation
-// error if name is empty.
+// Rename applies a set of the name to the device with the given key. It returns
+// query.ErrNotFound if no device with the key exists and a validation error if name is
+// empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	if err := w.table.NewUpdate().
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
+}
+
+// Apply applies the actions to the device with the given key and attaches them to the
+// transaction of w. A change of name or rack also updates the device's status. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create, the
+// result fails to validate, or the device's group does not sit under its rack or
+// parent, and an error wrapping query.ErrNotFound when no device has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var prev Device
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Device](key)).
-		ChangeErr(func(_ gorp.Context, d Device) (Device, error) {
-			d.Name = name
-			if err := d.Validate(); err != nil {
-				return Device{}, err
-			}
-			return d, nil
-		}).
+		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(
-		w.status.RenameOwned(ctx, ResourceID(key), name),
-		query.ErrNotFound,
-	)
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return err
+	}
+	if err = next.Validate(); err != nil {
+		return err
+	}
+	if err = w.checkGroup(ctx, next.Group, next); err != nil {
+		return err
+	}
+	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if next.Name != prev.Name || next.Rack != prev.Rack {
+		if err = w.writeStatus(ctx, &next, nil, false); err != nil {
+			return err
+		}
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // Delete deletes the device with the given key, its status, and every device it holds.

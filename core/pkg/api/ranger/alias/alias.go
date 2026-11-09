@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -117,6 +118,21 @@ func (s *Service) Resolve(
 		}
 	}
 	return ResolveResponse{Aliases: aliases}, nil
+}
+
+// DispatchRequest carries a sequence of actions to apply to the alias with the Gorp key
+// Key.
+type DispatchRequest = actions.DispatchRequest[string, alias.Action]
+
+// Dispatch applies the action sequence to the alias in tx.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.alias.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 type DeleteRequest struct {
