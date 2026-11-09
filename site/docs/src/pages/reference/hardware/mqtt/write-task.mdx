@@ -9,6 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -55,11 +56,12 @@ command of 42 publishes:
    value. For a topic that publishes rarely, click **Add a topic by name**.
 3. Click **Add** _N_ **targets**. Each field becomes a target.
 4. Select a target to set its **Pointer** and **JSON type**. To add fields to the
-   payload, click **Add static field** or **Add generated field** under **Additional
-   fields**.
+   payload, click **Static** or **Generated** under **Additional fields**.
 5. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel for each target.
+
+<Video id="hardware/mqtt/write-task" />
 
   </Fragment>
   <Fragment slot="python">

@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -36,6 +37,8 @@ it records nothing in Synnax.
 
 The task starts to send records at once. Each record holds the value, the channel name,
 and the timestamp, as in [record shape](#record-shape).
+
+<Video id="hardware/kafka/write-task" />
 
   </Fragment>
   <Fragment slot="python">

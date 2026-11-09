@@ -131,6 +131,7 @@ export const createTreeItems = (
           />
         )}
         <Menu.Divider />
+        <Tree.CopyContextMenuItem {...props} />
         {isSingle && (
           <>
             <Link.CopyContextMenuItem

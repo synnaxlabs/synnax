@@ -10,6 +10,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -53,6 +54,8 @@ Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack 
 
 The Console tests the connection before it saves the cluster. The test waits up to 15
 seconds. If the test fails, the dialog shows the error and keeps your entries.
+
+<Video id="hardware/kafka/connect-cluster" />
 
   </Fragment>
   <Fragment slot="python">

@@ -14,19 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/telem"
-)
-
-// Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
-// receives are duplicated here. They must stay in sync with the field defaults declared
-// on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
-// defaultChannelEntry in client/ts/src/log/actions.ts.
-const (
-	defaultNotation          notation.Notation     = notation.NotationStandard
-	defaultTimestampFormat   telem.TimestampFormat = telem.TimestampFormatPreciseDate
-	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
@@ -139,27 +127,21 @@ func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the timestamp render format of the entry referencing the channel.
-// No-op when no entry references it.
+// Handle sets the format of the values of the timestamp channel. No-op when no entry
+// references it.
 func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Format = p.Format
+		state.Channels[i].TimestampConfig.Format = p.Format
 	}
 	return state, nil
 }
 
-// Handle sets the timestamp time zone of the entry referencing the channel.
-// No-op when no entry references it.
-func (p SetChannelTimestampTzPayload) Handle(state Log) (Log, error) {
+// Handle sets the time zone of the values of the timestamp channel. No-op when no
+// entry references it.
+func (p SetChannelTimestampTimeZonePayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Tz = p.Tz
+		state.Channels[i].TimestampConfig.TimeZone = p.TimeZone
 	}
-	return state, nil
-}
-
-// Handle replaces the entire ordered list of channel entries.
-func (p SetChannelsPayload) Handle(state Log) (Log, error) {
-	state.Channels = p.Channels
 	return state, nil
 }
 
@@ -188,7 +170,7 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle controls whether the receipt timestamp column is hidden.
+// Handle controls whether line times are hidden.
 func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 	state.TimestampsHidden = p.TimestampsHidden
 	return state, nil
@@ -210,15 +192,9 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display
-// configuration. Color is left as the zero value; the rendering layer resolves a
-// palette color for entries without an explicit color.
+// configuration. A zero color renders in the text color of the log.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
-	return ChannelEntry{
-		Channel:  key,
-		Notation: defaultNotation,
-		Timestamp: TimestampConfig{
-			Format: defaultTimestampFormat,
-			Tz:     defaultTimestampTimeZone,
-		},
-	}
+	e := ChannelEntry{Channel: key}
+	e.ApplyDefaults()
+	return e
 }

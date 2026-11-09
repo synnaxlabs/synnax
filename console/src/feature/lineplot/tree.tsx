@@ -70,6 +70,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
@@ -97,6 +98,7 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
+  linkable: true,
   icon: <Icon.LinePlot />,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],

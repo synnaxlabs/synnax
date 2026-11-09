@@ -134,6 +134,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(fs.Stat("a.bin")).Error().To(MatchError(ErrFault))
 	})
 
+	It("Should make a write wait for the function given to WithBeforeWrite", func() {
+		fs, f := openWrapped()
+		var ran bool
+		fs.SetOptions(WithBeforeWrite(func() { ran = true }))
+		Expect(f.Write([]byte("more"))).To(Equal(4))
+		Expect(ran).To(BeTrue())
+		Expect(f.Close()).To(Succeed())
+	})
+
 	It("Should stop failing once its options are cleared", func() {
 		fs, f := openWrapped()
 		DeferClose(f)

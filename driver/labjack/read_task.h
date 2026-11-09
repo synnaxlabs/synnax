@@ -875,7 +875,7 @@ class StreamSource final : public common::Source {
                 nullptr
             ))
             return err;
-        auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
+        auto scan_rate = this->cfg.sample_rate.hz();
         if (const auto err = d->e_stream_start(
                 this->cfg.samples_per_chan,
                 addrs.size(),
