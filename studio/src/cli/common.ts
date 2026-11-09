@@ -40,15 +40,15 @@ export const readStamp = async (id: string): Promise<Stamp | null> => {
 
 /**
  * select loads videos.ts and returns the entries matching the pattern, exiting
- * with an error when none do. `exact` matches the full id instead of a
- * substring.
+ * with an error when none do. `exact` reads the pattern as a comma-separated list of
+ * full ids instead of a substring.
  */
 export const select = async (pattern?: string, exact = false): Promise<Manifest> => {
   const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
     default: Manifest;
   };
   const entries = exact
-    ? manifest.default.filter((e) => e.id === pattern)
+    ? manifest.default.filter((e) => pattern?.split(",").includes(e.id))
     : filter(manifest.default, pattern);
   if (entries.length === 0) {
     console.error(`no manifest entries match "${pattern ?? ""}"`);
