@@ -2,6 +2,8 @@
 title: "Version 0.61 release notes"
 ---
 
+import { Hero } from "@/components/hero";
+import { Video } from "@/components/media/Media";
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -16,7 +18,12 @@ export const components = mdxOverrides;
     title="Updates you can undo, EtherCAT clock sync, MQTT, and Kafka"
 >
 
-{/* Hero still: releases/0-61-0/hero */}
+<Hero.Hero
+  still="releases/0-61-0/hero"
+  layout="bleed"
+  tone="deep"
+  palette="violet-pink"
+/>
 
 Synnax v0.61 makes a Core update safe to undo. The Core backs up its data before a new
 version opens it, and puts the backup back when the update fails.
@@ -32,7 +39,12 @@ Arc syntax changed, and a Core now runs alone. Read the
 
 ### Updates you can undo
 
-{/* Hero still: releases/0-61-0/version-guard */}
+<Hero.Hero
+  inset
+  still="releases/0-61-0/version-guard"
+  layout="framed"
+  palette="blue-pink"
+/>
 
 Before, an update changed the data folder for good. When the new Core failed to start,
 you had a Core that did not run and data that the old Core could not read.
@@ -56,7 +68,7 @@ See [Upgrade a Core](/reference/enterprise/upgrade).
 
 ### EtherCAT in clock sync
 
-{/* <Video id="releases/0-61-0/ethercat-sync" /> */}
+<Video id="releases/0-61-0/ethercat-sync" />
 
 Before, slaves that list only distributed clock (DC) modes refused SAFE-OP, and every
 task on the port failed. Frames drifted from 624 µs to 975 µs off target in 10 minutes.
@@ -80,7 +92,7 @@ See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
 ### MQTT and Sparkplug B
 
-{/* <Video id="releases/0-61-0/mqtt" /> */}
+<Video id="releases/0-61-0/mqtt" />
 
 Connect an MQTT broker as a device. Read tasks write JSON payloads and Sparkplug B tags
 into channels. Write tasks publish channels as commands, and an edge node task publishes
@@ -104,7 +116,7 @@ and in Synnax Enterprise. See [Kafka](/reference/hardware/kafka/connect-cluster)
 
 ### Logs that reach every stored value
 
-{/* <Video id="releases/0-61-0/logs" /> */}
+<Video id="releases/0-61-0/logs" />
 
 Before, a log showed the time that the Console received each value, kept only recent
 values, and lost its place when it closed.
@@ -119,7 +131,12 @@ or UTC. On a remote Core, the first lines show in 0.6 seconds instead of 1.5. Se
 
 ### API keys for scripts and Drivers
 
-{/* Hero still: releases/0-61-0/credentials */}
+<Hero.Hero
+  inset
+  still="releases/0-61-0/credentials"
+  layout="framed"
+  palette="green-blue"
+/>
 
 Before, scripts, `sy login`, the Console, and each Driver kept a password.
 
