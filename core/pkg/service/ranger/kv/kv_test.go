@@ -10,15 +10,19 @@
 package kv_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -214,6 +218,109 @@ var _ = Describe("KV", Ordered, func() {
 		pairs = MustSucceed(kvSvc.NewReader(tx).List(ctx, r.Key))
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key2", Value: "value2"},
+		}))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	type frame = actions.Scoped[string, kv.Action]
+	var (
+		db    *gorp.DB
+		kvSvc *kv.Service
+		r     ranger.Range
+		pair  kv.Pair
+	)
+	write := func(ctx context.Context, fn func(kv.Writer) error) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return fn(kvSvc.NewWriter(tx).WithDispatchKey("dk"))
+		})
+	}
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:    db,
+			Group: g,
+		}))
+		kvSvc = MustOpen(kv.OpenService(ctx, kv.ServiceConfig{DB: db}))
+		r = ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rangerSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
+		pair = kv.Pair{Range: r.Key, Key: "key", Value: "before"}
+		Expect(write(ctx, func(w kv.Writer) error {
+			return w.SetMany(ctx, []kv.Pair{pair})
+		})).To(Succeed())
+	})
+	set := func(path string, value any) kv.Action {
+		return kv.NewSetAction(kv.SetPayload{Path: []string{path}, Value: value})
+	}
+	apply := func(ctx context.Context, key string, acts ...kv.Action) error {
+		return write(ctx, func(w kv.Writer) error {
+			return w.Apply(ctx, key, acts...)
+		})
+	}
+	retrieve := func(ctx context.Context) []kv.Pair {
+		GinkgoHelper()
+		return MustSucceed(kvSvc.NewReader(db).GetMany(ctx, r.Key, []string{"key"}))
+	}
+
+	It("Should store the edited value", func(ctx SpecContext) {
+		Expect(apply(ctx, pair.GorpKey(), set("value", "after"))).To(Succeed())
+		Expect(retrieve(ctx)).
+			To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "after"}}))
+	})
+
+	It("Should refuse a path outside the editable fields", func(ctx SpecContext) {
+		err := apply(ctx, pair.GorpKey(), set("key", "other"))
+		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(err).
+			To(MatchError(ContainSubstring(`unknown object member name "key"`)))
+		Expect(retrieve(ctx)).To(Equal([]kv.Pair{pair}))
+	})
+
+	It("Should refuse a pair that does not exist", func(ctx SpecContext) {
+		other := kv.Pair{Range: r.Key, Key: "other"}
+		Expect(apply(ctx, other.GorpKey(), set("value", "after"))).
+			To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should broadcast a set and an applied batch", func(ctx SpecContext) {
+		rec := &Recorder[string, kv.Action]{}
+		DeferCleanup(kvSvc.Actions().OnChange(rec.Record))
+		created := []kv.Pair{
+			{Range: r.Key, Key: "a", Value: "1"},
+			{Range: r.Key, Key: "b", Value: "2"},
+		}
+		Expect(write(ctx, func(w kv.Writer) error {
+			return w.SetMany(ctx, created)
+		})).To(Succeed())
+		Expect(apply(ctx, pair.GorpKey(), set("value", "after"))).To(Succeed())
+		frames := rec.Snapshot()
+		Expect(frames).To(Equal([]frame{
+			{
+				Key:         created[0].GorpKey(),
+				DispatchKey: "dk",
+				Seq:         frames[0].Seq,
+				Actions: []kv.Action{
+					kv.NewCreateAction(kv.CreatePayload{Pair: created[0]}),
+				},
+			},
+			{
+				Key:         created[1].GorpKey(),
+				DispatchKey: "dk",
+				Seq:         frames[1].Seq,
+				Actions: []kv.Action{
+					kv.NewCreateAction(kv.CreatePayload{Pair: created[1]}),
+				},
+			},
+			{
+				Key:         pair.GorpKey(),
+				DispatchKey: "dk",
+				Seq:         frames[2].Seq,
+				Actions:     []kv.Action{set("value", "after")},
+			},
 		}))
 	})
 })

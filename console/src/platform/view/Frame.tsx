@@ -19,7 +19,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
+import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, location, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
@@ -58,11 +58,10 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     },
   ];
   const staticProps = List.useStaticData<view.Key, View>({ data: staticViews });
-  const remoteProps = PView.useList({
+  const remoteProps = Flux.useList((client) => client.views, {
+    name: "views",
     query: { where: { type: { eq: resourceType } } },
   });
-  const { retrieve } = remoteProps;
-  const handleFetchMore = () => retrieve((p) => p);
   const combinedProps = List.useCombinedData<view.Key, View>({
     first: staticProps,
     second: remoteProps,
@@ -103,7 +102,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
           editable={editable}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
-          onFetchMore={handleFetchMore}
+          onFetchMore={remoteProps.more}
           staticViews={staticViews}
           onSelect={setSelected}
           listProps={combinedProps}

@@ -698,7 +698,7 @@ describe("useDeep", () => {
     assertDefined(panelKey);
     let live: boolean | null = null;
     h.handlers.range.mockImplementation(async ({ client: received }) => {
-      live = query.isLive(received.panels.getCached(panelKey));
+      live = query.isLive(received.panels.watch(panelKey).getCached());
     });
     h.openURL(["synnax://cluster/c1/range/r1"]);
     await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());

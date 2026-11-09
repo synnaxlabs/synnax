@@ -220,7 +220,7 @@ var _ = Describe("Read failure", func() {
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
 		host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-		channels := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+		channels := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 			Name:     "failure",
 			IsIndex:  true,
 			DataType: telem.TimestampT,
@@ -275,7 +275,7 @@ func openScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:     keys,
