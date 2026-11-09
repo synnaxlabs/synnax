@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, errors, id } from "@synnaxlabs/x";
+import { array, id } from "@synnaxlabs/x";
 
 import { type policy } from "@/access/policy";
 import { type role } from "@/access/role";
@@ -43,11 +43,7 @@ const connectAs = async (
   onInternalError: (err: Error) => void = logAllButDenials,
 ) => {
   const client = createTestClient({ username, password: "test", onInternalError });
-  try {
-    await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
-  } catch (err) {
-    if (!isDenial(err)) throw errors.fromUnknown(err);
-  }
+  await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   return client;
 };
 

@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -45,20 +47,26 @@ var _ = Describe("Change channels", func() {
 			apiframer.StreamerResponse,
 		]
 	)
-	// stream opens a stream of the change channel with the given name as a new user
-	// that can retrieve the channel and the granted records.
-	stream := func(ctx SpecContext, name string, granted ...resource.ID) user.User {
+	// find sets ch to the change channel with the given name.
+	find := func(ctx SpecContext, name string) {
 		GinkgoHelper()
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(name)).
 			Entry(&ch).
 			Exec(ctx, db)).To(Succeed())
-		keys := channel.Keys{ch.Key()}
-		u := createUserGranted(
+	}
+	// newUser creates a user that can retrieve ch and the granted records.
+	newUser := func(ctx SpecContext, granted ...resource.ID) user.User {
+		GinkgoHelper()
+		return createUserGranted(
 			ctx,
 			access.ActionRetrieve,
-			append(svcframer.ResourceIDs(keys), granted...)...,
+			append(svcframer.ResourceIDs(channel.Keys{ch.Key()}), granted...)...,
 		)
+	}
+	// open opens a stream of ch as u.
+	open := func(ctx SpecContext, u user.User) {
+		GinkgoHelper()
 		var server apiframer.StreamerStream
 		client, server = freightertestutil.NewStreams[
 			apiframer.StreamerRequest,
@@ -70,15 +78,24 @@ var _ = Describe("Change channels", func() {
 			Expect(client.CloseSend()).To(Succeed())
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
 		})
-		Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
+			To(Succeed())
 		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+	}
+	// stream opens a stream of the change channel with the given name as a new user
+	// that can retrieve the channel and the granted records.
+	stream := func(ctx SpecContext, name string, granted ...resource.ID) user.User {
+		GinkgoHelper()
+		find(ctx, name)
+		u := newUser(ctx, granted...)
+		open(ctx, u)
 		return u
 	}
 	// received returns the record of each sample in the next frame.
 	received := func() []resource.ID {
 		GinkgoHelper()
 		res := MustSucceed(client.Receive())
-		recordOf := svc.Signals.Records()[ch.Key()]
+		recordOf := svc.Signals.Records()[ch.Key()].Of
 		var records []resource.ID
 		for _, series := range res.Frame.Get(ch.Key()).Series {
 			for sample := range series.Samples() {
@@ -276,6 +293,107 @@ var _ = Describe("Change channels", func() {
 			},
 		),
 	)
+
+	It("Should send a subject the changes to the policies of its role", func(
+		ctx SpecContext,
+	) {
+		other := role.Role{Name: "change-channel"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Role.NewWriter(tx, false).Create(ctx, &other)
+		})).To(Succeed())
+		u := stream(ctx, "sy_policy_set")
+		own := policy.Policy{
+			Role:    u.Role,
+			Name:    "change-channel",
+			Objects: []resource.ID{{Type: resource.TypeLabel}},
+			Actions: []access.Action{access.ActionUpdate},
+		}
+		denied := own
+		denied.Role = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := rbacSvc.Policy.NewWriter(tx, false)
+			if err := w.Create(ctx, &own); err != nil {
+				return err
+			}
+			return w.Create(ctx, &denied)
+		})).To(Succeed())
+		// The policy that stream grants the user can reach the stream after it opens.
+		var records []resource.ID
+		Eventually(func() []resource.ID {
+			records = received()
+			return records
+		}).WithTimeout(5 * time.Second).Should(ContainElement(own.ResourceID()))
+		Expect(records).ToNot(ContainElement(denied.ResourceID()))
+	}, SpecTimeout(10*time.Second))
+
+	It("Should send a subject the deletes of the policies of its role", func(
+		ctx SpecContext,
+	) {
+		find(ctx, "sy_policy_delete")
+		u := newUser(ctx)
+		other := role.Role{Name: "change-channel"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Role.NewWriter(tx, false).Create(ctx, &other)
+		})).To(Succeed())
+		own := policy.Policy{
+			Role:    u.Role,
+			Name:    "change-channel",
+			Objects: []resource.ID{{Type: resource.TypeLabel}},
+			Actions: []access.Action{access.ActionUpdate},
+		}
+		denied := own
+		denied.Role = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := rbacSvc.Policy.NewWriter(tx, false)
+			if err := w.Create(ctx, &own); err != nil {
+				return err
+			}
+			return w.Create(ctx, &denied)
+		})).To(Succeed())
+		open(ctx, u)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, own.Key, denied.Key)
+		})).To(Succeed())
+		Expect(received()).To(Equal([]resource.ID{own.ResourceID()}))
+	}, SpecTimeout(10*time.Second))
+
+	It("Should send the delete of a policy that a role held at an earlier check", func(
+		ctx SpecContext,
+	) {
+		find(ctx, "sy_policy_delete")
+		u := newUser(ctx)
+		other := role.Role{Name: "change-channel"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Role.NewWriter(tx, false).Create(ctx, &other)
+		})).To(Succeed())
+		held := policy.Policy{
+			Role:    u.Role,
+			Name:    "change-channel",
+			Objects: []resource.ID{{Type: resource.TypeLabel}},
+			Actions: []access.Action{access.ActionUpdate},
+		}
+		unrelated := held
+		unrelated.Role = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := rbacSvc.Policy.NewWriter(tx, false)
+			if err := w.Create(ctx, &held); err != nil {
+				return err
+			}
+			return w.Create(ctx, &unrelated)
+		})).To(Succeed())
+		open(ctx, u)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return userSvc.NewWriter(tx).SetRole(ctx, other.Key, nil, u.Key)
+		})).To(Succeed())
+		// The check of this delete no longer finds held among the policies of u.
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, unrelated.Key)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rbacSvc.Policy.NewWriter(tx, false).Delete(ctx, held.Key)
+		})).To(Succeed())
+		Expect(received()).To(Equal([]resource.ID{held.ResourceID()}))
+	}, SpecTimeout(10*time.Second))
 
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,

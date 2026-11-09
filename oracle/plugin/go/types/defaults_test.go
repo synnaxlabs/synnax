@@ -1508,6 +1508,25 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should accept a generic struct that recurses into a fixed instantiation",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Wrapper struct { name string }
+			Tree struct<T> {
+				value T
+				kids  Tree<Wrapper>[]
+			}
+			Outer struct { t Tree<Base> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("T Tree[Base]")
+		},
+	)
+
+	It(
 		"Should accept a generic struct nested in itself",
 		func(ctx SpecContext) {
 			source := `
