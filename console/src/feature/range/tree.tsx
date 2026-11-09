@@ -125,6 +125,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         onUnfavorite={handleUnfavorite}
       />
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
@@ -145,6 +146,7 @@ const toResource = (range: ranger.Range): Tree.Resource =>
 
 const TreeItem = Tree.createItem({
   type: "range",
+  linkable: true,
   icon: <Icon.Range />,
   useOnSelect,
   children: ({ client, id }) => [

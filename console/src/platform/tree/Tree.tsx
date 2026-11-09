@@ -20,6 +20,7 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { array, state as xstate, unique } from "@synnaxlabs/x";
 import {
+  type ClipboardEvent,
   type FC,
   type KeyboardEvent,
   type ReactElement,
@@ -48,6 +49,7 @@ import {
 } from "@/platform/tree/search";
 import { Store } from "@/platform/tree/store";
 import { type GetResource, type Resource, type TreeState } from "@/platform/tree/types";
+import { useCopy } from "@/platform/tree/useCopy";
 
 interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   client: Client;
@@ -273,6 +275,15 @@ const Internal = ({
     handleError,
   });
   const menuProps = Menu.useContextMenu();
+  const { intoEvent } = useCopy();
+  const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
+    // A text selection, such as part of a name being renamed, copies as text.
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    const resources = getItem(selectedRef.current);
+    if (resources.length === 0) return;
+    e.preventDefault();
+    intoEvent(resources, e.clipboardData);
+  };
 
   return (
     <Context value={{ store, ...dragAndDrop }}>
@@ -293,6 +304,7 @@ const Internal = ({
         // the editable then scrolls the row into view.
         pinned={shape.keys.filter(store.isDraft)}
         onContextMenu={menuProps.open}
+        onCopy={handleCopy}
         ref={ref}
         onKeyDown={onKeyDown}
       >

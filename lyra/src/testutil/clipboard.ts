@@ -26,6 +26,33 @@ export const stubClipboardWriteText = (
   return writeText;
 };
 
+/** A ClipboardItem that {@link stubClipboardWrite} installs. */
+export interface ClipboardItemStub {
+  data: Record<string, Blob>;
+}
+
+/**
+ * Installs a ClipboardItem global, which jsdom lacks, and a spy in place of
+ * navigator.clipboard.write. Returns the spy, which receives the written items. Remove
+ * the global with vi.unstubAllGlobals.
+ */
+export const stubClipboardWrite = (): Mock<
+  (items: ClipboardItemStub[]) => Promise<void>
+> => {
+  const write = vi.fn(async (_items: ClipboardItemStub[]) => {});
+  vi.stubGlobal(
+    "ClipboardItem",
+    class implements ClipboardItemStub {
+      constructor(readonly data: Record<string, Blob>) {}
+    },
+  );
+  Object.defineProperty(navigator, "clipboard", {
+    value: { write },
+    configurable: true,
+  });
+  return write;
+};
+
 /** Removes navigator.clipboard, as an insecure context or an old engine does. */
 export const stubClipboardUnavailable = (): void => {
   Object.defineProperty(navigator, "clipboard", {

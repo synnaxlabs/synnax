@@ -87,6 +87,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
@@ -104,6 +105,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const TreeItem = Tree.createItem({
   type: "arc",
+  linkable: true,
   icon: ({ data }) => {
     const TypeIcon = PlatformArc.TYPE_ICONS[(data as Pick<arc.Arc, "type">).type];
     return <TypeIcon />;
@@ -161,6 +163,7 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
         <ContextMenu.RenameItem onClick={rename} />
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <Link.CopyContextMenuItem
           onClick={() =>

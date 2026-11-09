@@ -85,6 +85,8 @@ export interface Item extends FC<ItemProps> {
   haulItems: (resource: Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: Resource) => boolean;
+  /** A deep link opens a resource of this type. */
+  linkable: boolean;
 }
 
 export interface Items extends Partial<Record<resource.Type, Item>> {}
@@ -130,6 +132,8 @@ export interface CreateItemParams {
   haulItems?: (resource: Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: Resource) => boolean;
+  /** A deep link opens a resource of this type. */
+  linkable?: boolean;
   Content?: Content;
 }
 
@@ -144,6 +148,7 @@ export const createItem = ({
   haulItems = () => [],
   ContextMenu,
   visible,
+  linkable = false,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -164,6 +169,7 @@ export const createItem = ({
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
   item.visible = visible;
+  item.linkable = linkable;
   return item;
 };
 

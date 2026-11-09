@@ -100,13 +100,13 @@ const renderMenu = async (props: Tree.ContextMenuProps) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const statuses: Status.NotificationSpec[] = [];
   render(
-    <>
+    <Tree.Provider items={Task.TREE_ITEMS}>
       <Menu {...props} />
       <Modals.Stack />
       <CaptureStatuses
         onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
       />
-    </>,
+    </Tree.Provider>,
     { wrapper },
   );
   return { store, statuses };

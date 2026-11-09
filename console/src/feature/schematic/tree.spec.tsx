@@ -34,6 +34,7 @@ import {
 const roles = new RoleClients(client);
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -91,7 +92,7 @@ describe("Schematic snapshot to the active range", () => {
     const id = schematic.resourceID(s.key);
     const statuses: Status.NotificationSpec[] = [];
     render(
-      <>
+      <Tree.Provider items={Schematic.TREE_ITEMS}>
         <Menu
           {...createBaseProps({ client, store })}
           selection={createSelection({ ids: [id] })}
@@ -100,7 +101,7 @@ describe("Schematic snapshot to the active range", () => {
         <CaptureStatuses
           onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
         />
-      </>,
+      </Tree.Provider>,
       { wrapper },
     );
     fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
@@ -150,10 +151,10 @@ describe("Schematic TreeContextMenu", () => {
     result.unmount();
   });
 
-  it("copies the schematic with a (copy) suffix and begins an inline rename", async () => {
+  it("duplicates the schematic with a (copy) suffix and begins an inline rename", async () => {
     const { schematic: s, rootID, result } = await renderSchematicTree();
     fireEvent.contextMenu(await screen.findByText(s.name));
-    fireEvent.click(await screen.findByText("Copy"));
+    fireEvent.click(await screen.findByText("Duplicate"));
     let copyKey = "";
     await waitFor(async () => {
       const schematics = await client.schematics.retrieve({ projects: [rootID.key] });

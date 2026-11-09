@@ -12,6 +12,7 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
+import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
 import { type ContextMenu as ItemContextMenu } from "@/platform/tree/types";
 
 export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
@@ -35,6 +36,8 @@ export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
+      <CopyContextMenuItem {...props} />
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

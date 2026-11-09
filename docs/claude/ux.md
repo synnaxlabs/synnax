@@ -283,6 +283,8 @@ bound, a log precision, or the line plot X channel.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 
 ### Lists with checkboxes
 
@@ -444,6 +446,10 @@ says why in a sentence, then gives the raw error.
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
   and keep it for at least 300 ms. A plot draws its axes at once and streams data in.
 - Every command that a key runs also has a button or a menu item.
+- Cmd+C on selected tree items copies their names, one per line. The HTML form makes
+  each name a link when a link opens its type, so a paste into chat or email opens the
+  resource. The tree menu has the same Copy item. A text selection, such as a name in a
+  rename, copies as text.
 - Hover can show rare actions, never the current state. A control that shows on hover
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,

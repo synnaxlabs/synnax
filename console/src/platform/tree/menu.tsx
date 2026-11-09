@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
-import { type Menu } from "@synnaxlabs/lyra/menu";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
@@ -19,6 +19,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { findAncestors, findContainedKeys } from "@/platform/tree/ancestry";
+import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
 import { type DefaultContextMenuProps } from "@/platform/tree/DefaultContextMenu";
 import { type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
@@ -30,6 +31,15 @@ import { type Action, type State } from "@/session/store";
 
 const FallbackContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
+    <ContextMenu.ReloadConsoleItem />
+  </ContextMenu.Menu>
+);
+
+// Cmd+C copies a resource of any type, so a type without a menu still offers Copy.
+const CopyContextMenu = (props: ContextMenuProps): ReactElement => (
+  <ContextMenu.Menu>
+    <CopyContextMenuItem {...props} />
+    <Menu.Divider />
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
 );
@@ -110,9 +120,8 @@ export const useMenu = ({
     };
     const allSameType = ids.every((id) => id.type === ids[0].type);
     const M = allSameType
-      ? resolveItem(ids[0].type).ContextMenu
+      ? (resolveItem(ids[0].type).ContextMenu ?? CopyContextMenu)
       : MultipleSelectionContextMenu;
-    if (M == null) return <FallbackContextMenu />;
     return <SelectionContextMenu menu={M} {...props} />;
   };
 

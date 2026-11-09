@@ -98,6 +98,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
       <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
