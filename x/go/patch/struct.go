@@ -23,10 +23,11 @@ import (
 const setField = "set"
 
 // Struct is the change that an update makes to a struct field: none, a merge of the
-// partial U, a replacement by the whole T, or a clear. The zero Struct makes no change.
-// Its JSON form is absent for no change, null for a clear, an object with only a "set"
-// member for a replacement, and the partial otherwise. A struct field that holds a
-// Struct needs the same options as one that holds a Change.
+// partial U, or a replacement by the whole T. The zero Struct makes no change. Its JSON
+// form is absent for no change, an object with only a "set" member for a replacement,
+// and the partial otherwise. A struct field that holds a Struct needs the same options
+// as one that holds a Change. An optional struct field holds a Change of a Struct,
+// whose null clears the field.
 type Struct[U, T any] struct {
 	merge U
 	value T
@@ -39,18 +40,12 @@ func Merge[T, U any](u U) Struct[U, T] { return Struct[U, T]{merge: u, op: opMer
 // Replace returns the Struct that replaces a field with v.
 func Replace[U, T any](v T) Struct[U, T] { return Struct[U, T]{value: v, op: opSet} }
 
-// ClearStruct returns the Struct that clears an optional field.
-func ClearStruct[U, T any]() Struct[U, T] { return Struct[U, T]{op: opClear} }
-
 // Merged returns the partial that s merges, and false when s merges nothing.
 func (s Struct[U, T]) Merged() (U, bool) { return s.merge, s.op == opMerge }
 
 // Replaced returns the value that s replaces the field with, and false when s does
 // not replace the field.
 func (s Struct[U, T]) Replaced() (T, bool) { return s.value, s.op == opSet }
-
-// Cleared reports whether s clears the field.
-func (s Struct[U, T]) Cleared() bool { return s.op == opClear }
 
 // IsZero reports whether s makes no change.
 func (s Struct[U, T]) IsZero() bool { return s.op == opNone }
@@ -65,26 +60,20 @@ func (s Struct[U, T]) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return json.MarshalEncode(enc, struct {
 			Set T `json:"set"`
 		}{Set: s.value})
-	case opClear:
-		return enc.WriteToken(jsontext.Null)
 	default:
 		return errUnset
 	}
 }
 
 // UnmarshalJSONFrom implements json.UnmarshalerFrom. It returns an error wrapping
-// validate.ErrValidation for an object that holds "set" and any other member.
+// validate.ErrValidation for a value that is not an object, or for an object that
+// holds "set" and any other member.
 func (s *Struct[U, T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
-	switch raw.Kind() {
-	case 'n':
-		*s = ClearStruct[U, T]()
-		return nil
-	case '{':
-	default:
+	if raw.Kind() != '{' {
 		return errors.Wrapf(validate.ErrValidation, "expected an object, got %s", raw)
 	}
 	replaces, err := holdsSet(raw)
@@ -123,11 +112,11 @@ func holdsSet(raw jsontext.Value) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		replaces = replaces || name.String() == setField
 		if err = dec.SkipValue(); err != nil {
 			return false, err
 		}
 		members++
-		replaces = replaces || name.String() == setField
 	}
 	if replaces && members > 1 {
 		return false, errors.Wrapf(

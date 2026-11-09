@@ -74,7 +74,8 @@ func readJSON(dec *jsontext.Decoder) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			if obj[name.String()], err = readJSON(dec); err != nil {
+			key := name.String()
+			if obj[key], err = readJSON(dec); err != nil {
 				return nil, err
 			}
 		}
