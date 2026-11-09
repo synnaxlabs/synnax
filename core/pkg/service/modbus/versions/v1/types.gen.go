@@ -115,8 +115,8 @@ type InputRegisterReadChannel struct {
 func (InputRegisterReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputRegisterReadChannel) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
+func (in *InputRegisterReadChannel) ApplyDefaults() {
+	in.RegisterValue.ApplyDefaults()
 }
 
 // ReadChannel is a single Modbus read channel. The type field selects the register

@@ -44,9 +44,9 @@ type Insert struct {
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i Insert) Validate() error {
+func (in Insert) Validate() error {
 	v := validate.New("Insert")
-	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)
+	v.Ternaryf("side", !in.Side.IsValid(), "invalid side: %v", in.Side)
 	return v.Error()
 }
 

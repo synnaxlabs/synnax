@@ -105,8 +105,8 @@ type ID struct {
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i ID) Validate() error {
+func (id ID) Validate() error {
 	v := validate.New("ID")
-	v.Ternaryf("type", !i.Type.IsValid(), "invalid type: %v", i.Type)
+	v.Ternaryf("type", !id.Type.IsValid(), "invalid type: %v", id.Type)
 	return v.Error()
 }

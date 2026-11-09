@@ -119,11 +119,11 @@ type Info struct {
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i Info) Validate() error {
+func (in Info) Validate() error {
 	v := validate.New("Info")
-	v.Ternaryf("state", !i.State.IsValid(), "invalid state: %v", i.State)
-	if i.License != nil {
-		v.Exec(func() error { return validate.PathedError(i.License.Validate(), "license") })
+	v.Ternaryf("state", !in.State.IsValid(), "invalid state: %v", in.State)
+	if in.License != nil {
+		v.Exec(func() error { return validate.PathedError(in.License.Validate(), "license") })
 	}
 	return v.Error()
 }

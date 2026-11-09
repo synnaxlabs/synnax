@@ -920,16 +920,17 @@ func holdsTypeParam(ref resolution.TypeRef) bool {
 }
 
 // receiverName derives a method receiver from the type name. It widens to two letters
-// when the first would be "v", which generated Validate bodies use for their validator.
+// when the first would be "v" or "i", which generated Validate bodies use for their
+// validator and their loop index.
 func receiverName(name string) string {
 	r := strings.ToLower(name[:1])
-	if r != "v" {
+	if r != "v" && r != "i" {
 		return r
 	}
 	if len(name) > 1 {
 		return strings.ToLower(name[:2])
 	}
-	return "vv"
+	return r + r
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {

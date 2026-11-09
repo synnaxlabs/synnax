@@ -507,15 +507,15 @@ type IsoCapNodeConfig struct {
 func (IsoCapNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCapNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoCapNodeConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCapNodeConfig) Validate() error {
+func (is IsoCapNodeConfig) Validate() error {
 	v := validate.New("IsoCapNodeConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -526,15 +526,15 @@ type IsoFilterNodeConfig struct {
 func (IsoFilterNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoFilterNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoFilterNodeConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoFilterNodeConfig) Validate() error {
+func (is IsoFilterNodeConfig) Validate() error {
 	v := validate.New("IsoFilterNodeConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -1106,28 +1106,28 @@ type InputNodeConfig struct {
 func (InputNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputNodeConfig) ApplyDefaults() {
-	if i.Size == "" {
-		i.Size = ComponentSizeMedium
+func (in *InputNodeConfig) ApplyDefaults() {
+	if in.Size == "" {
+		in.Size = ComponentSizeMedium
 	}
-	if i.InlineSize == 0 {
-		i.InlineSize = 150
+	if in.InlineSize == 0 {
+		in.InlineSize = 150
 	}
-	i.LabeledConfig.ApplyDefaults()
-	i.StalenessConfig.ApplyDefaults()
-	if i.Control != nil {
-		i.Control.ApplyDefaults()
+	in.LabeledConfig.ApplyDefaults()
+	in.StalenessConfig.ApplyDefaults()
+	if in.Control != nil {
+		in.Control.ApplyDefaults()
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i InputNodeConfig) Validate() error {
+func (in InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
-	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
-	v.Exec(i.LabeledConfig.Validate)
-	if i.Control != nil {
-		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
+	v.Ternaryf("size", !in.Size.IsValid(), "invalid size: %v", in.Size)
+	v.Exec(in.LabeledConfig.Validate)
+	if in.Control != nil {
+		v.Exec(func() error { return validate.PathedError(in.Control.Validate(), "control") })
 	}
 	return v.Error()
 }
@@ -2193,15 +2193,15 @@ type IsoBurstDiscNodeConfig struct {
 func (IsoBurstDiscNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoBurstDiscNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoBurstDiscNodeConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoBurstDiscNodeConfig) Validate() error {
+func (is IsoBurstDiscNodeConfig) Validate() error {
 	v := validate.New("IsoBurstDiscNodeConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -2459,15 +2459,15 @@ type IsoCheckValveNodeConfig struct {
 func (IsoCheckValveNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCheckValveNodeConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoCheckValveNodeConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCheckValveNodeConfig) Validate() error {
+func (is IsoCheckValveNodeConfig) Validate() error {
 	v := validate.New("IsoCheckValveNodeConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -5311,15 +5311,15 @@ type IsoCapElementConfig struct {
 func (IsoCapElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCapElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoCapElementConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCapElementConfig) Validate() error {
+func (is IsoCapElementConfig) Validate() error {
 	v := validate.New("IsoCapElementConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -5330,15 +5330,15 @@ type IsoFilterElementConfig struct {
 func (IsoFilterElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoFilterElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoFilterElementConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoFilterElementConfig) Validate() error {
+func (is IsoFilterElementConfig) Validate() error {
 	v := validate.New("IsoFilterElementConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -5910,28 +5910,28 @@ type InputElementConfig struct {
 func (InputElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputElementConfig) ApplyDefaults() {
-	if i.Size == "" {
-		i.Size = ComponentSizeMedium
+func (in *InputElementConfig) ApplyDefaults() {
+	if in.Size == "" {
+		in.Size = ComponentSizeMedium
 	}
-	if i.InlineSize == 0 {
-		i.InlineSize = 150
+	if in.InlineSize == 0 {
+		in.InlineSize = 150
 	}
-	i.LabeledConfig.ApplyDefaults()
-	i.StalenessConfig.ApplyDefaults()
-	if i.Control != nil {
-		i.Control.ApplyDefaults()
+	in.LabeledConfig.ApplyDefaults()
+	in.StalenessConfig.ApplyDefaults()
+	if in.Control != nil {
+		in.Control.ApplyDefaults()
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i InputElementConfig) Validate() error {
+func (in InputElementConfig) Validate() error {
 	v := validate.New("InputElementConfig")
-	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
-	v.Exec(i.LabeledConfig.Validate)
-	if i.Control != nil {
-		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
+	v.Ternaryf("size", !in.Size.IsValid(), "invalid size: %v", in.Size)
+	v.Exec(in.LabeledConfig.Validate)
+	if in.Control != nil {
+		v.Exec(func() error { return validate.PathedError(in.Control.Validate(), "control") })
 	}
 	return v.Error()
 }
@@ -6997,15 +6997,15 @@ type IsoBurstDiscElementConfig struct {
 func (IsoBurstDiscElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoBurstDiscElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoBurstDiscElementConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoBurstDiscElementConfig) Validate() error {
+func (is IsoBurstDiscElementConfig) Validate() error {
 	v := validate.New("IsoBurstDiscElementConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
@@ -7263,15 +7263,15 @@ type IsoCheckValveElementConfig struct {
 func (IsoCheckValveElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IsoCheckValveElementConfig) ApplyDefaults() {
-	i.StaticSymbolConfig.ApplyDefaults()
+func (is *IsoCheckValveElementConfig) ApplyDefaults() {
+	is.StaticSymbolConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCheckValveElementConfig) Validate() error {
+func (is IsoCheckValveElementConfig) Validate() error {
 	v := validate.New("IsoCheckValveElementConfig")
-	v.Exec(i.StaticSymbolConfig.Validate)
+	v.Exec(is.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 

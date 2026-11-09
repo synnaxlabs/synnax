@@ -144,6 +144,29 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
+		"Should widen the receiver when the type name would collide with the loop index",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Item struct {
+				rate float64 = 0.2
+			}
+
+			Index struct {
+				items Item[]
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (in *Index) ApplyDefaults() {",
+				"for i := range in.Items {",
+				"in.Items[i].ApplyDefaults()",
+			)
+		},
+	)
+
+	It(
 		"Should generate ApplyDefaults on a struct that extends a base",
 		func(ctx SpecContext) {
 			source := `
@@ -970,9 +993,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (i *Item) ApplyDefaults() {",
-					"if i.Cjc.Variant == nil {",
-					"i.Cjc.Variant = ConstValCJC{}",
+					"func (it *Item) ApplyDefaults() {",
+					"if it.Cjc.Variant == nil {",
+					"it.Cjc.Variant = ConstValCJC{}",
 				)
 			},
 		)
@@ -997,12 +1020,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (c *ConstValCJC) ApplyDefaults() {",
 					"c.Val = 25",
-					"i.Cjc.ApplyDefaults()",
+					"it.Cjc.ApplyDefaults()",
 				)
 				// The fill must precede the recursion: a nil variant has no
 				// ApplyDefaults to dispatch to.
-				Expect(strings.Index(content, "i.Cjc.Variant = ConstValCJC{}")).
-					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
+				Expect(strings.Index(content, "it.Cjc.Variant = ConstValCJC{}")).
+					To(BeNumerically("<", strings.Index(content, "it.Cjc.ApplyDefaults()")))
 			},
 		)
 
@@ -1021,10 +1044,10 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, literal, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"if i.Cjc.Variant == nil {",
+				"if it.Cjc.Variant == nil {",
 				"v0 := ConstValCJC{}",
 				"v0.Val = 5",
-				"i.Cjc.Variant = v0",
+				"it.Cjc.Variant = v0",
 			)
 		})
 

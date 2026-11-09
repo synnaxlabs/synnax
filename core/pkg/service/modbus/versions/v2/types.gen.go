@@ -125,8 +125,8 @@ type InputRegisterReadChannel struct {
 func (InputRegisterReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputRegisterReadChannel) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
+func (in *InputRegisterReadChannel) ApplyDefaults() {
+	in.RegisterValue.ApplyDefaults()
 }
 
 // HoldingRegisterBitReadChannel reads one bit of a holding register.
@@ -155,9 +155,9 @@ func (InputRegisterBitReadChannel) isReadChannelVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i InputRegisterBitReadChannel) Validate() error {
+func (in InputRegisterBitReadChannel) Validate() error {
 	v := validate.New("InputRegisterBitReadChannel")
-	v.Exec(i.RegisterBit.Validate)
+	v.Exec(in.RegisterBit.Validate)
 	return v.Error()
 }
 
