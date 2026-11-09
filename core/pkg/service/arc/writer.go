@@ -305,7 +305,10 @@ func (w Writer) UpdateTask(
 		return nil, err
 	}
 	rec.Task = written.Key
-	return written, w.writeRecord(ctx, tsk, rec, hashes)
+	if err = w.writeRecord(ctx, tsk, rec, hashes); err != nil {
+		return nil, err
+	}
+	return written, nil
 }
 
 // build returns the hash of a's compiled program and the hashes of its content. The
