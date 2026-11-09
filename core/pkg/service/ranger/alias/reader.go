@@ -170,14 +170,14 @@ func (r Reader) Search(
 // SearchChannels returns the channels that q selects and that match term by name or by
 // their alias on rng. Alias matches come first, then name matches, each closest match
 // first. It matches only the aliases of the channels that visible accepts. A positive
-// limit and the offset page the merged list.
+// limit caps the merged list.
 func (r Reader) SearchChannels(
 	ctx context.Context,
 	q channel.Retrieve,
 	rng ranger.Key,
 	term string,
 	visible func(channel.Key) bool,
-	limit, offset int,
+	limit int,
 ) ([]channel.Channel, error) {
 	keys, err := r.Search(ctx, rng, term, visible)
 	if err != nil {
@@ -198,7 +198,7 @@ func (r Reader) SearchChannels(
 	})
 	named := q.Search(term)
 	if limit > 0 {
-		named = named.Limit(limit + offset)
+		named = named.Limit(limit)
 	}
 	var byName []channel.Channel
 	if err := named.Entries(&byName).Exec(ctx, r.snap); err != nil {
@@ -212,9 +212,8 @@ func (r Reader) SearchChannels(
 		_, ok := matched[ch.Key()]
 		return ok
 	})...)
-	length := uint(len(merged))
 	if limit > 0 {
-		length = uint(limit)
+		merged = merged[:min(limit, len(merged))]
 	}
-	return lo.Subset(merged, offset, length), nil
+	return merged, nil
 }

@@ -15,7 +15,9 @@ from freighter import Empty, UnaryClient
 from synnax.certificate.payload import New
 from synnax.certificate.types_gen import (
     Certificate,
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -63,7 +65,8 @@ class Client:
         :raises PathError: If a certificate has no name, a PEM does not parse, or a
             private key does not match its certificate.
         :raises AccessDenied: If the caller may not create certificates, create secrets
-            for private keys, or update a certificate it replaces.
+            for private keys, or update a certificate it replaces and the secret of its
+            private key.
         """
         is_single = not isinstance(certificates, list)
         req = _CreateRequest(certificates=normalize(certificates))
@@ -74,7 +77,8 @@ class Client:
         """Deletes certificates and the secrets that hold their private keys.
 
         :param keys: The keys of the certificates to delete.
-        :raises AccessDenied: If the caller may not delete a certificate.
+        :raises AccessDenied: If the caller may not delete a certificate or the secret
+            of its private key.
         """
         self._client.send(
             "/certificate/delete", _DeleteRequest(keys=normalize(keys)), Empty
@@ -87,7 +91,8 @@ class Client:
         :param name: The new name for the certificate.
         :raises PathError: If the name is empty.
         :raises NotFoundError: If no certificate has the given key.
-        :raises AccessDenied: If the caller may not update the certificate.
+        :raises AccessDenied: If the caller may not update the certificate, or the
+            secret of its private key, which takes the new name.
         """
         self._client.send(
             "/certificate/rename", _RenameRequest(key=key, name=name), Empty
@@ -101,6 +106,7 @@ class Client:
         self,
         *,
         key: Key,
+        name: filter.StringInput = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -114,6 +120,21 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        name: str,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Certificate: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -128,6 +149,7 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -135,7 +157,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Certificate]: ...
 
@@ -147,7 +170,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Certificate | list[Certificate]:
@@ -155,9 +179,10 @@ class Client:
 
         Each filter field takes a value, a list of values, or an operator, and a
         certificate must match every field. A plain ``key``, by position or by keyword,
-        returns one certificate.
+        or a plain ``name`` returns one certificate.
 
         :param key: Keeps certificates with this key.
+        :param name: Keeps certificates with this name.
         :param and_: Keeps certificates that match every filter in the list.
         :param or_: Keeps certificates that match any filter in the list.
         :param not_: Keeps certificates that do not match the filter.
@@ -166,26 +191,31 @@ class Client:
         :param search_term: Keeps the certificates whose names match, closest match
             first.
         :param limit: The most certificates to return.
-        :param offset: The number of matching certificates to skip.
+        :param order: The order of the certificates. Defaults to key order.
+        :param after: Retrieves the certificates past this position in the order: the
+            key of the last certificate of the page before, and its value of the order
+            field.
         :param one: Returns one certificate for any filter.
-        :returns: One certificate for a plain ``key`` or when ``one`` is set, otherwise
-            a list of certificates. The list leaves out keys that no certificate has.
+        :returns: One certificate for a plain ``key`` or ``name`` or when ``one`` is
+            set, otherwise a list of certificates. The list leaves out keys that no
+            certificate has.
         :raises NotFoundError: If one certificate is wanted and none matches.
         :raises MultipleFoundError: If one certificate is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one certificate is
-            wanted beside a limit or an offset.
+            wanted beside a limit or a cursor.
         :raises AccessDenied: If the caller may not retrieve a matching certificate.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/certificate/retrieve", req, RetrieveResponse)
         return (

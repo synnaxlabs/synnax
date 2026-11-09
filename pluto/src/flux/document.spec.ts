@@ -45,8 +45,8 @@ const { useEnsure } = Flux.createRetrieve<{ key: task.Key }, task.Task>({
   name: "Task",
   retrieve: async ({ client, query: { key } }) => await client.tasks.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
-    client.tasks.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.tasks.getCached(key),
+    client.tasks.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.tasks.watch(key).getCached(),
 });
 
 const createForm = <S extends z.ZodType<Values>>(formSchema: S) =>
@@ -683,7 +683,7 @@ describe("createDocumentForm", () => {
     act(() => result.current.form.set(path.config.routingKey, ""));
     unmount();
     await formClient.tasks.settled(t.key);
-    const cached = formClient.tasks.getCached(t.key) as task.Task;
+    const cached = formClient.tasks.watch(t.key).getCached() as task.Task;
     expect(cached.config).toMatchObject({ routingKey: ROUTING_KEY });
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: ROUTING_KEY,
@@ -771,7 +771,7 @@ describe("createDocumentForm", () => {
         );
       });
       await waitFor(() => {
-        const cached = formClient.tasks.getCached(t.key) as task.Task;
+        const cached = formClient.tasks.watch(t.key).getCached() as task.Task;
         expect((cached.config as Values["config"]).alerts).toEqual([]);
       });
       expect(result.current.form.value()).toMatchObject({ key: "a", status: "st-a" });

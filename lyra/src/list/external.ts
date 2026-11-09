@@ -11,7 +11,6 @@ export * from "@/list/Columns";
 export * from "@/list/Frame";
 export * from "@/list/Item";
 export * from "@/list/Items";
-export * from "@/list/pager";
 export { useGetElement, useInItems, usePin } from "@/list/scope";
 export * from "@/list/Scroll";
 export * from "@/list/useCombinedData";

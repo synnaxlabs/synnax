@@ -140,8 +140,11 @@ const getOption = (name: string): HTMLElement => {
 describe("secret/Toolbar", () => {
   it("creates a secret from the header action", async () => {
     await renderToolbar();
-    await waitFor(() => getIconButton(document.body, "add"));
-    fireEvent.click(getIconButton(document.body, "add"));
+    const add = await waitFor(() => getIconButton(document.body, "add"));
+    // Secrets left on the Core can still be reading their uses.
+    await act(async () => {
+      fireEvent.click(add);
+    });
     const name = uniqueName("created");
     fireEvent.change(await screen.findByLabelText("Secret name"), {
       target: { value: name },

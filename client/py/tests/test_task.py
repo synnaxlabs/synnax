@@ -220,13 +220,12 @@ class TestTaskClient:
         with pytest.raises(sy.NotFoundError):
             client.tasks.retrieve(uuid4())
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the tasks on a rack."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the tasks on a rack."""
         rack = client.racks.create(name=str(uuid4()))
         for i in range(3):
             client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
         assert len(client.tasks.retrieve(rack=rack.key, limit=2)) == 2
-        assert len(client.tasks.retrieve(rack=rack.key, offset=2)) == 1
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should return the tasks whose names match the search term."""

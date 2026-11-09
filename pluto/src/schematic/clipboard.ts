@@ -45,7 +45,7 @@ export const useClipboard = ({
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
-      const cached = client?.schematics.getCached(key);
+      const cached = client?.schematics.watch(key).getCached();
       if (!query.isLive(cached)) return null;
       const { nodes, edges, configs } = cached;
       return { nodes, edges, configs };
