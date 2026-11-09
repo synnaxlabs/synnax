@@ -169,7 +169,7 @@ control again:
 ```python
 result = writer.commit_result()
 if not result.authorized:
-    print("Another writer controls a channel")
+    print("The Core refused data since the last commit")
 ```
 
 To control hardware from a script with waits and conditions, see
@@ -211,7 +211,7 @@ again:
 
 ```typescript
 const result = await writer.commitResult();
-if (!result.authorized) console.log("Another writer controls a channel");
+if (!result.authorized) console.log("The Core refused data since the last commit");
 ```
 
   </Fragment>

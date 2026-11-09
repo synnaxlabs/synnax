@@ -300,7 +300,7 @@ export class Writer {
   }
 
   /**
-   * Commits like `commit`, and also reports whether the writer had control.
+   * Commits like `commit`, and also reports whether the Core refused data.
    * @returns the result of the commit.
    * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
    * before the commit.

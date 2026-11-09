@@ -405,7 +405,7 @@ class Writer:
         return self.commit_result().end
 
     def commit_result(self) -> CommitResult:
-        """Commits like commit, and also reports whether the writer had control.
+        """Commits like commit, and also reports whether the Core refused data.
 
         :returns: The result of the commit.
         :raises WriterClosed: If the writer was closed before the commit.
