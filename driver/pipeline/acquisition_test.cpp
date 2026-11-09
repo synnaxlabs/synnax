@@ -26,6 +26,7 @@ public:
     x::telem::TimeStamp start_ts;
     x::errors::Error stopped_err = x::errors::NIL;
     x::errors::Error read_err = x::errors::NIL;
+    std::atomic<size_t> writer_opens{0};
 
     explicit MockSource(
         const x::telem::TimeStamp start_ts,
@@ -47,6 +48,8 @@ public:
     void stopped_with_err(const x::errors::Error &err) override {
         this->stopped_err = err;
     }
+
+    void writer_opened() override { this->writer_opens.fetch_add(1); }
 };
 
 /// @brief a source that fails or returns empty frames per a script, then returns a
@@ -199,6 +202,7 @@ TEST(AcquisitionPipeline, DoesNotRetryWriterOpenOnUnauthorized) {
     ASSERT_EVENTUALLY_TRUE(!pipeline.running());
     pipeline.stop();
     ASSERT_EQ(writes->size(), 0);
+    ASSERT_EQ(source->writer_opens.load(), 0);
 }
 
 /// @brief it should retry opening the writer when write returns false and the
@@ -825,6 +829,7 @@ TEST(AcquisitionPipeline, ReopensWriterOnRestart) {
     ASSERT_EVENTUALLY_GE(writes->size(), 6);
     ASSERT_TRUE(pipe.stop());
     ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
+    ASSERT_EQ(source->writer_opens.load(), 2);
 }
 
 /// @brief it should stop the pipeline when the source returns invalid authorities.
