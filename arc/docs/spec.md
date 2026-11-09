@@ -382,8 +382,7 @@ In reactive scope, an incoming edge connects to a node. A function's **triggers*
 the parameters that edges feed:
 
 - A single upstream edge feeds the first trigger (`enable` in `controller` above,
-  `value` in `clamp`). The upstream value binds to it. An input routing table maps
-  several sources to the triggers by name (see Flow Layer).
+  `value` in `clamp`). The upstream value binds to it.
 - A function with no triggers has only inputs: the edge activates the node without
   binding a value. `func f(x f64) { }` declares an input `x`, not a trigger.
 
@@ -407,8 +406,7 @@ must touch the name:
 sensor -> controller(setpoint=100.0, sensor=temp, actuator=valve)
 ```
 
-The upstream edge feeds the function's first trigger. Mapping multiple upstream sources
-to named triggers requires routing tables (see Flow Layer).
+The upstream edge feeds the function's first trigger.
 
 ### Multi-output functions
 
@@ -508,14 +506,14 @@ The flow layer connects functions via channels in the reactive scope.
 ### Flow statement grammar
 
 ```
-FlowStatement ::= (RoutingTable | FlowNode) (FlowOperator (RoutingTable | FlowNode))+
+FlowStatement ::= FlowNode (FlowOperator (RoutingTable | FlowNode))+
 
 FlowOperator ::= '->'       // continuous flow
                | '=>'       // conditional flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
-RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)* (':' Identifier)?
+RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)*
 
 RoutingKey ::= Identifier | 'true' | 'false'
 
@@ -529,8 +527,7 @@ FlowNode ::= Identifier           // channel, variable, stage, or sequence name
 
 An output routing entry's case body must be a full flow statement (at least two nodes)
 or an inline stage/sequence body. The routed output only decides that the entry runs; it
-feeds no value into it. A trailing `: Identifier` maps the entry's own result to a
-trigger of the function after the table.
+feeds no value into it.
 
 ### Simple pipelines
 
@@ -546,29 +543,6 @@ Branch on named outputs; the output that fires runs its entry:
 sensor -> demux() -> {
     high: true => alarm,
     low: true => all_clear
-}
-```
-
-### Input routing tables
-
-Map multiple sources to named triggers:
-
-```arc
- {
-    sensor1: a,
-    sensor2: b
-} -> combiner()
-```
-
-### Combined routing
-
-```arc
- {
-    temp1: a,
-    temp2: b
-} -> averager() -> threshold() -> {
-    above: true => alarm,
-    below: true => all_clear
 }
 ```
 

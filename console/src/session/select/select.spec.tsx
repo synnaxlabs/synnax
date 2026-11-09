@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Select } from "@/session/select";
+import { createMinimalStore } from "@/testutil";
 
 interface Item {
   key: string;
@@ -50,7 +51,7 @@ const testSlice = createSlice({
 
 const { setTracked, setUntracked, setItem } = testSlice.actions;
 
-const createStore = () => configureStore({ reducer: testSlice.reducer });
+const createStore = () => createMinimalStore({ reducer: testSlice.reducer });
 
 const wrapperFor = (store: ReturnType<typeof createStore>) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

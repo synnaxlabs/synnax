@@ -114,7 +114,7 @@ export const DataTypeCell = ({
         <NumberField
           path={deep.present(fields.stringLength)}
           label="String length"
-          prefix="Length"
+          prefix=""
           bounds={STRING_LENGTH_BOUNDS}
         />
       )}

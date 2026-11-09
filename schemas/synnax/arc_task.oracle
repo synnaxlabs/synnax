@@ -11,13 +11,22 @@ import "schemas/synnax/arc"
 import "schemas/synnax/task"
 
 @go output "core/pkg/service/arc/task"
+@py output "client/py/synnax/arc/task"
 @ts output "client/ts/src/arc/task"
 
 Performance enum {
-    auto   = "auto"
-    low    = "low"
-    medium = "medium"
-    high   = "high"
+    auto   = "auto" {
+        @doc value "spins the timer for the default time of the platform."
+    }
+    low    = "low" {
+        @doc value "never spins the timer."
+    }
+    medium = "medium" {
+        @doc value "spins the timer for up to 1 millisecond before a deadline."
+    }
+    high   = "high" {
+        @doc value "spins the timer for the whole of each wait."
+    }
 
     @doc value """
         sets how closely the Arc runtime holds timer deadlines. A higher level is more
@@ -27,7 +36,9 @@ Performance enum {
 
 Config struct extends task.PersistConfig {
     arc_key     arc.Key     {
-        @doc value "is the key of the Arc module the task executes."
+        @doc value     "is the key of the Arc module the task executes."
+        @ref kind      use
+        @ref on_delete restrict
     }
     hash        string = "" {
         @doc value "is the semantic hash of the Arc module at deploy time."
@@ -36,8 +47,10 @@ Config struct extends task.PersistConfig {
         @doc value "sets how closely the runtime holds timer deadlines."
     }
 
-    @doc value  "configures an Arc task, which runs a compiled Arc module."
-    @go imex    body
+    @doc value        "configures an Arc task, which runs a compiled Arc module."
+    @go imex          body
     @go marshal
     @go migrate
+    @patch
+    @retrieve indexes
 }

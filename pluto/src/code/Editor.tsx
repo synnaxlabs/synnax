@@ -106,8 +106,9 @@ const forwardGlobalTriggers = (
   };
 };
 
-// applyMinimalEdit reflects next into the model as the single contiguous edit that turns
-// its current value into it, so the local cursor and selection survive a programmatic set.
+// applyMinimalEdit reflects next into the model as the single contiguous edit that
+// turns its current value into it, so the local cursor and selection survive a
+// programmatic set.
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
@@ -127,13 +128,13 @@ const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void =
   ]);
 };
 
-/** EditorHandle is the imperative surface an Editor exposes through its ref, for consumers
- * that own the editor's text and update it programmatically rather than through React
- * state. */
+/** EditorHandle is the imperative surface an Editor exposes through its ref, for
+ * consumers that own the editor's text and update it programmatically rather than
+ * through React state. */
 export interface EditorHandle {
   /** setValue reconciles the editor's model to next as a minimal edit, preserving the
-   * local cursor and selection. It is a no-op when the model already holds next, and does
-   * not fire onChange, since the edit did not originate from the user. */
+   * local cursor and selection. It is a no-op when the model already holds next, and
+   * does not fire onChange, since the edit did not originate from the user. */
   setValue: (next: string) => void;
 }
 
@@ -143,6 +144,8 @@ interface UseProps {
   onEdit?: (changes: readonly Monaco.editor.IModelContentChange[]) => void;
   language: string;
   isBlock?: boolean;
+  /** isModule marks the document as an Arc module for the language server. */
+  isModule?: boolean;
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
   extensions?: EditorExtension[];
@@ -162,9 +165,9 @@ const PLACEHOLDER_RANGE: Monaco.IRange = {
   endColumn: 1,
 };
 
-// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing without
-// it. Injected text takes a cursor stop on both sides by default, letting a click park
-// the caret after the placeholder, so the placeholder takes neither stop.
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
+// without it. Injected text takes a cursor stop on both sides by default, letting a
+// click park the caret after the placeholder, so the placeholder takes neither stop.
 const renderPlaceholder =
   (content: string, mon: Pick<typeof Monaco, "editor">): EditorExtension =>
   (editor) => {
@@ -271,6 +274,15 @@ const createBlockURI = (): string => {
   return `arc://block/${id}#${encoded}`;
 };
 
+const createModuleURI = (): string =>
+  `arc://module/${Math.random().toString(36).substring(7)}`;
+
+const createCustomURI = (isBlock: boolean, isModule: boolean): string | undefined => {
+  if (isBlock) return createBlockURI();
+  if (isModule) return createModuleURI();
+  return undefined;
+};
+
 const setValueSuppressed = (
   model: Monaco.editor.ITextModel,
   next: string,
@@ -285,8 +297,8 @@ const setValueSuppressed = (
 };
 
 // useRenameAvailable reports whether the editor's rename action would succeed at the
-// current cursor position, re-probing the LSP rename providers (debounced) on each cursor
-// move. It returns false while no editor or monaco instance is available.
+// current cursor position, re-probing the LSP rename providers (debounced) on each
+// cursor move. It returns false while no editor or monaco instance is available.
 const useRenameAvailable = (
   editor: Monaco.editor.IStandaloneCodeEditor | null,
   monaco: typeof Monaco | null,
@@ -353,6 +365,7 @@ const use = ({
   onEdit,
   language,
   isBlock = false,
+  isModule = false,
   scrollBeyondLastLine = false,
   openContextMenu,
   extensions,
@@ -376,7 +389,7 @@ const use = ({
   );
   const cursorRenameable = useRenameAvailable(editor, monaco);
 
-  const [customURI] = useState(() => (isBlock ? createBlockURI() : undefined));
+  const [customURI] = useState(() => createCustomURI(isBlock, isModule));
 
   useEffect(() => {
     if (containerRef.current == null) return;
@@ -488,6 +501,7 @@ const EditorInternal = ({
   className,
   language,
   isBlock,
+  isModule,
   scrollBeyondLastLine,
   extensions,
   placeholder,
@@ -503,6 +517,7 @@ const EditorInternal = ({
     onValueChange,
     language,
     isBlock,
+    isModule,
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
     extensions,

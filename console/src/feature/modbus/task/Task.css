@@ -84,7 +84,7 @@
 
     & > :last-child:not(:first-child) {
         flex: none;
-        width: 13rem;
+        width: 7rem;
     }
 }
 
@@ -98,7 +98,6 @@
     gap: 1rem;
     padding: 2rem 2rem 1.5rem;
     font-family: var(--pluto-font-family);
-    border-bottom: var(--pluto-border);
 }
 
 .console-modbus__lane {
@@ -189,6 +188,11 @@
     bottom: -0.25rem;
 }
 
+.console-modbus__segment--selected {
+    z-index: 1;
+    box-shadow: var(--pluto-selected-ring);
+}
+
 /* A disabled channel keeps its addresses in stripes, as a calendar marks a tentative
    event. */
 .console-modbus__segment--disabled {
@@ -254,4 +258,21 @@
     justify-content: center;
     white-space: nowrap;
     color: var(--pluto-text-color);
+}
+
+.console-task-configure--modbus_read,
+.console-task-configure--modbus_write {
+    --console-task-form-max-width: 1200px;
+}
+
+/* Below the form's maximum width, the byte order shows only its glyph. */
+@container (max-width: 1199px) {
+    .console-task-configure--modbus_read > div,
+    .console-task-configure--modbus_write > div {
+        --console-modbus-byte-order-width: 12rem;
+
+        .console-modbus__trigger .console-modbus__order-glyph + span {
+            display: none;
+        }
+    }
 }

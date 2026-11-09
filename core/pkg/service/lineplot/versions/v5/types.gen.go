@@ -29,8 +29,10 @@ type Key = v0.Key
 type TickType string
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = "linear"
-	TickTypeTime   TickType = "time"
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = "time"
 )
 
 // IsValid reports whether t is one of the defined TickType
@@ -67,7 +69,9 @@ func (d DownsampleMode) IsValid() bool {
 type XAxisKey string
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = "x1"
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = "x2"
 )
 
@@ -86,9 +90,13 @@ func (x XAxisKey) IsValid() bool {
 type YAxisKey string
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = "y1"
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = "y2"
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = "y3"
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = "y4"
 )
 
@@ -107,11 +115,17 @@ func (y YAxisKey) IsValid() bool {
 type AxisKey string
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = "x1"
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = "x2"
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = "y1"
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = "y2"
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = "y3"
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = "y4"
 )
 

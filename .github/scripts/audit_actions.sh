@@ -11,9 +11,9 @@
 
 # Audit every `uses:` reference across .github/workflows and .github/actions.
 # Prints, for each distinct action, the versions/refs it is pinned to and the
-# number of occurrences. Local `./...` action references are skipped. Actions
-# pinned to more than one version are listed in a detail block with file:line
-# locations.
+# number of occurrences, taking the version from the comment after a pinned hash.
+# Local `./...` action references are skipped. Actions pinned to more than one
+# version are listed in a detail block with file:line locations.
 
 set -eu
 
@@ -37,6 +37,11 @@ find "$GITHUB_DIR/workflows" "$GITHUB_DIR/actions" \
                 sub(/^[0-9]+:/, "", line)
                 sub(/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*/, "", line)
                 gsub("[\"" sq "]", "", line)
+                tag = ""
+                if (match(line, /#[[:space:]]*[^[:space:]]+[[:space:]]*$/)) {
+                    tag = substr(line, RSTART + 1)
+                    gsub(/[[:space:]]/, "", tag)
+                }
                 sub(/[[:space:]]+#.*$/, "", line)
                 sub(/[[:space:]]+$/, "", line)
                 if (line == "" || line ~ /^#/) next
@@ -49,7 +54,7 @@ find "$GITHUB_DIR/workflows" "$GITHUB_DIR/actions" \
                 } else if (index(line, "@") > 0) {
                     at = index(line, "@")
                     name = substr(line, 1, at - 1)
-                    version = substr(line, at + 1)
+                    version = tag != "" ? tag : substr(line, at + 1)
                 } else {
                     name = line; version = "(unpinned)"
                 }

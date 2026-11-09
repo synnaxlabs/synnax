@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology, user } from "@synnaxlabs/client";
+import { user } from "@synnaxlabs/client";
 import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,24 +47,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export type UseRetrieveGroupParams = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupParams,
-  ontology.ID | undefined
->({
-  name: "user group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Users")?.id;
-  },
-});
-
 export const formSchema = user.newZ.extend({
-  username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
-  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -85,13 +70,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    const v = value();
-    const createdUser = await client.users.create({ key: uuid.create(), ...v });
-    if (v.role == null) return;
-    await client.access.roles.assign({
-      user: createdUser.key,
-      role: v.role,
-    });
+    await client.users.create({ key: uuid.create(), ...value() });
   },
 });
 

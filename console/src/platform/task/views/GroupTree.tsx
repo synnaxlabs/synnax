@@ -18,12 +18,21 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { deep, id, type record } from "@synnaxlabs/x";
+import { Channel } from "@synnaxlabs/pluto";
+import { deep, id, primitive, type record } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import {
+  isMissing,
+  Message,
+  MISSING_DESCRIPTIONS,
+  NEW_DESCRIPTION,
+  STATE_MESSAGES,
+  StateIcon,
+} from "@/platform/task/ChannelState";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
@@ -56,6 +65,8 @@ interface AnyGroup<F extends GroupField> {
   index?: string;
   disabled?: boolean;
   fields?: F[];
+  /** A leaf's channel. */
+  channel?: number;
 }
 
 export interface GroupProps<G> {
@@ -179,6 +190,38 @@ const disabledPath = <F extends GroupField>(
     ? deep.present(groups[entry.groupKey].disabled)
     : deep.widen<GroupField>(entry.path).disabled;
 
+interface ChannelIconProps {
+  channel: deep.Target<number>;
+  /** Deploying the task skips the channel. */
+  skipped: boolean;
+}
+
+/** Marks an item whose channel deploying creates, or whose channel is gone. */
+const ChannelIcon = ({ channel, skipped }: ChannelIconProps) => {
+  const key = Form.useFieldValue(channel);
+  const result = Channel.useResultName(primitive.isNonZero(key) ? { key } : null);
+  if (!primitive.isNonZero(key))
+    return skipped ? null : (
+      <Message
+        variant="info"
+        message={STATE_MESSAGES.new}
+        description={NEW_DESCRIPTION}
+      >
+        <StateIcon state="new" />
+      </Message>
+    );
+  if (!isMissing(result)) return null;
+  return (
+    <Message
+      variant="warning"
+      message={STATE_MESSAGES.missing}
+      description={MISSING_DESCRIPTIONS[skipped ? "skips" : "creates"]}
+    >
+      <StateIcon state="missing" />
+    </Message>
+  );
+};
+
 interface GroupItemProps<G> extends Tree.ItemRenderProps<string> {
   path: deep.Path<G[]>;
   leaf: boolean;
@@ -190,7 +233,7 @@ interface GroupItemProps<G> extends Tree.ItemRenderProps<string> {
   children?: ReactNode;
 }
 
-const GroupItem = <G,>(props: GroupItemProps<G>) => {
+const GroupItem = <G extends Group<GroupField> | Leaf>(props: GroupItemProps<G>) => {
   const isPreview = useIsPreview();
   // After the hook: the compiler assumes the label call can change the rest object, so
   // a destructure in the parameters stretches its memo block across the hook.
@@ -210,6 +253,14 @@ const GroupItem = <G,>(props: GroupItemProps<G>) => {
       )}
     >
       {label({ groupKey: itemKey, path: path[itemKey] })}
+      {leaf && (
+        <ChannelIcon
+          channel={deep.present(
+            deep.widen<AnyGroup<GroupField>[]>(path)[itemKey].channel,
+          )}
+          skipped={off}
+        />
+      )}
       {!leaf && !isPreview && (
         <Button.Button
           onClick={handleAdd}
@@ -264,18 +315,22 @@ const FieldLabel = ({ path, level, emptyLabel }: FieldLabelProps) => {
 
 interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Target<GroupField>;
+  /** The disabled flag of the field's group, which a group need not hold. */
+  groupDisabled: deep.Target<boolean | undefined>;
   emptyLabel: string;
 }
 
-const FieldItem = ({ path, emptyLabel, ...props }: FieldItemProps) => {
-  const { disabled: disabledField } = deep.widen(path);
+const FieldItem = ({ path, groupDisabled, emptyLabel, ...props }: FieldItemProps) => {
+  const { disabled: disabledField, channel } = deep.widen(path);
   const disabled = Form.useFieldValue(disabledField);
+  const groupOff = Form.useFieldValue(groupDisabled, { optional: true }) === true;
   return (
     <Tree.Item
       {...props}
       className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
     >
       <FieldLabel path={path} level="small" emptyLabel={emptyLabel} />
+      <ChannelIcon channel={channel} skipped={disabled || groupOff} />
       <EnabledCheckbox path={disabledField} />
     </Tree.Item>
   );
@@ -483,7 +538,13 @@ export const GroupTree = <
     const entry = entries.get(p.itemKey);
     if (entry?.kind === "field")
       return (
-        <FieldItem key={key} {...p} path={entry.path} emptyLabel={emptyPointerLabel} />
+        <FieldItem
+          key={key}
+          {...p}
+          path={entry.path}
+          groupDisabled={deep.widen<AnyGroup<F>[]>(path)[entry.groupKey].disabled}
+          emptyLabel={emptyPointerLabel}
+        />
       );
     const itemProps = {
       ...p,

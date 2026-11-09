@@ -7,80 +7,48 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "shepherd_work.sh"
 
-# Stands in for gh: serves the canned JSON file for each endpoint from FAKE_GH_DIR and
-# applies the requested jq expression.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-EXPR="."
-ENDPOINT=""
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        -f | -F) shift 2 ;;
-        api | --paginate) shift ;;
-        *)
-            ENDPOINT=${1%%\\?*}
-            shift
-            ;;
-    esac
-done
-case "$ENDPOINT" in
-    graphql) FILE=threads.json ;;
-    */actions/*) FILE=runs.json ;;
-    */comments) FILE=comments.json ;;
-    *) FILE=pull.json ;;
-esac
-jq -r "$EXPR" "$FAKE_GH_DIR/$FILE"
-"""
 
-FINDINGS = "<!-- greptile_outside_diff -->\n\n- **Bug** `a.go:1`\n"
+FINDINGS = "<!-- sedosaur_outside_diff -->\n\n- **Bug** `a.go:1`\n"
 
 
 class Harness:
     """A fake gh serving one pull request, its CI runs, threads, and comments."""
 
     def __init__(self, path: Path) -> None:
-        self.data = path / "gh"
-        self.data.mkdir()
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
             "SHEPHERD_RETRY_SECONDS": "0",
         }
         self.pull()
+        self.ok()
         self.runs()
         self.threads()
         self.comments()
 
-    def write(self, name: str, body: Any) -> None:
-        (self.data / name).write_text(json.dumps(body))
-
     def pull(self, state: str = "clean") -> None:
-        self.write("pull.json", {"head": {"sha": "head"}, "mergeable_state": state})
+        self.gh.serve(
+            "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
+        )
 
-    def runs(self, *conclusions: str) -> None:
+    def runs(self, *conclusions: str | None) -> None:
         runs = [{"id": i + 1, "conclusion": c} for i, c in enumerate(conclusions)]
-        self.write("runs.json", {"workflow_runs": runs})
+        self.gh.serve("api */actions/*", {"workflow_runs": runs})
+
+    def ok(self, conclusion: str | None = None) -> None:
+        jobs = [{"name": "OK", "conclusion": conclusion}]
+        self.gh.serve("api */jobs*", {"jobs": jobs})
 
     def threads(self, count: int = 0) -> None:
         last = {"author": {"login": "someone", "__typename": "User"}}
@@ -89,13 +57,13 @@ class Harness:
             "author": {"login": "agent"},
             "reviewThreads": {"nodes": [node] * count},
         }
-        self.write("threads.json", {"data": {"repository": {"pullRequest": pull}}})
+        self.gh.serve("api graphql", {"data": {"repository": {"pullRequest": pull}}})
 
     def comments(self, outside: bool = False) -> None:
-        user = {"login": "greptile-apps[bot]", "type": "Bot"}
+        user = {"login": "sedosaur[bot]", "type": "Bot"}
         at = "2026-01-01T00:00:00Z"
         found = [{"user": user, "body": FINDINGS, "created_at": at, "updated_at": at}]
-        self.write("comments.json", found if outside else [])
+        self.gh.serve("api */comments*", found if outside else [])
 
     def run(self) -> list[str]:
         result = subprocess.run(
@@ -133,6 +101,19 @@ class TestShepherdWork:
     def test_should_ignore_a_ci_run_still_in_progress(self, gh: Harness) -> None:
         gh.runs("")
         assert gh.run() == []
+
+    def test_should_report_a_failed_ok_job_in_a_run_in_progress(
+        self, gh: Harness
+    ) -> None:
+        gh.runs(None)
+        gh.ok("failure")
+        assert gh.run() == ["ci 1"]
+
+    def test_should_skip_the_ok_job_without_a_ci_run(self, gh: Harness) -> None:
+        gh.pull(state="dirty")
+        gh.runs()
+        gh.ok("failure")
+        assert gh.run() == ["conflict"]
 
     def test_should_report_threads_that_need_action(self, gh: Harness) -> None:
         gh.threads(count=2)

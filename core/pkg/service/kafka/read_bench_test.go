@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -111,6 +112,55 @@ type benchResult struct {
 	TaskStatus        string  `json:"task_status"`
 	DrainSamplesPerS  float64 `json:"drain_samples_per_s"`
 	DrainRecordsPerS  float64 `json:"drain_records_per_s"`
+}
+
+// benchProfile records one scenario's CPU and allocation profiles when
+// KAFKA_BENCH_PPROF names a directory. The allocation profile holds exact counts, so
+// compare it to its base with pprof -base, or the setup shows up in it. Exact counts
+// slow the task, so the timings of a profiled run are not comparable.
+type benchProfile struct {
+	dir, name string
+	cpu       *os.File
+}
+
+func startBenchProfile(name string) *benchProfile {
+	GinkgoHelper()
+	dir := os.Getenv("KAFKA_BENCH_PPROF")
+	if dir == "" {
+		return &benchProfile{}
+	}
+	p := &benchProfile{dir: dir, name: name}
+	rate := runtime.MemProfileRate
+	DeferCleanup(func() { runtime.MemProfileRate = rate })
+	runtime.MemProfileRate = 1
+	p.writeAllocs("allocs.base")
+	p.cpu = MustSucceed(os.Create(filepath.Join(dir, name+".cpu.pprof")))
+	Expect(pprof.StartCPUProfile(p.cpu)).To(Succeed())
+	DeferCleanup(p.stop)
+	return p
+}
+
+// stop ends the profile. A spec calls it to bound the measurement, and a failed spec
+// that never reached that call stops it in cleanup.
+func (p *benchProfile) stop() {
+	GinkgoHelper()
+	if p.cpu == nil {
+		return
+	}
+	pprof.StopCPUProfile()
+	Expect(p.cpu.Close()).To(Succeed())
+	p.cpu = nil
+	p.writeAllocs("allocs")
+}
+
+func (p *benchProfile) writeAllocs(suffix string) {
+	GinkgoHelper()
+	// An allocation reaches the profile only after the sweep that follows it.
+	runtime.GC()
+	runtime.GC()
+	f := MustSucceed(os.Create(filepath.Join(p.dir, p.name+"."+suffix+".pprof")))
+	Expect(pprof.Lookup("allocs").WriteTo(f, 0)).To(Succeed())
+	Expect(f.Close()).To(Succeed())
 }
 
 func percentile(sorted []float64, p float64) float64 {
@@ -226,7 +276,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 	newIndex := func(name string) channel.Channel {
 		GinkgoHelper()
 		ch := channel.Channel{Name: name, DataType: telem.TimestampT, IsIndex: true}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	newData := func(name string, idx channel.Channel) channel.Channel {
@@ -236,7 +288,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 			DataType:   telem.Float64T,
 			LocalIndex: idx.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	if sc.shape == wide {
@@ -250,7 +304,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 				LocalIndex: idx.LocalKey,
 			}
 		}
-		Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &data)
+		})).To(Succeed())
 		g.data = data
 		return []benchGroup{g}
 	}
@@ -335,7 +391,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		StartOffset: kafka.StartOffsetEarliest,
 		Records:     benchRecords(groups, sc),
 	}
-	t := newTask(kafka.ReadTaskType, cfg)
+	t := newTask(ctx, kafka.ReadTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	startTask := func() {
@@ -408,16 +464,13 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	}
 
 	var (
-		profile   *os.File
+		profile   *benchProfile
 		msBefore  runtime.MemStats
 		cpuBefore time.Duration
 		measureAt time.Time
 	)
 	beginMeasure := func() {
-		if dir := os.Getenv("KAFKA_BENCH_PPROF"); dir != "" {
-			profile = MustSucceed(os.Create(filepath.Join(dir, sc.name()+".pprof")))
-			Expect(pprof.StartCPUProfile(profile)).To(Succeed())
-		}
+		profile = startBenchProfile(sc.name())
 		runtime.ReadMemStats(&msBefore)
 		cpuBefore = cpuTime()
 		measureAt = time.Now()
@@ -489,10 +542,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	cpu := cpuTime() - cpuBefore
 	var msAfter runtime.MemStats
 	runtime.ReadMemStats(&msAfter)
-	if profile != nil {
-		pprof.StopCPUProfile()
-		Expect(profile.Close()).To(Succeed())
-	}
+	profile.stop()
 	requests.Close()
 	Eventually(done).Should(BeClosed())
 

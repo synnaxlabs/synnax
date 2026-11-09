@@ -40,7 +40,7 @@ import {
   finiteRuns,
 } from "@/vis/line/aether/draw";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
+import { groupSize, inView, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -485,7 +485,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, v, groupsPerColumn);
-    const ops = reducer.reduce(full, i.aggregation, size);
+    const cut =
+      x.sorted === true && bounds.isFinite(v.bounds)
+        ? inView(full, v.bounds, size)
+        : full;
+    const ops = reducer.reduce(cut, i.aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.renderCtx);
@@ -527,7 +531,9 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
   };
 };
 
-/** Just makes sure that the lines we draw to make stuff thick are really close together. */
+/**
+ * Just makes sure that the lines we draw to make stuff thick are really close together.
+ */
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>

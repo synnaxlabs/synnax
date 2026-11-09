@@ -11,14 +11,18 @@ package mqtt_test
 
 import (
 	"context"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -49,11 +53,86 @@ func newFactory(queueSize int) driver.Factory {
 	}))
 }
 
+// publishWatchers returns the count of goroutines that watch a publish of a session.
+func publishWatchers() int {
+	stacks := make([]byte, 1<<22)
+	n := runtime.Stack(stacks, true)
+	return strings.Count(string(stacks[:n]), "(*session).Publish.func")
+}
+
+// stalledToken is the token of a publish that a connection drop strands in Paho.
+type stalledToken struct{}
+
+func (stalledToken) Wait() bool                     { return false }
+func (stalledToken) WaitTimeout(time.Duration) bool { return false }
+func (stalledToken) Done() <-chan struct{}          { return nil }
+func (stalledToken) Error() error                   { return nil }
+
+// publishStall strands one Paho publish, which reaches that state only on a connection
+// drop that lands inside the call. Its factory gives every connection a real client.
+type publishStall struct {
+	// armed makes the next publish stall.
+	armed atomic.Bool
+	// stalled is true once a publish stalled.
+	stalled atomic.Bool
+	// blocks makes the stalled publish block until release, in place of returning a
+	// token that never completes.
+	blocks  bool
+	release func()
+	waiter  chan struct{}
+}
+
+func newPublishStall(blocks bool) *publishStall {
+	waiter := make(chan struct{})
+	return &publishStall{
+		blocks:  blocks,
+		waiter:  waiter,
+		release: sync.OnceFunc(func() { close(waiter) }),
+	}
+}
+
+func (s *publishStall) factory() driver.Factory {
+	GinkgoHelper()
+	return MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
+		Device:  deviceSvc,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+		DB:      db, Status: statusSvc,
+		QueueSize: 64,
+		NewClient: func(opts *paho.ClientOptions) paho.Client {
+			return &stallingClient{Client: paho.NewClient(opts), stall: s}
+		},
+	}))
+}
+
+type stallingClient struct {
+	paho.Client
+	stall *publishStall
+}
+
+func (c *stallingClient) Publish(
+	topic string,
+	qos byte,
+	retained bool,
+	payload any,
+) paho.Token {
+	if !c.stall.armed.CompareAndSwap(true, false) {
+		return c.Client.Publish(topic, qos, retained, payload)
+	}
+	c.stall.stalled.Store(true)
+	if c.stall.blocks {
+		<-c.stall.waiter
+	}
+	return stalledToken{}
+}
+
 // createRack creates a rack for the devices and tasks of one spec.
 func createRack(ctx context.Context) rack.Key {
 	GinkgoHelper()
 	r := rack.Rack{Name: "mqtt-rack"}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r.Key
 }
 
@@ -107,66 +186,64 @@ func createIndexed(
 	dataTypes ...telem.DataType,
 ) (channel.Channel, []channel.Channel) {
 	GinkgoHelper()
-	return createIndexedOn(ctx, host, dataTypes...)
-}
-
-// createIndexedOn is createIndexed on the Core that leaseholder names.
-func createIndexedOn(
-	ctx context.Context,
-	leaseholder node.Key,
-	dataTypes ...telem.DataType,
-) (channel.Channel, []channel.Channel) {
-	GinkgoHelper()
-	w := channelSvc.NewWriter(nil)
 	idx := channel.Channel{
 		Name:        UniqueChannelName(),
 		DataType:    telem.TimestampT,
 		IsIndex:     true,
-		Leaseholder: leaseholder,
+		Leaseholder: host,
 	}
-	Expect(w.Create(ctx, &idx)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &idx)
+	})).To(Succeed())
 	data := make([]channel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		data[i] = channel.Channel{
 			Name:        UniqueChannelName(),
 			DataType:    dt,
-			Leaseholder: leaseholder,
+			Leaseholder: host,
 			LocalIndex:  idx.LocalKey,
 		}
-		Expect(w.Create(ctx, &data[i])).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &data[i])
+		})).To(Succeed())
 	}
-	// A peer's channels reach the host by gossip.
-	keys := append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
-	Eventually(func(g Gomega) {
-		var found []channel.Channel
-		g.Expect(channelSvc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			Entries(&found).
-			Exec(ctx, nil)).To(Succeed())
-		g.Expect(found).To(HaveLen(len(keys)))
-	}).Should(Succeed())
 	return idx, data
 }
 
 func createVirtual(ctx context.Context, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{Name: UniqueChannelName(), DataType: dt, Virtual: true}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
+// newTask stores and returns a task of taskType on rackKey. It skips task.Writer,
+// which writes a status of its own, so a spec sees only the statuses the factory
+// writes.
 func newTask(
+	ctx context.Context,
 	rackKey rack.Key,
 	taskType string,
 	cfg msgpack.EncodedJSON,
 ) task.Task {
-	return task.Task{
+	GinkgoHelper()
+	t := task.Task{
 		Key:    uuid.New(),
 		Name:   "mqtt-task",
 		Type:   taskType,
 		Rack:   rackKey,
 		Config: cfg,
 	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
+	})
+	return t
 }
 
 // configure configures t with a start command key and stops the task at the end of
@@ -184,9 +261,9 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	var stat task.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat
@@ -214,6 +291,31 @@ func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
 		g.Expect(stat.Details.Cmd).To(Equal(cmdKey))
 	}).WithTimeout(10 * time.Second).Should(Succeed())
 	return stat
+}
+
+// publishUntilDone publishes payload to topic every 10 ms until the spec ends.
+func publishUntilDone(b *testBroker, topic, payload string) {
+	GinkgoHelper()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(stopped)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				Expect(b.server.Publish(topic, []byte(payload), false, 0)).To(Succeed())
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		close(done)
+		Eventually(stopped).Should(BeClosed())
+	})
 }
 
 // testStreamer receives the frames written to a set of channels.
@@ -277,9 +379,9 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	var stat device.Status
 	Expect(errors.Skip(
 		statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat

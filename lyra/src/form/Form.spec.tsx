@@ -373,6 +373,67 @@ describe("Form", () => {
     });
   });
 
+  describe("focus", () => {
+    const NO_FOCUS = "Field name does not take focus";
+
+    it("should run the handler bound to the path", () => {
+      const handler = vi.fn();
+      const { result } = renderHook(
+        () => {
+          Form.useFocusHandler(path.name, handler);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      result.current.focus(path.name);
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+    it("should run the newest handler after a render", () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ handler }: { handler: () => void }) => {
+          Form.useFocusHandler(path.name, handler);
+          return Form.useContext();
+        },
+        { wrapper, initialProps: { handler: first } },
+      );
+      rerender({ handler: second });
+      result.current.focus(path.name);
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+    it("should throw when no field at the path takes focus", () => {
+      const { result } = renderHook(() => Form.useContext(), { wrapper });
+      expect(() => result.current.focus(path.name)).toThrow(NO_FOCUS);
+    });
+    it("should stop running the handler once unmounted", () => {
+      const handler = vi.fn();
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useFocusHandler(path.name, handler);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      const ctx = result.current;
+      unmount();
+      expect(() => ctx.focus(path.name)).toThrow(NO_FOCUS);
+      expect(handler).not.toHaveBeenCalled();
+    });
+    it("should keep a newer handler when an older one is removed", () => {
+      const { result } = renderHook(() => Form.useContext(), { wrapper });
+      const older = vi.fn();
+      const newer = vi.fn();
+      const removeOlder = result.current.addFocusHandler(path.name, older);
+      result.current.addFocusHandler(path.name, newer);
+      removeOlder();
+      result.current.focus(path.name);
+      expect(older).not.toHaveBeenCalled();
+      expect(newer).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("useField", () => {
     it("should get a field from the form", () => {
       const { result } = renderHook(() => Form.useField(path.name), {

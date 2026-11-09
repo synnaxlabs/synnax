@@ -14,28 +14,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "review_threads.sh"
 
-# Stands in for gh: applies the --jq expression to each canned page in FAKE_GH_DIR, as
-# gh --paginate does.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        -f | -F) shift 2 ;;
-        *) shift ;;
-    esac
-done
-for page in "$FAKE_GH_DIR"/page-*.json; do
-    jq -r "$EXPR" "$page"
-done
-"""
 
 AUTHOR = "synnax-claude-code"
 
@@ -61,25 +43,19 @@ class Harness:
     """A fake gh serving pages of one pull request's review threads."""
 
     def __init__(self, path: Path) -> None:
-        self.data = path / "gh"
-        self.data.mkdir()
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
 
     def pages(self, *pages: list[dict[str, Any]]) -> None:
-        for i, threads in enumerate(pages):
+        bodies = []
+        for threads in pages:
             pull = {"author": {"login": AUTHOR}, "reviewThreads": {"nodes": threads}}
-            body = {"data": {"repository": {"pullRequest": pull}}}
-            (self.data / f"page-{i}.json").write_text(json.dumps(body))
+            bodies.append({"data": {"repository": {"pullRequest": pull}}})
+        self.gh.serve("api graphql", *bodies)
 
     def run(self) -> list[str]:
         result = subprocess.run(
@@ -96,12 +72,12 @@ def gh(tmp_path: Path) -> Harness:
 class TestReviewThreads:
     """Selects the review threads that need action."""
 
-    def test_should_select_a_greptile_thread(self, gh: Harness) -> None:
-        gh.pages([thread("a", comment("greptile-apps", "Bot"))])
+    def test_should_select_a_sedosaur_thread(self, gh: Harness) -> None:
+        gh.pages([thread("a", comment("sedosaur", "Bot"))])
         assert gh.run() == ["a"]
 
     def test_should_select_a_thread_a_person_spoke_last_in(self, gh: Harness) -> None:
-        gh.pages([thread("a", comment("greptile-apps", "Bot"), comment("someone"))])
+        gh.pages([thread("a", comment("sedosaur", "Bot"), comment("someone"))])
         assert gh.run() == ["a"]
 
     def test_should_skip_a_resolved_thread(self, gh: Harness) -> None:
@@ -120,6 +96,6 @@ class TestReviewThreads:
         gh.pages(
             [thread("a", comment("someone"))],
             [thread("b", comment("someone"), resolved=True)],
-            [thread("c", comment("greptile-apps", "Bot"))],
+            [thread("c", comment("sedosaur", "Bot"))],
         )
         assert gh.run() == ["a", "c"]

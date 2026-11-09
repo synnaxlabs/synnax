@@ -7,31 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "agent_gate.sh"
 
-# Stands in for gh: serves the canned JSON file named after the endpoint's last path
-# segment from FAKE_GH_DIR.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-for arg in "$@"; do
-    case "$arg" in
-        api | --paginate) ;;
-        *) ENDPOINT=${arg%%\\?*} ;;
-    esac
-done
-NAME=${ENDPOINT##*/}
-case "$NAME" in
-    events | comments) cat "$FAKE_GH_DIR/$NAME.json" ;;
-    *) cat "$FAKE_GH_DIR/pull.json" ;;
-esac
-"""
 
 AGENT = "synnax-claude-code[bot]"
 MARKER = "<!-- agent:fix -->"
@@ -41,17 +25,10 @@ class Harness:
     """A fake gh serving one pull request, its comments, and its label events."""
 
     def __init__(self, path: Path) -> None:
-        self.data = path / "gh"
-        self.data.mkdir()
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
         self.pull()
@@ -71,14 +48,14 @@ class Harness:
             "labels": [{"name": name} for name in labels],
             "head": {"sha": "head", "repo": {"full_name": repo}},
         }
-        (self.data / "pull.json").write_text(json.dumps(pull))
+        self.gh.serve("api */pulls/7", pull)
 
     def comments(self, *comments: tuple[str, str, str]) -> None:
         body = [
             {"user": {"login": user}, "body": text, "created_at": at}
             for user, text, at in comments
         ]
-        (self.data / "comments.json").write_text(json.dumps(body))
+        self.gh.serve("api */comments*", body)
 
     def events(self, *unlabeled_at: str) -> None:
         body = [
@@ -89,7 +66,7 @@ class Harness:
             }
             for at in unlabeled_at
         ]
-        (self.data / "events.json").write_text(json.dumps(body))
+        self.gh.serve("api */events*", body)
 
     def run(self, sha: str = "") -> str:
         args = [str(SCRIPT), "7", "fix", "2"] + ([sha] if sha else [])

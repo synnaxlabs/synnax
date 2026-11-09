@@ -67,21 +67,18 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
-    server_cfg.port = 4840;
+    server_cfg.port = 4849;
 
     testutil::Server server(server_cfg);
     server.start();
+    ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connect(cfg, {}, "opc"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "opc"));
     ASSERT_NE(client, nullptr);
 
     auto ser = ASSERT_NIL_P(opcua::testutil::simple_read(client, "NS=1;S=test"));
@@ -212,7 +209,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
+    ids[0].nodeId = node_id.resolve({}).value();
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -319,10 +316,7 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -344,10 +338,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -369,10 +360,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }

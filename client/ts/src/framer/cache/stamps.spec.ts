@@ -1,0 +1,222 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+
+import { IndexStamps, Stamps } from "@/framer/cache/stamps";
+
+const T0 = TimeStamp.seconds(1_700_000_000);
+const T1 = T0.add(TimeSpan.seconds(1));
+const T2 = T0.add(TimeSpan.seconds(2));
+const T3 = T0.add(TimeSpan.seconds(3));
+const T4 = T0.add(TimeSpan.seconds(4));
+const LEADING = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+
+// A write the Core stamps 1ns per sample.
+const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
+  new Series({
+    data: new Float32Array(length),
+    dataType: DataType.FLOAT32,
+    timeRange: stamp.spanRange(TimeSpan.nanoseconds(length)),
+    alignment,
+  });
+
+const plus = (stamp: TimeStamp, i: number): TimeStamp =>
+  stamp.add(TimeSpan.nanoseconds(i));
+
+describe("Stamps", () => {
+  it("should time each sample of a write 1ns after the one before", () => {
+    const s = new Stamps(4);
+    s.record(write(10n, 3, T0));
+    s.record(write(13n, 2, T1));
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(11n)).toEqual(plus(T0, 1));
+    expect(s.at(12n)).toEqual(plus(T0, 2));
+    expect(s.at(13n)).toEqual(T1);
+    expect(s.at(14n)).toEqual(plus(T1, 1));
+  });
+
+  it("should time the samples of a large write", () => {
+    const s = new Stamps(1);
+    s.record(write(0n, 70_000, T0));
+    expect(s.at(69_999n)).toEqual(plus(T0, 69_999));
+  });
+
+  it("should be null before the first write and past the last", () => {
+    const s = new Stamps(4);
+    s.record(write(10n, 3, T0));
+    expect(s.at(9n)).toBeNull();
+    expect(s.at(13n)).toBeNull();
+  });
+
+  it("should be null between two writes", () => {
+    const s = new Stamps(4);
+    s.record(write(10n, 2, T0));
+    s.record(write(20n, 1, T1));
+    expect(s.at(15n)).toBeNull();
+  });
+
+  it("should forget the oldest write at capacity", () => {
+    const s = new Stamps(2);
+    s.record(write(0n, 1, T0));
+    s.record(write(1n, 1, T1));
+    s.record(write(2n, 1, T2));
+    expect(s.at(0n)).toBeNull();
+    expect(s.at(1n)).toEqual(T1);
+    expect(s.at(2n)).toEqual(T2);
+  });
+
+  it("should find every kept write after the ring wraps", () => {
+    const s = new Stamps(3);
+    [T0, T1, T2, T3, T4].forEach((t, i) => s.record(write(BigInt(i) * 2n, 2, t)));
+    expect(s.at(3n)).toBeNull();
+    expect(s.at(4n)).toEqual(T2);
+    expect(s.at(7n)).toEqual(plus(T3, 1));
+    expect(s.at(9n)).toEqual(plus(T4, 1));
+    expect(s.at(10n)).toBeNull();
+  });
+
+  it("should keep every write as it grows toward capacity", () => {
+    const s = new Stamps(100);
+    for (let i = 0; i < 100; i++) s.record(write(BigInt(i) * 2n, 2, plus(T0, i * 10)));
+    for (let i = 0; i < 100; i++) {
+      expect(s.at(BigInt(i) * 2n)).toEqual(plus(T0, i * 10));
+      expect(s.at(BigInt(i) * 2n + 1n)).toEqual(plus(T0, i * 10 + 1));
+    }
+    expect(s.at(200n)).toBeNull();
+  });
+
+  it("should forget the oldest write once it grows to capacity", () => {
+    const s = new Stamps(20);
+    for (let i = 0; i < 25; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
+    expect(s.at(4n)).toBeNull();
+    for (let i = 5; i < 25; i++) expect(s.at(BigInt(i))).toEqual(plus(T0, i));
+  });
+
+  it("should replace the writes from a repeated alignment once it grows", () => {
+    const s = new Stamps(40);
+    for (let i = 0; i < 30; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
+    s.record(write(10n, 3, T1));
+    expect(s.at(9n)).toEqual(plus(T0, 9));
+    expect(s.at(12n)).toEqual(plus(T1, 2));
+    expect(s.at(13n)).toBeNull();
+  });
+
+  it("should replace the writes from a repeated alignment on", () => {
+    const s = new Stamps(4);
+    s.record(write(0n, 3, T0));
+    s.record(write(3n, 2, T1));
+    s.record(write(3n, 4, T2));
+    expect(s.at(1n)).toEqual(plus(T0, 1));
+    expect(s.at(3n)).toEqual(T2);
+    expect(s.at(6n)).toEqual(plus(T2, 3));
+    expect(s.at(7n)).toBeNull();
+  });
+
+  it("should forget every write when the alignment regresses", () => {
+    const s = new Stamps(4);
+    s.record(write(100n, 2, T0));
+    s.record(write(102n, 2, T1));
+    s.record(write(0n, 1, T2));
+    expect(s.at(100n)).toBeNull();
+    expect(s.at(102n)).toBeNull();
+    expect(s.at(0n)).toEqual(T2);
+  });
+
+  it("should hold a leading alignment above the signed 64-bit range", () => {
+    const s = new Stamps(4);
+    s.record(write(LEADING, 2, T0));
+    s.record(write(LEADING + 2n, 1, T1));
+    expect(s.at(LEADING - 1n)).toBeNull();
+    expect(s.at(LEADING)).toEqual(T0);
+    expect(s.at(LEADING + 1n)).toEqual(plus(T0, 1));
+    expect(s.at(LEADING + 2n)).toEqual(T1);
+    expect(s.at(LEADING + 3n)).toBeNull();
+  });
+
+  it("should record nothing for an empty or unstamped series", () => {
+    const s = new Stamps(4);
+    s.record(write(0n, 0, T0));
+    s.record(
+      new Series({
+        data: new Float32Array(2),
+        dataType: DataType.FLOAT32,
+        alignment: 5n,
+      }),
+    );
+    expect(s.at(0n)).toBeNull();
+    expect(s.at(5n)).toBeNull();
+  });
+});
+
+// An index series at alignment holding the stamps.
+const index = (alignment: bigint, ...stamps: TimeStamp[]): Series =>
+  new Series({
+    data: BigInt64Array.from(stamps.map((t) => t.valueOf())),
+    dataType: DataType.TIMESTAMP,
+    alignment,
+  });
+
+const span = (lower: bigint, upper: bigint) => ({ lower, upper });
+
+describe("IndexStamps", () => {
+  it("should return the stamp of the index sample at an alignment", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0, T1)], [span(10n, 12n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(11n)).toEqual(T1);
+  });
+
+  it("should be null outside the series it holds", () => {
+    const s = new IndexStamps();
+    s.add([index(20n, T1), index(10n, T0)], [span(10n, 11n), span(20n, 21n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(20n)).toEqual(T1);
+    expect(s.at(9n)).toBeNull();
+    expect(s.at(15n)).toBeNull();
+    expect(s.at(21n)).toBeNull();
+  });
+
+  it("should keep the index series that overlap unsorted data spans", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n), span(10n, 11n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(20n)).toEqual(T1);
+  });
+
+  it("should join the data spans that touch or overlap", () => {
+    const s = new IndexStamps();
+    s.add([index(13n, T0)], [span(10n, 12n), span(11n, 14n), span(12n, 13n)]);
+    expect(s.at(13n)).toEqual(T0);
+  });
+
+  it("should keep only the index series that overlap the data", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n)]);
+    expect(s.at(10n)).toBeNull();
+    expect(s.at(20n)).toEqual(T1);
+  });
+
+  it("should replace the series held over the alignments of a new one", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0, T1)], [span(10n, 12n)]);
+    s.add([index(10n, T2, T3, T4)], [span(10n, 13n)]);
+    expect(s.at(10n)).toEqual(T2);
+    expect(s.at(12n)).toEqual(T4);
+  });
+
+  it("should drop the series that no data overlaps", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(10n, 11n), span(20n, 21n)]);
+    s.retain([span(20n, 21n)]);
+    expect(s.at(10n)).toBeNull();
+    expect(s.at(20n)).toEqual(T1);
+  });
+});

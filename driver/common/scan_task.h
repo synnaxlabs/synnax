@@ -20,6 +20,7 @@
 
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"
@@ -149,22 +150,17 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        synnax::device::RetrieveRequest req;
-        req.makes = {make};
-        req.racks = {rack};
-        req.include_status = true;
-        req.include_parent = true;
-        return this->client->devices.retrieve(req);
+        return this->client->devices.retrieve(
+            synnax::device::Where{.make = make, .rack = rack},
+            {.include_status = true}
+        );
     }
 
     std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
         return this->client->devices.retrieve(
             key,
-            synnax::device::RetrieveOptions{
-                .include_status = true,
-                .include_parent = true,
-            }
+            synnax::device::RetrieveOptions{.include_status = true}
         );
     }
 
@@ -369,9 +365,8 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
-        this->status.details.task = task.key;
+        this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
@@ -446,6 +441,15 @@ public:
             );
         else
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->status.details.running = false;
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to scan for devices",
+            err.data
+        );
     }
 
     void exec(synnax::task::Command &cmd) override {
@@ -548,12 +552,13 @@ public:
                     needs_update = true;
                 }
 
-                // The Core keeps the parent of a device written without one.
-                if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
+                // The Core writes the parent as sent, so a device scanned with no
+                // parent keeps its stored one.
+                if (!dev.parent.has_value()) dev.parent = remote_dev.parent;
+                if (dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << dev.key << " from '"
-                            << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << dev.parent->string() << "'";
+                            << dev.key << " from '" << remote_dev.parent.value_or("")
+                            << "' to '" << *dev.parent << "'";
                     needs_update = true;
                 }
 
@@ -581,12 +586,13 @@ public:
                 if (present.contains(key)) continue;
                 if (!dev.status.has_value())
                     dev.status = synnax::device::Status{
-                        .key = synnax::device::status_key(dev),
                         .name = dev.name,
+                        .owner = synnax::device::resource_id(dev.key),
                     };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
                 dev.status->description = "";
+                dev.status->details.connected = false;
             }
 
             statuses.reserve(this->dev_states.size());

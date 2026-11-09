@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { rack, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -63,11 +63,10 @@ describe("queries", () => {
       await waitFor(() => expect(result1.current).not.toBeNull());
       expect(result1.current?.status).toBeDefined();
       expect(result1.current?.status?.time.nanoseconds).toBeGreaterThan(0);
-      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
-        key: rack.statusKey(testRack.key),
+      const rackStatus: rack.Status = status.create({
+        owner: rack.resourceID(testRack.key),
         variant: "success",
         message: "Rack is happy as a clam",
-        details: { rack: testRack.key },
       });
       await act(async () => {
         await client.statuses.set(rackStatus);
@@ -80,6 +79,44 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result2.current?.status?.variant).toEqual("success");
         expect(result2.current?.status?.message).toEqual("Rack is happy as a clam");
+      });
+    });
+
+    describe("rack cached without a status", () => {
+      it("should fetch the status", async () => {
+        const testRack = await client.racks.create({ name: "status-free-read" });
+        const local = createTestClient();
+        await local.racks.retrieve(testRack.key);
+        const { result } = await renderHookSuspended(
+          () => Rack.use({ key: testRack.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.owner).toEqual(rack.resourceID(testRack.key));
+      });
+
+      it("should fetch once when the rack has no status row", async () => {
+        const testRack = await client.racks.create({ name: "no-status-row" });
+        const [owned] = await client.statuses.retrieve({
+          owners: [rack.resourceID(testRack.key)],
+        });
+        await client.statuses.delete(owned.key);
+        const local = createTestClient();
+        await local.racks.retrieve(testRack.key);
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const render = async () =>
+          await renderHookSuspended(() => Rack.use({ key: testRack.key }), {
+            wrapper: localWrapper,
+          });
+        const first = await render();
+        expect(first.result.current?.status).toBeUndefined();
+        first.unmount();
+        const second = await render();
+        expect(second.result.current?.key).toEqual(testRack.key);
+        const retrieves = send.mock.calls.filter(
+          ([target]) => target === "/rack/retrieve",
+        );
+        expect(retrieves).toHaveLength(1);
       });
     });
   });
@@ -286,7 +323,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(niRack.key);
@@ -298,7 +335,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).not.toContain(emptyRack.key);
@@ -331,7 +368,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Rack.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ integration: "ni" });
+        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -364,13 +401,10 @@ describe("queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
-        key: rack.statusKey(testRack.key),
+      const rackStatus: rack.Status = status.create({
+        owner: rack.resourceID(testRack.key),
         variant: "warning",
         message: "Rack needs attention",
-        details: {
-          rack: testRack.key,
-        },
       });
 
       await act(async () => {
@@ -394,7 +428,7 @@ describe("queries", () => {
       });
       await client.racks.create({ name: "other" });
       const { result } = await renderHookSuspended(
-        () => Rack.useMultiple({ integration }),
+        () => Rack.useMultiple({ where: { integrations: { any: [integration] } } }),
         { wrapper },
       );
       await waitFor(() =>
@@ -409,7 +443,7 @@ describe("queries", () => {
         integrations: [integration],
       });
       const { result } = await renderHookSuspended(
-        () => Rack.useMultiple({ integration }),
+        () => Rack.useMultiple({ where: { integrations: { any: [integration] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toHaveLength(1));

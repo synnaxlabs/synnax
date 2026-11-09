@@ -1,0 +1,145 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package policy
+
+import (
+	"context"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// ServiceConfig is the configuration for the policy API service.
+type ServiceConfig struct {
+	// RBAC stores and retrieves policies.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the policy API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.access.policy")
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
+
+// Service creates, retrieves, and deletes access policies.
+type Service struct{ internal *rbac.Service }
+
+// NewService opens a Service. It returns an error if the configuration is invalid.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{internal: cfg.RBAC}, nil
+}
+
+const allowInternal = false
+
+type (
+	// CreateRequest holds the policies to create.
+	CreateRequest struct {
+		Policies []rbacpolicy.Policy `json:"policies" msgpack:"policies"`
+	}
+	// CreateResponse holds the created policies.
+	CreateResponse = CreateRequest
+)
+
+// Create creates or overwrites the policies in the request.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.internal.Policy.NewWriter(tx, allowInternal)
+	if err := w.CreateMany(ctx, &req.Policies); err != nil {
+		return CreateRequest{}, err
+	}
+	return CreateResponse(req), nil
+}
+
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the policies that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, rbacpolicy.ResourceID)
+}
+
+// Retrieve returns the policies that req selects and that the subject can retrieve. A
+// request that selects the policies of subjects needs retrieve on each match, so a
+// subject that cannot read its own policies gets an access error, not an empty set.
+func (s *Service) Retrieve(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	q, err := ApplyRetrieve(req, s.internal.NewPolicyRetrieve().Entries(&res.Policies))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if req.Where == nil || len(req.Where.Subjects) == 0 {
+		if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).
+			Exec(ctx, snap); err != nil {
+			return RetrieveResponse{}, err
+		}
+		return res, nil
+	}
+	if err = q.Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err = snap.Enforce(lo.Map(
+		res.Policies,
+		func(p rbacpolicy.Policy, _ int) resource.ID { return rbacpolicy.ResourceID(p.Key) },
+	)...); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
+}
+
+// DeleteRequest holds the keys of the policies to delete.
+type DeleteRequest struct {
+	Keys []rbacpolicy.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete deletes the policies with the keys in the request.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
+		Delete(ctx, req.Keys...)
+}

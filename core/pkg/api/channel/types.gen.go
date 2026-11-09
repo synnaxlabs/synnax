@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
@@ -64,6 +65,8 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+	// Group is the group the channel sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -72,6 +75,36 @@ func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// RetrieveRequest is a request to retrieve channels.
+type RetrieveRequest struct {
+	// Where selects the channels to retrieve. An absent where selects all of them.
+	Where *servicechannel.Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the channels that match the term, closest match first.
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Limit is the most channels to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching channels to skip.
+	Offset uint32 `json:"offset" msgpack:"offset"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+}
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Channels are the channels the request selects.
+	Channels []Channel `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }

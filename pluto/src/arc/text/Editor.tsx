@@ -10,7 +10,7 @@
 import { type arc, query, type Synnax as Client } from "@synnaxlabs/client";
 
 import { NAME } from "@/arc/language";
-import { useHasText, useSingleDispatch } from "@/arc/queries";
+import { useHasText, useSingleDispatch, useType } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
@@ -25,19 +25,21 @@ export interface EditorProps extends Pick<
 
 const bootstrap = (client: Client | null, key: arc.Key): CollabText | null => {
   const cached = client?.arcs.getCached(key);
-  if (!query.isLive(cached)) return null;
-  const doc = cached.text.doc;
+  if (!query.isLive(cached) || cached.source.mode !== "text") return null;
+  const doc = cached.source.text.doc;
   return doc != null ? CollabText.bootstrap(doc) : null;
 };
 
 export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const resourceKey = useKey();
   const client = Synnax.use();
+  const isModule = useType() === "module";
   const dispatch = useSingleDispatch();
   const hasText = useHasText();
 
-  // text is the working CRDT replica. It is bootstrapped once the document loads and lives
-  // for the editor's lifetime, materializing the value and translating edits to operations.
+  // text is the working CRDT replica. It is bootstrapped once the document loads and
+  // lives for the editor's lifetime, materializing the value and translating edits to
+  // operations.
   const text = hasText ? bootstrap(client, resourceKey) : null;
 
   const handleEdit = (edits: readonly TextChange[]) => {
@@ -52,8 +54,8 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const connect = (handle: Code.EditorHandle | null) => {
     if (handle == null || text == null || client == null) return;
     return client.arcs.onChange(resourceKey, (cached) => {
-      if (!query.isLive(cached)) return;
-      text.sync(cached.text.doc);
+      if (!query.isLive(cached) || cached.source.mode !== "text") return;
+      text.sync(cached.source.text.doc);
       handle.setValue(text.value());
     });
   };
@@ -66,6 +68,7 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
       initialValue={value}
       onEdit={handleEdit}
       language={NAME}
+      isModule={isModule}
       background={0}
       placeholder={PLACEHOLDER}
       autoFocus={autoFocus && value.length === 0}

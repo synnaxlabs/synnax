@@ -53,6 +53,25 @@ var _ = Describe("Reduction", func() {
 			Entry("none", telem.Reduction{}),
 		)
 
+		It("Should decode a variant when unknown members are rejected", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				MustSucceed(json.Marshal(limit)),
+				&decoded,
+				json.RejectUnknownMembers(true),
+			)).To(Succeed())
+			Expect(decoded).To(Equal(limit))
+		})
+
+		It("Should reject an unknown member of a variant when asked", func() {
+			var decoded telem.Reduction
+			Expect(json.Unmarshal(
+				[]byte(`{"variant":"stride","factor":4,"extra":1}`),
+				&decoded,
+				json.RejectUnknownMembers(true),
+			)).To(MatchError(ContainSubstring(`unknown object member name "extra"`)))
+		})
+
 		It("Should reject an unknown variant", func() {
 			var decoded telem.Reduction
 			Expect(json.Unmarshal([]byte(`{"variant":"median"}`), &decoded)).

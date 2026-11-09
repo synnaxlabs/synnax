@@ -156,9 +156,18 @@ DataType string {
 }
 
 Aggregation enum {
-    min_max  = "min_max"
-    average  = "average"
-    decimate = "decimate"
+    min_max  = "min_max" {
+        @doc value """
+            keeps the lowest and highest sample of each group in the order they
+            occurred.
+        """
+    }
+    average  = "average" {
+        @doc value "keeps the mean of each group."
+    }
+    decimate = "decimate" {
+        @doc value "keeps the first sample of each group."
+    }
 
     @cpp omit
     @doc value """
@@ -199,13 +208,27 @@ Reduction union on variant {
 }
 
 TimestampFormat enum {
-    iso         = "ISO"
-    isoDate     = "ISODate"
-    time        = "time"
-    preciseTime = "preciseTime"
-    date        = "date"
-    preciseDate = "preciseDate"
-    dateTime    = "dateTime"
+    iso         = "ISO" {
+        @doc value "renders the full ISO 8601 timestamp."
+    }
+    isoDate     = "ISODate" {
+        @doc value "renders only the date of the ISO 8601 form."
+    }
+    time        = "time" {
+        @doc value "renders the time of day to the second."
+    }
+    preciseTime = "preciseTime" {
+        @doc value "renders the time of day to the millisecond."
+    }
+    date        = "date" {
+        @doc value "renders the short month and the day."
+    }
+    preciseDate = "preciseDate" {
+        @doc value "renders the short month, the day, and the time to the millisecond."
+    }
+    dateTime    = "dateTime" {
+        @doc value "renders the short month, the day, and the time to the second."
+    }
 
     @cpp omit
     @doc value "is the rendered form of a timestamp displayed alongside a sample."
@@ -213,8 +236,12 @@ TimestampFormat enum {
 }
 
 TimeZone enum {
-    local = "local"
-    utc   = "UTC"
+    local = "local" {
+        @doc value "renders the time in the local time zone."
+    }
+    utc   = "UTC" {
+        @doc value "renders the time in UTC."
+    }
 
     @cpp omit
     @doc value "is the time zone used when rendering timestamps."

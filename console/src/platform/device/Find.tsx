@@ -30,7 +30,6 @@ import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Configure } from "@/platform/device/Configure";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isRunning } from "@/platform/device/racks";
@@ -271,8 +270,10 @@ export const Find = ({
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
-  const scanners = Task.useResultMultiple({ types: [scanType] }).data;
-  const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
+  const scanners = Task.useResultMultiple({ where: { type: { eq: scanType } } }).data;
+  const found = (
+    PDevice.useResultMultiple({ where: { make: { eq: make } } }).data ?? []
+  )
     .filter(
       (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
     )
@@ -372,11 +373,10 @@ const FindModal = ({
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
     return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
+  const { Configure } = hardware;
   return (
     <Configure
       deviceKey={configuring}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
       onBack={() => setConfiguring(null)}
       close={() => close(configuring)}
     />

@@ -12,11 +12,10 @@ package log
 import (
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
@@ -32,9 +31,19 @@ const (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // log.
 func (CreatePayload) Handle(Log) (Log, error) {
-	return Log{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a log create",
-	)
+	return Log{}, actions.CoreOnlyError("a log create")
+}
+
+// Handle rejects a client dispatch. The Core moves a log into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(Log) (Log, error) {
+	return Log{}, actions.CoreOnlyError("a log group change")
+}
+
+// Handle rejects a client dispatch. The Core moves a log into a project through its
+// writer and emits this action itself.
+func (SetProjectPayload) Handle(Log) (Log, error) {
+	return Log{}, actions.CoreOnlyError("a log project change")
 }
 
 // Handle replaces the log's name.
@@ -136,8 +145,12 @@ func (p SetChannelsPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle repoints the entry referencing From at To in place, preserving the entry's
-// position and display configuration. No-op when no entry references From.
+// position and display configuration. No-op when no entry references From or an entry
+// already references To.
 func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if channelEntryIndex(state.Channels, p.To) != -1 {
+		return state, nil
+	}
 	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
 		state.Channels[i].Channel = p.To
 	}
@@ -157,8 +170,14 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle controls whether the receipt timestamp column is hidden.
-func (p SetReceiptTimestampHiddenPayload) Handle(state Log) (Log, error) {
-	state.ReceiptTimestampHidden = p.ReceiptTimestampHidden
+func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
+	state.TimestampsHidden = p.TimestampsHidden
+	return state, nil
+}
+
+// Handle sets the time zone of the line times and day rows.
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 

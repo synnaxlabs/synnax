@@ -9,12 +9,7 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import {
-  channel,
-  kafka,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -22,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
@@ -39,7 +34,7 @@ import {
   type StartOffset,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -198,7 +193,7 @@ const RecordDetails = ({ path }: Task.Views.GroupProps<ReadRecord>) => (
 const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
-  const { channel: key, dataType, pointer } = PForm.useFieldValue(path);
+  const { channel: key, dataType, pointer, disabled } = PForm.useFieldValue(path);
   const recordKey = PForm.useFieldValue(root.config.records[groupKey].recordKey);
   const dev = useFromConfig();
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
@@ -227,6 +222,7 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           defaultName={
             dev == null ? "" : defaultChannelName(dev.name, recordKey, pointer)
           }
+          skipped={disabled}
         />
       </PForm.Section>
       {enumerable && <Task.Payload.EnumMappingSection path={path.enumValues} />}
@@ -270,18 +266,6 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "Kafka read task", type: READ_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: channel.Key,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch (e) {
-    if (NotFoundError.matches(e)) return null;
-    throw errors.fromUnknown(e);
-  }
-};
-
 /**
  * Creates the channels the enabled fields lack. Each record writes against one index:
  * its index field's channel when it has one, else an index stamped by Kafka.
@@ -296,9 +280,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const existing = new Map<string, channel.Channel>();
     for (const field of fields) {
       if (field.channel === 0) continue;
-      const ch = await retrieveChannel(client, field.channel);
-      if (ch == null) field.channel = 0;
-      else existing.set(field.key, ch);
+      existing.set(field.key, await client.channels.retrieve(field.channel));
     }
     if (fields.length === 0) continue;
     const stamp = fields.find((f) => f.key === rec.index);
@@ -349,9 +331,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "Kafka read task",
+  label: "Read",
   icon: <Icon.Logo.Kafka />,
   useOnSelect: useCreateRead,
-});
+};

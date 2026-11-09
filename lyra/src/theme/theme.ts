@@ -112,6 +112,9 @@ export const themeZ = z
       primaryText: color.colorZ,
       errorText: color.colorZ,
       warningText: color.colorZ,
+      /* Marks a value the program picks until a person sets one. */
+      auto: color.colorZ,
+      autoText: color.colorZ,
       logo: z.string(),
     }),
     sizes: z.object({
@@ -261,6 +264,8 @@ const SYNNAX_BASE: ThemeSpec = {
     primaryText: "#3b82f6",
     errorText: "#ef4444",
     warningText: "#f59e0b",
+    auto: "#635BFF",
+    autoText: "#5048E5",
   },
   sizes: {
     base: baseSize,
@@ -350,6 +355,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     primaryText: "#93c5fd",
     errorText: "#fca5a5",
     warningText: "#fcd34d",
+    autoText: "#8F89FF",
   },
   // A shadow needs more weight to read against a dark surface.
   shadows: {

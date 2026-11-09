@@ -21,6 +21,7 @@ import (
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -28,7 +29,23 @@ type toEncode struct {
 	Value int
 }
 
+// rejected fails every decode with a validation error.
+type rejected struct{}
+
+func (*rejected) DecodeMsgpack(*msgpack.Decoder) error {
+	return errors.Wrap(validate.ErrValidation, "rejected")
+}
+
 var _ = Describe("Codec", func() {
+	It("Should keep a validation error in the error chain", func(ctx SpecContext) {
+		err := xmsgpack.Codec.Decode(ctx, []byte{0x80}, &rejected{})
+		Expect(err).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("failed to decode")),
+		))
+		Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+	})
+
 	Describe("ContentType", func() {
 		It("Should report the MessagePack content type", func() {
 			Expect(xmsgpack.Codec.ContentType()).To(Equal("application/msgpack"))

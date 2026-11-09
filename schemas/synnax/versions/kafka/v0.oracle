@@ -14,9 +14,15 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 StartOffset enum {
-    latest   = "latest"
-    earliest = "earliest"
-    none     = "none"
+    latest   = "latest" {
+        @doc value "starts at the end of the topic and reads only new records."
+    }
+    earliest = "earliest" {
+        @doc value "starts at the oldest record the topic retains."
+    }
+    none     = "none" {
+        @doc value "fails the start."
+    }
 
     @doc value """
         is where a consumer group with no committed offset starts reading a topic. none
@@ -25,8 +31,12 @@ StartOffset enum {
 }
 
 RecordKey enum {
-    none         = "none"
-    channel_name = "channel_name"
+    none         = "none" {
+        @doc value "writes records with no key."
+    }
+    channel_name = "channel_name" {
+        @doc value "uses the name of the source channel as the key."
+    }
 
     @doc value "is the source of the key placed on every record a write task produces."
 }

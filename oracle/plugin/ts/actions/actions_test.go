@@ -94,6 +94,60 @@ var _ = Describe("TS Actions Plugin", func() {
 			})
 		})
 
+		Context("unions with actions", func() {
+			It("Should emit actions whose handlers take the union", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Base struct {
+						key  uuid
+						name string
+					}
+
+					Shape union on type extends Base {
+						circle {
+							radius float64
+						}
+						square {}
+
+						action Rename {
+							name string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").ToContain(
+					"export const renamePayloadZ = z.object({",
+					`| { type: "rename"; rename: RenamePayload }`,
+					"rename: (state: Draft<Shape>, payload: RenamePayload) => HandlerResult;",
+					"actions.createReduceAll<Shape, Action>((state, action) =>",
+				)
+			})
+
+			It("Should leave an omitted field out of a union action payload", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Shape union on type {
+						circle {}
+
+						action Rename {
+							name   string
+							secret bytes { @ts omit }
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain("export const renamePayloadZ = z.object({", "name").
+					ToNotContain("secret")
+			})
+		})
+
 		Context("structs with actions", func() {
 			It(
 				"Should emit a discriminated-union codec with HandlerResult/ReduceAllResult aliases and a createReduceAll wrapper delegating to @/actions",

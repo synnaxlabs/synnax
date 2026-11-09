@@ -32,6 +32,7 @@ from tests.driver.task import create_channel, create_index
 
 DEADLOCK_DURATION = 1 * sy.TimeSpan.SECOND
 HEALTH_TIMEOUT = 30 * sy.TimeSpan.SECOND
+STOP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 
 def _create_read_channels(client: sy.Synnax, prefix: str) -> list[sy.opcua.ReadChannel]:
@@ -125,7 +126,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         for task in all_tasks:
             task._internal.execute_command("start")
 
-        sy.sleep(DEADLOCK_DURATION)
+        sy.sleep(DEADLOCK_DURATION)  # noqa: TID251 keeps the simulator frozen
 
         # Step 5: Health probe — can the driver still run a Modbus task?
         self._check_driver_responsive()
@@ -157,7 +158,13 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             psutil.Process(pid).suspend()
         else:
             os.kill(pid, signal.SIGSTOP)
-        sy.sleep(0.5)
+
+        def stopped() -> bool | None:
+            status = psutil.Process(pid).status()
+            return True if status == psutil.STATUS_STOPPED else None
+
+        if sy.poll(stopped, timeout=5, interval=0.05) is None:
+            self.fail(f"The OPC UA simulator (pid={pid}) did not stop")
 
     def _check_driver_responsive(self) -> None:
         """Start a Modbus read task and verify it streams data.
@@ -209,11 +216,23 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                     os.kill(self.frozen_pid, signal.SIGCONT)
             except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+        # Task deletion does not wait for the Driver, so a running task keeps its writer
+        # open and the channel delete in the parent teardown fails.
+        with self._try_to("stop the OPC UA tasks"):
+            for task in (self.tsk, *self.extra_tasks):
+                if task is not None:
+                    task.stop(timeout=HEALTH_TIMEOUT)
         if self.modbus_task is not None:
             try:
                 self.client.tasks.delete(self.modbus_task.key)
             except sy.NotFoundError:
                 pass
+        # The OPC UA tasks run even while the server is frozen, and a running task
+        # holds writers that block the deletion of its channels.
+        for task in [self.tsk, *self.extra_tasks]:
+            if task is not None:
+                with self._try_to(f"stop {task.name}"):
+                    task.stop(timeout=STOP_TIMEOUT.seconds)
         for task in self.extra_tasks:
             try:
                 self.client.tasks.delete(task.key)

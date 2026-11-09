@@ -171,7 +171,7 @@ errors.
   helper, as a change to the values it receives. When a hook comes between the code that
   makes a value and such a call, the compiler drops the value's cache. Call hooks first,
   and put that call next to the code that makes the value. When the call must come after
-  a hook, as with a Fuse index searched later, keep a `useMemo` with a one-line reason
+  a hook, as with a search index searched later, keep a `useMemo` with a one-line reason
   and disable `no-restricted-syntax` on it.
 - Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
   or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
@@ -265,7 +265,7 @@ identity.
 | 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,drift,lyra,pluto}` | Always external |
 | 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`    | External, peer  |
 | 3. Shared vocabulary | `zod`                                                      | External        |
-| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`       | Bundle          |
+| 4. Private machinery | monaco, mathjs, d3-scale, `@synnaxlabs/arc`                | Bundle          |
 
 Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
 `instanceof Series` in Pluto, and a Zod schema from the Client must compose with a

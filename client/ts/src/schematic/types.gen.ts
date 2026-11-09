@@ -13,6 +13,7 @@ import {
   border,
   caseconv,
   color,
+  filter,
   notation,
   spatial,
   text,
@@ -22,7 +23,10 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -232,6 +236,45 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
 
+/** Where is a filter that selects schematics. */
+export type Where = {
+  and?: Where[];
+  or?: Where[];
+  not?: Where;
+  key?: filter.Set<typeof keyZ>;
+  snapshot?: filter.Bool;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
+};
+export const whereZ: z.ZodType<Where> = z.strictObject({
+  /** and matches when every child matches. */
+  get and() {
+    return zod.nullToUndefined(whereZ.array());
+  },
+  /** or matches when any child matches. */
+  get or() {
+    return zod.nullToUndefined(whereZ.array());
+  },
+  /** not matches when the child does not match. */
+  get not() {
+    return whereZ.optional();
+  },
+  /** key selects by key. */
+  key: filter.setZ(keyZ).optional(),
+  /** snapshot selects by snapshot. */
+  snapshot: filter.boolZ.optional(),
+  /** groups matches the schematics in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the schematics in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the schematics owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the schematics owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
+});
+
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
@@ -339,6 +382,19 @@ export const dummyToggleSymbolConfigZ = labeledConfigZ
 export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
 > {}
+
+/** RetrieveRequest is a request to retrieve schematics. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the schematics to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the schematics that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** limit is the most schematics to return. */
+  limit: z.uint32().optional(),
+  /** offset is the number of matching schematics to skip. */
+  offset: z.uint32().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
   strokeColor: color.colorZ.optional(),
@@ -3264,9 +3320,28 @@ export const schematicZ = z.object({
   configs: caseconv.preserveKeys(
     z.record(z.string(), elementConfigZ).default(() => ({})),
   ),
+  /** group is the group the schematic sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+/** RetrieveResponse holds the schematics a RetrieveRequest selects. */
+export const retrieveResponseZ = z.object({
+  /** schematics are the schematics the request selects. */
+  schematics: schematicZ.array().default(() => []),
+});
+export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+export const resourceID = resource.createIDFactory<Key>("schematic");
+export const TYPE_RESOURCE_ID = resourceID("");

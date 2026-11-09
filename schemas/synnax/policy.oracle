@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/access"
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
+import "schemas/synnax/role"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/access/rbac/policy"
 @py output "client/py/synnax/access/policy"
@@ -29,8 +31,8 @@ Policy struct {
         @search
         @validate required
     }
-    objects  ontology.ID[]   {
-        @doc value "is the list of ontology resources this policy applies to."
+    objects  resource.ID[]   {
+        @doc value "is the list of resources this policy applies to."
     }
     actions  access.Action[] {
         @doc value "is the list of actions this policy permits."
@@ -39,15 +41,36 @@ Policy struct {
         @doc value "is true if this is a built-in system policy that cannot be deleted."
         @filter
     }
+    role     role.Key        {
+        @doc value     "is the role that grants this policy to its subjects."
+        @ref kind      place
+        @ref on_delete cascade
+    }
 
     @create
     @doc value       """
         is an access control policy that defines which actions are permitted on which
-        resources. Policies are attached to roles, and roles are assigned to users via
-        ontology relationships.
+        resources. Each policy belongs to one role, and a subject holds the policies of
+        each role in its roles.
     """
     @go marshal
     @go migrate
-    @ontology type   "policy"
+    @resource type   "policy"
     @retrieve custom
+}
+
+Where filter Policy {
+    key
+    internal
+    subjects resource.ID[] {
+        @doc value """
+            matches the policies of the roles that any of the given subjects hold.
+        """
+    }
+    roles    role.Key[]    {
+        @doc value "matches the policies of any of the given roles."
+    }
+
+    @doc value         "is a filter that selects policies."
+    @go request_output "core/pkg/api/access/policy"
 }

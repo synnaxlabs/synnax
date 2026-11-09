@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-
 from examples.mqtt_sim.server import (
     SPARKPLUG_DEVICE,
     SPARKPLUG_EDGE_NODE,
@@ -69,13 +67,13 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 device=device.key,
                 name=f"{self.task_name} Echo Reader",
                 channel="mqtt_valve_state_payload",
-                data_type=sy.DataType.STRING,
+                data_type=sy.DataType.JSON,
                 entry=lambda echo: mqtt.PlainReadEntry(
                     topic="plant/valve/state",
                     retained_ignored=True,
                     fields=[
                         mqtt.ReadField(
-                            pointer="", channel=echo.key, data_type=sy.DataType.STRING
+                            pointer="", channel=echo.key, data_type=sy.DataType.JSON
                         )
                     ],
                 ),
@@ -89,11 +87,13 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 watched=echo,
                 matches=lambda _: True,
             )
-        payload = json.loads(str(sample))
-        if payload["position"] != 42.5 or payload["source"] != "synnax":
-            raise AssertionError(f"Unexpected command payload: {payload}")
-        if len(payload["id"]) != 36:
-            raise AssertionError(f"Payload has no generated UUID: {payload}")
+        if not isinstance(sample, dict):
+            raise AssertionError(f"Command payload is not an object: {sample!r}")
+        if sample["position"] != 42.5 or sample["source"] != "synnax":
+            raise AssertionError(f"Unexpected command payload: {sample}")
+        payload_id = sample["id"]
+        if not isinstance(payload_id, str) or len(payload_id) != 36:
+            raise AssertionError(f"Payload has no generated UUID: {sample}")
 
 
 class MQTTWriteSparkplug(MQTTWriteTaskCase):

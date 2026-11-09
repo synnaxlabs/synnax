@@ -17,7 +17,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -27,9 +27,12 @@ import (
 type StartOffset string
 
 const (
-	StartOffsetLatest   StartOffset = "latest"
+	// StartOffsetLatest starts at the end of the topic and reads only new records.
+	StartOffsetLatest StartOffset = "latest"
+	// StartOffsetEarliest starts at the oldest record the topic retains.
 	StartOffsetEarliest StartOffset = "earliest"
-	StartOffsetNone     StartOffset = "none"
+	// StartOffsetNone fails the start.
+	StartOffsetNone StartOffset = "none"
 )
 
 // IsValid reports whether s is one of the defined StartOffset
@@ -47,7 +50,9 @@ func (s StartOffset) IsValid() bool {
 type RecordKey string
 
 const (
-	RecordKeyNone        RecordKey = "none"
+	// RecordKeyNone writes records with no key.
+	RecordKeyNone RecordKey = "none"
+	// RecordKeyChannelName uses the name of the source channel as the key.
 	RecordKeyChannelName RecordKey = "channel_name"
 )
 

@@ -9,7 +9,7 @@
 
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
+import { color, compare, DataType, type require, verbs } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
@@ -24,9 +24,10 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   lineplot.LinePlot
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
-  onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
-  getCached: ({ client, query }) => client.lineplots.getCached(query),
+  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.lineplots.onChange(query.key, handler),
+  getCached: ({ client, query }) => client.lineplots.getCached(query.key),
   awaitCreation: true,
 });
 
@@ -341,7 +342,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
 });
 
 export interface CreateParams extends lineplot.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -351,7 +352,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.lineplots.create(data.project ?? uuid.ZERO, data, {
+    await client.lineplots.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });

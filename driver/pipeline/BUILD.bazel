@@ -28,6 +28,7 @@ cc_library(
         "//driver/errors",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/thread",
         "@nlohmann_json//:json",
     ],

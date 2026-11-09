@@ -233,6 +233,24 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.notify();
   };
 
+  const focusHandlersRef = useInitializerRef(() => new Map<string, () => void>());
+
+  const focus: ContextValue["focus"] = (target) => {
+    const path = String(target);
+    const handler = focusHandlersRef.current.get(path);
+    if (handler == null) throw new Error(`Field ${path} does not take focus`);
+    handler();
+  };
+
+  const addFocusHandler: ContextValue["addFocusHandler"] = (target, handler) => {
+    const path = String(target);
+    const handlers = focusHandlersRef.current;
+    handlers.set(path, handler);
+    return () => {
+      if (handlers.get(path) === handler) handlers.delete(path);
+    };
+  };
+
   const addCheck: ContextValue["addCheck"] = (path, schema) => {
     const removeCheck = ref.current.addCheck(String(path), schema);
     settle([], ref.current.hasBeenTouched);
@@ -269,6 +287,8 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     setStatus,
     clearStatuses,
     addCheck,
+    focus,
+    addFocusHandler,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

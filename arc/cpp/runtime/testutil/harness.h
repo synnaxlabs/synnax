@@ -60,17 +60,26 @@ class Harness {
     x::telem::MonoClock clock;
     /// @brief the stamp the last tick ran with. drain() and flush() stamp indexes
     /// from it, matching what the runtime loop does after every pass.
-    x::telem::TimeStamp cycle_now{};
+    x::telem::TimeStamp cycle_now;
     x::telem::Alignment alignment;
     /// @brief holds writes drained by advance() until the next flush().
     x::telem::Frame pending;
 
 public:
-    Harness(const synnax::Synnax &client, const std::string &source):
-        Harness(client, compile_text(client, source)) {}
+    Harness(
+        const synnax::Synnax &client,
+        const std::string &source,
+        x::telem::NowFunc now = nullptr
+    ):
+        Harness(client, compile_text(client, source), std::move(now)) {}
 
-    Harness(const synnax::Synnax &client, arc::program::Program prog):
-        program(std::move(prog)) {
+    /// @brief now, when set, is the wall clock the harness stamps cycles from.
+    Harness(
+        const synnax::Synnax &client,
+        arc::program::Program prog,
+        x::telem::NowFunc now = nullptr
+    ):
+        program(std::move(prog)), clock(std::move(now)) {
         std::set<types::ChannelKey> reads;
         std::set<types::ChannelKey> writes;
         for (const auto &n: this->program.nodes) {
@@ -172,6 +181,9 @@ public:
         this->time_mod->set_now(cycle.now);
         this->clock.advance(this->sched->next(cycle));
     }
+
+    /// @brief the stamp the last tick ran with.
+    [[nodiscard]] x::telem::TimeStamp now() const { return this->cycle_now; }
 
     void ingest(const types::ChannelKey channel_key, x::telem::Series &&data) {
         data.alignment = this->alignment;

@@ -16,7 +16,6 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -29,22 +28,22 @@ import (
 type Reader[K Key, E Entry[K]] struct {
 	// keyCodec encodes K to prefixed pebble keys and decodes the reverse.
 	keyCodec key.Codec[K]
-	// tx is the underlying transaction this Reader reads through.
-	tx Tx
+	// snap is the underlying snapshot this Reader reads through.
+	snap Snapshot
 }
 
-// WrapReader wraps the given Tx to provide a strongly typed Reader.
-func WrapReader[K Key, E Entry[K]](tx Tx) Reader[K, E] {
-	return wrapReader[K, E](tx, nil)
+// WrapReader wraps the given Snapshot to provide a strongly typed Reader.
+func WrapReader[K Key, E Entry[K]](snap Snapshot) Reader[K, E] {
+	return wrapReader[K, E](snap, nil)
 }
 
 // wrapReader constructs a Reader that decodes keys under prefix. A nil prefix falls
 // back to the prefix of E's table.
-func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) Reader[K, E] {
+func wrapReader[K Key, E Entry[K]](snap Snapshot, prefix []byte) Reader[K, E] {
 	if prefix == nil {
 		prefix = key.Prefix[E]()
 	}
-	return Reader[K, E]{tx: tx, keyCodec: key.NewCodec[K](prefix)}
+	return Reader[K, E]{snap: snap, keyCodec: key.NewCodec[K](prefix)}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
@@ -64,11 +63,11 @@ func (r *Reader[K, E]) get(
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {
-	b, closer, err := r.tx.Get(ctx, r.keyCodec.Encode(key))
+	b, closer, err := r.snap.Get(ctx, r.keyCodec.Encode(key))
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := r.tx.Decode(ctx, b, entry); err != nil {
+	if err := r.snap.Decode(ctx, b, entry); err != nil {
 		return nil, nil, errors.Combine(err, closer.Close())
 	}
 	return b, closer, nil
@@ -90,8 +89,8 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 	if len(opts.prefix) > 0 {
 		prefix = slices.Concat(prefix, opts.prefix)
 	}
-	base, err := r.tx.OpenIterator(kv.IterPrefix(prefix))
-	return &Iterator[E]{Iterator: base, codec: r.tx}, err
+	base, err := r.snap.OpenIterator(kv.IterPrefix(prefix))
+	return &Iterator[E]{Iterator: base, decoder: r.snap}, err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over the entries in the
@@ -126,8 +125,8 @@ type Iterator[E any] struct {
 	// value is the reusable decode buffer; Value returns a pointer to
 	// this and overwrites it on each call.
 	value *E
-	// codec decodes the iterator's raw bytes into E.
-	codec encoding.Codec
+	// decoder decodes the raw bytes of the iterator into E.
+	decoder encoding.Decoder
 }
 
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
@@ -139,7 +138,7 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	}
 	var zero E
 	*k.value = zero
-	if err := k.codec.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
+	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 		return nil
 	}
@@ -156,5 +155,3 @@ func (k *Iterator[E]) Error() error {
 func (k *Iterator[E]) Valid() bool {
 	return k.err == nil && k.Iterator.Valid()
 }
-
-type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]

@@ -44,6 +44,11 @@
         var(--pluto-error-z) 15%,
         var(--pluto-gray-l1)
     );
+    --pluto-port-conflict-hover: color-mix(
+        in srgb,
+        var(--pluto-error-z) 25%,
+        var(--pluto-gray-l1)
+    );
     --pluto-port-conflict-border: color-mix(
         in srgb,
         var(--pluto-error-z) 65%,
@@ -101,8 +106,25 @@
     font-weight: 500;
 
     &:hover,
-    &[data-context-menu-open] {
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
         background: var(--pluto-port-used-hover);
+    }
+}
+
+/* A plus takes the place of the number under the pointer: a click adds a channel. */
+.console-port-grid__add {
+    display: none;
+    font-size: var(--pluto-small-size);
+}
+
+.console-port-grid__cell--addable:is(:hover, :focus-visible) {
+    > span {
+        display: none;
+    }
+
+    > .console-port-grid__add {
+        display: block;
     }
 }
 
@@ -111,6 +133,12 @@
     background: var(--pluto-port-conflict);
     color: var(--pluto-error-z);
     font-weight: 500;
+
+    &:hover,
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
+        background: var(--pluto-port-conflict-hover);
+    }
 }
 
 .console-port-grid__cell--paired {
@@ -135,7 +163,8 @@
 
 .console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
     &:hover,
-    &[data-context-menu-open] {
+    &[data-context-menu-open],
+    &.console-port-grid__cell--hovered {
         background: var(--pluto-port-disabled-hover);
     }
 }

@@ -12,33 +12,35 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { imex } from "@/imex";
-import { type ontology } from "@/ontology";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Project,
   projectZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/project/types.gen";
+import { matches, retrieveInputZ, serverComputed } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -46,7 +48,6 @@ const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
 const importParamsZ = z.object({ fileName: z.string().min(1) });
 
-const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
 const importResZ = z.object({ project: projectZ });
 const emptyResZ = z.object({});
@@ -60,31 +61,23 @@ export interface ImportOptions {
   fileName: string;
 }
 
-/**
- * Client-side matching for a request: key sets. Server-computed shapes
- * (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => keySet == null || keySet.has(p.key);
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
+  /** Builds requests that move projects between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Project>({
       name: "projects",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, projectZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -96,11 +89,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (project, req) => requestFilter(req)(project),
+        matches: (project, req) => matches(group.MEMBER_LINES, project, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/project/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async create(project: New, opts?: query.WriteOptions<Project[]>): Promise<Project>;
@@ -132,10 +129,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -152,10 +146,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -231,8 +222,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     const res = await this.cfg.unary.send(
       "/project/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.projects;
   }

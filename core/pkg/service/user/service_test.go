@@ -26,8 +26,7 @@ var _ = Describe("ServiceConfig", func() {
 	BeforeEach(func() {
 		cfg = user.ServiceConfig{
 			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+			Password: passwordSvc,
 		}
 	})
 	Describe("Override", func() {
@@ -36,8 +35,7 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := user.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
+				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
 		It(
@@ -45,8 +43,7 @@ var _ = Describe("ServiceConfig", func() {
 			func() {
 				result := cfg.Override(user.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
-				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
+				Expect(result.Password).To(Equal(passwordSvc))
 			},
 		)
 	})
@@ -66,14 +63,9 @@ var _ = Describe("ServiceConfig", func() {
 				"db: must be non-nil",
 			),
 			Entry(
-				"ontology",
-				func(c *user.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
-			),
-			Entry(
-				"group",
-				func(c *user.ServiceConfig) { c.Group = nil },
-				"group: must be non-nil",
+				"password",
+				func(c *user.ServiceConfig) { c.Password = nil },
+				"password: must be non-nil",
 			),
 		)
 	})
@@ -97,7 +89,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			created := MustSucceed(
-				w.Create(ctx, user.User{Name: uuid.New().String()}),
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
 			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
@@ -105,12 +97,84 @@ var _ = Describe("Service", func() {
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+			a := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
+			b := MustSucceed(
+				w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+			)
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ret).To(ConsistOf(a, b))
+		})
+		Describe("MatchUsernames", func() {
+			var (
+				username string
+				u        user.User
+			)
+			BeforeEach(func(ctx SpecContext) {
+				username = uuid.New().String()
+				u = MustSucceed(
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+				)
+				Expect(
+					passwordSvc.NewWriter(tx).
+						Set(ctx, u.ResourceID(), username, hash(passwordSvc, "p")),
+				).To(Succeed())
+			})
+			It(
+				"Should match the user whose password has the username",
+				func(ctx SpecContext) {
+					var ret []user.User
+					Expect(
+						svc.NewRetrieve().
+							Where(user.MatchUsernames(username)).
+							Entries(&ret).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(ret).To(ConsistOf(u))
+				},
+			)
+			It("Should match the user through a snapshot", func(ctx SpecContext) {
+				Expect(tx.Commit(ctx)).To(Succeed())
+				var ret []user.User
+				Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+					return svc.NewRetrieve().
+						Where(user.MatchUsernames(username)).
+						Entries(&ret).
+						Exec(ctx, snap)
+				})).To(Succeed())
+				Expect(ret).To(ConsistOf(u))
+			})
+			It("Should match nothing for an unknown username", func(ctx SpecContext) {
+				var ret []user.User
+				Expect(svc.NewRetrieve().
+					Where(user.MatchUsernames(uuid.New().String())).
+					Entries(&ret).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(ret).To(BeEmpty())
+			})
+			It("Should match nothing for a user's name", func(ctx SpecContext) {
+				var ret []user.User
+				Expect(
+					svc.NewRetrieve().Where(user.MatchUsernames(u.Name)).Entries(&ret).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(ret).To(BeEmpty())
+			})
+			It("Should exclude the matched users under Not", func(ctx SpecContext) {
+				other := MustSucceed(
+					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),
+				)
+				var ret []user.User
+				Expect(svc.NewRetrieve().
+					Where(user.MatchKeys(u.Key, other.Key)).
+					Where(user.Not(user.MatchUsernames(username))).
+					Entries(&ret).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(ret).To(ConsistOf(other))
+			})
 		})
 	})
 })

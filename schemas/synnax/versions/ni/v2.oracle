@@ -13,106 +13,216 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 Units enum {
-    volts                     = "Volts"
-    amps                      = "Amps"
-    deg_f                     = "DegF"
-    deg_c                     = "DegC"
-    deg_r                     = "DegR"
-    kelvins                   = "Kelvins"
-    strain                    = "Strain"
-    ohms                      = "Ohms"
-    hz                        = "Hz"
-    seconds                   = "Seconds"
-    meters                    = "Meters"
-    inches                    = "Inches"
-    degrees                   = "Degrees"
-    radians                   = "Radians"
-    g                         = "g"
-    meters_per_second_squared = "MetersPerSecondSquared"
-    newtons                   = "Newtons"
-    pounds                    = "Pounds"
-    kilogram_force            = "KilogramForce"
-    pounds_per_square_inch    = "PoundsPerSquareInch"
-    bar                       = "Bar"
-    pascals                   = "Pascals"
-    volts_per_volt            = "VoltsPerVolt"
-    m_volts_per_volt          = "mVoltsPerVolt"
-    newton_meters             = "NewtonMeters"
-    inch_pounds               = "InchPounds"
-    inch_ounces               = "InchOunces"
-    foot_pounds               = "FootPounds"
+    volts                     = "Volts" {
+        @doc value "is volts."
+    }
+    amps                      = "Amps" {
+        @doc value "is amperes."
+    }
+    deg_f                     = "DegF" {
+        @doc value "is degrees Fahrenheit."
+    }
+    deg_c                     = "DegC" {
+        @doc value "is degrees Celsius."
+    }
+    deg_r                     = "DegR" {
+        @doc value "is degrees Rankine."
+    }
+    kelvins                   = "Kelvins" {
+        @doc value "is kelvins."
+    }
+    strain                    = "Strain" {
+        @doc value "is strain."
+    }
+    ohms                      = "Ohms" {
+        @doc value "is ohms."
+    }
+    hz                        = "Hz" {
+        @doc value "is hertz."
+    }
+    seconds                   = "Seconds" {
+        @doc value "is seconds."
+    }
+    meters                    = "Meters" {
+        @doc value "is meters."
+    }
+    inches                    = "Inches" {
+        @doc value "is inches."
+    }
+    degrees                   = "Degrees" {
+        @doc value "is degrees."
+    }
+    radians                   = "Radians" {
+        @doc value "is radians."
+    }
+    g                         = "g" {
+        @doc value "is acceleration in g."
+    }
+    meters_per_second_squared = "MetersPerSecondSquared" {
+        @doc value "is meters per second squared."
+    }
+    newtons                   = "Newtons" {
+        @doc value "is newtons."
+    }
+    pounds                    = "Pounds" {
+        @doc value "is pounds."
+    }
+    kilogram_force            = "KilogramForce" {
+        @doc value "is kilograms of force."
+    }
+    pounds_per_square_inch    = "PoundsPerSquareInch" {
+        @doc value "is pounds per square inch."
+    }
+    bar                       = "Bar" {
+        @doc value "is bar."
+    }
+    pascals                   = "Pascals" {
+        @doc value "is pascals."
+    }
+    volts_per_volt            = "VoltsPerVolt" {
+        @doc value "is volts per volt."
+    }
+    m_volts_per_volt          = "mVoltsPerVolt" {
+        @doc value "is millivolts per volt."
+    }
+    newton_meters             = "NewtonMeters" {
+        @doc value "is newton meters."
+    }
+    inch_pounds               = "InchPounds" {
+        @doc value "is inch-pounds."
+    }
+    inch_ounces               = "InchOunces" {
+        @doc value "is inch-ounces."
+    }
+    foot_pounds               = "FootPounds" {
+        @doc value "is foot-pounds."
+    }
 
     @doc value "enumerates the engineering units for NI analog channel values."
 }
 
 AccelSensitivityUnits enum {
-    m_volts_per_g = "mVoltsPerG"
-    volts_per_g   = "VoltsPerG"
+    m_volts_per_g = "mVoltsPerG" {
+        @doc value "is millivolts per g."
+    }
+    volts_per_g   = "VoltsPerG" {
+        @doc value "is volts per g."
+    }
 
     @doc value "are the units of an accelerometer's sensitivity rating."
 }
 
 AccelChargeSensitivityUnits enum {
-    pico_coulombs_per_g                         = "PicoCoulombsPerG"
-    pico_coulombs_per_meters_per_second_squared = "PicoCoulombsPerMetersPerSecondSquared"
-    pico_coulombs_per_inches_per_second_squared = "PicoCoulombsPerInchesPerSecondSquared"
+    pico_coulombs_per_g                         = "PicoCoulombsPerG" {
+        @doc value "is picocoulombs per g."
+    }
+    pico_coulombs_per_meters_per_second_squared = "PicoCoulombsPerMetersPerSecondSquared" {
+        @doc value "is picocoulombs per meter per second squared."
+    }
+    pico_coulombs_per_inches_per_second_squared = "PicoCoulombsPerInchesPerSecondSquared" {
+        @doc value "is picocoulombs per inch per second squared."
+    }
 
     @doc value "are the units of a charge-mode accelerometer's sensitivity rating."
 }
 
 AccelUnits enum {
-    g                         = "g"
-    meters_per_second_squared = "MetersPerSecondSquared"
-    inches_per_second_squared = "InchesPerSecondSquared"
+    g                         = "g" {
+        @doc value "is acceleration in g."
+    }
+    meters_per_second_squared = "MetersPerSecondSquared" {
+        @doc value "is meters per second squared."
+    }
+    inches_per_second_squared = "InchesPerSecondSquared" {
+        @doc value "is inches per second squared."
+    }
 
     @doc value "are the engineering units for an acceleration measurement."
 }
 
 ForceUnits enum {
-    newtons        = "Newtons"
-    pounds         = "Pounds"
-    kilogram_force = "KilogramForce"
+    newtons        = "Newtons" {
+        @doc value "is newtons."
+    }
+    pounds         = "Pounds" {
+        @doc value "is pounds."
+    }
+    kilogram_force = "KilogramForce" {
+        @doc value "is kilograms of force."
+    }
 
     @doc value "are the engineering units for a force measurement."
 }
 
 ElectricalUnits enum {
-    m_volts_per_volt = "mVoltsPerVolt"
-    volts_per_volt   = "VoltsPerVolt"
+    m_volts_per_volt = "mVoltsPerVolt" {
+        @doc value "is millivolts per volt."
+    }
+    volts_per_volt   = "VoltsPerVolt" {
+        @doc value "is volts per volt."
+    }
 
     @doc value "are the electrical output units of a bridge-based sensor."
 }
 
 ExcitationSource enum {
-    internal = "Internal"
-    external = "External"
-    none     = "None"
+    internal = "Internal" {
+        @doc value "is an internal excitation source."
+    }
+    external = "External" {
+        @doc value "is an external excitation source."
+    }
+    none     = "None" {
+        @doc value "uses no excitation."
+    }
 
     @doc value "selects the source of a sensor's excitation signal."
 }
 
 TerminalConfig enum {
-    cfg_default = "Cfg_Default"
-    rse         = "RSE"
-    nrse        = "NRSE"
-    diff        = "Diff"
-    pseudo_diff = "PseudoDiff"
+    cfg_default = "Cfg_Default" {
+        @doc value "uses the default terminal configuration of the port."
+    }
+    rse         = "RSE" {
+        @doc value "is referenced single ended."
+    }
+    nrse        = "NRSE" {
+        @doc value "is non-referenced single ended."
+    }
+    diff        = "Diff" {
+        @doc value "is differential."
+    }
+    pseudo_diff = "PseudoDiff" {
+        @doc value "is pseudo-differential."
+    }
 
     @doc value "selects the terminal configuration for an analog input channel."
 }
 
 BridgeConfig enum {
-    full_bridge    = "FullBridge"
-    half_bridge    = "HalfBridge"
-    quarter_bridge = "QuarterBridge"
+    full_bridge    = "FullBridge" {
+        @doc value "is a full bridge."
+    }
+    half_bridge    = "HalfBridge" {
+        @doc value "is a half bridge."
+    }
+    quarter_bridge = "QuarterBridge" {
+        @doc value "is a quarter bridge."
+    }
 
     @doc value "selects the physical bridge wiring of a bridge-based sensor."
 }
 
 ShuntResistorLocation enum {
-    default  = "Default"
-    internal = "Internal"
-    external = "External"
+    default  = "Default" {
+        @doc value "uses the default location."
+    }
+    internal = "Internal" {
+        @doc value "uses an internal shunt resistor."
+    }
+    external = "External" {
+        @doc value "uses an external shunt resistor."
+    }
 
     @doc value """
         selects where the shunt resistor used for current measurement is located.
@@ -120,78 +230,152 @@ ShuntResistorLocation enum {
 }
 
 ForceSensitivityUnits enum {
-    m_volts_per_newton = "mVoltsPerNewton"
-    m_volts_per_pound  = "mVoltsPerPound"
+    m_volts_per_newton = "mVoltsPerNewton" {
+        @doc value "is millivolts per newton."
+    }
+    m_volts_per_pound  = "mVoltsPerPound" {
+        @doc value "is millivolts per pound."
+    }
 
     @doc value "are the units of a force IEPE sensor's sensitivity rating."
 }
 
 PressureUnits enum {
-    pounds_per_square_inch = "PoundsPerSquareInch"
-    pascals                = "Pascals"
-    bar                    = "Bar"
+    pounds_per_square_inch = "PoundsPerSquareInch" {
+        @doc value "is pounds per square inch."
+    }
+    pascals                = "Pascals" {
+        @doc value "is pascals."
+    }
+    bar                    = "Bar" {
+        @doc value "is bar."
+    }
 
     @doc value "are the engineering units for a pressure measurement."
 }
 
 TorqueUnits enum {
-    newton_meters = "NewtonMeters"
-    inch_ounces   = "InchOunces"
-    inch_pounds   = "InchPounds"
-    foot_pounds   = "FootPounds"
+    newton_meters = "NewtonMeters" {
+        @doc value "is newton meters."
+    }
+    inch_ounces   = "InchOunces" {
+        @doc value "is inch-ounces."
+    }
+    inch_pounds   = "InchPounds" {
+        @doc value "is inch-pounds."
+    }
+    foot_pounds   = "FootPounds" {
+        @doc value "is foot-pounds."
+    }
 
     @doc value "are the engineering units for a torque measurement."
 }
 
 ResistanceConfig enum {
-    wire_2 = "2Wire"
-    wire_3 = "3Wire"
-    wire_4 = "4Wire"
+    wire_2 = "2Wire" {
+        @doc value "uses two wires."
+    }
+    wire_3 = "3Wire" {
+        @doc value "uses three wires."
+    }
+    wire_4 = "4Wire" {
+        @doc value "uses four wires."
+    }
 
     @doc value "selects the number of wires used for a resistance measurement."
 }
 
 TemperatureUnits enum {
-    deg_c   = "DegC"
-    deg_f   = "DegF"
-    kelvins = "Kelvins"
-    deg_r   = "DegR"
+    deg_c   = "DegC" {
+        @doc value "is degrees Celsius."
+    }
+    deg_f   = "DegF" {
+        @doc value "is degrees Fahrenheit."
+    }
+    kelvins = "Kelvins" {
+        @doc value "is kelvins."
+    }
+    deg_r   = "DegR" {
+        @doc value "is degrees Rankine."
+    }
 
     @doc value "are the engineering units for a temperature measurement."
 }
 
 RTDType enum {
-    pt_3750 = "Pt3750"
-    pt_3851 = "Pt3851"
-    pt_3911 = "Pt3911"
-    pt_3916 = "Pt3916"
-    pt_3920 = "Pt3920"
-    pt_3928 = "Pt3928"
+    pt_3750 = "Pt3750" {
+        @doc value "is a low-cost platinum RTD with a coefficient of 0.00375."
+    }
+    pt_3851 = "Pt3851" {
+        @doc value "is an IEC 60751 platinum RTD with a coefficient of 0.003851."
+    }
+    pt_3911 = "Pt3911" {
+        @doc value "is a platinum RTD with a coefficient of 0.003911."
+    }
+    pt_3916 = "Pt3916" {
+        @doc value "is a JISC 1604 platinum RTD with a coefficient of 0.003916."
+    }
+    pt_3920 = "Pt3920" {
+        @doc value "is a D-100 platinum RTD with a coefficient of 0.00392."
+    }
+    pt_3928 = "Pt3928" {
+        @doc value "is an ITS-90 platinum RTD with a coefficient of 0.003928."
+    }
 
     @doc value "selects the resistance-temperature curve of an RTD sensor."
 }
 
 StrainConfig enum {
-    full_bridge_i     = "FullBridgeI"
-    full_bridge_ii    = "FullBridgeII"
-    full_bridge_iii   = "FullBridgeIII"
-    half_bridge_i     = "HalfBridgeI"
-    half_bridge_ii    = "HalfBridgeII"
-    quarter_bridge_i  = "QuarterBridgeI"
-    quarter_bridge_ii = "QuarterBridgeII"
+    full_bridge_i     = "FullBridgeI" {
+        @doc value "measures bending strain with four active gauges."
+    }
+    full_bridge_ii    = "FullBridgeII" {
+        @doc value "measures bending strain with two Poisson gauges of four."
+    }
+    full_bridge_iii   = "FullBridgeIII" {
+        @doc value "measures axial strain with two Poisson gauges of four."
+    }
+    half_bridge_i     = "HalfBridgeI" {
+        @doc value "measures axial or bending strain with one Poisson gauge."
+    }
+    half_bridge_ii    = "HalfBridgeII" {
+        @doc value "measures bending strain with tension and compression gauges."
+    }
+    quarter_bridge_i  = "QuarterBridgeI" {
+        @doc value "measures axial or bending strain with one active gauge."
+    }
+    quarter_bridge_ii = "QuarterBridgeII" {
+        @doc value "pairs one active gauge with a dummy gauge for temperature."
+    }
 
     @doc value "selects the strain-gauge bridge configuration."
 }
 
 ThermocoupleType enum {
-    j = "J"
-    k = "K"
-    n = "N"
-    r = "R"
-    s = "S"
-    t = "T"
-    b = "B"
-    e = "E"
+    j = "J" {
+        @doc value "pairs iron with copper-nickel."
+    }
+    k = "K" {
+        @doc value "pairs nickel-chromium with nickel-aluminum."
+    }
+    n = "N" {
+        @doc value "pairs nickel-chromium-silicon with nickel-silicon-magnesium."
+    }
+    r = "R" {
+        @doc value "pairs platinum-13% rhodium with platinum."
+    }
+    s = "S" {
+        @doc value "pairs platinum-10% rhodium with platinum."
+    }
+    t = "T" {
+        @doc value "pairs copper with copper-nickel."
+    }
+    b = "B" {
+        @doc value "pairs platinum-30% rhodium with platinum-6% rhodium."
+    }
+    e = "E" {
+        @doc value "pairs nickel-chromium with copper-nickel."
+    }
 
     @doc value "selects the thermocouple alloy type."
 }
@@ -223,22 +407,34 @@ CJC union on source {
 }
 
 VelocityUnits enum {
-    meters_per_second = "MetersPerSecond"
-    inches_per_second = "InchesPerSecond"
+    meters_per_second = "MetersPerSecond" {
+        @doc value "is meters per second."
+    }
+    inches_per_second = "InchesPerSecond" {
+        @doc value "is inches per second."
+    }
 
     @doc value "are the engineering units for a velocity measurement."
 }
 
 VelocitySensitivityUnits enum {
-    m_volts_per_mm_per_second   = "MillivoltsPerMillimeterPerSecond"
-    m_volts_per_inch_per_second = "MilliVoltsPerInchPerSecond"
+    m_volts_per_mm_per_second   = "MillivoltsPerMillimeterPerSecond" {
+        @doc value "is millivolts per millimeter per second."
+    }
+    m_volts_per_inch_per_second = "MilliVoltsPerInchPerSecond" {
+        @doc value "is millivolts per inch per second."
+    }
 
     @doc value "are the units of a velocity IEPE sensor's sensitivity rating."
 }
 
 ChargeUnits enum {
-    coulombs      = "Coulombs"
-    pico_coulombs = "PicoCoulombs"
+    coulombs      = "Coulombs" {
+        @doc value "is coulombs."
+    }
+    pico_coulombs = "PicoCoulombs" {
+        @doc value "is picocoulombs."
+    }
 
     @doc value "are the units of a charge measurement."
 }
@@ -808,88 +1004,154 @@ AIChannel union on type extends BaseAIChannel {
 }
 
 CIEdge enum {
-    rising  = "Rising"
-    falling = "Falling"
+    rising  = "Rising" {
+        @doc value "is the rising edge."
+    }
+    falling = "Falling" {
+        @doc value "is the falling edge."
+    }
 
     @doc value "selects the signal edge a counter responds to."
 }
 
 CIMeasMethod enum {
-    low_freq_1_ctr  = "LowFreq1Ctr"
-    high_freq_2_ctr = "HighFreq2Ctr"
-    large_rng_2_ctr = "LargeRng2Ctr"
-    dynamic_avg     = "DynamicAvg"
+    low_freq_1_ctr  = "LowFreq1Ctr" {
+        @doc value "uses one counter, for low frequency signals."
+    }
+    high_freq_2_ctr = "HighFreq2Ctr" {
+        @doc value """
+            uses two counters and a measurement time, for high frequency signals.
+        """
+    }
+    large_rng_2_ctr = "LargeRng2Ctr" {
+        @doc value "uses two counters and divides the input signal by a divisor."
+    }
+    dynamic_avg     = "DynamicAvg" {
+        @doc value "uses dynamic averaging."
+    }
 
     @doc value "selects the counter measurement method."
 }
 
 CIFreqUnits enum {
-    hz    = "Hz"
-    ticks = "Ticks"
+    hz    = "Hz" {
+        @doc value "is hertz."
+    }
+    ticks = "Ticks" {
+        @doc value "is ticks."
+    }
 
     @doc value "are the unit options for a counter frequency channel."
 }
 
 CITimeUnits enum {
-    seconds = "Seconds"
-    ticks   = "Ticks"
+    seconds = "Seconds" {
+        @doc value "is seconds."
+    }
+    ticks   = "Ticks" {
+        @doc value "is ticks."
+    }
 
     @doc value "are the units of a counter time measurement (period, pulse width, ...)."
 }
 
 CICountDirection enum {
-    count_up              = "CountUp"
-    count_down            = "CountDown"
-    externally_controlled = "ExternallyControlled"
+    count_up              = "CountUp" {
+        @doc value "increments the count on each edge."
+    }
+    count_down            = "CountDown" {
+        @doc value "decrements the count on each edge."
+    }
+    externally_controlled = "ExternallyControlled" {
+        @doc value "reads the direction from a digital signal."
+    }
 
     @doc value "selects the direction an edge counter counts."
 }
 
 CIDecodingType enum {
-    x1        = "X1"
-    x2        = "X2"
-    x4        = "X4"
-    two_pulse = "TwoPulse"
+    x1        = "X1" {
+        @doc value "is X1 decoding, for quadrature encoders."
+    }
+    x2        = "X2" {
+        @doc value "is X2 decoding, for quadrature encoders."
+    }
+    x4        = "X4" {
+        @doc value "is X4 decoding, for quadrature encoders."
+    }
+    two_pulse = "TwoPulse" {
+        @doc value "is two pulse counting, for two pulse encoders."
+    }
 
     @doc value "selects the quadrature decoding type of an encoder."
 }
 
 CILinearVelocityUnits enum {
-    m_per_s  = "m/s"
-    in_per_s = "in/s"
+    m_per_s  = "m/s" {
+        @doc value "is meters per second."
+    }
+    in_per_s = "in/s" {
+        @doc value "is inches per second."
+    }
 
     @doc value "are the units of a linear velocity measurement."
 }
 
 CIAngularVelocityUnits enum {
-    rpm                = "RPM"
-    radians_per_second = "Radians/s"
-    degrees_per_second = "Degrees/s"
+    rpm                = "RPM" {
+        @doc value "is revolutions per minute."
+    }
+    radians_per_second = "Radians/s" {
+        @doc value "is radians per second."
+    }
+    degrees_per_second = "Degrees/s" {
+        @doc value "is degrees per second."
+    }
 
     @doc value "are the units of an angular velocity measurement."
 }
 
 CILinearPositionUnits enum {
-    meters = "Meters"
-    inches = "Inches"
-    ticks  = "Ticks"
+    meters = "Meters" {
+        @doc value "is meters."
+    }
+    inches = "Inches" {
+        @doc value "is inches."
+    }
+    ticks  = "Ticks" {
+        @doc value "is ticks."
+    }
 
     @doc value "are the units of a linear position measurement."
 }
 
 CIAngularPositionUnits enum {
-    degrees = "Degrees"
-    radians = "Radians"
-    ticks   = "Ticks"
+    degrees = "Degrees" {
+        @doc value "is degrees."
+    }
+    radians = "Radians" {
+        @doc value "is radians."
+    }
+    ticks   = "Ticks" {
+        @doc value "is ticks."
+    }
 
     @doc value "are the units of an angular position measurement."
 }
 
 ZIndexPhase enum {
-    a_high_b_high = "AHighBHigh"
-    a_high_b_low  = "AHighBLow"
-    a_low_b_high  = "ALowBHigh"
-    a_low_b_low   = "ALowBLow"
+    a_high_b_high = "AHighBHigh" {
+        @doc value "resets when signals A and B are high."
+    }
+    a_high_b_low  = "AHighBLow" {
+        @doc value "resets when signal A is high and signal B is low."
+    }
+    a_low_b_high  = "ALowBHigh" {
+        @doc value "resets when signal A is low and signal B is high."
+    }
+    a_low_b_low   = "ALowBLow" {
+        @doc value "resets when signals A and B are low."
+    }
 
     @doc value """
         selects the encoder channel states at which the Z index resets the count.
@@ -1195,10 +1457,18 @@ CIChannel union on type extends BaseCIChannel {
 }
 
 WaveType enum {
-    sine     = "Sine"
-    triangle = "Triangle"
-    square   = "Square"
-    sawtooth = "Sawtooth"
+    sine     = "Sine" {
+        @doc value "is a sine wave."
+    }
+    triangle = "Triangle" {
+        @doc value "is a triangle wave."
+    }
+    square   = "Square" {
+        @doc value "is a square wave."
+    }
+    sawtooth = "Sawtooth" {
+        @doc value "is a sawtooth wave."
+    }
 
     @doc value "selects the waveform a function generator produces."
 }

@@ -273,9 +273,21 @@ export const analogOutputStateName = (c: AOChannel, d: Device): string =>
   named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
 
 /** The name a digital input channel shows by. */
-export const digitalInputName = (c: DIChannel, d: Device): string =>
-  named(c.name, () => `${identifierOf(d)}_di_${c.port}_${c.line}`);
+export const digitalInputName = (
+  c: Pick<DIChannel, "name" | "port" | "line">,
+  d: Device,
+): string => named(c.name, () => `${identifierOf(d)}_di_${c.port}_${c.line}`);
 
 /** The name a digital output channel shows by: its command channel's. */
-export const digitalOutputName = (c: DOChannel, d: Device): string =>
+export const digitalOutputName = (
+  c: Pick<DOChannel, "cmdChannelName" | "port" | "line">,
+  d: Device,
+): string =>
   named(c.cmdChannelName, () => `${identifierOf(d)}_do_${c.port}_${c.line}_cmd`);
+
+/** The name of a digital output channel's state channel. */
+export const digitalOutputStateName = (
+  c: Pick<DOChannel, "stateChannelName" | "port" | "line">,
+  d: Device,
+): string =>
+  named(c.stateChannelName, () => `${identifierOf(d)}_do_${c.port}_${c.line}_state`);

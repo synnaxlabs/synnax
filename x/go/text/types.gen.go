@@ -19,12 +19,20 @@ import "github.com/synnaxlabs/x/text/versions"
 type Level = versions.Level
 
 const (
-	LevelH1    Level = versions.LevelH1
-	LevelH2    Level = versions.LevelH2
-	LevelH3    Level = versions.LevelH3
-	LevelH4    Level = versions.LevelH4
-	LevelH5    Level = versions.LevelH5
-	LevelP     Level = versions.LevelP
+	// LevelH1 is the largest heading level.
+	LevelH1 Level = versions.LevelH1
+	// LevelH2 is the second heading level.
+	LevelH2 Level = versions.LevelH2
+	// LevelH3 is the third heading level.
+	LevelH3 Level = versions.LevelH3
+	// LevelH4 is the fourth heading level.
+	LevelH4 Level = versions.LevelH4
+	// LevelH5 is the smallest heading level.
+	LevelH5 Level = versions.LevelH5
+	// LevelP is the paragraph level.
+	LevelP Level = versions.LevelP
+	// LevelSmall is one step below the paragraph level.
 	LevelSmall Level = versions.LevelSmall
-	LevelTiny  Level = versions.LevelTiny
+	// LevelTiny is the smallest level.
+	LevelTiny Level = versions.LevelTiny
 )

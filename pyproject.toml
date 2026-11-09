@@ -24,6 +24,7 @@ members = [
     "freighter/py",
     "integration",
     "scripts",
+    "scripts/common",
     "x/py",
 ]
 
@@ -31,4 +32,5 @@ members = [
 alamos = { workspace = true }
 synnax-freighter = { workspace = true }
 synnax = { workspace = true }
+synnax-scripts-common = { workspace = true }
 synnax-x = { workspace = true }

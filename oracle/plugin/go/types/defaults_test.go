@@ -674,6 +674,27 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It(
+			"Should emit NonZero for a required uuid type",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Key = uuid
+
+				Cfg struct {
+					role Key {
+						@validate required
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(`v.NonZero("role", c.Role)`).
+					ToNotContain(`NotEmptyString`)
+			},
+		)
+
 		It("Should emit LessThanEq for a numeric max", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -743,6 +764,33 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToNotContain("Validate()")
+			},
+		)
+
+		It(
+			"Should check string lengths with the validator methods",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string {
+						@validate {
+							min_length 2
+							max_length 64
+						}
+					}
+					alias string? {
+						@validate max_length 64
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.MinLength("name", c.Name, 2)`,
+					`v.MaxLength("name", c.Name, 64)`,
+					`v.MaxLength("alias", *c.Alias, 64)`,
+				)
 			},
 		)
 
@@ -884,8 +932,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					`v.Ternaryf("name", len(s.Name) < 2, ` +
-						`"must be at least 2 characters long")`,
+					`v.MinLength("name", s.Name, 2)`,
 				)
 			},
 		)

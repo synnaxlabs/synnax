@@ -222,3 +222,101 @@ func VariantBases(
 	}
 	return inherited, declared
 }
+
+// SharedBase returns the one base that every variant of a union inherits in lang. ok is
+// false when the union extends no base or more than one, or when a variant flattens the
+// base (see VariantBases), since that variant holds no copy of the base to return.
+func SharedBase(
+	form resolution.UnionForm,
+	lang string,
+	table *resolution.Table,
+) (base resolution.TypeRef, ok bool) {
+	if len(form.Extends) != 1 {
+		return resolution.TypeRef{}, false
+	}
+	base = form.Extends[0]
+	for _, v := range form.Variants {
+		inherited, _ := VariantBases(form, v, lang, table)
+		if !slices.ContainsFunc(inherited, func(ref resolution.TypeRef) bool {
+			return ref.Name == base.Name
+		}) {
+			return resolution.TypeRef{}, false
+		}
+	}
+	return base, true
+}
+
+// OwnedField is a field with the type that declares it.
+type OwnedField struct {
+	Owner resolution.Type
+	Field resolution.Field
+}
+
+// VariantFields returns the fields of a union variant in lang: the fields of the
+// union's bases, then the fields of the variant's payload.
+func VariantFields(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	lang string,
+	table *resolution.Table,
+) []OwnedField {
+	var out []OwnedField
+	addBases := func(bases []resolution.TypeRef) {
+		for _, ref := range bases {
+			base, _, ok := resolution.Dealias(ref, table)
+			if !ok {
+				continue
+			}
+			for _, f := range resolution.UnifiedFields(base, table) {
+				out = append(out, OwnedField{Owner: base, Field: f})
+			}
+		}
+	}
+	payload, ok := v.Type.Resolve(table)
+	if !ok {
+		addBases(form.Extends)
+		return out
+	}
+	if !v.Inline {
+		addBases(form.Extends)
+		for _, f := range resolution.UnifiedFields(payload, table) {
+			out = append(out, OwnedField{Owner: payload, Field: f})
+		}
+		return out
+	}
+	inherited, flattened := VariantBases(form, v, lang, table)
+	addBases(inherited)
+	payloadForm := payload.Form.(resolution.StructForm)
+	bases := slices.Concat(form.Extends, payloadForm.Extends)
+	for _, f := range flattened {
+		out = append(
+			out,
+			OwnedField{Owner: baseDeclaring(bases, f.Name, table), Field: f},
+		)
+	}
+	for _, f := range payloadForm.Fields {
+		out = append(out, OwnedField{Owner: payload, Field: f})
+	}
+	return out
+}
+
+// baseDeclaring returns the first of bases whose fields include the field named name.
+func baseDeclaring(
+	bases []resolution.TypeRef,
+	name string,
+	table *resolution.Table,
+) resolution.Type {
+	for _, ref := range bases {
+		base, _, ok := resolution.Dealias(ref, table)
+		if !ok {
+			continue
+		}
+		if slices.ContainsFunc(
+			resolution.UnifiedFields(base, table),
+			func(f resolution.Field) bool { return f.Name == name },
+		) {
+			return base
+		}
+	}
+	return resolution.Type{}
+}

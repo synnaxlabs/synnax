@@ -11,16 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import ontology
-from synnax.ontology.payload import ID
-from x import color as color_
-from x import spatial
+from synnax import group as group_, project as project_, ranger, resource as resource_
+from synnax.resource import ID
+from x import color as color_, filter, spatial
+from x.filter import shorthand
 
 TabKey: TypeAlias = UUID
 
@@ -50,11 +49,60 @@ class TabBase(BaseModel):
     key: TabKey = Field(default_factory=uuid4)
 
 
+class Where(BaseModel):
+    """Is a filter that selects panels.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        groups: Matches the panels in any of the given groups.
+        grouped: Matches the panels in a group, or in no group when false.
+        projects: Matches the panels owned by any of the given projects.
+        ranges: Matches the panels owned by any of the given ranges.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
+
+    @field_validator("groups", "projects", "ranges", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
+    },
+    total=False,
+)
+
+
 class ResourceTab(TabBase):
     """Is a tab displaying a backing Core document."""
 
     variant: Literal["resource"] = "resource"
-    resource: ontology.ID
+    resource: resource_.ID
 
 
 class ViewTab(TabBase, View):
@@ -76,6 +124,24 @@ Tab = Annotated[
     ResourceTab | ViewTab,
     Field(discriminator="variant"),
 ]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve panels.
+
+    Attributes:
+        where: Selects the panels to retrieve. An absent where selects all of them.
+        search_term: Keeps the panels that match the term, closest match first.
+        limit: Is the most panels to return.
+        offset: Is the number of matching panels to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class LeafNode(BaseModel):
@@ -111,27 +177,45 @@ class Panel(BaseModel):
         key: Is the unique identifier for this panel.
         name: Is a human-readable name for the panel.
         root: Is the root of the panel tree.
-        parent: Is the parent resource for the panel in the ontology. Required on create
-            and absent on retrieve.
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
+        group: Is the group the panel sits in, if any.
+        project: Is the project that owns the panel, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the panel, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
-    parent: ontology.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="panel")
+class RetrieveResponse(BaseModel):
+    """Holds the panels a RetrieveRequest selects.
+
+    Attributes:
+        panels: Are the panels the request selects.
+    """
+
+    panels: list[Panel] = Field(default_factory=list)
 
 
-def ontology_id(key: Key) -> ID:
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="panel")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="panel", key=str(key))

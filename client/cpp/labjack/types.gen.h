@@ -93,48 +93,6 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief LinearScale maps raw values to engineering units with a slope and offset.
-struct LinearScale {
-    std::string type = "linear";
-    /// @brief slope is the multiplier applied to the raw value.
-    double slope = 1;
-    /// @brief offset is the offset added after scaling.
-    double offset = 0;
-
-    static LinearScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief MapScale maps a raw range linearly onto a scaled range.
-struct MapScale {
-    std::string type = "map";
-    /// @brief pre_scaled_min is the lower bound of the raw input range.
-    double pre_scaled_min = 0;
-    /// @brief pre_scaled_max is the upper bound of the raw input range.
-    double pre_scaled_max = 1;
-    /// @brief scaled_min is the lower bound of the scaled output range.
-    double scaled_min = 0;
-    /// @brief scaled_max is the upper bound of the scaled output range.
-    double scaled_max = 1;
-
-    static MapScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief NoneScale applies no scaling; the raw value is used directly.
-struct NoneScale {
-    std::string type = "none";
-
-    static NoneScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Scale determines how raw sensor values are transformed to engineering units.
-using Scale = std::variant<LinearScale, MapScale, NoneScale>;
-
-Scale parse_scale(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Scale &value);
-
 /// @brief AnalogWriteChannel drives an analog output on a DAC port.
 struct AnalogWriteChannel : public BaseWriteChannel {
     std::string type = "analog";
@@ -162,6 +120,14 @@ using WriteChannel = std::variant<AnalogWriteChannel, DigitalWriteChannel>;
 WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteChannel &base(const WriteChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseWriteChannel & { return v; },
+        value
+    );
+}
+
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
@@ -172,7 +138,7 @@ struct AnalogReadChannel : public BaseReadChannel {
     /// 199 selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale = NoneScale{};
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     AnalogReadChannel() { this->port = "AIN0"; }
 
@@ -210,7 +176,7 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_KELVIN;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale = NoneScale{};
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
     ThermocoupleReadChannel() { this->port = "AIN0"; }
 
@@ -225,6 +191,14 @@ using ReadChannel = std::
 
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
 
 /// @brief WriteConfig configures a LabJack write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {

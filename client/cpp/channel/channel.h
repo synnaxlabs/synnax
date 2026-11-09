@@ -21,7 +21,7 @@
 namespace synnax::channel {
 /// @brief freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
+    UnaryClient<grpc::channel::RetrieveRequest, ::api::channel::pb::RetrieveResponse>;
 
 /// @brief freighter create transport.
 using CreateClient = freighter::
@@ -105,50 +105,58 @@ public:
         bool is_virtual = true
     ) const;
 
-    /// @brief retrieves a channel with the given name.
-    /// @param name the name of the channel to retrieve.
-    /// @throws QueryError if the channel does not exist or multiple channels with
-    /// the same name exist.
-    /// @returns the retrieved channel.
-    /// @returns a pair containing the retrieved channel and an error where ok() is
-    /// false if the channel could not be retrieved. In the case of an error, the
-    /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// @brief retrieves the channel with the given key.
+    /// @param key the key of the channel.
+    /// @param options the options of the retrieve.
+    /// @returns the channel, and an error that matches NOT_FOUND when no channel has
+    /// the key, or VALIDATION when options set a limit or an offset.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(const std::string &name) const;
+    retrieve(Key key, const RetrieveOptions &options = {}) const;
 
-    /// @brief retrieves a channel with the given key.
-    /// @param key the key of the channel to retrieve.
-    /// @throws QueryError if the channel does not exist.
-    /// @returns the retrieved channel.
-    /// @returns a pair containing the retrieved channel and an error where ok() is
-    /// false if the channel could not be retrieved. In the case of an error, the
-    /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// @brief retrieves the channel with the given name.
+    /// @param name the name of the channel. The name matches exactly.
+    /// @param options the options of the retrieve.
+    /// @returns the channel, and an error that matches NOT_FOUND when no channel has
+    /// the name, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
+    /// set a limit or an offset.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(std::uint32_t key) const;
+    retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
 
-    /// @brief retrieves channels with the given names.
-    /// @param names the names of the channels to retrieve.
-    /// @returns all channels matching the given names. If a channel matching a
-    /// name, does not exist, it will not be in the returned vector.
-    /// @returns a pair containing the retrieved channels and an error where ok() is
-    /// false if the channels could not be retrieved. In the case of an error, the
-    /// returned channels will be invalid. Use err.message() to get the error
-    /// message
-    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names) const;
-
-    /// @brief retrieves channels with the given keys.
-    /// @param keys the keys of the channels to retrieve.
-    /// @returns all channels matching the given keys. If a channel matching a key
-    /// does not exist, it will not be in the returned vector.
-    /// @returns a pair containing the retrieved channels and an error where ok() is
-    /// false if the channels could not be retrieved. In the case of an error, the
-    /// returned channels will be invalid. Use err.message() to get the error
-    /// message.
+    /// @brief retrieves the channels with the given keys. It takes no options, since
+    /// a page or a search could hide a key that exists.
+    /// @param keys the keys of the channels.
+    /// @returns the channels in the order of keys, and a NOT_FOUND error that names
+    /// every key without a channel.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const std::vector<Key> &keys) const;
+
+    /// @brief retrieves the channels with the given names. Each name matches exactly,
+    /// and a name with no channel is left out.
+    /// @param names the names of the channels.
+    /// @param options the options of the retrieve.
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> retrieve(
+        const std::vector<std::string> &names,
+        const RetrieveOptions &options = {}
+    ) const;
+
+    /// @brief retrieves the channels that where selects.
+    /// @param where the filter that the channels match. An empty filter matches all
+    /// channels.
+    /// @param options the options of the retrieve.
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one channel that where selects.
+    /// @param where the filter that the channel matches.
+    /// @param options the options of the retrieve.
+    /// @returns the channel, and an error that matches NOT_FOUND when no channel
+    /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
+    /// set a limit or an offset.
+    [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
 private:
     /// @brief transport for retrieving channels.

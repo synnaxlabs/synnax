@@ -9,6 +9,7 @@
 
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -71,6 +72,17 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   x1: "bottom",
   x2: "top",
 };
+
+const LOCATION_ICONS: Record<location.Outer, Icon.ReactElement> = {
+  left: <Icon.Axis.Left />,
+  right: <Icon.Axis.Right />,
+  top: <Icon.Axis.Top />,
+  bottom: <Icon.Axis.Bottom />,
+};
+
+/** @returns an icon showing the side of the plot an axis sits on. */
+export const axisIcon = (key: lineplot.AxisKey): Icon.ReactElement =>
+  LOCATION_ICONS[AXIS_LOCATIONS[key]];
 
 interface UseUndoRedoTriggersProps {
   key: lineplot.Key;

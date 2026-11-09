@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
@@ -35,7 +37,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(s)
     );
     return {std::move(result), x::errors::NIL};
@@ -53,7 +55,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteTaskSink>(ctx->client, pool, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -88,11 +90,11 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_, store_);
+        res = configure_scan(ctx, task, this->pool, this->store);
     else if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task, conn_pool_);
+        res = configure_read(ctx, task, this->pool);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task, conn_pool_);
+        res = configure_write(ctx, task, this->pool);
     return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 

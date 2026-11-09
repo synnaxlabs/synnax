@@ -16,15 +16,32 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from x.control import Authority
+from x.notation import Notation
 
-PropertyDict = dict[str, float | str | bool]
+
+class Properties(TypedDict, total=False):
+    """The values a schematic or one of its symbols shows in its Console forms. Forms
+    show channels by name, not by key."""
+
+    channel: str
+    state_channel: str
+    command_channel: str
+    activation_delay: float
+    show_control_chip: bool
+    mode: sy.schematic.ButtonMode
+    notation: Notation
+    precision: int
+    averaging_window: int
+    stale_color: str
+    stale_timeout: int
+    control_authority: Authority
+    show_control_legend: bool
 
 
-class Option(TypedDict):
-    """An option of a select or state indicator symbol."""
-
-    name: str
-    value: float
+def option_text(value: float) -> str:
+    """Return the text of an option value, with no digits lost and no trailing ".0"."""
+    return repr(value).removesuffix(".0")
 
 
 """ Symbol Box helpers """
@@ -78,10 +95,9 @@ class Symbol(ABC):
         The symbol is not yet attached to a schematic. Call
         schematic.create_symbol(symbol) to add it to the schematic.
 
-        Args:
-            label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
-            rotatable: Whether the symbol can be rotated (default: False)
+        :param label: Display label for the symbol
+        :param symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
+        :param rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
             raise ValueError("Label cannot be empty")
@@ -96,8 +112,7 @@ class Symbol(ABC):
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
-        Args:
-            layout: LayoutClient for UI interactions (includes notifications)
+        :param layout: LayoutClient for UI interactions (includes notifications)
         """
         from console.schematic.symbol_toolbar import SymbolToolbar
 
@@ -219,8 +234,7 @@ class Symbol(ABC):
     def position(self) -> FloatRect:
         """Get the symbol's bounding box for alignment checks.
 
-        Raises:
-            RuntimeError: If the symbol's bounding box cannot be retrieved
+        :raises RuntimeError: If the symbol's bounding box cannot be retrieved
         """
         box = self.locator.bounding_box()
         if not box:
@@ -246,7 +260,7 @@ class Symbol(ABC):
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, *, tab: str = "Symbols") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Symbols") -> Properties:
         """
         Get the current properties of the symbol.
 
@@ -254,11 +268,8 @@ class Symbol(ABC):
         Subclasses should call super().get_properties(tab="TabName") to open the correct
         tab.
 
-        Args:
-            tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
-
-        Returns:
-            Empty dict - subclasses should populate with actual properties
+        :param tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
+        :returns: Empty dict - subclasses should populate with actual properties
         """
         self.click()
         self.open_properties_tab()

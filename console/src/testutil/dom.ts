@@ -112,8 +112,8 @@ export const getBySelector = <E extends Element = Element>(
 };
 
 /** Finds the pluto input item element labeled with labelText in the document. */
-export const getInputItem = (labelText: string): Element => {
-  const item = screen.getByText(labelText).closest(".lyra-input__item");
+export const getInputItem = (labelText: string): HTMLElement => {
+  const item = screen.getByText(labelText).closest<HTMLElement>(".lyra-input__item");
   if (item == null) throw new Error(`no input item wraps label ${labelText}`);
   return item;
 };

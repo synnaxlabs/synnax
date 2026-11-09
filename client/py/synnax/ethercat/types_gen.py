@@ -11,15 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-from typing import override as _override
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -88,6 +85,7 @@ class EntryReadChannel(BaseReadChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
 
 class UnresolvedReadChannel(BaseReadChannel):
@@ -114,6 +112,7 @@ class EntryWriteChannel(BaseWriteChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    stop_value: float = 0
 
 
 class UnresolvedWriteChannel(BaseWriteChannel):

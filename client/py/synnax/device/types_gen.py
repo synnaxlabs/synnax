@@ -11,35 +11,119 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
-from synnax import ontology
-from synnax import rack as rack_
-from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax import group as group_, rack as rack_, status as status_
+from synnax.resource import ID
+from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = str
 
 
 class StatusDetails(BaseModel):
-    """Contains device-specific status details identifying the device and its associated
-    rack.
+    """Contains device-specific status details, including the rack the device belongs
+    to.
 
     Attributes:
         rack: Is the key of the rack this device belongs to.
-        device: Is the device identifier.
+        connected: Is true while the Driver confirms that it can reach the device. A
+            device whose state is unknown is not connected.
         data: Contains device-specific status data.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    device: Key
+    connected: bool = False
     data: dict[str, JsonValue] | None = None
 
 
+class Where(BaseModel):
+    """Is a filter that selects devices.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        make: Selects by make.
+        model: Selects by model.
+        location: Selects by location.
+        rack: Selects by rack.
+        groups: Matches the devices in any of the given groups.
+        grouped: Matches the devices in a group, or in no group when false.
+        parents: Matches the devices that any of the given devices hold.
+        nested: Matches the devices that another device holds, or the devices that sit
+            directly on their rack when false.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    make: filter.String | None = None
+    model: filter.String | None = None
+    location: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    parents: list[Key] | None = None
+    nested: bool | None = None
+
+    @field_validator("groups", "parents", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "make": filter.StringInput,
+        "model": filter.StringInput,
+        "location": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "parents": Key | list[Key],
+        "nested": bool,
+    },
+    total=False,
+)
+
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve devices.
+
+    Attributes:
+        where: Selects the devices to retrieve. An absent where selects all of them.
+        search_term: Keeps the devices that match the term, closest match first.
+        limit: Is the most devices to return.
+        offset: Is the number of matching devices to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class Device(BaseModel):
@@ -60,8 +144,9 @@ class Device(BaseModel):
         properties: Contains device-specific configuration properties stored as JSON.
             Structure varies by device make and model.
         status: Is the current operational status of the device.
-        parent: Is an optional parent resource ID for hierarchical device organization
-            (e.g., NI chassis containing modules).
+        group: Is the group the device sits in, if any.
+        parent: Is the key of the device that holds this device, such as the NI chassis
+            of a module. Empty for a device that sits directly on its rack.
     """
 
     key: Key
@@ -73,15 +158,29 @@ class Device(BaseModel):
     configured: bool = False
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
-    parent: ontology.ID | None = None
+    group: group_.Key | None = None
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="device")
+class RetrieveResponse(BaseModel):
+    """Holds the devices a RetrieveRequest selects.
+
+    Attributes:
+        devices: Are the devices the request selects.
+    """
+
+    devices: list[Device] = Field(default_factory=list)
 
 
-def ontology_id(key: Key) -> ID:
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="device")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="device", key=str(key))

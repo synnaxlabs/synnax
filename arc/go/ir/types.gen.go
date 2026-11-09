@@ -16,9 +16,11 @@ import (
 	"encoding/json/v2"
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir/versions"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -29,8 +31,11 @@ type Handle = versions.Handle
 type EdgeKind = versions.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = versions.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = versions.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = versions.EdgeKindConditional
 )
 
@@ -56,8 +61,11 @@ type ScopeMode uint8
 //go:generate stringer -type=ScopeMode
 
 const (
+	// ScopeModeUnspecified has no mode set.
 	ScopeModeUnspecified ScopeMode = iota
+	// ScopeModeParallel runs every member of the scope in strata.
 	ScopeModeParallel
+	// ScopeModeSequential runs one step of the scope at a time.
 	ScopeModeSequential
 )
 
@@ -67,19 +75,27 @@ type Liveness uint8
 //go:generate stringer -type=Liveness
 
 const (
+	// LivenessUnspecified has no liveness set.
 	LivenessUnspecified Liveness = iota
+	// LivenessAlways activates the scope with its parent.
 	LivenessAlways
+	// LivenessGated activates the scope when one of its activations fires.
 	LivenessGated
 )
 
+// TargetType is the "type" value that selects a variant of Target.
 type TargetType string
 
 const (
-	ExitTargetType  TargetType = "exit"
-	StepTargetType  TargetType = "step"
+	// ExitTargetType leaves the scope and yields to its parent.
+	ExitTargetType TargetType = "exit"
+	// StepTargetType activates a sibling step of the same scope.
+	StepTargetType TargetType = "step"
+	// ScopeTargetType leaves the scope, then activates a top-level scope.
 	ScopeTargetType TargetType = "scope"
 )
 
+// TargetVariant is implemented by every Target variant.
 type TargetVariant interface {
 	isTargetVariant()
 }
@@ -184,9 +200,26 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ScopeTarget
 	default:
-		return errors.Newf("Target: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Target: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit
@@ -287,7 +320,8 @@ type IR struct {
 	// Root is the top-level execution context. The root is always a parallel,
 	// always-live Scope whose strata mix module-scope reactive flow with top-level
 	// gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Root       Scope                                  `json:"root" msgpack:"root"`
+	Symbols    *symbol.Symbol                         `json:"-"`
+	TypeMap    map[antlr.ParserRuleContext]types.Type `json:"-"`
+	FmtStrings parser.FmtStrings                      `json:"-"`
 }

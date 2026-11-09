@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -40,7 +41,9 @@ func createIndexed(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &index)
+	})).To(Succeed())
 	channels := make([]svcchannel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		channels[i] = svcchannel.Channel{
@@ -48,7 +51,9 @@ func createIndexed(
 			DataType:   dt,
 			LocalIndex: index.LocalKey,
 		}
-		Expect(channelWriter.Create(ctx, &channels[i])).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &channels[i])
+		})).To(Succeed())
 	}
 	return index, channels
 }
@@ -110,12 +115,14 @@ func response(
 	return framer.ReadResponse{
 		Channels:  channels,
 		Indexes:   indexes,
+		Bounds:    readBounds,
 		Reduction: cfg.Reduction,
 		OpenIterator: func(
 			ctx context.Context,
 			keys svcchannel.Keys,
+			bounds telem.TimeRange,
 		) (*svcframer.Iterator, error) {
-			cfg.Keys, cfg.Bounds = keys, readBounds
+			cfg.Keys, cfg.Bounds = keys, bounds
 			return framerSvc.OpenIterator(ctx, cfg)
 		},
 	}
@@ -204,6 +211,66 @@ var _ = Describe("Read", func() {
 			Expect(series).To(HaveLen(1))
 			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
 			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 5, 8))
+		})
+
+		It("Should encode only the newest samples of a latest read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Latest = 2
+			b := MustSucceed(framer.FrameEncoder.Encode(ctx, res))
+			data, terminator := splitRecords(b)
+			Expect(terminator).To(BeEmpty())
+			Expect(data).To(HaveLen(1))
+			c := codec.NewStatic(
+				svcchannel.KeysFromChannels(channels),
+				[]telem.DataType{telem.Float32T},
+			)
+			fr := MustSucceed(c.Decode(data[0]))
+			Expect(fr.Get(channels[0].Key()).Series[0]).
+				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](3, 4)))
+		})
+
+		It("Should encode only the oldest samples of an earliest read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{ChunkSize: 2},
+			)
+			res.Earliest = 2
+			b := MustSucceed(framer.FrameEncoder.Encode(ctx, res))
+			data, terminator := splitRecords(b)
+			Expect(terminator).To(BeEmpty())
+			Expect(data).To(HaveLen(1))
+			c := codec.NewStatic(
+				svcchannel.KeysFromChannels(channels),
+				[]telem.DataType{telem.Float32T},
+			)
+			fr := MustSucceed(c.Decode(data[0]))
+			Expect(fr.Get(channels[0].Key()).Series[0]).
+				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 		})
 
 		It("Should encode a read with no data as a single terminator", func(

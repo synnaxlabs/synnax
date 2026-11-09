@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -39,7 +39,7 @@ import (
 
 // FactoryConfig is the configuration for the MQTT task factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -76,6 +76,10 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 8s.
 	BirthGrace time.Duration
+	// NewClient builds the client of each connection of a read, write, or edge task.
+	//
+	// [OPTIONAL] - Defaults to paho.NewClient.
+	NewClient func(*paho.ClientOptions) paho.Client
 }
 
 var (
@@ -85,6 +89,7 @@ var (
 		QueueSize:       4096,
 		RebirthInterval: sparkplug.DefaultRebirthInterval,
 		BirthGrace:      sparkplug.DefaultRebirthInterval + 3*time.Second,
+		NewClient:       paho.NewClient,
 	}
 )
 
@@ -99,6 +104,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.QueueSize = override.Numeric(c.QueueSize, other.QueueSize)
 	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
 	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
+	c.NewClient = override.Nil(c.NewClient, other.NewClient)
 	return c
 }
 
@@ -149,8 +155,14 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg:  cfg,
-		pool: newPool(cfg.Instrumentation, cfg.Device, cfg.RebirthInterval),
+		cfg: cfg,
+		pool: newPool(
+			cfg.Instrumentation,
+			cfg.DB,
+			cfg.Device,
+			cfg.RebirthInterval,
+			cfg.NewClient,
+		),
 		reporter: driver.ConfigReporter{
 			DB:              cfg.DB,
 			Status:          cfg.Status,
@@ -179,7 +191,7 @@ func (f *Factory) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Value.Make != Make {
+		if ch.Kind == gorp.ChangeDelete || ch.Value.Make != Make {
 			continue
 		}
 		f.edited.Lock()
@@ -273,10 +285,12 @@ func (f *Factory) retrieveDevice(
 			"device: a broker is required",
 		)
 	}
-	err := f.cfg.Device.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil)
+	err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return f.cfg.Device.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	})
 	if errors.Is(err, query.ErrNotFound) {
 		return device.Device{}, errors.Wrapf(
 			validate.ErrValidation, "device: broker %s does not exist", key,
@@ -303,10 +317,12 @@ func (f *Factory) retrieveChannels(
 ) (map[channel.Key]channel.Channel, error) {
 	var channels []channel.Channel
 	if len(keys) > 0 {
-		if err := f.cfg.Channel.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			Entries(&channels).
-			Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return f.cfg.Channel.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
+				Entries(&channels).
+				Exec(ctx, snap)
+		}); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return nil, err
 		}
 	}
@@ -372,7 +388,7 @@ func (f *Factory) configureRead(
 		broker:     dev.Key,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
-		topics:     make(map[string]readTopic),
+		topics:     make(map[string]*readTopic),
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
@@ -590,7 +606,9 @@ func (f *Factory) configureEdge(
 	edge := &edgeNode{
 		ins:       f.cfg.Child(t.Key.String()),
 		broker:    dev.Key,
+		db:        f.cfg.DB,
 		devices:   f.cfg.Device,
+		newClient: f.cfg.NewClient,
 		command:   sparkplug.CommandTopic(node, "").String(),
 		tags:      make(map[channel.Key][]publishedTag),
 		byName:    make(map[string]publishedTag),
@@ -663,6 +681,7 @@ func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
 		Scanner: &scanner{
 			ins:    f.cfg.Instrumentation,
 			pool:   f.pool,
+			db:     f.cfg.DB,
 			device: f.cfg.Device,
 		},
 		DB:                 f.cfg.DB,

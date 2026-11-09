@@ -13,26 +13,20 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // ServiceConfig is the configuration for the schematic API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Schematic is the service that stores and modifies schematics.
 	//
 	// [REQUIRED]
@@ -47,7 +41,6 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Schematic = override.Nil(c.Schematic, other.Schematic)
 	return c
 }
@@ -55,13 +48,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.schematic")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("schematic", c.Schematic)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *schematic.Service
 }
 
@@ -70,13 +61,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Schematic, access: cfg.RBAC}, nil
+	return &Service{internal: cfg.Schematic}, nil
 }
 
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Project    project.Key           `json:"project"    msgpack:"project"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -86,21 +76,15 @@ type (
 	}
 )
 
+// Create creates the schematics, and overwrites each one whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematic}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Schematics); err != nil {
+		CreateMany(ctx, &req.Schematics); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Schematics: req.Schematics}, nil
@@ -119,45 +103,34 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys                []schematic.Key `json:"keys"                   msgpack:"keys"`
-		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-	}
-)
+var _ bind.Named = RetrieveRequest{}
 
+// Named implements bind.Named. It returns the schematics that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, schematic.ResourceID)
+}
+
+// Retrieve returns the schematics that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Schematics))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: schematic.OntologyIDsFromSchematics(res.Schematics),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, schematic.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -167,18 +140,13 @@ type DeleteRequest struct {
 	Keys []schematic.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the schematics with the given keys. A key that matches no schematic
+// is ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: schematic.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -187,35 +155,65 @@ type (
 		Name     string        `json:"name"     msgpack:"name"`
 		Key      schematic.Key `json:"key"      msgpack:"key"`
 		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
+		// Range, when set, makes the copy belong to the range instead of the original's
+		// project.
+		Range *ranger.Key `json:"range" msgpack:"range"`
 	}
 	CopyResponse struct {
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
 	}
 )
 
+var _ bind.Copy = CopyRequest{}
+
+// Sources implements bind.Copy.
+func (r CopyRequest) Sources() []resource.ID {
+	return []resource.ID{schematic.ResourceID(r.Key)}
+}
+
+// Copy copies the schematic with the given key. The copy sits in no group.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return CopyResponse{}, err
-	}
 	var res CopyResponse
 	if err := s.internal.NewWriter(tx).
-		Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic); err != nil {
-		return CopyResponse{}, err
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{schematic.OntologyID(res.Schematic.Key)},
-	}); err != nil {
+		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range, &res.Schematic); err != nil {
 		return CopyResponse{}, err
 	}
 	return res, nil
+}
+
+// SetGroupRequest moves schematics into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key      `json:"group" msgpack:"group"`
+	Keys  []schematic.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the schematics with the given keys into a group. A move into a group
+// under another project moves the schematics into that project.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
+}
+
+// SetProjectRequest moves schematics into Project.
+type SetProjectRequest struct {
+	Project project.Key     `json:"project" msgpack:"project"`
+	Keys    []schematic.Key `json:"keys"    msgpack:"keys"`
+}
+
+// SetProject moves the schematics with the given keys out of their group and into a
+// project.
+func (s *Service) SetProject(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetProjectRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetProject(ctx, req.Project, req.Keys...)
 }

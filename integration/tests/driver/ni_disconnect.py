@@ -24,13 +24,13 @@ import os
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 import nidaqmx.system
 import nisyscfg
 
 import synnax as sy
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
+from tests.driver.ni_task import retrieve_present_device
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import (
     ReadTaskCase,
@@ -96,15 +96,15 @@ class _StatusWaitDiag:
 
     frames_received: int = 0
     frames_with_status: int = 0
-    all_keys: list[str] = field(default_factory=list)
+    owners: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
-        unique = sorted(set(self.all_keys))
+        unique = sorted(set(self.owners))
         return (
             f"frames={self.frames_received}, "
             f"frames_with_status={self.frames_with_status}, "
-            f"total_statuses={len(self.all_keys)}, "
-            f"unique_keys={unique}"
+            f"total_statuses={len(self.owners)}, "
+            f"unique_owners={unique}"
         )
 
 
@@ -115,17 +115,17 @@ def _wait_for_device_status(
     *,
     device_key: str = "",
     device_name: str = "",
-) -> list[sy.status.Status[Any]]:
+) -> list[sy.status.Status]:
     """Wait until a device emits a status with the given message.
 
-    Filter by ``device_key`` (exact match on ``device:<key>``) or
+    Filter by ``device_key`` (match on the status owner) or
     ``device_name`` (match on status ``name`` field). At least one must
     be provided.
 
     Returns all matching device statuses collected up to (and including)
     the first status with the expected ``message``.
     """
-    matched: list[sy.status.Status[Any]] = []
+    matched: list[sy.status.Status] = []
     diag = _StatusWaitDiag()
     timer = sy.Timer()
 
@@ -138,13 +138,13 @@ def _wait_for_device_status(
             continue
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
-            s = sy.status.Status[Any].model_validate(raw)
-            diag.all_keys.append(s.key)
-            if device_key and s.key != f"device:{device_key}":
+            s = sy.status.Status.model_validate(raw)
+            diag.owners.append(str(s.owner))
+            if s.owner is None or s.owner.type != "device":
+                continue
+            if device_key and s.owner != sy.device.resource_id(device_key):
                 continue
             if device_name and s.name != device_name:
-                continue
-            if not s.key.startswith("device:"):
                 continue
             matched.append(s)
             if s.message == message:
@@ -159,7 +159,7 @@ def _wait_for_device_status(
 
 
 def _log_statuses(
-    log: Callable[[str], None], statuses: list[sy.status.Status[Any]], label: str
+    log: Callable[[str], None], statuses: list[sy.status.Status], label: str
 ) -> None:
     """Log final status with count of skipped intermediate ones."""
     final = statuses[-1]
@@ -211,6 +211,18 @@ def _restore_device_and_wait(
         log(f"Warning: restore failed: {e}")
 
 
+def _delete_replaced_device(client: sy.Synnax, location: str, key: str) -> None:
+    """Delete the device that a re-import of the NI MAX config replaced.
+
+    NI MAX gives a re-imported simulated device a new resource name, and the Driver
+    keys a simulated device by that name. The Driver then creates a second device at
+    the same location, and a retrieve by that location finds two.
+    """
+    devices = client.devices.retrieve(location=location)
+    if any(d.key != key for d in devices):
+        client.devices.delete([key])
+
+
 class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
@@ -222,6 +234,16 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     """
 
     disconnect_device: str
+    _original: sy.Device | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete a device that a task uses, so this runs after the
+        # parent deletes the task.
+        super().teardown()
+        if self._original is not None:
+            _delete_replaced_device(
+                self.client, self.disconnect_device, self._original.key
+            )
 
     def run(self) -> None:
         assert self.tsk is not None
@@ -229,7 +251,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = self._original = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Assert samples ({dev})")
@@ -268,7 +290,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 hold: checks that no sample arrives
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
         for key in self._channel_keys(tsk):
@@ -316,6 +338,16 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
     """
 
     disconnect_device: str
+    _original: sy.Device | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete a device that a task uses, so this runs after the
+        # parent deletes the task.
+        super().teardown()
+        if self._original is not None:
+            _delete_replaced_device(
+                self.client, self.disconnect_device, self._original.key
+            )
 
     def run(self) -> None:
         assert self.tsk is not None
@@ -323,7 +355,7 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = self.client.devices.retrieve(location=dev)
+        device = self._original = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Send commands ({dev})")

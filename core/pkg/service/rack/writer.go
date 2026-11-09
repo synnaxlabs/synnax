@@ -15,11 +15,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -27,58 +28,67 @@ type Writer struct {
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
-	// otg is a writer used to modify rack related resources and relationships within
-	// the ontology.
-	otg ontology.Writer
-	// group is the base group that racks will be created under.
-	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
 	status status.Writer
+	// statuses retrieves the status that a rack holds.
+	statuses *status.Service
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key
 }
 
+// resolveStatus returns the status to persist for r. The owner selects the status, so a
+// provided key is ignored.
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
-			Key:     r.OntologyID().String(),
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Rack status unknown",
-			Details: StatusDetails{Rack: r.Key},
 		}
 	}
 	stat := *r.Status
-	stat.Key = r.OntologyID().String()
-	stat.Details.Rack = r.Key
+	stat.Key = ""
+	stat.Owner = new(r.ResourceID())
 	stat.Name = r.Name
 	return &stat
 }
 
-// healStatus restores a rack's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Racks are re-created on every scan cycle,
-// so on a no-op update the default "unknown" status must not overwrite a status the
-// driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(
-	ctx context.Context,
-	stat *Status,
-) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
+// writeStatus writes the status provided on r. With none, it keeps the stored status
+// and changes only its name. The default status is written only if the rack holds no
+// status, because a stored status may be a live status from the Driver.
+func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
+	stat := resolveStatus(r)
+	if r.Status != nil {
+		return w.status.Set(ctx, stat)
+	}
+	// A stored status can hold any details, so they do not decode as StatusDetails.
+	var held []status.Status[any]
+	if err := w.statuses.NewRetrieve[any]().
+		Where(status.MatchOwners[any](*stat.Owner)).
+		Entries(&held).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Set(ctx, stat)
+	if len(held) == 0 {
+		return w.status.Set(ctx, stat)
+	}
+	if held[0].Name == r.Name {
+		return nil
+	}
+	return w.status.Rename(ctx, held[0].Key, r.Name)
 }
 
-// Create creates or updates a rack. If the rack key is zero or a rack with the key
-// does not exist, a new rack will be created. If a status is provided on the rack,
-// it will be used instead of the default "unknown" status.
+// Create creates or updates a rack. If the rack key is zero or a rack with the key does
+// not exist, a new rack will be created with the Driver role. An existing rack keeps
+// its group and role. A status provided on the rack replaces the stored status. With
+// no provided status, the stored status stays and takes the rack's name, and only a
+// rack with no stored status gets the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
@@ -90,40 +100,44 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = r.Validate(); err != nil {
 		return err
 	}
-	exists, err := w.table.NewRetrieve().
+	var existing Rack
+	err = w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](r.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := r.OntologyID()
-	if err = w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if !exists {
-		if err = w.otg.DefineRelationships(
+	if err == nil {
+		r.Group = existing.Group
+		r.Role = existing.Role
+	} else {
+		r.Role = w.driverRole
+		if err = group.CheckMember(
 			ctx,
-			role.OntologyID(w.driverRole),
-			ontology.RelationshipTypeParentOf,
-			otgID,
+			w.tx,
+			r.Group,
+			resource.TypeRack,
+			nil,
 		); err != nil {
 			return err
 		}
 	}
-	stat := resolveStatus(r)
-	if r.Status != nil {
-		if err = w.status.Set(ctx, stat); err != nil {
-			return err
-		}
-	} else if err = w.healStatus(ctx, stat); err != nil {
+	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationships(
-		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
-	)
+	if err = w.writeStatus(ctx, r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetGroup moves the racks with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := group.CheckMember(ctx, w.tx, g, resource.TypeRack, nil); err != nil {
+		return err
+	}
+	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they
@@ -154,24 +168,34 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
+	return errors.Skip(
+		w.status.RenameOwned(ctx, key.ResourceID(), name),
+		query.ErrNotFound,
+	)
 }
 
-// DeleteGuard deletes the rack with the given key and its associated status if the
-// provided guard function returns nil.
-func (w Writer) DeleteGuard(
+// Delete deletes the racks with keys, their statuses, and every task they hold. It
+// returns a validation error when a rack is embedded, holds a device, or fails guard.
+// Delete racks through task.Writer.DeleteRacks, which keeps the tasks of users.
+func (w Writer) Delete(
 	ctx context.Context,
-	key Key,
 	guard gorp.GuardFunc[Key, Rack],
+	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Rack](key)).
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Rack](keys...)).
+		Guard(guardEmbedded).
 		Guard(guard).
-		Exec(ctx, w.tx); err != nil {
-		return err
+		Exec(ctx, w.tx)
+}
+
+func guardEmbedded(_ gorp.Context, r Rack) error {
+	if !r.Embedded {
+		return nil
 	}
-	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
-		return err
-	}
-	return w.status.Delete(ctx, key.OntologyID().String())
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete embedded rack %s",
+		r.Name,
+	)
 }

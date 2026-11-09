@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, query, type Synnax, user } from "@synnaxlabs/client";
+import { access, query, type Synnax, user } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { deep, type destructor, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -21,36 +21,25 @@ export type RetrieveQuery = {
   key: string;
 };
 
-const parentsQuery = (key: user.Key): ontology.DependentParams => ({
-  ids: user.ontologyID(key),
-  types: [access.role.TYPE_ONTOLOGY_ID.type],
-});
-
 const retrieveForUser = async (
   client: Synnax,
   key: user.Key,
-): Promise<access.role.Role[]> => {
-  const parents = await client.ontology.parents.retrieve(parentsQuery(key));
-  if (parents.length === 0) return [];
-  return await client.access.roles.retrieve({ keys: parents.map(({ id }) => id.key) });
+): Promise<access.role.Role> => {
+  const { role } = await client.users.retrieve(key);
+  return await client.access.roles.retrieve(role);
 };
 
-const cachedRoleKeys = (
-  client: Synnax,
-  key: user.Key,
-): access.role.Key[] | undefined => {
-  const parents = client.ontology.parents.getCached(parentsQuery(key));
-  return query.isLive(parents) ? parents.map(({ id }) => id.key) : undefined;
+const cachedRoleKey = (client: Synnax, key: user.Key): access.role.Key | undefined => {
+  const u = client.users.getCached(key);
+  return query.isLive(u) ? u.role : undefined;
 };
 
 const getCachedForUser = (
   client: Synnax,
   key: user.Key,
-): query.Cached<access.role.Role[]> | undefined => {
-  const keys = cachedRoleKeys(client, key);
-  if (keys == null) return undefined;
-  if (keys.length === 0) return [];
-  return client.access.roles.getCached({ keys });
+): query.Cached<access.role.Role> | undefined => {
+  const role = cachedRoleKey(client, key);
+  return role == null ? undefined : client.access.roles.getCached(role);
 };
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
@@ -65,38 +54,37 @@ export type ForUserQuery = {
   user: user.Key;
 };
 
-/**
- * Retrieves the roles assigned to a user. Assignment is an ontology relationship, so
- * the roles are the user's role-typed parents.
- */
+/** Retrieves the role a user holds. */
 export const { useResult: useResultForUser } = Flux.createRetrieve<
   ForUserQuery,
-  access.role.Role[]
+  access.role.Role
 >({
-  name: PLURAL_RESOURCE_NAME,
+  name: RESOURCE_NAME,
   retrieve: async ({ client, query: { user: key } }) =>
     await retrieveForUser(client, key),
   onChange: ({ client, query: { user: key } }, handler) => {
-    // The answer reads the assigned roles too, so an edit to one must notify.
-    let detachRoles: destructor.Destructor = () => {};
-    const watchRoles = (): void => {
-      detachRoles();
-      const keys = cachedRoleKeys(client, key) ?? [];
-      detachRoles =
-        keys.length === 0
+    // The answer reads the held role too, so an edit to it must notify.
+    let detachRole: destructor.Destructor = () => {};
+    const watchRole = (): void => {
+      detachRole();
+      const role = cachedRoleKey(client, key);
+      detachRole =
+        role == null
           ? () => {}
-          : client.access.roles.onChange({ keys }, () =>
+          : client.access.roles.onChange(role, () =>
               handler(getCachedForUser(client, key)),
             );
     };
-    watchRoles();
-    const detachParents = client.ontology.parents.onChange(parentsQuery(key), () => {
-      watchRoles();
-      void retrieveForUser(client, key).then(handler);
+    watchRole();
+    const detachUser = client.users.onChange(key, () => {
+      watchRole();
+      retrieveForUser(client, key).then(handler, (error: unknown) =>
+        console.error(`failed to retrieve the role of user ${key}`, error),
+      );
     });
     return () => {
-      detachParents();
-      detachRoles();
+      detachUser();
+      detachRole();
     };
   },
   getCached: ({ client, query: { user: key } }) => getCachedForUser(client, key),
@@ -156,14 +144,6 @@ export const changeRoleFormSchema = z.object({
 
 export const changeRoleFormPath = deep.path<z.infer<typeof changeRoleFormSchema>>();
 
-const retrieveUserRole = async (
-  client: Synnax,
-  userKey: user.Key,
-): Promise<access.role.Key | undefined> => {
-  const parents = await client.ontology.parents.retrieve(parentsQuery(userKey));
-  return parents.at(0)?.id.key;
-};
-
 export const useChangeRoleForm = Flux.createForm<
   ChangeRoleFormQuery,
   typeof changeRoleFormSchema
@@ -171,16 +151,12 @@ export const useChangeRoleForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: changeRoleFormSchema,
   initialValues: { key: "", role: "" },
-  retrieve: async ({ client, query: { key: userKey } }) => ({
-    key: userKey,
-    role: (await retrieveUserRole(client, userKey)) ?? "",
+  retrieve: async ({ client, query: { key } }) => ({
+    key,
+    role: (await client.users.retrieve(key)).role,
   }),
   update: async ({ client, value }) => {
-    const { key: userKey, role: newRoleKey } = value();
-    const oldRoleKey = await retrieveUserRole(client, userKey);
-    if (oldRoleKey === newRoleKey) return;
-    if (oldRoleKey != null)
-      await client.access.roles.unassign({ user: userKey, role: oldRoleKey });
-    await client.access.roles.assign({ user: userKey, role: newRoleKey });
+    const { key, role } = value();
+    await client.users.setRole(key, role);
   },
 });

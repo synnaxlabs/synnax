@@ -19,10 +19,9 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -56,6 +55,7 @@ import {
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  HaulProvider,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -67,13 +67,13 @@ import {
 const defaultClient = createTestClient();
 
 const TASK_FORM_READS = [
-  task.TYPE_ONTOLOGY_ID,
-  device.TYPE_ONTOLOGY_ID,
-  rack.TYPE_ONTOLOGY_ID,
-  channel.TYPE_ONTOLOGY_ID,
-  panel.TYPE_ONTOLOGY_ID,
-  project.TYPE_ONTOLOGY_ID,
-  group.TYPE_ONTOLOGY_ID,
+  task.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
 ];
 
 /**
@@ -83,7 +83,7 @@ const TASK_FORM_READS = [
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
     retrieve: TASK_FORM_READS,
-    update: [task.TYPE_ONTOLOGY_ID],
+    update: [task.TYPE_RESOURCE_ID],
   });
 
 /**
@@ -159,9 +159,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -213,7 +213,7 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
   onTestFinished(client.panels.onChange(doc.key, () => {}));
@@ -249,7 +249,7 @@ export const awaitTaskResourceTab = async ({
     };
     visit(doc.root);
     const match = tabs.find(
-      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_RESOURCE_ID.type,
     );
     if (match == null || match.variant !== "resource")
       throw new Error("task resource tab not found");
@@ -414,9 +414,9 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
- * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack. A modal stack
- * renders beside the panel, as in a window, so dialogs the form opens mount.
+ * whose single leaf holds a resource tab for the task, then mounts the form inside the
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -433,7 +433,7 @@ export const renderTaskFormTab = async (
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
-    resource: task.ontologyID(taskKey),
+    resource: task.resourceID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   if (as !== client) {
@@ -444,13 +444,13 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <Haul.Provider>
+      <HaulProvider>
         <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </PanelScopes>
-      </Haul.Provider>
+      </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
@@ -573,8 +573,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -592,7 +592,7 @@ export const reportTaskStopped = async (
     ...tsk,
     status: createTaskStatus({
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
   });
 };
@@ -605,6 +605,25 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 }
 
 /**
+ * Answers cmd as a Driver does, with a success status unless answer overrides its
+ * fields.
+ */
+export const answerCommand = async (
+  client: Client,
+  tsk: task.Task,
+  cmd: task.Command,
+  { data, ...answer }: Omit<CommandAnswer, "type"> = {},
+): Promise<void> => {
+  await client.tasks.create({
+    ...tsk.payload,
+    status: createTaskStatus({
+      ...answer,
+      details: { cmd: cmd.key, rack: tsk.rack, data },
+    }),
+  });
+};
+
+/**
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
  * waits for the answer otherwise times out. Resolves once it listens, with a promise
@@ -613,19 +632,13 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
-  { type, data, ...answer }: CommandAnswer = {},
+  { type, ...answer }: CommandAnswer = {},
 ): Promise<{ answered: Promise<task.Command> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   const respond = async (): Promise<task.Command> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key, type);
-      await client.tasks.create({
-        ...tsk.payload,
-        status: createTaskStatus({
-          ...answer,
-          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
-        }),
-      });
+      await answerCommand(client, tsk, cmd, answer);
       return cmd;
     } finally {
       streamer.close();

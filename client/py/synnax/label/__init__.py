@@ -7,13 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.label.client import ONTOLOGY_TYPE, Client, ontology_id
-from synnax.label.types_gen import Key, Label
+from synnax.label.client import Client
+from synnax.label.types_gen import (
+    TYPE_RESOURCE_ID,
+    Key,
+    Label,
+    Where,
+    WhereInput,
+    resource_id,
+)
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Key",
     "Label",
-    "ontology_id",
+    "Where",
+    "WhereInput",
+    "resource_id",
 ]

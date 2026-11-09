@@ -43,9 +43,7 @@ export interface DownloadCSVModalParams {
   icon?: Icon.ReactElement;
 }
 
-const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  virtual: false,
-};
+const NON_VIRTUAL_CHANNEL_QUERY: Channel.ListQuery = { where: { virtual: false } };
 const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
@@ -112,7 +110,7 @@ const DownloadCSV = ({
                 <Channel.SelectMultiple
                   value={value}
                   onChange={onChange}
-                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                  query={NON_VIRTUAL_CHANNEL_QUERY}
                   triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
                   full="x"
                 />

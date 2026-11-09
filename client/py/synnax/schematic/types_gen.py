@@ -11,18 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax.resource import ID
 from synnax.schematic import symbol
-from x import border, spatial, text
-from x import color as color_
-from x import notation as notation_
+from x import border, color as color_, filter, notation as notation_, spatial, text
+from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -221,6 +219,58 @@ class ScaledConfig(BaseModel):
     scale: float = 1
 
 
+class Where(BaseModel):
+    """Is a filter that selects schematics.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        snapshot: Selects by snapshot.
+        groups: Matches the schematics in any of the given groups.
+        grouped: Matches the schematics in a group, or in no group when false.
+        projects: Matches the schematics owned by any of the given projects.
+        ranges: Matches the schematics owned by any of the given ranges.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    snapshot: filter.Bool | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
+
+    @field_validator("groups", "projects", "ranges", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "snapshot": filter.BoolInput,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
+    },
+    total=False,
+)
+
+
 class Edge(BaseModel):
     """Is a connection between two nodes in the schematic.
 
@@ -292,6 +342,24 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     side: spatial.OuterLocation = "right"
     caret_side: spatial.OuterLocation = "right"
     level: text.Level = "small"
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve schematics.
+
+    Attributes:
+        where: Selects the schematics to retrieve. An absent where selects all of them.
+        search_term: Keeps the schematics that match the term, closest match first.
+        limit: Is the most schematics to return.
+        offset: Is the number of matching schematics to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
@@ -1907,6 +1975,11 @@ class Schematic(BaseModel):
         edges: Contains all connections between nodes.
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
+        group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+        range: Is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1915,14 +1988,30 @@ class Schematic(BaseModel):
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="schematic")
+class RetrieveResponse(BaseModel):
+    """Holds the schematics a RetrieveRequest selects.
+
+    Attributes:
+        schematics: Are the schematics the request selects.
+    """
+
+    schematics: list[Schematic] = Field(default_factory=list)
 
 
-def ontology_id(key: Key) -> ID:
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="schematic")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="schematic", key=str(key))

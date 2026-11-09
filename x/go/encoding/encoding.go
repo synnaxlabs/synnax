@@ -50,20 +50,20 @@ type Codec interface {
 	Encoder
 }
 
-// SugarDecodingError adds additional context to decoding errors.
+// SugarDecodingError adds additional context to decoding errors. The result wraps base,
+// so errors.Is matches base and the errors it wraps.
 func SugarDecodingError(data []byte, value any, base error) error {
 	if base == nil {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(
-		errors.New("failed to decode"),
-		"kind=%s, type=%s, data=%x",
+	return errors.Wrapf(
+		base,
+		"failed to decode: kind=%s, type=%s, data=%x",
 		val.Kind(),
 		val.Type(),
 		data,
 	)
-	return errors.WithStack(errors.Combine(main, base))
 }
 
 // SugarEncodingError adds additional context to encoding errors.

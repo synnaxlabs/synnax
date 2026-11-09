@@ -10,10 +10,14 @@
 package task_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
@@ -21,9 +25,12 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apitask.ServiceConfig {
 		return apitask.ServiceConfig{
-			Task:   &task.Service{},
-			Status: &status.Service{},
-			RBAC:   &rbac.Service{},
+			DB:          &gorp.DB{},
+			Task:        &task.Service{},
+			Status:      &status.Service{},
+			RBAC:        &rbac.Service{},
+			Framer:      &framer.Service{},
+			StopTimeout: time.Second,
 		}
 	}
 
@@ -40,6 +47,11 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
+				"db",
+				func(c *apitask.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
 				"task",
 				func(c *apitask.ServiceConfig) { c.Task = nil },
 				"task: must be non-nil",
@@ -54,6 +66,16 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apitask.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"framer",
+				func(c *apitask.ServiceConfig) { c.Framer = nil },
+				"framer: must be non-nil",
+			),
+			Entry(
+				"stop timeout",
+				func(c *apitask.ServiceConfig) { c.StopTimeout = 0 },
+				"stop_timeout: must be positive",
+			),
 		)
 	})
 
@@ -61,17 +83,23 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apitask.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
+			Expect(merged.StopTimeout).To(Equal(cfg.StopTimeout))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apitask.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
+			Expect(merged.StopTimeout).To(Equal(cfg.StopTimeout))
 		})
 	})
 })

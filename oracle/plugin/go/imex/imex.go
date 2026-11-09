@@ -36,12 +36,14 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
@@ -57,9 +59,9 @@ type Options struct {
 	// name must be imex — the templates qualify every call with that identifier.
 	// Required.
 	RuntimeImportPath string
-	// OntologyImportPath is the Go package supplying the ID the generated Export takes.
-	// Its package name must be ontology. Required.
-	OntologyImportPath string
+	// ResourceImportPath is the Go package supplying the ID the generated Export takes.
+	// Its package name must be resource. Required.
+	ResourceImportPath string
 }
 
 // DefaultOptions returns the production defaults: imex.gen.go against the Core's imex
@@ -68,7 +70,7 @@ func DefaultOptions() Options {
 	return Options{
 		FileNamePattern:    "imex.gen.go",
 		RuntimeImportPath:  "github.com/synnaxlabs/synnax/pkg/service/imex",
-		OntologyImportPath: "github.com/synnaxlabs/synnax/pkg/service/ontology",
+		ResourceImportPath: "github.com/synnaxlabs/synnax/pkg/service/resource",
 	}
 }
 
@@ -101,8 +103,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if p.options.RuntimeImportPath == "" {
 		return nil, errors.New("go/imex requires Options.RuntimeImportPath")
 	}
-	if p.options.OntologyImportPath == "" {
-		return nil, errors.New("go/imex requires Options.OntologyImportPath")
+	if p.options.ResourceImportPath == "" {
+		return nil, errors.New("go/imex requires Options.ResourceImportPath")
 	}
 	ctx := context.Background()
 	var (
@@ -163,6 +165,8 @@ type target struct {
 	exported []int
 	// steps holds the exported versions whose package declares Migrate<Type>.
 	steps set.Set[int]
+	// references holds the wire name of every @ref field, which Export leaves out.
+	references []string
 }
 
 func newTarget(
@@ -199,15 +203,28 @@ func newTarget(
 		return target{}, err
 	}
 	return target{
-		typ:      typ,
-		goName:   naming.GetGoName(typ),
-		body:     domain.GetStringFromType(typ, "go", "imex") == bodyMarker,
-		livePath: livePath,
-		current:  current,
-		floor:    floor,
-		exported: exported,
-		steps:    steps,
+		typ:        typ,
+		goName:     naming.GetGoName(typ),
+		references: referenceNames(typ, req.Resolutions),
+		body:       domain.GetStringFromType(typ, "go", "imex") == bodyMarker,
+		livePath:   livePath,
+		current:    current,
+		floor:      floor,
+		exported:   exported,
+		steps:      steps,
 	}, nil
+}
+
+// referenceNames returns the wire name of every field of typ that holds a Gorp
+// reference.
+func referenceNames(typ resolution.Type, table *resolution.Table) []string {
+	var names []string
+	for _, f := range resolution.UnifiedFields(typ, table) {
+		if domain.HasDomainFromField(f, "ref") {
+			names = append(names, casing.FieldSnake(f.Name))
+		}
+	}
+	return names
 }
 
 // bodyMarker is the @go imex argument that marks a type another resource exports.
@@ -289,17 +306,28 @@ func (p *Plugin) generatePackage(
 		)
 		return nil
 	}
+	name, err := exportedName(targets[0].typ, req.Resolutions)
+	if err != nil {
+		return err
+	}
 	// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
 	// would overwrite the chain file appended above.
 	var exportBuf bytes.Buffer
 	if err := exportTemplate.Execute(&exportBuf, &exportData{
 		Package: naming.DerivePackageName(outputPath),
 		Type:    targets[0].goName,
+		Name:    name,
 		Versions: gomod.ResolveImportPath(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 		),
-		Runtime:  p.options.RuntimeImportPath,
-		Ontology: p.options.OntologyImportPath,
+		Gorp: gomod.ResolveImportPath(
+			"gorp",
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		),
+		Runtime:    p.options.RuntimeImportPath,
+		Resource:   p.options.ResourceImportPath,
+		References: targets[0].references,
 	}); err != nil {
 		return err
 	}
@@ -342,12 +370,32 @@ func (p *Plugin) executeBody(
 	return bodyTemplate.Execute(buf, data)
 }
 
+// exportedName returns the selector that reads the name of an exported typ held in v.
+// A union reads it through the Base accessor of the one base its variants share.
+func exportedName(typ resolution.Type, table *resolution.Table) (string, error) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return "v.Name", nil
+	}
+	if _, ok := resolver.SharedBase(form, "go", table); !ok {
+		return "", errors.Newf(
+			"%s: an exported union needs one base that every variant inherits",
+			typ.QualifiedName,
+		)
+	}
+	return "v.Base().Name", nil
+}
+
 type exportData struct {
-	Package  string
-	Type     string
-	Versions string
-	Runtime  string
-	Ontology string
+	Package string
+	Type    string
+	// Name is the selector that reads the exported entry's name.
+	Name       string
+	Versions   string
+	Gorp       string
+	Runtime    string
+	Resource   string
+	References []string
 }
 
 var exportTemplate = template.Must(
@@ -359,14 +407,19 @@ import (
 	"context"
 	"uuid"
 
+	"{{.Gorp}}"
 	"{{.Runtime}}"
-	"{{.Ontology}}"
+	"{{.Resource}}"
 	"{{.Versions}}"
 )
 
-// Export retrieves the {{.Type}} identified by id and serializes it, stamping
+// Export retrieves the {{.Type}} identified by id from snap and serializes it, stamping
 // versions.Latest. It returns query.ErrNotFound if no {{.Type}} has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -375,13 +428,13 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&v).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
+		Version: versions.Latest, Type: string(s.Type()), Name: {{.Name}},
 	}
-	if err = env.Encode(v); err != nil {
+	if err = env.Encode(v{{range .References}}, {{printf "%q" .}}{{end}}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil

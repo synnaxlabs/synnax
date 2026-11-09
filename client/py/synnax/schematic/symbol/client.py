@@ -7,33 +7,31 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.ontology import ID, CrudeID
-from synnax.schematic.symbol.types_gen import Key, Symbol
+from synnax.schematic.symbol.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Symbol,
+    Where,
+    WhereInput,
+)
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    parent: ID
     symbols: list[Symbol]
 
 
 class _CreateResponse(BaseModel):
     symbols: list[Symbol]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    symbols: list[Symbol] = Field(default_factory=list)
 
 
 class _RenameRequest(BaseModel):
@@ -43,10 +41,6 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _RetrieveGroupResponse(BaseModel):
-    group: group.Group
 
 
 class _DeleteGroupRequest(BaseModel):
@@ -65,66 +59,113 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, symbols: Symbol, *, parent: CrudeID) -> Symbol: ...
+    def create(self, symbols: Symbol) -> Symbol: ...
 
     @overload
-    def create(self, symbols: list[Symbol], *, parent: CrudeID) -> list[Symbol]: ...
+    def create(self, symbols: list[Symbol]) -> list[Symbol]: ...
 
-    def create(
-        self, symbols: Symbol | list[Symbol], *, parent: CrudeID
-    ) -> Symbol | list[Symbol]:
-        """Creates one or more symbols under a parent resource.
+    def create(self, symbols: Symbol | list[Symbol]) -> Symbol | list[Symbol]:
+        """Creates one or more symbols. A symbol's ``group`` places it; a symbol with
+        no group sits in none.
 
         :param symbols: A single symbol or a list of them.
-        :param parent: The ontology ID of the resource to create the symbols under,
-            such as the group from ``retrieve_group``.
         :returns: The created symbol, or a list of created symbols when ``symbols`` is
             a list.
         """
         is_single = not isinstance(symbols, list)
         res = self._client.send(
             "/schematic/symbol/create",
-            _CreateRequest(parent=ID(parent), symbols=normalize(symbols)),
+            _CreateRequest(symbols=normalize(symbols)),
             _CreateResponse,
         )
         return res.symbols[0] if is_single else res.symbols
 
     @overload
-    def retrieve(self, *, key: Key) -> Symbol: ...
+    def retrieve(
+        self,
+        *,
+        key: Key,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Symbol: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        search_term: str | None = None,
+        key: filter.SetInput[Key] = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Symbol: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        groups: group.Key | list[group.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[False] = ...,
     ) -> list[Symbol]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        where: Where | None = None,
+        search_term: str = "",
+        one: bool = False,
+        **fields: Any,
     ) -> Symbol | list[Symbol]:
-        """Retrieves one or more symbols. With no arguments, it retrieves every symbol.
+        """Retrieves symbols. With no arguments, retrieves every symbol.
 
-        :param key: The key of a single symbol to retrieve.
-        :param keys: The keys of the symbols to retrieve.
+        Each filter field takes a value, a list of values, or an operator, and a symbol
+        must match every field. A plain ``key`` returns one symbol.
+
+        :param key: Keeps symbols with this key.
+        :param groups: Keeps symbols in any of these groups.
+        :param grouped: Keeps only symbols in a group when True, and only symbols in no
+            group when False.
+        :param and_: Keeps symbols that match every filter in the list.
+        :param or_: Keeps symbols that match any filter in the list.
+        :param not_: Keeps symbols that do not match the filter.
+        :param where: A filter tree that the symbols must also match.
+        :param keys: Keeps symbols with one of these keys.
         :param search_term: A fuzzy search term matched against symbol names.
-        :returns: The matching symbol when ``key`` is provided, otherwise a list of
-            matching symbols.
-        :raises NotFoundError: If a requested key does not exist.
+        :param one: Returns one symbol for any filter.
+        :returns: One symbol for a plain ``key`` or when ``one`` is set, otherwise a
+            list of symbols. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one symbol is wanted and none matches.
+        :raises MultipleFoundError: If one symbol is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        res = self._client.send(
-            "/schematic/symbol/retrieve",
-            _RetrieveRequest(keys=keys, search_term=search_term),
-            _RetrieveResponse,
+        single = returns_one(fields, one, None, 0)
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
         )
-        return res.symbols[0] if is_single else res.symbols
+        res = self._client.send("/schematic/symbol/retrieve", req, RetrieveResponse)
+        return sole("symbol", req, res.symbols) if single else res.symbols
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a symbol.
@@ -145,18 +186,8 @@ class Client:
             "/schematic/symbol/delete", _DeleteRequest(keys=normalize(keys)), Empty
         )
 
-    def retrieve_group(self) -> group.Group:
-        """Retrieves the group that holds every symbol by default.
-
-        :returns: The symbol group.
-        """
-        return self._client.send(
-            "/schematic/symbol/retrieve-group", Empty(), _RetrieveGroupResponse
-        ).group
-
     def delete_group(self, key: group.Key) -> None:
-        """Deletes a group and every symbol in it in one transaction. A child that is
-        not a symbol moves to the group from ``retrieve_group``.
+        """Deletes a group and every symbol in it in one transaction.
 
         :param key: The key of the group to delete.
         """

@@ -20,9 +20,7 @@
 /* Long names truncate inside the row instead of widening it past the list. The label
    keeps its width up to a cap, so the channel name gives way first. */
 .console-kafka-item__label {
-    flex-shrink: 0;
     min-width: 0;
-    max-width: 60%;
 
     > .console-kafka-item__name {
         min-width: 0;

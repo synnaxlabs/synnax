@@ -47,11 +47,13 @@ export interface ListAndDetailsChannelItemProps<
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
   channel: channel.Key;
-  /** The name configuring the task gives the channel, shown while it has none. */
+  /** The name deploying the task gives the channel, shown while it has none. */
   defaultName?: string;
   stateChannel?: channel.Key;
-  /** The name configuring the task gives the state channel. */
+  /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
+  /** Deploying the task does not create the channels, because they are disabled. */
+  skipped?: boolean;
   onTare?: (channel: channel.Key) => void;
   path: deep.Target<ItemChannel>;
   hasTareButton: boolean;
@@ -83,6 +85,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   icon,
   stateChannel,
   stateDefaultName,
+  skipped,
   nameDirection = "x",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
@@ -128,6 +131,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
               cmdDefaultName={defaultName}
               stateChannel={stateChannel}
               stateDefaultName={stateDefaultName}
+              skipped={skipped}
               itemKey={itemKey}
             />
           </Flex.Box>
@@ -136,6 +140,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
             {...channelNameProps}
             channel={channel}
             defaultName={defaultName}
+            skipped={skipped}
             namePath={item.name}
             id={getChannelNameID(itemKey)}
           />

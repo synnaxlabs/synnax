@@ -68,6 +68,7 @@ const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
       <Text.MaybeEditable
         id={Panel.tabNameID(tabKey)}
         value={name}
+        overflow="fade"
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
         {...rest}

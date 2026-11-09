@@ -9,7 +9,7 @@
 
 import { kafka, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
@@ -17,6 +17,7 @@ import { createKafkaDevice } from "@/feature/kafka/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -104,19 +105,26 @@ describe("Write", () => {
     expect(created.config.channels[0].channel).toBe(ch.key);
   });
 
-  it("should deploy when a disabled row's channel no longer exists", async () => {
+  it("should show no channel, never a new one, before a channel is picked", async () => {
+    const dev = await createKafkaDevice(client);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1" }],
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    const item = await findChannelListItem("No channel");
+    expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  // A Core clears the channel of a row whose channel it no longer holds.
+  it("should deploy when a disabled row has no channel", async () => {
     const dev = await createKafkaDevice(client);
     const ch = await client.channels.create({
       name: uniqueName("kafka_out"),
       dataType: "float64",
       virtual: true,
     });
-    const gone = await client.channels.create({
-      name: uniqueName("kafka_gone"),
-      dataType: "float64",
-      virtual: true,
-    });
-    await client.channels.delete(gone.key);
     const draft = await createDraft(client, {
       ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
@@ -126,7 +134,7 @@ describe("Write", () => {
         {
           ...kafka.writeChannelZ.parse({}),
           key: "c2",
-          channel: gone.key,
+          channel: 0,
           disabled: true,
         },
       ],
@@ -139,7 +147,7 @@ describe("Write", () => {
       draft.key,
       Kafka.Task.WRITE_SCHEMAS,
     );
-    expect(created.config.channels.map((c) => c.channel)).toEqual([ch.key, gone.key]);
+    expect(created.config.channels.map((c) => c.channel)).toEqual([ch.key, 0]);
   });
 
   it("should send a string channel as a string on deploy", async () => {

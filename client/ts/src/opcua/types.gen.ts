@@ -39,6 +39,7 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   isIndex: z.boolean().default(false),
+  field: z.string().default(""),
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
@@ -56,6 +57,7 @@ export const readConfigZ = task.readConfigZ
     arrayMode: z.boolean().default(false),
     arraySize: z.int32().default(1),
     channels: readChannelZ.array().default(() => []),
+    nanFillEnabled: z.boolean().default(false),
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 

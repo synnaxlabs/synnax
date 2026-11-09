@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -33,7 +35,7 @@ type (
 		ranger.RetrieveRequest,
 		*RetrieveRequest,
 		ranger.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		ranger.DeleteRequest,
@@ -75,7 +77,7 @@ var (
 	_ grpc.Translator[ranger.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[ranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[ranger.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -93,7 +95,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	r ranger.CreateRequest,
 ) (*CreateRequest, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
+	ranges, err := rangerpb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +106,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	r *CreateRequest,
 ) (ranger.CreateRequest, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := rangerpb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return ranger.CreateRequest{}, err
 	}
@@ -115,7 +117,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	r ranger.CreateResponse,
 ) (*CreateResponse, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
+	ranges, err := rangerpb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	r *CreateResponse,
 ) (ranger.CreateResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := rangerpb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return ranger.CreateResponse{}, err
 	}
@@ -137,43 +139,37 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	r ranger.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(r.Keys, func(k ranger.Key, _ int) string { return k.String() })
-	return &RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (ranger.RetrieveRequest, error) {
-	keys, err := lo.MapErr(r.Keys, func(k string, _ int) (ranger.Key, error) {
-		return uuid.Parse(k)
-	})
-	if err != nil {
+	// A client older than the Core sends the reserved keys and names fields, which
+	// would otherwise select every range.
+	if err := xpb.RejectUnknown(r); err != nil {
 		return ranger.RetrieveRequest{}, err
 	}
-	return ranger.RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	r ranger.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Ranges: ranges}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(r)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	r *RetrieveResponse,
+	r *pb.RetrieveResponse,
 ) (ranger.RetrieveResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
-	if err != nil {
-		return ranger.RetrieveResponse{}, err
-	}
-	return ranger.RetrieveResponse{Ranges: ranges}, nil
+	return pb.RetrieveResponseFromPB(r)
 }
 
 func (deleteRequestTranslator) Forward(

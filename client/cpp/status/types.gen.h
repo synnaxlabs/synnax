@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -19,13 +20,22 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/service/status/pb/status.pb.h"
 
 namespace synnax::status {
+
+struct Where;
+struct RetrieveResponse;
+struct RetrieveRequest;
 
 constexpr const char *VARIANT_SUCCESS = "success";
 constexpr const char *VARIANT_INFO = "info";
@@ -38,12 +48,12 @@ using Key = std::string;
 
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
-/// component-specific details. A status is uniquely identified by a key and may carry a
-/// human-readable name and labels for categorization and filtering.
+/// component-specific details. A status is uniquely identified by a key, may name the
+/// resource that owns it, and may carry a human-readable name and labels.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
+    /// @brief key is a unique identifier for this status. The Core assigns a UUID when
+    /// a status has no key and its owner holds no status.
     Key key;
     /// @brief name is the name of what the status is about, such as a task, device, or
     /// rack. Empty when the status is not about a named thing.
@@ -64,8 +74,12 @@ struct Status {
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-    /// @brief labels contains optional labels for categorization and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
+    /// @brief labels are the keys of the labels attached to the status.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief owner is the resource the status reports on, such as a task, device, or
+    /// rack. An owner holds at most one status. Empty for a status that no resource
+    /// owns.
+    std::optional<::synnax::resource::ID> owner;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -76,4 +90,119 @@ struct Status {
     static std::pair<Status, x::errors::Error>
     from_proto(const ::service::status::pb::Status &pb);
 };
+
+/// @brief Where is a filter that selects statuses.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief variant selects by variant.
+    ::x::filter::Field<::x::filter::Set<std::string>> variant;
+    /// @brief labels matches statuses that have any of the given labels.
+    ::x::filter::List<::synnax::label::Key> labels;
+    /// @brief owners matches the statuses that the given resources own.
+    ::x::filter::List<::synnax::resource::ID> owners;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::status::pb::Where;
+    [[nodiscard]] std::pair<::service::status::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::status::pb::Where &pb);
+};
+
+/// @brief RetrieveResponse holds the statuses a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief statuses are the statuses the request selects.
+    std::vector<Status<x::json::json>> statuses;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::status::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::status::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::status::pb::RetrieveResponse &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the statuses that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most statuses to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching statuses to skip.
+    std::uint32_t offset = 0;
+};
+
+/// @brief RetrieveRequest is a request to retrieve statuses.
+struct RetrieveRequest {
+    /// @brief where selects the statuses to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the statuses that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most statuses to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching statuses to skip.
+    std::uint32_t offset = 0;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .limit = options.limit,
+            .offset = options.offset,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::status::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::status::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::status::pb::RetrieveRequest &pb);
+};
+
+const synnax::resource::ID TYPE_RESOURCE_ID("status", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("status", key);
+}
 }

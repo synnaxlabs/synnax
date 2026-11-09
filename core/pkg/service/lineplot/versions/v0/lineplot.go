@@ -11,6 +11,3 @@ package v0
 
 // GorpKey implements gorp.Entry.
 func (l LinePlot) GorpKey() Key { return l.Key }
-
-// SetOptions implements gorp.Entry.
-func (LinePlot) SetOptions() []any { return nil }

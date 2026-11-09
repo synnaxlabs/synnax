@@ -12,12 +12,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Schematic } from "@/platform/schematic";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 
-export const Selectable = Selector.createSelectable({
-  type: schematic.TYPE_ONTOLOGY_ID.type,
+export const Selectable: Selector.Selectable = {
+  type: schematic.TYPE_RESOURCE_ID.type,
   title: "Schematic",
   icon: <Icon.Schematic />,
+  description: "Live system diagrams",
   useOnSelect: Schematic.useCreate,
-  useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),
-});
+  useVisible: () => Access.useCreateGranted(schematic.TYPE_RESOURCE_ID),
+};

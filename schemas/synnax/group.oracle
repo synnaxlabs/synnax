@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/resource"
+import "schemas/x/filter"
+
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
 @ts output "client/ts/src/group"
@@ -16,23 +19,54 @@ Key = uuid {
 }
 
 Group struct {
-    key  Key    {
+    key    Key           {
         @doc value "is the unique identifier for this group."
         @key
     }
-    name string {
+    name   string        {
         @doc value         "is a human-readable name for the group."
         @filter
         @search
         @validate required
     }
+    scope  resource.Type {
+        @doc value """
+            is the type of resource the group's tree holds. It stays the same down a
+            chain of groups.
+        """
+        @filter
+    }
+    parent resource.ID?  {
+        @doc value     "is the group, project, or rack the group sits in, if any."
+        @ref acyclic
+        @ref kind      place
+        @ref on_delete cascade
+        @ref types     group project rack
+    }
 
     @doc value     """
-        is a named collection container for organizing related resources. Groups provide
-        hierarchical organization through the ontology system.
+        is a named folder that holds records of the types its scope allows. A group sits
+        in its parent, or at the top of its tree when it has none.
     """
     @go marshal
     @go migrate
-    @ontology type "group"
+    @resource type "group"
     @retrieve
+}
+
+Where filter Group {
+    key
+    name
+    scope
+    parents resource.ID[] {
+        @doc value "matches the groups that sit in any of the given resources."
+    }
+    nested  bool          {
+        @doc value """
+            matches the groups that sit in a parent, or the top groups when false.
+        """
+    }
+
+    @doc value         "is a filter that selects groups."
+    @go request_output "core/pkg/api/group"
 }

@@ -29,8 +29,9 @@ const csvFlushSize = 64 << 10
 // cells are empty at a timestamp it has no sample for. A data channel's cell holds its
 // sample at the alignment of the row's index sample, and is empty when the channel has
 // no sample there. An empty variable-length sample is written as "", so it differs from
-// a missing one. A read of a channel whose index it does not include, or a read under a
-// limit reduction, fails before the first byte. A read that fails after the first byte
+// a missing one. A latest or earliest read holds only the newest or oldest rows of each
+// index. A read of a channel whose index it does not include, or a read under a limit
+// reduction, fails before the first byte. A read that fails after the first byte
 // truncates the body.
 var CSVEncoder csvEncoder
 

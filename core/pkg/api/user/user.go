@@ -14,11 +14,13 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -28,7 +30,11 @@ import (
 
 // ServiceConfig is the configuration for the user API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// DB opens the snapshots that access checks read.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// RBAC checks the user writes that it must check before they run.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -40,10 +46,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Password *password.Service
-	// Auth logs subjects in and checks their session tokens.
-	//
-	// [REQUIRED]
-	Auth *svcauth.Service
 }
 
 var (
@@ -54,29 +56,29 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
 	c.Password = override.Nil(c.Password, other.Password)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.user")
+	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
 	v.NotNil("password", c.Password)
-	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
-	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -87,10 +89,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
-		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -101,6 +103,7 @@ type NewUser struct {
 	svcauth.Credentials
 	Name string   `json:"name" msgpack:"name"`
 	Key  user.Key `json:"key"  msgpack:"key"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 type (
@@ -112,20 +115,41 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// PrepareCreate hashes the password of each new user in req. It returns
+// access.ErrDenied when the subject cannot create users, and a validation error when a
+// password is empty.
+func (s *Service) PrepareCreate(
+	ctx context.Context,
+	req CreateRequest,
+) ([]password.Hash, error) {
+	// Each hash is slow, so a subject that cannot create users costs none.
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []resource.ID{{Type: resource.TypeUser}},
+		})
+	}); err != nil {
+		return nil, err
+	}
+	hashes := make([]password.Hash, len(req.Users))
+	for i, nu := range req.Users {
+		var err error
+		if hashes[i], err = s.password.Hash(nu.Password); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
+}
+
+// Create creates the new users with the roles in req and the passwords that
+// PrepareCreate hashed, and returns them.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
+	hashes []password.Hash,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeUser}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
@@ -134,11 +158,16 @@ func (s *Service) Create(
 		if name == "" {
 			name = nu.Username
 		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key})
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key, Role: nu.Role})
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
+		if err = passwordW.Set(
+			ctx,
+			u.ResourceID(),
+			nu.Username,
+			hashes[i],
+		); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -166,7 +195,7 @@ func (s *Service) ChangeUsername(
 	}
 	var p password.Password
 	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.OntologyID(req.Key))).
+		Where(password.MatchSubjects(user.ResourceID(req.Key))).
 		Entry(&p).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
@@ -174,15 +203,8 @@ func (s *Service) ChangeUsername(
 	if p.Username == req.Username {
 		return struct{}{}, nil
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, user.OntologyID(req.Key), req.Username)
+		Rename(ctx, user.ResourceID(req.Key), req.Username)
 }
 
 type RenameRequest struct {
@@ -196,106 +218,98 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		ChangeName(ctx, req.Key, req.Name)
 }
 
-type (
-	RetrieveRequest struct {
-		Keys      []user.Key `json:"keys"      msgpack:"keys"`
-		Usernames []string   `json:"usernames" msgpack:"usernames"`
-	}
-	RetrieveResponse struct {
-		Users []user.User `json:"users" msgpack:"users"`
-	}
-)
+var _ bind.Named = RetrieveRequest{}
 
-// Retrieve returns the users with the provided keys or the provided usernames of their
-// passwords.
-func (s *Service) Retrieve(
-	ctx context.Context,
-	req RetrieveRequest,
-) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(user.MatchKeys(req.Keys...))
+// Named implements bind.Named. It returns the users that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
 	}
-	if len(req.Usernames) > 0 {
-		keys, err := s.keysByUsername(ctx, req.Usernames)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		if len(keys) == 0 {
-			return RetrieveResponse{Users: []user.User{}}, nil
-		}
-		q = q.Where(user.MatchKeys(keys...))
-	}
-	var users []user.User
-	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: user.OntologyIDsFromUsers(users),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
-	return RetrieveResponse{Users: users}, nil
+	return bind.Keys(r.Where.Key, user.ResourceID)
 }
 
-func (s *Service) keysByUsername(
+// Retrieve returns the users that req selects and that the subject can retrieve.
+func (s *Service) Retrieve(
 	ctx context.Context,
-	usernames []string,
-) ([]user.Key, error) {
-	var passwords []password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchUsernames(usernames...)).
-		Entries(&passwords).
-		Exec(ctx, nil); err != nil {
-		return nil, err
+	snap bind.Snapshot,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Users))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	keys := make([]user.Key, 0, len(passwords))
-	for _, p := range passwords {
-		if p.Subject.Type != ontology.ResourceTypeUser {
-			continue
-		}
-		key, err := user.KeyFromOntologyID(p.Subject)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
+	if err = q.Where(bind.Filter(snap, user.Match)).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
 	}
-	return keys, nil
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []user.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the users with the provided keys from the Synnax cluster.
+// Delete deletes the users with the provided keys, with their passwords, API keys, and
+// sessions. It returns access.ErrDenied when the subject cannot delete the users, and
+// an error when a user is a root user.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.enforceOnUsers(ctx, access.ActionDelete, req.Keys); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetRoleRequest gives Role to the users with Keys.
+type SetRoleRequest struct {
+	Keys []user.Key `json:"keys" msgpack:"keys"`
+	Role role.Key   `json:"role" msgpack:"role"`
+}
+
+// SetRole gives a role to the users with the provided keys in one transaction. It
+// returns access.ErrDenied when the subject cannot update the users, a validation error
+// when a user is a root user, and query.ErrNotFound when a user does not exist.
+func (s *Service) SetRole(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetRoleRequest,
+) (struct{}, error) {
+	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
+		return struct{}{}, err
+	}
+	guard := func(u user.User) error {
+		if !u.RootUser {
+			return nil
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot change the role of root user %s",
+			u.Name,
+		)
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		SetRole(ctx, req.Role, guard, req.Keys...)
+}
+
+// enforceOnUsers checks the action on the users with the provided keys before a write
+// reads them, so a subject without access learns nothing from the root-user guard. It
+// reads committed policies, so a policy staged in the same transaction grants nothing.
+func (s *Service) enforceOnUsers(
+	ctx context.Context,
+	action access.Action,
+	keys []user.Key,
+) error {
+	return s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: user.OntologyIDsFromKeys(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
-	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
+		Action:  action,
+		Objects: user.ResourceIDsFromKeys(keys),
+	})
 }

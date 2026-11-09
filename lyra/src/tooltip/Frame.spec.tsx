@@ -90,6 +90,27 @@ describe("Tooltip.Frame", () => {
     expect(getFrame()?.style.left).toBe("350px");
   });
 
+  it("should keep the tooltip inside the window's right edge", () => {
+    const anchor = createAnchor({ ...ANCHOR_RECT, left: 980, right: 1000, x: 980 });
+    render(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
+    const frame = getFrame() as HTMLElement;
+    Object.defineProperty(frame, "offsetWidth", { get: () => 200 });
+    window.dispatchEvent(new Event("resize"));
+    expect(frame.style.left).toBe(`${window.innerWidth - 200}px`);
+  });
+
+  it("should measure the tooltip at the origin", () => {
+    const anchor = createAnchor({ ...ANCHOR_RECT, left: 980, right: 1000, x: 980 });
+    render(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
+    const frame = getFrame() as HTMLElement;
+    // The box reads narrower once placed, as a wrapped one near the edge does.
+    Object.defineProperty(frame, "offsetWidth", {
+      get: () => (frame.style.left === "0px" ? 200 : 50),
+    });
+    window.dispatchEvent(new Event("resize"));
+    expect(frame.style.left).toBe(`${window.innerWidth - 200}px`);
+  });
+
   it("should report a lost anchor once it leaves the document", () => {
     const anchor = createAnchor();
     const onAnchorLost = vi.fn();

@@ -377,8 +377,33 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(".min(1)"))
-		Expect(content).To(ContainSubstring(".max(64)"))
+		Expect(content).To(ContainSubstring(".min(1).check(zod.maxLength(64))"))
+		Expect(content).To(ContainSubstring(`import { zod } from "@synnaxlabs/x"`))
+	})
+
+	It("Should check a minimum length above 1 in code points", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string @validate { min_length 2 }
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(`.check(zod.minLength(2))`)
+	})
+
+	It("Should keep a length check chainable with a default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string = "x" @validate { max_length 64 }
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`z.string().check(zod.maxLength(64)).default("x")`)
 	})
 
 	It("Should emit min(1, ...) for required string", func(ctx SpecContext) {

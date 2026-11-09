@@ -7,21 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
 import { RangeSelect } from "@/feature/lineplot/RangeSelect";
 import { XAxisChannelSelect, YAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
 import { CSS } from "@/platform/css";
 
+const ROW = CSS.BE("line-plot", "toolbar", "data-row");
+const FULL_ROW = CSS.cls(ROW, CSS.BEM("line-plot", "toolbar-data-row", "full"));
+
 export const Data = (): ReactElement => (
-  <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
-    <RangeSelect grow />
-    <YAxisChannelSelect axisKey="y1" align="center" grow />
-    <YAxisChannelSelect axisKey="y2" grow />
+  <div className={CSS.BE("line-plot", "toolbar", "data")}>
+    <RangeSelect className={ROW} />
     <XAxisChannelSelect
       axisKey="x1"
       className={CSS.BE("line-plot", "toolbar", "data-x")}
     />
-  </Flex.Box>
+    <YAxisChannelSelect axisKey="y1" className={FULL_ROW} />
+    <YAxisChannelSelect axisKey="y2" className={FULL_ROW} />
+  </div>
 );

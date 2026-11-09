@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -26,15 +28,16 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/uri"
 )
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
-		a := arc.Arc{
+		tx := DeferClose(db.OpenTx())
+		a := newAutomation(arc.Base{
 			Name: "test-arc",
-			Mode: arc.ModeGraph,
-			Graph: graph.Graph{
+			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "add",
@@ -48,14 +51,38 @@ var _ = Describe("CompileProgram", func() {
 						Body: ir.Body{Raw: "{ return a + b }"},
 					},
 				},
-			},
-		}
+			}}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+		})
 
-		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
-		Expect(result.Key).To(Equal(a.Key))
+		result := MustSucceed(svc.CompileProgram(ctx, a.Base().Key))
+		Expect(result.Key).To(Equal(a.Base().Key))
 		Expect(result.Program.IR).ToNot(BeNil())
+	})
+
+	It("Should refuse a module, which never runs", func(ctx SpecContext) {
+		tx := DeferClose(db.OpenTx())
+		m := newModule(arc.Base{
+			Name: "never_runs",
+			Source: arc.Source{
+				Variant: arc.TextSource{Text: text.Text{Raw: "func f() {}"}},
+			},
+		})
+		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, m.Base().Key)
+			})).To(Succeed())
+		})
+		Expect(svc.CompileProgram(ctx, m.Base().Key)).Error().
+			To(MatchError(validate.ErrValidation))
 	})
 
 	It("Should return error when Arc does not exist", func(ctx SpecContext) {
@@ -65,10 +92,10 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
-		a := arc.Arc{
+		tx := DeferClose(db.OpenTx())
+		a := newAutomation(arc.Base{
 			Name: "invalid-arc",
-			Mode: arc.ModeGraph,
-			Graph: graph.Graph{
+			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "source",
@@ -89,12 +116,17 @@ var _ = Describe("CompileProgram", func() {
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
 					},
 				},
-			},
-		}
+			}}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+		})
 
-		Expect(svc.CompileProgram(ctx, a.Key)).Error().
+		Expect(svc.CompileProgram(ctx, a.Base().Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
 	})
 })
@@ -129,7 +161,9 @@ var _ = Describe("NewLSP", func() {
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 
 		Eventually(func() int {
 			return len(client.Diagnostics())
@@ -145,25 +179,35 @@ var _ = Describe("NewRoot", func() {
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).
 				To(Succeed())
 		})
 	})
 
 	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
-		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_2", false)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).
+				Rename(ctx, ch.Key(), "new_root_ch_2", false)
+		})).
 			To(Succeed())
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
 	})
 
 	It("Should resolve a renamed channel by its new name", func(ctx SpecContext) {
-		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_3", false)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).
+				Rename(ctx, ch.Key(), "new_root_ch_3", false)
+		})).
 			To(Succeed())
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		Expect(root.Resolve(ctx, "new_root_ch")).Error().
 			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))

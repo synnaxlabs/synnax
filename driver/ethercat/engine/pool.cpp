@@ -14,9 +14,14 @@ namespace driver::ethercat::engine {
 
 Pool::Pool(
     std::unique_ptr<master::Manager> manager,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    SlaveConfigs slave_configs,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan start_timeout
 ):
-    manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
+    manager(std::move(manager)),
+    rt_manager(std::move(rt_manager)),
+    slave_configs(std::move(slave_configs)),
+    start_timeout(start_timeout) {}
 
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
@@ -37,6 +42,10 @@ Pool::acquire(const std::string &key) {
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;
+    cfg.slave_configs = [slave_configs = this->slave_configs, key] {
+        return slave_configs(key);
+    };
+    cfg.start_timeout = this->start_timeout;
     if (this->rt_manager != nullptr) {
         x::thread::rt::Config base_rt;
         base_rt.enabled = true;
@@ -82,6 +91,14 @@ Pool::discover_slaves(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
     if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
+    return {engine->slaves(), x::errors::NIL};
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Pool::rediscover_slaves(const std::string &key) {
+    auto [engine, err] = this->acquire(key);
+    if (err) return {{}, err};
+    if (auto init_err = engine->rediscover()) return {{}, init_err};
     return {engine->slaves(), x::errors::NIL};
 }
 

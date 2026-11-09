@@ -73,35 +73,25 @@ func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
 
-// announce does nothing: a search does not see writes in progress.
-//
-//nolint:unused
-func (s *SearchIndex[K, E]) announce(*E) uint64 { return 0 }
-
-//nolint:unused
-func (s *SearchIndex[K, E]) withdraw(uint64) {}
-
-// Search returns the keys of the entries that match term, closest match first. When no
-// entry matches every word of term, it returns the entries that match any word. It
-// returns at most limit keys, or every key when limit is 0. Search merges committed
-// index state with the changes staged against tx; pass the DB to read committed state
-// only. Search panics if tx is nil.
+// Search returns the keys of the entries that match q.Term, closest match first. When
+// no entry matches every word of q.Term, it returns the entries that match any word.
+// Search merges committed index state with the changes staged against snap; pass the DB
+// to read committed state only. Search panics if snap is nil.
 //
 // Search blocks until the index has finished populating. If population failed, Search
-// scans every entry through tx instead, so it returns the same result at scan cost.
+// scans every entry through snap instead, so it returns the same result at scan cost.
 func (s *SearchIndex[K, E]) Search(
 	ctx context.Context,
-	tx Tx,
-	term string,
-	limit int,
+	snap Snapshot,
+	q search.Query[K],
 ) (search.Result[K], error) {
-	checkForNilTx("SearchIndex.Search", tx)
+	checkForNilTx("SearchIndex.Search", snap)
 	if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
-		return s.scan(ctx, tx, term, limit)
+		return s.scan(ctx, snap, q)
 	} else if err != nil {
 		return search.Result[K]{}, err
 	}
-	return s.store.Get(scopeOf(tx), term, limit)
+	return s.store.Get(scopeOf(snap), q)
 }
 
 // Filter returns a Filter matching the entries that Search returns for term. A
@@ -109,8 +99,8 @@ func (s *SearchIndex[K, E]) Search(
 // them, so Limit and Offset page through them by relevance.
 func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			res, err := s.Search(ctx, tx, term, 0)
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			res, err := s.Search(ctx, snap, search.Query[K]{Term: term})
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -119,14 +109,13 @@ func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 	}
 }
 
-// scan searches every entry that tx reads.
+// scan searches every entry that snap reads.
 func (s *SearchIndex[K, E]) scan(
 	ctx context.Context,
-	tx Tx,
-	term string,
-	limit int,
+	snap Snapshot,
+	q search.Query[K],
 ) (search.Result[K], error) {
-	entries, closer, err := wrapReader[K, E](tx, nil).OpenNexter(ctx)
+	entries, closer, err := wrapReader[K, E](snap, nil).OpenNexter(ctx)
 	if err != nil {
 		return search.Result[K]{}, err
 	}
@@ -137,5 +126,5 @@ func (s *SearchIndex[K, E]) scan(
 	if err = closer.Close(); err != nil {
 		return search.Result[K]{}, err
 	}
-	return idx.Search(term, limit), nil
+	return idx.Search(q), nil
 }

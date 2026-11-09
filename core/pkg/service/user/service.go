@@ -15,12 +15,10 @@ package user
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
@@ -36,16 +34,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology will be used to create relationships between users and other resources,
-	// such as projects, within the Synnax cluster.
+	// Password holds the usernames that [MatchUsernames] matches.
 	//
 	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create the top level "Users" group that will be the default
-	// parent of all users.
-	//
-	// [REQUIRED]
-	Group *group.Service
+	Password *password.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -63,8 +55,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
+	c.Password = override.Nil(c.Password, other.Password)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -73,8 +64,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("user")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
+	v.NotNil("password", c.Password)
 	return v.Error()
 }
 
@@ -100,19 +90,22 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, User]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -123,8 +116,7 @@ func OpenService(
 // The [Writer] operates within the given transaction [gorp.Tx].
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
+		tx:    tx,
 		svc:   s,
 		table: s.table,
 	}
@@ -133,9 +125,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
+		gorp:     s.table.NewRetrieve(),
+		indexes:  s.indexes,
+		password: s.cfg.Password,
 	}
 }
 

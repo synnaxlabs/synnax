@@ -9,7 +9,14 @@
 
 import re
 
-from console.schematic.symbol import PropertyDict, Symbol
+from console.schematic.symbol import Properties, Symbol
+from x.notation import Notation
+
+_NOTATION_LABELS: dict[Notation, str] = {
+    "standard": "Standard",
+    "scientific": "Scientific",
+    "engineering": "Engineering",
+}
 
 
 class Value(Symbol):
@@ -22,7 +29,7 @@ class Value(Symbol):
         *,
         label: str,
         channel_name: str,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
@@ -31,15 +38,14 @@ class Value(Symbol):
     ):
         """Initialize a value symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the value display
-            notation: Number notation format (optional)
-            precision: Decimal precision (optional)
-            averaging_window: Averaging window size (optional)
-            stale_color: Color for stale data (optional)
-            stale_timeout: Timeout for stale data in milliseconds (optional)
-            symbol_type: The type of symbol (default: "Value")
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the value display
+        :param notation: Number notation format (optional)
+        :param precision: Decimal precision (optional)
+        :param averaging_window: Averaging window size (optional)
+        :param stale_color: Color for stale data (optional)
+        :param stale_timeout: Timeout for stale data in milliseconds (optional)
+        :param symbol_type: The type of symbol (default: "Value")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
@@ -64,7 +70,7 @@ class Value(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
@@ -87,7 +93,7 @@ class Value(Symbol):
         if notation is not None:
             self.layout.click_btn("Notation")
             # Note to self, check if the next line is redundant
-            self.page.get_by_text(notation).click()
+            self.page.get_by_text(_NOTATION_LABELS[notation]).click()
 
         if precision is not None:
             self.layout.fill_input_field("Precision", str(precision))
@@ -109,13 +115,12 @@ class Value(Symbol):
             self.layout.fill_input_field("Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
-    def get_properties(self, *, tab: str = "Telemetry") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Telemetry") -> Properties:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: PropertyDict = {
+        props: Properties = {
             "channel": "",
-            "notation": "",
             "precision": -1,
             "averaging_window": -1,
             "stale_color": "",
@@ -139,10 +144,12 @@ class Value(Symbol):
         props["stale_timeout"] = int(self.layout.get_time_span_field("Timeout").seconds)
 
         # Notation
-        notation_options = ["Scientific", "Engineering", "Standard"]
-
-        notation = self.layout.get_selected_button(notation_options)
-        props["notation"] = notation.lower()
+        selected = self.layout.get_selected_button(list(_NOTATION_LABELS.values()))
+        props["notation"] = next(
+            notation
+            for notation, label in _NOTATION_LABELS.items()
+            if label == selected
+        )
 
         # The staleness color box is empty while the theme picks the color.
         hex_value = self.layout.get_input_field("Color")

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { label, type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -18,56 +18,31 @@ const PLURAL_RESOURCE_NAME = "labels";
 
 export type RetrieveQuery = label.RetrieveSingleParams;
 
-export type LabelsOfQuery = {
-  id: ontology.ID;
-};
-
-interface SetLabelsForParams {
-  client: Client;
-  data: {
-    id: ontology.ID;
-    labels: label.Key[];
-  };
-}
-
-export const setLabelsFor = async ({
-  client,
-  data: { id, labels },
-}: SetLabelsForParams): Promise<label.Label[]> => {
-  await client.labels.label(id, labels, { replace: true });
-  if (labels.length === 0) return [];
-  return await client.labels.retrieve({ keys: labels });
-};
-
-export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
-  LabelsOfQuery,
-  label.Label[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.labels.retrieve({ for: id }),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.labels.onChange({ for: id }, handler),
-  getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
-});
-
 export interface EditForParams {
-  id: ontology.ID;
+  id: resource.ID;
   added: label.Key[];
   removed: label.Key[];
 }
 
 /**
- * Adds and removes labels on a resource. Other labels on the resource stay in place, so
- * edits from other clients at the same time are kept.
+ * Adds and removes labels on a range or a status. The labels it holds that the edit
+ * does not name stay in place.
+ * @throws {ValidationError} if the resource is not a range or a status.
  */
+export const editFor = async (
+  client: Client,
+  { id, added, removed }: EditForParams,
+): Promise<void> => {
+  if (added.length > 0) await client.labels.label(id, added);
+  if (removed.length > 0) await client.labels.remove(id, removed);
+};
+
+/** A hook form of {@link editFor}. */
 export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
   name: PLURAL_RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const { id, added, removed } = data;
-    if (added.length > 0) await client.labels.label(id, added);
-    if (removed.length > 0) await client.labels.remove(id, removed);
+    await editFor(client, data);
     return data;
   },
 });
@@ -147,7 +122,9 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.labels.retrieve({ key: keys }),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.labels.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.labels.getCached(keys),
 });

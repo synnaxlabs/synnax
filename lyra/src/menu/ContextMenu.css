@@ -26,6 +26,9 @@
     padding: 1rem;
     animation: var(--pluto-dialog-animation);
 
+    /* The menu holds the focus until a key moves it to an item. */
+    outline: none;
+
     &:empty {
         display: none;
     }

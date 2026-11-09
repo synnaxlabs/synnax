@@ -11,15 +11,17 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/rt/rt.h"
 
@@ -36,7 +38,8 @@ struct Config {
     /// handle->apply() instead of apply_config(rt).
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief how the engine retries starting the bus before open_reader or open_writer
-    /// returns the error.
+    /// returns the error. A slave that refuses a state change fails the start at once.
+    /// start_timeout can stop the retries before max_retries.
     x::breaker::Config start_retry{
         .name = "ethercat_engine",
         .base_interval = x::telem::MILLISECOND * 100,
@@ -44,6 +47,22 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
+    /// @brief the longest a bus start can take. The engine tries a failed start again
+    /// only while one more try, as long as the longest failed try so far, ends inside
+    /// it. Set it to the task operation timeout, so that a failed start returns its own
+    /// error.
+    x::telem::TimeSpan start_timeout = x::telem::MINUTE;
+    /// @brief the clocks the bus cycle waits on and stamps frames with.
+    x::loop::HostClock host_clock;
+    /// @brief returns the settings of each slave, keyed by position. An open_reader or
+    /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
+    /// can run on several threads at once. Only an open that then starts the bus uses
+    /// the result, and only that open fails on an error. A slave missing from the map
+    /// runs with the defaults of slave::Config.
+    std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
+        slave_configs = [] {
+            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        };
 
     Config() = default;
 };
@@ -93,18 +112,13 @@ class Engine {
         void push(const uint8_t *image, x::telem::TimeStamp time);
     };
 
-    struct Command {
-        x::telem::SampleValue value;
-        /// @brief the order of this command across all writers.
-        uint64_t seq;
-    };
-
-    /// @brief the entries of one writer and the last command it sent for each.
+    /// @brief the entries of one writer and the value each takes when the writer
+    /// closes.
     struct Output {
         std::vector<pdo::Entry> entries;
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
-        std::vector<std::optional<Command>> commands;
+        std::vector<x::telem::SampleValue> stop_values;
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -122,7 +136,13 @@ class Engine {
 
     /// @brief runs while the bus cycles. Stopping it wakes the supervisor.
     x::breaker::Breaker bus;
-    std::atomic<double> cycle_hz{0};
+    /// @brief the number of times the bus stopped, guarded by mu.
+    uint64_t stops = 0;
+    /// @brief true while the slaves move to OP, when the working counter is expected to
+    /// fall short.
+    std::atomic<bool> starting{false};
+    /// @brief the bus rate in millihertz, or zero when the bus is not running.
+    std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
     std::thread supervisor_thread;
 
@@ -134,10 +154,10 @@ class Engine {
     std::atomic<uint64_t> schedule_version{0};
 
     std::mutex write_mu;
+    /// @brief holds the latest command or stop value of each output entry. Zeroed when
+    /// the bus starts.
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
-    /// @brief the seq of the latest command, guarded by write_mu.
-    uint64_t command_seq = 0;
 
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
@@ -149,16 +169,33 @@ class Engine {
     void run();
     void supervise();
     void apply_rt(x::telem::TimeSpan period) const;
-    [[nodiscard]] x::errors::Error start_locked(x::telem::Rate rate);
+    /// @param mhz the bus rate in millihertz.
+    [[nodiscard]] x::errors::Error
+    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
+    /// @brief returns the slave settings while the bus is stopped, read after the bus
+    /// last stopped, or empty settings while it runs. Unlocks lock while the loader
+    /// runs, since the loader can block, and returns with lock held.
+    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    read_slave_configs(std::unique_lock<std::mutex> &lock) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
-    void publish_schedule_locked(x::telem::Rate rate);
+    /// @param mhz the bus rate in millihertz.
+    void publish_schedule_locked(uint64_t mhz);
+    /// @brief returns the bus rate in millihertz for tasks at reads and writes: the
+    /// slowest rate they allow, or the current rate while a slave runs DC sync.
+    /// @returns errors::RATE_MISMATCH when no rate serves them, or when a slave runs DC
+    /// sync and the current rate does not serve them.
+    [[nodiscard]] std::pair<uint64_t, x::errors::Error> rate_locked(
+        const std::vector<x::telem::Rate> &reads,
+        const std::vector<x::telem::Rate> &writes
+    ) const;
     /// @brief stops the bus when no reader or writer is open, and otherwise moves it to
-    /// the slowest rate the open ones allow.
+    /// the rate that rate_locked() gives the open ones.
     void reschedule_locked();
-    void write_outputs();
-    void rebuild_outputs_locked();
+    /// @brief copies the staged outputs into the process image. Waits for write_mu when
+    /// wait is true, and otherwise keeps the last outputs while a writer holds it.
+    void write_outputs(bool wait);
     [[nodiscard]] x::errors::Error cycle_error() const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
@@ -195,12 +232,21 @@ public:
     };
 
     /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
-    /// the writer returns its entries to zero.
+    /// the writer leaves its entries at their stop values until another writer commands
+    /// them or the bus stops, and the bus sends them before the slaves leave OP.
     class Writer {
         Engine &engine;
         std::shared_ptr<Output> output;
 
     public:
+        /// @brief a PDO entry a writer commands.
+        struct Entry {
+            /// @brief the entry's location and type in the process image.
+            pdo::Entry entry;
+            /// @brief the value the entry takes when the writer closes.
+            x::telem::SampleValue stop_value;
+        };
+
         /// @brief RAII batch writer that holds the write lock for multiple writes.
         class Transaction {
             Engine &engine;
@@ -247,8 +293,9 @@ public:
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running.
-    /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz or no bus rate
-    /// suits every open task, errors::PDO_MAPPING_ERROR when an entry is not in the
+    /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
+    /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
+    /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
     /// process image, or the error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
@@ -258,11 +305,16 @@ public:
 
     /// @brief opens a writer for the entries. The bus cycles at least as fast as
     /// execution_rate while the writer is open. Starts the bus when it is not running.
-    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task,
+    /// An entry that a closed writer left at its stop value keeps that value until the
+    /// new writer commands one.
+    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
+    /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
     /// error that kept the bus from starting.
-    [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
-    open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
+    [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
+        const std::vector<Writer::Entry> &entries,
+        x::telem::Rate execution_rate
+    );
 
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }
@@ -278,18 +330,17 @@ public:
     /// Thread-safe.
     [[nodiscard]] x::errors::Error ensure_initialized();
 
+    /// @brief discovers the slaves again unless the bus is running. Thread-safe.
+    [[nodiscard]] x::errors::Error rediscover();
+
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
 
-    /// @brief returns the latest condition of each enabled slave, or an empty list when
-    /// the bus is not running.
+    /// @brief returns the latest condition of each enabled slave, then each left-out
+    /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
-
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect the next time
-    /// the bus starts.
-    void set_slave_enabled(uint16_t position, bool enabled);
 };
 }

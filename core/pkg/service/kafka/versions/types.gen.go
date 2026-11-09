@@ -18,16 +18,21 @@ import "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 type StartOffset = v0.StartOffset
 
 const (
-	StartOffsetLatest   StartOffset = v0.StartOffsetLatest
+	// StartOffsetLatest starts at the end of the topic and reads only new records.
+	StartOffsetLatest StartOffset = v0.StartOffsetLatest
+	// StartOffsetEarliest starts at the oldest record the topic retains.
 	StartOffsetEarliest StartOffset = v0.StartOffsetEarliest
-	StartOffsetNone     StartOffset = v0.StartOffsetNone
+	// StartOffsetNone fails the start.
+	StartOffsetNone StartOffset = v0.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
 type RecordKey = v0.RecordKey
 
 const (
-	RecordKeyNone        RecordKey = v0.RecordKeyNone
+	// RecordKeyNone writes records with no key.
+	RecordKeyNone RecordKey = v0.RecordKeyNone
+	// RecordKeyChannelName uses the name of the source channel as the key.
 	RecordKeyChannelName RecordKey = v0.RecordKeyChannelName
 )
 

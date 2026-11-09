@@ -96,6 +96,9 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
+	// FmtStrings holds the segments of each format string, so the compiler compiles
+	// the same placeholder nodes the analyzer typed.
+	FmtStrings parser.FmtStrings
 	// CallEdges tracks function call relationships for post-analysis channel
 	// propagation.
 	CallEdges *[]CallEdge
@@ -107,6 +110,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	InTypeInferenceMode bool
 	// Config carries per-parse language settings (e.g. dashed channel names).
 	Config parser.Config
+	// Module analyzes the program as a module, under the module rules.
+	Module bool
 }
 
 // WithScope returns a new context with an updated scope. The original context is
@@ -116,6 +121,12 @@ type Context[AST antlr.ParserRuleContext] struct {
 // body or block statement.
 func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	c.Scope = scope
+	return c
+}
+
+// WithModule returns a new context that analyzes the program as a module.
+func (c Context[AST]) WithModule(module bool) Context[AST] {
+	c.Module = module
 	return c
 }
 
@@ -226,6 +237,7 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
+		FmtStrings:  make(parser.FmtStrings),
 		CallEdges:   &[]CallEdge{},
 		AST:         ast,
 	}
@@ -247,10 +259,12 @@ func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 		Diagnostics:         ctx.Diagnostics,
 		Constraints:         ctx.Constraints,
 		TypeMap:             ctx.TypeMap,
+		FmtStrings:          ctx.FmtStrings,
 		CallEdges:           ctx.CallEdges,
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,
 		Config:              ctx.Config,
+		Module:              ctx.Module,
 	}
 }

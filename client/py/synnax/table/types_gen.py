@@ -11,16 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax.ontology.payload import ID
-from x import color, text
-from x import notation as notation_
+from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax.resource import ID
+from x import color, filter, notation as notation_, text
+from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -100,6 +99,55 @@ CellConfig = Annotated[
 ]
 
 
+class Where(BaseModel):
+    """Is a filter that selects tables.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        groups: Matches the tables in any of the given groups.
+        grouped: Matches the tables in a group, or in no group when false.
+        projects: Matches the tables owned by any of the given projects.
+        ranges: Matches the tables owned by any of the given ranges.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
+
+    @field_validator("groups", "projects", "ranges", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
+    },
+    total=False,
+)
+
+
 class Cell(BaseModel):
     """Is a keyed cell configuration used by actions that address cells explicitly.
     Inside the table state itself, cell configurations are stored in the cells map keyed
@@ -126,6 +174,11 @@ class Table(BaseModel):
         cells: Contains all cells in the table, keyed by cell key. Cell positions are
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
+        group: Is the group the table sits in, if any.
+        project: Is the project that owns the table, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the table, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -133,14 +186,48 @@ class Table(BaseModel):
     rows: list[Row] = Field(default_factory=list)
     columns: list[Column] = Field(default_factory=list)
     cells: dict[str, CellConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="table")
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve tables.
+
+    Attributes:
+        where: Selects the tables to retrieve. An absent where selects all of them.
+        search_term: Keeps the tables that match the term, closest match first.
+        limit: Is the most tables to return.
+        offset: Is the number of matching tables to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
-def ontology_id(key: Key) -> ID:
+class RetrieveResponse(BaseModel):
+    """Holds the tables a RetrieveRequest selects.
+
+    Attributes:
+        tables: Are the tables the request selects.
+    """
+
+    tables: list[Table] = Field(default_factory=list)
+
+
+Where.model_rebuild()
+
+
+TYPE_RESOURCE_ID = ID(type="table")
+
+
+def resource_id(key: Key) -> ID:
     return ID(type="table", key=str(key))

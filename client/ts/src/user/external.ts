@@ -11,13 +11,11 @@ export {
   Client,
   DELETE_CHANNEL_NAME,
   type KeyRetrieveRequest,
-  ontologyID,
+  resourceID,
   type RetrieveParams,
-  type RetrieveRequest,
   SET_CHANNEL_NAME,
-  TYPE_ONTOLOGY_ID,
+  TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
 } from "@/user/client";
 export * from "@/user/current";
 export * from "@/user/types.gen";

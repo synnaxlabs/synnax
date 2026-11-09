@@ -333,7 +333,7 @@ const Fields = ({
               </Text.Text>
             ) : (
               <Select.Simple<string>
-                resourceName="License"
+                resourceName="license"
                 value={choice.license.key}
                 onChange={setLicenseKey}
               >
