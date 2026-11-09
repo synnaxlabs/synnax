@@ -38,6 +38,11 @@ type RouterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 10 seconds.
 	StreamWriteDeadline time.Duration
+	// StreamMessageSizeLimit is the largest message in bytes that a stream server reads
+	// from a peer. A larger message fails the stream.
+	//
+	// [OPTIONAL] - Defaults to 256 MiB.
+	StreamMessageSizeLimit int64
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
@@ -51,6 +56,9 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.StreamWriteDeadline = override.Numeric(
 		r.StreamWriteDeadline, other.StreamWriteDeadline,
 	)
+	r.StreamMessageSizeLimit = override.Numeric(
+		r.StreamMessageSizeLimit, other.StreamMessageSizeLimit,
+	)
 	return r
 }
 
@@ -59,7 +67,10 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 // error if the merged config fails to validate.
 func NewRouter(configs ...RouterConfig) (*Router, error) {
 	cfg, err := config.New(
-		RouterConfig{StreamWriteDeadline: 10 * time.Second},
+		RouterConfig{
+			StreamWriteDeadline:    10 * time.Second,
+			StreamMessageSizeLimit: 256 << 20,
+		},
 		configs...,
 	)
 	if err != nil {
@@ -154,6 +165,7 @@ func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 		Instrumentation:     r.cfg.Instrumentation,
 		serverCtx:           r.streamCtx,
 		writeDeadline:       r.cfg.StreamWriteDeadline,
+		messageSizeLimit:    r.cfg.StreamMessageSizeLimit,
 		wg:                  r.streamWg,
 	}
 	r.register(path, http.MethodGet, s, s.fiberHandler)

@@ -821,18 +821,17 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		}
 		s.DataType = dataType
 		if dataType == telem.BooleanT {
-			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
-			if _, err = c.reader.Read(packed); err != nil {
-				return err
+			packed, readErr := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
+			if readErr != nil {
+				return readErr
 			}
 			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 		} else {
-			if dataType.IsVariable() {
-				s.Data = make([]byte, dataLenOrSize)
-			} else {
-				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
+			size := int64(dataLenOrSize)
+			if !dataType.IsVariable() {
+				size = int64(dataType.Density().Size(size))
 			}
-			if _, err = c.reader.Read(s.Data); err != nil {
+			if s.Data, err = c.readBytes(size); err != nil {
 				return err
 			}
 		}
@@ -899,4 +898,25 @@ func (c *Codec) readTimeRange() (telem.TimeRange, error) {
 		Start: telem.TimeStamp(start),
 		End:   telem.TimeStamp(end),
 	}, nil
+}
+
+// readChunk is the most bytes that readBytes allocates before the bytes arrive.
+const readChunk = 1 << 20
+
+// readBytes reads n bytes. It grows its buffer only as bytes arrive, so a length that
+// the source does not hold fails on the read instead of allocating the whole length.
+func (c *Codec) readBytes(n int64) ([]byte, error) {
+	buf := make([]byte, 0, min(n, readChunk))
+	for int64(len(buf)) < n {
+		if len(buf) == cap(buf) {
+			buf = slices.Grow(buf, int(min(n-int64(len(buf)), int64(len(buf)))))
+		}
+		chunk := buf[len(buf):min(int64(cap(buf)), n)]
+		read, err := c.reader.Read(chunk)
+		buf = buf[:len(buf)+read]
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf, nil
 }

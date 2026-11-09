@@ -14,6 +14,8 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"io"
+	"math"
 	"math/rand/v2"
 	"runtime"
 	"slices"
@@ -507,6 +509,26 @@ var _ = Describe("Codec", func() {
 				Expect(dec.Decode(encoded)).Error().
 					To(MatchError("unknown channel key: 3"))
 			},
+		)
+	})
+
+	Describe("Oversized lengths", func() {
+		DescribeTable("Should fail without allocating a length the frame does not hold",
+			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				encoded := MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))
+				// The flags byte and the sequence number come before the length.
+				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				Expect(c.Decode(encoded)).Error().To(MatchError(io.ErrUnexpectedEOF))
+				runtime.ReadMemStats(&after)
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", 8<<20))
+			},
+			Entry("fixed density", telem.Float64T, telem.NewSeriesV(1.0)),
+			Entry("variable density", telem.StringT, telem.NewSeriesV("a")),
+			Entry("boolean", telem.BooleanT, telem.NewSeriesV(true)),
 		)
 	})
 
@@ -2140,4 +2162,31 @@ func BenchmarkIteratorFrame_RoundTrip(b *testing.B) {
 			b.Fatalf("decode: %v", err)
 		}
 	}
+}
+
+func FuzzDecodeStream(f *testing.F) {
+	keys := channel.Keys{1, 2, 3}
+	dataTypes := []telem.DataType{telem.Float64T, telem.StringT, telem.BooleanT}
+	enc := codec.NewStatic(keys, dataTypes)
+	seed, err := enc.Encode(f.Context(), frame.NewMulti(
+		keys,
+		[]telem.Series{
+			telem.NewSeriesV(1.0, 2.0),
+			telem.NewSeriesV("a", "b"),
+			telem.NewSeriesV(true, false),
+		},
+	))
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(seed)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		dec := codec.NewStatic(keys, dataTypes)
+		// Any frame may fail to decode. It must not panic or allocate a length that
+		// the frame does not hold.
+		fr, err := dec.DecodeStream(bytes.NewReader(data))
+		if err != nil && !fr.Empty() {
+			t.Fatalf("decode returned a frame with error %v", err)
+		}
+	})
 }
