@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/project"
 @py output "client/py/synnax/project"
@@ -18,14 +20,47 @@ Key = uuid {
 }
 
 Project struct {
-    key  Key = create {
+    key   Key = create {
         @doc value "is the unique identifier for this project."
         @key
     }
-    name string {
+    name  string     {
         @doc value         "is a human-readable name for the project."
+        @index sorted
         @search
         @validate required
+    }
+    group group.Key? {
+        @doc value     "is the group the project sits in, if any."
+        @ref kind      place
+        @ref on_delete detach
+    }
+
+    action Create {
+        project Project
+
+        @doc value """
+            replaces the project with the given created state. Emitted by the Core when
+            a project is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the project."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the project.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the project."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the project."
     }
 
     @create
@@ -35,12 +70,18 @@ Project struct {
     """
     @go marshal
     @go migrate
-    @ontology type "project"
+    @resource type "project"
     @retrieve
 }
 
 Where filter Project {
     key
+    groups  group.Key[] {
+        @doc value "matches the projects in any of the given groups."
+    }
+    grouped bool        {
+        @doc value "matches the projects in a group, or in no group when false."
+    }
 
     @doc value         "is a filter that selects projects."
     @go request_output "core/pkg/api/project"

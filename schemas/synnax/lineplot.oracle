@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
+import "schemas/synnax/project"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 import "schemas/x/text"
 
@@ -290,6 +293,7 @@ LinePlot struct {
     }
     name     string       {
         @doc value         "is a human-readable name for the line plot."
+        @index sorted
         @search
         @validate required
     }
@@ -319,6 +323,27 @@ LinePlot struct {
     rules    Rule[]       {
         @doc value "holds annotation rules drawn over the plot."
     }
+    group    group.Key?   {
+        @doc value     "is the group the line plot sits in, if any."
+        @ref kind      place
+        @ref on_delete detach
+    }
+    project  project.Key? {
+        @doc value     """
+            is the project that owns the line plot, if any. Exactly one of project and
+            range is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
+    }
+    range    ranger.Key?  {
+        @doc value     """
+            is the range that owns the line plot, if any. Exactly one of project and
+            range is set.
+        """
+        @ref kind      place
+        @ref on_delete cascade
+    }
 
     action Create {
         line_plot LinePlot
@@ -327,12 +352,6 @@ LinePlot struct {
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
         """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the line plot."
     }
 
     action SetTitleVisible {
@@ -596,6 +615,24 @@ LinePlot struct {
         @doc value "removes the rule with the given key, if present."
     }
 
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the line plot."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the line plot.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the line plot."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the line plot."
+    }
+
     @create
     @doc value     """
         is a time-series visualization component for plotting telemetry data. Line plots
@@ -605,12 +642,24 @@ LinePlot struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "lineplot"
+    @resource type "lineplot"
     @retrieve
 }
 
 Where filter LinePlot {
     key
+    groups   group.Key[]   {
+        @doc value "matches the line plots in any of the given groups."
+    }
+    grouped  bool          {
+        @doc value "matches the line plots in a group, or in no group when false."
+    }
+    projects project.Key[] {
+        @doc value "matches the line plots owned by any of the given projects."
+    }
+    ranges   ranger.Key[]  {
+        @doc value "matches the line plots owned by any of the given ranges."
+    }
 
     @doc value         "is a filter that selects line plots."
     @go request_output "core/pkg/api/lineplot"

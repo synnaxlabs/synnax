@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import PropertyDict, Symbol
+from console.schematic.symbol import Properties, Symbol
 
 
 class Valve(Symbol):
@@ -29,15 +29,14 @@ class Valve(Symbol):
     ):
         """Initialize a valve symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            state_channel: Channel name for valve state
-            command_channel: Channel name for valve commands
-            show_control_chip: Whether to show the control chip (optional)
-            activation_delay: Milliseconds the valve must be held before it
-                actuates (optional)
-            symbol_type: The type of symbol (default: "Valve")
-            rotatable: Whether the symbol can be rotated (default: True)
+        :param label: Display label for the symbol
+        :param state_channel: Channel name for valve state
+        :param command_channel: Channel name for valve commands
+        :param show_control_chip: Whether to show the control chip (optional)
+        :param activation_delay: Milliseconds the valve must be held before it actuates
+            (optional)
+        :param symbol_type: The type of symbol (default: "Valve")
+        :param rotatable: Whether the symbol can be rotated (default: True)
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=rotatable)
         self.state_channel = state_channel
@@ -91,15 +90,14 @@ class Valve(Symbol):
                 if current_state != show_control_chip:
                     chip_toggle.click()
 
-    def get_properties(self, *, tab: str = "Control") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Control") -> Properties:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: PropertyDict = {
+        props: Properties = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,
-            "mode": "",
         }
 
         state_channel = self.channel_trigger("State")

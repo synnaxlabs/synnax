@@ -56,7 +56,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -73,10 +73,10 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Entry(e *Foo) Retrieve",
 							"func (r Retrieve) Entries(es *[]Foo) Retrieve",
 							"func (r Retrieve) Limit(limit int) Retrieve",
-							"func (r Retrieve) Offset(offset int) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
-							"func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error)",
-							"func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error)",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
+							"return r.gorp.Exec(ctx, snap)",
+							"func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error)",
+							"func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error)",
 						).
 						ToNotContain(
 							"Search(",
@@ -128,7 +128,7 @@ var _ = Describe("Go Query Plugin", func() {
 						second {
 							count int32
 						}
-						@ontology type "view"
+						@resource type "view"
 						@retrieve
 					}
 				`
@@ -159,7 +159,7 @@ var _ = Describe("Go Query Plugin", func() {
 						first {
 							size int32
 						}
-						@ontology type "view"
+						@resource type "view"
 						@retrieve
 					}
 				`
@@ -283,8 +283,31 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 				Entry("filter", "@filter", "matcher"),
 				Entry("index", "@index lookup", "index"),
+				Entry("ref", "@ref on_delete restrict", "index"),
 				Entry("search", "@search", "index"),
 			)
+
+			It("Should reject a @ref on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						owner uuid @ref on_delete restrict
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"view.View: @ref is not supported on union fields (owner)",
+				)))
+			})
 		})
 
 		Context("inherited key", func() {
@@ -302,7 +325,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					Foo struct extends Base {
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -333,7 +356,7 @@ var _ = Describe("Go Query Plugin", func() {
 						label Label @search
 						kind Kind @search
 						size int32
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -355,7 +378,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Search(term string) Retrieve",
 							"return r.Where(MatchSearch(term))",
 						).
-						ToNotContain("execSearch", "searchTerm", "KeysFromOntologyIDs")
+						ToNotContain("execSearch", "searchTerm", "KeysFromResourceIDs")
 				},
 			)
 
@@ -371,7 +394,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@index lookup
 							@search
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -411,7 +434,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					Foo struct extends Base {
 						size int32
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -541,7 +564,7 @@ var _ = Describe("Go Query Plugin", func() {
 						internal bool {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -572,7 +595,7 @@ var _ = Describe("Go Query Plugin", func() {
 						flag Flag {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -593,7 +616,7 @@ var _ = Describe("Go Query Plugin", func() {
 						author uuid {
 							@filter scalar
 						}
-						@ontology type "workspace"
+						@resource type "workspace"
 						@retrieve
 					}
 				`
@@ -621,7 +644,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@filter
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -649,7 +672,7 @@ var _ = Describe("Go Query Plugin", func() {
 						integrations string[]? {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -689,7 +712,7 @@ var _ = Describe("Go Query Plugin", func() {
 						rack rack.Key {
 							@filter
 						}
-						@ontology type "device"
+						@resource type "device"
 						@retrieve
 					}
 				`
@@ -714,7 +737,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -744,7 +767,7 @@ var _ = Describe("Go Query Plugin", func() {
 						embedded bool
 						integrations string[]
 						location string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 
@@ -781,7 +804,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 
@@ -808,7 +831,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string @search
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -819,7 +842,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"func MatchKeys(keys ...uint32) Filter",
 							"func (r Retrieve) Entry(e *Rack) Retrieve",
 							"func (r Retrieve) Entries(es *[]Rack) Retrieve",
-							"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
+							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
 							"func (r Retrieve) Search(term string) Retrieve",
 						).
 						ToNotContain("type Retrieve struct")
@@ -837,7 +860,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -871,7 +894,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -895,7 +918,7 @@ var _ = Describe("Go Query Plugin", func() {
 						key uint32 {
 							@key
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve custom
 					}
 				`
@@ -926,7 +949,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -1067,10 +1090,33 @@ var _ = Describe("Go Query Plugin", func() {
 				`
 				req := MustGenerateRequest(ctx, source, "status", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-					"status.Status: @retrieve indexes generates no matchers or " +
-						"orderings, so field name cannot take @filter or @index sorted",
+					"status.Status: @retrieve indexes generates no matchers, so field " +
+						"name cannot take @filter",
 				)))
 			})
+
+			It(
+				"Should generate orderings under @retrieve indexes",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+
+					Task struct {
+						key  uint64 { @key }
+						name string { @index sorted }
+						@retrieve indexes
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"type Order func(r Retrieve) gorp.OrderQuery[uint64, Task]",
+							"func (r Retrieve) OrderBy(o Order) Retrieve",
+							"func OrderByName(dir gorp.Direction) Order {",
+						).
+						ToNotContain("func (r Retrieve) After(")
+				},
+			)
 		})
 
 		Context("key types", func() {
@@ -1083,7 +1129,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "device"
+						@resource type "device"
 						@retrieve
 					}
 				`
@@ -1105,7 +1151,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "rack"
+						@resource type "rack"
 						@retrieve
 					}
 				`
@@ -1131,7 +1177,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "log"
+						@resource type "log"
 						@retrieve
 					}
 				`
@@ -1158,7 +1204,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@filter
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1179,7 +1225,7 @@ var _ = Describe("Go Query Plugin", func() {
 						internal bool {
 							@filter
 						}
-						@ontology type "task"
+						@resource type "task"
 						@retrieve
 					}
 				`
@@ -1200,7 +1246,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string @search
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1208,7 +1254,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\"context\"", "/gorp\"").
-						ToNotContain("service/search", "service/ontology")
+						ToNotContain("service/search", "service/resource")
 				},
 			)
 		})
@@ -1231,7 +1277,7 @@ var _ = Describe("Go Query Plugin", func() {
 						active bool {
 							@filter
 						}
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1248,7 +1294,6 @@ var _ = Describe("Go Query Plugin", func() {
 						"// Entry binds the provided foo as the result",
 						"// Entries binds the provided slice of foos",
 						"// Limit sets the maximum number of foos",
-						"// Offset sets the starting index of the foos",
 						"// Exec executes the query",
 						"// Count returns the number of foos",
 						"// Exists checks whether any foos",
@@ -1278,7 +1323,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@filter
 							@index lookup
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1322,7 +1367,7 @@ var _ = Describe("Go Query Plugin", func() {
 						username string {
 							@index lookup
 						}
-						@ontology type "user"
+						@resource type "user"
 						@retrieve
 					}
 				`
@@ -1356,7 +1401,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@filter scalar
 							@index sorted
 						}
-						@ontology type "event"
+						@resource type "event"
 						@retrieve
 					}
 				`
@@ -1372,19 +1417,129 @@ var _ = Describe("Go Query Plugin", func() {
 							"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
 							"func (r Retrieve) OrderBy(o Order) Retrieve",
 							"r.gorp = r.gorp.OrderBy(o(r))",
-							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
-							"q := r.indexes.createdAt.Ordered(dir)",
-							"q = q.After(cursor[0])",
+							"func OrderByCreatedAt(dir gorp.Direction) Order {",
+							"return r.indexes.createdAt.Ordered(dir)",
+							"func OrderByCreatedAtAfter(\n\tdir gorp.Direction,\n\tvalue int64,\n\tkey uuid.UUID,\n) Order {",
+							"return r.indexes.createdAt.Ordered(dir).After(value, key)",
 						).
 						ToNotContain(
 							"newCreatedAtIndex",
 							"var createdAtIndex",
 							"func ByCreatedAt(",
 							"func (r Retrieve) OrderByCreatedAt",
-							"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy",
+							"x/go/compare",
 						)
 				},
 			)
+
+			It("Should sort a string by its text key", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key  uuid   { @key }
+						name string {
+							@filter scalar
+							@index sorted
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						`"github.com/synnaxlabs/synnax/x/go/compare"`,
+						"name *gorp.SortedIndex[uuid.UUID, Event, string]",
+						"return compare.TextKey(string(e.Name))",
+						"value string,",
+						"compare.TextKey(string(value)),",
+						"r.indexes.name.Filter(compare.TextKey(string(v))),",
+						"return e.Name == v, nil",
+					)
+			})
+
+			It(
+				"Should match a list of strings through their text keys",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key  uuid   { @key }
+						name string {
+							@filter
+							@index sorted
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "event", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`"slices"`,
+							"keys[i] = compare.TextKey(string(v))",
+							"r.indexes.name.Filter(keys...),",
+							"return slices.Contains(vals, e.Name), nil",
+						)
+				},
+			)
+
+			It("Should sort by a sub-field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Span struct {
+						start int64
+						end   int64
+					}
+
+					Event struct {
+						key  uuid { @key }
+						span Span {
+							@filter scalar
+							@index sorted start
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
+						"\"span_start\"",
+						"return e.Span.Start",
+						"func OrderBySpanStart(dir gorp.Direction) Order {",
+						"func OrderBySpanStartAfter(",
+					).
+					ToNotContain("r.indexes.spanStart.Filter(")
+			})
+
+			It("Should sort a generic type over any", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Event struct<D?> {
+						key     uuid   { @key }
+						name    string { @index sorted }
+						details D
+						@retrieve indexes
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"type Order[D any] func(r Retrieve[D]) "+
+							"gorp.OrderQuery[uuid.UUID, Event[D]]",
+						"func (r Retrieve[D]) OrderBy(o Order[D]) Retrieve[D] {",
+						"func OrderByName(dir gorp.Direction) Order[any] {",
+						"return func(r Retrieve[any]) gorp.OrderQuery[uuid.UUID, Event[any]] {",
+					)
+			})
 
 			It(
 				"Should not emit an indexes struct when no fields have @index",
@@ -1399,7 +1554,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string {
 							@filter
 						}
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 				`
@@ -1451,7 +1606,7 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						name string
-						@ontology type "foo"
+						@resource type "foo"
 						@retrieve
 					}
 

@@ -275,6 +275,7 @@ export class SyntheticCore {
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
+      readFirst: async (keys) => this.readFirst(keys),
       node: () => this.node,
       ...props,
     });
@@ -365,6 +366,15 @@ export class SyntheticCore {
         this.reduced(key, tr, first, last, size, reduction?.aggregation ?? "min_max"),
       );
     }
+    return frame;
+  }
+
+  /** Reads the first sample of each channel. */
+  readFirst(keys: channel.Key[]): Frame {
+    this.checkConnected();
+    const frame = new Frame();
+    if (this.samplesBefore(TimeStamp.MAX) > 0)
+      keys.forEach((key) => this.raw(key, 0, 1).forEach((s) => frame.push(key, s)));
     return frame;
   }
 
@@ -527,8 +537,8 @@ export class SyntheticCore {
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
   // sample zero. A group cut by the read reduces the samples inside it. The index
-  // reduces exactly: min_max keeps each group's first and last times, decimate its first,
-  // and average its midpoint.
+  // reduces exactly: min_max keeps each group's first and last times, decimate its
+  // first, and average its midpoint.
   private reduced(
     key: channel.Key,
     tr: TimeRange,

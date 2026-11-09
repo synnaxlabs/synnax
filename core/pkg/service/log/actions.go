@@ -12,11 +12,11 @@ package log
 import (
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
@@ -32,14 +32,42 @@ const (
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // log.
 func (CreatePayload) Handle(Log) (Log, error) {
-	return Log{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a log create",
-	)
+	return Log{}, actions.CoreOnlyError("a log create")
 }
 
-// Handle replaces the log's name.
-func (p RenamePayload) Handle(state Log) (Log, error) {
-	state.Name = p.Name
+// Handle applies the set to the log's name.
+func (p SetPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Set(p).Apply)
+}
+
+// Handle applies the remove to the log's name.
+func (p RemovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Remove(p).Apply)
+}
+
+// Handle applies the insert to the log's name.
+func (p InsertPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the log's name.
+func (p MovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a log that path actions edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// edit applies a path action to a copy of the log's document. A document that gains a
+// member it does not declare, such as a path to the log's group, is rejected.
+func edit(state Log, apply func(map[string]any) error) (Log, error) {
+	d, err := patch.Edit(document{Name: state.Name}, apply)
+	if err != nil {
+		return Log{}, err
+	}
+	state.Name = d.Name
 	return state, nil
 }
 
@@ -136,8 +164,12 @@ func (p SetChannelsPayload) Handle(state Log) (Log, error) {
 }
 
 // Handle repoints the entry referencing From at To in place, preserving the entry's
-// position and display configuration. No-op when no entry references From.
+// position and display configuration. No-op when no entry references From or an entry
+// already references To.
 func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if channelEntryIndex(state.Channels, p.To) != -1 {
+		return state, nil
+	}
 	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
 		state.Channels[i].Channel = p.To
 	}
@@ -159,6 +191,12 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 // Handle controls whether the receipt timestamp column is hidden.
 func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 	state.TimestampsHidden = p.TimestampsHidden
+	return state, nil
+}
+
+// Handle sets the time zone of the line times and day rows.
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 

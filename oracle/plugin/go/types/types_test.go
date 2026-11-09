@@ -2383,6 +2383,40 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("enum starts-at-one optimization", func() {
+			It("Should render the doc of each int enum value", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+						running = 2
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("// StatusPending is a task that has not started.\n\tStatusPending")
+			})
+
+			It(
+				"Should render the doc of a single int enum value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("// StatusPending is a task that has not started.\nconst StatusPending")
+				},
+			)
+
 			It(
 				"Should use iota+1 for enums starting at 1 with sequential values",
 				func(ctx SpecContext) {
@@ -2761,7 +2795,7 @@ Rack struct extends status.BaseConfig {
 			)
 
 			It(
-				"Should keep pinned and live imports of one dependency apart when persisted and transient declarations mix",
+				"Should resolve persisted and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2812,16 +2846,16 @@ Snapshot struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
-							`"github.com/synnaxlabs/synnax/core/status"`,
-							"Embedded statusv1.Status",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
+							"Embedded status.Status",
 							"Latest status.Status",
-						)
+						).
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 
 			It(
-				"Should resolve omitted fields and transient declarations against the latest version",
+				"Should resolve omitted fields and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2856,7 +2890,7 @@ Rack struct {
 }
 `,
 						"schemas/synnax/versions/rack/v2.oracle": `
-import "schemas/synnax/status"
+import "schemas/synnax/versions/status/v1"
 
 Alias = status.Status
 
@@ -2872,13 +2906,11 @@ Rack struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							// The omitted field and the alias it references are
-							// memory-only, so they track the dependency root.
-							`"github.com/synnaxlabs/synnax/core/status"`+"\n",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
 							"type Alias = status.Status",
 							"Status *Alias",
 						).
-						ToNotContain("core/status/versions/v1")
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 

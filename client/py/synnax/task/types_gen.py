@@ -11,19 +11,48 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
-from synnax import device as device_
-from synnax import rack as rack_
-from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax import device as device_, rack as rack_, ranger, status as status_
+from synnax.resource import ID
 from x import filter, telem
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
+
+
+class StatusDetails(BaseModel):
+    """Contains task-specific status details including execution state.
+
+    Attributes:
+        running: Is true if the task is currently executing.
+        cmd: Is the last command executed on this task.
+        config_hash: Is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        rack: Is the key of the rack running the task instance.
+        data: Contains task-specific status data.
+    """
+
+    running: bool
+    cmd: str = ""
+    config_hash: str = ""
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
+    data: dict[str, JsonValue] | None = None
 
 
 class KeyedConfig(BaseModel):
@@ -40,25 +69,66 @@ class KeyedConfig(BaseModel):
         return hash(self.key)
 
 
-class StatusDetails(BaseModel):
-    """Contains task-specific status details including execution state.
+class Order(BaseModel):
+    """Is a sort of tasks.
 
     Attributes:
-        task: Is the key of the task this status pertains to.
-        running: Is true if the task is currently executing.
-        cmd: Is the last command executed on this task.
-        config_hash: Is the hash of the config the running task instance was built from.
-            Empty when no instance exists.
-        rack: Is the key of the rack running the task instance.
-        data: Contains task-specific status data.
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
     """
 
-    task: Key
-    running: bool
-    cmd: str = ""
-    config_hash: str = ""
-    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
-    data: dict[str, JsonValue] | None = None
+    field: OrderField
+    descending: bool = False
+
+
+class LinearScale(BaseModel):
+    """Maps raw values to engineering units with a slope and offset."""
+
+    type: Literal["linear"] = "linear"
+    slope: float = 1
+    offset: float = 0
+
+
+class MapScale(BaseModel):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Literal["map"] = "map"
+    pre_scaled_min: float = 0
+    pre_scaled_max: float = 1
+    scaled_min: float = 0
+    scaled_max: float = 1
+
+
+class PolynomialScale(BaseModel):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Literal["polynomial"] = "polynomial"
+    coeffs: list[float] = Field(default_factory=list)
+
+
+class TableScale(BaseModel):
+    """Maps raw values to engineering units by linear interpolation between the
+    breakpoints, and clips raw values outside the table to its first or last scaled
+    value.
+    """
+
+    type: Literal["table"] = "table"
+    pre_scaled_vals: list[float] = Field(default_factory=list)
+    scaled_vals: list[float] = Field(default_factory=list)
+
+
+class NoneScale(BaseModel):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Literal["none"] = "none"
+
+
+# Determines how the raw values of a hardware read channel are transformed to
+# engineering units.
+Scale = Annotated[
+    LinearScale | MapScale | PolynomialScale | TableScale | NoneScale,
+    Field(discriminator="type"),
+]
 
 
 class Where(BaseModel):
@@ -74,6 +144,8 @@ class Where(BaseModel):
         rack: Selects by rack.
         internal: Selects by internal.
         snapshot: Selects by snapshot.
+        ranges: Matches the tasks that are snapshots in any of the given ranges.
+        arcs: Matches the tasks that run any of the Arcs with the given keys.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -87,6 +159,34 @@ class Where(BaseModel):
     rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
     snapshot: filter.Bool | None = None
+    ranges: list[ranger.Key] | None = None
+    arcs: list[UUID] | None = None
+
+    @field_validator("ranges", "arcs", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "type": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+        "internal": filter.BoolInput,
+        "snapshot": filter.BoolInput,
+        "ranges": ranger.Key | list[ranger.Key],
+        "arcs": UUID | list[UUID],
+    },
+    total=False,
+)
 
 
 class Command(BaseModel):
@@ -110,6 +210,21 @@ class Command(BaseModel):
     config_hash: str = ""
     args: dict[str, JsonValue] = Field(default_factory=dict)
     pinned: bool = False
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of tasks: the sort value and the key of a task.
+
+    Attributes:
+        key: Is the key of the task at the position.
+        name: Is the name of the task at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
+Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class StartConfig(KeyedConfig):
@@ -142,17 +257,15 @@ class ScanConfig(KeyedConfig):
         return hash(self.key)
 
 
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve tasks.
 
     Attributes:
         where: Selects the tasks to retrieve. An absent where selects all of them.
         search_term: Keeps the tasks that match the term, closest match first.
+        order: Sorts the tasks. An absent order sorts them by key.
+        after: Starts the tasks strictly past this position in their order.
         limit: Is the most tasks to return.
-        offset: Is the number of matching tasks to skip.
         include_status: Includes the status of each record.
     """
 
@@ -160,23 +273,10 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
-
-
-class PersistConfig(StartConfig):
-    """Carries the configuration fields shared by tasks that write telemetry.
-
-    Attributes:
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
-    """
-
-    data_saving_disabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class Payload(BaseModel):
@@ -199,6 +299,7 @@ class Payload(BaseModel):
         internal: Is true if this is an internal system task.
         snapshot: Is true if this task is an immutable snapshot copy of another task.
         status: Is the current execution status of the task.
+        range: Is the range the task is a snapshot in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -210,10 +311,35 @@ class Payload(BaseModel):
     internal: bool = False
     snapshot: bool = False
     status: Status | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class PersistConfig(StartConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
+
+    Attributes:
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    data_saving_disabled: bool = False
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the tasks a RetrieveRequest selects.
+
+    Attributes:
+        tasks: Are the tasks the request selects.
+    """
+
+    tasks: list[Payload] = Field(default_factory=list)
 
 
 class ReadConfig(PersistConfig):
@@ -246,21 +372,11 @@ class WriteConfig(PersistConfig):
         return hash(self.key)
 
 
-class RetrieveResponse(BaseModel):
-    """Holds the tasks a RetrieveRequest selects.
-
-    Attributes:
-        tasks: Are the tasks the request selects.
-    """
-
-    tasks: list[Payload] = Field(default_factory=list)
-
-
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="task")
+TYPE_RESOURCE_ID = ID(type="task")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="task", key=str(key))

@@ -62,7 +62,10 @@ inline Channel Channel::parse(x::json::Parser parser) {
             "operations",
             std::vector<Operation>{}
         ),
-        .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
+        .concurrency = parser.field<::x::control::Concurrency>(
+            "concurrency",
+            ::x::control::Concurrency::Exclusive
+        ),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -103,9 +106,6 @@ inline Where Where::parse(x::json::Parser parser) {
         .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
         .virtual_ = parser.field<std::optional<bool>>("virtual"),
-        .name_patterns = parser.field<std::optional<std::vector<std::string>>>(
-            "name_patterns"
-        ),
     };
 }
 
@@ -121,7 +121,34 @@ inline x::json::json Where::to_json() const {
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
     if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
-    if (this->name_patterns.has_value()) j["name_patterns"] = *this->name_patterns;
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<Name>>("name"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
     return j;
 }
 
@@ -129,8 +156,9 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
         .include_status = parser.field<bool>("include_status", false),
     };
 }
@@ -139,8 +167,9 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
     j["include_status"] = this->include_status;
     return j;
 }

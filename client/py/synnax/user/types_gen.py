@@ -11,32 +11,52 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax.access import role as role_
+from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
 
+class Order(BaseModel):
+    """Is a sort of users.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class User(BaseModel):
-    """Is an account entity representing a person accessing the Synnax system. Users can
-    have roles assigned for permission management.
+    """Is an account entity representing a person accessing the Synnax system. Each user
+    holds one role, which grants its permissions.
 
     Attributes:
         key: Is the unique identifier for this user.
         name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
+        role: Is the role that grants the user its permissions.
     """
 
     key: Key
     name: str = Field(min_length=1)
     root_user: bool = False
+    role: role_.Key
 
     @_override
     def __hash__(self) -> int:
@@ -52,6 +72,7 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         usernames: Matches the users whose password has any of the given usernames.
+        roles: Matches the users that hold any of the given roles.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -61,6 +82,40 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     usernames: list[str] | None = None
+    roles: list[role_.Key] | None = None
+
+    @field_validator("usernames", "roles", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "usernames": str | list[str],
+        "roles": role_.Key | list[role_.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of users: the sort value and the key of a user.
+
+    Attributes:
+        key: Is the key of the user at the position.
+        name: Is the name of the user at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class RetrieveResponse(BaseModel):
@@ -79,23 +134,25 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the users to retrieve. An absent where selects all of them.
         search_term: Keeps the users that match the term, closest match first.
+        order: Sorts the users. An absent order sorts them by key.
+        after: Starts the users strictly past this position in their order.
         limit: Is the most users to return.
-        offset: Is the number of matching users to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="user")
+TYPE_RESOURCE_ID = ID(type="user")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="user", key=str(key))

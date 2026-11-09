@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { Label, Node, Trace } from "@/components/deployments/DeploymentGeometry";
 import {
   Box,
   CONCRETE,
@@ -21,8 +22,6 @@ import {
   project,
   Wire,
 } from "@/components/IndustrialGeometry";
-
-import { Label, Node, Trace } from "./DeploymentGeometry";
 
 interface VesselProps {
   x: number;

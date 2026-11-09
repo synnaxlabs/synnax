@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { resource, schematic, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +16,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology, Synnax } from "@synnaxlabs/pluto";
+import { Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
@@ -26,7 +27,7 @@ import { Range } from "@/platform/range";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
-  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  const entry = List.useItem<string, resource.Resource>(itemKey);
   const services = Range.useSnapshotServices();
   const openTab = Panel.useOpenTab();
   const client = Synnax.use();
@@ -81,24 +82,55 @@ export interface SnapshotsProps {
   rangeKey: string;
 }
 
-export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
-    initialQuery: { id: ranger.ontologyID(rangeKey) },
-    filter: (item) => item.data?.snapshot === true,
+/** Shows the records of a list as resources of the type, keyed by resource ID. */
+const useResources = <K extends string, E extends record.Keyed<K>>(
+  type: resource.Type,
+  source: Pick<List.FrameProps<K, E>, "data" | "getItem" | "subscribe">,
+  toName: (entry: E) => string,
+) =>
+  List.useTransformedData({
+    source,
+    toKey: (key) => resource.idToString({ type, key }),
+    fromKey: (id) => {
+      const parsed = resource.parseID(id);
+      return parsed.type === type ? (parsed.key as K) : null;
+    },
+    transform: (entry): resource.Resource => {
+      const id: resource.ID = { type, key: entry.key };
+      return { key: resource.idToString(id), id, name: toName(entry) };
+    },
   });
-  const { fetchMore } = List.usePager({ retrieve });
-  if (status.variant === "error") return null;
+
+export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
+  const taskList = Task.useList({
+    query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
+  });
+  const schematicList = Flux.useList((client) => client.schematics, {
+    name: "schematics",
+    query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
+  });
+  const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.name);
+  const schematics = useResources(
+    schematic.TYPE_RESOURCE_ID.type,
+    schematicList,
+    (s) => s.name,
+  );
+  const combined = List.useCombinedData<string, resource.Resource>({
+    first: tasks,
+    second: schematics,
+  });
+  if (taskList.status.variant === "error" || schematicList.status.variant === "error")
+    return null;
+  const handleFetchMore = () => {
+    taskList.more();
+    schematicList.more();
+  };
   return (
     <Flex.Box y>
       <Header.Header level="h4" borderColor={6}>
         <Header.Title>Snapshots</Header.Title>
       </Header.Header>
-      <List.Frame
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={fetchMore}
-      >
+      <List.Frame {...combined} onFetchMore={handleFetchMore}>
         <List.Scroll>
           <List.Items>{snapshotsListItem}</List.Items>
         </List.Scroll>

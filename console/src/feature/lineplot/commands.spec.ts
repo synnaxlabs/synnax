@@ -36,7 +36,7 @@ describe("LinePlot Commands", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
-    expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(lineplot.TYPE_RESOURCE_ID.type);
     const created = await client.lineplots.retrieve(tab.resource.key);
     expect(created.name).toBe("Line plot");
   });
@@ -58,7 +58,7 @@ describe("LinePlot Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(lineplot.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(lineplot.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

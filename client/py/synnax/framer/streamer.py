@@ -170,8 +170,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. This can be a float or integer representing the number
         of seconds, or a synnax TimeSpan object.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         """
 
     @overload
@@ -193,8 +193,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. If no timeout is provided, this method will block until a
         frame is received.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         :raises Unreachable: If keep-alives were flowing and then no response arrives,
         across reads, for the keep-alive deadline: the connection is presumed dead.
         """

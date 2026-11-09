@@ -15,4 +15,9 @@ export const retrieveScanTask = async (
   client: Synnax,
   rack: rack.Key,
 ): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
-  await client.tasks.retrieve({ type: SCAN_TYPE, rack, schemas: SCAN_SCHEMAS });
+  await client.tasks.retrieve({
+    type: SCAN_TYPE,
+    rack,
+    one: true,
+    schemas: SCAN_SCHEMAS,
+  });

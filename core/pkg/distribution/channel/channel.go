@@ -41,8 +41,7 @@ func NewKey(nodeKey node.Key, localKey LocalKey) Key {
 	return Key(k1 | k2)
 }
 
-// Lease implements the proxy.Entry interface, which routes Channel operations to the
-// correct node in the cluster.
+// Lease returns the key of the node that leases the channel.
 func (k Key) Lease() node.Key { return node.Key(k >> 20) }
 
 // LocalKey returns the local key for the Key.
@@ -80,11 +79,6 @@ func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k)
 // not copy the slice, it just reinterprets the memory.
 func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
-// UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
-func (k Keys) UniqueLeaseholders() []node.Key {
-	return lo.UniqMap(k, func(key Key, _ int) node.Key { return key.Lease() })
-}
-
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
 
@@ -93,7 +87,7 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 
 // Channel is the minimal, distribution-layer representation of a channel. It carries
 // only the storage and routing metadata the distribution layer needs to allocate local
-// keys, create storage, and route frames across the cluster.
+// keys, create storage, and route frames.
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name string

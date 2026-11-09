@@ -25,27 +25,3 @@
     .console-line-plot__toolbar-sampling-trigger {
     min-width: 24rem;
 }
-
-/* Each description fits on one line. A narrow window wraps them instead. */
-.console-line-plot__toolbar-sampling-dialog {
-    width: max-content;
-    max-width: var(--pluto-dialog-available-width, 100vw);
-}
-
-/* The icon hangs beside the name, so the description lines up with the name. */
-.console-line-plot__toolbar-sampling-body {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 0.5rem 1rem;
-}
-
-.console-line-plot__toolbar-sampling-option
-    + .console-line-plot__toolbar-sampling-option {
-    margin-top: 1rem;
-}
-
-.console-line-plot__toolbar-sampling-description {
-    grid-column: 2;
-    text-wrap: pretty;
-}

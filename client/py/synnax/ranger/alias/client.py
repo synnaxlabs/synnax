@@ -7,18 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 from typing import overload
 
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
+import synnax.ranger.types_gen as ranger
 from freighter import UnaryClient
+from synnax.exceptions import NotFoundError
 from x.lists import normalize
 
 
 class _ResolveRequest(BaseModel):
-    range: uuid.UUID
+    range: ranger.Key
     aliases: list[str]
 
 
@@ -27,7 +28,7 @@ class _ResolveResponse(BaseModel):
 
 
 class _SetRequest(BaseModel):
-    range: uuid.UUID
+    range: ranger.Key
     aliases: dict[channel.Key, str]
 
 
@@ -38,7 +39,7 @@ class Client:
     _client: UnaryClient
     _cache: dict[str, channel.Key]
 
-    def __init__(self, *, rng: uuid.UUID, client: UnaryClient) -> None:
+    def __init__(self, *, rng: ranger.Key, client: UnaryClient) -> None:
         self._client = client
         self._rng = rng
         self._cache = {}
@@ -74,7 +75,10 @@ class Client:
             self._cache[alias] = key
 
         if is_single:
-            return res.aliases[normalized_aliases[0]]
+            alias = normalized_aliases[0]
+            if alias not in res.aliases:
+                raise NotFoundError(f"Alias matching {alias} not found")
+            return res.aliases[alias]
         return {**results, **res.aliases}
 
     def set(self, aliases: dict[channel.Key, str]) -> None:

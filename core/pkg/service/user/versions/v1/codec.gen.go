@@ -18,6 +18,7 @@ func (u User) EncodeOrc(w *orc.Writer) error {
 	w.Write(u.Key[:])
 	w.String(u.Name)
 	w.Bool(u.RootUser)
+	w.Write(u.Role[:])
 	return nil
 }
 
@@ -31,6 +32,9 @@ func (u *User) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if u.RootUser, err = r.Bool(); err != nil {
+		return err
+	}
+	if _, err := r.Read(u.Role[:]); err != nil {
 		return err
 	}
 	return nil

@@ -17,15 +17,22 @@ StatusCache::StatusCache(synnax::status::Client client): client(std::move(client
 
 std::shared_ptr<StatusCache::Entry>
 StatusCache::entry_for(const synnax::task::Status &status) {
+    const auto &owner = status.owner.value();
     std::lock_guard lock{this->mu};
-    if (this->released.contains(status.details.task)) return nullptr;
-    auto &entry = this->entries[status.details.task];
+    if (this->released.contains(owner)) return nullptr;
+    auto &entry = this->entries[owner];
     if (entry != nullptr) return entry;
     // Filled before resend can reach it, so a re-send never sends an empty status.
     entry = std::make_shared<Entry>();
     entry->status = status;
     entry->status.details.cmd.clear();
     return entry;
+}
+
+x::errors::Error StatusCache::write(synnax::task::Status &status) {
+    const auto err = this->client.set<synnax::task::StatusDetails>(status);
+    if (err) this->is_stale = true;
+    return err;
 }
 
 x::errors::Error StatusCache::set(synnax::task::Status &status) {
@@ -36,10 +43,12 @@ x::errors::Error StatusCache::set(synnax::task::Status &status) {
     if (entry->dropped) return x::errors::NIL;
     entry->status = status;
     entry->status.details.cmd.clear();
-    return this->client.set<synnax::task::StatusDetails>(status);
+    return this->write(status);
 }
 
 x::errors::Error StatusCache::resend() {
+    // Cleared first, so a write that fails during the re-send marks the cache again.
+    this->is_stale = false;
     std::vector<std::shared_ptr<Entry>> entries;
     {
         std::lock_guard lock{this->mu};
@@ -54,17 +63,30 @@ x::errors::Error StatusCache::resend() {
         if (entry->dropped) continue;
         auto status = entry->status;
         status.time = x::telem::TimeStamp::now();
-        if (const auto err = this->client.set<synnax::task::StatusDetails>(status);
-            err && !first_err)
-            first_err = err;
+        if (const auto err = this->write(status); err && !first_err) first_err = err;
     }
     return first_err;
 }
 
+std::optional<synnax::task::Status> StatusCache::latest(const synnax::task::Key &key) {
+    std::shared_ptr<Entry> entry;
+    {
+        std::lock_guard lock{this->mu};
+        const auto it = this->entries.find(synnax::task::resource_id(key));
+        if (it == this->entries.end()) return std::nullopt;
+        entry = it->second;
+    }
+    std::lock_guard lock{entry->mu};
+    // drop can run between the lookup and the lock.
+    if (entry->dropped) return std::nullopt;
+    return entry->status;
+}
+
 void StatusCache::drop(const synnax::task::Key &key) {
+    const auto owner = synnax::task::resource_id(key);
     std::lock_guard lock{this->mu};
-    this->released.insert(key);
-    const auto it = this->entries.find(key);
+    this->released.insert(owner);
+    const auto it = this->entries.find(owner);
     if (it == this->entries.end()) return;
     it->second->dropped = true;
     this->entries.erase(it);
@@ -72,6 +94,6 @@ void StatusCache::drop(const synnax::task::Key &key) {
 
 void StatusCache::claim(const synnax::task::Key &key) {
     std::lock_guard lock{this->mu};
-    this->released.erase(key);
+    this->released.erase(synnax::task::resource_id(key));
 }
 }

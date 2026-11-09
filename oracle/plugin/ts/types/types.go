@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -311,14 +311,14 @@ func (p *Plugin) generateFile(
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
-	data.Ontology = p.extractOntology(
+	data.Resource = p.extractResource(
 		slices.Concat(structs, unions),
 		rawKeyFields,
 		skip,
 		req.Resolutions,
 	)
-	if data.Ontology != nil {
-		data.AddImport("@/ontology", "ontology")
+	if data.Resource != nil {
+		data.AddImport("@/resource", "resource")
 	}
 
 	// Separate type definitions based on whether they have dependencies on schema
@@ -442,13 +442,13 @@ func findFieldTypeOverride(
 	return ""
 }
 
-func (p *Plugin) extractOntology(
+func (p *Plugin) extractResource(
 	structs []resolution.Type,
 	keyFields []key.Field,
-	skip ontology.SkipFunc,
+	skip resource.SkipFunc,
 	table *resolution.Table,
-) *ontologyData {
-	data := ontology.Extract(structs, keyFields, skip, table)
+) *resourceData {
+	data := resource.Extract(structs, keyFields, skip, table)
 	if data == nil {
 		return nil
 	}
@@ -471,7 +471,7 @@ func (p *Plugin) extractOntology(
 		primitive = override
 	}
 	keyZeroValue := primitiveZeroValue(primitive)
-	return &ontologyData{
+	return &resourceData{
 		TypeName:     data.TypeName,
 		KeyType:      keyType,
 		KeyZeroValue: keyZeroValue,
@@ -1093,7 +1093,7 @@ func (p *Plugin) processStruct(
 	}
 
 	for _, field := range allFields {
-		if sd.Request && field.Default != nil {
+		if sd.Strict && field.Default != nil {
 			field.Default = nil
 			field.Optional = true
 		}
@@ -3045,7 +3045,7 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 type templateData struct {
 	*imports.Manager
 	Request          *plugin.Request
-	Ontology         *ontologyData
+	Resource         *resourceData
 	DeclOrder        map[string]int
 	Namespace        string
 	OutputPath       string
@@ -3075,7 +3075,7 @@ type typeDefData struct {
 	ZodType string
 }
 
-type ontologyData struct {
+type resourceData struct {
 	TypeName, KeyType, KeyZeroValue string
 }
 
@@ -3115,8 +3115,7 @@ type structData struct {
 	PartialFields     []fieldData
 	OmittedFields     []string
 	// Request is true for a request derived from a filter. A query cache keys on it, so
-	// it is a type alias, since an interface has no index signature. It leaves its
-	// defaults to the Core, so the cache sees only the fields that a caller set.
+	// it is a type alias, since an interface has no index signature.
 	Request bool
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
@@ -3131,8 +3130,9 @@ type structData struct {
 	AllParamsOptional        bool
 	Handwritten              bool
 	IsRecursive              bool
-	// Strict is true when the schema rejects unknown keys, so a stale field in a filter
-	// request fails instead of selecting every record.
+	// Strict is true for a filter, its request, and its operator types. Each rejects
+	// unknown keys, so a stale field fails instead of selecting every record. Each
+	// leaves its defaults to the Core, so the cache sees only the fields a caller set.
 	Strict             bool
 	IsAlias            bool
 	IsSingleParam      bool
@@ -3673,10 +3673,10 @@ export const {{ .SchemasConst }}: {
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if .Ontology }}
+{{- if .Resource }}
 
-export const ontologyID = ontology.createIDFactory<{{ .Ontology.KeyType }}>("{{ .Ontology.TypeName }}");
-export const TYPE_ONTOLOGY_ID = ontologyID({{ .Ontology.KeyZeroValue }});
+export const resourceID = resource.createIDFactory<{{ .Resource.KeyType }}>("{{ .Resource.TypeName }}");
+export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )

@@ -73,19 +73,17 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			func() {
 				report := server.Report()
 				Expect(report["protocol"]).To(Equal("websocket"))
-				Expect(report["encodings"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
+				Expect(report["encodings"]).To(Equal([]string{"application/json"}))
 			},
 		)
 	})
 
 	Describe("Upgrade Negotiation", func() {
-		It(
+		DescribeTable(
 			"should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec",
-			func(ctx context.Context) {
+			func(ctx context.Context, contentType string) {
 				headers := http.Header{}
-				headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+				headers.Set(fiber.HeaderContentType, contentType)
 				_, res, err := (&ws.Dialer{}).DialContext(
 					ctx,
 					"ws://"+addr.String()+"/",
@@ -96,6 +94,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
 				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
 			},
+			Entry("an unknown codec", "application/x-no-such-codec"),
+			Entry("msgpack", "application/msgpack"),
 		)
 
 		It(

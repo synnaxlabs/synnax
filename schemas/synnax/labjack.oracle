@@ -63,45 +63,6 @@ ThermocoupleType enum {
     @doc value "selects the thermocouple alloy type."
 }
 
-Scale union on type {
-    linear {
-        slope  float64 = 1 {
-            @doc value "is the multiplier applied to the raw value."
-        }
-        offset float64 = 0 {
-            @doc value "is the offset added after scaling."
-        }
-
-        @doc value "maps raw values to engineering units with a slope and offset."
-    }
-    map {
-        pre_scaled_min float64 = 0 {
-            @default group "pre_scaled"
-            @doc value     "is the lower bound of the raw input range."
-        }
-        pre_scaled_max float64 = 1 {
-            @default group "pre_scaled"
-            @doc value     "is the upper bound of the raw input range."
-        }
-        scaled_min     float64 = 0 {
-            @default group "scaled"
-            @doc value     "is the lower bound of the scaled output range."
-        }
-        scaled_max     float64 = 1 {
-            @default group "scaled"
-            @doc value     "is the upper bound of the scaled output range."
-        }
-
-        @doc value "maps a raw range linearly onto a scaled range."
-    }
-    none {
-        @doc value "applies no scaling; the raw value is used directly."
-    }
-
-    @doc value  "determines how raw sensor values are transformed to engineering units."
-    @go marshal
-}
-
 BaseReadChannel struct {
     key      string = create {
         @doc value "uniquely identifies the channel within the task."
@@ -114,7 +75,9 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     port     string = "" {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
@@ -139,7 +102,7 @@ ReadChannel union on type extends BaseReadChannel {
                 selects single-ended.
             """
         }
-        scale    Scale = none {
+        scale    task.Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -180,7 +143,7 @@ ReadChannel union on type extends BaseReadChannel {
         units             TemperatureUnits = kelvin {
             @doc value "are the units of the temperature measurement."
         }
-        scale             Scale = none {
+        scale             task.Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -203,10 +166,14 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -242,7 +209,9 @@ WriteChannel union on type extends BaseWriteChannel {
 
 ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     channels                          ReadChannel[] {
         @doc value "are the channels the task acquires."
@@ -260,10 +229,12 @@ ReadConfig struct extends task.ReadConfig {
         """
     }
 
-    @doc value  "configures a LabJack read task."
-    @go imex    body
+    @doc value           "configures a LabJack read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -275,10 +246,12 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  "configures a LabJack write task."
-    @go imex    body
+    @doc value           "configures a LabJack write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -293,4 +266,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

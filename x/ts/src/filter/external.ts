@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/filter/describe";
+export * from "@/filter/input";
 export * from "@/filter/match";
 export * from "@/filter/types.gen";

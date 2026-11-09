@@ -19,9 +19,9 @@ import { type Entry, type Stage } from "@/server/referral";
 import { referralPath, userPath } from "@/shell";
 import { ReferralDialog } from "@/ui/admin/ReferralDialog";
 import { Fact, Facts } from "@/ui/Facts";
-import { date } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface ReferralsProps {
   entries: Entry[];
@@ -99,49 +99,52 @@ const ReferralRow = ({
   account,
   usage,
   stage,
-}: Entry): ReactElement => (
-  <Row columns={COLUMNS}>
-    <Flex.Box y gap="tiny" className="portal-list__stack">
-      <Text.Text level="p" weight={500} overflow="fade">
-        {ref.recipient}
-      </Text.Text>
-      {account != null && (
-        <Text.Text level="small" color={9} overflow="fade">
-          {account.email}
+}: Entry): ReactElement => {
+  const clock = useClock();
+  return (
+    <Row columns={COLUMNS}>
+      <Flex.Box y gap="tiny" className="portal-list__stack">
+        <Text.Text level="p" weight={500} overflow="fade">
+          {ref.recipient}
         </Text.Text>
-      )}
-    </Flex.Box>
-    <Flex.Box>
-      <StageTag stage={stage} />
-    </Flex.Box>
-    <Text.Text level="p" color={9}>
-      {date(usage.lastActive)}
-    </Text.Text>
-    <Text.Text level="p" color={9} overflow="fade">
-      {referrer}
-    </Text.Text>
-    <Text.Text level="p" color={9}>
-      {date(ref.createdAt)}
-    </Text.Text>
-    <Flex.Box x justify="end" gap="tiny">
-      <Button.Copy
-        variant="text"
-        size="small"
-        text={() => new URL(referralPath(ref.key), window.location.origin).href}
-        tooltip="Copy the link"
-        aria-label="Copy referral link"
-      />
-      {account != null && (
-        <Button.Button
+        {account != null && (
+          <Text.Text level="small" color={9} overflow="fade">
+            {account.email}
+          </Text.Text>
+        )}
+      </Flex.Box>
+      <Flex.Box>
+        <StageTag stage={stage} />
+      </Flex.Box>
+      <Text.Text level="p" color={9}>
+        {clock.date(usage.lastActive)}
+      </Text.Text>
+      <Text.Text level="p" color={9} overflow="fade">
+        {referrer}
+      </Text.Text>
+      <Text.Text level="p" color={9}>
+        {clock.date(ref.createdAt)}
+      </Text.Text>
+      <Flex.Box x justify="end" gap="tiny">
+        <Button.Copy
           variant="text"
           size="small"
-          href={userPath(account.userID)}
-          tooltip="Open the user"
-          aria-label="Open the user"
-        >
-          <Icon.User />
-        </Button.Button>
-      )}
-    </Flex.Box>
-  </Row>
-);
+          text={() => new URL(referralPath(ref.key), window.location.origin).href}
+          tooltip="Copy the link"
+          aria-label="Copy referral link"
+        />
+        {account != null && (
+          <Button.Button
+            variant="text"
+            size="small"
+            href={userPath(account.userID)}
+            tooltip="Open the user"
+            aria-label="Open the user"
+          >
+            <Icon.User />
+          </Button.Button>
+        )}
+      </Flex.Box>
+    </Row>
+  );
+};

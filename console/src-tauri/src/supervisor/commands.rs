@@ -68,13 +68,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
     let discovery_path = discovery::path(&app.path().home_dir()?);
-    let cfg = Config::new(
-        program,
-        version.clone(),
-        local,
-        data_dir.clone(),
-        log_dir.clone(),
-    );
+    let cfg = Config::new(program, local, data_dir.clone(), log_dir.clone());
     // Supervisor::open spawns onto the current runtime, which setup does not enter.
     let supervisor = tauri::async_runtime::block_on(async { Supervisor::open(cfg) })?;
     let mut status = supervisor.subscribe();

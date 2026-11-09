@@ -65,7 +65,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     const keys = array.toArray(data.keys);
 
     const devices = await client.devices.retrieve({
-      where: { key: { in: keys } },
+      key: keys,
       includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });

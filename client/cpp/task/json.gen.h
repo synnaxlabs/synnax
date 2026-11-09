@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/device/key.h"
@@ -28,7 +29,6 @@ namespace synnax::task {
 
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
-        .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .config_hash = parser.field<std::string>("config_hash", ""),
@@ -39,7 +39,6 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j = x::json::json::object();
-    j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
     j["config_hash"] = this->config_hash;
@@ -226,12 +225,41 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
+    return j;
+}
+
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
         .include_status = parser.field<bool>("include_status", false),
     };
 }
@@ -240,8 +268,9 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
     j["include_status"] = this->include_status;
     return j;
 }
@@ -256,6 +285,105 @@ inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["tasks"] = x::json::to_array(this->tasks);
     return j;
+}
+
+inline LinearScale LinearScale::parse(x::json::Parser parser) {
+    LinearScale result;
+    result.slope = parser.field<double>("slope", 1);
+    result.offset = parser.field<double>("offset", 0);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json LinearScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["slope"] = this->slope;
+    j["offset"] = this->offset;
+    j["type"] = this->type;
+    return j;
+}
+
+inline MapScale MapScale::parse(x::json::Parser parser) {
+    MapScale result;
+    result.pre_scaled_min = parser.field<double>("pre_scaled_min", 0);
+    result.pre_scaled_max = parser.field<double>("pre_scaled_max", 1);
+    result.scaled_min = parser.field<double>("scaled_min", 0);
+    result.scaled_max = parser.field<double>("scaled_max", 1);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json MapScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["pre_scaled_min"] = this->pre_scaled_min;
+    j["pre_scaled_max"] = this->pre_scaled_max;
+    j["scaled_min"] = this->scaled_min;
+    j["scaled_max"] = this->scaled_max;
+    j["type"] = this->type;
+    return j;
+}
+
+inline PolynomialScale PolynomialScale::parse(x::json::Parser parser) {
+    PolynomialScale result;
+    result.coeffs = parser.field<std::vector<double>>("coeffs", std::vector<double>{});
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PolynomialScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["coeffs"] = this->coeffs;
+    j["type"] = this->type;
+    return j;
+}
+
+inline TableScale TableScale::parse(x::json::Parser parser) {
+    TableScale result;
+    result.pre_scaled_vals = parser.field<std::vector<double>>(
+        "pre_scaled_vals",
+        std::vector<double>{}
+    );
+    result.scaled_vals = parser.field<std::vector<double>>(
+        "scaled_vals",
+        std::vector<double>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TableScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["pre_scaled_vals"] = this->pre_scaled_vals;
+    j["scaled_vals"] = this->scaled_vals;
+    j["type"] = this->type;
+    return j;
+}
+
+inline NoneScale NoneScale::parse(x::json::Parser parser) {
+    NoneScale result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NoneScale::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline Scale parse_scale(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "linear") return LinearScale::parse(parser);
+    if (discriminator == "map") return MapScale::parse(parser);
+    if (discriminator == "polynomial") return PolynomialScale::parse(parser);
+    if (discriminator == "table") return TableScale::parse(parser);
+    if (discriminator == "none") return NoneScale::parse(parser);
+    parser.field_err("type", "unknown Scale type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Scale &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }
