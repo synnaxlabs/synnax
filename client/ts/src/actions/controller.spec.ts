@@ -27,6 +27,7 @@ interface Doc {
 type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
+  | { type: "child"; key: string; value: number }
   | { type: "create"; doc: Doc }
   | { type: "invalid" }
   | { type: "noop" };
@@ -41,6 +42,11 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       next = { values: { ...next.values, [a.key]: a.value } };
       inverse.unshift({ type: "set", key: a.key, value: prev });
       targets.add(a.key);
+    } else if (a.type === "child") {
+      // Fails without its parent, as a set inside a field that another edit made does.
+      if (next.values[a.key] == null) throw new Error(`no value at ${a.key}`);
+      next = { values: { ...next.values, [`${a.key}.child`]: a.value } };
+      targets.add(`${a.key}.child`);
     } else if (a.type === "tag")
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
@@ -705,6 +711,22 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 0, b: 0 } });
       expect(controller.hasUndo("k")).toBe(false);
       expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
+    });
+
+    it("rejects a queued dispatch that needs the failed one and keeps sending", async () => {
+      const send = createFailingSend(1);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("b", 1)]);
+      const two = controller.dispatch("k", [{ type: "child", key: "b", value: 2 }]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("no value at b");
+      expect(await controller.dispatch("k", [set("c", 3)])).toBe(true);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("b", 1)],
+        [set("c", 3)],
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, c: 3 } });
     });
 
     it("drops a queued undo of a dispatch whose send failed", async () => {
