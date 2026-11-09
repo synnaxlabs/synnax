@@ -21,7 +21,6 @@ import { Panel } from "@/platform/panel";
 import { type Item } from "@/platform/tree/item";
 import { isMoreKey, type Store } from "@/platform/tree/store";
 import {
-  type ContextMenu as ItemContextMenu,
   type ContextMenuProps,
   type RootContextMenuProps,
   type TreeState,
@@ -57,7 +56,7 @@ export interface UseMenuProps {
   /** The menu for a right-click on empty space. */
   rootContextMenu: FC<RootContextMenuProps>;
   /** The menu for a selection of more than one resource type. */
-  mixedContextMenu: ItemContextMenu;
+  mixedContextMenu: FC<ContextMenuProps>;
   resolveItem: (type: resource.Type) => Item;
   handleError: Status.ErrorHandler;
 }

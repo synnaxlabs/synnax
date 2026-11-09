@@ -72,9 +72,9 @@ export interface Drop {
 }
 
 /**
- * Item renders a single resource row in the resource tree. The component carries the
- * static, render-independent behavior for its resource type (children, order, drag,
- * context menu) as properties, read imperatively by the Tree.
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, order, drag, context menu) as properties,
+ * which the Tree reads imperatively.
  */
 /** Returns what a drag of the resource carries besides the resource itself. */
 export interface HaulItems {

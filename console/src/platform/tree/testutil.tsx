@@ -252,9 +252,8 @@ export interface CreateBasePropsParams {
 }
 
 /**
- * Builds {@link Tree.BaseProps} with the given client and store. The tab and
- * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
- * observe them.
+ * Builds {@link Tree.BaseProps} with the given client and store. The tab and error
+ * callbacks default to no-ops. Pass overrides, such as vi.fn() spies, to observe them.
  */
 export const createBaseProps = ({
   client,
@@ -348,6 +347,18 @@ export const renderLiveTree = async ({
   return { ...rendered, store };
 };
 
+/** Renders a tree of groups under root that searches with search. */
+export const renderSearchableTree = async (
+  client: Synnax,
+  root: resource.ID,
+  search: Tree.UseSearch,
+): Promise<LiveTreeHandle> =>
+  await renderLiveTree({ client, root, items: { group: createGroupItem() }, search });
+
+/** Returns how many trees an open search hides. */
+export const countHiddenTrees = (): number =>
+  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
+
 const SCROLL_STEP = 200;
 // A search hides the browse tree, so the helpers skip it as a user does.
 const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";
@@ -359,13 +370,19 @@ const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
  * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
  * label was found, and back at the top when there is none.
  */
+const rowsHeight = (): number => {
+  const rows = document.querySelector<HTMLElement>(
+    `${VISIBLE_TREE} .lyra-list__virtualizer`,
+  );
+  return rows == null ? 0 : parseInt(rows.style.minHeight, 10);
+};
+
 // Sweeps from the top by default: a previous lookup can leave the tree scrolled past
 // the row.
 const sweepTree = async (text: Matcher, from = 0): Promise<HTMLElement | null> => {
   const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
-  const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
-  if (tree == null || rows == null) return null;
-  const total = parseInt(rows.style.minHeight, 10);
+  if (tree == null) return null;
+  const total = rowsHeight();
   for (let offset = from; offset <= total; offset += SCROLL_STEP) {
     await act(async () => {
       tree.scrollTop = offset;
@@ -381,22 +398,16 @@ const SHOW_MORE = "Show more";
 const MAX_PAGES = 20;
 const BOTTOM_SPAN = 5 * SCROLL_STEP;
 
-const rowsHeight = (): number => {
-  const rows = document.querySelector<HTMLElement>(
-    `${VISIBLE_TREE} .lyra-list__virtualizer`,
-  );
-  return rows == null ? 0 : parseInt(rows.style.minHeight, 10);
-};
-
 // Loads the next page of a folder, as a user does, until the label shows. A page that
-// lands either moves the show more node down or replaces it. When the last folder
-// pages, the node and the new page sit near the bottom, so the sweeps start there.
+// lands where the show more node was, so the label sweep starts there. The last folder
+// pages near the bottom, so the node sweep starts there.
 const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
   for (let page = 0; page < MAX_PAGES; page++) {
     const height = rowsHeight();
     const bottom = Math.max(0, height - BOTTOM_SPAN);
     const more = (await sweepTree(SHOW_MORE, bottom)) ?? (await sweepTree(SHOW_MORE));
     if (more == null) return null;
+    const at = document.querySelector<HTMLElement>(VISIBLE_TREE)?.scrollTop ?? 0;
     await act(async () => {
       fireEvent.click(more);
     });
@@ -404,7 +415,7 @@ const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
       if (more.isConnected && rowsHeight() === height)
         throw new Error("the next page has not landed");
     });
-    const found = await sweepTree(text, bottom);
+    const found = await sweepTree(text, at);
     if (found != null) return found;
   }
   return null;

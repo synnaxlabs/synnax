@@ -16,8 +16,7 @@ import { type Resource } from "@/platform/tree/types";
 
 const MORE_PREFIX = "more/";
 
-/** Returns the key of the node that loads the next page of the folder. */
-export const moreKey = (folder: string): string => `${MORE_PREFIX}${folder}`;
+const moreKey = (folder: string): string => `${MORE_PREFIX}${folder}`;
 
 /** Returns whether the key names the node that loads the next page of a folder. */
 export const isMoreKey = (key: string): boolean => key.startsWith(MORE_PREFIX);
@@ -228,7 +227,6 @@ export class Store {
     return this.children.get(key);
   }
 
-  /** Returns the key of the node's parent, or undefined for a node not shown. */
   /**
    * Returns the IDs above a shown node, nearest first, ending with the root. A node at
    * the top of the results sits in the folders that its path gives.
@@ -267,6 +265,7 @@ export class Store {
     return new Set(keys.filter(contained));
   }
 
+  /** Returns the key of the node's parent, or undefined for a node not shown. */
   getParent(key: string): string | undefined {
     return this.parents.get(key);
   }
@@ -282,16 +281,16 @@ export class Store {
   }
 
   /**
-   * Fetches the next page of the lists that hold back more of the folder. Does nothing
+   * Fetches the next page of the folder that the "Show more" node ends. Does nothing
    * while a page is on the way.
    */
   more(key: string): void {
-    const folder = this.folders.get(key);
+    const folder = this.folders.get(folderOf(key));
     if (folder == null || folder.fetchingMore) return;
     const pending = this.mergedOf(folder)?.pending ?? [];
     if (pending.length === 0) return;
     folder.fetchingMore = true;
-    this.notifyKey(moreKey(key));
+    this.notifyKey(key);
     void (async () => {
       try {
         await Promise.all(pending.map(async (i) => await folder.sources[i].more()));
@@ -299,7 +298,7 @@ export class Store {
         this.config.onError(error);
       }
       folder.fetchingMore = false;
-      this.notifyKey(moreKey(key));
+      this.notifyKey(key);
     })();
   }
 
@@ -382,7 +381,7 @@ export class Store {
     }
   }
 
-  // Results show in place of the lists of the root and of the fixed groups.
+  // Results show in place of the lists of the root and of the fixed folders.
   private showsResults(key: string): boolean {
     return (
       this.results != null && (key === this.rootKey || this.results.fixed.has(key))
@@ -401,12 +400,9 @@ export class Store {
     else {
       const folder = this.folders.get(key);
       const merged = folder == null ? undefined : this.mergedOf(folder);
-      listed =
-        (merged == null
-          ? undefined
-          : [...merged.keys, ...(merged.pending.length > 0 ? [moreKey(key)] : [])]) ??
-        this.resultChildren.get(key) ??
-        held?.draft.children;
+      if (merged == null) listed = this.resultChildren.get(key) ?? held?.draft.children;
+      else if (merged.pending.length === 0) listed = merged.keys;
+      else listed = [...merged.keys, moreKey(key)];
     }
     const drafted = [...this.drafts.values()]
       .filter(({ draft }) => draft.parent === key)

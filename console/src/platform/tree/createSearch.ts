@@ -101,13 +101,13 @@ const buildResults = ({
     }
     idPaths.forEach((path) => {
       let level = nodes;
-      path.forEach((groupID) => {
-        const groupKey = resource.idToString(groupID);
-        expanded.add(groupKey);
-        if (!matched.has(groupKey)) fixed.add(groupKey);
-        let node = level.find((n) => n.key === groupKey);
+      path.forEach((folderID) => {
+        const folderKey = resource.idToString(folderID);
+        expanded.add(folderKey);
+        if (!matched.has(folderKey)) fixed.add(folderKey);
+        let node = level.find((n) => n.key === folderKey);
         if (node == null) {
-          node = { key: groupKey, children: [] };
+          node = { key: folderKey, children: [] };
           level.push(node);
         }
         node.children ??= [];

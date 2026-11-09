@@ -16,10 +16,13 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Group } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -38,6 +41,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import {
+  countHiddenTrees,
   createGroupItem,
   createScopeTree,
   createSearchTree,
@@ -48,10 +52,13 @@ import {
   openTreeRootContextMenu,
   openTreeRowContextMenu,
   renderLiveTree,
+  renderSearchableTree,
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
 import {
+  awaitTextEditingElement,
+  awaitTextEditingExit,
   createConsoleWrapper,
   getIconButton,
   uniqueName,
@@ -453,6 +460,39 @@ describe("Tree.Tree", () => {
       for (const name of names) await client.groups.create({ parent: parentID, name });
     });
 
+    it("should keep a draft outside the window mounted for its rename", async () => {
+      const id = group.resourceID(uuid.create());
+      const key = resource.idToString(id);
+      const RootMenu = ({ root, state }: Tree.RootContextMenuProps): ReactElement => (
+        <button
+          onClick={() => {
+            state.addDraft({
+              resource: { key, id, name: "" },
+              parent: resource.idToString(root),
+            });
+            void Text.asyncEdit(List.itemNameID(key));
+          }}
+        >
+          Draft
+        </button>
+      );
+      await renderLiveTree({
+        client,
+        root: channel.TYPE_RESOURCE_ID,
+        contextMenus: { root: RootMenu, mixed: () => null },
+        ...createScopeTree(parentID.key),
+      });
+      await findTreeRow(names[CHILD_COUNT - 1]);
+      expect(screen.queryByText(names[0])).toBeNull();
+      await openTreeRootContextMenu();
+      fireEvent.click(await screen.findByText("Draft"));
+      const editable = await awaitTextEditingElement();
+      await act(async () => {
+        fireEvent.keyDown(editable, { key: "Escape" });
+      });
+      await awaitTextEditingExit();
+    });
+
     it("should render only the rows inside the window", async () => {
       const { container } = await renderTree(parentID);
       await screen.findByText(names[0]);
@@ -488,23 +528,20 @@ describe("Tree.Tree", () => {
     // A folder list fetches this many children at a time.
     const PAGE_SIZE = 1000;
     const SHOW_MORE = "Show more";
-    const tree = (): HTMLElement => {
-      const el = document.querySelector<HTMLElement>(".lyra-tree");
-      if (el == null) throw new Error("tree not found");
-      return el;
-    };
     // A fresh client starts with no page fetched, as a list another test grew stays
     // grown in its client's cache.
-    const renderPaged = async () =>
-      await renderTree(
-        channel.TYPE_RESOURCE_ID,
-        GROUP_ITEMS,
-        createTestClient(),
-        listRoot,
-      );
+    const renderPaged = async (items: Tree.Items = GROUP_ITEMS) =>
+      await renderTree(channel.TYPE_RESOURCE_ID, items, createTestClient(), listRoot);
     let groupKey: string;
+    let destination: group.Group;
     let names: string[];
+    let lastKey: channel.Key;
     const listRoot: Tree.TreeProps["listRoot"] = (c) => [
+      Tree.createSource(
+        c.groups,
+        { parents: [group.resourceID(groupKey)] },
+        Tree.toResource("group"),
+      ),
       Tree.createSource(
         c.channels,
         { where: { groups: [groupKey] } },
@@ -524,7 +561,7 @@ describe("Tree.Tree", () => {
         { length: PAGE_SIZE + 1 },
         (_, i) => `${tag}_${String(i).padStart(4, "0")}`,
       );
-      await client.channels.create(
+      const created = await client.channels.create(
         names.map((name) => ({
           name,
           dataType: DataType.FLOAT32,
@@ -532,6 +569,11 @@ describe("Tree.Tree", () => {
           group: g.key,
         })),
       );
+      lastKey = created[PAGE_SIZE - 1].key;
+      destination = await client.groups.create({
+        parent: group.resourceID(g.key),
+        name: uniqueName("destination"),
+      });
     });
 
     it("should show one page and load the next from the show more node", async () => {
@@ -548,11 +590,12 @@ describe("Tree.Tree", () => {
       fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
       await findTreeRow(SHOW_MORE);
       expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      const tree = screen.getByRole("tree");
       const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
-      fireEvent.keyDown(tree(), arrowDown);
-      fireEvent.keyUp(tree(), arrowDown);
-      fireEvent.keyDown(tree(), { key: "Enter", code: "Enter" });
-      fireEvent.keyUp(tree(), { key: "Enter", code: "Enter" });
+      fireEvent.keyDown(tree, arrowDown);
+      fireEvent.keyUp(tree, arrowDown);
+      fireEvent.keyDown(tree, { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(tree, { key: "Enter", code: "Enter" });
       await findTreeRow(names[PAGE_SIZE]);
     });
 
@@ -560,6 +603,42 @@ describe("Tree.Tree", () => {
       await renderPaged();
       await openTreeRowContextMenu(SHOW_MORE);
       expect(await screen.findByText(ROOT_MENU)).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a selected record's menu", async () => {
+      await renderPaged({
+        ...GROUP_ITEMS,
+        channel: Tree.createItem({
+          ContextMenu: ({ selection: { ids } }: Tree.ContextMenuProps) => (
+            <span>{ids.map((id) => resource.idToString(id)).join(" ")}</span>
+          ),
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      await openTreeRowContextMenu(names[PAGE_SIZE - 1]);
+      expect(
+        await screen.findByText(resource.idToString(channel.resourceID(lastKey))),
+      ).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a dragged selection", async () => {
+      const dropped: string[][] = [];
+      await renderPaged({
+        group: createGroupItem({
+          canDrop: () => true,
+          drop: async ({ items }) => {
+            dropped.push(items.map(({ id }) => resource.idToString(id)));
+          },
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      fireEvent.dragStart(getTreeRow(names[PAGE_SIZE - 1]));
+      fireEvent.drop(await findTreeRow(destination.name));
+      await waitFor(() =>
+        expect(dropped).toEqual([[resource.idToString(channel.resourceID(lastKey))]]),
+      );
     });
   });
 
@@ -1100,25 +1179,17 @@ describe("Tree.Tree", () => {
 
 const MORE_MATCHES = "Showing the first 100 matches. Type more to narrow the search.";
 
-const renderSearchable = async (
-  root: resource.ID,
-  search: Tree.UseSearch = useGroupSearch,
-) => await renderLiveTree({ client, root, items: GROUP_ITEMS, search });
-
-const hiddenTrees = (): number =>
-  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
-
 describe("Tree.Tree search", () => {
   it("should bring the tree back as it was when the search closes", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     await findTreeRow(names.alpha);
     expandTreeRow(names.alpha);
     await findTreeRow(names.bravo);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     fireEvent.keyDown(screen.getByPlaceholderText("Search groups"), { key: "Escape" });
-    await waitFor(() => expect(hiddenTrees()).toBe(0));
+    await waitFor(() => expect(countHiddenTrees()).toBe(0));
     expect(getTreeRow(names.bravo)).toBeTruthy();
     expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
   });
@@ -1138,7 +1209,7 @@ describe("Tree.Tree search", () => {
       "should move into the results on %s and back on Escape",
       async (key) => {
         const { root, tok, names } = await createSearchTree(client);
-        await renderSearchable(root);
+        await renderSearchableTree(client, root, useGroupSearch);
         searchTree(tok);
         await findTreeRow(itemName(names.charlie));
         const field = screen.getByPlaceholderText("Search groups");
@@ -1150,13 +1221,13 @@ describe("Tree.Tree search", () => {
         expect(selected[0]).toBe(results().querySelector(".lyra-tree__item"));
         fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
         expect(document.activeElement).toBe(field);
-        expect(hiddenTrees()).toBe(1);
+        expect(countHiddenTrees()).toBe(1);
       },
     );
 
     it("should leave no key held after Enter moves into the results", async () => {
       const { root, tok, names } = await createSearchTree(client);
-      await renderSearchable(root);
+      await renderSearchableTree(client, root, useGroupSearch);
       searchTree(tok);
       await findTreeRow(itemName(names.charlie));
       const { result } = renderHook(
@@ -1174,7 +1245,7 @@ describe("Tree.Tree search", () => {
       ["a Safari Enter", { key: "Enter", keyCode: 229 }],
     ])("should leave %s that is part of an IME word to the IME", async (_, key) => {
       const { root, tok, names } = await createSearchTree(client);
-      await renderSearchable(root);
+      await renderSearchableTree(client, root, useGroupSearch);
       searchTree(tok);
       await findTreeRow(itemName(names.charlie));
       field().focus();
@@ -1185,7 +1256,7 @@ describe("Tree.Tree search", () => {
 
     it("should come back to the selected match on ArrowDown", async () => {
       const { root, tok, names } = await createSearchTree(client);
-      await renderSearchable(root);
+      await renderSearchableTree(client, root, useGroupSearch);
       searchTree(tok);
       await findTreeRow(itemName(names.charlie));
       const field = screen.getByPlaceholderText("Search groups");
@@ -1216,13 +1287,13 @@ describe("Tree.Tree search", () => {
       "should give the focus to the tree when %s closes the search",
       async (_, close) => {
         const { root, tok, names } = await createSearchTree(client);
-        await renderSearchable(root);
+        await renderSearchableTree(client, root, useGroupSearch);
         searchTree(tok);
         await findTreeRow(itemName(names.charlie));
         field().focus();
         close();
         const tree = results();
-        expect(hiddenTrees()).toBe(0);
+        expect(countHiddenTrees()).toBe(0);
         expect(document.activeElement).toBe(tree);
         fireEvent.keyDown(tree, arrowDown);
         fireEvent.keyUp(tree, arrowDown);
@@ -1233,7 +1304,7 @@ describe("Tree.Tree search", () => {
 
     it("should keep the focus in the field when nothing matches", async () => {
       const { root } = await createSearchTree(client);
-      await renderSearchable(root);
+      await renderSearchableTree(client, root, useGroupSearch);
       const term = uniqueToken();
       searchTree(term);
       await screen.findByText(`No groups match “${term}”`);
@@ -1246,7 +1317,7 @@ describe("Tree.Tree search", () => {
 
   it("should show a message when nothing matches", async () => {
     const { root } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     const term = uniqueToken();
     searchTree(term);
     expect(await screen.findByText(`No groups match “${term}”`)).toBeTruthy();
@@ -1254,7 +1325,7 @@ describe("Tree.Tree search", () => {
 
   it("should show a new match as it arrives", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.delta));
     const late = `${tok} foxtrot`;
@@ -1276,7 +1347,7 @@ describe("Tree.Tree search", () => {
           await client.groups.create({ parent: root, name: `${tok} ${i}` }),
       ),
     );
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     expect(await screen.findByText(MORE_MATCHES)).toBeTruthy();
   });
@@ -1295,7 +1366,7 @@ describe("Tree.Tree search", () => {
           await client.groups.create({ parent: root, name: `${tok} ${i}` }),
       ),
     );
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(`${tok} 0`));
     expect(screen.queryByText(MORE_MATCHES)).toBeNull();
@@ -1311,11 +1382,11 @@ describe("Tree.Tree search", () => {
       usePlacement: usePlacementAtTop,
     });
     const { root, tok } = await createSearchTree(client);
-    await renderSearchable(root, failing);
+    await renderSearchableTree(client, root, failing);
     searchTree(tok);
     expect(await screen.findByText("Failed to search things")).toBeTruthy();
     expect(screen.getByText("the index is gone")).toBeTruthy();
-    expect(hiddenTrees()).toBe(1);
+    expect(countHiddenTrees()).toBe(1);
   });
 
   it("should show a status when the placement fails", async () => {
@@ -1325,7 +1396,7 @@ describe("Tree.Tree search", () => {
       usePlacement: () => ({ variant: "error", description: "the folders are gone" }),
     });
     const { root, tok } = await createSearchTree(client);
-    await renderSearchable(root, failing);
+    await renderSearchableTree(client, root, failing);
     searchTree(tok);
     expect(await screen.findByText("Failed to search things")).toBeTruthy();
     expect(screen.getByText("the folders are gone")).toBeTruthy();
