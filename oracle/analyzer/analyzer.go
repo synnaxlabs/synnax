@@ -2110,22 +2110,35 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateActionAliases checks that every action alias names a struct, and that no two
-// actions of typ alias the same struct, which a C++ std::variant cannot hold twice.
+// validateActionAliases checks that every action alias names a struct with no unbound
+// type parameters, and that no two actions of typ alias the same struct, which a C++
+// std::variant cannot hold twice.
 func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 	aliased := make(map[string]string)
 	for _, action := range typ.Actions() {
 		if !action.IsAlias() {
 			continue
 		}
-		target, _, ok := resolution.Dealias(action.Alias, c.table)
-		if _, isStruct := target.Form.(resolution.StructForm); !ok || !isStruct {
+		target, ref, ok := resolution.Dealias(action.Alias, c.table)
+		form, isStruct := target.Form.(resolution.StructForm)
+		if !ok || !isStruct {
 			c.report(diagnostics.Errorf(
 				nil,
 				"action %s of %s must alias a struct, got %s",
 				action.Name,
 				typ.Name,
 				action.Alias.Name,
+			))
+			continue
+		}
+		if len(form.TypeParams) > len(ref.TypeArgs) {
+			c.report(diagnostics.Errorf(
+				nil,
+				"action %s of %s cannot alias generic struct %s, because an alias "+
+					"takes no type arguments",
+				action.Name,
+				typ.Name,
+				target.QualifiedName,
 			))
 			continue
 		}

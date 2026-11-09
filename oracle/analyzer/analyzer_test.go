@@ -3141,6 +3141,47 @@ Node union on variant {
 				))
 			})
 
+			It("Should reject an alias of a generic struct", func(ctx SpecContext) {
+				source := `
+					Box struct<T = string> {
+						data T
+					}
+
+					Container struct {
+						key uuid
+
+						action Load = Box
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"action Load of Container cannot alias generic struct test.Box, " +
+						"because an alias takes no type arguments",
+				))
+			})
+
+			It(
+				"Should accept an alias of a struct alias with bound type arguments",
+				func(ctx SpecContext) {
+					source := `
+					Box struct<T> {
+						data T
+					}
+
+					StringBox = Box<string>
+
+					Container struct {
+						key uuid
+
+						action Load = StringBox
+					}
+				`
+					_, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+				},
+			)
+
 			It("Should reject an alias of an array", func(ctx SpecContext) {
 				source := `
 					Set struct {
@@ -3156,7 +3197,7 @@ Node union on variant {
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
-					`action Set: the alias target must be a plain struct reference, `+
+					`action Set: the alias target must be a plain struct reference, ` +
 						`got "Set[]"`,
 				))
 			})

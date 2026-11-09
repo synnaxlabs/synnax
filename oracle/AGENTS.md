@@ -164,7 +164,8 @@ must read an absent key as `None`, because the Python JSON codec drops `None` fi
 
 `action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
 Generators keep the `SetPayload` name as an alias (in Go, a defined type that can carry
-`Handle`). The target must be a struct, and no two actions of a type may share one.
+`Handle`). The target must be a struct with no unbound type parameters, and no two
+actions of a type may share one.
 
 ## Union discriminators
 
