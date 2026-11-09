@@ -430,7 +430,9 @@ var _ = Describe("Service", func() {
 			It("Should return no policies for a subject that does not exist", func(
 				ctx SpecContext,
 			) {
-				Expect(rbacSvc.NewEnforcer(tx).Policies(ctx, user.ResourceID(uuid.New()))).
+				Expect(
+					rbacSvc.NewEnforcer(tx).Policies(ctx, user.ResourceID(uuid.New())),
+				).
 					To(BeEmpty())
 			})
 		})
@@ -456,7 +458,9 @@ var _ = Describe("Service", func() {
 				Expect(allows(access.ActionDelete, p.ResourceID())).To(BeFalse())
 			})
 			It("Should deny an object that no policy covers", func() {
-				Expect(allows(access.ActionRetrieve, resource.ID{Type: "task", Key: "1"})).
+				Expect(
+					allows(access.ActionRetrieve, resource.ID{Type: "task", Key: "1"}),
+				).
 					To(BeFalse())
 				Expect(allows(access.ActionUpdate, obj1)).To(BeFalse())
 			})
