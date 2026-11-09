@@ -196,9 +196,10 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 A file item names a path and the rack that reads it: a Driver's rack for OPC UA and
 HTTP, or the Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT,
 and PagerDuty. Each integration's Core service refuses a device or task that names a
-file item of another rack. A replace of an item in use keeps its source and rack, or
-fails as a delete does. So an item has one file and one set of details. The reader opens
-the file at each connect, and the value never enters the store.
+file item of another rack, directly or through a certificate. A replace of an item in
+use keeps its source and rack, or fails as a delete does. So an item has one file and
+one set of details. The reader opens the file at each connect, and the value never
+enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
