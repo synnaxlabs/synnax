@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -53,6 +55,15 @@ describe("useList", () => {
   const byName = () =>
     ({ where: { labels: [lbl.key] }, order: { field: "name" } }) as const;
 
+  // A late change signal from a create reads that one range by key. Only a read in the
+  // list's order is a list read.
+  const listReads = (send: ReturnType<typeof spyOnSend>) =>
+    send.mock.calls.filter(
+      ([target, req]) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null,
+    );
+
   it("should list the matching records in the declared order", async () => {
     const b = await create("b");
     const a = await create("a");
@@ -71,6 +82,40 @@ describe("useList", () => {
     });
     expect(result.current.answered).toBe(true);
     expect(result.current.getItem(a.key)?.name).toEqual("a");
+  });
+
+  it("should render again only the item whose record changed", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const renders = new Map<ranger.Key, number>();
+    const Item = ({ itemKey }: { itemKey: ranger.Key }): ReactElement => {
+      const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
+      renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+      return <span>{range?.name}</span>;
+    };
+    const renderItem = ({ key }: { key: ranger.Key }) => (
+      <Item key={key} itemKey={key} />
+    );
+    const Ranges = (): ReactElement => {
+      const { data, getItem, subscribe, more } = Flux.useList(ranges, {
+        name: "ranges",
+        query: byName(),
+      });
+      useEffect(more, [more]);
+      return (
+        <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+          <List.Scroll>
+            <List.Items<ranger.Key>>{renderItem}</List.Items>
+          </List.Scroll>
+        </List.Frame>
+      );
+    };
+    render(<Ranges />, { wrapper });
+    await screen.findByText("b");
+    const rendersOfB = renders.get(b.key);
+    await client.ranges.rename(a.key, "a2");
+    await screen.findByText("a2");
+    expect(renders.get(b.key)).toBe(rendersOfB);
   });
 
   it("should place a created record in order", async () => {
@@ -280,9 +325,7 @@ describe("useList", () => {
       result.current.more();
     });
     await waitFor(() => expect(result.current.data).toHaveLength(2));
-    expect(
-      send.mock.calls.filter(([target]) => target === "/range/retrieve"),
-    ).toHaveLength(1);
+    expect(listReads(send)).toHaveLength(1);
   });
 
   it("should read nothing on more once the list is complete", async () => {
@@ -297,7 +340,7 @@ describe("useList", () => {
     const send = spyOnSend(local);
     act(() => result.current.more());
     await sleep.sleep(TimeSpan.milliseconds(20));
-    expect(send).not.toHaveBeenCalled();
+    expect(listReads(send)).toHaveLength(0);
   });
 
   it("should show the cached records on a remount before the first more", async () => {
