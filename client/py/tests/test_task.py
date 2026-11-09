@@ -373,15 +373,19 @@ class TestTaskClient:
         assert res.config["routing_key"] == "rk-50"
 
     def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
-        """Should overwrite the stored config when configured again."""
+        """Should set the name and config of a task that exists, and take its new
+        config hash."""
         tsk = sy.Task(
             name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
         )
         client.tasks.configure(tsk)
+        tsk.name = "renamed"
         tsk.config = {"routing_key": "rk-2"}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
+        assert res.name == "renamed"
         assert res.config["routing_key"] == "rk-2"
+        assert tsk.config_hash == res.config_hash
 
     def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
         """Should configure a task with no rack onto the rack of its device."""
