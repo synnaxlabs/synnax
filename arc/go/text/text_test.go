@@ -9848,3 +9848,31 @@ sensor -> stub.sink()`
 		)
 	})
 })
+
+var _ = Describe("Module constants in node params", func() {
+	It(
+		"Should store a constant function input as its encoded value",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			inter, diags := text.Analyze(ctx, MustSucceed(text.Parse(text.Text{Raw: `
+		import math
+		func f(a f64) {v f64} f64 {
+			return a
+		}
+		x -> f(a=-math.inf)`})), root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			var values []any
+			for _, n := range inter.Nodes {
+				if n.Type == "f" {
+					values = append(values, MustBeOk(n.Inputs.Get("a")).Value)
+				}
+			}
+			Expect(values).To(Equal([]any{"-Infinity"}))
+		},
+	)
+})

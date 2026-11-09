@@ -39,6 +39,7 @@ cc_test(
         ":wasm",
         "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/stl",
+        "//arc/cpp/stl/strings",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",

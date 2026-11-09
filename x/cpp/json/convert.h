@@ -15,6 +15,7 @@
 #include <nlohmann/json.hpp>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
@@ -58,6 +59,10 @@ using ReverseEnumMap = std::map<nlohmann::json, std::string>;
 /// the JSON value is a string targeting a numeric type, the map is checked first. If
 /// the string is found, the mapped numeric value is used; otherwise normal conversion
 /// applies.
+/// A JSON_T sample is the JSON text of the value. A UUID_T sample is the 16 bytes of
+/// the UUID that a string value holds, and a BYTES_T sample is the bytes that a
+/// string of padded, canonical base64 holds. Build a series that keeps the target
+/// type with telem::Series(SampleValue, DataType).
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
 /// CONVERSION_ERROR if an issue occurred while trying to convert the value.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
@@ -99,6 +104,17 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
 /// @param target the JSON type to convert to.
 /// @returns nil if supported, CONVERSION_ERROR otherwise.
 errors::Error check_from_sample_value(const telem::DataType &type, Type target);
+
+/// @brief converts the sample at index of a JSON, UUID, or bytes series to JSON. A JSON
+/// sample becomes the value that its text holds, a UUID its text, and bytes padded
+/// base64 text.
+/// @param series the series that holds the sample.
+/// @param index the index of the sample. A negative index counts from the end.
+/// @returns the JSON value and nil, or CONVERSION_ERROR if the series has another
+/// data type or a JSON sample is not valid JSON.
+/// @throws std::runtime_error if the index is out of bounds.
+std::pair<nlohmann::json, errors::Error>
+from_series(const telem::Series &series, int index);
 
 /// @brief converts a TimeStamp to a JSON value using the given TimeFormat.
 /// @param ts the timestamp to convert.

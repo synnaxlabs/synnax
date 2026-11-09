@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -27,6 +28,7 @@
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/strings/strings.h"
 
 namespace arc::runtime::wasm {
 
@@ -233,6 +235,57 @@ func double() {val f32} f32 {
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
+}
+
+/// @brief it should decode a float input value stored as text.
+TEST(FunctionCallTest, DecodesFloatInputStoredAsText) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(
+        client,
+        "func add(limit f64) {val f64} f64 {\n    return val + limit\n}\n"
+    );
+    auto module = ASSERT_NIL_P(Module::open({.program = program}));
+    arc::types::Param limit;
+    limit.name = "limit";
+    limit.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    limit.value = "-Infinity";
+    arc::types::Param val;
+    val.name = "val";
+    val.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    auto func = ASSERT_NIL_P(module->func("add", {limit, val}));
+    std::vector<x::telem::SampleValue> params = {0.0, 1.5};
+    std::vector<Module::Function::Result> results;
+    ASSERT_NIL(func.call(params, results));
+    ASSERT_EQ(results.size(), 1);
+    EXPECT_EQ(
+        std::get<double>(results[0].value),
+        -std::numeric_limits<double>::infinity()
+    );
+}
+
+/// @brief it should keep a string input value that reads like a float as text.
+TEST(FunctionCallTest, KeepsStringInputThatReadsLikeAFloat) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(
+        client,
+        "func label(tag str) {val f64} str {\n    return tag\n}\n"
+    );
+    const auto strings = std::make_shared<stl::strings::State>();
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .strings = strings}));
+    arc::types::Param tag;
+    tag.name = "tag";
+    tag.type = arc::types::Type{.kind = arc::types::Kind::String};
+    tag.value = "NaN";
+    arc::types::Param val;
+    val.name = "val";
+    val.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    auto func = ASSERT_NIL_P(module->func("label", {tag, val}));
+    std::vector<x::telem::SampleValue> params = {static_cast<int32_t>(0), 1.5};
+    std::vector<Module::Function::Result> results;
+    ASSERT_NIL(func.call(params, results));
+    ASSERT_EQ(results.size(), 1);
+    const auto handle = static_cast<uint32_t>(std::get<int32_t>(results[0].value));
+    EXPECT_EQ(strings->get(handle), "NaN");
 }
 
 /// @brief sample_to_wasm converts integer types correctly.

@@ -349,7 +349,7 @@ public:
                     this->streamed[i] = true;
                     continue;
                 }
-                if (inputs[i].value.is_string()) {
+                if (inputs[i].type.kind == types::Kind::String) {
                     // A literal string gets a stable handle, not cleared by flush().
                     // strings is null only in tests without host bindings.
                     const auto &s = inputs[i].value.get<std::string>();
