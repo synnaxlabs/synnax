@@ -62,6 +62,8 @@ interface Sample {
   value: string;
   text: boolean;
   receivedAt: TimeStamp;
+  // Whether the sample streamed in after the first read of its channel.
+  streamed: boolean;
 }
 
 // The oldest sample the entries hold of a channel. A null alignment means the entries
@@ -73,7 +75,7 @@ interface Oldest {
 
 // A page of a channel: its timed samples, oldest first.
 interface Page {
-  samples: Array<Omit<Sample, "receivedAt"> & { time: TimeStamp }>;
+  samples: Array<Omit<Sample, "receivedAt" | "streamed"> & { time: TimeStamp }>;
   // full is true when the read reached its count, so more samples can exist.
   full: boolean;
   // missed is true when the index read left out samples of the page.
@@ -172,6 +174,7 @@ export class StreamMultiChannelLog
   private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
+  private _streamedLines = 0;
 
   constructor(
     client: telem.Client | null,
@@ -245,6 +248,11 @@ export class StreamMultiChannelLog
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
     );
+  }
+
+  /** The count of lines streamed in after the first read of their channel. */
+  get streamedLines(): number {
+    return this._streamedLines;
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
@@ -728,6 +736,7 @@ export class StreamMultiChannelLog
       series.length < PAGE_SIZE
     )
       meta.exhausted = true;
+    const streamed = meta.snapshot != null;
     let skip = Math.max(0, series.length - appended + meta.appended);
     for (const s of series.series) {
       for (let i = skip; i < s.length; i++)
@@ -736,6 +745,7 @@ export class StreamMultiChannelLog
           value: s.asString(i, true),
           text: s.dataType.equals(DataType.STRING),
           receivedAt,
+          streamed,
         });
       skip = Math.max(0, skip - s.length);
     }
@@ -756,7 +766,9 @@ export class StreamMultiChannelLog
     meta.pending = meta.pending.filter((sample) => {
       const time = subscription.timeAt(key, sample.alignment);
       if (time != null) {
-        groups.push(toEntries(key, sample, time));
+        const group = toEntries(key, sample, time);
+        if (sample.streamed) this._streamedLines += group.length;
+        groups.push(group);
         if (meta.stored) meta.oldest = older(meta.oldest, sample, time);
         return false;
       }
@@ -1010,7 +1022,7 @@ const readPage = async (
   };
   const data = await settled(subscription, key, signal);
   if (data == null) return aborted();
-  const read: Array<Omit<Sample, "receivedAt">> = [];
+  const read: Array<Omit<Sample, "receivedAt" | "streamed">> = [];
   for (const s of data.series.series)
     for (let i = 0; i < s.length; i++)
       read.push({
