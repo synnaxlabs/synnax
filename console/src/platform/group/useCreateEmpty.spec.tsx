@@ -50,6 +50,7 @@ const renderScopeTree = async () => {
   await renderLiveTree({
     client,
     root: channel.TYPE_RESOURCE_ID,
+    contextMenus: Group.TREE_CONTEXT_MENUS,
     ...createScopeTree(container.key, { ContextMenu: CreateUnderSelectionMenu }),
   });
   await screen.findByText(child.name);

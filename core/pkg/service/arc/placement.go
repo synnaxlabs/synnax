@@ -70,14 +70,17 @@ func (w Writer) Move(
 				validate.ErrValidation, "%q is not in the source directory", e.name,
 			)
 		}
+		if e.id.Type != resource.TypeArc {
+			continue
+		}
 		if err = w.validateEntry(ctx, to, e.id, e.name, e.identifier); err != nil {
 			return err
 		}
 	}
-	if len(dirKeys) > 0 {
-		if err = w.directories.NewWriter(w.tx).SetParent(
-			ctx, to, dirKeys...,
-		); err != nil {
+	for _, key := range dirKeys {
+		if err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
+			directory.SetPayload{Path: []string{"parent"}, Value: to},
+		)); err != nil {
 			return err
 		}
 	}

@@ -11,6 +11,7 @@ import "schemas/synnax/access"
 import "schemas/synnax/resource"
 import "schemas/synnax/role"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/access/rbac/policy"
 @py output "client/py/synnax/access/policy"
@@ -28,6 +29,7 @@ Policy struct {
     name     string          {
         @doc value         "is a human-readable name for the policy."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -45,6 +47,33 @@ Policy struct {
         @doc value     "is the role that grants this policy to its subjects."
         @ref kind      place
         @ref on_delete cascade
+    }
+
+    action Create {
+        policy Policy
+
+        @doc value """
+            replaces the policy with the given created state. Emitted by the Core when a
+            policy is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the policy."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the policy.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the policy."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the policy."
     }
 
     @create

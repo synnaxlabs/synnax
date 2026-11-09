@@ -102,35 +102,45 @@ var _ = Describe("Table", func() {
 		})
 	})
 
-	Describe("Rename", func() {
-		It("Should give the directory the new name", func(ctx SpecContext) {
+	Describe("Update", func() {
+		It("Should store the changed directory", func(ctx SpecContext) {
+			parent := create(ctx, "parent", nil)
 			d := create(ctx, "lib", nil)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).Rename(ctx, d.Key, "core")
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name, d.Parent = "core", &parent.Key
+					return d, nil
+				})
 			})).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).
-				To(ConsistOf(HaveField("Name", "core")))
-		})
-	})
-
-	Describe("SetParent", func() {
-		It("Should move the directories into the parent", func(ctx SpecContext) {
-			parent := create(ctx, "parent", nil)
-			a, b := create(ctx, "a", nil), create(ctx, "b", nil)
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).SetParent(ctx, parent.Key, a.Key, b.Key)
-			})).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchParents(parent.Key))).To(ConsistOf(
-				HaveField("Key", a.Key),
-				HaveField("Key", b.Key),
+			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).To(ConsistOf(
+				directory.Directory{Key: d.Key, Name: "core", Parent: &parent.Key},
 			))
+		})
+
+		It("Should reject an invalid directory", func(ctx SpecContext) {
+			d := create(ctx, "lib", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name = ""
+					return d, nil
+				})
+			})).To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should reject a move below itself", func(ctx SpecContext) {
 			top := create(ctx, "top", nil)
 			child := create(ctx, "child", &top.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).SetParent(ctx, child.Key, top.Key)
+				return table.NewWriter(tx).Update(ctx, top.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Parent = &child.Key
+					return d, nil
+				})
 			})).
 				To(MatchError(ContainSubstring("would form a cycle")))
 		})

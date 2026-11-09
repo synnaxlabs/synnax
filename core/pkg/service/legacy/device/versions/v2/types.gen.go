@@ -15,6 +15,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,7 +29,7 @@ type StatusDetails = v1.StatusDetails
 
 // Status is device-specific status information including operational state and device
 // identification.
-type Status = v1.Status
+type Status = status.Status[StatusDetails]
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA

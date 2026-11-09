@@ -30,20 +30,25 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.schematics.retrieve(query.key),
   onChange: ({ client, query }, handler) =>
-    client.schematics.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query.key),
+    client.schematics.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.schematics.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
-export type ListQuery = schematic.RetrieveMultipleParams;
+export type RetrieveMultipleQuery = {
+  keys: schematic.Key[];
+};
 
-export const useList = Flux.createList<ListQuery, schematic.Key, schematic.Schematic>({
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  schematic.Schematic[]
+>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.schematics.retrieve(key),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.schematics.onChange(key, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.schematics.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.schematics.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.schematics.watch(keys).getCached(),
 });
 
 export interface KeyParams {
@@ -294,7 +299,7 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.createActions({
       selected,
@@ -317,7 +322,7 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.ungroupActions(selected, s.configs);
     if (result == null) return null;
