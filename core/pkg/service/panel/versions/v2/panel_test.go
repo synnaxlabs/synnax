@@ -26,11 +26,6 @@ var _ = Describe("Panel", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Panel{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the panel resource identifier", func() {
 			k := uuid.New()

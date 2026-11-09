@@ -25,9 +25,6 @@ var _ gorp.Entry[Key] = Panel{}
 // GorpKey implements gorp.Entry.
 func (p Panel) GorpKey() Key { return p.Key }
 
-// SetOptions implements gorp.Entry.
-func (Panel) SetOptions() []any { return nil }
-
 // ResourceID returns the resource.ID of the resource.
 func (p Panel) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypePanel, Key: p.Key.String()}

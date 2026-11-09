@@ -235,8 +235,8 @@ func (w *refWalker) walkUnion(
 			union:   union,
 			variant: v.Name,
 		})
-		for _, of := range variantFields(form, v, w.table) {
-			if err := w.walkField(of.owner, of.field, next, path); err != nil {
+		for _, of := range resolver.VariantFields(form, v, "go", w.table) {
+			if err := w.walkField(of.Owner, of.Field, next, path); err != nil {
 				return err
 			}
 		}
@@ -256,8 +256,8 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		fields = resolution.UnifiedFields(typ, w.table)
 	case resolution.UnionForm:
 		for _, v := range form.Variants {
-			for _, of := range variantFields(form, v, w.table) {
-				fields = append(fields, of.field)
+			for _, of := range resolver.VariantFields(form, v, "go", w.table) {
+				fields = append(fields, of.Field)
 			}
 		}
 	}
@@ -284,80 +284,6 @@ func (w *refWalker) add(path string, site refSite) {
 		}
 	}
 	w.refs = append(w.refs, &walkedRef{path: path, sites: []refSite{site}})
-}
-
-// ownedField is a field with the type that declares it.
-type ownedField struct {
-	owner resolution.Type
-	field resolution.Field
-}
-
-// variantFields returns the fields of a union variant: the fields of the union's bases,
-// then the fields of the variant's payload.
-func variantFields(
-	form resolution.UnionForm,
-	v resolution.UnionVariant,
-	table *resolution.Table,
-) []ownedField {
-	var out []ownedField
-	addBases := func(bases []resolution.TypeRef) {
-		for _, ref := range bases {
-			base, _, ok := resolution.Dealias(ref, table)
-			if !ok {
-				continue
-			}
-			for _, f := range resolution.UnifiedFields(base, table) {
-				out = append(out, ownedField{owner: base, field: f})
-			}
-		}
-	}
-	payload, ok := v.Type.Resolve(table)
-	if !ok {
-		addBases(form.Extends)
-		return out
-	}
-	if !v.Inline {
-		addBases(form.Extends)
-		for _, f := range resolution.UnifiedFields(payload, table) {
-			out = append(out, ownedField{owner: payload, field: f})
-		}
-		return out
-	}
-	inherited, flattened := resolver.VariantBases(form, v, "go", table)
-	addBases(inherited)
-	payloadForm := payload.Form.(resolution.StructForm)
-	bases := slices.Concat(form.Extends, payloadForm.Extends)
-	for _, f := range flattened {
-		owner := baseDeclaring(bases, f.Name, table)
-		out = append(out, ownedField{owner: owner, field: f})
-	}
-	for _, f := range payloadForm.Fields {
-		out = append(out, ownedField{owner: payload, field: f})
-	}
-	return out
-}
-
-// baseDeclaring returns the first of bases whose fields include the field named name.
-func baseDeclaring(
-	bases []resolution.TypeRef,
-	name string,
-	table *resolution.Table,
-) resolution.Type {
-	for _, ref := range bases {
-		base, _, ok := resolution.Dealias(ref, table)
-		if !ok {
-			continue
-		}
-		if slices.ContainsFunc(
-			resolution.UnifiedFields(base, table),
-			func(f resolution.Field) bool {
-				return f.Name == name
-			},
-		) {
-			return base
-		}
-	}
-	return resolution.Type{}
 }
 
 // declarer returns the qualified name of the struct that declares the field named name
@@ -693,6 +619,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 // sameReference reports whether a and b declare the same reference.
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
+		a.Kind == b.Kind &&
 		a.Unique == b.Unique &&
 		a.Acyclic == b.Acyclic &&
 		a.IsID == b.IsID &&

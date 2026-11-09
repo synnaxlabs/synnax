@@ -16,15 +16,19 @@ import (
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,14 +45,15 @@ type (
 
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
+	// DB holds the channels and modules that compilation reads. Compilation reads it as
+	// channel.CompileConsistent describes.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Arc stores and runs Arc automations.
 	//
 	// [REQUIRED]
@@ -57,6 +62,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// RBAC reads the access of the subject of each LSP stream.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// RenameChannel is the bound channel rename route. The LSP renames channels
+	// through it, so an editor rename is checked as any other rename is.
+	//
+	// [REQUIRED]
+	RenameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
 }
 
 var (
@@ -67,26 +81,32 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.RenameChannel = override.Nil(c.RenameChannel, other.RenameChannel)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.arc")
-	v.NotNil("rbac", c.RBAC)
+	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("rename_channel", c.RenameChannel)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	internal *arc.Service
-	status   *status.Service
+	db            *gorp.DB
+	internal      *arc.Service
+	status        *status.Service
+	rbac          *rbac.Service
+	renameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
 	alamos.Instrumentation
 }
 
@@ -96,10 +116,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:          cfg.RBAC,
+		db:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		rbac:            cfg.RBAC,
+		renameChannel:   cfg.RenameChannel,
 	}, nil
 }
 
@@ -120,13 +142,6 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeArc}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, &req.Arcs); err != nil {
@@ -147,13 +162,6 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: arc.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
@@ -163,21 +171,16 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// Dispatch relays the action sequence to the other clients editing the arc,
-// broadcasting it on the arc collaborative-edit signals channel. The caller must hold
-// update access to the arc.
+// Dispatch applies the action sequence to the arc in tx. Subscribers to the arc action
+// signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{arc.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 type (
@@ -203,27 +206,6 @@ func (s *Service) UpdateTask(
 	tx gorp.Tx,
 	req UpdateTaskRequest,
 ) (UpdateTaskResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{arc.ResourceID(req.Key)},
-	}); err != nil {
-		return UpdateTaskResponse{}, err
-	}
-	taskAction := access.ActionUpdate
-	if req.Rack != nil {
-		taskAction = access.ActionCreate
-		if *req.Rack == 0 {
-			taskAction = access.ActionDelete
-		}
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  taskAction,
-		Objects: []resource.ID{{Type: resource.TypeTask}},
-	}); err != nil {
-		return UpdateTaskResponse{}, err
-	}
 	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
 		Rack:        req.Rack,
 		Performance: req.Performance,
@@ -234,23 +216,29 @@ func (s *Service) UpdateTask(
 	return UpdateTaskResponse{Task: tsk}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the Arcs that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, arc.ResourceID)
+}
+
+// Retrieve returns the Arcs that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Arcs))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Arcs))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: arc.ResourceIDsFromArcs(res.Arcs),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, arc.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	// Raw is derived from the replicated document and not stored, so materialize it
@@ -258,24 +246,63 @@ func (s *Service) Retrieve(
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
-		if req.IncludeProgram {
-			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
+	}
+	return res, nil
+}
+
+// Compiled returns a handler that runs retrieve and then, when the request includes
+// programs, compiles each automation that retrieve returns. Compilation runs after
+// retrieve releases its snapshot.
+func (s *Service) Compiled(
+	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
+) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
+	return func(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+		res, err := retrieve(ctx, req)
+		if err != nil || !req.IncludeProgram {
+			return res, err
+		}
+		for i := range res.Arcs {
+			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
+		return res, nil
 	}
-	return res, nil
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP
 type LSPMessage = arctransport.JSONRPCMessage
 
-// LSP handles LSP protocol messages over a Freighter stream
+// LSP serves the Arc language server over stream. The server treats the channels and
+// modules that the subject of the stream cannot retrieve as unknown names, and renames
+// channels through the channel rename route as the subject.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
 ) error {
-	lsp, err := s.internal.NewLSP()
+	md := freighter.MDFromContext(ctx)
+	subject := auth.GetSubject(ctx)
+	lsp, err := s.internal.NewLSP(arc.LSPConfig{
+		Allowed: func(ctx context.Context) (allowed func(resource.ID) bool, err error) {
+			err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				allowed, err = s.rbac.NewEnforcer(snap).
+					Allowed(ctx, subject, access.ActionRetrieve)
+				return err
+			})
+			return allowed, err
+		},
+		Rename: func(ctx context.Context, key channel.Key, name string) error {
+			// The LSP renames with a context of its own, which holds no request
+			// metadata.
+			req := md
+			req.Context = ctx
+			_, err := s.renameChannel(req, apichannel.RenameRequest{
+				Keys:  channel.Keys{key},
+				Names: []string{name},
+			})
+			return err
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -305,21 +332,24 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if !ok {
 		return nil
 	}
-	var (
-		prog arclang.Program
-		err  error
-	)
-	switch src := automation.Source.Variant.(type) {
-	case arc.TextSource:
-		prog, err = s.compileText(ctx, src.Text)
-	case arc.GraphSource:
-		prog, err = arclang.CompileGraph(
-			ctx,
-			src.Graph,
-			s.internal.NewRoot(nil),
-			arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-		)
-	}
+	prog, err := channel.CompileConsistent(ctx, s.db, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (arclang.Program, error) {
+		root := s.internal.NewRoot(snap, lookups)
+		switch src := automation.Source.Variant.(type) {
+		case arc.TextSource:
+			return s.compileText(ctx, src.Text, root)
+		case arc.GraphSource:
+			return arclang.CompileGraph(
+				ctx,
+				src.Graph,
+				root,
+				arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+			)
+		}
+		return arclang.Program{}, nil
+	})
 	if err != nil {
 		return err
 	}
@@ -328,17 +358,19 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	return nil
 }
 
-// compileText compiles t, reporting parse and analysis failures as a CompileError.
+// compileText compiles t against root, reporting parse and analysis failures as a
+// CompileError.
 func (s *Service) compileText(
 	ctx context.Context,
 	t arctext.Text,
+	root *symbol.Symbol,
 ) (arclang.Program, error) {
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
 	parsed, diag := arctext.Parse(t, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

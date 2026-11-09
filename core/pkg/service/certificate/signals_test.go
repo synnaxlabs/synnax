@@ -10,137 +10,115 @@
 package certificate_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		layer     *service.Layer
-		responses confluence.Outlet[framer.StreamerResponse]
+		layer *service.Layer
+		db    *gorp.DB
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 	})
-	BeforeEach(func(ctx SpecContext) {
+	// receive streams the channel with the given name and returns the samples of the
+	// next frame after write runs.
+	receive := func(ctx context.Context, name string, write func()) [][]byte {
+		GinkgoHelper()
+		var ch channel.Channel
+		Expect(layer.Channel.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Entry(&ch).
+			Exec(ctx, db)).To(Succeed())
 		streamer := MustSucceed(layer.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: channel.Keys{
-				layer.Certificate.SetChannelKey(),
-				layer.Certificate.DeleteChannelKey(),
-			},
+			Keys:        channel.Keys{ch.Key()},
 			SendOpenAck: true,
 		}))
-		var requests confluence.Inlet[framer.StreamerRequest]
-		requests, responses = confluence.Attach(streamer, 2)
+		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-		DeferCleanup(func() {
+		shutdown := signal.NewHardShutdown(sCtx, cancel)
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		defer func() {
 			requests.Close()
 			confluence.Drain(responses)
-			Expect(closeStreamer.Close()).To(Succeed())
-		})
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Expect(shutdown.Close()).To(Succeed())
+		}()
 		Eventually(responses.Outlet()).Should(Receive())
-	})
-	// receive decodes the records in the next frame, which must hold only the channel
-	// with the given key.
-	receive := func(
-		key channel.Key,
-		recordOf func([]byte) (resource.ID, error),
-	) []resource.ID {
-		GinkgoHelper()
+		write()
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
-		var records []resource.ID
+		var samples [][]byte
 		for sample := range res.Frame.SeriesAt(0).Samples() {
-			records = append(records, MustSucceed(recordOf(sample)))
+			samples = append(samples, sample)
 		}
-		return records
+		return samples
 	}
-	create := func(ctx SpecContext) certificate.Certificate {
+	write := func(ctx context.Context, fn func(certificate.Writer) error) {
 		GinkgoHelper()
-		c := certificate.Certificate{Variant: certificate.FileCertificate{
-			Base:            certificate.Base{Name: "Plant"},
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return fn(layer.Certificate.NewWriter(tx))
+		})).To(Succeed())
+	}
+	file := func(name string) certificate.Certificate {
+		return certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Name: name},
 			CertificatePath: "/etc/plant.pem",
 		}}
-		Expect(layer.Certificate.NewWriter(nil).Create(ctx, &c, nil)).To(Succeed())
-		return c
+	}
+	create := func(ctx context.Context, c *certificate.Certificate) {
+		GinkgoHelper()
+		write(ctx, func(w certificate.Writer) error { return w.Create(ctx, c, nil) })
 	}
 
-	It(
-		"Should publish each created certificate on the set channel",
-		func(ctx SpecContext) {
-			c := create(ctx)
-			Expect(receive(layer.Certificate.SetChannelKey(), certificate.SetRecord)).
-				To(Equal([]resource.ID{c.ResourceID()}))
-		},
-	)
-	It(
-		"Should publish the key of each deleted certificate on the delete channel",
-		func(ctx SpecContext) {
-			c := create(ctx)
-			receive(layer.Certificate.SetChannelKey(), certificate.SetRecord)
-			Expect(layer.Certificate.NewWriter(nil).Delete(ctx, c.Base().Key)).
-				To(Succeed())
-			Expect(receive(
-				layer.Certificate.DeleteChannelKey(),
-				certificate.DeleteRecord,
-			)).To(Equal([]resource.ID{c.ResourceID()}))
-		},
-	)
-})
-
-var _ = Describe("SetRecord", func() {
-	It("Should return the resource ID of the certificate in a sample", func() {
-		c := certificate.Certificate{Variant: certificate.FileCertificate{
-			Base:            certificate.Base{Key: uuid.New(), Name: "Plant"},
-			CertificatePath: "/etc/plant.pem",
-		}}
-		Expect(certificate.SetRecord(MustSucceed(json.Marshal(c)))).
-			To(Equal(c.ResourceID()))
+	It("Should publish each created certificate", func(ctx SpecContext) {
+		c := file("Set")
+		samples := receive(ctx, "sy_certificate_set", func() { create(ctx, &c) })
+		Expect(samples).To(HaveLen(1))
+		var got certificate.Certificate
+		Expect(json.Unmarshal(samples[0], &got)).To(Succeed())
+		Expect(got).To(Equal(c))
 	})
-	It("Should reject a sample that is not a certificate", func() {
-		Expect(certificate.SetRecord([]byte("not json"))).Error().
-			To(MatchError(ContainSubstring("invalid character")))
-	})
-})
 
-var _ = Describe("DeleteRecord", func() {
-	It("Should reject a sample that is not a key", func() {
-		Expect(certificate.DeleteRecord([]byte{1, 2})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(
-				ContainSubstring("certificate delete sample is 2 bytes, not 16"),
-			),
-		))
+	It("Should broadcast a create action", func(ctx SpecContext) {
+		c := file("Action")
+		samples := receive(ctx, "sy_certificate_action_set", func() { create(ctx, &c) })
+		Expect(samples).To(HaveLen(1))
+		var scoped actions.Scoped[certificate.Key, certificate.Action]
+		Expect(json.Unmarshal(samples[0], &scoped)).To(Succeed())
+		Expect(scoped.Key).To(Equal(c.Base().Key))
+		Expect(scoped.Actions).To(HaveLen(1))
+		Expect(scoped.Actions[0].Create.Certificate).To(Equal(c))
 	})
-})
 
-var _ = Describe("ServiceConfig", func() {
-	It("Should require a channel service when signals are set", func() {
-		cfg := certificate.DefaultServiceConfig.Override(certificate.ServiceConfig{
-			Signals: &signals.Provider{},
+	It("Should publish the key of each deleted certificate", func(ctx SpecContext) {
+		c := file("Delete")
+		create(ctx, &c)
+		samples := receive(ctx, "sy_certificate_delete", func() {
+			write(ctx, func(w certificate.Writer) error {
+				return w.Delete(ctx, c.Base().Key)
+			})
 		})
-		Expect(cfg.Validate()).To(MatchError(
-			ContainSubstring("channel: required when signals is set"),
-		))
+		Expect(samples).To(HaveLen(1))
+		Expect(uuid.UUID(samples[0])).To(Equal(c.Base().Key))
 	})
 })

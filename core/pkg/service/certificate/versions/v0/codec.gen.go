@@ -83,11 +83,11 @@ func (c Certificate) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (c *Certificate) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "stored":
 		var v StoredCertificate
 		if err := v.Base.DecodeOrc(r); err != nil {

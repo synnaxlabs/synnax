@@ -13,7 +13,11 @@ import { describe, expect, it, vi } from "vitest";
 import { allowRequest } from "@/access/enforce";
 import { type GrantedQuery } from "@/access/granted";
 import { ranger } from "@/ranger";
-import { createTestClient, type TestPolicy } from "@/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  type TestPolicy,
+} from "@/testutil";
 import { user } from "@/user";
 
 vi.mock("@/access/enforce", async (importOriginal) => {
@@ -64,6 +68,18 @@ describe("Granted", () => {
     ).toBe(false);
   });
 
+  it("answers for a user whose role cannot retrieve policies", async () => {
+    const userClient = await createTestClientWithPolicy(client, {
+      name: id.create(),
+      objects: [ranger.TYPE_RESOURCE_ID],
+      actions: ["retrieve"],
+    });
+    const subject = user.resourceID((await userClient.users.current.retrieve()).key);
+    expect(await userClient.access.granted.retrieve(subject, RETRIEVE_RANGES)).toBe(
+      true,
+    );
+  });
+
   it("evaluates a repeated query object once until the policies change", async () => {
     const { subject } = await createSubjectWithPolicy({
       name: id.create(),
@@ -72,7 +88,7 @@ describe("Granted", () => {
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieve({ where: { subjects: [subject] } });
+    await client.access.policies.retrieve({ subjects: [subject] });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -96,7 +112,7 @@ describe("Granted", () => {
     });
     const q = { ...RETRIEVE_RANGES };
     const stop = client.access.granted.onChange(subject, q, () => {});
-    await client.access.policies.retrieve({ where: { subjects: [subject] } });
+    await client.access.policies.retrieve({ subjects: [subject] });
     await expect
       .poll(() => client.access.granted.getCached(subject, q), { timeout: 5000 })
       .toBe(true);
@@ -119,7 +135,7 @@ describe("Granted", () => {
     });
     const handler = vi.fn();
     const stop = client.access.granted.onChange(subject, RETRIEVE_RANGES, handler);
-    await client.access.policies.retrieve({ where: { subjects: [subject] } });
+    await client.access.policies.retrieve({ subjects: [subject] });
     await expect
       .poll(() => handler.mock.calls.length, { timeout: 5000 })
       .toBeGreaterThan(0);

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
@@ -21,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apiimex.ServiceConfig {
 		return apiimex.ServiceConfig{
 			ImEx: &imex.Service{},
-			RBAC: &rbac.Service{},
 		}
 	}
 
@@ -42,11 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiimex.ServiceConfig) { c.ImEx = nil },
 				"imex: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apiimex.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -55,14 +48,12 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apiimex.ServiceConfig{}.Override(cfg)
 			Expect(merged.ImEx).To(BeIdenticalTo(cfg.ImEx))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiimex.ServiceConfig{})
 			Expect(merged.ImEx).To(BeIdenticalTo(cfg.ImEx))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })

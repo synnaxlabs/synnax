@@ -10,6 +10,7 @@
 package certificate_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -134,8 +135,15 @@ func (e *env) create(
 	privateKey []byte,
 ) certificate.Certificate {
 	GinkgoHelper()
-	Expect(e.svc.NewWriter(nil).Create(ctx, &c, privateKey)).To(Succeed())
+	Expect(e.write(ctx, func(w certificate.Writer) error {
+		return w.Create(ctx, &c, privateKey)
+	})).To(Succeed())
 	return c
+}
+
+// write runs fn with a writer on a new transaction.
+func (e *env) write(ctx context.Context, fn func(certificate.Writer) error) error {
+	return e.db.WithTx(ctx, func(tx gorp.Tx) error { return fn(e.svc.NewWriter(tx)) })
 }
 
 func (e *env) retrieve(ctx SpecContext, key certificate.Key) certificate.Certificate {
@@ -144,7 +152,7 @@ func (e *env) retrieve(ctx SpecContext, key certificate.Key) certificate.Certifi
 	Expect(e.svc.NewRetrieve().
 		Where(certificate.MatchKeys(key)).
 		Entry(&c).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return c
 }
 
@@ -154,7 +162,7 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 	Expect(e.status.NewRetrieve[any]().
 		Where(status.MatchOwners[any](certificate.ResourceID(key))).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return s
 }
 
@@ -163,8 +171,8 @@ func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
 	key := *c.Variant.(certificate.StoredCertificate).PrivateKey
 	rk := rack.Key(1).ResourceID()
-	g := MustSucceed(e.secrets.Grant(ctx, nil, rk, key))
-	return MustSucceed(e.secrets.Resolve(ctx, nil, rk, g, key))[key]
+	g := MustSucceed(e.secrets.Grant(ctx, e.db, rk, key))
+	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
 }
 
 var _ = Describe("Service", func() {
@@ -195,7 +203,7 @@ var _ = Describe("Service", func() {
 				g.Expect(e.svc.NewRetrieve().
 					Search("broker").
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				g.Expect(found).To(HaveLen(1))
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Broker CA"))
@@ -340,7 +348,7 @@ var _ = Describe("Service", func() {
 				Expect(e.status.NewRetrieve[any]().
 					Where(status.MatchOwners[any](c.ResourceID())).
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				Expect(found).To(BeEmpty())
 			},
 		)

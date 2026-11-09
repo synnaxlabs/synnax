@@ -14,9 +14,11 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from synnax import resource
-from synnax.channel.types_gen import Key as Key
-from synnax.channel.types_gen import Operation as Operation
-from synnax.channel.types_gen import Payload as Payload
+from synnax.channel.types_gen import (
+    Key as Key,
+    Operation as Operation,
+    Payload as Payload,
+)
 from x.lists import normalize
 
 _RESOURCE_TYPE = resource.ID(type="channel")

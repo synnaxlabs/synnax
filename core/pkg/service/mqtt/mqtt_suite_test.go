@@ -46,6 +46,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -56,9 +57,9 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
-	taskWriter task.Writer
-	// host is the Core that the services run on, and peer is a second Core.
-	host, peer node.Key
+	taskSvc    *task.Service
+	// host is the key of the Core that the services run on.
+	host node.Key
 )
 
 func TestMQTT(t *testing.T) {
@@ -70,9 +71,8 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	cluster := testutil.NewCluster(ctx, 0)
-	core := cluster.Provision(ctx)
-	host, peer = core.Cluster.HostKey(), cluster.Provision(ctx).Cluster.HostKey()
+	core := testutil.NewNode(ctx)
+	host = core.Identity.HostKey
 	db = core.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -84,10 +84,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -95,10 +97,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:   rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      core.Channel,
-		DB:           db,
-		HostProvider: core.Cluster,
-		Status:       statusSvc,
+		Channel: core.Channel,
+		DB:      db,
+		HostKey: core.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -112,7 +114,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,
 		Status:  statusSvc,
@@ -120,7 +122,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:    imex.NewService(),
 		Configs: MustSucceed(taskconfig.NewRegistry(mqttSvc.Stores()...)),
 	}))
-	taskWriter = taskSvc.NewWriter(nil)
 })
 
 // received is one message that a test broker delivered to a collector.

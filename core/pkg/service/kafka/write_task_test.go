@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -208,7 +209,9 @@ var _ = Describe("Write task", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
 			startTask(ctx, kafka.WriteConfig{
@@ -266,12 +269,9 @@ var _ = Describe("Write task", func() {
 				Topic:    uniqueTopic(),
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			})
-			unwritable := newFactory(
-				kafka.FactoryConfig{DB: gorp.Wrap(uncommittableDB{DB: db.KV()})},
-			)
-			dt := MustSucceed(unwritable.ConfigureTask(ctx, t, "cmd-1"))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			Expect(dt.Exec(ctx, task.Command{
+			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
 			})).To(MatchError(errCommit))
 		},
@@ -287,11 +287,13 @@ var _ = Describe("Write task", func() {
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			})
 			cmdCtx, cancel := context.WithCancel(ctx)
-			canceling := newFactory(kafka.FactoryConfig{
-				DB:          gorp.Wrap(cancelingDB{DB: db.KV(), cancel: cancel}),
-				PingTimeout: 100 * telem.Millisecond,
+			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+				err := commit()
+				cancel()
+				return err
 			})
-			dt := MustSucceed(canceling.ConfigureTask(ctx, t, "cmd-1"))
+			f = newFactory(kafka.FactoryConfig{PingTimeout: 100 * telem.Millisecond})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(cmdCtx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",

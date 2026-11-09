@@ -77,7 +77,9 @@ var _ = Describe("Service", func() {
 	create := func(ctx SpecContext) grant.Grant {
 		GinkgoHelper()
 		g := grant.Grant{Subject: rk, Secrets: []uuid.UUID{secret}}
-		Expect(svc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
 		return g
 	}
 	stored := func(ctx SpecContext) []grant.Grant {
@@ -125,7 +127,9 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext, change func(*grant.Grant), msg string) {
 					g := grant.Grant{Subject: rk, Secrets: []uuid.UUID{secret}}
 					change(&g)
-					Expect(svc.NewWriter(nil).Create(ctx, &g)).To(SatisfyAll(
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &g)
+					})).To(SatisfyAll(
 						BeAssignableToTypeOf(validate.PathError{}),
 						MatchError(msg),
 					))

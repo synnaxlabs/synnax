@@ -11,7 +11,6 @@ package panel
 
 import (
 	"context"
-	"io"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -23,14 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -90,28 +86,23 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// A delete that detaches a target rewrites the panel outside the writer. The
-	// service publishes the stored panel as a create, in order with the dispatches on
-	// it.
-	ok(nil, xio.NoFailCloserFunc(s.table.ObserveDetaches().OnChange(
-		func(ctx context.Context, p Panel) { s.publishDetached(ctx, p.Key) },
-	)))
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	// Broadcast action vectors on sy_panel_set; the gorp delete publisher's Set
-	// is disabled because action frames carry the mutation payload, but it still
-	// emits deletes so clients prune cached panels.
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[Key, Action]{Observable: s.state, Name: "panel"},
-	); !ok(err, sig) {
+	// sy_panel_set carries action batches, so the table publishes its deletes only.
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_panel_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+		Table:    tableName,
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-	deleteCfg.DisableSet = true
-	if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+	if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Panel]{
+		Changes:     s.table.Changes,
+		Resource:    ResourceID,
+		SetDisabled: new(true),
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -125,77 +116,18 @@ func (s *Service) CompositionMigrations() []gorp.Migration {
 	return versions.CompositionMigrations(s.table)
 }
 
-func (s *Service) publishDetached(ctx context.Context, key Key) {
-	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
-		var p Panel
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Panel](key)).
-			Entry(&p).
-			Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-		return []Action{NewCreateAction(CreatePayload{Panel: p})}, nil
-	})
-	// A later delete can remove the panel before the broadcast.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to publish a detached panel",
-			zap.Stringer("panel", key),
-			zap.Error(err),
-		)
-	}
-}
-
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies a sequence of actions atomically to the panel with the given key.
-// Dispatches for the same panel run one at a time, each in its own transaction
-// committed before the actions are notified, so two concurrent dispatches can never
-// overwrite each other's edits. dispatchKey is a client-generated identifier carried
-// verbatim onto the broadcast so the originating client can recognize its own echo.
-// Returns a validation error, and stores nothing, if the actions leave the panel
-// invalid.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-				ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-					reduced, err := Reduce(p, acts...)
-					if err != nil {
-						return Panel{}, err
-					}
-					if err = validateTree(reduced.Root); err != nil {
-						return Panel{}, err
-					}
-					if err = reduced.Validate(); err != nil {
-						return Panel{}, err
-					}
-					return reduced, nil
-				}).Exec(ctx, tx)
-		},
-	)
-}
-
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:        s,
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -204,7 +136,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

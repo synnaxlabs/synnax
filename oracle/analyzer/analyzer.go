@@ -1109,12 +1109,7 @@ func collectField(c *analysisCtx,
 	}
 
 	for _, inl := range def.AllInlineDomain() {
-		de := collectInlineDomain(c, inl)
-		if existing, ok := field.Domains[de.Name]; ok {
-			field.Domains[de.Name] = de.Merge(existing)
-		} else {
-			field.Domains[de.Name] = de
-		}
+		addFieldDomain(c, &field, collectInlineDomain(c, inl))
 	}
 	for _, om := range def.AllDomainOmit() {
 		field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
@@ -1122,18 +1117,33 @@ func collectField(c *analysisCtx,
 
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
-			de := collectDomain(c, d)
-			if existing, ok := field.Domains[de.Name]; ok {
-				field.Domains[de.Name] = de.Merge(existing)
-			} else {
-				field.Domains[de.Name] = de
-			}
+			addFieldDomain(c, &field, collectDomain(c, d))
 		}
 		for _, om := range fb.AllDomainOmit() {
 			field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
 		}
 	}
 	return field
+}
+
+// addFieldDomain adds d to the domains of field, merging it over a domain of the same
+// name. It reports an expression that the field declares twice, since only one can win.
+func addFieldDomain(c *analysisCtx, field *resolution.Field, d resolution.Domain) {
+	existing := field.Domains[d.Name]
+	declared := set.New[string]()
+	for _, expr := range slices.Concat(existing.Expressions, d.Expressions) {
+		if declared.Contains(expr.Name) {
+			c.report(diagnostics.Errorf(
+				d.AST,
+				"field %s declares @%s %s twice",
+				field.Name,
+				d.Name,
+				expr.Name,
+			))
+		}
+		declared.Add(expr.Name)
+	}
+	field.Domains[d.Name] = d.Merge(existing)
 }
 
 func collectFileDomain(c *analysisCtx, fd parser.IFileDomainContext) resolution.Domain {

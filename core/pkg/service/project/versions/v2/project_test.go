@@ -26,11 +26,6 @@ var _ = Describe("Project", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Project{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the project resource identifier", func() {
 			k := uuid.New()
