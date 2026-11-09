@@ -10,6 +10,8 @@
 package v2_test
 
 import (
+	"bytes"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,6 +77,26 @@ var _ = Describe("Migration", func() {
 		return rels
 	}
 
+	// sorted creates n ranges in key order, the order the cycle step visits them in.
+	sorted := func(ctx SpecContext, n int) []v1.Range {
+		GinkgoHelper()
+		rs := make([]v1.Range, n)
+		for i := range rs {
+			rs[i] = create(ctx, "Burn")
+		}
+		slices.SortFunc(rs, func(a, b v1.Range) int {
+			return bytes.Compare(a.Key[:], b.Key[:])
+		})
+		return rs
+	}
+	parentOf := func(parent, child v1.Range) ontology.Relationship {
+		return ontology.Relationship{
+			From: rangeID(parent.Key),
+			Type: ontology.RelationshipTypeParentOf,
+			To:   rangeID(child.Key),
+		}
+	}
+
 	It("Should move a parent relationship into the parent", func(ctx SpecContext) {
 		parent, child := create(ctx, "Test"), create(ctx, "Burn")
 		relate(ctx, ontology.Relationship{
@@ -121,70 +143,49 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should keep the parent of a range that is also its own parent",
 		func(ctx SpecContext) {
-			child, parent := create(ctx, "Burn"), create(ctx, "Test")
-			// Relationships migrate in key order, so the self relationship goes first.
-			if parent.Key.String() < child.Key.String() {
-				child, parent = parent, child
-			}
-			relate(
-				ctx,
-				ontology.Relationship{
-					From: rangeID(child.Key),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   rangeID(child.Key),
-				},
-				ontology.Relationship{
-					From: rangeID(parent.Key),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   rangeID(child.Key),
-				},
-			)
+			// The self relationship sorts first, so the migration sees it first.
+			rs := sorted(ctx, 2)
+			child, parent := rs[0], rs[1]
+			relate(ctx, parentOf(child, child), parentOf(parent, child))
 			migrate(ctx)
 			Expect(get(ctx, child.Key).Parent).To(HaveValue(Equal(parent.Key)))
 			Expect(relationships(ctx)).To(BeEmpty())
 		},
 	)
 
-	It("Should clear one parent in a cycle of ranges", func(ctx SpecContext) {
-		a, b := create(ctx, "Test"), create(ctx, "Burn")
-		relate(
-			ctx,
-			ontology.Relationship{
-				From: rangeID(a.Key),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   rangeID(b.Key),
-			},
-			ontology.Relationship{
-				From: rangeID(b.Key),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   rangeID(a.Key),
-			},
-		)
-		migrate(ctx)
-		parents := []*uuid.UUID{get(ctx, a.Key).Parent, get(ctx, b.Key).Parent}
-		Expect(parents).To(ConsistOf(BeNil(), Not(BeNil())))
-		if parents[0] == nil {
-			Expect(parents[1]).To(HaveValue(Equal(a.Key)))
-		} else {
-			Expect(parents[0]).To(HaveValue(Equal(b.Key)))
-		}
-	})
+	It(
+		"Should clear the parent of the first range in key order in a cycle",
+		func(ctx SpecContext) {
+			rs := sorted(ctx, 2)
+			relate(ctx, parentOf(rs[0], rs[1]), parentOf(rs[1], rs[0]))
+			migrate(ctx)
+			Expect(get(ctx, rs[0].Key).Parent).To(BeNil())
+			Expect(get(ctx, rs[1].Key).Parent).To(HaveValue(Equal(rs[0].Key)))
+		},
+	)
+
+	It(
+		"Should break a longer cycle that another range leads into",
+		func(ctx SpecContext) {
+			rs, outside := sorted(ctx, 3), create(ctx, "Hold")
+			relate(
+				ctx,
+				parentOf(rs[0], rs[1]),
+				parentOf(rs[1], rs[2]),
+				parentOf(rs[2], rs[0]),
+				parentOf(rs[0], outside),
+			)
+			migrate(ctx)
+			Expect(get(ctx, rs[0].Key).Parent).To(BeNil())
+			Expect(get(ctx, rs[1].Key).Parent).To(HaveValue(Equal(rs[0].Key)))
+			Expect(get(ctx, rs[2].Key).Parent).To(HaveValue(Equal(rs[1].Key)))
+			Expect(get(ctx, outside.Key).Parent).To(HaveValue(Equal(rs[0].Key)))
+		},
+	)
 
 	It("Should keep every parent in a chain of ranges", func(ctx SpecContext) {
 		a, b, c := create(ctx, "Test"), create(ctx, "Burn"), create(ctx, "Hold")
-		relate(
-			ctx,
-			ontology.Relationship{
-				From: rangeID(a.Key),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   rangeID(b.Key),
-			},
-			ontology.Relationship{
-				From: rangeID(b.Key),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   rangeID(c.Key),
-			},
-		)
+		relate(ctx, parentOf(a, b), parentOf(b, c))
 		migrate(ctx)
 		Expect(get(ctx, a.Key).Parent).To(BeNil())
 		Expect(get(ctx, b.Key).Parent).To(HaveValue(Equal(a.Key)))

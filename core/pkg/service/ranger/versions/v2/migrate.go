@@ -10,7 +10,9 @@
 package v2
 
 import (
+	"bytes"
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -56,6 +58,10 @@ func breakParentCycles(
 		Exec(ctx, tx); err != nil {
 		return err
 	}
+	slices.SortFunc(
+		ranges,
+		func(a, b Range) int { return bytes.Compare(a.Key[:], b.Key[:]) },
+	)
 	parents := make(map[Key]Key, len(ranges))
 	for _, r := range ranges {
 		if r.Parent != nil {
