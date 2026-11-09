@@ -71,16 +71,16 @@ export interface Drop {
   (props: DropProps): Promise<void>;
 }
 
-/**
- * Item renders one resource in the resource tree. The component carries the static
- * behavior of its resource type (children, order, drag, context menu) as properties,
- * which the Tree reads imperatively.
- */
 /** Returns what a drag of the resource carries besides the resource itself. */
 export interface HaulItems {
   (resource: Resource, client: Synnax): Haul.Item[];
 }
 
+/**
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, order, drag, context menu) as properties,
+ * which the Tree reads imperatively.
+ */
 export interface Item extends FC<ItemProps> {
   hasChildren: boolean;
   /** Whether nodes of this type show before the other children of their parent. */

@@ -30,12 +30,12 @@ const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID
   return parentID;
 };
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
+
 /**
  * Returns the tree items of groups. A group lists its child groups and the members of
  * its scope.
  */
-const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
-
 export const createTreeItems = (
   members: PlatformGroup.Members,
 ): { group: Tree.Item } => {
