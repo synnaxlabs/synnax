@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +34,7 @@ import {
   renderProvider,
   RESOURCE_ID,
 } from "@/platform/version/testutil";
-import { createTestClientWithGrants, getIconButton } from "@/testutil";
+import { awaitGranted, createTestClientWithGrants, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
@@ -231,22 +230,11 @@ describe("version Provider", () => {
 
     it("should not check the newest release against a dev Core", async () => {
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
-      const { result } = renderHook(
-        () => ({
-          check: Version.useCheck(),
-          granted: Access.useUpdateGranted(RESOURCE_ID),
-        }),
-        {
-          wrapper: await createWrapper({
-            client: await createGranted(),
-            coreVersion: "0.0.0",
-          }),
-        },
-      );
-      // The Provider reads the same grant, so it checks again with the grant.
-      await waitFor(() => expect(result.current.granted).toBe(true));
-      await act(async () => {});
-      await waitFor(() => expect(result.current.check).toEqual(NONE));
+      const granted = await createGranted();
+      await awaitGranted(granted, RESOURCE_ID, "update");
+      const { result } = await renderCheck({ client: granted, coreVersion: "0.0.0" });
+      await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
+      await waitFor(() => expect(result.current).toEqual(NONE));
       expect(callsOf(ipc, "plugin:updater|check")).toHaveLength(0);
     });
 
