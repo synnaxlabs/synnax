@@ -20,21 +20,18 @@ const parentOf = (
 
 const useMatches: Tree.UseMatches = (query) => {
   const params = query == null ? null : { searchTerm: query.term, limit: query.limit };
-  const directories = Arc.Directory.useResultList(params);
+  // The root holds the tree, so it is never a match.
+  const directories = Arc.Directory.useResultList(
+    params == null ? null : { ...params, nested: true },
+  );
   const arcs = Arc.useResultList(params);
   if (query == null) return [{ variant: "loading" }];
   const { root } = query;
-  const directoryMatches = Tree.toMatches(directories, (d) => ({
-    ...Tree.toResource("arc_directory")(d),
-    parent: parentOf(d.parent, root),
-  }));
   return [
-    directoryMatches.variant === "success"
-      ? {
-          ...directoryMatches,
-          resources: directoryMatches.resources.filter(({ id }) => id.key !== root.key),
-        }
-      : directoryMatches,
+    Tree.toMatches(directories, (d) => ({
+      ...Tree.toResource("arc_directory")(d),
+      parent: parentOf(d.parent, root),
+    })),
     Tree.toMatches(arcs, (a) => ({
       ...Tree.toResource("arc")(a),
       parent: parentOf(a.directory, root),

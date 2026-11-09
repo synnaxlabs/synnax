@@ -409,8 +409,12 @@ const ContextMenu = ({
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const resourceIDs = task.resourceID(keys);
+  // Deleting the row of an Arc deletes the Arc.
+  const arcIDs = arc.resourceID(
+    selectedTasks.map(arc.task.arcKeyOf).filter((key) => key != null),
+  );
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
+  const hasDeletePermission = Access.useDeleteGranted([...resourceIDs, ...arcIDs]);
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
 

@@ -290,12 +290,23 @@ describe("task/Toolbar Arc rows", () => {
   });
 
   describe("selection with a task", () => {
-    // Clicks the first row, then adds the others while Control is held.
+    // A click can land before the list knows the row, so it repeats until the row
+    // reads as selected. Control adds the row to the selection.
+    const selectRow = async (name: string, control: boolean): Promise<void> =>
+      await waitFor(() => {
+        const row = screen.getByText(name).closest(".lyra-list__item");
+        assertDefined(row, `no list item for ${name}`);
+        if (row.getAttribute("aria-selected") !== "true") {
+          if (control) fireEvent.keyDown(document.body, { code: "Control" });
+          fireEvent.click(screen.getByText(name));
+          if (control) fireEvent.keyUp(document.body, { code: "Control" });
+        }
+        expect(row.getAttribute("aria-selected")).toBe("true");
+      });
+
     const selectRows = async (first: string, ...others: string[]): Promise<void> => {
-      fireEvent.click(await screen.findByText(first));
-      fireEvent.keyDown(document.body, { code: "Control" });
-      for (const name of others) fireEvent.click(await screen.findByText(name));
-      fireEvent.keyUp(document.body, { code: "Control" });
+      await selectRow(first, false);
+      for (const name of others) await selectRow(name, true);
     };
 
     it("starts the Arc and the task, reporting each", async () => {
