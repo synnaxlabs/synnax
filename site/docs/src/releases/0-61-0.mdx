@@ -2,8 +2,6 @@
 title: "Version 0.61 release notes"
 ---
 
-import { Hero } from "@/components/hero";
-import { Video } from "@/components/media/Media";
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -18,8 +16,7 @@ export const components = mdxOverrides;
     title="Updates you can undo, EtherCAT clock sync, MQTT, and Kafka"
 >
 
-{/_ <Hero.Hero still="releases/0-61-0/hero" layout="bleed" tone="deep"
-palette="violet-pink" /> _/}
+{/* Hero still: releases/0-61-0/hero */}
 
 Synnax v0.61 makes a Core update safe to undo. The Core backs up its data before a new
 version opens it, and puts the backup back when the update fails.
@@ -35,8 +32,7 @@ Arc syntax changed, and a Core now runs alone. Read the
 
 ### Updates you can undo
 
-{/_ <Hero.Hero inset still="releases/0-61-0/version-guard" layout="framed"
-palette="blue-pink" /> _/}
+{/* Hero still: releases/0-61-0/version-guard */}
 
 Before, an update changed the data folder for good. When the new Core failed to start,
 you had a Core that did not run and data that the old Core could not read.
@@ -123,8 +119,7 @@ or UTC. On a remote Core, the first lines show in 0.6 seconds instead of 1.5. Se
 
 ### API keys for scripts and Drivers
 
-{/_ <Hero.Hero inset still="releases/0-61-0/credentials" layout="framed"
-palette="green-blue" /> _/}
+{/* Hero still: releases/0-61-0/credentials */}
 
 Before, scripts, `sy login`, the Console, and each Driver kept a password.
 
