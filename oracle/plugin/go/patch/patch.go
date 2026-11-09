@@ -139,7 +139,8 @@ func (c *collector) collect() error {
 			fields = slices.DeleteFunc(
 				slices.Clone(resolution.UnifiedFields(t, c.table)),
 				func(f resolution.Field) bool {
-					return !domain.HasDomainFromField(f, patchDomain)
+					return !domain.HasDomainFromField(f, patchDomain) ||
+						domain.HasExprFromField(f, patchDomain, coreExpr)
 				},
 			)
 		}
@@ -283,6 +284,9 @@ func variantFields(
 	}
 	return fields
 }
+
+// coreExpr marks a @patch field that only the Core sets. Patch refuses a path to it.
+const coreExpr = "core"
 
 // document reports whether t is a struct marked @actions, which takes path actions. A
 // struct that only inherits @patch fields, such as a create request, is not one.

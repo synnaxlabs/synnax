@@ -81,6 +81,7 @@ Log struct {
     name                 string         {
         @doc value         "is a human-readable name for the log."
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -103,6 +104,7 @@ Log struct {
     group                group.Key?     {
         @doc value     "is the group the log sits in, if any."
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }
@@ -111,6 +113,7 @@ Log struct {
             is the project that owns the log, if any. Exactly one of project and range
             is set.
         """
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }

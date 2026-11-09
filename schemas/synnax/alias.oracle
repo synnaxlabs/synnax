@@ -27,6 +27,7 @@ Alias struct {
         @doc value """
             is the human-readable name for the channel within this range context.
         """
+        @patch
     }
 
     @actions

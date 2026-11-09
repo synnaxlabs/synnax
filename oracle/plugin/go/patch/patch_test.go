@@ -144,6 +144,30 @@ var _ = Describe("Go Patch Plugin", func() {
 				ToNotContain(`case "key":`, `case "labels":`)
 		})
 
+		It("Should leave a field that only the Core sets out of Patch", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/doc"
+
+				Doc struct {
+					name string {
+						@patch
+					}
+					hash string {
+						@patch core
+					}
+
+					@actions
+				}
+			`, "doc", loader, p)
+			ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").
+				ToContain(`case "name":`).
+				ToNotContain(`case "hash":`)
+		})
+
 		It(
 			"Should switch on every field of a struct a document reaches",
 			func(ctx SpecContext) {

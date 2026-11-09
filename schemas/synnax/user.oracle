@@ -27,18 +27,21 @@ User struct {
     name      string   {
         @doc value           "is the user's display name."
         @index sorted
+        @patch
         @search
         @validate min_length 1
     }
     root_user bool = false {
-        @doc value """
+        @doc value  """
             is true if this is a root/admin user with full system access. Root users
             cannot be deleted.
         """
         @filter
+        @patch core
     }
     role      role.Key {
         @doc value         "is the role that grants the user its permissions."
+        @patch
         @ref kind          place
         @ref on_delete     restrict
         @validate required

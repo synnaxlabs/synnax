@@ -31,6 +31,7 @@ View union on type Type extends Base {
     range {
         where ranger.Where? {
             @doc value "selects the ranges the view shows. An absent where shows all."
+            @patch
         }
 
         @doc value "is a saved view of ranges."
@@ -38,6 +39,7 @@ View union on type Type extends Base {
     status {
         where status.Where? {
             @doc value "selects the statuses the view shows. An absent where shows all."
+            @patch
         }
 
         @doc value "is a saved view of statuses."
@@ -63,6 +65,7 @@ Base struct {
     name string {
         @doc value         "is a human-readable name for the view."
         @index sorted
+        @patch
         @search
         @validate required
     }

@@ -27,6 +27,7 @@ Pair struct {
     }
     value string     {
         @doc value "is the metadata value stored as a string for flexibility."
+        @patch
     }
 
     @actions

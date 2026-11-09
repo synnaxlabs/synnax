@@ -27,6 +27,7 @@ Project struct {
     name  string     {
         @doc value         "is a human-readable name for the project."
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -34,6 +35,7 @@ Project struct {
         @doc value     "is the group the project sits in, if any."
         @group pinned
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }

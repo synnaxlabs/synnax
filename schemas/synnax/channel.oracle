@@ -118,7 +118,8 @@ Channel struct {
         """
     }
     data_type   telem.DataType      {
-        @doc value "is the data type of samples stored in this channel."
+        @doc value  "is the data type of samples stored in this channel."
+        @patch core
     }
     is_index    bool                {
         @doc value """
@@ -152,16 +153,19 @@ Channel struct {
     }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
+        @patch
     }
     expression  string              {
         @doc value """
             is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
         """
+        @patch
     }
     group       group.Key?          {
         @doc value     "is the group the channel sits in, if any."
         @group scope   channel
+        @patch
         @ref kind      place
         @ref on_delete detach
     }

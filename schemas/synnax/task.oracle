@@ -97,10 +97,11 @@ Task struct<
         """
     }
     config_hash string = "" {
-        @doc value """
+        @doc value  """
             is the Core-assigned hash of config, rewritten on every write and ignored on
             writes from clients. Compare against a status's config_hash to detect drift.
         """
+        @patch core
     }
     internal    bool = false {
         @doc value "is true if this is an internal system task."

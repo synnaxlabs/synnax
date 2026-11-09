@@ -129,6 +129,7 @@ Panel struct {
     name    string       {
         @doc value         "is a human-readable name for the panel."
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -147,6 +148,7 @@ Panel struct {
     group   group.Key?   {
         @doc value     "is the group the panel sits in, if any."
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }
@@ -155,6 +157,7 @@ Panel struct {
             is the project that owns the panel, if any. Exactly one of project and range
             is set.
         """
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }

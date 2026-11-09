@@ -44,6 +44,7 @@ Rack struct {
         @doc value         "is a human-readable name for the rack."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -62,18 +63,21 @@ Rack struct {
             "labjack"). An empty or nil list means the rack supports no integrations.
         """
         @filter
+        @patch
     }
     version      string?    {
         @doc value """
             is the version of the Driver that runs the rack, written at each connect.
             Absent until a Driver reports it.
         """
+        @patch
     }
     group        group.Key? {
         @cpp omit
         @doc value     "is the group the rack sits in, if any."
         @group pinned
         @group scope   device
+        @patch
         @ref kind      place
         @ref on_delete detach
     }

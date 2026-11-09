@@ -29,6 +29,7 @@ Role struct {
         """
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -36,6 +37,7 @@ Role struct {
         @doc value """
             is an optional description explaining what permissions the role provides.
         """
+        @patch
     }
     internal    bool = false {
         @doc value "is true if this is a built-in system role that cannot be deleted."

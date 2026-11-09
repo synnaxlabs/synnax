@@ -28,6 +28,7 @@ Group struct {
         @doc value         "is a human-readable name for the group."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }

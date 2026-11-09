@@ -30,14 +30,17 @@ Policy struct {
         @doc value         "is a human-readable name for the policy."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }
     objects  resource.ID[]   {
         @doc value "is the list of resources this policy applies to."
+        @patch
     }
     actions  access.Action[] {
         @doc value "is the list of actions this policy permits."
+        @patch
     }
     internal bool = false {
         @doc value "is true if this is a built-in system policy that cannot be deleted."
@@ -45,6 +48,7 @@ Policy struct {
     }
     role     role.Key        {
         @doc value     "is the role that grants this policy to its subjects."
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }

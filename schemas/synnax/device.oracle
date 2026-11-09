@@ -69,6 +69,7 @@ Device struct<
     location   string     {
         @doc value         "is the physical location or address of the device."
         @filter
+        @patch
         @search
         @validate required
     }
@@ -83,6 +84,7 @@ Device struct<
     model      Model      {
         @doc value         "is the device model identifier."
         @filter
+        @patch
         @search
         @validate required
     }
@@ -90,6 +92,7 @@ Device struct<
         @doc value         "is a human-readable name for the device."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -98,12 +101,14 @@ Device struct<
             indicates whether the device has been successfully configured and is ready
             for use.
         """
+        @patch
     }
     properties Properties {
         @doc value """
             contains device-specific configuration properties stored as JSON. Structure
             varies by device make and model.
         """
+        @patch
     }
     status     Status?    {
         @doc value  "is the current operational status of the device."
@@ -115,6 +120,7 @@ Device struct<
         @doc value     "is the group the device sits in, if any."
         @group pinned
         @group scope   device
+        @patch
         @ref kind      place
         @ref on_delete detach
     }

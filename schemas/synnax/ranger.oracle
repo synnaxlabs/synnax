@@ -53,6 +53,7 @@ Range struct {
     }
     labels     label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
+        @patch core
         @ref kind      use
         @ref on_delete detach
     }
