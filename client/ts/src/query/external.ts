@@ -17,6 +17,14 @@ export { Deleted } from "@/query/deleted";
 export { type DeriveWatch, deriveWatch } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
 export {
+  type List,
+  type Lists,
+  type ListsConfig,
+  MAX_SEARCH_LIMIT,
+  type Window,
+  type WindowHandler,
+} from "@/query/list";
+export {
   type Cached,
   type ChangeHandler,
   hash,

@@ -60,7 +60,15 @@ import {
   type Where,
 } from "@/task/types.gen";
 import { LINES } from "@/task/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/task/where.gen";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -416,6 +424,7 @@ export class Client extends query.Retriever<
     // Every write to a task reaches the client as actions, the config hash included.
     const dispatcher = new actions.Controller<Key, Omit<Task, "status">, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
@@ -476,6 +485,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleRequest, Task, Key, Task>({
       name: "task",
       table: composed,
@@ -490,6 +500,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => matches(LINES, t, req.where),
@@ -666,10 +677,6 @@ export class Client extends query.Retriever<
     const sugared = this.sugar(response.task);
     this.writeThrough(sugared);
     return sugared;
-  }
-
-  async list(rack?: RackKey): Promise<Task[]> {
-    return await this.retrieve({ internal: false, ...(rack != null && { rack }) });
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(

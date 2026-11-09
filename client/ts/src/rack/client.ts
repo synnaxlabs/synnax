@@ -29,7 +29,14 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -137,6 +144,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Rack, Key, Rack>({
       name: "rack",
       table: composed,
@@ -153,6 +161,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => matches(LINES, r, req.where),

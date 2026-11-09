@@ -33,7 +33,15 @@ import {
   type Table,
   tableZ,
 } from "@/table/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/table/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/table/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";
@@ -88,6 +96,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -101,6 +110,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       name: "table",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (table, req) => matches(LINES, table, req.where),

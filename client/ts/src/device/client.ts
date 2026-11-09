@@ -24,7 +24,13 @@ import {
   statusZ,
 } from "@/device/types.gen";
 import { LINES } from "@/device/where";
-import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/device/where.gen";
 import { group } from "@/group";
 import { query } from "@/query";
 import { type status } from "@/status";
@@ -174,6 +180,7 @@ export class Client extends query.Retriever<
       compose: (record) => this.compose(record, true),
       watch: [query.deriveWatch(statusStore, (event) => affectedDeviceKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Device, Key, Device>({
       name: "device",
       table: composed,
@@ -191,6 +198,7 @@ export class Client extends query.Retriever<
       name: "device",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (d, req) => matches(LINES, d, req.where),

@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -1774,7 +1775,7 @@ describe("delete rollback", () => {
       .poll(() => onError.mock.calls[0]?.[0])
       .toEqual(
         expect.objectContaining({
-          message: "failed to fetch restored entries",
+          message: "failed to refetch entries",
           cause: expect.objectContaining({ message: "boom" }),
         }),
       );
@@ -1792,6 +1793,45 @@ describe("delete rollback", () => {
     await sleep.sleep(TimeSpan.milliseconds(10));
     expect(onError).not.toHaveBeenCalled();
     expect(table.get("k1")).toEqual(doc("a"));
+  });
+});
+
+describe("refetch", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (name: string): Doc => ({ key: "k1", name });
+
+  it("should not report an entry the Core no longer holds", async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn(async (): Promise<Doc[]> => []);
+    const table = new query.Table<string, Doc>({ onError, fetch });
+    table.set("k1", doc("a"));
+    table.refetch(["k1"]);
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(10));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("should return from a fetch listener before its fetch lands", async () => {
+    let land: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () =>
+        await new Promise<Doc[]>((resolve) => {
+          land = resolve;
+        }),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    table.set("k1", doc("a"));
+    const listener = query
+      .createFetchListener<z.ZodString, string, Doc>("changes", z.string())
+      .bind(table);
+    expect(listener.onChange(["k1"])).toBeUndefined();
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    expect(table.get("k1")).toEqual(doc("a"));
+    land([doc("b")]);
+    await expect.poll(() => table.get("k1")).toEqual(doc("b"));
   });
 });
 
@@ -2252,5 +2292,91 @@ describe("reset", () => {
     table.reset();
     table.set("k1", { key: "k1", name: "b" });
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+});
+
+describe("trim", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string): Doc => ({ key, name: key });
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
+
+  it("should drop the least recently read entries first", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.get("a");
+    table.trim(table.size);
+    expect(table.trim(1)).toEqual(["b", "c"]);
+    expect(table.keys()).toEqual(["a"]);
+  });
+
+  it("should keep the entries a holder or a keyed subscriber needs", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b"), doc("c")]);
+    table.hold({ held: () => ["a"] });
+    table.subscribe(vi.fn(), "b");
+    table.trim(table.size);
+    expect(table.trim(0)).toEqual(["c"]);
+    expect(table.size).toBe(2);
+  });
+
+  it("should drop silently and tell each holder what dropped", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    const version = table.version();
+    table.trim(table.size);
+    table.trim(1);
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(table.version()).toBe(version);
+    expect(table.status("a")).toBe("unknown");
+    expect(drop).toHaveBeenCalledWith(new Set(["a"]));
+  });
+
+  it("should stop keeping entries once the holder releases them", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    const release = table.hold({ held: () => ["a"] });
+    release();
+    table.trim(table.size);
+    expect(table.trim(0)).toEqual(["a"]);
+  });
+
+  it("should keep the entries read or written since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.set(doc("c"));
+    table.get("a");
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
+  it("should keep the unchanged records a fetch ingests since the last trim", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    table.trim(table.size);
+    table.ingest([doc("a"), doc("c")]);
+    expect(table.trim(0)).toEqual(["b"]);
+  });
+
+  it("should not let an older fetch restore a dropped entry", () => {
+    const table = newTable();
+    const since = table.stamp();
+    table.set({ key: "a", name: "new" });
+    table.trim(table.size);
+    table.trim(0);
+    table.ingest([{ key: "a", name: "old" }], { since });
+    expect(table.get("a")).toBeUndefined();
+  });
+
+  it("should drop nothing at or under the size", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    expect(table.trim(1)).toEqual([]);
   });
 });

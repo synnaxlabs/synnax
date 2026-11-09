@@ -46,6 +46,8 @@ import {
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -351,6 +353,7 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -380,6 +383,7 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
