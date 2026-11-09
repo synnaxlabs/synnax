@@ -48,7 +48,7 @@ STG_DC: dict[str, JsonValue] = {
 """The DC timing that Dewesoft gives a 6xSTG: SYNC0 every 1 µs and SYNC1 every 1 s."""
 
 _SCAN_TIMEOUT = 30 * sy.TimeSpan.SECOND
-_START_TIMEOUT = sy.TimeSpan.MINUTE
+START_TIMEOUT = sy.TimeSpan.MINUTE
 """The Driver retries a bus start for up to a minute."""
 
 
@@ -87,13 +87,81 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
     return slaves
 
 
+def create_read_task(
+    client: sy.Synnax,
+    stg: sy.Device,
+    *,
+    name: str,
+    sample_rate: sy.Rate,
+    stream_rate: sy.Rate,
+) -> sy.ethercat.ReadTask:
+    """Returns a task that reads u1 to u4 of a 6xSTG into `hitl_ethercat_u1` to
+    `hitl_ethercat_u4`, and its cycle counter into `hitl_ethercat_bufcounter`."""
+    idx = create_index(client, "hitl_ethercat_time")
+    channels: list[sy.ethercat.ReadChannel] = []
+    for entry_name in [f"u{i}" for i in range(1, 5)] + ["BufCounter"]:
+        entry = sy.ethercat.find_entry(stg, entry_name)
+        data_type = sy.DataType(entry.data_type)
+        channels.append(
+            sy.ethercat.EntryReadChannel(
+                device=stg.key,
+                index=entry.index,
+                sub_index=entry.sub_index,
+                data_type=data_type,
+                channel=create_channel(
+                    client,
+                    name=f"hitl_ethercat_{entry_name.lower()}",
+                    data_type=data_type,
+                    index=idx.key,
+                ),
+            )
+        )
+    return sy.ethercat.ReadTask(
+        name=name, sample_rate=sample_rate, stream_rate=stream_rate, channels=channels
+    )
+
+
+def create_write_task(
+    client: sy.Synnax, do: sy.Device, *, name: str, state_rate: sy.Rate
+) -> sy.ethercat.WriteTask:
+    """Returns a task that writes LED 1 and LED 2 of a 32xDO from
+    `hitl_ethercat_do_cmd_<n>`, and reports them on `hitl_ethercat_do_state_<n>`."""
+    cmd_idx = create_index(client, "hitl_ethercat_do_cmd_time")
+    state_idx = create_index(client, "hitl_ethercat_do_state_time")
+    channels: list[sy.ethercat.WriteChannel] = []
+    for i in (1, 2):
+        entry = sy.ethercat.find_entry(do, f"LED {i}", direction="output")
+        data_type = sy.DataType(entry.data_type)
+        channels.append(
+            sy.ethercat.EntryWriteChannel(
+                device=do.key,
+                index=entry.index,
+                sub_index=entry.sub_index,
+                data_type=data_type,
+                cmd_channel=create_channel(
+                    client,
+                    name=f"hitl_ethercat_do_cmd_{i}",
+                    data_type=data_type,
+                    index=cmd_idx.key,
+                ),
+                state_channel=create_channel(
+                    client,
+                    name=f"hitl_ethercat_do_state_{i}",
+                    data_type=data_type,
+                    index=state_idx.key,
+                ),
+            )
+        )
+    return sy.ethercat.WriteTask(name=name, state_rate=state_rate, channels=channels)
+
+
 class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):
     """Reads four voltages and the cycle counter of a 6xSTG in DC mode."""
 
     task_name = "HITL EtherCAT Read"
     SAMPLE_RATE = 100 * sy.Rate.HZ
     STREAM_RATE = 25 * sy.Rate.HZ
-    COMMAND_TIMEOUT = _START_TIMEOUT
+    COMMAND_TIMEOUT = START_TIMEOUT
 
     def retrieve_device(self) -> sy.Device:
         return prepare_bus(self.client)[STGS[0]]
@@ -106,31 +174,12 @@ class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
     ) -> sy.ethercat.ReadTask:
-        idx = create_index(self.client, "hitl_ethercat_time")
-        entries = [f"u{i}" for i in range(1, 5)] + ["BufCounter"]
-        channels: list[sy.ethercat.ReadChannel] = []
-        for name in entries:
-            entry = sy.ethercat.find_entry(device, name)
-            data_type = sy.DataType(entry.data_type)
-            channels.append(
-                sy.ethercat.EntryReadChannel(
-                    device=device.key,
-                    index=entry.index,
-                    sub_index=entry.sub_index,
-                    data_type=data_type,
-                    channel=create_channel(
-                        self.client,
-                        name=f"hitl_ethercat_{name.lower()}",
-                        data_type=data_type,
-                        index=idx.key,
-                    ),
-                )
-            )
-        return sy.ethercat.ReadTask(
+        return create_read_task(
+            self.client,
+            device,
             name=task_name,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            channels=channels,
         )
 
     def _channel_keys(self, task: sy.ethercat.ReadTask) -> list[int]:
@@ -160,7 +209,7 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
     """Writes two outputs of a 32xDO and checks the state that the Driver reports."""
 
     task_name = "HITL EtherCAT Write"
-    COMMAND_TIMEOUT = _START_TIMEOUT
+    COMMAND_TIMEOUT = START_TIMEOUT
     command_values: list[list[float]] | None = [[1, 0], [0, 1]]
 
     def retrieve_device(self) -> sy.Device:
@@ -174,34 +223,8 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
     ) -> sy.ethercat.WriteTask:
-        cmd_idx = create_index(self.client, "hitl_ethercat_do_cmd_time")
-        state_idx = create_index(self.client, "hitl_ethercat_do_state_time")
-        channels: list[sy.ethercat.WriteChannel] = []
-        for i in (1, 2):
-            entry = sy.ethercat.find_entry(device, f"LED {i}", direction="output")
-            data_type = sy.DataType(entry.data_type)
-            channels.append(
-                sy.ethercat.EntryWriteChannel(
-                    device=device.key,
-                    index=entry.index,
-                    sub_index=entry.sub_index,
-                    data_type=data_type,
-                    cmd_channel=create_channel(
-                        self.client,
-                        name=f"hitl_ethercat_do_cmd_{i}",
-                        data_type=data_type,
-                        index=cmd_idx.key,
-                    ),
-                    state_channel=create_channel(
-                        self.client,
-                        name=f"hitl_ethercat_do_state_{i}",
-                        data_type=data_type,
-                        index=state_idx.key,
-                    ),
-                )
-            )
-        return sy.ethercat.WriteTask(
-            name=task_name, state_rate=sample_rate, channels=channels
+        return create_write_task(
+            self.client, device, name=task_name, state_rate=sample_rate
         )
 
     def _channel_keys(self, task: sy.ethercat.WriteTask) -> list[int]:
