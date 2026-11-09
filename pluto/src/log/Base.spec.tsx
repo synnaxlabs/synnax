@@ -356,7 +356,10 @@ describe("log/Base", () => {
     type State = Record<string, unknown>;
 
     // Returns the state after the last update the log made.
-    const lastState = (setState: ReturnType<typeof vi.fn>, from: State = {}): State => {
+    const lastState = (
+      setState: ReturnType<typeof vi.fn>,
+      from: State = DEFAULT_STATE,
+    ): State => {
       const update = setState.mock.calls.at(-1)?.[0];
       return typeof update === "function" ? update(from) : update;
     };
@@ -468,6 +471,27 @@ describe("log/Base", () => {
           selectionStart: 1,
           selectionEnd: 1,
           ...WHOLE,
+        }),
+      );
+    });
+
+    it("should keep the start the worker moved as entries shift", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseMove(div, { clientY: 90 });
+      // Two entries were evicted, so the worker moved the start from 5 to 3.
+      const shifted = { ...DEFAULT_STATE, selectionStart: 3, selectionStartChar: 4 };
+      await waitFor(() =>
+        expect(lastState(setState, shifted)).toMatchObject({
+          selectionStart: 3,
+          selectionStartChar: 4,
+          selectionEnd: 8,
+          selectionEndChar: 2,
         }),
       );
     });

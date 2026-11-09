@@ -24,20 +24,15 @@ import { type ReactElement, type ReactNode, useRef } from "react";
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
 import { compile } from "@/log/aether/search";
-import { type LogState, use, type UseProps } from "@/log/use";
+import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
-type Selection = Pick<
-  LogState,
-  "selectionStart" | "selectionEnd" | "selectionStartChar" | "selectionEndChar"
->;
-
 interface Press {
   point: log.Point;
-  // What the press selected, once its update applies.
-  selection?: Selection;
+  // Whether the press cleared the selection, once its update applies.
+  cleared?: boolean;
 }
 
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
@@ -205,11 +200,9 @@ export const Base = ({
           s.selectionStart === entry &&
           s.selectionEnd === entry &&
           s.selectionStartChar < 0;
-        const selection: Selection = alone
-          ? { ...whole, selectionStart: -1, selectionEnd: -1 }
-          : { ...whole, selectionStart: entry, selectionEnd: entry };
-        if (press != null) press.selection = selection;
-        return { ...s, ...selection };
+        if (press != null) press.cleared = alone;
+        if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
+        return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
       });
     }, "Failed to select log lines");
   };
@@ -222,20 +215,30 @@ export const Base = ({
       const point = await methods.hit({ x, y });
       const press = downRef.current;
       if (press == null) return;
-      const { point: down } = press;
-      // A drag back to its start returns to what the press selected.
-      if (point.entry === down.entry && point.char === down.char) {
-        const { selection } = press;
-        if (selection != null) setState((s) => ({ ...s, ...selection }));
-        return;
-      }
-      setState((s) => ({
-        ...s,
-        selectionStart: down.entry,
-        selectionStartChar: down.char,
-        selectionEnd: point.entry,
-        selectionEndChar: point.char,
-      }));
+      const { point: down, cleared } = press;
+      setState((s) => {
+        // The worker keeps the start on its entry as entries shift, so the drag keeps
+        // the start it holds.
+        const start = s.selectionStart < 0 ? down.entry : s.selectionStart;
+        // A drag back to its start returns to what the press selected.
+        if (point.entry === start && point.char === down.char) {
+          const line = cleared === true ? -1 : start;
+          return {
+            ...s,
+            selectionStart: line,
+            selectionEnd: line,
+            selectionStartChar: -1,
+            selectionEndChar: -1,
+          };
+        }
+        return {
+          ...s,
+          selectionStart: start,
+          selectionStartChar: down.char,
+          selectionEnd: point.entry,
+          selectionEndChar: point.char,
+        };
+      });
     }, "Failed to select log lines");
   };
 

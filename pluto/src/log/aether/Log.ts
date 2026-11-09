@@ -338,10 +338,8 @@ export class Log
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
     const jumped = this.state.jump.request !== this.prevState.jump.request;
-    if (!deep.equal(this.state.search, this.prevState.search)) {
-      this.cursor = null;
-      this.endJump("");
-    }
+    const searchChanged = !deep.equal(this.state.search, this.prevState.search);
+    if (searchChanged) this.cursor = null;
     // A new pause starts its jumps from the view, past the matches that arrived live.
     if (!this.prevState.scrolling) this.cursor = null;
     i.render = render.Context.use(ctx);
@@ -472,12 +470,6 @@ export class Log
       }
     }
 
-    // A live log has no jump to run or report.
-    if (!this.state.scrolling) this.endJump("");
-    else if (jumped && this.state.jump.request > 0) {
-      this.jumping = this.state.jump.direction;
-      this.jump();
-    }
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
@@ -491,6 +483,13 @@ export class Log
       if (this.state.visible) this.requestRender();
     });
     if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume?.();
+    // A jump sets state, which overwrites prevState, so it runs after the last read of
+    // prevState. A live log has no jump to run or report.
+    if (!this.state.scrolling || searchChanged) this.endJump("");
+    if (this.state.scrolling && jumped && this.state.jump.request > 0) {
+      this.jumping = this.state.jump.direction;
+      this.jump();
+    }
     this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();

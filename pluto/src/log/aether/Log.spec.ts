@@ -786,6 +786,57 @@ describe("log/aether/Log", () => {
       expect(log.state.rowEntries).toContain(1_000);
     });
 
+    it("should resume the source when the log resumes with a jump status", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      const live = {
+        ...SEARCH,
+        empty: false,
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState({ ...live, scrolling: false });
+      expect(source.resumeCalls).toBe(1);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should return a paused view to its time when a filtered search changes", () => {
+      const entries = lines(400, []);
+      const filtered = { ...SEARCH, search: { text: "ok", filtered: true } };
+      const { log, source, updateState } = setup(entries, REGION_500, filtered);
+      const base = { ...filtered, region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      source.exhausted = true;
+      updateState({
+        ...base,
+        wheelPos: 2000,
+        scrolling: true,
+        search: { text: "err", filtered: true },
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("none");
+      const time = log.entries[log.scrollState.offset - 1].timestamp.valueOf();
+      source.exhausted = false;
+      // The source reloads only its newest entries when the filter changes.
+      source.setEntries(entries.slice(350));
+      const changed = { ...base, wheelPos: 2000, scrolling: true };
+      updateState({
+        ...changed,
+        search: { text: "o", filtered: true },
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries(entries);
+      source.notify();
+      const shown = log.entries.filter((e) => e.timestamp.valueOf() <= time);
+      expect(log.scrollState.offset).toBe(shown.length);
+    });
+
     it("should clear the jump status when the search changes", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       source.exhausted = true;
