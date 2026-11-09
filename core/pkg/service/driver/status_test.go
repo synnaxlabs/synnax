@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 type statusCall = func(context.Context, *driver.StatusHandler) error
@@ -93,7 +94,9 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).DeleteOwned(ctx, t.ResourceID())
+		})).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
@@ -101,7 +104,7 @@ var _ = Describe("StatusHandler", func() {
 		var stat task.Status
 		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-			Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Entry(&stat).Exec(ctx, db)).To(Succeed())
 		return stat
 	}
 
@@ -187,9 +190,10 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(
-				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).
+					RenameOwned(ctx, t.ResourceID(), "renamed")
+			})).
 				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))
@@ -500,22 +504,21 @@ var _ = Describe("StatusHandler", func() {
 			message, cmd string,
 			running bool,
 		) {
-			gated := &gatedDB{
-				DB:      db.KV(),
-				held:    make(chan struct{}),
-				release: make(chan struct{}),
-			}
-			handler := driver.NewStatusHandler(gorp.Wrap(gated), statusSvc, t)
+			handler := driver.NewStatusHandler(db, statusSvc, t)
 			Expect(handler.Send(
 				ctx, "cmd-0", status.VariantSuccess, true, "Started task", "",
 			)).To(Succeed())
 			// Cleanup opens the gate for a spec that fails before the release below.
-			release := sync.OnceFunc(func() { close(gated.release) })
+			held, gate := make(chan struct{}), make(chan struct{})
+			release := sync.OnceFunc(func() { close(gate) })
 			DeferCleanup(release)
-			gated.gated.Store(true)
+			DeferCleanup(hookedKV.HookKey(
+				[]byte(retrieve(ctx).Key),
+				hookkv.Hold(held, gate),
+			))
 			firstDone, secondDone := make(chan error, 1), make(chan error, 1)
 			go func() { firstDone <- first(ctx, handler) }()
-			Eventually(gated.held).Should(BeClosed())
+			Eventually(held).Should(BeClosed())
 			go func() { secondDone <- second(ctx, handler) }()
 			Consistently(secondDone).ShouldNot(Receive())
 			release()
@@ -572,7 +575,7 @@ var _ = Describe("StatusHandler", func() {
 				Expect(statusSvc.NewRetrieve[any]().
 					Where(status.MatchOwners[any](t.ResourceID())).
 					Entry(new(status.Status[any])).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})

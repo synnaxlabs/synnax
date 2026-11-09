@@ -50,7 +50,7 @@ var _ = Describe("Provision", func() {
 		Expect(roleSvc.NewRetrieve().
 			Where(role.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r
 	}
 
@@ -73,7 +73,7 @@ var _ = Describe("Provision", func() {
 			Expect(policySvc.NewRetrieve().
 				Where(policy.MatchNames(name)).
 				Entry(&p).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(p.Objects).To(ContainElement(resource.ID{Type: typ}))
 			Expect(p.Actions).To(Equal(actions))
 		},
@@ -102,7 +102,7 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchNames("Driver Edit Access")).
 			Entry(&edit).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewUpdate[role.Key, role.Role]().
 			Where(gorp.MatchKeys[role.Key, role.Role](first.DriverKey)).
 			Change(func(_ gorp.Context, r role.Role) role.Role {
@@ -122,13 +122,15 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchKeys(edit.Key)).
 			Entry(&renamed).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Driver Edit Access"))
 	})
 
 	It("Should leave a custom role named Driver alone", func(ctx SpecContext) {
 		custom := role.Role{Name: "Driver", Description: "custom"}
-		Expect(roleSvc.NewWriter(nil, false).Create(ctx, &custom)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return roleSvc.NewWriter(tx, false).Create(ctx, &custom)
+		})).To(Succeed())
 		result := provision(ctx)
 		Expect(result.DriverKey).ToNot(Equal(custom.Key))
 		Expect(retrieveRole(ctx, custom.Key).Description).To(Equal("custom"))

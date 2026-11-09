@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -135,6 +136,36 @@ Wire struct {
 				Expect(output.GetPath(entry, "go")).To(Equal("out/versions/v0"))
 				wire := rewritten.MustGet("channel.Wire")
 				Expect(output.GetPath(wire, "go")).To(Equal("out"))
+			})
+
+		It("Should drop a live omit on a member and keep it on a transient type",
+			func(ctx SpecContext) {
+				table := analyzeLive(ctx, `
+@go output "out"
+
+Channel struct {
+	key uuid @key
+
+	@go marshal
+	@go omit
+}
+
+Wire struct {
+	name string
+
+	@go omit
+}
+
+Note struct {
+	text string
+}
+`)
+				rewritten, _, _, err := versioning.RewriteCurrent(ctx, table, res)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(omit.IsType(rewritten.MustGet("channel.Channel"), "go")).
+					To(BeFalse())
+				Expect(omit.IsType(rewritten.MustGet("channel.Wire"), "go")).
+					To(BeTrue())
 			})
 
 		It("Should return the table unchanged with no chains", func(ctx SpecContext) {

@@ -18,9 +18,18 @@ from typing import Any
 
 import pytest
 
-from review import Config, Doc, Finding, Lens, PullRequest, Window, load, run
-from review.__main__ import claude as launch
-from review.__main__ import main
+from review import (
+    Config,
+    Dismissal,
+    Doc,
+    Finding,
+    Lens,
+    PullRequest,
+    Window,
+    load,
+    run,
+)
+from review.__main__ import claude as launch, main
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path("/work")
@@ -288,6 +297,21 @@ class TestPrompt:
     def test_should_list_the_open_findings(self) -> None:
         stdin = review(pr=pull(open={("core/a.go", "Old bug")})).system
         assert "# Earlier findings still open\n\n- `core/a.go`: Old bug" in stdin
+
+    def test_should_list_the_dismissed_findings_with_their_reasons(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant.\n\nSee #1."),
+            Dismissal(path="b.go", title="Nit", reason=""),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert (
+            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.\n\n"
+            "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
+        assert "Dismissed findings" not in review().system
 
     def test_should_hide_every_review_in_the_body(self) -> None:
         body = (
@@ -667,6 +691,7 @@ class TestLaunch:
         assert Path(out["cwd"]).resolve() == work.resolve()
         env = out["env"]
         assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
+        assert env["CLAUDE_CODE_PROMPT_CACHE_TTL"] == "5m"
         assert "GH_TOKEN" not in env
         assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
 
@@ -792,6 +817,41 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_show_the_open_and_dismissed_findings(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        def node(title: str, *replies: str) -> dict[str, Any]:
+            bot = {"__typename": "Bot", "login": "sedosaur"}
+            first = {"author": bot, "body": f"<img> **{title}**"}
+            person = {"__typename": "User", "login": "m"}
+            later = [
+                {"author": person, "authorAssociation": "MEMBER", "body": r}
+                for r in replies
+            ]
+            comments = [first, *later]
+            return {
+                "id": title,
+                "path": "a.go",
+                "resolved": bool(replies),
+                "comments": comments,
+            }
+
+        nodes = "".join(
+            json.dumps(n) + "\n"
+            for n in [node("Open bug"), node("Meant", "@sedosaur dismiss, on purpose")]
+        )
+        executable(
+            tmp_path / "bin" / "gh",
+            "if 'graphql' not in sys.argv:\n"
+            "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
+            "elif any('reviewThreads' in a for a in sys.argv):\n"
+            f"    print({nodes!r}, end='')\n",
+        )
+        main(["run", str(tmp_path / "review.json")])
+        text = (tmp_path / "prompt.txt").read_text()
+        assert "# Earlier findings still open\n\n- `a.go`: Open bug\n" in text
+        assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch

@@ -15,22 +15,32 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer creates, renames, and deletes secrets.
+// Writer creates, changes, and deletes secrets.
 type Writer struct {
-	tx    gorp.Tx
-	aead  cipher.AEAD
-	table *gorp.Table[Key, Secret]
-	now   func() telem.TimeStamp
+	tx         gorp.Tx
+	aead       cipher.AEAD
+	table      *gorp.Table[Key, Secret]
+	now        func() telem.TimeStamp
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates the secret, or replaces the secret with the same key. For a stored
 // secret, value is the plain text, which Create encrypts and must not be empty. For a
 // file secret, value must be empty. Create gives a secret without a key a new one, and
-// sets Updated.
+// sets Updated. The commit carries a create action that holds the secret without its
+// value.
 func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
@@ -45,24 +55,51 @@ func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
 		stored.Value = w.aead.Seal(nil, nil, value, base.Key[:])
 		s.Variant = stored
 	}
-	return w.table.NewCreate().Entry(s).Exec(ctx, w.tx)
+	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	created := *s
+	if stored, ok := created.Variant.(StoredSecret); ok {
+		stored.Value = nil
+		created.Variant = stored
+	}
+	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Secret: created}))
+	return nil
 }
 
-// Rename renames the secret with the given key, keeping its value. It returns
-// query.ErrNotFound if no secret has the key, and a validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
+// Apply applies the actions to the secret with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to validate, and an error wrapping query.ErrNotFound when no secret has
+// the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Secret](key)).
 		ChangeErr(func(_ gorp.Context, s Secret) (Secret, error) {
-			base := s.Base()
-			base.Name = name
-			s.SetBase(base)
-			if err := s.Validate(); err != nil {
+			next, err := Reduce(s, acts...)
+			if err != nil {
 				return Secret{}, err
 			}
-			return s, nil
+			if err = next.Validate(); err != nil {
+				return Secret{}, err
+			}
+			return next, nil
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// Rename renames the secret with the given key by applying a set of the name. It keeps
+// the value.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }
 
 // Delete deletes the secrets with the given keys. Delete is idempotent.

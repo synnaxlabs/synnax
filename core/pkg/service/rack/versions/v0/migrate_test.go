@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -49,8 +48,8 @@ var _ = Describe("Migration", func() {
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: v0.NewMigrations(v0.MigrationConfig{
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       statusSvc,
+				HostKey: 1,
+				Status:  statusSvc,
 			}),
 		})).To(Succeed())
 	}
@@ -85,7 +84,7 @@ var _ = Describe("Migration", func() {
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchOwners[v0.StatusDetails](r.ResourceID())).
 			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		key, _ := statusv2.MigrateKey(r.ResourceID().String())
 		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -186,7 +185,9 @@ var _ = Describe("Status backfill", func() {
 			}
 			// The rack table is not open during its own migration, so the status skips
 			// reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).
 				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
@@ -196,8 +197,8 @@ var _ = Describe("Status backfill", func() {
 				DB:        db,
 				Namespace: "Rack",
 				Migrations: v0.NewMigrations(v0.MigrationConfig{
-					HostProvider: testutil.NewStaticHostProvider(1),
-					Status:       statusSvc,
+					HostKey: 1,
+					Status:  statusSvc,
 				}),
 			})).To(Succeed())
 
@@ -206,7 +207,7 @@ var _ = Describe("Status backfill", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](rackKey.ResourceID())).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal("legacy-rack-status"))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
 		},

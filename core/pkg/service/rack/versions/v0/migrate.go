@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -25,8 +25,8 @@ import (
 
 // MigrationConfig is the configuration for newMigration.
 type MigrationConfig struct {
-	// HostProvider resolves the host node, used to rename the embedded rack.
-	HostProvider cluster.HostProvider
+	// HostKey is the key of the host node. The embedded rack's new name includes it.
+	HostKey node.Key
 	// Status is the status service used to backfill unknown statuses for racks missing
 	// them.
 	Status *status.Service
@@ -52,7 +52,7 @@ func renameEmbeddedRack(
 	ins alamos.Instrumentation,
 	cfg MigrationConfig,
 ) error {
-	hostKey := cfg.HostProvider.HostKey()
+	hostKey := cfg.HostKey
 	v1Name := fmt.Sprintf("sy_node_%s_rack", hostKey)
 	v2Name := fmt.Sprintf("Node %s Embedded Driver", hostKey)
 
