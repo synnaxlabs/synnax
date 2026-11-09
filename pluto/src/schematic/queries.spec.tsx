@@ -143,6 +143,44 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should retrieve the schematics with the keys", async () => {
+      const [a, b] = await Promise.all([
+        createTestSchematic(proj.key),
+        createTestSchematic(proj.key),
+      ]);
+      const { result } = await renderHookSuspended(
+        () => Schematic.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map(({ key }) => key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should update when one of the schematics changes", async () => {
+      const [a, b] = await Promise.all([
+        createTestSchematic(proj.key),
+        createTestSchematic(proj.key),
+      ]);
+      const { result } = await renderHookSuspended(
+        () => Schematic.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current).toHaveLength(2));
+      await act(async () => {
+        await client.schematics.rename(a.key, "renamed_schematic");
+      });
+      await waitFor(() =>
+        expect(result.current).toContainEqual(
+          expect.objectContaining({ key: a.key, name: "renamed_schematic" }),
+        ),
+      );
+    });
+  });
+
   describe("useEnsure", () => {
     it("populates the store so downstream selectors resolve", async () => {
       const schem = await createTestSchematic(proj.key);
