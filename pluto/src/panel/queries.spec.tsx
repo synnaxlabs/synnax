@@ -393,9 +393,8 @@ describe("Panel queries", () => {
       // The rename reaches the project's cached answer, so the subscription fired
       // and the hook had every chance to hand back a new array.
       await waitFor(() => {
-        const cached = client.panels.getCached({ projects: [projectKey] });
-        if (!query.isLive(cached)) throw new Error("project answer not cached");
-        expect(cached.map(({ name }) => name)).toContain("after-rename");
+        const window = client.panels.watch({ projects: [projectKey] }).getCached();
+        expect(window?.records.map(({ name }) => name)).toContain("after-rename");
       });
       expect(result.current).toBe(before);
     });
@@ -445,7 +444,7 @@ describe("Panel queries", () => {
             // The client applies the rename before it calls back, so the cached panel
             // already carries the new name here.
             afterOptimistic: ({ client: c, data }) => {
-              const cached = c.panels.getCached(data.key);
+              const cached = c.panels.watch(data.key).getCached();
               order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
             },
             afterSuccess: () => {
@@ -1129,7 +1128,7 @@ describe("Panel queries", () => {
         result.current.setResource(resource);
       });
       await waitFor(() => expect(result.current.variant).toEqual("resource"));
-      const cached = client.panels.getCached(created.key);
+      const cached = client.panels.watch(created.key).getCached();
       expect(query.isLive(cached)).toBe(true);
       if (!query.isLive(cached)) return;
       const updated = panel.findTab(cached.root, tab.key);

@@ -271,7 +271,7 @@ describe("User", () => {
       await waitForStreamLive(local.connection);
       await local.users.retrieve(u.key);
       const cachedName = () => {
-        const cached = local.users.getCached(u.key);
+        const cached = local.users.watch(u.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       };
       const { responded, release } = holdResponses(local, "/user/retrieve");
@@ -308,7 +308,7 @@ describe("User", () => {
       const a = await createUser(from.key);
       const b = await createUser();
       await client.users.setRole([a.key, b.key], to.key);
-      expect(expectLive(client.users.getCached(a.key)).role).toEqual(to.key);
+      expect(expectLive(client.users.watch(a.key).getCached()).role).toEqual(to.key);
       const fresh = createTestClient();
       const stored = await fresh.users.retrieve([a.key, b.key]);
       expect(stored.map((u) => u.role)).toEqual([to.key, to.key]);
@@ -323,7 +323,9 @@ describe("User", () => {
           `cannot change the role of root user ${root.name}: validation error`,
         ),
       );
-      expect(expectLive(client.users.getCached(root.key)).role).toEqual(root.role);
+      expect(expectLive(client.users.watch(root.key).getCached()).role).toEqual(
+        root.role,
+      );
       const fresh = createTestClient();
       expect((await fresh.users.retrieve(root.key)).role).toEqual(root.role);
     });
@@ -417,13 +419,13 @@ describe("cached reads", () => {
   test("should deliver a remote rename to a subscribed user", async () => {
     const u = await createUser();
     const handler = vi.fn();
-    const off = client.users.onChange(u.key, handler);
+    const off = client.users.watch(u.key).onChange(handler);
     try {
       await client.users.retrieve(u.key);
       await remote.users.rename(u.key, "Abigail Adams");
       await expect
         .poll(() => {
-          const cached = client.users.getCached(u.key);
+          const cached = client.users.watch(u.key).getCached();
           return query.isLive(cached) && cached.name === "Abigail Adams";
         })
         .toBe(true);
@@ -441,19 +443,19 @@ describe("cached reads", () => {
     await client.users.retrieve(u.key);
     await remote.users.setRole(u.key, r.key);
     await expect
-      .poll(() => expectLive(client.users.getCached(u.key)).role)
+      .poll(() => expectLive(client.users.watch(u.key).getCached()).role)
       .toEqual(r.key);
   });
 
   test("should deliver a remote delete as a deleted result", async () => {
     const u = await createUser();
     const results: Array<query.Cached<user.User> | undefined> = [];
-    const off = client.users.onChange(u.key, (res) => results.push(res));
+    const off = client.users.watch(u.key).onChange((res) => results.push(res));
     try {
       await client.users.retrieve(u.key);
       await remote.users.delete(u.key);
       await expect
-        .poll(() => query.Deleted.matches(client.users.getCached(u.key)))
+        .poll(() => query.Deleted.matches(client.users.watch(u.key).getCached()))
         .toBe(true);
       expect(expectDeleted(results.at(-1)).corpse.key).toEqual(u.key);
     } finally {

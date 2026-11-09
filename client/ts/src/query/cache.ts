@@ -170,20 +170,20 @@ export class Cache {
 
   /**
    * Creates a table materialized from another table owned by this cache. Composed
-   * entries are replaced on source and watch events, so entry identity changes exactly
-   * when composition changes; misses on read fetch through the source. Resets with the
-   * cache. No stream listeners of its own, so it may be created at any time.
+   * entries are replaced on source and trigger events, so entry identity changes
+   * exactly when composition changes; misses on read fetch through the source. Resets
+   * with the cache. No stream listeners of its own, so it may be created at any time.
    */
   derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
     config: DerivedConfig<Key, Value, Composed>,
   ): Table<Key, Composed> {
-    const { name, source, compose, watch, equal } = config;
+    const { name, source, compose, triggers, equal } = config;
     const table = new Table<Key, Composed>({
       onError: this.onError,
       equal,
       fetch: async (keys) => (await source.retrieve(keys)).map(compose),
     });
-    this.detachers.push(bindDerived(table, { source, compose, watch }));
+    this.detachers.push(bindDerived(table, { source, compose, triggers }));
     this.register(table);
     this.tables.push({
       name,

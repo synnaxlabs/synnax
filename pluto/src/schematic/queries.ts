@@ -29,8 +29,8 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.schematics.retrieve(query.key),
   onChange: ({ client, query }, handler) =>
-    client.schematics.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query.key),
+    client.schematics.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.schematics.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -282,7 +282,7 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.createActions({
       selected,
@@ -305,7 +305,7 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.ungroupActions(selected, s.configs);
     if (result == null) return null;

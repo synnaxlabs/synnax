@@ -33,8 +33,8 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.access.policies.onChange(query, handler),
-  getCached: ({ client, query }) => client.access.policies.getCached(query),
+    client.access.policies.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.access.policies.watch(query).getCached(),
 });
 
 export type DeleteParams = access.policy.Key | access.policy.Key[];

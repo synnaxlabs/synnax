@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
@@ -87,17 +86,9 @@ export class Client {
     return await this.space.retrieve(KEY);
   }
 
-  /**
-   * Calls the handler each time the cached license state changes, and keeps it current
-   * until the returned destructor runs.
-   */
-  onChange(handler: query.ChangeHandler<Info>): destructor.Destructor {
-    return this.space.onChange(KEY, handler);
-  }
-
-  /** @returns The cached license state, or undefined when none is cached. */
-  getCached(): query.Cached<Info> | undefined {
-    return this.space.getCached(KEY);
+  /** Returns the live license state. It stays current while a handler is subscribed. */
+  watch(): query.Live<Info> {
+    return this.space.watch(KEY);
   }
 
   /**

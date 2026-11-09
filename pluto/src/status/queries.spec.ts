@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, query, status } from "@synnaxlabs/client";
+import { NotFoundError, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
@@ -752,8 +752,6 @@ describe("Status queries", () => {
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-      const cached = client.statuses.getCached({ key: [status1.key, status2.key] });
-      expect(query.isLive(cached)).toBe(true);
     });
 
     it("should return all cached statuses when all are cached", async () => {

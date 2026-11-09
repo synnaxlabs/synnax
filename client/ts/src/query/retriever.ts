@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, zod } from "@synnaxlabs/x";
+import { type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import { type List, type ListQuery, type Lists } from "@/query/list";
-import {
-  type Cached,
-  type ChangeHandler,
-  type Retrieves,
-  type Watch,
-} from "@/query/query";
+import { type Live, type Retrieves, type Trigger } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
@@ -251,7 +246,7 @@ export type RetrieverParams<
     /** Rule 3: whether only the server can evaluate the query, such as a regex. */
     serverComputed?: (query: z.output<Z>) => boolean;
     /** Foreign tables whose events affect this space's answers. */
-    watch?: Array<Watch<z.output<Z>, K>>;
+    triggers?: Array<Trigger<z.output<Z>, K>>;
     /**
      * Positions records for lists, from the domain's generated `cursor` and
      * `compareCursors`. Absent, the domain has no lists.
@@ -359,7 +354,7 @@ export abstract class Retriever<
       matches,
       serverFields = DEFAULT_SERVER_FIELDS,
       serverComputed,
-      watch,
+      triggers,
       list,
     } = request;
     const requestSpace: Retrieves<z.output<Z>, D[]> = cache.queries<
@@ -384,7 +379,7 @@ export abstract class Retriever<
       matches,
       serverFields,
       serverComputed,
-      watch,
+      triggers,
     });
     this.requestSpace = requestSpace as Retrieves<Params, D | D[]>;
     this.lists =
@@ -393,8 +388,13 @@ export abstract class Retriever<
         : cache.lists({
             name,
             table,
-            fetch: async (query, options) => await fetch(query as z.output<Z>, options),
+            fetch: async (query, options) => {
+              const keys = keysOnly(query);
+              if (keys != null) return await table.retrieve(keys as K[]);
+              return await fetch(query as z.output<Z>, options);
+            },
             compose: (record, query) => compose(record, query),
+            keysOf: (query) => keysOnly(query) as K[] | null,
             matches:
               matches == null
                 ? undefined
@@ -404,7 +404,7 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
-            watch: watch?.map(({ attach, version, contentOnly }) => ({
+            triggers: triggers?.map(({ attach, version, contentOnly }) => ({
               attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
               version,
               contentOnly,
@@ -436,7 +436,7 @@ export abstract class Retriever<
       matches,
       serverFields,
       serverComputed,
-      watch,
+      triggers,
       single: true,
     });
     this.oneSpace = oneSpace as Retrieves<Params, D | D[]>;
@@ -567,53 +567,34 @@ export abstract class Retriever<
   }
 
   /**
-   * Returns the live list of the records that match the params, in their `order`, or in
-   * key order without one. The list ignores `after`, and `limit` sets the least window
-   * its reads return.
-   * @throws {Error} if the domain has no lists.
-   * @throws {zod.ParseError} if the request schema rejects the params.
-   * @throws {ValidationError} if the params set a limit that is not positive.
+   * Returns the live answer of the params, which stays current while a handler is
+   * subscribed. For params that address one record, or a bare key list, the `retrieve`
+   * of the answer is {@link retrieve}. Any other query returns a live list of the
+   * records that match it, in its `order`, or in key order without one. The list
+   * ignores `after`, and `limit` sets the least window its reads return. Equal queries
+   * return the same list.
+   * @throws {Error} if a query asks for a list, and the domain has no lists.
+   * @throws {zod.ParseError} if no schema of the domain accepts the params.
+   * @throws {ValidationError} if a list query sets a limit that is not positive.
    */
-  list(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>> {
+  watch(params: Shortcut | SingleInput | OneInput<Z>): Live<D>;
+  watch(params: Shortcut[]): Live<D[]>;
+  watch(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>>;
+  watch(
+    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
+  ): Live<D> | Live<D[]> | List<D, CursorOf<z.output<Z>>> {
+    const [space, query] = this.route(params);
+    if (Array.isArray(params)) {
+      const live = space.watch(query) as Live<D[]>;
+      return { ...live, retrieve: async (o) => await this.retrieve(params, o) };
+    }
+    if (space !== this.requestSpace) return space.watch(query) as Live<D>;
     if (this.lists == null) throw new Error(`${this.name} has no lists`);
     // Params are readonly, so a repeat read of one object skips validation.
-    const held = this.listed.get(params);
+    const held = this.listed.get(params as object);
     if (held != null) return held;
-    const list = this.lists.list(this.normalizeRequest(params) as never);
-    this.listed.set(params, list);
+    const list = this.lists.list(query as never);
+    this.listed.set(params as object, list);
     return list;
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. The handler fires on
-   * every change or deletion. Returns a destructor that unsubscribes.
-   */
-  onChange(
-    params: Shortcut | SingleInput | OneInput<Z>,
-    handler: ChangeHandler<D>,
-  ): destructor.Destructor;
-  onChange(
-    params: Shortcut[] | RequestInput<Z>,
-    handler: ChangeHandler<D[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
-    handler: ChangeHandler<D> | ChangeHandler<D[]>,
-  ): destructor.Destructor {
-    const [space, query] = this.route(params);
-    return space.onChange(query, handler as ChangeHandler<D | D[]>);
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the network, or
-   * undefined when nothing is cached. May be stale for unsubscribed queries.
-   */
-  getCached(params: Shortcut | SingleInput | OneInput<Z>): Cached<D> | undefined;
-  getCached(params: Shortcut[] | RequestInput<Z>): Cached<D[]> | undefined;
-  getCached(
-    params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
-  ): Cached<D> | Cached<D[]> | undefined {
-    const [space, query] = this.route(params);
-    return space.getCached(query) as Cached<D> | Cached<D[]> | undefined;
   }
 }

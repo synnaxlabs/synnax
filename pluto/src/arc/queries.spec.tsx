@@ -713,7 +713,7 @@ describe("Arc queries", () => {
       // cache through the hook's subscription, but the arc is not running, so
       // the drift boolean holds false and the change must not re-render.
       await waitFor(() =>
-        expect(query.isLive(client.arcs.task.getCached(a.key))).toBe(true),
+        expect(query.isLive(client.arcs.task.watch(a.key).getCached())).toBe(true),
       );
       let settled = renders;
       await expect
@@ -726,7 +726,7 @@ describe("Arc queries", () => {
       await editProgram(a.key);
       await expect
         .poll(() => {
-          const cached = client.arcs.task.getCached(a.key);
+          const cached = client.arcs.task.watch(a.key).getCached();
           return query.isLive(cached) && cached?.configHash !== tsk.configHash;
         })
         .toBe(true);

@@ -22,7 +22,7 @@ import {
   hash,
   type SpaceHooks,
   startStreaming,
-  type Watch,
+  type Trigger,
 } from "@/query/query";
 import { type Keyed, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -116,16 +116,22 @@ export interface ListsConfig<
   matches?: (record: V, query: Q) => boolean | null;
   /** Whether only the Core can check the query, such as a regex. */
   serverComputed?: (query: Q) => boolean;
+  /**
+   * The keys of a query that addresses keys and nothing else, or null for any other
+   * query. A window of such a query composes from the table, with no fetch, when the
+   * table knows every key.
+   */
+  keysOf?: (query: Q) => K[] | null;
   /** Returns the position of a record in the order, or in key order when absent. */
   cursor: (record: V, order?: O) => C;
   /** Orders two positions as the Core walks them. */
   compare: (a: C, b: C, order?: O) => number;
   /** Foreign tables whose changes reach the records of the windows. */
-  watch?: Array<Watch<Q, K>>;
+  triggers?: Array<Trigger<Q, K>>;
 }
 
 interface Seen {
-  /** The versions of the table and of each watched table. */
+  /** The versions of the table and of each trigger's table. */
   versions: number[];
   /** Null while the stream does not maintain the tables. */
   epoch: number | null;
@@ -225,7 +231,7 @@ export class Lists<
         retrieve: async (options) => await this.retrieve(entry, limit, options),
         more: async (n, options) => await this.more(entry, n, options),
         getCached: () => this.cachedOf(entry),
-        onChange: (handler) => this.subscribe(entry, handler),
+        onChange: (handler) => this.subscribe(entry, limit, handler),
       };
       entry.lists.set(limit, list);
     }
@@ -441,7 +447,7 @@ export class Lists<
   ): Promise<{ records: V[]; rechecks: Set<K> } | null> {
     const { table, fetch } = this.config;
     const { generation } = entry;
-    const rechecks = new Set<K>();
+    const rechecks = entry.rechecks ?? new Set<K>();
     entry.rechecks = rechecks;
     // A change that lands during the fetch reaches no unmaintained window.
     const before = this.seen();
@@ -553,9 +559,12 @@ export class Lists<
 
   private subscribe(
     entry: Entry<Q, K, D, V, C>,
+    limit: number | undefined,
     handler: WindowHandler<D, C>,
   ): destructor.Destructor {
     void startStreaming(this.hooks, (exc) => this.report(exc));
+    // A refetch sizes the window to the largest limit a reader asked for.
+    entry.limit = Math.max(entry.limit, limit ?? Infinity);
     entry.handlers.add(handler);
     entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
@@ -569,17 +578,17 @@ export class Lists<
   }
 
   /**
-   * Handles a change to a watched table. The window's records are the same objects, so
-   * a change to a member composes the window again.
+   * Handles a change to a trigger's table. The window's records are the same objects,
+   * so a change to a member composes the window again.
    */
-  private onWatch(
+  private onTrigger(
     entry: Entry<Q, K, D, V, C>,
-    watch: Watch<Q, K>,
+    trigger: Trigger<Q, K>,
     result: K[] | "refetch",
   ): void {
     if (entry.ingesting || !entry.fetched) return;
     if (result === "refetch") return this.scheduleRefetch(entry);
-    if (watch.contentOnly !== true)
+    if (trigger.contentOnly !== true)
       if (entry.ranked) this.scheduleRefetch(entry);
       else this.admit(entry, result);
     const members = new Set(entry.keys);
@@ -589,19 +598,21 @@ export class Lists<
   }
 
   private maintain(entry: Entry<Q, K, D, V, C>): void {
-    const { table, watch = [] } = this.config;
+    const { table, triggers = [] } = this.config;
     const releases = [
       table.subscribeBatch((events) => this.onEvents(entry, events)),
-      ...watch.map((w) =>
-        w.attach(entry.query, (result) => this.onWatch(entry, w, result)),
+      ...triggers.map((t) =>
+        t.attach(entry.query, (result) => this.onTrigger(entry, t, result)),
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());
+    // The first fetch starts later, and its answer may predate a change made before it.
+    if (!entry.fetched) entry.rechecks ??= new Set();
     if (entry.fetched && !unchanged(entry.seen, this.seen())) entry.stale = true;
     if (!entry.stale || !entry.fetched) return;
     // A record deleted while unmaintained leaves its key until the refetch lands.
     entry.keys = entry.keys.filter((key) => table.get(key) != null);
-    // A watched change leaves the records as they were, so the window composes again.
+    // A trigger's change leaves the records as they were, so the window composes again.
     entry.composed = undefined;
     this.scheduleRefetch(entry);
   }
@@ -615,11 +626,11 @@ export class Lists<
   }
 
   private seen(): Seen {
-    const { table, watch = [] } = this.config;
+    const { table, triggers = [] } = this.config;
     const maintained = this.hooks.maintained?.() !== false;
     const epoch = this.hooks.epoch?.() ?? 1;
     return {
-      versions: [table.version(), ...watch.map((w) => w.version())],
+      versions: [table.version(), ...triggers.map((t) => t.version())],
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
   }
@@ -669,7 +680,22 @@ export class Lists<
   }
 
   private cachedOf(entry: Entry<Q, K, D, V, C>): Window<D, C> | undefined {
+    if (!entry.fetched) this.fill(entry);
     return entry.fetched ? this.windowOf(entry) : undefined;
+  }
+
+  /** Fills a keys-only window from the table when the table knows every key. */
+  private fill(entry: Entry<Q, K, D, V, C>): void {
+    const { table, keysOf } = this.config;
+    const keys = keysOf?.(entry.query);
+    if (keys == null || keys.some((key) => table.status(key) === "unknown")) return;
+    const present = keys.filter((key) => table.status(key) === "present");
+    entry.keys = [];
+    entry.end = null;
+    this.admit(entry, present, new Set(present));
+    entry.fetched = true;
+    entry.stale = false;
+    if (entry.teardown == null) entry.seen = this.seen();
   }
 
   /** Composes the window, interned against its records so repeated reads stay

@@ -1379,7 +1379,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       await answers.retrieve({ min: 3 });
       foreign.set("f", rec("f", 1));
@@ -1528,7 +1528,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       answers.onChange({ min: 3 }, vi.fn());
       expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
@@ -2296,7 +2296,9 @@ describe("Answers", () => {
         table: primary,
         fetch,
         compose: (records) => records,
-        watch: [query.watch(foreign, (event) => [event.key], { contentOnly: true })],
+        triggers: [
+          query.trigger(foreign, (event) => [event.key], { contentOnly: true }),
+        ],
       });
       const handler = vi.fn();
       answers.onChange({ tag: "t" }, handler);
@@ -2324,7 +2326,7 @@ describe("Answers", () => {
         },
         compose: (records) => records,
         matches: (r) => foreign.has(r.key),
-        watch: [query.watch(foreign, (event) => [event.key])],
+        triggers: [query.trigger(foreign, (event) => [event.key])],
       });
       const handler = vi.fn();
       answers.onChange({ tag: "t" }, handler);
@@ -2381,7 +2383,7 @@ describe("Answers", () => {
           fetch: async () => [],
           compose: (records) => records,
           matches: (r) => foreign.has(r.key),
-          watch: [query.watch(foreign, (event) => [event.key, "gone"])],
+          triggers: [query.trigger(foreign, (event) => [event.key, "gone"])],
         },
         { onError },
       );
@@ -2412,7 +2414,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records[0]?.value ?? 0,
         keyOf: (query) => query.k,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
@@ -2590,7 +2592,7 @@ describe("referential stability", () => {
       compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix}` }),
       keyOf: (query) => query.k,
       single: true,
-      watch: [query.watch(foreign, () => ["a"])],
+      triggers: [query.trigger(foreign, () => ["a"])],
     });
     const off = answers.onChange(qA, vi.fn());
     try {

@@ -13,7 +13,7 @@ import z from "zod";
 
 import { channel } from "@/channel";
 import { DataType, NotFoundError } from "@/index";
-import { query } from "@/query";
+import { type query } from "@/query";
 import { status } from "@/status";
 import {
   createTestClient,
@@ -38,11 +38,11 @@ describe("Status", () => {
       await responded;
       await client.statuses.set({ ...s, message: "after" });
       await expect
-        .poll(() => expectLive(local.statuses.getCached(s.key)).message)
+        .poll(() => expectLive(local.statuses.watch(s.key).getCached()).message)
         .toBe("after");
       release();
       await fetching;
-      expect(expectLive(local.statuses.getCached(s.key)).message).toBe("after");
+      expect(expectLive(local.statuses.watch(s.key).getCached()).message).toBe("after");
     });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
@@ -279,7 +279,7 @@ describe("Status", () => {
       let duringWrite: query.Cached<status.Status> | undefined;
       await client.statuses.set(crude, {
         onOptimistic: () => {
-          duringWrite = client.statuses.getCached(crude.key as status.Key);
+          duringWrite = client.statuses.watch(crude.key as status.Key).getCached();
         },
       });
       expect(expectLive(duringWrite).message).toEqual(crude.message);
@@ -292,7 +292,7 @@ describe("Status", () => {
       await client.statuses.set([first, second], {
         onOptimistic: () => {
           duringWrite = [first, second].map(({ key }) =>
-            client.statuses.getCached(key as status.Key),
+            client.statuses.watch(key as status.Key).getCached(),
           );
         },
       });
@@ -307,9 +307,9 @@ describe("Status", () => {
       const created = await client.statuses.set({ variant: "info", message });
       expect(created.key).not.toHaveLength(0);
       expect(created.time.valueOf()).toBeGreaterThan(0n);
-      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
-        message,
-      );
+      expect(
+        expectLive(client.statuses.watch(created.key).getCached()).message,
+      ).toEqual(message);
     });
 
     it("should keep the details of a schema-parametrized status", async () => {
@@ -321,9 +321,9 @@ describe("Status", () => {
         {
           detailsSchema,
           onOptimistic: () => {
-            duringWrite = client.statuses.getCached(
-              crude.key as status.Key,
-            ) as query.Cached<status.Status<typeof detailsSchema>>;
+            duringWrite = client.statuses
+              .watch(crude.key as status.Key)
+              .getCached() as query.Cached<status.Status<typeof detailsSchema>>;
           },
         },
       );
@@ -339,7 +339,9 @@ describe("Status", () => {
           },
         }),
       ).rejects.toThrow("write failed");
-      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+      expect(
+        client.statuses.watch(crude.key as status.Key).getCached(),
+      ).toBeUndefined();
     });
 
     it("should leave no corpse behind when the write fails", async () => {
@@ -359,7 +361,7 @@ describe("Status", () => {
           },
         ),
       ).rejects.toThrow("write failed");
-      expect(observer.statuses.getCached(key)).toBeUndefined();
+      expect(observer.statuses.watch(key).getCached()).toBeUndefined();
       expect((await observer.statuses.retrieve(key)).message).toEqual(crude.message);
     });
 
@@ -376,9 +378,9 @@ describe("Status", () => {
           },
         ),
       ).rejects.toThrow("write failed");
-      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
-        created.message,
-      );
+      expect(
+        expectLive(client.statuses.watch(created.key).getCached()).message,
+      ).toEqual(created.message);
     });
   });
 
@@ -721,24 +723,18 @@ describe("Status", () => {
         },
       ]);
       await client.labels.label(status.resourceID(member), [lbl.key]);
-      const params = { where: { labels: [lbl.key] } };
-      const off = client.statuses.onChange(params, () => {});
+      const list = client.statuses.watch({ where: { labels: [lbl.key] } });
+      const off = list.onChange(() => {});
       try {
-        const initial = await client.statuses.retrieve(params);
-        expect(initial.map((s) => s.key)).toEqual([member]);
+        const initial = await list.retrieve();
+        expect(initial.records.map((s) => s.key)).toEqual([member]);
         await client.labels.label(status.resourceID(joiner), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.statuses.getCached(params);
-            return query.isLive(cached) && cached.some((s) => s.key === joiner);
-          })
+          .poll(() => list.getCached()?.records.some((s) => s.key === joiner))
           .toBe(true);
         await client.labels.remove(status.resourceID(member), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.statuses.getCached(params);
-            return query.isLive(cached) && !cached.some((s) => s.key === member);
-          })
+          .poll(() => list.getCached()?.records.every((s) => s.key !== member))
           .toBe(true);
       } finally {
         off();

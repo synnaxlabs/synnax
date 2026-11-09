@@ -32,8 +32,8 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
     onChange: ({ client, query }, handler) =>
-      client.panels.onChange(query.key, handler),
-    getCached: ({ client, query }) => client.panels.getCached(query.key),
+      client.panels.watch(query.key).onChange(handler),
+    getCached: ({ client, query }) => client.panels.watch(query.key).getCached(),
     awaitCreation: true,
   });
 
@@ -48,15 +48,15 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { project: projectKey } }) =>
-    keysOf(await client.panels.retrieve({ projects: [projectKey] })),
-  onChange: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange({ projects: [projectKey] }, (result) =>
-      handler(query.isLive(result) ? keysOf(result) : undefined),
-    ),
-  getCached: ({ client, query: { project: projectKey } }) => {
-    const cached = client.panels.getCached({ projects: [projectKey] });
-    return query.isLive(cached) ? keysOf(cached) : undefined;
+  retrieve: async ({ client, query: { project } }) =>
+    keysOf((await client.panels.watch({ projects: [project] }).retrieve()).records),
+  onChange: ({ client, query: { project } }, handler) =>
+    client.panels
+      .watch({ projects: [project] })
+      .onChange((w) => handler(w == null ? undefined : keysOf(w.records))),
+  getCached: ({ client, query: { project } }) => {
+    const window = client.panels.watch({ projects: [project] }).getCached();
+    return window == null ? undefined : keysOf(window.records);
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
 });
@@ -336,7 +336,7 @@ export const useMoveTabToPanel = (): ((
     });
     if (!inserted) return undefined;
     await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
-    const cached = client?.panels.getCached(destination);
+    const cached = client?.panels.watch(destination).getCached();
     return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
   };
 };

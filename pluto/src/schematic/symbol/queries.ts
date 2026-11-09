@@ -28,8 +28,8 @@ export const { use, useResult } = Flux.createRetrieve<
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.schematics.symbols.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
+    client.schematics.symbols.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.schematics.symbols.watch(query).getCached(),
 });
 
 export interface Resolved {
@@ -101,13 +101,13 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   retrieve: async ({ client, query: { key } }) =>
     await client.schematics.symbols.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const symbol = client.schematics.symbols.getCached(key);
+    const symbol = client.schematics.symbols.watch(key).getCached();
     return query.isLive(symbol) ? symbol : undefined;
   },
   update: async ({ client, value, reset }) =>
     reset(await client.schematics.symbols.create(value())),
   mountListeners: ({ client, query: { key }, reset }) =>
-    client.schematics.symbols.onChange(key, (result) => {
+    client.schematics.symbols.watch(key).onChange((result) => {
       if (query.isLive(result)) reset(result);
     }),
 });

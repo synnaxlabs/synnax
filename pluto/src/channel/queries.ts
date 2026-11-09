@@ -28,6 +28,7 @@ import {
   type RetrieveQuery,
 } from "@/channel/aether/queries";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -145,7 +146,7 @@ const getCachedFormValues = ({
   client,
   query: { key, rangeKey },
 }: Flux.RetrieveParams<FormQuery>) => {
-  const cached = client.channels.getCached({ key, rangeKey });
+  const cached = client.channels.watch({ key, rangeKey }).getCached();
   return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
@@ -166,7 +167,7 @@ const formMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof formSchema | typeof calculatedFormSchema
 >["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) =>
-  client.channels.onChange({ key, rangeKey }, (result) => {
+  client.channels.watch({ key, rangeKey }).onChange((result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
   });
 
@@ -224,9 +225,7 @@ export const { useResult: useResultList } = Flux.createRetrieve<
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: normalizeListQuery,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  ...flux.listReads(({ client, query }) => client.channels.watch(query)),
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}

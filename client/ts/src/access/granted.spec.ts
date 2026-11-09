@@ -87,19 +87,23 @@ describe("Granted", () => {
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
-    const stop = client.access.granted.onChange(grantee, q, () => {});
-    await client.access.policies.retrieve({ roles: [grantee.role] });
+    const stop = client.access.granted.watch(grantee, q).onChange(() => {});
+    await client.access.policies.watch({ roles: [grantee.role] }).retrieve();
     await expect
-      .poll(() => client.access.granted.getCached(grantee, q), { timeout: 5000 })
+      .poll(() => client.access.granted.watch(grantee, q).getCached(), {
+        timeout: 5000,
+      })
       .toBe(true);
     const spy = vi.mocked(allowRequest);
     spy.mockClear();
-    expect(client.access.granted.getCached(grantee, q)).toBe(true);
-    expect(client.access.granted.getCached(grantee, q)).toBe(true);
-    expect(client.access.granted.getCached(grantee, q)).toBe(true);
+    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
+    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
+    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
     expect(spy).not.toHaveBeenCalled();
     // A distinct query object holds its own memo entry, so it evaluates once.
-    expect(client.access.granted.getCached(grantee, { ...RETRIEVE_RANGES })).toBe(true);
+    expect(
+      client.access.granted.watch(grantee, { ...RETRIEVE_RANGES }).getCached(),
+    ).toBe(true);
     expect(spy).toHaveBeenCalledTimes(1);
     stop();
   });
@@ -111,14 +115,18 @@ describe("Granted", () => {
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
-    const stop = client.access.granted.onChange(grantee, q, () => {});
-    await client.access.policies.retrieve({ roles: [grantee.role] });
+    const stop = client.access.granted.watch(grantee, q).onChange(() => {});
+    await client.access.policies.watch({ roles: [grantee.role] }).retrieve();
     await expect
-      .poll(() => client.access.granted.getCached(grantee, q), { timeout: 5000 })
+      .poll(() => client.access.granted.watch(grantee, q).getCached(), {
+        timeout: 5000,
+      })
       .toBe(true);
     await client.access.policies.delete(p.key);
     await expect
-      .poll(() => client.access.granted.getCached(grantee, q), { timeout: 5000 })
+      .poll(() => client.access.granted.watch(grantee, q).getCached(), {
+        timeout: 5000,
+      })
       .toBe(false);
     stop();
   });
@@ -134,8 +142,10 @@ describe("Granted", () => {
       actions: ["retrieve"],
     });
     const handler = vi.fn();
-    const stop = client.access.granted.onChange(grantee, RETRIEVE_RANGES, handler);
-    await client.access.policies.retrieve({ roles: [grantee.role] });
+    const stop = client.access.granted
+      .watch(grantee, RETRIEVE_RANGES)
+      .onChange(handler);
+    await client.access.policies.watch({ roles: [grantee.role] }).retrieve();
     await expect
       .poll(() => handler.mock.calls.length, { timeout: 5000 })
       .toBeGreaterThan(0);

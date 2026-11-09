@@ -44,8 +44,9 @@ export const { use: useParent, useResult: useResultParent } = Flux.createRetriev
   retrieve: async ({ client, query: { key } }) =>
     await client.ranges.parent.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
-    client.ranges.parent.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.ranges.parent.getCached(key),
+    client.ranges.parent.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) =>
+    client.ranges.parent.watch(key).getCached(),
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =
@@ -53,8 +54,8 @@ export const { use, useEnsure, useTombstone, createSelector, useResult } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
     onChange: ({ client, query: { key } }, handler) =>
-      client.ranges.onChange(key, handler),
-    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+      client.ranges.watch(key).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.ranges.watch(key).getCached(),
   });
 
 export type RetrieveMultipleQuery = {
@@ -69,8 +70,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   retrieve: async ({ client, query: { keys } }) =>
     await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.ranges.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+    client.ranges.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
 });
 
 const timeRangeZ = z
@@ -156,8 +157,9 @@ export const { useResult: useResultMetaData } = Flux.createRetrieve<
   retrieve: async ({ client, query: { rangeKey } }) =>
     await client.ranges.kv.retrieve(rangeKey),
   onChange: ({ client, query: { rangeKey } }, handler) =>
-    client.ranges.kv.onChange(rangeKey, handler),
-  getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
+    client.ranges.kv.watch(rangeKey).onChange(handler),
+  getCached: ({ client, query: { rangeKey } }) =>
+    client.ranges.kv.watch(rangeKey).getCached(),
 });
 
 export const kvPairFormSchema = ranger.kv.pairZ;

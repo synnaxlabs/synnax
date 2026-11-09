@@ -41,9 +41,11 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
-      client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
+      client.statuses
+        .watch(query)
+        .onChange(handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
-      client.statuses.getCached(query) as
+      client.statuses.watch(query).getCached() as
         query.Cached<status.Status<DetailsSchema>> | undefined,
   });
 
@@ -59,8 +61,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   retrieve: async ({ client, query: { keys } }) =>
     await client.statuses.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.statuses.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
+    client.statuses.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.statuses.watch(keys).getCached(),
 });
 
 export const { use, useResult } = createRetrieve();
@@ -106,7 +108,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     set(formPath.key, v.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.statuses.onChange(key, (result) => {
+    client.statuses.watch(key).onChange((result) => {
       if (query.Deleted.matches(result)) abandon();
       else if (query.isLive(result)) reset(result);
     }),

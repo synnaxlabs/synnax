@@ -48,8 +48,8 @@ export const { use, useEnsure, useTombstone, useResult, createSelector } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
     onChange: ({ client, query: { key } }, handler) =>
-      client.arcs.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) => client.arcs.getCached({ key }),
+      client.arcs.watch({ key }).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.arcs.watch({ key }).getCached(),
     awaitCreation: true,
   });
 
@@ -261,8 +261,8 @@ export const {
   name: "task",
   retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
   onChange: ({ client, query }, handler) =>
-    client.arcs.task.onChange(query.arcKey, handler),
-  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
+    client.arcs.task.watch(query.arcKey).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.task.watch(query.arcKey).getCached(),
 });
 
 const useDriftedResult = createTaskResultSelector(

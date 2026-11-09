@@ -153,6 +153,14 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("should apply a change between its subscribe and its first fetch", async () => {
+      const { lists, table } = setup([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      table.set("2", rec("2", "b"));
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+    });
+
     it("should fetch again on every read of an unmaintained window", async () => {
       const { lists, fetch } = setup([rec("1", "a")]);
       const list = lists.list({ order: byName, limit: 1 });
@@ -451,7 +459,7 @@ describe("Lists", () => {
           matches,
           cursor,
           compare: compareCursors,
-          watch: [query.watch(statuses, ({ key }) => [key], { contentOnly })],
+          triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
@@ -528,6 +536,24 @@ describe("Lists", () => {
       bump(2);
       await expect.poll(() => fetch.mock.calls.length).toBe(3);
       expect(fetch).toHaveBeenLastCalledWith({ order: byName, limit: 2 }, undefined);
+    });
+
+    it("should size a new epoch's refetch of an unread window to its subscriber", async () => {
+      let bump = (_: number): void => {};
+      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")], {
+        onEpoch: (callback) => {
+          bump = callback;
+          return () => {};
+        },
+      });
+      const list = lists.list({ order: byName, limit: 2 });
+      list.onChange(vi.fn());
+      bump(2);
+      await expect.poll(() => names(list.getCached())).toEqual(["a", "b"]);
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(
+        { order: byName, limit: 2 },
+        undefined,
+      );
     });
 
     it("should refetch on resubscribe after a change it missed", async () => {

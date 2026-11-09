@@ -170,7 +170,9 @@ describe("schematic queries", () => {
 
       // Restoring re-creates from the corpse, which keeps the original key.
       // The read heals off the cache alone: no boundary reset, no refetch.
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
       await client.schematics.create({ ...corpse, project: proj.key });
       await waitFor(() => expect(result.current).toBeNull());
     });
@@ -188,9 +190,9 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, doomed.key);
       await client.schematics.delete(doomed.key);
       await waitFor(() =>
-        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
-          true,
-        ),
+        expect(
+          query.Deleted.matches(client.schematics.watch(doomed.key).getCached()),
+        ).toBe(true),
       );
 
       const caught: Error[] = [];
@@ -215,7 +217,9 @@ describe("schematic queries", () => {
       const error = caught[0];
       assert(Flux.DeletedError.matches(error));
       expect(error.corpseName).toBe("test_schematic");
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
       expect(corpse.key).toBe(doomed.key);
     });
 
@@ -536,7 +540,7 @@ describe("schematic queries", () => {
             // The client applies the rename before it calls back, so the cached
             // schematic already carries the new name here.
             afterOptimistic: ({ client: c, data }) => {
-              const cached = c.schematics.getCached(data.key);
+              const cached = c.schematics.watch(data.key).getCached();
               order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
             },
             afterSuccess: () => {

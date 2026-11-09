@@ -63,9 +63,10 @@ describe("Resource Queries", () => {
 
     it("should list the resources of the given types for an empty term", async () => {
       for (let i = 0; i < 3; i++) await createLabel(randomToken());
+      // An earlier reader of the query on a shared client would size the window.
       const { result } = renderHook(
         () => Resource.useList({ query: { types: ["label"] }, pageSize: 3 }),
-        { wrapper },
+        { wrapper: createSynnaxWrapper({ client: createTestClient() }) },
       );
       act(() => result.current.more());
       await waitFor(() => expect(result.current.data).toHaveLength(3));

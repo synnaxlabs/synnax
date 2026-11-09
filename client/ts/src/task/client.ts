@@ -483,7 +483,7 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedKeys(event))],
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedKeys(event))],
     });
     statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleRequest, Task, Key, Task>({
@@ -505,8 +505,8 @@ export class Client extends query.Retriever<
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => matches(LINES, t, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(statusStore, (event) => affectedKeys(event), {
+        triggers: [
+          query.trigger(statusStore, (event) => affectedKeys(event), {
             contentOnly: true,
           }),
         ],

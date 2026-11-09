@@ -205,8 +205,8 @@ export class Client extends query.Retriever<
       source: this.cfg.tasks.store,
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [
-        query.deriveWatch(this.cfg.statuses.store, (event) =>
+      triggers: [
+        query.deriveTrigger(this.cfg.statuses.store, (event) =>
           this.cfg.statuses.ownerKeys(event, "task"),
         ),
       ],

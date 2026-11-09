@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
-
 import { type Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
-import { query } from "@/query";
+import { type query } from "@/query";
 import { type resource } from "@/resource";
 import { user } from "@/user";
 
@@ -71,47 +69,45 @@ export class Granted {
 
   /** Fetches the policies of the grantee's role and answers the question. */
   async retrieve(grantee: Grantee, q: GrantedQuery): Promise<boolean> {
-    const policies = await this.policies.retrieve(this.queryFor(grantee));
-    return this.evaluate(grantee, q, policies);
+    return await this.watch(grantee, q).retrieve();
   }
 
   /**
-   * Subscribes to the verdict, firing only when it flips: policy churn that
-   * cannot change the answer never reaches the handler.
+   * Returns the live verdict. Its handlers fire only when the verdict flips: policy
+   * churn that cannot change the answer never reaches them. Repeat cached reads with
+   * the same query object skip the policy evaluation until the cached policies change.
    */
-  onChange(
+  watch(grantee: Grantee, q: GrantedQuery): query.Live<boolean> {
+    const policies = this.policies.watch(this.queryFor(grantee));
+    const verdictOf = (window: query.Window<policy.Policy, unknown> | undefined) =>
+      window == null ? undefined : this.verdict(grantee, q, window.records);
+    return {
+      retrieve: async (options) =>
+        this.verdict(grantee, q, (await policies.retrieve(options)).records),
+      getCached: () => verdictOf(policies.getCached()),
+      onChange: (handler) => {
+        let prev = verdictOf(policies.getCached());
+        return policies.onChange((window) => {
+          const next = verdictOf(window);
+          if (next == null || next === prev) return;
+          prev = next;
+          handler(next);
+        });
+      },
+    };
+  }
+
+  private verdict(
     grantee: Grantee,
     q: GrantedQuery,
-    handler: (granted: boolean) => void,
-  ): destructor.Destructor {
-    const policiesQuery = this.queryFor(grantee);
-    const evaluate = (policies: policy.Policy[]): boolean =>
-      this.evaluate(grantee, q, policies);
-    const cached = this.policies.getCached(policiesQuery);
-    let prev = query.isLive(cached) ? evaluate(cached) : undefined;
-    return this.policies.onChange(policiesQuery, (result) => {
-      if (!query.isLive(result)) return;
-      const next = evaluate(result);
-      if (next === prev) return;
-      prev = next;
-      handler(next);
-    });
-  }
-
-  /**
-   * Returns the cached verdict, or undefined when the policies of the grantee's role
-   * are not cached. Repeat calls with the same query object skip the policy evaluation
-   * until the cached policies change.
-   */
-  getCached(grantee: Grantee, q: GrantedQuery): boolean | undefined {
+    policies: policy.Policy[],
+  ): boolean {
     const { role } = grantee;
-    const cached = this.policies.getCached(this.queryFor(grantee));
-    if (!query.isLive(cached)) return undefined;
     const held = this.verdicts.get(q);
-    if (held != null && held.policies === cached && held.role === role)
+    if (held != null && held.policies === policies && held.role === role)
       return held.verdict;
-    const verdict = this.evaluate(grantee, q, cached);
-    this.verdicts.set(q, { role, policies: cached, verdict });
+    const verdict = this.evaluate(grantee, q, policies);
+    this.verdicts.set(q, { role, policies, verdict });
     return verdict;
   }
 }
