@@ -1040,33 +1040,13 @@ Schematic struct {
         """
     }
 
-    action Set extends patch.Set {
-        @doc value """
-            replaces the value at a path in the schematic's element configs. No-op when
-            no node or edge has the config's key.
-        """
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the schematic's
-            element configs. No-op when no node or edge has the config's key.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value """
-            adds an entry to a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
-        """
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value """
-            moves an entry in a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
-        """
-    }
+    action Move = patch.Move
 
     @create
     @doc value     """

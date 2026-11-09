@@ -134,23 +134,13 @@ Device struct<
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the device."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the device.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the device."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the device."
-    }
+    action Move = patch.Move
 
     action SetRack {
         rack   rack.Key
