@@ -19,8 +19,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	arclegacy "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -29,14 +33,14 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // testType is the task type the suite registers its store under. The record type
-// is the Arc task config, picked because it exercises both the ApplyDefaults and
-// Validate hooks.
+// is the Arc task config, picked because it has both schema defaults and validation.
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
@@ -48,14 +52,13 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+				DB:            db,
+				Type:          testType,
+				Ladder:        arcversions.ConfigLadder,
+				SetEntryKey:   (*arctask.Config).SetKey,
+				PatchEntry:    (*arctask.Config).Patch,
+				HashEntry:     (*arctask.Config).HashContent,
+				ValidateEntry: (*arctask.Config).Validate,
 			},
 		))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
@@ -154,6 +157,15 @@ var _ = Describe("Service", func() {
 			Expect(data["performance"]).To(Equal("auto"))
 		})
 
+		It("Should keep an explicit empty field instead of defaulting it", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "",
+			})).Error().To(MatchError(ContainSubstring("invalid performance")))
+		})
+
 		It("Should return the record as Read returns it once stored", func(
 			ctx SpecContext,
 		) {
@@ -245,18 +257,14 @@ var _ = Describe("Service", func() {
 			Expect(MustSucceed(rec.Data())).To(Equal(data))
 		})
 
-		It("Should report a change when storing fills a default", func(
-			ctx SpecContext,
-		) {
+		It("Should keep an explicit zero that an action sets", func(ctx SpecContext) {
 			key := createTask(ctx)
-			rec, changed := MustSucceed2(svc.Edit(
+			Expect(svc.Edit(
 				ctx,
 				db,
 				key,
 				[]patch.Cursor{set([]string{"performance"}, "")},
-			))
-			Expect(changed).To(BeTrue())
-			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
+			)).Error().To(MatchError(ContainSubstring("invalid performance: ")))
 		})
 
 		It("Should report a change when a value lacks a member", func(
@@ -594,6 +602,187 @@ var _ = Describe("Service", func() {
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
 		})
 
+		DescribeTable("Should default only the members a lifted config omits",
+			func(ctx SpecContext, in msgpack.EncodedJSON, performance string) {
+				// The lift builds the entry in Go, as a ladder migration step does.
+				lifted := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          DeferClose(gorp.Wrap(memkv.New())),
+						Type:        "lifted_test",
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
+						Ladder: imex.Ladder[arctask.Config]{
+							First:  1,
+							Latest: 2,
+							Decode: func(
+								_ context.Context,
+								_ imex.Version,
+								data msgpack.EncodedJSON,
+							) (arctask.Config, error) {
+								p, _ := data["performance"].(string)
+								return arctask.Config{
+									ArcKey: uuid.MustParse(
+										data["arc_key"].(string),
+									),
+									Performance: arctask.Performance(p),
+								}, nil
+							},
+						},
+					},
+				))
+				out := MustSucceed(lifted.Normalize(ctx, db, 1, in))
+				Expect(out).To(HaveKeyWithValue("performance", performance))
+			},
+			Entry(
+				"an omitted member takes its default",
+				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+				"auto",
+			),
+			Entry(
+				"an explicit zero stays",
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+				"",
+			),
+		)
+
+		DescribeTable("Should default the omitted members of a lifted nested record",
+			func(ctx SpecContext, in msgpack.EncodedJSON, valuePointer, format string) {
+				lifted := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[kafka.WriteConfig]{
+						DB:          DeferClose(gorp.Wrap(memkv.New())),
+						Type:        "lifted_record_test",
+						SetEntryKey: (*kafka.WriteConfig).SetKey,
+						PatchEntry:  (*kafka.WriteConfig).Patch,
+						HashEntry:   (*kafka.WriteConfig).HashContent,
+						Ladder: imex.Ladder[kafka.WriteConfig]{
+							First:  1,
+							Latest: 2,
+							Decode: func(
+								_ context.Context,
+								_ imex.Version,
+								data msgpack.EncodedJSON,
+							) (kafka.WriteConfig, error) {
+								record, _ := data["record"].(map[string]any)
+								pointer, _ := record["value_pointer"].(string)
+								timeFormat, _ := record["time_format"].(string)
+								return kafka.WriteConfig{
+									Topic: "t",
+									Record: kafka.Record{
+										ValuePointer: pointer,
+										TimeFormat:   http.TimeFormat(timeFormat),
+									},
+								}, nil
+							},
+						},
+					},
+				))
+				out := MustSucceed(lifted.Normalize(ctx, db, 1, in))
+				Expect(out["record"]).To(SatisfyAll(
+					HaveKeyWithValue("value_pointer", valuePointer),
+					HaveKeyWithValue("time_format", format),
+				))
+			},
+			Entry(
+				"an omitted record takes its defaults",
+				msgpack.EncodedJSON{},
+				"/value",
+				string(http.TimeFormatUnixNs),
+			),
+			Entry(
+				"an explicit zero stays beside an omitted member",
+				msgpack.EncodedJSON{"record": map[string]any{"value_pointer": ""}},
+				"",
+				string(http.TimeFormatUnixNs),
+			),
+		)
+
+		It("Should default the omitted members of each lifted channel", func(
+			ctx SpecContext,
+		) {
+			lifted := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[opcua.ReadConfig]{
+					DB:          DeferClose(gorp.Wrap(memkv.New())),
+					Type:        "lifted_channels_test",
+					SetEntryKey: (*opcua.ReadConfig).SetKey,
+					PatchEntry:  (*opcua.ReadConfig).Patch,
+					HashEntry:   (*opcua.ReadConfig).HashContent,
+					Ladder: imex.Ladder[opcua.ReadConfig]{
+						First:  1,
+						Latest: 2,
+						Decode: func(
+							_ context.Context,
+							_ imex.Version,
+							data msgpack.EncodedJSON,
+						) (opcua.ReadConfig, error) {
+							var cfg opcua.ReadConfig
+							for _, raw := range data["channels"].([]any) {
+								ch := raw.(map[string]any)
+								key, _ := ch["key"].(string)
+								dataType, _ := ch["data_type"].(string)
+								var rc opcua.ReadChannel
+								rc.Key = key
+								rc.DataType = telem.DataType(dataType)
+								cfg.Channels = append(cfg.Channels, rc)
+							}
+							return cfg, nil
+						},
+					},
+				},
+			))
+			out := MustSucceed(lifted.Normalize(ctx, db, 1, msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "omitted"},
+					map[string]any{"key": "explicit", "data_type": ""},
+				},
+			}))
+			Expect(out["channels"]).To(HaveExactElements(
+				HaveKeyWithValue("data_type", "float32"),
+				HaveKeyWithValue("data_type", ""),
+			))
+		})
+
+		It(
+			"Should give a legacy Arc config without an execution mode the default",
+			func(
+				ctx SpecContext,
+			) {
+				arcLegacy := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:            DeferClose(gorp.Wrap(memkv.New())),
+						Type:          "arc_legacy_test",
+						Ladder:        arcversions.ConfigLadder,
+						LegacyVersion: arclegacy.LastVersion,
+						Legacy:        &arclegacy.Config,
+						SetEntryKey:   (*arctask.Config).SetKey,
+						PatchEntry:    (*arctask.Config).Patch,
+						HashEntry:     (*arctask.Config).HashContent,
+					},
+				))
+				out := MustSucceed(arcLegacy.Normalize(ctx, db, 0, msgpack.EncodedJSON{
+					"arc_key":        uuid.New().String(),
+					"execution_mode": "",
+				}))
+				Expect(out).To(HaveKeyWithValue("performance", "auto"))
+			},
+		)
+
+		It("Should keep an explicit zero in a latest-version config", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(
+				svc.Normalize(ctx, db, arcversions.Latest, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "",
+				}),
+			)
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
 		It("Should run the legacy rewrite on a version below the ladder's first", func(
 			ctx SpecContext,
 		) {
@@ -778,13 +967,12 @@ var _ = Describe("With a detach reference", func() {
 		return MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 ldb,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				DB:          ldb,
+				Type:        testType,
+				Ladder:      arcversions.ConfigLadder,
+				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
 				References: []gorp.Reference[uuid.UUID, arctask.Config]{
 					reference(),
 				},
