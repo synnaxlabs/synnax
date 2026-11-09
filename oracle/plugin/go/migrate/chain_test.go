@@ -2149,6 +2149,166 @@ Tag struct {
 	})
 })
 
+// generateMove builds a node chain whose v1 moves fields onto the types of a shared
+// resource. It returns the generated v1 migration, or the error Generate returns.
+func generateMove(shared, nodeV1, live string) (string, error) {
+	GinkgoHelper()
+	root := GinkgoT().TempDir()
+	write := func(rel, content string) {
+		GinkgoHelper()
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/synnax/versions/shared/v0.oracle", shared)
+	write("schemas/synnax/shared.oracle", "@go output \"core/pkg/service/shared\"\n\n"+
+		shared)
+	write("schemas/synnax/versions/node/v0.oracle", `
+Format enum {
+	iso = "iso"
+	unix = "unix"
+}
+
+Entry struct {
+	label string
+	value float64
+
+	@go marshal
+}
+
+Node struct {
+	key uuid @key
+	format Format?
+	mode Format
+	entry Entry
+	entries Entry[]
+
+	@go marshal
+	@go migrate
+}
+`)
+	write("schemas/synnax/versions/node/v1.oracle", nodeV1)
+	chains := MustSucceed(versions.Discover(root))
+	resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		GinkgoT().Context(),
+		"import \"schemas/synnax/shared\"\n\n@go output \"core/pkg/service/node\"\n\n"+
+			live,
+		"schemas/synnax/node.oracle", "node",
+		analyzer.NewStandardFileLoader(root), table,
+	)
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	resp, err := migrate.New().Generate(&plugin.Request{
+		Resolutions: table, RepoRoot: root, Versions: resolver,
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, f := range resp.Files {
+		if f.Path == "core/pkg/service/node/versions/v1/migrate.gen.go" {
+			return string(f.Content), nil
+		}
+	}
+	return "", nil
+}
+
+var _ = Describe("Moving a field type to another resource", func() {
+	const sameShape = `
+Format enum {
+	iso = "iso"
+	unix = "unix"
+}
+
+Entry struct {
+	label string
+	value float64
+
+	@go marshal
+}
+`
+	const movedNode = `
+import "schemas/synnax/versions/shared/v0"
+
+Node struct {
+	key uuid @key
+	format shared.Format?
+	mode shared.Format
+	entry shared.Entry
+	entries shared.Entry[]
+
+	@go marshal
+	@go migrate
+}
+`
+	const movedLive = `
+Node struct {
+	key uuid @key
+	format shared.Format?
+	mode shared.Format
+	entry shared.Entry
+	entries shared.Entry[]
+}
+`
+
+	It("Should copy every field whose type keeps its shape", func() {
+		content := MustSucceed(generateMove(
+			sameShape,
+			movedNode,
+			movedLive,
+		))
+		Expect(content).To(ContainSubstring("v := shared.Format(*old.Format)"))
+		Expect(content).To(MatchRegexp(`Format:\s+format,`))
+		Expect(content).To(MatchRegexp(`Mode:\s+shared\.Format\(old\.Mode\),`))
+		Expect(content).To(ContainSubstring(
+			"entry, err := autoMigrateEntry(ctx, old.Entry)",
+		))
+		Expect(content).To(MatchRegexp(`Entry:\s+entry,`))
+		Expect(content).To(ContainSubstring(
+			"func(v v0.Entry, _ int) (shared.Entry, error)",
+		))
+		Expect(content).To(MatchRegexp(`Entries:\s+entries,`))
+		Expect(content).To(ContainSubstring(
+			"func autoMigrateEntry(_ context.Context, old v0.Entry) (shared.Entry, error)",
+		))
+		Expect(content).To(MatchRegexp(`Label:\s+old\.Label,`))
+		Expect(content).To(MatchRegexp(`Value:\s+old\.Value,`))
+	})
+
+	DescribeTable("Should require a hand-written step when a moved type changes shape",
+		func(shared, call string) {
+			content := MustSucceed(generateMove(shared, movedNode, movedLive))
+			Expect(content).To(ContainSubstring(call))
+		},
+		Entry("an enum member is renamed", `
+Format enum {
+	iso = "iso"
+	unix_ms = "unix_ms"
+}
+
+Entry struct {
+	label string
+	value float64
+
+	@go marshal
+}
+`, "format, err := migrateNodeFormat(ctx, old.Format)"),
+		Entry("a struct field changes type", `
+Format enum {
+	iso = "iso"
+	unix = "unix"
+}
+
+Entry struct {
+	label string
+	value int64
+
+	@go marshal
+}
+`, "entry, err := migrateNodeEntry(ctx, old.Entry)"),
+	)
+})
+
 var _ = Describe("Plugin", func() {
 	It("Should describe itself", func() {
 		p := migrate.New()
