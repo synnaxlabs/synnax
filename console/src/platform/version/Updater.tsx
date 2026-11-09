@@ -28,6 +28,7 @@ import {
   useTarget,
 } from "@/platform/version/check";
 import { useInstallMiddleware } from "@/platform/version/Install";
+import { useCoreNotice } from "@/platform/version/useCoreNotice";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -70,12 +71,14 @@ interface Installing {
  * Checks for an update now and every 30 seconds until it finds one, then adds a status.
  * A change of the Core, its version, or the grant starts the checks again. The found
  * update stays open for {@link useCheck} until the checks start again or the Provider
- * unmounts, and while {@link useInstall} installs it.
+ * unmounts, and while {@link useInstall} installs it. A status also tells a user who
+ * may take the Console past the Core about a newer Core release.
  */
 export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   const addStatus = Status.useAdder();
   const installMiddleware = useInstallMiddleware();
   const target = useTarget();
+  useCoreNotice(target);
   const [check, setCheck] = useState<Check>({ variant: "loading" });
   const held = useRef<Update | null>(null);
   const installing = useRef<Installing | null>(null);
