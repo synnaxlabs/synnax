@@ -3150,8 +3150,7 @@ var _ = Describe("Computed initializers", func() {
 				!strings.HasPrefix(c.Name, "expression_") {
 				continue
 			}
-			out, ok := c.Type.Outputs.Get(ir.DefaultOutputParam)
-			Expect(ok).To(BeTrue())
+			out := MustBeOk(c.Type.Outputs.Get(ir.DefaultOutputParam))
 			outputs = append(outputs, ctx.Constraints.ApplySubstitutions(out.Type))
 		}
 		Expect(outputs).To(ConsistOf(types.U8(), types.F32()))
