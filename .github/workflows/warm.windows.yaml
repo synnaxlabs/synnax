@@ -30,9 +30,9 @@ on:
 permissions:
   contents: read
 
-# Both jobs share one concurrency group and check out the head of main. A newer pending
-# job replaces an older one in the group and does the same work, and a check waits until
-# a running warm has saved.
+# Both jobs share one concurrency group and check out the head of the branch, not the
+# commit that started the run. A newer pending job replaces an older one in the group
+# and does the same work, and a check waits until a running warm has saved.
 jobs:
   check:
     name: Check the cache
@@ -50,7 +50,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
           persist-credentials: false
           sparse-checkout: |
             .github/scripts
@@ -97,7 +97,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
