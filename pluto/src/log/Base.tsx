@@ -22,10 +22,21 @@ import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
-import { use, type UseProps } from "@/log/use";
+import { type LogState, use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
+
+type Selection = Pick<
+  LogState,
+  "selectionStart" | "selectionEnd" | "selectionStartChar" | "selectionEndChar"
+>;
+
+interface Press {
+  point: log.Point;
+  // What the press selected, held from the first move of its drag.
+  selection?: Selection;
+}
 
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
@@ -135,8 +146,11 @@ export const Base = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
-  // The character the pointer went down on, while it drags.
-  const downRef = useRef<log.Point | null>(null);
+  // The press the pointer is held down from, while it drags.
+  const downRef = useRef<Press | null>(null);
+  // Counts presses and releases, so a hit that resolves after its release starts no
+  // drag.
+  const gestureRef = useRef(0);
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -147,9 +161,10 @@ export const Base = ({
     if (e.button !== 0) return;
     const { clientX: x, clientY: y, shiftKey } = e;
     downRef.current = null;
+    const gesture = ++gestureRef.current;
     handleError(async () => {
       const point = await methods.hit({ x, y });
-      downRef.current = point;
+      if (gesture === gestureRef.current) downRef.current = { point };
       const { entry } = point;
       setState((s) => {
         const whole = { selectionStartChar: -1, selectionEndChar: -1 };
@@ -170,9 +185,22 @@ export const Base = ({
     const { clientX: x, clientY: y } = e;
     handleError(async () => {
       const point = await methods.hit({ x, y });
-      const down = downRef.current;
-      if (down == null || (point.entry === down.entry && point.char === down.char))
+      const press = downRef.current;
+      if (press == null) return;
+      const { point: down } = press;
+      // A drag back to its start returns to what the press selected.
+      if (point.entry === down.entry && point.char === down.char) {
+        const { selection } = press;
+        if (selection != null) setState((s) => ({ ...s, ...selection }));
         return;
+      }
+      if (press.selection == null)
+        press.selection = {
+          selectionStart,
+          selectionEnd,
+          selectionStartChar: state.selectionStartChar,
+          selectionEndChar: state.selectionEndChar,
+        };
       setState((s) => ({
         ...s,
         selectionStart: down.entry,
@@ -185,6 +213,7 @@ export const Base = ({
 
   const handleMouseUp = () => {
     downRef.current = null;
+    gestureRef.current++;
   };
 
   // The worker formats the lines only now, so a large selection costs nothing until a

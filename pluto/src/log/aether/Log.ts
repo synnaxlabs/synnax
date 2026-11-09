@@ -296,8 +296,6 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
-  // The rows of the last render, top to bottom.
-  private rows: Row[] = [];
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -671,6 +669,14 @@ export class Log
     return rows.reverse();
   }
 
+  // Returns the rows of the view over the current entries.
+  private viewRows(): Row[] {
+    const { scrolling } = this.state;
+    const end = scrolling ? this.scrollState.offset : this.entries.length;
+    const tail = scrolling ? this.scrollState.tail : 0;
+    return this.layoutRows(end, tail, this.internal.lineHeight);
+  }
+
   // The top row always names the day of the rows below it.
   private layoutRows(end: number, tail: number, lh: number): Row[] {
     const capacity = this.calcRowCapacity(lh);
@@ -689,9 +695,7 @@ export class Log
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;
-    const tail = this.state.scrolling ? this.scrollState.tail : 0;
-    const rows = this.layoutRows(end, tail, lh);
-    this.rows = rows;
+    const rows = this.viewRows();
     const rowEntries = rows.map((row) => row.entry);
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
@@ -835,7 +839,8 @@ export class Log
       this.moveView(0, this.internal.lineHeight);
       this.anchors.scroll = this.entries[this.scrollState.offset - 1];
     }
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart, selectionEnd, selectionStartChar, selectionEndChar } =
+      this.state;
     if (selectionStart < 0 || selectionEnd < 0 || (start == null && end == null))
       return;
     const newStart = start == null ? selectionStart : this.locate(start);
@@ -847,8 +852,27 @@ export class Log
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
-    if (nextStart === selectionStart && nextEnd === selectionEnd) return;
-    this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
+    // An evicted point moves to the start of the oldest line.
+    const charOf = (located: number, char: number): number =>
+      located < 0 && char > 0 ? 0 : char;
+    const [startChar, endChar] = [
+      charOf(newStart, selectionStartChar),
+      charOf(newEnd, selectionEndChar),
+    ];
+    if (
+      nextStart === selectionStart &&
+      nextEnd === selectionEnd &&
+      startChar === selectionStartChar &&
+      endChar === selectionEndChar
+    )
+      return;
+    this.setState((s) => ({
+      ...s,
+      selectionStart: nextStart,
+      selectionEnd: nextEnd,
+      selectionStartChar: startChar,
+      selectionEndChar: endChar,
+    }));
   }
 
   // Waits at the oldest entry while older pages can still reach the time. When no
@@ -1026,15 +1050,17 @@ export class Log
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  // A line cut at its start leaves out the date that a copy adds.
+  // A line cut at its start leaves out the date that a copy adds. A line the selection
+  // holds no character of is left out.
   selectedLines(): Line[] {
     const selection = this.selection();
     if (selection == null) return [];
     const { start, end } = selection;
     const { valueColors } = this.internal;
-    return this.entries.slice(start.entry, end.entry + 1).map((entry, i) => {
+    return this.entries.slice(start.entry, end.entry + 1).flatMap((entry, i) => {
       const from = i === 0 ? start.char : 0;
       const to = start.entry + i === end.entry ? end.char : Infinity;
+      if (to <= from) return [];
       const dated = this.formatEntry(entry, true);
       let text = dated.line;
       if (from > 0) text = this.formatEntry(entry).line.slice(from, to);
@@ -1044,12 +1070,13 @@ export class Log
           to + dated.prefix.length - this.formatEntry(entry).prefix.length,
         );
       const lineColor = valueColors[dated.channelKey];
-      return { text, color: lineColor == null ? "" : color.hex(lineColor) };
+      return [{ text, color: lineColor == null ? "" : color.hex(lineColor) }];
     });
   }
 
+  // Lays the rows out again, since the entries can change between renders.
   hit({ x, y }: xy.XY): Point {
-    const { rows } = this;
+    const rows = this.viewRows();
     const { lineHeight, charWidth } = this.internal;
     const reg = this.state.region;
     if (rows.length === 0) return { entry: 0, char: 0 };

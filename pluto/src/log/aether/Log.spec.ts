@@ -1944,6 +1944,47 @@ describe("log/aether/Log", () => {
       expect(hitAt(["-123"], 0, 0.2)).toEqual({ entry: 0, char: 1 });
     });
 
+    it("should hit the last row for a pointer below it", () => {
+      expect(hitAt(["abc", "def"], 30, 1.2)).toEqual({ entry: 1, char: 1 });
+    });
+
+    it("should hit the start of the entry under a day row", () => {
+      const dated = { timestampsHidden: false, channelNamesHidden: true };
+      expect(hitAt(["abc"], 0, 4, dated)).toEqual({ entry: 0, char: 0 });
+    });
+
+    it("should hit the entries that arrived since the last render", () => {
+      const { log, source } = setup(valued("abc", "def"), NARROW, BARE);
+      log.render();
+      source.setEntries(valued("ghi"));
+      source.notify();
+      const point = log.hit({
+        x: PADDING + 1.2 * CHAR,
+        y: PADDING + 1.5 * log.lineHeight,
+      });
+      expect(point).toEqual({ entry: 0, char: 1 });
+    });
+
+    it("should start a selection at the oldest line when its start is evicted", () => {
+      const entries = valued("abcdef", "ghijkl", "mnopqr");
+      const { log, source } = setup(entries, NARROW, {
+        ...BARE,
+        selectionStart: 0,
+        selectionStartChar: 4,
+        selectionEnd: 2,
+        selectionEndChar: 2,
+      });
+      source.setEntries(entries.slice(1));
+      source.notify();
+      expect(log.state).toMatchObject({
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 1,
+        selectionEndChar: 2,
+      });
+      expect(log.selectedLines().map(({ text }) => text)).toEqual(["ghijkl", "mn"]);
+    });
+
     const copied = (
       values: string[],
       selection: Record<string, number>,
@@ -1975,6 +2016,28 @@ describe("log/aether/Log", () => {
         "ghij",
         "kl",
       ]);
+    });
+
+    it("should leave out a last line the selection ends at the start of", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 1,
+        selectionEndChar: 0,
+      };
+      const shown = { timestampsHidden: false, channelNamesHidden: true };
+      expect(copied(["abcdef", "ghij"], selection, shown)).toHaveLength(1);
+      expect(copied(["abcdef", "ghij"], selection)).toEqual(["cdef"]);
+    });
+
+    it("should copy nothing for an empty cut", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 0,
+        selectionEndChar: 0,
+      };
+      expect(copied(["abc"], selection)).toEqual([]);
     });
 
     it("should keep the date of a line cut only at its end", () => {
