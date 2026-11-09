@@ -35,9 +35,11 @@
 namespace synnax::channel {
 
 struct Where;
+struct Cursor;
 struct Operation;
-struct RetrieveRequest;
+struct Order;
 struct Channel;
+struct RetrieveRequest;
 struct RetrieveResponse;
 
 constexpr const char *OPERATION_TYPE_MIN = "min";
@@ -45,6 +47,8 @@ constexpr const char *OPERATION_TYPE_MAX = "max";
 constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 /// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
 /// a node key (first 12 bits) and a local key (last 20 bits), enabling distributed
@@ -114,6 +118,25 @@ struct Where {
     from_proto(const ::service::channel::pb::Where &pb);
 };
 
+/// @brief Cursor is a position in an order of channels: the sort value and the key of a
+/// channel.
+struct Cursor {
+    /// @brief key is the key of the channel at the position.
+    Key key = 0;
+    /// @brief name is the name of the channel at the position, when the order sorts by
+    /// it.
+    std::optional<Name> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::Cursor;
+    [[nodiscard]] std::pair<::api::channel::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::channel::pb::Cursor &pb);
+};
+
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, average, or derivative values over a time duration or
 /// triggered by a reset channel.
@@ -138,51 +161,21 @@ struct Operation {
     from_proto(const ::service::channel::pb::Operation &pb);
 };
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the channels that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most channels to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching channels to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
+/// @brief Order is a sort of channels.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveRequest is a request to retrieve channels.
-struct RetrieveRequest {
-    /// @brief where selects the channels to retrieve. An absent where selects all of
-    /// them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the channels that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most channels to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching channels to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .limit = options.limit,
-            .offset = options.offset,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::channel::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::channel::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::channel::pb::Order;
+    [[nodiscard]] std::pair<::api::channel::pb::Order, x::errors::Error>
     to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::channel::pb::RetrieveRequest &pb);
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::channel::pb::Order &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
@@ -236,6 +229,58 @@ struct Channel {
     to_proto() const;
     static std::pair<Channel, x::errors::Error>
     from_proto(const ::api::channel::pb::Channel &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the channels. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the channels strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve channels.
+struct RetrieveRequest {
+    /// @brief where selects the channels to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the channels. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the channels strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::channel::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::channel::pb::RetrieveRequest &pb);
 };
 
 /// @brief RetrieveResponse holds the channels a RetrieveRequest selects.

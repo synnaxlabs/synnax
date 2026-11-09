@@ -51,6 +51,7 @@ Base struct {
     }
     name string {
         @doc value         "is a human-readable name for the certificate."
+        @index sorted
         @search
         @validate required
     }
@@ -130,6 +131,7 @@ Certificate union on source secret.Source extends Base {
 
 Where filter Certificate {
     key
+    name
 
     @doc value         "is a filter that selects certificates."
     @go request_output "core/pkg/api/certificate"

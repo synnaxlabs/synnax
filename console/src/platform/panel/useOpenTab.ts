@@ -74,7 +74,7 @@ export const useOpenTabs = (): OpenTabs => {
     params: panel.NewTab[],
     options?: OpenTabOptions,
   ) => {
-    if (!query.isLive(client?.panels.getCached(panelKey)))
+    if (!query.isLive(client?.panels.watch(panelKey).getCached()))
       throw new NotFoundError(`Panel with key ${panelKey} not found`);
     const { singleton, placement } = options ?? {};
     const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
@@ -93,7 +93,7 @@ export const useOpenTabs = (): OpenTabs => {
           : { targetTab: besideCurrent }),
       }),
     });
-    const applied = client?.panels.getCached(panelKey);
+    const applied = client?.panels.watch(panelKey).getCached();
     if (!query.isLive(applied)) return;
     const focus = focusedTabKey(applied.root, last, singleton);
     if (focus != null) selectTab(focus, panelKey);

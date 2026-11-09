@@ -13,8 +13,10 @@ package secret
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Secret table for references. Pass it as
@@ -33,6 +35,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Secret, string]
 	search *gorp.SearchIndex[Key, Secret]
 }
 
@@ -41,6 +44,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Secret, string](
+			"name",
+			func(e *Secret) string { return compare.TextKey(string(e.Base().Name)) },
+		),
 		search: gorp.NewSearchIndex[Key, Secret](
 			"search",
 			func(e *Secret) []string {
@@ -54,6 +61,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Secret] {
 	return []gorp.Index[Key, Secret]{
+		i.name,
 		i.search,
 	}
 }
@@ -63,6 +71,37 @@ func (i indexes) all() []gorp.Index[Key, Secret] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Secret] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Secret]
+
+// OrderBy walks the secrets in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Secret] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Secret] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -118,6 +157,24 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchNames returns a filter for
+// secrets whose Name matches any of the
+// provided values.
+func MatchNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Secret] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Secret) (bool, error) {
+				return slices.Contains(vals, e.Base().Name), nil
+			}),
+		)
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -145,10 +202,10 @@ func (r Retrieve) Entries(es *[]Secret) Retrieve {
 // Limit sets the maximum number of secrets to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the secrets to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
