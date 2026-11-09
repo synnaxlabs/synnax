@@ -31,6 +31,15 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.Scale.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.Bool(v.Settings != nil)
+		if v.Settings != nil {
+			w.Uint32(uint32(len(v.Settings)))
+			for i := range v.Settings {
+				if err := v.Settings[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
 	case UnresolvedReadChannel:
 		w.String("unresolved")
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
@@ -70,6 +79,24 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err = v.Scale.DecodeOrc(r); err != nil {
 			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Settings = make([]Setting, n)
+				for i := range v.Settings {
+					if err = v.Settings[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		rc.Variant = v
 	case "unresolved":
@@ -149,6 +176,37 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Setting) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(s.Index))
+	w.Uint8(uint8(s.SubIndex))
+	w.String(string(s.DataType))
+	w.Float64(float64(s.Value))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Setting) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if s.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if s.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.DataType = telem.DataType(rawV)
+	}
+	if s.Value, err = r.Float64(); err != nil {
+		return err
 	}
 	return nil
 }

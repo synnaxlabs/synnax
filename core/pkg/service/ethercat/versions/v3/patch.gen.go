@@ -48,6 +48,14 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	}
 }
 
+// HashContent writes the content of the value to h, without its keys.
+func (s *Setting) HashContent(h *content.Hash) {
+	h.Uint(uint64(s.Index))
+	h.Uint(uint64(s.SubIndex))
+	h.String(string(s.DataType))
+	h.Float(s.Value)
+}
+
 // Patch applies the path action at c, which is not done, to the value.
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
@@ -163,6 +171,8 @@ func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 			return patch.Value(&erc.Scale, c)
 		}
 		return erc.Scale.Patch(c)
+	case "settings":
+		return patch.Value(&erc.Settings, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -178,6 +188,10 @@ func (erc *EntryReadChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(erc.SubIndex))
 	h.String(string(erc.DataType))
 	erc.Scale.HashContent(h)
+	h.Len(len(erc.Settings))
+	for i0 := range erc.Settings {
+		erc.Settings[i0].HashContent(h)
+	}
 }
 
 // Patch applies the path action at c, which is not done, to the value.

@@ -78,31 +78,20 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class EntryReadChannel(BaseReadChannel):
-    """Addresses a PDO entry by its CoE index and sub-index."""
+class Setting(BaseModel):
+    """Is a value that a task writes to a CoE object of its slave.
 
-    type: Literal["entry"] = "entry"
+    Attributes:
+        index: Is the CoE object dictionary index of the object.
+        sub_index: Is the CoE object dictionary sub-index of the object.
+        data_type: Is the data type of the object, which sets the size of the write.
+        value: Is the value written to the object.
+    """
+
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
-    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
-
-
-class UnresolvedReadChannel(BaseReadChannel):
-    """Is a channel whose PDO entry name matched no single entry on its slave. It must
-    be given an entry before the task runs.
-    """
-
-    type: Literal["unresolved"] = "unresolved"
-    pdo: str
-
-
-# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
-# selects how the PDO entry is addressed.
-ReadChannel = Annotated[
-    EntryReadChannel | UnresolvedReadChannel,
-    Field(discriminator="type"),
-]
+    value: float
 
 
 class EntryWriteChannel(BaseWriteChannel):
@@ -132,19 +121,32 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.ReadConfig):
-    """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
-    slave; all slaves must share one network interface.
+class EntryReadChannel(BaseReadChannel):
+    """Addresses a PDO entry by its CoE index and sub-index."""
 
-    Attributes:
-        channels: Are the channels the task acquires.
+    type: Literal["entry"] = "entry"
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    data_type: telem.DataType
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
+    settings: list[Setting] = Field(default_factory=list)
+
+
+class UnresolvedReadChannel(BaseReadChannel):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
     """
 
-    channels: list[ReadChannel] = Field(default_factory=list)
+    type: Literal["unresolved"] = "unresolved"
+    pdo: str
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+
+# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
+# selects how the PDO entry is addressed.
+ReadChannel = Annotated[
+    EntryReadChannel | UnresolvedReadChannel,
+    Field(discriminator="type"),
+]
 
 
 class WriteConfig(task.PersistConfig):
@@ -160,6 +162,21 @@ class WriteConfig(task.PersistConfig):
     state_rate: telem.Rate = telem.Rate(25)
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[WriteChannel] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(task.ReadConfig):
+    """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+    slave; all slaves must share one network interface.
+
+    Attributes:
+        channels: Are the channels the task acquires.
+    """
+
+    channels: list[ReadChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

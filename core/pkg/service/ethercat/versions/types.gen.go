@@ -79,3 +79,6 @@ type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v3.ScanConfig
+
+// Setting is a value that a task writes to a CoE object of its slave.
+type Setting = v3.Setting

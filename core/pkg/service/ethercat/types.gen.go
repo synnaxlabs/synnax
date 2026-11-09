@@ -79,3 +79,6 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = versions.ScanConfig
+
+// Setting is a value that a task writes to a CoE object of its slave.
+type Setting = versions.Setting

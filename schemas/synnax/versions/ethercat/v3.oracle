@@ -12,6 +12,24 @@ import "schemas/x/versions/telem/v0"
 
 BaseReadChannel = v1.BaseReadChannel
 
+Setting struct {
+    index     uint16         {
+        @doc value "is the CoE object dictionary index of the object."
+    }
+    sub_index uint8          {
+        @doc value "is the CoE object dictionary sub-index of the object."
+    }
+    data_type telem.DataType {
+        @doc value "is the data type of the object, which sets the size of the write."
+    }
+    value     float64        {
+        @doc value "is the value written to the object."
+    }
+
+    @doc value  "is a value that a task writes to a CoE object of its slave."
+    @go marshal
+}
+
 ReadChannel union on type extends v1.BaseReadChannel {
     entry {
         index     uint16         {
@@ -27,6 +45,12 @@ ReadChannel union on type extends v1.BaseReadChannel {
             @doc value """
                 is the scale applied to raw samples after acquisition. A scaled channel
                 writes to a float Synnax channel.
+            """
+        }
+        settings  Setting[] = [] {
+            @doc value """
+                are the values the task writes to the slave's CoE objects for this
+                channel when it starts, in order.
             """
         }
 

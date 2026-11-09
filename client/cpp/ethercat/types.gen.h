@@ -27,8 +27,9 @@ namespace synnax::ethercat {
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
-struct ReadConfig;
+struct Setting;
 struct WriteConfig;
+struct ReadConfig;
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
@@ -77,48 +78,21 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
-struct EntryReadChannel : public BaseReadChannel {
-    std::string type = "entry";
-    /// @brief index is the CoE object dictionary index of the PDO entry.
+/// @brief Setting is a value that a task writes to a CoE object of its slave.
+struct Setting {
+    /// @brief index is the CoE object dictionary index of the object.
     std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    /// @brief sub_index is the CoE object dictionary sub-index of the object.
     std::uint8_t sub_index = 0;
-    /// @brief data_type is the data type of the PDO entry.
+    /// @brief data_type is the data type of the object, which sets the size of the
+    /// write.
     ::x::telem::DataType data_type;
-    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
-    /// channel writes to a float Synnax channel.
-    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
+    /// @brief value is the value written to the object.
+    double value = 0;
 
-    static EntryReadChannel parse(x::json::Parser parser);
+    static Setting parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief UnresolvedReadChannel is a channel whose PDO entry name matched no single
-/// entry on its slave. It must be given an entry before the task runs.
-struct UnresolvedReadChannel : public BaseReadChannel {
-    std::string type = "unresolved";
-    /// @brief pdo is the entry name that matched no single entry on the slave.
-    std::string pdo;
-
-    static UnresolvedReadChannel parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
-/// type field selects how the PDO entry is addressed.
-using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
-
-ReadChannel parse_read_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const ReadChannel &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
-    return std::visit(
-        [](const auto &v) -> const BaseReadChannel & { return v; },
-        value
-    );
-}
 
 /// @brief EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
 struct EntryWriteChannel : public BaseWriteChannel {
@@ -163,15 +137,51 @@ WriteChannel parse_write_channel(x::json::Parser parser);
     );
 }
 
-/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
-/// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::task::ReadConfig {
-    /// @brief channels are the channels the task acquires.
-    std::vector<ReadChannel> channels;
+/// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
+struct EntryReadChannel : public BaseReadChannel {
+    std::string type = "entry";
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::uint8_t sub_index = 0;
+    /// @brief data_type is the data type of the PDO entry.
+    ::x::telem::DataType data_type;
+    /// @brief scale is the scale applied to raw samples after acquisition. A scaled
+    /// channel writes to a float Synnax channel.
+    ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
+    /// @brief settings are the values the task writes to the slave's CoE objects for
+    /// this channel when it starts, in order.
+    std::vector<Setting> settings = {};
 
-    static ReadConfig parse(x::json::Parser parser);
+    static EntryReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief UnresolvedReadChannel is a channel whose PDO entry name matched no single
+/// entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedReadChannel : public BaseReadChannel {
+    std::string type = "unresolved";
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::string pdo;
+
+    static UnresolvedReadChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
+/// type field selects how the PDO entry is addressed.
+using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
+
+ReadChannel parse_read_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
@@ -186,6 +196,16 @@ struct WriteConfig : public ::synnax::task::PersistConfig {
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
+/// entry on its own slave; all slaves must share one network interface.
+struct ReadConfig : public ::synnax::task::ReadConfig {
+    /// @brief channels are the channels the task acquires.
+    std::vector<ReadChannel> channels;
+
+    static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

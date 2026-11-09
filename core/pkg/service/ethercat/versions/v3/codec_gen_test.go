@@ -63,6 +63,14 @@ var _ = Describe("Codec", func() {
 				SubIndex:        3,
 				DataType:        telem.DataType("test_3"),
 				Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+				Settings: []v3.Setting{
+					{
+						Index:    9,
+						SubIndex: 10,
+						DataType: telem.DataType("test_10"),
+						Value:    11.5,
+					},
+				},
 			}}),
 			Entry("unresolved variant", v3.ReadChannel{Variant: v3.UnresolvedReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
@@ -94,6 +102,14 @@ var _ = Describe("Codec", func() {
 						SubIndex:        9,
 						DataType:        telem.DataType("test_9"),
 						Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+						Settings: []v3.Setting{
+							{
+								Index:    15,
+								SubIndex: 16,
+								DataType: telem.DataType("test_16"),
+								Value:    17.5,
+							},
+						},
 					}},
 				},
 			}),
@@ -112,6 +128,31 @@ var _ = Describe("Codec", func() {
 				SampleRate:         telem.Rate(4.5),
 				StreamRate:         telem.Rate(5.5),
 				Channels:           []v3.ReadChannel{},
+			}),
+		)
+	})
+	Describe("Setting", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.Setting) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.Setting
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.Setting{
+				Index:    2,
+				SubIndex: 3,
+				DataType: telem.DataType("test_3"),
+				Value:    4.5,
+			}),
+			Entry("zero values", v3.Setting{
+				Index:    0,
+				SubIndex: 0,
+				DataType: telem.DataType(""),
+				Value:    0,
 			}),
 		)
 	})
@@ -193,6 +234,14 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 		SubIndex:        3,
 		DataType:        telem.DataType("test_3"),
 		Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+		Settings: []v3.Setting{
+			{
+				Index:    9,
+				SubIndex: 10,
+				DataType: telem.DataType("test_10"),
+				Value:    11.5,
+			},
+		},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -223,6 +272,14 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				SubIndex:        9,
 				DataType:        telem.DataType("test_9"),
 				Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+				Settings: []v3.Setting{
+					{
+						Index:    15,
+						SubIndex: 16,
+						DataType: telem.DataType("test_16"),
+						Value:    17.5,
+					},
+				},
 			}},
 		},
 	}
@@ -234,6 +291,28 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v3.ReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSetting(b *testing.B) {
+	seed := v3.Setting{
+		Index:    2,
+		SubIndex: 3,
+		DataType: telem.DataType("test_3"),
+		Value:    4.5,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.Setting
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -304,6 +383,14 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			SubIndex:        3,
 			DataType:        telem.DataType("test_3"),
 			Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+			Settings: []v3.Setting{
+				{
+					Index:    9,
+					SubIndex: 10,
+					DataType: telem.DataType("test_10"),
+					Value:    11.5,
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -359,6 +446,14 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					SubIndex:        9,
 					DataType:        telem.DataType("test_9"),
 					Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+					Settings: []v3.Setting{
+						{
+							Index:    15,
+							SubIndex: 16,
+							DataType: telem.DataType("test_16"),
+							Value:    17.5,
+						},
+					},
 				}},
 			},
 		}
@@ -410,6 +505,55 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v3.ReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSetting(f *testing.F) {
+	{
+		seed := v3.Setting{
+			Index:    2,
+			SubIndex: 3,
+			DataType: telem.DataType("test_3"),
+			Value:    4.5,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.Setting{
+			Index:    0,
+			SubIndex: 0,
+			DataType: telem.DataType(""),
+			Value:    0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.Setting
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.Setting
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

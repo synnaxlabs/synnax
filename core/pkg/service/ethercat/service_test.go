@@ -206,6 +206,7 @@ var _ = Describe("Service", func() {
 					"sub_index": float64(1),
 					"data_type": "int16",
 					"scale":     map[string]any{"type": "none"},
+					"settings":  []any{},
 				},
 				map[string]any{
 					"type":     "unresolved",

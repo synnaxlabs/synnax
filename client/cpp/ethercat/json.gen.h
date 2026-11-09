@@ -165,6 +165,24 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
+inline Setting Setting::parse(x::json::Parser parser) {
+    return Setting{
+        .index = parser.field<std::uint16_t>("index"),
+        .sub_index = parser.field<std::uint8_t>("sub_index"),
+        .data_type = parser.field<::x::telem::DataType>("data_type"),
+        .value = parser.field<double>("value"),
+    };
+}
+
+inline x::json::json Setting::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["sub_index"] = this->sub_index;
+    j["data_type"] = this->data_type;
+    j["value"] = this->value;
+    return j;
+}
+
 inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
     EntryReadChannel result;
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
@@ -174,6 +192,10 @@ inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
     result.scale = parser.has("scale")
                      ? ::synnax::task::parse_scale(parser.child("scale"))
                      : ::synnax::task::Scale{::synnax::task::NoneScale{}};
+    result.settings = parser.field<std::vector<Setting>>(
+        "settings",
+        std::vector<Setting>{}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -186,6 +208,7 @@ inline x::json::json EntryReadChannel::to_json() const {
     j["sub_index"] = this->sub_index;
     j["data_type"] = this->data_type;
     j["scale"] = ::synnax::task::to_json(this->scale);
+    j["settings"] = x::json::to_array(this->settings);
     j["type"] = this->type;
     return j;
 }

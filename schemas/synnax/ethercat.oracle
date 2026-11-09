@@ -61,6 +61,12 @@ ReadChannel union on type extends BaseReadChannel {
                 writes to a float Synnax channel.
             """
         }
+        settings  Setting[] = [] {
+            @doc value """
+                are the values the task writes to the slave's CoE objects for this
+                channel when it starts, in order.
+            """
+        }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
     }
@@ -204,4 +210,23 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+}
+
+Setting struct {
+    index     uint16         {
+        @doc value "is the CoE object dictionary index of the object."
+    }
+    sub_index uint8          {
+        @doc value "is the CoE object dictionary sub-index of the object."
+    }
+    data_type telem.DataType {
+        @doc value "is the data type of the object, which sets the size of the write."
+        @ts type   "string"
+    }
+    value     float64        {
+        @doc value "is the value written to the object."
+    }
+
+    @doc value  "is a value that a task writes to a CoE object of its slave."
+    @go marshal
 }

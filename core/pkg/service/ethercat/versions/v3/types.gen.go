@@ -28,6 +28,18 @@ import (
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
 
+// Setting is a value that a task writes to a CoE object of its slave.
+type Setting struct {
+	// Index is the CoE object dictionary index of the object.
+	Index uint16 `json:"index" msgpack:"index"`
+	// SubIndex is the CoE object dictionary sub-index of the object.
+	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
+	// DataType is the data type of the object, which sets the size of the write.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Value is the value written to the object.
+	Value float64 `json:"value" msgpack:"value"`
+}
+
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
@@ -56,6 +68,9 @@ type EntryReadChannel struct {
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
 	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
+	// Settings are the values the task writes to the slave's CoE objects for this
+	// channel when it starts, in order.
+	Settings []Setting `json:"settings" msgpack:"settings"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
