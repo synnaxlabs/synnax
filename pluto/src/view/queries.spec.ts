@@ -200,6 +200,32 @@ describe("View queries", () => {
         });
       });
     });
+    it("should save a name back after another client changes it", async () => {
+      const view = await client.views.create({ name: "existing-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await createTestClient().views.rename(view.key, "remote-view");
+      await waitFor(() =>
+        expect(result.current.form.value().name).toEqual("remote-view"),
+      );
+      act(() => result.current.form.set(path.name, "existing-view"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().views.retrieve(view.key);
+      expect(stored.name).toEqual("existing-view");
+    });
+    it("should save a view it starts from without a query", async () => {
+      const view = await client.views.create({ name: "existing-view", type: "range" });
+      const { result } = renderHook(
+        () => View.useForm({ query: null, initialValues: view }),
+        { wrapper },
+      );
+      act(() => result.current.form.set(path.where, { labels: [label] }));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().views.retrieve(view.key);
+      expect(stored).toEqual({ ...view, where: { labels: [label] } });
+    });
   });
   describe("useRename", () => {
     it("should rename a view", async () => {

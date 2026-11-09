@@ -155,6 +155,7 @@ const updateForm = async ({
   client,
   set,
   value,
+  stored,
 }: Flux.FormUpdateParams<typeof formSchema | typeof calculatedFormSchema>) => {
   const values = value();
   if (values.requires != null) delete values.requires;
@@ -163,12 +164,12 @@ const updateForm = async ({
     set(formPath.key, ch.key);
     return;
   }
-  const prev = channelToFormValues(await client.channels.retrieve(values.key));
-  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, prev, values, [
+  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, stored, values, [
     "expression",
     "operations",
   ]);
-  if (prev.name !== values.name) edits.unshift(channel.rename({ name: values.name }));
+  if (stored?.name !== values.name)
+    edits.unshift(channel.rename({ name: values.name }));
   if (edits.length > 0) await client.channels.dispatch(values.key, edits);
 };
 
