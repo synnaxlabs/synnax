@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -55,6 +57,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	dispatchServer = grpc.UnaryServer[
+		ranger.DispatchRequest,
+		*DispatchRequest,
+		struct{},
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -65,6 +73,7 @@ type (
 	deleteRequestTranslator    struct{}
 	renameRequestTranslator    struct{}
 	setEndRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
@@ -87,6 +96,9 @@ var (
 		nil,
 	)
 	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest] = (*setEndRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[ranger.DispatchRequest, *DispatchRequest] = (*dispatchRequestTranslator)(
 		nil,
 	)
 )
@@ -229,6 +241,40 @@ func (setEndRequestTranslator) Backward(
 	return ranger.SetEndRequest{Key: key, End: telem.TimeStamp(r.End)}, nil
 }
 
+func (dispatchRequestTranslator) Forward(
+	_ context.Context,
+	r ranger.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts, err := xpb.ToStructs(r.Actions)
+	if err != nil {
+		return nil, err
+	}
+	return &DispatchRequest{
+		Key:         r.Key.String(),
+		DispatchKey: r.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	_ context.Context,
+	r *DispatchRequest,
+) (ranger.DispatchRequest, error) {
+	key, err := uuid.Parse(r.Key)
+	if err != nil {
+		return ranger.DispatchRequest{}, err
+	}
+	acts, err := xpb.FromStructs[svcranger.Action](r.Actions)
+	if err != nil {
+		return ranger.DispatchRequest{}, validate.PathedError(err, "actions")
+	}
+	return ranger.DispatchRequest{
+		Key:         key,
+		DispatchKey: r.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
@@ -260,11 +306,18 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &RangeSetEndService_ServiceDesc,
 	}
 	t.RangeSetEnd = setEnd
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &RangeDispatchService_ServiceDesc,
+	}
+	t.RangeDispatch = dispatch
 	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		rangeDelete,
 		rename,
 		setEnd,
+		dispatch,
 	}
 }

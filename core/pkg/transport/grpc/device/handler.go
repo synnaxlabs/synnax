@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
+	svcdevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -40,6 +42,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	dispatchServer = grpc.UnaryServer[
+		device.DispatchRequest,
+		*DispatchRequest,
+		struct{},
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -48,6 +56,7 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
@@ -56,6 +65,7 @@ var (
 	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
 	_ grpc.Translator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.Translator[device.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
@@ -172,6 +182,42 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &DeviceDeleteService_ServiceDesc,
 	}
 	t.DeviceDelete = del
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &DeviceDispatchService_ServiceDesc,
+	}
+	t.DeviceDispatch = dispatch
 
-	return grpc.CompoundBindableTransport{create, retrieve, del}
+	return grpc.CompoundBindableTransport{create, retrieve, del, dispatch}
+}
+
+func (dispatchRequestTranslator) Forward(
+	_ context.Context,
+	req device.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts, err := xpb.ToStructs(req.Actions)
+	if err != nil {
+		return nil, err
+	}
+	return &DispatchRequest{
+		Key:         req.Key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	_ context.Context,
+	req *DispatchRequest,
+) (device.DispatchRequest, error) {
+	acts, err := xpb.FromStructs[svcdevice.Action](req.Actions)
+	if err != nil {
+		return device.DispatchRequest{}, validate.PathedError(err, "actions")
+	}
+	return device.DispatchRequest{
+		Key:         req.Key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
 }

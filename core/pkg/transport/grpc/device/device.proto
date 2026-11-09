@@ -14,6 +14,7 @@ package grpc.device;
 import "core/pkg/api/device/pb/device.proto";
 import "core/pkg/service/legacy/device/pb/device.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/device";
 
@@ -27,6 +28,10 @@ service DeviceRetrieveService {
 
 service DeviceDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+service DeviceDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
 }
 
 message CreateRequest {
@@ -45,4 +50,12 @@ message RetrieveRequest {
 
 message DeleteRequest {
   repeated string keys = 1;
+}
+
+// DispatchRequest applies actions to one device. Each action is the JSON object that
+// the HTTP dispatch route takes, such as {"type": "set", "set": {...}}.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  repeated google.protobuf.Struct actions = 3;
 }

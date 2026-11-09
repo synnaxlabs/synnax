@@ -14,6 +14,7 @@ package grpc.ranger;
 import "core/pkg/api/ranger/pb/ranger.proto";
 import "core/pkg/service/ranger/pb/ranger.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger";
 
@@ -35,6 +36,10 @@ service RangeRenameService {
 
 service RangeSetEndService {
   rpc Exec(SetEndRequest) returns (google.protobuf.Empty) {}
+}
+
+service RangeDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty) {}
 }
 
 message DeleteRequest {
@@ -63,4 +68,12 @@ message RenameRequest {
 message SetEndRequest {
   string key = 1;
   int64 end = 2;
+}
+
+// DispatchRequest applies actions to one range. Each action is the JSON object that the
+// HTTP dispatch route takes, such as {"type": "set", "set": {...}}.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  repeated google.protobuf.Struct actions = 3;
 }

@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -89,5 +90,55 @@ var _ = Describe("Retrieve", func() {
 		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
 			"sy.validation---api.ranger.pb.RetrieveRequest has unknown fields",
 		)))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		client   grpcranger.RangeDispatchServiceClient
+		received ranger.DispatchRequest
+	)
+
+	BeforeEach(func() {
+		client = grpcranger.NewRangeDispatchServiceClient(conn)
+		received = ranger.DispatchRequest{}
+		transport.RangeDispatch.BindHandler(func(
+			_ context.Context,
+			req ranger.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+	})
+
+	It("Should decode each action from the JSON form that HTTP takes", func(
+		ctx SpecContext,
+	) {
+		key := uuid.New()
+		set := MustSucceed(structpb.NewStruct(map[string]any{
+			"type": "set",
+			"set":  map[string]any{"path": []any{"name"}, "value": "Cold flow"},
+		}))
+		MustSucceed(client.Exec(ctx, &grpcranger.DispatchRequest{
+			Key:         key.String(),
+			DispatchKey: "dk",
+			Actions:     []*structpb.Struct{set},
+		}))
+		Expect(received).To(Equal(ranger.DispatchRequest{
+			Key:         key,
+			DispatchKey: "dk",
+			Actions: []svcranger.Action{svcranger.NewSetAction(svcranger.SetPayload{
+				Path:  []string{"name"},
+				Value: "Cold flow",
+			})},
+		}))
+	})
+
+	It("Should reject an action that does not decode", func(ctx SpecContext) {
+		bad := MustSucceed(structpb.NewStruct(map[string]any{"type": 1.0}))
+		Expect(client.Exec(ctx, &grpcranger.DispatchRequest{
+			Key:     uuid.New().String(),
+			Actions: []*structpb.Struct{bad},
+		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
 	})
 })

@@ -23,6 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -86,5 +87,57 @@ var _ = Describe("Retrieve", func() {
 		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
 			"sy.validation---api.device.pb.RetrieveRequest has unknown fields",
 		)))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		client   grpcdevice.DeviceDispatchServiceClient
+		received device.DispatchRequest
+	)
+
+	BeforeEach(func() {
+		client = grpcdevice.NewDeviceDispatchServiceClient(conn)
+		received = device.DispatchRequest{}
+		transport.DeviceDispatch.BindHandler(func(
+			_ context.Context,
+			req device.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+	})
+
+	It("Should decode each action from the JSON form that HTTP takes", func(
+		ctx SpecContext,
+	) {
+		set := MustSucceed(structpb.NewStruct(map[string]any{
+			"type": "set",
+			"set": map[string]any{
+				"path":  []any{"properties"},
+				"value": map[string]any{"port": 2.0},
+			},
+		}))
+		MustSucceed(client.Exec(ctx, &grpcdevice.DispatchRequest{
+			Key:         "dev1",
+			DispatchKey: "dk",
+			Actions:     []*structpb.Struct{set},
+		}))
+		Expect(received).To(Equal(device.DispatchRequest{
+			Key:         "dev1",
+			DispatchKey: "dk",
+			Actions: []svcdevice.Action{svcdevice.NewSetAction(svcdevice.SetPayload{
+				Path:  []string{"properties"},
+				Value: map[string]any{"port": 2.0},
+			})},
+		}))
+	})
+
+	It("Should reject an action that does not decode", func(ctx SpecContext) {
+		bad := MustSucceed(structpb.NewStruct(map[string]any{"type": 1.0}))
+		Expect(client.Exec(ctx, &grpcdevice.DispatchRequest{
+			Key:     "dev1",
+			Actions: []*structpb.Struct{bad},
+		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
 	})
 })

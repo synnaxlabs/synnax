@@ -21,6 +21,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -209,11 +210,73 @@ func (x *DeleteRequest) GetKeys() []string {
 	return nil
 }
 
+// DispatchRequest applies actions to one device. Each action is the JSON object that
+// the HTTP dispatch route takes, such as {"type": "set", "set": {...}}.
+type DispatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	DispatchKey   string                 `protobuf:"bytes,2,opt,name=dispatch_key,json=dispatchKey,proto3" json:"dispatch_key,omitempty"`
+	Actions       []*structpb.Struct     `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DispatchRequest) Reset() {
+	*x = DispatchRequest{}
+	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DispatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DispatchRequest) ProtoMessage() {}
+
+func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DispatchRequest.ProtoReflect.Descriptor instead.
+func (*DispatchRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *DispatchRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetDispatchKey() string {
+	if x != nil {
+		return x.DispatchKey
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetActions() []*structpb.Struct {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_device_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_device_device_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/device/device.proto\x12\vgrpc.device\x1a#core/pkg/api/device/pb/device.proto\x1a.core/pkg/service/legacy/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"D\n" +
+	"+core/pkg/transport/grpc/device/device.proto\x12\vgrpc.device\x1a#core/pkg/api/device/pb/device.proto\x1a.core/pkg/service/legacy/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\"D\n" +
 	"\rCreateRequest\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"E\n" +
 	"\x0eCreateResponse\x123\n" +
@@ -221,13 +284,19 @@ const file_core_pkg_transport_grpc_device_device_proto_rawDesc = "" +
 	"\x0fRetrieveRequest\x128\n" +
 	"\arequest\x18\r \x01(\v2\x1e.api.device.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\rR\x04keysR\x05namesR\x05makesR\x06modelsR\tlocationsR\x05racksR\x06searchR\x05limitR\x06offsetR\x10ignore_not_foundR\x0einclude_statusR\x0einclude_parent\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys2V\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"y\n" +
+	"\x0fDispatchRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12!\n" +
+	"\fdispatch_key\x18\x02 \x01(\tR\vdispatchKey\x121\n" +
+	"\aactions\x18\x03 \x03(\v2\x17.google.protobuf.StructR\aactions2V\n" +
 	"\x13DeviceCreateService\x12?\n" +
 	"\x04Exec\x12\x1a.grpc.device.CreateRequest\x1a\x1b.grpc.device.CreateResponse2^\n" +
 	"\x15DeviceRetrieveService\x12E\n" +
 	"\x04Exec\x12\x1c.grpc.device.RetrieveRequest\x1a\x1f.api.device.pb.RetrieveResponse2Q\n" +
 	"\x13DeviceDeleteService\x12:\n" +
-	"\x04Exec\x12\x1a.grpc.device.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xa3\x01\n" +
+	"\x04Exec\x12\x1a.grpc.device.DeleteRequest\x1a\x16.google.protobuf.Empty2U\n" +
+	"\x15DeviceDispatchService\x12<\n" +
+	"\x04Exec\x12\x1c.grpc.device.DispatchRequest\x1a\x16.google.protobuf.EmptyB\xa3\x01\n" +
 	"\x0fcom.grpc.deviceB\vDeviceProtoP\x01Z6github.com/synnaxlabs/synnax/pkg/transport/grpc/device\xa2\x02\x03GDX\xaa\x02\vGrpc.Device\xca\x02\vGrpc\\Device\xe2\x02\x17Grpc\\Device\\GPBMetadata\xea\x02\fGrpc::Deviceb\x06proto3"
 
 var (
@@ -242,32 +311,37 @@ func file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_device_device_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_device_device_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.device.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.device.CreateResponse
 	(*RetrieveRequest)(nil),      // 2: grpc.device.RetrieveRequest
 	(*DeleteRequest)(nil),        // 3: grpc.device.DeleteRequest
-	(*pb.Device)(nil),            // 4: service.device.pb.Device
-	(*pb1.RetrieveRequest)(nil),  // 5: api.device.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 6: api.device.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
+	(*DispatchRequest)(nil),      // 4: grpc.device.DispatchRequest
+	(*pb.Device)(nil),            // 5: service.device.pb.Device
+	(*pb1.RetrieveRequest)(nil),  // 6: api.device.pb.RetrieveRequest
+	(*structpb.Struct)(nil),      // 7: google.protobuf.Struct
+	(*pb1.RetrieveResponse)(nil), // 8: api.device.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_device_device_proto_depIdxs = []int32{
-	4, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
-	4, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
-	5, // 2: grpc.device.RetrieveRequest.request:type_name -> api.device.pb.RetrieveRequest
-	0, // 3: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
-	2, // 4: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
-	3, // 5: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
-	1, // 6: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
-	6, // 7: grpc.device.DeviceRetrieveService.Exec:output_type -> api.device.pb.RetrieveResponse
-	7, // 8: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	5, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
+	5, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
+	6, // 2: grpc.device.RetrieveRequest.request:type_name -> api.device.pb.RetrieveRequest
+	7, // 3: grpc.device.DispatchRequest.actions:type_name -> google.protobuf.Struct
+	0, // 4: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
+	2, // 5: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
+	3, // 6: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
+	4, // 7: grpc.device.DeviceDispatchService.Exec:input_type -> grpc.device.DispatchRequest
+	1, // 8: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
+	8, // 9: grpc.device.DeviceRetrieveService.Exec:output_type -> api.device.pb.RetrieveResponse
+	9, // 10: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	9, // 11: grpc.device.DeviceDispatchService.Exec:output_type -> google.protobuf.Empty
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_device_device_proto_init() }
@@ -281,9 +355,9 @@ func file_core_pkg_transport_grpc_device_device_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_device_device_proto_rawDesc), len(file_core_pkg_transport_grpc_device_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_device_device_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_device_device_proto_depIdxs,
