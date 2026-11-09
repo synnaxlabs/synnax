@@ -288,6 +288,21 @@ var _ = Describe("Undo", func() {
 			To(MatchError(ContainSubstring("The last update is already undone")))
 	})
 
+	It(
+		"Should not check the undo while a Core runs on the data",
+		func(ctx SpecContext) {
+			openAt(ctx, dir, "0.59.0")
+			openAt(ctx, dir, "0.60.0")
+			MustSucceed(newBackups(dir).Undo())
+			MustOpen(storage.OpenLayer(
+				ctx,
+				storage.LayerConfig{Dirname: dir, Version: "0.59.0"},
+			))
+			Expect(newBackups(dir).Undo()).Error().
+				To(MatchError(ContainSubstring("Failed to acquire lock")))
+		},
+	)
+
 	It("Should return an error when there is no backup", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.60.0")
 		Expect(newBackups(dir).Undo()).Error().

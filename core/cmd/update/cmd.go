@@ -189,7 +189,7 @@ func undo(
 			return errors.Wrapf(err, "failed to restore backup %s", args[0])
 		}
 	} else if res, err = backups.Undo(); errors.Is(err, storage.ErrUndone) && owned {
-		// The Core undid the update after synnax update stopped waiting for it.
+		// The data is back, but the binary of the update may still be in place.
 		return putBackUndone(ctx, w, backups, inst.Binary, err)
 	} else if err != nil {
 		return err
@@ -204,39 +204,36 @@ func undo(
 			res.OrphanedDir,
 		))
 	}
-	if res.Backup.Version == storage.UnknownVersion {
-		lines = append(lines, "The backup does not record its Core version. Run "+
-			"the Core version that ran on the data before the update.")
-		return printLines(w, lines...)
-	}
 	if err = printLines(w, lines...); err != nil {
 		return err
 	}
 	run := fmt.Sprintf("Run Core %s on the data.", res.Backup.Version)
+	if res.Backup.Version == storage.UnknownVersion {
+		run = "The backup does not record its Core version. Run the Core version " +
+			"that ran on the data before the update."
+	}
 	if !owned {
 		return printLines(w, run)
 	}
-	putBack, err := putBackOld(ctx, inst.Binary, res.Backup.Version)
+	back, err := putBackFor(ctx, inst.Binary, res.Backup.Version)
 	if err != nil {
 		return errors.Combine(
 			errors.Wrapf(err, "failed to put back the binary at %s", inst.Binary),
 			printLines(w, run),
 		)
 	}
-	if putBack {
+	if back != "" {
 		return printLines(w, fmt.Sprintf(
 			"Put back Core %s at %s. Start the Core.",
-			res.Backup.Version,
+			back,
 			inst.Binary,
 		))
 	}
 	return printLines(w, run)
 }
 
-// putBackUndone puts back the binary that an undone update replaced, when that binary
-// is
-// the Core version of the newest backup. For a backup with no version, that binary must
-// be older than binary. If not, it returns undone.
+// putBackUndone puts back the binary that an undone update replaced, as putBackFor does
+// for the newest backup. Without such a binary, it returns undone.
 func putBackUndone(
 	ctx context.Context,
 	w io.Writer,
@@ -248,35 +245,38 @@ func putBackUndone(
 	if err != nil {
 		return errors.Combine(undone, err)
 	}
-	want := all[len(all)-1].Version
-	if want == storage.UnknownVersion {
-		if want, err = olderVersion(ctx, binary); err != nil || want == "" {
-			return errors.Combine(undone, err)
-		}
-	}
-	putBack, err := putBackOld(ctx, binary, want)
-	if err != nil || !putBack {
+	back, err := putBackFor(ctx, binary, all[len(all)-1].Version)
+	if err != nil || back == "" {
 		return errors.Combine(undone, err)
 	}
 	return printLines(
 		w,
 		"The Core already undid the update.",
-		fmt.Sprintf("Put back Core %s at %s. Start the Core.", want, binary),
+		fmt.Sprintf("Put back Core %s at %s. Start the Core.", back, binary),
 	)
 }
 
-// olderVersion returns the Core version of the binary that an update replaced, or an
-// empty string when there is none or it is not older than binary.
-func olderVersion(ctx context.Context, binary string) (string, error) {
-	old, err := oldVersion(ctx, binary)
-	if err != nil || old == "" {
+// putBackFor swaps binary with the binary that an update replaced, when that binary is
+// Core version v of a restored backup. For a backup with no version, that binary must
+// be older than binary. putBackFor returns the version it put back, or an empty string
+// when it put back nothing.
+func putBackFor(ctx context.Context, binary, v string) (string, error) {
+	if v == storage.UnknownVersion {
+		old, err := oldVersion(ctx, binary)
+		if err != nil || old == "" {
+			return "", err
+		}
+		current, err := binaryVersion(ctx, binary)
+		if err != nil || version.Compare(old, current) >= 0 {
+			return "", err
+		}
+		v = old
+	}
+	putBack, err := putBackOld(ctx, binary, v)
+	if err != nil || !putBack {
 		return "", err
 	}
-	current, err := binaryVersion(ctx, binary)
-	if err != nil || version.Compare(old, current) >= 0 {
-		return "", err
-	}
-	return old, nil
+	return v, nil
 }
 
 func history(w io.Writer, backups *storage.Backups) error {

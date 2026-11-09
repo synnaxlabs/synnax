@@ -65,7 +65,7 @@ export const CoreNotice = ({ target }: CoreNoticeProps): ReactElement | null => 
         description: `Run synnax update ${latest} as an administrator on the computer that runs the Core. In Docker, or if the command fails, follow the upgrade guide at ${UPGRADE_URL}.`,
       });
     },
-    [target?.version, target?.latestGranted],
+    [target?.endpoint, target?.version, target?.latestGranted],
   );
   return null;
 };

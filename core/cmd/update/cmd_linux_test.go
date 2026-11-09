@@ -351,6 +351,18 @@ var _ = Describe("Update with a Core service", func() {
 			Expect(coreAt(binary + ".old")).To(ContainSubstring("0.61.0"))
 		})
 
+		It("Should put back an older binary for a backup with no version", func() {
+			createBackup(data, "0000000001-unknown")
+			Expect(run(
+				"undo",
+				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+			)).To(Succeed())
+			Expect(out.String()).To(HaveSuffix(
+				"Put back Core 0.60.0 at " + binary + ". Start the Core.\n",
+			))
+			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
+		})
+
 		Describe("After the Core undid the update", func() {
 			It("Should put back the binary", func() {
 				createBackup(data, "0000000001-0.60.0")
