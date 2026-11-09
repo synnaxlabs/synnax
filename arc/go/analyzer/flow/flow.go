@@ -47,6 +47,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST)
+	AnalyzeComputedArgs(ctx, args)
 	expression.AnalyzeCall(
 		ctx,
 		name,
@@ -162,6 +163,7 @@ func parseFunction(
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST)
+	AnalyzeComputedArgs(ctx, args)
 
 	var externallySatisfied []string
 	if prevNode != nil && funcType.Trigger.Target != "" {
@@ -359,18 +361,22 @@ func analyzeIdentifier(
 
 	isValueVarSink := (sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
-	if prevNode != nil {
-		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
-			sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
-			sym.Kind == symbol.KindStatefulVariable
-		if !validTarget {
-			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
-			if sym.Kind == symbol.KindFunction {
-				d = d.WithNote("use " + name + "() to instantiate the function")
-			}
-			ctx.Diagnostics.Add(d)
-			return
+	// Any other symbol would lower to a read or write of a channel that does not exist.
+	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
+		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
+		sym.Kind == symbol.KindStatefulVariable
+	if !isFlowNode {
+		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
+		if sym.Kind == symbol.KindFunction {
+			d = d.WithNote("use " + name + "() to instantiate the function")
 		}
+		if sym.Kind == symbol.KindConstant {
+			d = d.WithNote("use (" + name + ") to send its value")
+		}
+		ctx.Diagnostics.Add(d)
+		return
+	}
+	if prevNode != nil {
 		if sym.IsReactive() {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"cannot write to channel-read variable %s; it is read-only", name))
@@ -859,6 +865,7 @@ func analyzeRoutingTargetWithParam(
 		}
 
 		args := inputArguments(ctx, fn)
+		AnalyzeComputedArgs(ctx, args)
 		var externallySatisfied []string
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)

@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer sets, renames, and deletes passwords in one transaction. It makes no identity
-// check: the caller authorizes the change.
+// Writer sets and changes passwords in one transaction. It makes no identity check: the
+// caller authorizes the change.
 type Writer struct {
 	svc *Service
 	tx  gorp.Tx
@@ -71,47 +71,55 @@ func (w Writer) Set(
 		Exec(ctx, w.tx)
 }
 
-// ChangePassword stores h as the subject's password and keeps its username. It returns
-// an error wrapping query.ErrNotFound when the subject has no password, and
-// [auth.ErrInvalidCredentials] when h was proven against a password the subject no
-// longer holds.
-func (w Writer) ChangePassword(ctx context.Context, subject resource.ID, h Hash) error {
-	p, err := w.retrieve(ctx, subject)
-	if err != nil {
-		return err
-	}
-	if err = h.check(p); err != nil {
-		return err
-	}
-	return w.svc.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Password](p.Key)).
-		Change(func(_ gorp.Context, p Password) Password {
-			p.Hash = h.value
-			p.Created = next(p.Created)
-			return p
-		}).
-		Exec(ctx, w.tx)
+// Action is a change to a stored password. It never leaves the Core, since it can carry
+// a hash. NewSetHashAction and NewSetUsernameAction make one.
+type Action struct {
+	hash     *Hash
+	username string
 }
 
-// Rename changes the username of the subject's password. It returns
-// [auth.ErrRepeatedUsername] when another subject holds username and an error wrapping
+// NewSetHashAction returns an action that stores h as the password and keeps the
+// username.
+func NewSetHashAction(h Hash) Action { return Action{hash: &h} }
+
+// NewSetUsernameAction returns an action that changes the username of the password.
+func NewSetUsernameAction(username string) Action { return Action{username: username} }
+
+// Apply applies the actions in order to the password of the subject. It returns
+// [auth.ErrInvalidCredentials] when a hash was proven against a password the subject no
+// longer holds, [auth.ErrRepeatedUsername] when another subject holds a username that
+// an action sets, a validation error when that username is empty, and an error wrapping
 // query.ErrNotFound when the subject has no password.
-func (w Writer) Rename(
-	ctx context.Context,
-	subject resource.ID,
-	username string,
-) error {
-	if err := w.assertUsernameFree(ctx, subject, username); err != nil {
-		return err
-	}
+func (w Writer) Apply(ctx context.Context, subject resource.ID, acts ...Action) error {
 	p, err := w.retrieve(ctx, subject)
 	if err != nil {
 		return err
 	}
+	for _, a := range acts {
+		if a.hash != nil {
+			if err = a.hash.check(p); err != nil {
+				return err
+			}
+			continue
+		}
+		if a.username == "" {
+			return errors.Wrap(validate.ErrValidation, "username: required")
+		}
+		if err = w.assertUsernameFree(ctx, subject, a.username); err != nil {
+			return err
+		}
+	}
 	return w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
-			p.Username = username
+			for _, a := range acts {
+				if a.hash == nil {
+					p.Username = a.username
+					continue
+				}
+				p.Hash = a.hash.value
+				p.Created = next(p.Created)
+			}
 			return p
 		}).
 		Exec(ctx, w.tx)

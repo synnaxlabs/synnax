@@ -7,6 +7,11 @@
       "tests": [{ "case": "hitl/ni_cdaq_perf" }]
     },
     {
+      "sequence_name": "EtherCAT",
+      "isolated": true,
+      "tests": [{ "case": "hitl/ethercat_perf" }]
+    },
+    {
       "sequence_name": "cRIO",
       "isolated": true,
       "tests": [{ "case": "hitl/crio_perf" }]

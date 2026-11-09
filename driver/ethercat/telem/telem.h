@@ -67,11 +67,10 @@ enum class DataType : uint16_t {
 };
 
 /// @brief returns how many times b fits into a, or nullopt when a is not a whole
-/// multiple of b. Rate stores a float, so the ratio need only be whole to within one
-/// part per million.
+/// multiple of b. The ratio need only be whole to within one part per million.
 inline std::optional<size_t>
 whole_ratio(const x::telem::Rate a, const x::telem::Rate b) {
-    const double ratio = static_cast<double>(a.hz()) / b.hz();
+    const double ratio = a.hz() / b.hz();
     const double whole = std::round(ratio);
     if (whole < 1 || std::abs(ratio - whole) > whole * 1e-6) return std::nullopt;
     return static_cast<size_t>(whole);
@@ -182,53 +181,95 @@ inline size_t pdo_required_bytes(const uint8_t bit_offset, const uint8_t bit_len
     return (static_cast<size_t>(bit_offset) + bit_length + 7) / 8;
 }
 
-/// @brief reads a PDO value from a byte buffer and writes it to a series.
-/// Handles sub-byte values, integers narrower than their data type, and byte-aligned
-/// values.
-/// @param src pointer to the start of the PDO data in the buffer.
-/// @param bit_offset bit offset within the first byte (0-7).
-/// @param bit_length total bit length of the value.
-/// @param data_type the data type for interpreting the value.
-/// @param series the series to write the extracted value to.
-inline void read_pdo_to_series(
-    const uint8_t *src,
-    const uint8_t bit_offset,
-    const uint8_t bit_length,
-    const x::telem::DataType &data_type,
-    x::telem::Series &series
-) {
-    if (bit_length < 8) {
-        uint16_t two_bytes = src[0];
-        if (bit_offset + bit_length > 8)
-            two_bytes |= static_cast<uint16_t>(src[1]) << 8;
-        const auto mask = static_cast<uint8_t>((1u << bit_length) - 1);
-        const auto extracted = static_cast<uint8_t>((two_bytes >> bit_offset) & mask);
-        series.write_casted(&extracted, 1, x::telem::UINT8_T);
-        return;
+/// @brief reads the value of one entry from a process image. Resolves the layout of the
+/// entry once, so that decode() does no type lookups.
+class Decoder {
+    enum class Layout : uint8_t {
+        /// @brief fewer than 8 bits, read as uint8.
+        BITS,
+        /// @brief the full width of the data type, copied as is.
+        WHOLE,
+        /// @brief the full width of the data type, starting partway into a byte.
+        SHIFTED,
+        /// @brief narrower than the data type, such as 24 bits, read as int64 or
+        /// uint64.
+        NARROW,
+    };
+    uint8_t bit_offset;
+    uint8_t bit_length;
+    Layout layout;
+    bool is_signed = false;
+    x::telem::DataType decoded;
+
+public:
+    /// @brief resolves the layout of an entry.
+    /// @param bit_offset the bit offset of the entry within its first byte (0-7).
+    /// @param bit_length the bit length of the entry.
+    /// @param data_type the data type of the entry.
+    Decoder(
+        const uint8_t bit_offset,
+        const uint8_t bit_length,
+        const x::telem::DataType &data_type
+    ):
+        bit_offset(bit_offset), bit_length(bit_length) {
+        if (bit_length < 8) {
+            this->layout = Layout::BITS;
+            this->decoded = x::telem::UINT8_T;
+        } else if (bit_length >= data_type.density() * 8) {
+            this->layout = bit_offset == 0 ? Layout::WHOLE : Layout::SHIFTED;
+            this->decoded = data_type;
+        } else {
+            this->layout = Layout::NARROW;
+            this->is_signed = data_type.matches(
+                {x::telem::INT8_T,
+                 x::telem::INT16_T,
+                 x::telem::INT32_T,
+                 x::telem::INT64_T}
+            );
+            this->decoded = this->is_signed ? x::telem::INT64_T : x::telem::UINT64_T;
+        }
     }
 
-    x::telem::DataType source_type = data_type;
-    if (source_type == x::telem::UNKNOWN_T) source_type = series.data_type();
-    if (bit_length >= source_type.density() * 8) {
-        series.write_casted(src, 1, source_type);
-        return;
+    /// @brief the data type of the values that decode() writes.
+    [[nodiscard]] const x::telem::DataType &type() const { return this->decoded; }
+
+    /// @brief writes the entry at src to dst as a value of type().
+    void decode(const uint8_t *src, uint8_t *dst) const {
+        if (this->layout == Layout::WHOLE) {
+            std::memcpy(dst, src, this->decoded.density());
+            return;
+        }
+        if (this->layout == Layout::SHIFTED) {
+            for (size_t i = 0; i < this->decoded.density(); ++i)
+                dst[i] = static_cast<uint8_t>(
+                    (src[i] >> this->bit_offset) |
+                    (src[i + 1] << (8 - this->bit_offset))
+                );
+            return;
+        }
+        if (this->layout == Layout::BITS) {
+            uint16_t two_bytes = src[0];
+            if (this->bit_offset + this->bit_length > 8)
+                two_bytes |= static_cast<uint16_t>(src[1]) << 8;
+            const auto mask = static_cast<uint8_t>((1u << this->bit_length) - 1);
+            *dst = static_cast<uint8_t>((two_bytes >> this->bit_offset) & mask);
+            return;
+        }
+        // The bytes past a narrow entry, such as a 24 or 40 bit integer, belong to the
+        // next entry.
+        const size_t n_bytes = pdo_required_bytes(this->bit_offset, this->bit_length);
+        uint64_t raw = 0;
+        for (size_t i = 0; i < std::min<size_t>(n_bytes, 8); ++i)
+            raw |= static_cast<uint64_t>(src[i]) << (8 * i);
+        raw >>= this->bit_offset;
+        if (n_bytes > 8)
+            raw |= static_cast<uint64_t>(src[8]) << (64 - this->bit_offset);
+        raw &= (uint64_t{1} << this->bit_length) - 1;
+        if (this->is_signed && ((raw >> (this->bit_length - 1)) & 1) != 0)
+            raw |= ~uint64_t{0} << this->bit_length;
+        std::memcpy(dst, &raw, sizeof(raw));
     }
-    // The bytes past a narrow entry, such as a 24 or 40 bit integer, belong to the next
-    // entry.
-    const size_t n_bytes = pdo_required_bytes(bit_offset, bit_length);
-    uint64_t raw = 0;
-    for (size_t i = 0; i < std::min<size_t>(n_bytes, 8); ++i)
-        raw |= static_cast<uint64_t>(src[i]) << (8 * i);
-    raw >>= bit_offset;
-    if (n_bytes > 8) raw |= static_cast<uint64_t>(src[8]) << (64 - bit_offset);
-    raw &= (uint64_t{1} << bit_length) - 1;
-    const bool is_signed = source_type.matches(
-        {x::telem::INT8_T, x::telem::INT16_T, x::telem::INT32_T, x::telem::INT64_T}
-    );
-    if (is_signed && ((raw >> (bit_length - 1)) & 1) != 0)
-        raw |= ~uint64_t{0} << bit_length;
-    series.write_casted(&raw, 1, is_signed ? x::telem::INT64_T : x::telem::UINT64_T);
-}
+};
 
 /// @brief writes a sample value to a byte buffer as a PDO value. Bits outside the
 /// entry keep their values.

@@ -84,23 +84,6 @@ export const findIconButton = async (
   icon: string,
 ): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
-/**
- * Finds the text input whose pluto node placeholder (a rendered sibling element, not
- * an HTML placeholder attribute) contains the given text.
- */
-export const getInputByNodePlaceholder = (
-  container: ParentNode,
-  text: string,
-): HTMLInputElement => {
-  const placeholders = Array.from(
-    container.querySelectorAll<HTMLElement>(".lyra-input__placeholder"),
-  );
-  const target = placeholders.find((el) => (el.textContent ?? "").includes(text));
-  const input = target?.parentElement?.querySelector("input");
-  if (input == null) throw new Error(`no input with node placeholder ${text}`);
-  return input;
-};
-
 /** Queries container for the given selector, throwing when nothing matches. */
 export const getBySelector = <E extends Element = Element>(
   container: ParentNode,

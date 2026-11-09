@@ -106,22 +106,21 @@ TEST(TestArc, testRetrieveByKey) {
     ASSERT_EQ(base(retrieved).name, name);
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one Arc.
+/// @brief it should reject a limit or a cursor on a retrieve of one Arc.
 TEST(TestArc, testRetrieveRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.arcs.retrieve("arc", options).second,
               client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should page a retrieve of Arcs by keys or by names.
@@ -136,8 +135,12 @@ TEST(TestArc, testRetrieveListPage) {
     }
     const auto by_key = ASSERT_NIL_P(client.arcs.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
-    const auto by_name = ASSERT_NIL_P(client.arcs.retrieve(names, {.offset = 2}));
-    ASSERT_EQ(by_name.size(), 1);
+    const auto by_name = ASSERT_NIL_P(client.arcs.retrieve(names, {.limit = 2}));
+    ASSERT_EQ(by_name.size(), 2);
+    const auto rest = ASSERT_NIL_P(
+        client.arcs.retrieve(names, {.after = Cursor{.key = base(by_name[1]).key}})
+    );
+    ASSERT_EQ(rest.size(), 1);
 }
 
 /// @brief it should retrieve the one Arc program that a filter matches.

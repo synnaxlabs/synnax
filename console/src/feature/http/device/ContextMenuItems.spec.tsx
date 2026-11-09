@@ -39,11 +39,7 @@ const renderContextMenuItems = async () => {
     configured: true,
     properties: HTTP.Device.ZERO_PROPERTIES,
   });
-  const resource = createDeviceResource({
-    key: dev.key,
-    name: dev.name,
-    configured: true,
-  });
+  const resource = createDeviceResource(dev);
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),

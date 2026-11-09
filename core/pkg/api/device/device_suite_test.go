@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -45,6 +46,7 @@ var (
 	del      freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
 	rename   freighter.UnaryHandler[apidevice.RenameRequest, struct{}]
 	setGroup freighter.UnaryHandler[apidevice.SetGroupRequest, struct{}]
+	dispatch freighter.UnaryHandler[apidevice.DispatchRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apidevice.RetrieveRequest,
 		apidevice.RetrieveResponse,
@@ -64,11 +66,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

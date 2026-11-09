@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apirole "github.com/synnaxlabs/synnax/pkg/api/access/role"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -44,6 +45,7 @@ var (
 	// create, del, and retrieve run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apirole.CreateRequest, apirole.CreateResponse]
 	del      freighter.UnaryHandler[apirole.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apirole.DispatchRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apirole.RetrieveRequest,
 		apirole.RetrieveResponse,
@@ -59,9 +61,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

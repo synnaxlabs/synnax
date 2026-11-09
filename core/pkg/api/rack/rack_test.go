@@ -71,13 +71,12 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 }
 
 // newRackNeeds returns what a create of a new rack needs: create on the rack and its
-// status, update on the rack, which its status sits in, and retrieve on the Driver role
-// that the rack uses. r is the rack, or the rack type for a key the Core assigns.
+// status, and retrieve on the Driver role that the rack uses. r is the rack, or the
+// rack type for a key the Core assigns.
 func newRackNeeds(r resource.ID) []need {
 	return []need{
 		{access.ActionCreate, r},
 		{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-		{access.ActionUpdate, r},
 		{access.ActionRetrieve, role.ResourceID(svc.RBAC.Builtin.DriverKey)},
 	}
 }
@@ -103,6 +102,8 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+// createRackWithStatus creates a rack that holds a live status. It returns the rack
+// with no status, as the Driver sends it on a create.
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
@@ -118,6 +119,7 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 			Message: "Rack is running",
 		})
 	})).To(Succeed())
+	r.Status = nil
 	return r
 }
 
@@ -165,12 +167,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the rack", 0, rack.NewKey(1, 60100)),
-		Entry(
-			"without update on the rack, which its status sits in",
-			2,
-			rack.NewKey(1, 60101),
-		),
-		Entry("without retrieve on the Driver role", 3, rack.NewKey(1, 60102)),
+		Entry("without retrieve on the Driver role", 2, rack.NewKey(1, 60102)),
 	)
 	It(
 		"Should leave out the status of a rack the caller can only update",
@@ -273,6 +270,52 @@ var _ = Describe("Create", func() {
 			AuthedCtx(ctx, u),
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
 		)).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	dispatchGroup := func(
+		ctx SpecContext,
+		u user.User,
+		r rack.Rack,
+		g group.Group,
+	) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key:         r.Key,
+			DispatchKey: "dk",
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
+	}
+	It("Should apply the actions with update on the rack and group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch granted")
+		g := createDeviceGroup(ctx, "Dispatch granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID(), g.ResourceID())
+		MustSucceed(dispatchGroup(ctx, u, r, g))
+		Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+	})
+	It("Should refuse the actions without update on the rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch denied")
+		g := createDeviceGroup(ctx, "Dispatch denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+	It("Should refuse the actions without update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch group denied")
+		g := createDeviceGroup(ctx, "Dispatch group denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
 	})
 })
 
@@ -494,14 +537,13 @@ var _ = Describe("RetrieveRequest", func() {
 })
 
 var _ = Describe("Delete", func() {
-	// deleteNeeds returns what a delete of r needs: delete on r and its status, and
-	// update on r, which its status, API keys, sessions, and tasks leave.
+	// deleteNeeds returns what a delete of r needs: delete on r, which also covers its
+	// API keys and sessions, and delete on its status.
 	deleteNeeds := func(ctx SpecContext, r rack.Rack) []need {
 		GinkgoHelper()
 		return []need{
 			{access.ActionDelete, r.ResourceID()},
 			{access.ActionDelete, statusOf(ctx, r)},
-			{access.ActionUpdate, r.ResourceID()},
 		}
 	}
 	// deleterOf returns a context for a new user allowed to delete r.
@@ -555,7 +597,6 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("without delete on the rack", 0),
 		Entry("without delete on its status", 1),
-		Entry("without update on the rack, which its sessions leave", 2),
 	)
 	exists := func(ctx SpecContext, key rack.Key) bool {
 		GinkgoHelper()
