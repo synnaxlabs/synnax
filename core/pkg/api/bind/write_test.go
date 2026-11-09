@@ -64,7 +64,7 @@ func (u *unmapped) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
-// taskConfig is a config record of the task that shares its key.
+// taskConfig is a config record placed in the task that shares its key.
 type taskConfig struct{ Key string }
 
 func (taskConfig) CustomTypeName() string { return config.TableName("bind_spec") }
@@ -79,6 +79,27 @@ func (c taskConfig) EncodeOrc(w *orc.Writer) error {
 func (c *taskConfig) DecodeOrc(r *orc.Reader) (err error) {
 	c.Key, err = r.String()
 	return err
+}
+
+// openConfigs opens the table of taskConfig records until the spec ends.
+func openConfigs(ctx context.Context) *gorp.Table[string, taskConfig] {
+	GinkgoHelper()
+	task := string(resource.TypeTask)
+	return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, taskConfig]{
+		DB:   db,
+		Name: config.TableName("bind_spec"),
+		References: []gorp.Reference[string, taskConfig]{
+			gorp.NewTargetReference(gorp.TargetReferenceConfig[string, taskConfig]{
+				Name:     "key",
+				Tables:   []string{task},
+				OnDelete: gorp.Cascade,
+				Kind:     gorp.Place,
+				Targets: func(c *taskConfig) []gorp.Target {
+					return []gorp.Target{gorp.NewTarget(task, c.Key)}
+				},
+			}),
+		},
+	}))
 }
 
 // apply is the write of a spec.
@@ -425,6 +446,18 @@ var _ = Describe("Write", func() {
 			},
 		),
 		Entry(
+			"update on the range of a new range key-value pair",
+			func(ctx context.Context) rule {
+				r := createRange(ctx, nil)
+				return rule{
+					write: func(ctx context.Context, tx gorp.Tx) error {
+						return setPair(ctx, tx, r.Key, "new")
+					},
+					needed: need{access.ActionUpdate, r.ResourceID()},
+				}
+			},
+		),
+		Entry(
 			"update on the range of a changed range key-value pair",
 			func(ctx context.Context) rule {
 				r := createRange(ctx, nil)
@@ -530,20 +563,22 @@ var _ = Describe("Write", func() {
 				},
 			}
 		}),
-		Entry("delete on the task of a deleted task config record", func(
+		Entry("update on the task of a deleted task config record", func(
 			ctx context.Context,
 		) rule {
-			k := uuid.New()
-			Expect(gorp.NewCreate[string, taskConfig]().
-				Entry(&taskConfig{Key: k.String()}).
+			configs := openConfigs(ctx)
+			t := createTask(ctx)
+			k := t.Key.String()
+			Expect(configs.NewCreate().
+				Entry(&taskConfig{Key: k}).
 				Exec(ctx, db)).To(Succeed())
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
-					return gorp.NewDelete[string, taskConfig]().
-						Where(gorp.MatchKeys[string, taskConfig](k.String())).
+					return configs.NewDelete().
+						Where(gorp.MatchKeys[string, taskConfig](k)).
 						Exec(ctx, tx)
 				},
-				needed: need{access.ActionDelete, task.ResourceID(k)},
+				needed: need{access.ActionUpdate, task.ResourceID(t.Key)},
 			}
 		}),
 	)
@@ -609,6 +644,35 @@ var _ = Describe("Write", func() {
 		}),
 	)
 
+	DescribeTable(
+		"Should not require access on the owner of a record when the write creates or "+
+			"deletes the owner",
+		func(ctx SpecContext, setup func(ctx context.Context) (apply, need)) {
+			u := newUser(ctx)
+			f, granted := setup(ctx)
+			grant(ctx, u, granted.action, granted.object)
+			Expect(write(ctx, u, f)).To(Succeed())
+		},
+		Entry("an owner created", func(context.Context) (apply, need) {
+			r := newRange(nil)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				if err := svc.Ranger.NewWriter(tx).Create(ctx, &r); err != nil {
+					return err
+				}
+				return setPair(ctx, tx, r.Key, "new")
+			}, need{access.ActionCreate, r.ResourceID()}
+		}),
+		Entry("an owner deleted", func(ctx context.Context) (apply, need) {
+			r := createRange(ctx, nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return setPair(ctx, tx, r.Key, "stored")
+			})).To(Succeed())
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).Delete(ctx, r.Key)
+			}, need{access.ActionDelete, r.ResourceID()}
+		}),
+	)
+
 	It("Should let a user write its own API keys", func(ctx SpecContext) {
 		u := newUser(ctx)
 		var k apikey.APIKey
@@ -664,7 +728,9 @@ var _ = Describe("Write", func() {
 				return gorp.NewCreate[string, unmapped]().
 					Entry(&unmapped{Key: "k"}).
 					Exec(ctx, tx)
-			})).To(MatchError("[bind] - table unmapped has no resource type"))
+			})).To(MatchError(
+				"[bind] - table unmapped has no resource type, and k is placed in 0 records",
+			))
 			Expect(gorp.NewRetrieve[string, unmapped]().
 				Where(gorp.MatchKeys[string, unmapped]("k")).
 				Entry(&unmapped{}).
