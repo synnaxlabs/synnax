@@ -11,7 +11,12 @@ import { resource } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { type Source, type Window } from "@/platform/tree/children";
-import { moreKey, type Results, Store, type StoreConfig } from "@/platform/tree/store";
+import {
+  isMoreKey,
+  type Results,
+  Store,
+  type StoreConfig,
+} from "@/platform/tree/store";
 import { type Resource } from "@/platform/tree/types";
 
 const ROOT: resource.ID = { type: "builtin", key: "root" };
@@ -75,6 +80,19 @@ const createStore = (
 const keysOf = (store: Store, key = ROOT_KEY): string[] | undefined =>
   store.getChildren(key);
 
+// Names the show more node, so specs need not know how its key is built.
+const MORE = "more";
+
+const markMore = (keys: string[] | undefined): string[] | undefined =>
+  keys?.map((key) => (isMoreKey(key) ? MORE : key));
+
+const findMore = async (store: Store): Promise<string> => {
+  await expect.poll(() => keysOf(store)?.some(isMoreKey)).toBe(true);
+  const key = keysOf(store)?.find(isMoreKey);
+  if (key == null) throw new Error("no show more node");
+  return key;
+};
+
 const GROUP_A = res("group", "a", "a");
 const GROUP_B = res("group", "b", "B");
 
@@ -107,8 +125,8 @@ describe("tree store", () => {
       });
       store.start();
       await expect
-        .poll(() => keysOf(store))
-        .toEqual(["channel:1", "device:2", "channel:3", moreKey(ROOT_KEY)]);
+        .poll(() => markMore(keysOf(store)))
+        .toEqual(["channel:1", "device:2", "channel:3", MORE]);
     });
 
     it("should hide the other records while a folder list has more", async () => {
@@ -119,7 +137,22 @@ describe("tree store", () => {
         ],
       });
       store.start();
-      await expect.poll(() => keysOf(store)).toEqual(["group:a", moreKey(ROOT_KEY)]);
+      await expect.poll(() => markMore(keysOf(store))).toEqual(["group:a", MORE]);
+    });
+
+    it("should fetch the next page of only the folder lists while one has more", async () => {
+      const folders = createMemorySource({ resources: [GROUP_A], more: true });
+      const records = createMemorySource({
+        resources: [res("channel", "1", "a")],
+        more: true,
+      });
+      const foldersMore = vi.spyOn(folders, "more");
+      const recordsMore = vi.spyOn(records, "more");
+      const store = createStore({ [ROOT_KEY]: [folders, records] });
+      store.start();
+      store.more(await findMore(store));
+      await expect.poll(() => foldersMore.mock.calls.length).toBe(1);
+      expect(recordsMore).not.toHaveBeenCalled();
     });
 
     it("should fetch the next page of only the lists that hold back more", async () => {
@@ -142,8 +175,7 @@ describe("tree store", () => {
       const wholeMore = vi.spyOn(whole, "more");
       const store = createStore({ [ROOT_KEY]: [paged, whole] });
       store.start();
-      await expect.poll(() => keysOf(store)).toContain(moreKey(ROOT_KEY));
-      store.more(ROOT_KEY);
+      store.more(await findMore(store));
       await expect
         .poll(() => keysOf(store))
         .toEqual(["channel:1", "device:2", "channel:3", "device:4", "channel:5"]);
@@ -161,13 +193,13 @@ describe("tree store", () => {
       );
       const store = createStore({ [ROOT_KEY]: [paged] });
       store.start();
-      await expect.poll(() => keysOf(store)).toContain(moreKey(ROOT_KEY));
-      store.more(ROOT_KEY);
-      store.more(ROOT_KEY);
+      const node = await findMore(store);
+      store.more(node);
+      store.more(node);
       expect(more).toHaveBeenCalledTimes(1);
-      expect(store.isLoading(moreKey(ROOT_KEY))).toBe(true);
+      expect(store.isLoading(node)).toBe(true);
       release();
-      await expect.poll(() => store.isLoading(moreKey(ROOT_KEY))).toBe(false);
+      await expect.poll(() => store.isLoading(node)).toBe(false);
     });
 
     it("should follow a change to a list", async () => {
