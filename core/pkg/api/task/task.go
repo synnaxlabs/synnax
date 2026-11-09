@@ -236,9 +236,9 @@ type DeleteRequest struct {
 }
 
 // PrepareDelete stops the running tasks in req and waits for them to stop, for at most
-// the timeout of the Stopper in total. A task that does not stop in time can hold its channels open
-// until its Driver removes it. PrepareDelete returns access.ErrDenied, and stops
-// nothing, when the subject cannot delete a task in req.
+// the timeout of the Stopper in total. A task that does not stop in time can hold its
+// channels open until its Driver removes it. PrepareDelete returns access.ErrDenied,
+// and stops nothing, when the subject cannot delete a task in req.
 func (s *Service) PrepareDelete(
 	ctx context.Context,
 	req DeleteRequest,
