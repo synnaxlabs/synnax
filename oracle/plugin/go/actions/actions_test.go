@@ -210,6 +210,33 @@ var _ = Describe("Go Actions Plugin", func() {
 			)
 
 			It(
+				"Should reduce a generic struct with any for each kept type parameter",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/report"
+
+					Report struct<Details?, Extra?, Kind extends string = string> {
+						key     uuid
+						details Details
+						extra   Extra
+						kind    Kind
+
+						action Set {
+							report Report<any, any>
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "report", loader, p)
+					ExpectContent(resp, "actions.gen.go").ToContain(
+						"Report Report[any, any] `json:\"report\" msgpack:\"report\"`",
+						"// Action is a discriminated union for all Report mutations.",
+						"func Reduce(state Report[any, any], actions ...Action) "+
+							"(Report[any, any], error) {",
+					)
+				},
+			)
+
+			It(
 				"Should snake_case action names with multiple words",
 				func(ctx SpecContext) {
 					source := `

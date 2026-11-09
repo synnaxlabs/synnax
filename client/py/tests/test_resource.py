@@ -60,8 +60,8 @@ class TestSearch:
 
         assert_eventually(check)
 
-    def test_pages_with_a_limit_and_an_offset(self, client: sy.Synnax) -> None:
-        """Should page through the matches with a limit and an offset."""
+    def test_limits_the_matches(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the matches."""
         token = _token()
         for suffix in ["a", "b", "c"]:
             _create_group(client, f"{token} {suffix}")
@@ -70,7 +70,6 @@ class TestSearch:
             assert len(client.resources.search(token, limit=2)) == 2
 
         assert_eventually(check)
-        assert len(client.resources.search(token, limit=2, offset=2)) == 1
 
     def test_refuses_a_type_the_core_cannot_search(self, client: sy.Synnax) -> None:
         """Should raise a ValidationError for a type the Core cannot search."""

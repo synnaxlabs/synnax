@@ -199,6 +199,11 @@ var (
 			Detail: protocol.NewOptional("The field holds the keys of other resources"),
 		},
 		{
+			Label:  "group",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Which groups can hold the record"),
+		},
+		{
 			Label:  "response",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Record type of a filter's response"),

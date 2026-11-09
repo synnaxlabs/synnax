@@ -98,26 +98,24 @@ parenthesis must touch the name. Do not mix the two forms in one pair of parenth
 Values by position fill the parameters in order, and skip the trigger that the flow
 feeds.
 
-| Parameter type | Value                                                                      |
-| -------------- | -------------------------------------------------------------------------- |
-| `chan T`       | A channel name, or a variable that holds a channel.                        |
-| Any other type | A literal, or a variable declared with a literal, such as `gain := 6.895`. |
-
-Other values, expressions too, fail with `input value for 'k' must be a literal`. When a
-stage or a sequence sets the variable to a new value, the function uses the new value.
+An input value is a literal, a variable, or an expression. A variable or an expression
+is read each time the function fires. A `chan T` parameter takes a channel name.
 
 ```arc channels="tank_pt, tank_pt_kpa, tick" bodies="scale"
 import time
 
 gain := 6.895
 
-func scale(k f64) {v f64} f64 {
-    return v * k
+func scale(k f64, out chan f64) {v f64} {
+    out = v * k
 }
 
-tank_pt -> scale(k=gain) -> tank_pt_kpa
+tank_pt -> scale(k=gain, out=tank_pt_kpa)
 time.interval(1s) -> tick
 ```
+
+`k` is a value input and `out` is a channel input. The flow feeds each `tank_pt` value
+into the trigger `v`.
 
 For required parameters and defaults, see
 [inputs](/reference/control/arc/reference/functions#inputs).
