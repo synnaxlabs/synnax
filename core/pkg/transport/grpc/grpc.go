@@ -119,6 +119,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// GROUP MEMBERSHIP
 	t.GroupSetParent = noop.UnaryServer[group.SetParentRequest, struct{}]{}
+	t.GroupUngroup = noop.UnaryServer[group.UngroupRequest, struct{}]{}
 	t.ChannelSetGroup = noop.UnaryServer[apichannel.SetGroupRequest, struct{}]{}
 	t.DeviceSetGroup = noop.UnaryServer[apidevice.SetGroupRequest, struct{}]{}
 	t.RackSetGroup = noop.UnaryServer[apirack.SetGroupRequest, struct{}]{}

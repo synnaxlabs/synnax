@@ -481,12 +481,13 @@ var _ = Describe("Resource search", Ordered, func() {
 
 var _ = Describe("Group moves", Ordered, func() {
 	var (
-		l      *service.Layer
-		db     *gorp.DB
-		src    project.Project
-		dest   project.Project
-		g      group.Group
-		owners func(ctx SpecContext) []*project.Key
+		l        *service.Layer
+		db       *gorp.DB
+		src      project.Project
+		dest     project.Project
+		g        group.Group
+		owners   func(ctx SpecContext) []*project.Key
+		groupsOf func() []*group.Key
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -551,6 +552,10 @@ var _ = Describe("Group moves", Ordered, func() {
 				pn.Project,
 			}
 		}
+		// Reads the visualizations as the last call to owners retrieved them.
+		groupsOf = func() []*group.Key {
+			return []*group.Key{sch.Group, lp.Group, lg.Group, tb.Group, pn.Group}
+		}
 	})
 
 	It(
@@ -578,6 +583,17 @@ var _ = Describe("Group moves", Ordered, func() {
 				"group: a schematic sits only in a group under a project: validation error",
 			))
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
+		},
+	)
+
+	It(
+		"Should keep the visualizations of an ungrouped group in its project",
+		func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return l.Group.NewWriter(tx).Ungroup(ctx, g.Key)
+			})).To(Succeed())
+			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
+			Expect(groupsOf()).To(HaveEach(BeNil()))
 		},
 	)
 })

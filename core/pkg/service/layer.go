@@ -61,6 +61,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -323,6 +324,62 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 				}
 			}
 			return nil
+		},
+		SetMembers: map[resource.Type]group.SetMembers{
+			resource.TypeChannel: setMembers(
+				func(id resource.ID) (channel.Key, error) {
+					return channel.ParseKey(id.Key)
+				},
+				func(tx gorp.Tx) channel.Writer { return l.Channel.NewWriter(tx) },
+				channel.Writer.SetGroup,
+			),
+			resource.TypeRack: setMembers(
+				rack.KeyFromResourceID,
+				func(tx gorp.Tx) rack.Writer { return l.Rack.NewWriter(tx) },
+				rack.Writer.SetGroup,
+			),
+			resource.TypeDevice: setMembers(
+				func(id resource.ID) (device.Key, error) { return id.Key, nil },
+				func(tx gorp.Tx) device.Writer { return l.Device.NewWriter(tx) },
+				device.Writer.SetGroup,
+			),
+			resource.TypeProject: setMembers(
+				project.KeyFromResourceID,
+				func(tx gorp.Tx) project.Writer { return l.Project.NewWriter(tx) },
+				project.Writer.SetGroup,
+			),
+			resource.TypeSchematic: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) schematic.Writer { return l.Schematic.NewWriter(tx) },
+				schematic.Writer.SetGroup,
+			),
+			resource.TypeSchematicSymbol: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) symbol.Writer {
+					return l.Schematic.Symbol.NewWriter(tx)
+				},
+				symbol.Writer.SetGroup,
+			),
+			resource.TypeLineplot: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) lineplot.Writer { return l.LinePlot.NewWriter(tx) },
+				lineplot.Writer.SetGroup,
+			),
+			resource.TypeLog: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) log.Writer { return l.Log.NewWriter(tx) },
+				log.Writer.SetGroup,
+			),
+			resource.TypeTable: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) table.Writer { return l.Table.NewWriter(tx) },
+				table.Writer.SetGroup,
+			),
+			resource.TypePanel: setMembers(
+				resource.ParseUUIDKey,
+				func(tx gorp.Tx) panel.Writer { return l.Panel.NewWriter(tx) },
+				panel.Writer.SetGroup,
+			),
 		},
 	}); !ok(err, l.Group) {
 		return nil, err
@@ -923,4 +980,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// setMembers returns the group setter of one record type. parse reads the key of a
+// record from its resource ID, and set moves records with a writer of the transaction.
+func setMembers[K, W any](
+	parse func(resource.ID) (K, error),
+	writer func(gorp.Tx) W,
+	set func(W, context.Context, *group.Key, ...K) error,
+) group.SetMembers {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		to *group.Key,
+		ids []resource.ID,
+	) error {
+		keys := make([]K, len(ids))
+		for i, id := range ids {
+			var err error
+			if keys[i], err = parse(id); err != nil {
+				return err
+			}
+		}
+		return set(writer(tx), ctx, to, keys...)
+	}
 }
