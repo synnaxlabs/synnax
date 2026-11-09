@@ -83,7 +83,9 @@ or generator logic and schemas disagree.
   minimality (a redeclaration structurally identical to its resolved predecessor must be
   an alias; enum member sets compare exactly), and rule parity (a type the current
   version aliases from a frozen definer has the same `@validate`, `@default`,
-  `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer).
+  `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
+  dependency type such a definer pins at its current version has the same `@validate`
+  and `@default` in its live file and its version file).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
@@ -100,12 +102,13 @@ or generator logic and schemas disagree.
   package, so it loses every live-only rule unless a version file restates it. A frozen
   package also reads a pinned dependency type's rules from its version file only, so a
   live-only rule on that type (label's `name`) drops the frozen package's `Validate`
-  call into it. Restate such a rule in the dependency's version file too. Hand-written
-  frozen definer files are marked `@go hand` in their version file; hand-ness is
-  version-local — an aliased member whose definer is an older version still generates in
-  the current package as a backward alias. `migrate.gen.go` is a pure function of the
-  two adjacent version files; hand-written transforms live in `migrate.go` (renames and
-  cross-resource moves have no generated counterpart).
+  call into it. Restate such a rule in the dependency's version file too; the rule
+  parity gate fails until you do. Hand-written frozen definer files are marked
+  `@go hand` in their version file; hand-ness is version-local — an aliased member whose
+  definer is an older version still generates in the current package as a backward
+  alias. `migrate.gen.go` is a pure function of the two adjacent version files;
+  hand-written transforms live in `migrate.go` (renames and cross-resource moves have no
+  generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
