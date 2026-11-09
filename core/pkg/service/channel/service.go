@@ -109,6 +109,9 @@ type Service struct {
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
+	// renames holds the renames of each transaction. One hook sends them to storage in
+	// one call.
+	renames *gorp.Attachment[rename]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -132,6 +135,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes: newIndexes(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
+		renames: gorp.NewAttachment[rename](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
