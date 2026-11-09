@@ -9,7 +9,10 @@
 
 import { capture, fixtures } from "@/index";
 
-import { cells, drawer, recordStill, resize } from "./common/table";
+import { cells, drawer, resize, stageStill } from "./common/table";
+
+/** The default window shrunk 1.6 times, so the table fills the still. */
+export const viewport = { width: 800, height: 500 };
 
 const COLUMNS = 2;
 const WARNING = 70;
@@ -18,8 +21,7 @@ const ERROR = 85;
 /**
  * Still for docs image `console/tables/redline`: three live pressure values whose
  * redline has a warning band and a higher error band. One value sits below both
- * bands, one in the warning band, and one in the error band. The last captured frame
- * is the still.
+ * bands, one in the warning band, and one in the error band.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   // Each source swings a little around a base inside one band, so the colors hold.
@@ -86,7 +88,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await setRedline();
     }
 
-    await recordStill(session);
+    await stageStill(session);
+    await session.still("redline");
   } finally {
     await Promise.all(sources.map(async (s) => await s.stop()));
   }

@@ -32,6 +32,7 @@ import {
 } from "@/feature/modbus/task/RegisterMap";
 import {
   deployReadConfigZ,
+  isStringReadChannel,
   isVariableDensityReadChannel,
   nextChannel,
   READ_CHANNEL_SCHEMAS,
@@ -39,10 +40,10 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
+  readDataType,
   readMapKey,
   type ReadSchemas,
-  type TypedReadChannel,
-  UNSUPPORTED_READ_DATA_TYPES,
+  UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -97,7 +98,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
         <DataTypeCell
           path={entry}
           channel={ch}
-          hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
+          hideDataTypes={UNSUPPORTED_DATA_TYPES}
         />
       </List.Cell>
       <List.Cell>
@@ -105,6 +106,12 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
           <ByteOrderField
             path={deep.variant(entry, "type", ch.type)}
             dataType={ch.dataType}
+          />
+        )}
+        {isStringReadChannel(ch) && (
+          <ByteOrderField
+            path={deep.variant(entry, "type", ch.type)}
+            dataType={DataType.STRING.toString()}
           />
         )}
       </List.Cell>
@@ -214,7 +221,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       const channels = await client.channels.create(
         toCreate.map((c) => ({
           name: primitive.isNonZero(c.name) ? c.name : readChannelName(safeName, c),
-          dataType: (c as TypedReadChannel).dataType ?? DataType.UINT8.toString(),
+          dataType: readDataType(c) ?? DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),
       );

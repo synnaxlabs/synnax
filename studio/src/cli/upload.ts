@@ -22,7 +22,8 @@ Video and Image components serve them. Requires credentials in the environment:
   DO_SPACES_KEY     Spaces access key id
   DO_SPACES_SECRET  Spaces secret key
 Options:
-  --exact         treat [filter] as a full id instead of a substring
+  --exact         treat [filter] as a comma-separated list of full ids instead of a
+                  substring
   --dry-run       print what would upload without uploading
   --allow-draft   permit uploading draft-quality renders (normally refused)`;
 

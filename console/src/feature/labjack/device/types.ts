@@ -52,9 +52,6 @@ export interface AIPort extends BasePort {
 
 export const AIN_PORT_REGEX = /^AIN\d+$/;
 
-/** The negative channel of an analog input that reads against ground. */
-export const GROUND_CHANNEL = 199;
-
 /**
  * The negative channel that a T7 analog input reads against for a differential reading,
  * or null when the input can only read against ground.
