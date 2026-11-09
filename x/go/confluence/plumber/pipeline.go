@@ -10,6 +10,8 @@
 package plumber
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/x/address"
 	cfs "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -81,14 +83,46 @@ func (e entry) Flow(ctx signal.Context, opts ...cfs.Option) {
 }
 
 func (p *Pipeline) Flow(ctx signal.Context, opts ...cfs.Option) {
+	held := &heldContext{Context: ctx}
 	for addr, e := range p.Sources {
-		e.Flow(ctx, append(opts, cfs.WithAddress(addr))...)
+		e.Flow(held, append(opts, cfs.WithAddress(addr))...)
 	}
 	for addr, e := range p.Sinks {
 		if _, ok := p.Sources[addr]; !ok {
-			e.Flow(ctx, append(opts, cfs.WithAddress(addr))...)
+			e.Flow(held, append(opts, cfs.WithAddress(addr))...)
 		}
 	}
+	held.release()
+}
+
+// heldContext holds back the routines of a Pipeline until each of its segments has
+// flowed. A shared stream closes when its count of acquired sources reaches zero, and a
+// source acquires it in Flow, so a routine that exits early would otherwise close the
+// stream on a source that has not flowed yet.
+type heldContext struct {
+	signal.Context
+	held     []func()
+	released bool
+}
+
+// Go implements signal.Go.
+func (c *heldContext) Go(
+	f func(ctx context.Context) error,
+	opts ...signal.RoutineOption,
+) {
+	if c.released {
+		c.Context.Go(f, opts...)
+		return
+	}
+	c.held = append(c.held, func() { c.Context.Go(f, opts...) })
+}
+
+func (c *heldContext) release() {
+	c.released = true
+	for _, start := range c.held {
+		start()
+	}
+	c.held = nil
 }
 
 func New() *Pipeline {
