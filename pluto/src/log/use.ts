@@ -68,7 +68,7 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
-  methods: { selection: () => Promise<log.Selection> };
+  methods: { selection: () => Promise<log.Selection>; seek: (time: string) => void };
 }
 
 export const use = ({
