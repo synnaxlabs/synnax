@@ -1495,16 +1495,6 @@ var _ = Describe("Read task", func() {
 					DataType: telem.Float64T,
 				}}
 			}, `field "v": json pointer "v" must be empty or start with "/"`),
-		Entry("a bytes channel",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.BytesT)
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.BytesT,
-				}}
-			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

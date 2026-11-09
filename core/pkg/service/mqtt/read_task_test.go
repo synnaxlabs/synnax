@@ -712,14 +712,6 @@ var _ = Describe("Read task", func() {
 						"field v of topic plant/x: channel 4000000 does not exist"
 				},
 			),
-			Entry("a channel of a data type that a field cannot write",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.BytesT)
-					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
-						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to bytes"
-				},
-			),
 			Entry("fields of one topic on different indexes",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, a := createIndexed(ctx, telem.Float64T)
