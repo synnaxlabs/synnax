@@ -649,6 +649,15 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 					)
 					return
 				}
+				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						ctx.AST,
+						"cannot cast %s to %s: NaN and infinity have no integer value",
+						expr.GetText(),
+						targetType,
+					))
+					return
+				}
 				if sourceType.Kind == basetypes.KindBool &&
 					targetType.IsNumeric() &&
 					targetType.Kind != basetypes.KindU8 {
