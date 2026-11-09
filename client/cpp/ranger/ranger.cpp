@@ -28,7 +28,7 @@ x::json::json encode(const Action &action) {
     auto j = to_json(action);
     const auto *set = std::get_if<SetPayload>(&action);
     if (set == nullptr || set->path.empty() || set->path[0] != "time_range") return j;
-    auto &value = j[SetPayload::TYPE]["value"];
+    auto &value = j["set"]["value"];
     if (set->path.size() > 1)
         value = exact(value);
     else if (value.is_object())
