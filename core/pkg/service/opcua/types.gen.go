@@ -11,7 +11,14 @@
 
 package opcua
 
-import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua/versions"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	"uuid"
+)
 
 // BaseChannel carries the fields every OPC UA channel shares.
 type BaseChannel = versions.BaseChannel
@@ -30,3 +37,98 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Device is the key of the device representing the OPC UA server.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// ArrayMode is true when each read returns an array of samples per node.
+	ArrayMode *bool `json:"array_mode,omitzero" msgpack:"array_mode,omitempty"`
+	// ArraySize is the number of samples in each array when array_mode is true.
+	ArraySize *int32 `json:"array_size,omitzero" msgpack:"array_size,omitempty"`
+	// Channels are the OPC UA nodes the task acquires.
+	Channels *patch.List[ReadChannel, string, ReadChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
+	// When false, a bad value skips the read for every channel that shares its index.
+	NanFillEnabled *bool `json:"nan_fill_enabled,omitzero" msgpack:"nan_fill_enabled,omitempty"`
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the device the task writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Channels are the OPC UA nodes the task drives.
+	Channels *patch.List[WriteChannel, string, WriteChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadChannelUpdate holds changes to the fields of the read channel. An absent field
+// does not change.
+type ReadChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// NodeID is the OPC UA node ID the channel is bound to.
+	NodeID *string `json:"node_id,omitzero" msgpack:"node_id,omitempty"`
+	// NodeName is the browse name of the OPC UA node.
+	NodeName *string `json:"node_name,omitzero" msgpack:"node_name,omitempty"`
+	// DataType is the data type of the Synnax channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// Channel is the Synnax channel that samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// IsIndex is true when the channel's Synnax channel is the task's index.
+	IsIndex *bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
+	// Field is the path to a member of the node's structure value. Names join with '.',
+	// and '&' escapes the next character. Empty reads the whole value.
+	Field *string `json:"field,omitzero" msgpack:"field,omitempty"`
+}
+
+// WriteChannelUpdate holds changes to the fields of the write channel. An absent field
+// does not change.
+type WriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// NodeID is the OPC UA node ID the channel is bound to.
+	NodeID *string `json:"node_id,omitzero" msgpack:"node_id,omitempty"`
+	// NodeName is the browse name of the OPC UA node.
+	NodeName *string `json:"node_name,omitzero" msgpack:"node_name,omitempty"`
+	// DataType is the data type of the Synnax channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+}

@@ -20,7 +20,8 @@
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/json.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::channel {
 
@@ -186,6 +187,22 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["channels"] = x::json::to_array(this->channels);
+    return j;
+}
+
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .operations = parser.field<std::optional<::x::patch::ValueList<Operation>>>(
+            "operations"
+        ),
+        .expression = parser.field<std::optional<std::string>>("expression"),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->operations.has_value()) j["operations"] = this->operations->to_json();
+    if (this->expression.has_value()) j["expression"] = *this->expression;
     return j;
 }
 

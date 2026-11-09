@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/patch"
@@ -423,4 +424,32 @@ func (u Action) Type() ActionType {
 		return SetRackActionType
 	}
 	return ""
+}
+
+// Update holds changes to the fields of the device. An absent field does not change.
+type Update struct {
+	// Location is the physical location or address of the device.
+	Location *string `json:"location,omitzero" msgpack:"location,omitempty"`
+	// Model is the device model identifier.
+	Model *string `json:"model,omitzero" msgpack:"model,omitempty"`
+	// Name is a human-readable name for the device.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Configured indicates whether the device has been successfully configured and is
+	// ready for use.
+	Configured *bool `json:"configured,omitzero" msgpack:"configured,omitempty"`
+	// Properties contains device-specific configuration properties stored as JSON.
+	// Structure varies by device make and model.
+	Properties msgpack.EncodedJSON `json:"properties,omitzero" msgpack:"properties"`
+	// Group is the group the device sits in, if any.
+	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
 }

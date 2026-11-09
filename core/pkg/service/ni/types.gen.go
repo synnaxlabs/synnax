@@ -12,10 +12,15 @@
 package ni
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
+	"uuid"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -1016,4 +1021,140 @@ func (h Hardware) Validate() error {
 		})
 	}
 	return v.Error()
+}
+
+// AnalogReadConfigUpdate holds changes to the fields of the analog read config. An
+// absent field does not change.
+type AnalogReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Channels are the analog input channels the task acquires.
+	Channels *patch.ValueList[AIChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// CounterReadConfigUpdate holds changes to the fields of the counter read config. An
+// absent field does not change.
+type CounterReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Channels are the counter input channels the task acquires.
+	Channels *patch.ValueList[CIChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// AnalogWriteConfigUpdate holds changes to the fields of the analog write config. An
+// absent field does not change.
+type AnalogWriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the device the task writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
+	StateRate *telem.Rate `json:"state_rate,omitzero" msgpack:"state_rate,omitempty"`
+	// Channels are the analog output channels the task drives.
+	Channels *patch.ValueList[AOChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// DigitalReadConfigUpdate holds changes to the fields of the digital read config. An
+// absent field does not change.
+type DigitalReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Device is the key of the device the task acquires from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Channels are the digital input channels the task acquires.
+	Channels *patch.List[DIChannel, string, DIChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// DigitalWriteConfigUpdate holds changes to the fields of the digital write config. An
+// absent field does not change.
+type DigitalWriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the device the task writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
+	StateRate *telem.Rate `json:"state_rate,omitzero" msgpack:"state_rate,omitempty"`
+	// Channels are the digital output channels the task drives.
+	Channels *patch.List[DOChannel, string, DOChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// DIChannelUpdate holds changes to the fields of the di channel. An absent field does
+// not change.
+type DIChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Port is the physical port the channel reads from.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Line is the digital line within the port the channel reads from.
+	Line *uint8 `json:"line,omitzero" msgpack:"line,omitempty"`
+}
+
+// DOChannelUpdate holds changes to the fields of the do channel. An absent field does
+// not change.
+type DOChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// CmdChannel is the Synnax channel commands are read from.
+	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
+	// StateChannel is the Synnax channel the output state is written to.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CmdChannelName is the human-readable name of the command channel.
+	CmdChannelName *string `json:"cmd_channel_name,omitzero" msgpack:"cmd_channel_name,omitempty"`
+	// StateChannelName is the human-readable name of the state channel.
+	StateChannelName *string `json:"state_channel_name,omitzero" msgpack:"state_channel_name,omitempty"`
+	// Port is the physical port the channel writes to.
+	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// Line is the digital line within the port the channel writes to.
+	Line *uint8 `json:"line,omitzero" msgpack:"line,omitempty"`
 }

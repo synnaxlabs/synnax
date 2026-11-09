@@ -372,3 +372,12 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the role. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Description is an optional description explaining what permissions the role
+	// provides.
+	Description *string `json:"description,omitzero" msgpack:"description,omitempty"`
+}

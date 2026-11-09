@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/patch"
@@ -368,4 +369,12 @@ func (u Action) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Update holds changes to the fields of the label. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the label.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Color is the display color for visual identification of the label.
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }

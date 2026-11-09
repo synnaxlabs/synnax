@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 
 class BaseReadChannel(BaseModel):
@@ -76,6 +76,20 @@ class ScanConfig(task.ScanConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
 
 
 class EntryReadChannel(BaseReadChannel):
@@ -147,6 +161,26 @@ class ReadConfig(task.ReadConfig):
         return hash(self.key)
 
 
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        channels: Are the channels the task acquires.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    channels: patch.ValueListDict[ReadChannel]
+
+
 class WriteConfig(task.PersistConfig):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
@@ -164,3 +198,23 @@ class WriteConfig(task.PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        execution_rate: Is the rate at which commands are applied to the bus, in Hertz.
+        channels: Are the channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    state_rate: telem.Rate
+    execution_rate: telem.Rate
+    channels: patch.ValueListDict[WriteChannel]

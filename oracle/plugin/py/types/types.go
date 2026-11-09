@@ -113,6 +113,7 @@ func generatePyFile(
 		imports:         newImportManager(),
 
 		missingIncludes: make(set.Set[string]),
+		dictForms:       dictForms(table),
 	}
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
@@ -244,7 +245,7 @@ func generatePyFile(
 			if err := addFilterInput(typ, &sd, table, data); err != nil {
 				return nil, err
 			}
-			if err := addDictForm(typ, &sd, table, data); err != nil {
+			if err := addDictForm(typ, &sd, table, data, keyFields); err != nil {
 				return nil, err
 			}
 			// The alias keeps a field named override from shadowing the decorator in
@@ -980,6 +981,7 @@ func processField(
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: optionalInPython(field),
+		IsRequired: requiredInPython(field, table),
 		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
@@ -1723,6 +1725,9 @@ func typeToPython(
 	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
+		if data.dict && data.dictForms.Contains(resolved.QualifiedName) {
+			pyName += "Dict"
+		}
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
@@ -2115,6 +2120,11 @@ type templateData struct {
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no @py include module, so generation fails.
 	missingIncludes set.Set[string]
+	// dictForms holds the generic structs that get a <Name>Dict form.
+	dictForms set.Set[string]
+	// dict reports that types render as the keys of a TypedDict, which refer to the
+	// dict forms of dictForms.
+	dict bool
 }
 
 type sortedDeclData struct {
@@ -2207,6 +2217,11 @@ type structData struct {
 	Validators string
 	// After is the declarations that follow the class, or empty.
 	After string
+	// IsDict reports that the struct renders as a TypedDict.
+	IsDict bool
+	// HasAlias reports that a key of a TypedDict is a Python keyword, so After declares
+	// it in call syntax.
+	HasAlias bool
 }
 
 // modelConfig returns the model_config of a class whose fields have keyword aliases and
@@ -2232,7 +2247,18 @@ type fieldData struct {
 	PyType     string
 	Default    string
 	IsOptional bool
+	// IsRequired is true when a model must be given the field: it has no default.
+	IsRequired bool
 	IsArray    bool
+}
+
+// DictType returns the type of the field as a TypedDict key. An absent key stands for
+// an absent optional field or for a field default.
+func (f fieldData) DictType() string {
+	if f.IsRequired {
+		return "Required[" + f.PyType + "]"
+	}
+	return strings.TrimSuffix(f.PyType, " | None")
 }
 
 type enumData struct {
@@ -2390,6 +2416,21 @@ class {{ .Name }}(IntEnum):
 
 
 {{ .PyName }} = {{ .AliasOf }}
+{{- else if .IsDict }}
+{{- if not .HasAlias }}
+
+
+class {{ .PyName }}(TypedDict{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}, total=False):
+{{- if hasDocumentation . }}
+{{ formatGoogleDocstring . }}
+{{- end }}
+{{- range .Fields }}
+    {{ .Name }}: {{ .DictType }}
+{{- end }}
+{{- if and (not .Fields) (not (hasDocumentation .)) }}
+    pass
+{{- end }}
+{{- end }}
 {{- else if .HasExtends }}
 
 

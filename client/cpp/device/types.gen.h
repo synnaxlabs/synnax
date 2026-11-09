@@ -83,6 +83,26 @@ struct StatusDetails {
     from_proto(const ::service::device::pb::StatusDetails &pb);
 };
 
+/// @brief Update holds changes to the fields of the device. An absent field does not
+/// change.
+struct Update {
+    /// @brief location is the physical location or address of the device.
+    std::optional<std::string> location;
+    /// @brief model is the device model identifier.
+    std::optional<std::string> model;
+    /// @brief name is a human-readable name for the device.
+    std::optional<std::string> name;
+    /// @brief configured indicates whether the device has been successfully configured
+    /// and is ready for use.
+    std::optional<bool> configured;
+    /// @brief properties contains device-specific configuration properties stored as
+    /// JSON. Structure varies by device make and model.
+    std::optional<x::json::json::object_t> properties;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Where is a filter that selects devices.
 struct Where {
     /// @brief and_ matches when every child matches.

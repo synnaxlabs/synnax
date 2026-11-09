@@ -124,6 +124,32 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** Update holds changes to the fields of the range. An absent field does not change. */
+export const updateZ = z.object({
+  /** name is a human-readable name for the range. */
+  name: z.string().optional(),
+  /**
+   * timeRange is the temporal extent of the range, defining its start and end
+   * timestamps.
+   */
+  timeRange: patch
+    .structZ({ u: telem.timeRangeUpdateZ, t: telem.timeRangeZ })
+    .optional(),
+  /**
+   * color is an optional display color for visual identification of the range in user
+   * interfaces.
+   */
+  color: patch.changeZ(color.colorZ).optional(),
+  /** labels are the keys of the labels attached to the range. */
+  labels: patch.valueListZ(label.keyZ).optional(),
+  /**
+   * parent is the key of the range this range is nested in. Empty for a top-level
+   * range.
+   */
+  parent: patch.changeZ(keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 /** KeyRef is a range saved in the Core. */
 export const keyRefZ = z.object({
   variant: z.literal("key"),
@@ -189,6 +215,7 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+export interface UpdateInput extends Omit<z.input<typeof updateZ>, "labels"> {}
 
 export const createActionZ = z.object({
   type: z.literal("create"),

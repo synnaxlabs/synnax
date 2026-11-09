@@ -95,6 +95,7 @@ Task struct<
             is task-specific configuration stored as JSON. Structure varies by task
             type.
         """
+        @patch
     }
     config_hash string = "" {
         @doc value  """

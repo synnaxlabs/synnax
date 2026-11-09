@@ -24,3 +24,23 @@ export const configZ = task.persistConfigZ.extend({
   performance: performanceZ.default("auto"),
 });
 export interface Config extends z.infer<typeof configZ> {}
+
+/**
+ * ConfigUpdate holds changes to the fields of the config. An absent field does not
+ * change.
+ */
+export const configUpdateZ = z.object({
+  /** key is the unique identifier for the stored configuration record. */
+  key: z.uuid().optional(),
+  /** autoStart is true when the task should start as soon as it is configured. */
+  autoStart: z.boolean().optional(),
+  /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
+  dataSavingDisabled: z.boolean().optional(),
+  /** arcKey is the key of the Arc module the task executes. */
+  arcKey: arc.keyZ.optional(),
+  /** hash is the semantic hash of the Arc module at deploy time. */
+  hash: z.string().optional(),
+  /** performance sets how closely the runtime holds timer deadlines. */
+  performance: performanceZ.optional(),
+});
+export interface ConfigUpdate extends z.infer<typeof configUpdateZ> {}

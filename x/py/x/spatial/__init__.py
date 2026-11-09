@@ -29,8 +29,10 @@ from x.spatial.types_gen import (
     StickyUnits,
     StickyXY,
     Viewport,
+    ViewportUpdate,
     XCenterLocation,
     XLocation,
+    XYUpdate,
     YCenterLocation,
     YLocation,
 )
@@ -57,8 +59,10 @@ __all__ = [
     "StickyUnits",
     "StickyXY",
     "Viewport",
+    "ViewportUpdate",
     "XCenterLocation",
     "XLocation",
+    "XYUpdate",
     "YCenterLocation",
     "YLocation",
 ]

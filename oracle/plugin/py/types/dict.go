@@ -10,99 +10,132 @@
 package types
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/internal/casing"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
-// hasDictForm reports whether a struct declares a dict form with @py dict.
-func hasDictForm(typ resolution.Type) bool {
-	return domain.HasExprFromType(typ, "py", "dict")
+// dictExpr is the @py expression that renders a struct or union as a TypedDict, with
+// an absent key for an absent optional field.
+const dictExpr = "dict"
+
+// isDict reports whether typ renders as a TypedDict.
+func isDict(typ resolution.Type) bool {
+	return domain.HasExprFromType(typ, "py", dictExpr)
 }
 
-// addDictForm declares the dict form of a struct with @py dict: a TypedDict whose
-// optional fields are keys that can be absent, and whose fields of a struct with a dict
-// form take that dict form.
+// dictForms returns the generic structs that a TypedDict holds, directly or through
+// another such struct. Each gets a <Name>Dict form beside its model, and a TypedDict
+// refers to it by that form.
+func dictForms(table *resolution.Table) set.Set[string] {
+	forms := make(set.Set[string])
+	var walk func(resolution.TypeRef)
+	walk = func(ref resolution.TypeRef) {
+		for _, arg := range ref.TypeArgs {
+			walk(arg)
+		}
+		typ, ok := table.Get(ref.Name)
+		if !ok || forms.Contains(typ.QualifiedName) || isDict(typ) ||
+			omit.IsSkipped(typ, "py") {
+			return
+		}
+		form, isStruct := typ.Form.(resolution.StructForm)
+		if !isStruct || len(form.TypeParams) == 0 {
+			return
+		}
+		forms.Add(typ.QualifiedName)
+		for _, f := range resolution.UnifiedFields(typ, table) {
+			walk(f.Type)
+		}
+	}
+	for _, typ := range table.Types {
+		if !isDict(typ) {
+			continue
+		}
+		for _, f := range dictFields(typ, table) {
+			walk(f.Type)
+		}
+	}
+	return forms
+}
+
+// dictFields returns the fields of a struct, or of every variant of a union.
+func dictFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return resolution.UnifiedFields(typ, table)
+	}
+	return lo.FlatMap(
+		form.Variants,
+		func(v resolution.UnionVariant, _ int) []resolution.Field {
+			return resolution.UnifiedVariantFields(typ, v, table)
+		},
+	)
+}
+
+// dictFieldsOf renders the fields of the struct typ as the keys of its dict form.
+func dictFieldsOf(
+	typ resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+	keyFields []keyFieldData,
+) ([]fieldData, error) {
+	data.dict = true
+	defer func() { data.dict = false }()
+	sd, err := processStruct(typ, table, data, keyFields)
+	if err != nil {
+		return nil, err
+	}
+	if lo.SomeBy(sd.Fields, func(f fieldData) bool { return f.IsRequired }) {
+		data.imports.addTyping("Required")
+	}
+	data.imports.addTyping("TypedDict")
+	return sd.Fields, nil
+}
+
+// addDictForm renders a struct marked dict as a TypedDict, and declares the dict form
+// of a struct that a TypedDict holds after its model.
 func addDictForm(
 	typ resolution.Type,
 	sd *structData,
 	table *resolution.Table,
 	data *templateData,
+	keyFields []keyFieldData,
 ) error {
-	if sd.Skip || sd.IsAlias || !hasDictForm(typ) {
+	if sd.Skip || sd.IsAlias {
 		return nil
 	}
-	form := typ.Form.(resolution.StructForm)
-	if sd.After != "" || len(form.Extends) > 0 {
+	dict := isDict(typ)
+	if !dict && !data.dictForms.Contains(typ.QualifiedName) {
+		return nil
+	}
+	if sd.After != "" || len(typ.Form.(resolution.StructForm).Extends) > 0 {
 		return errors.Newf(
-			"%s: @py dict needs a struct with no parent and no filter input",
+			"%s: a dict form needs a struct with no parent and no filter input",
 			typ.QualifiedName,
 		)
 	}
-	lines := make([]string, 0, len(form.Fields))
-	for _, f := range form.Fields {
-		key := casing.FieldSnake(f.Name)
-		if fieldName(f.Name) != key {
-			return errors.Newf(
-				"%s: @py dict cannot declare the keyword field %s",
-				typ.QualifiedName,
-				key,
-			)
-		}
-		value := dictType(f.Type, table, data)
-		if f.Optional {
-			data.imports.addTyping("NotRequired")
-			value = "NotRequired[" + value + "]"
-		}
-		lines = append(lines, "    "+key+": "+value)
+	fields, err := dictFieldsOf(typ, table, data, keyFields)
+	if err != nil {
+		return err
 	}
-	data.imports.addTyping("TypedDict")
-	generic := ""
-	if len(sd.TypeParams) > 0 {
-		params := lo.Map(sd.TypeParams, func(p typeParamData, _ int) string {
-			return p.Name
-		})
-		generic = ", Generic[" + strings.Join(params, ", ") + "]"
+	if dict {
+		sd.IsDict, sd.Fields = true, fields
+		sd.HasAlias = lo.SomeBy(fields, func(f fieldData) bool { return f.Alias != "" })
+		if sd.HasAlias {
+			sd.After = typedDict(sd.PyName, fields, typeParamNames(sd))
+		}
+		return nil
 	}
 	name := sd.PyName + "Dict"
-	sd.After = fmt.Sprintf(
-		"# %s is the dict form of %s.\nclass %s(TypedDict%s):\n%s",
-		name,
-		sd.PyName,
-		name,
-		generic,
-		strings.Join(lines, "\n"),
-	)
+	sd.After = "# " + name + " is the dict form of " + sd.PyName + ".\n" +
+		typedDict(name, fields, typeParamNames(sd))
 	return nil
 }
 
-// dictType returns the Python type of a field of a dict form, where a struct of the
-// same
-// namespace with a dict form takes it.
-func dictType(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	data *templateData,
-) string {
-	if isList(ref) {
-		return "list[" + dictType(ref.TypeArgs[0], table, data) + "]"
-	}
-	resolved, ok := ref.Resolve(table)
-	if ref.IsTypeParam() || !ok || resolved.Namespace != data.Namespace ||
-		!hasDictForm(resolved) {
-		return typeToPython(ref, table, data)
-	}
-	name := getPyName(resolved) + "Dict"
-	if len(ref.TypeArgs) == 0 {
-		return name
-	}
-	args := lo.Map(ref.TypeArgs, func(a resolution.TypeRef, _ int) string {
-		return dictType(a, table, data)
-	})
-	return name + "[" + strings.Join(args, ", ") + "]"
+func typeParamNames(sd *structData) []string {
+	return lo.Map(sd.TypeParams, func(p typeParamData, _ int) string { return p.Name })
 }

@@ -20,6 +20,8 @@ func (t *Task) Patch(c patch.Cursor) error {
 		return patch.Value(&t.Rack, c.Next())
 	case "name":
 		return patch.Value(&t.Name, c.Next())
+	case "config":
+		return patch.Value(&t.Config, c.Next())
 	default:
 		return c.UnknownField()
 	}

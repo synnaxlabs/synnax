@@ -71,6 +71,28 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the device. An absent field does not change.
+
+    Attributes:
+        location: Is the physical location or address of the device.
+        model: Is the device model identifier.
+        name: Is a human-readable name for the device.
+        configured: Indicates whether the device has been successfully configured and is
+            ready for use.
+        properties: Contains device-specific configuration properties stored as JSON.
+            Structure varies by device make and model.
+        group: Is the group the device sits in, if any.
+    """
+
+    location: str
+    model: str
+    name: str
+    configured: bool
+    properties: dict[str, JsonValue]
+    group: patch.Change[group_.Key]
+
+
 class Where(BaseModel):
     """Is a filter that selects devices.
 

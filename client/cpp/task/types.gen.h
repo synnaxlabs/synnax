@@ -29,7 +29,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/patch/types.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/task/pb/task.pb.h"
@@ -101,6 +101,22 @@ struct KeyedConfig {
     x::uuid::UUID key;
 
     static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update holds changes to the fields of the task. An absent field does not
+/// change.
+struct Update {
+    /// @brief rack is the key of the rack this task deploys to. Zero for a draft that
+    /// has not been assigned a rack; required to start.
+    std::optional<::synnax::rack::Key> rack;
+    /// @brief name is a human-readable name for the task.
+    std::optional<std::string> name;
+    /// @brief config is task-specific configuration stored as JSON. Structure varies by
+    /// task type.
+    std::optional<x::json::json::object_t> config;
+
+    static Update parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

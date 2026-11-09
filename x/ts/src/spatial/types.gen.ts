@@ -12,6 +12,7 @@
 import { z } from "zod";
 
 import { type numeric } from "@/numeric";
+import { patch } from "@/patch";
 
 export const X_LOCATIONS = ["left", "right"] as const;
 export const xLocationZ = z.enum(X_LOCATIONS);
@@ -158,6 +159,15 @@ export interface Bounds<T extends numeric.Value = number> {
   upper: T;
 }
 
+/** XYUpdate holds changes to the fields of the xy. An absent field does not change. */
+export const xyUpdateZ = z.object({
+  /** x is the horizontal coordinate. */
+  x: z.number().optional(),
+  /** y is the vertical coordinate. */
+  y: z.number().optional(),
+});
+export interface XYUpdate extends z.infer<typeof xyUpdateZ> {}
+
 export const decimalZ = z.number().min(0).max(1);
 export type Decimal = z.infer<typeof decimalZ>;
 
@@ -185,3 +195,15 @@ export const stickyXYZ = z.object({
   units: stickyUnitsZ.prefault({ x: "px", y: "px" }),
 });
 export interface StickyXY extends z.infer<typeof stickyXYZ> {}
+
+/**
+ * ViewportUpdate holds changes to the fields of the viewport. An absent field does not
+ * change.
+ */
+export const viewportUpdateZ = z.object({
+  /** zoom is the zoom level where 1.0 equals 100%. */
+  zoom: z.number().optional(),
+  /** position is the (x, y) pan offset of the viewport. */
+  position: patch.structZ({ u: xyUpdateZ, t: xyZ }).optional(),
+});
+export interface ViewportUpdate extends z.infer<typeof viewportUpdateZ> {}

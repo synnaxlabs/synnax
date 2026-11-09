@@ -332,3 +332,9 @@ func (u Action) Type() ActionType {
 	}
 	return ""
 }
+
+// Update holds changes to the fields of the alias. An absent field does not change.
+type Update struct {
+	// Alias is the human-readable name for the channel within this range context.
+	Alias *string `json:"alias,omitzero" msgpack:"alias,omitempty"`
+}

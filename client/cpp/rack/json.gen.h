@@ -20,6 +20,7 @@
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/json.gen.h"
 
 namespace synnax::rack {
@@ -147,6 +148,25 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["racks"] = x::json::to_array(this->racks);
+    return j;
+}
+
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .name = parser.field<std::optional<std::string>>("name"),
+        .integrations = parser.field<std::optional<::x::patch::ValueList<std::string>>>(
+            "integrations"
+        ),
+        .version = ::x::patch::Change<std::string>::parse(parser, "version"),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->integrations.has_value())
+        j["integrations"] = this->integrations->to_json();
+    this->version.to_json(j, "version");
     return j;
 }
 

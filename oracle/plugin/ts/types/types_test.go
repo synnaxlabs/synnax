@@ -1785,6 +1785,29 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should give an optional field of a record type parameter no default",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Task struct<Config extends record = record> {
+					config Config?
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(&plugin.Request{
+					Resolutions: table,
+				}))
+				Expect(string(resp.Files[0].Content)).To(
+					ContainSubstring(
+						`config: (config ?? record.unknownZ()).optional(),`,
+					),
+				)
+			},
+		)
+
+		It(
 			"Should generate .extend() for basic struct extension",
 			func(ctx SpecContext) {
 				source := `

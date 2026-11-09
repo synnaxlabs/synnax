@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_, node, status as status_
 from synnax.resource import ID
-from x import control, filter, telem
+from x import control, filter, patch, telem
 from x.filter import shorthand
 
 Key: TypeAlias = int
@@ -201,6 +201,21 @@ class Payload(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the channel. An absent field does not change.
+
+    Attributes:
+        operations: Contains aggregation operations applied to this channel's data.
+        expression: Is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
+        group: Is the group the channel sits in, if any.
+    """
+
+    operations: patch.ValueListDict[Operation]
+    expression: str
+    group: patch.Change[group_.Key]
 
 
 class RetrieveRequest(BaseModel):

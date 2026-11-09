@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -20,15 +21,20 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ethercat {
 
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
+struct ScanConfigUpdate;
 struct ReadConfig;
+struct ReadConfigUpdate;
 struct WriteConfig;
+struct WriteConfigUpdate;
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
@@ -74,6 +80,20 @@ struct BaseWriteChannel {
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfigUpdate holds changes to the fields of the scan config. An absent
+/// field does not change.
+struct ScanConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief disabled is true when scanning is paused.
+    std::optional<bool> disabled;
+
+    static ScanConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -173,6 +193,29 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadConfigUpdate holds changes to the fields of the read config. An absent
+/// field does not change.
+struct ReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief channels are the channels the task acquires.
+    std::optional<::x::patch::ValueList<ReadChannel>> channels;
+
+    static ReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
 struct WriteConfig : public ::synnax::task::PersistConfig {
@@ -186,6 +229,30 @@ struct WriteConfig : public ::synnax::task::PersistConfig {
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
+/// field does not change.
+struct WriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief state_rate is the rate at which output state is reported to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> state_rate;
+    /// @brief execution_rate is the rate at which commands are applied to the bus, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> execution_rate;
+    /// @brief channels are the channels the task drives.
+    std::optional<::x::patch::ValueList<WriteChannel>> channels;
+
+    static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

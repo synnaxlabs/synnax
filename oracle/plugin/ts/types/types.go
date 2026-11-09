@@ -1805,16 +1805,24 @@ func (p *Plugin) processField(
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
 	isAnyOptional := optionalInTS(field)
+	// wrapOptional makes an optional value absent when it arrives as null. An update
+	// field takes null only through patch.Change, so null is not absent there.
+	wrapOptional := func(zodType, schemaType string) (string, string) {
+		if parentType.Updates != "" {
+			return zodType + ".optional()", "z.ZodOptional<" + schemaType + ">"
+		}
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		return fmt.Sprintf("zod.nullToUndefined(%s)", zodType),
+			fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", schemaType)
+	}
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
 	if isArray {
 		if isAnyOptional {
-			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf(
-				"ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>",
-				fd.ZodSchemaType,
+			fd.ZodType, fd.ZodSchemaType = wrapOptional(
+				fd.ZodType+".array()",
+				"z.ZodArray<"+fd.ZodSchemaType+">",
 			)
 		} else {
 			// The server omits a nil ("not loaded") array, so a missing array
@@ -1846,16 +1854,9 @@ func (p *Plugin) processField(
 			data,
 		)
 		if isAnyOptional {
-			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			fd.ZodType = fmt.Sprintf(
-				"zod.nullToUndefined(z.record(%s, %s))",
-				keyZ,
-				valueZ,
-			)
-			fd.ZodSchemaType = fmt.Sprintf(
-				"ReturnType<typeof zod.nullToUndefined<z.ZodRecord<%s, %s>>>",
-				keySchemaType,
-				valueSchemaType,
+			fd.ZodType, fd.ZodSchemaType = wrapOptional(
+				fmt.Sprintf("z.record(%s, %s)", keyZ, valueZ),
+				fmt.Sprintf("z.ZodRecord<%s, %s>", keySchemaType, valueSchemaType),
 			)
 		} else {
 			fd.ZodType = fmt.Sprintf(
@@ -1871,12 +1872,7 @@ func (p *Plugin) processField(
 		}
 	} else if isJSON {
 		if isAnyOptional {
-			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf(
-				"ReturnType<typeof zod.nullToUndefined<%s>>",
-				fd.ZodSchemaType,
-			)
+			fd.ZodType, fd.ZodSchemaType = wrapOptional(fd.ZodType, fd.ZodSchemaType)
 		} else {
 			addXImport(data, xImport{name: "record", submodule: "record"})
 			fd.ZodType = "record.unknownZ().default(() => ({}))"
@@ -1885,18 +1881,13 @@ func (p *Plugin) processField(
 	} else if empty, ok := aliasedCollectionEmpty(field.Type, typeOverride, table); ok {
 		// An alias of a literal collection parses as that collection does.
 		if isAnyOptional {
-			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf(
-				"ReturnType<typeof zod.nullToUndefined<%s>>",
-				fd.ZodSchemaType,
-			)
+			fd.ZodType, fd.ZodSchemaType = wrapOptional(fd.ZodType, fd.ZodSchemaType)
 		} else if field.Default == nil && empty != "" {
 			fd.ZodType = fmt.Sprintf("%s.default(() => %s)", fd.ZodType, empty)
 			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
 	} else if isAnyOptional {
-		if isUnionField(field, table) {
+		if isUnionField(field, table) && parentType.Updates == "" {
 			// Optional union-typed fields tolerate null: the Go side
 			// marshals a nil-variant union as null.
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1913,10 +1904,10 @@ func (p *Plugin) processField(
 			// whole "param ?? fallback" expression in .optional() so caller
 			// schemas get wrapped too. Strip a trailing .optional() from the
 			// fallback first so we don't emit redundant nesting.
-			fd.ZodType = fmt.Sprintf(
-				"(%s).optional()",
-				strings.TrimSuffix(fd.ZodType, ".optional()"),
-			)
+			// An absent value stays absent, so the fallback takes no default.
+			fallback := strings.TrimSuffix(fd.ZodType, ".optional()")
+			fallback = strings.TrimSuffix(fallback, ".default(() => ({}))")
+			fd.ZodType = fmt.Sprintf("(%s).optional()", fallback)
 		}
 		fd.ZodSchemaType = fmt.Sprintf("z.ZodOptional<%s>", fd.ZodSchemaType)
 	}
@@ -3524,6 +3515,10 @@ export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ 
 {{- end }}
 {{- end }}
 {{- end }}
+{{- else if .TypeOnly }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .OmittedFields }}Omit<{{ end }}z.input<
+  ReturnType<typeof {{ .ExtendsName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
+>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }};
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>

@@ -11,7 +11,15 @@
 
 package mqtt
 
-import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"uuid"
+)
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
 type QoS = versions.QoS
@@ -202,3 +210,93 @@ type EdgeTag = versions.EdgeTag
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = versions.EdgeConfig
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the broker device to read from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Entries contains the topics and tags to read.
+	Entries *patch.ValueList[ReadEntry] `json:"entries,omitzero" msgpack:"entries,omitempty"`
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// Device is the key of the broker device to write to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Targets contains the topics and tags to write to.
+	Targets *patch.ValueList[WriteTarget] `json:"targets,omitzero" msgpack:"targets,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// EdgeConfigUpdate holds changes to the fields of the edge config. An absent field does
+// not change.
+type EdgeConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// Device is the key of the broker device to publish to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Group is the Sparkplug group ID of the edge node.
+	Group *string `json:"group,omitzero" msgpack:"group,omitempty"`
+	// EdgeNode is the Sparkplug edge node ID.
+	EdgeNode *string `json:"edge_node,omitzero" msgpack:"edge_node,omitempty"`
+	// Authority is the control authority, from 0 to 255, of the writes that inbound tag
+	// commands make.
+	Authority *uint8 `json:"authority,omitzero" msgpack:"authority,omitempty"`
+	// Tags contains the tags the edge node publishes.
+	Tags *patch.List[EdgeTag, string, EdgeTagUpdate] `json:"tags,omitzero" msgpack:"tags,omitempty"`
+}
+
+// EdgeTagUpdate holds changes to the fields of the edge tag. An absent field does not
+// change.
+type EdgeTagUpdate struct {
+	// Key uniquely identifies the tag within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the tag is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Name is the Sparkplug B name of the tag.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Channel is the Synnax channel whose value the tag publishes.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// TagType is the Sparkplug B data type the tag is published as.
+	TagType *SparkplugDataType `json:"tag_type,omitzero" msgpack:"tag_type,omitempty"`
+	// CommandChannel is the Synnax channel that takes values written to the tag. Zero
+	// when the tag rejects writes.
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// CommandChannelName is the name of the command channel that the Console creates at
+	// configure when the tag has none. Absent when the tag rejects writes.
+	CommandChannelName patch.Change[string] `json:"command_channel_name,omitzero" msgpack:"command_channel_name,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (e EdgeTagUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, e)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (e *EdgeTagUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, e)
+}

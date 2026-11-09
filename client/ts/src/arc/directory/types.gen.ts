@@ -102,6 +102,17 @@ export const cursorZ = z.object({
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /**
+ * Update holds changes to the fields of the directory. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is the name of the directory, one segment of an import path. */
+  name: z.string().optional(),
+  /** parent is the directory that holds this directory. The root has none. */
+  parent: patch.changeZ(keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
+/**
  * CreatePayload replaces the state with the created directory. Only the Core emits it.
  */
 export const createPayloadZ = z.object({

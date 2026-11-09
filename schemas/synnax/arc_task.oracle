@@ -9,6 +9,7 @@
 
 import "schemas/synnax/arc"
 import "schemas/synnax/task"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/arc/task"
 @py output "client/py/synnax/arc/task"

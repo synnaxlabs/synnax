@@ -2154,3 +2154,24 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the line plot. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the line plot.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Group is the group the line plot sits in, if any.
+	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Project is the project that owns the line plot, if any. Exactly one of project
+	// and range is set.
+	Project patch.Change[project.Key] `json:"project,omitzero" msgpack:"project,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
+}

@@ -126,6 +126,18 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the directory. An absent field does not change.
+
+    Attributes:
+        name: Is the name of the directory, one segment of an import path.
+        parent: Is the directory that holds this directory. The root has none.
+    """
+
+    name: str
+    parent: patch.Change[Key]
+
+
 class CreatePayload(BaseModel):
     """Replaces the state with the created directory. Only the Core emits it.
 

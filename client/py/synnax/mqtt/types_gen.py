@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
 
@@ -199,6 +199,45 @@ class EdgeTag(BaseModel):
         return hash(self.key)
 
 
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+
+
+class EdgeTagUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the edge tag. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the tag within the task.
+        disabled: Is true when the tag is excluded from the task.
+        name: Is the Sparkplug B name of the tag.
+        channel: Is the Synnax channel whose value the tag publishes.
+        tag_type: Is the Sparkplug B data type the tag is published as.
+        command_channel: Is the Synnax channel that takes values written to the tag.
+            Zero when the tag rejects writes.
+        command_channel_name: Is the name of the command channel that the Console
+            creates at configure when the tag has none. Absent when the tag rejects
+            writes.
+    """
+
+    key: Required[str]
+    disabled: bool
+    name: str
+    channel: channel_.Key
+    tag_type: SparkplugDataType
+    command_channel: channel_.Key
+    command_channel_name: patch.Change[str]
+
+
 class ReadField(BaseModel):
     """Is a single value extracted from the JSON payload of a topic.
 
@@ -303,6 +342,29 @@ class EdgeConfig(task.StartConfig):
         return hash(self.key)
 
 
+class EdgeConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the edge config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        device: Is the key of the broker device to publish to.
+        group: Is the Sparkplug group ID of the edge node.
+        edge_node: Is the Sparkplug edge node ID.
+        authority: Is the control authority, from 0 to 255, of the writes that inbound
+            tag commands make.
+        tags: Contains the tags the edge node publishes.
+    """
+
+    key: UUID
+    auto_start: bool
+    device: device_.Key
+    group: str
+    edge_node: str
+    authority: int
+    tags: patch.ListDict[EdgeTag, str, EdgeTagUpdate]
+
+
 class PlainReadEntry(BaseReadEntry):
     """Reads JSON payloads from one topic."""
 
@@ -384,6 +446,24 @@ class ReadConfig(task.PersistConfig):
         return hash(self.key)
 
 
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the broker device to read from.
+        entries: Contains the topics and tags to read.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    entries: patch.ValueListDict[ReadEntry]
+
+
 class WriteConfig(task.StartConfig):
     """Configures an MQTT write task, which publishes a message whenever a value is
     written to the command channel of a target.
@@ -399,3 +479,19 @@ class WriteConfig(task.StartConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        device: Is the key of the broker device to write to.
+        targets: Contains the topics and tags to write to.
+    """
+
+    key: UUID
+    auto_start: bool
+    device: device_.Key
+    targets: patch.ValueListDict[WriteTarget]

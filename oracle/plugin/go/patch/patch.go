@@ -219,12 +219,6 @@ func (c *collector) fieldsOf(n *node) []resolution.Field {
 // reachPatch queues the type that f holds when its Patch method takes the path, and
 // returns an error for a field that path actions cannot edit.
 func (c *collector) reachPatch(owner resolution.Type, f resolution.Field) error {
-	if wireOmitted(f) {
-		return errors.Newf(
-			"%s.%s: a field without a JSON form cannot be @patch",
-			owner.QualifiedName, f.Name,
-		)
-	}
 	if f.Optional && typemap.Nilable(f.Type, c.table) {
 		return errors.Newf(
 			"%s.%s: path actions do not support an optional list or map",

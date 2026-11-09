@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, http, task
-from x import telem
+from x import patch, telem
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
 
@@ -132,6 +132,89 @@ class Record(BaseModel):
     fields: list[http.WriteField] = Field(default_factory=list)
 
 
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+
+
+class RecordUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the record. An absent field does not change.
+
+    Attributes:
+        value_pointer: Is the JSON Pointer where the sample value is placed.
+        channel_pointer: Is the JSON Pointer where the channel name is placed. Absent
+            omits the name.
+        timestamp_pointer: Is the JSON Pointer where the sample timestamp is placed.
+            Absent omits the timestamp.
+        time_format: Is the encoding of the sample timestamp.
+        fields: Contains additional static or generated record fields.
+    """
+
+    value_pointer: str
+    channel_pointer: patch.Change[str]
+    timestamp_pointer: patch.Change[str]
+    time_format: http.TimeFormat
+    fields: patch.ValueListDict[http.WriteField]
+
+
+class WriteChannelUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write channel. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        disabled: Is true when the channel is excluded from the task.
+        channel: Is the Synnax channel whose samples are produced.
+        json_type: Is the JSON type the sample value is serialized as.
+        time_format: Is the output encoding when the channel holds timestamps. Required
+            for timestamp channels.
+        enum_values: Maps numeric or boolean channel values to string labels. Only valid
+            when json_type is 'string'.
+    """
+
+    key: Required[str]
+    disabled: bool
+    channel: channel_.Key
+    json_type: http.JSONType
+    time_format: patch.Change[http.TimeFormat]
+    enum_values: patch.ValueListDict[http.EnumEntry]
+
+
+class ReadFieldUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read field. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the field within the task.
+        disabled: Is true when the field is excluded from the task.
+        name: Is the name given to the channel when the task creates it.
+        channel: Is the Synnax channel the extracted value is written to.
+        pointer: Is the JSON Pointer to the value within the record value.
+        data_type: Is the data type of the extracted value.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
+        enum_values: Maps string labels in the record to numeric or boolean channel
+            values.
+    """
+
+    key: Required[str]
+    disabled: bool
+    name: str
+    channel: channel_.Key
+    pointer: str
+    data_type: telem.DataType
+    time_format: patch.Change[http.TimeFormat]
+    enum_values: patch.ValueListDict[http.EnumEntry]
+
+
 class NoneSASL(BaseModel):
     """Authenticates with no credentials."""
 
@@ -208,6 +291,46 @@ class WriteConfig(task.StartConfig):
         return hash(self.key)
 
 
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        device: Is the key of the Kafka cluster device to produce to.
+        topic: Is the topic the task produces to.
+        record_key: Is the source of the key placed on every record.
+        record: Is the shape of every record.
+        channels: Contains the channels whose samples are produced.
+    """
+
+    key: UUID
+    auto_start: bool
+    device: device_.Key
+    topic: str
+    record_key: RecordKey
+    record: patch.Struct[RecordUpdate, Record]
+    channels: patch.ListDict[WriteChannel, str, WriteChannelUpdate]
+
+
+class ReadRecordUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read record. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the record within the task.
+        record_key: Is the Kafka key of the records read here. Empty reads every record
+            that no other record of the task claims, keyless ones included.
+        index: Is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        fields: Contains the values to extract from the record.
+    """
+
+    key: Required[str]
+    record_key: str
+    index: str
+    fields: patch.ListDict[ReadField, str, ReadFieldUpdate]
+
+
 class Properties(BaseModel):
     """Configures the connection to a Kafka cluster device.
 
@@ -247,3 +370,28 @@ class ReadConfig(task.PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the Kafka cluster device to consume from.
+        topic: Is the topic the task consumes.
+        group: Is the consumer group the task joins. Empty derives the group from the
+            task key.
+        start_offset: Is where the group starts when it has no committed offset.
+        records: Contains the records the task reads, one per record key.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    topic: str
+    group: str
+    start_offset: StartOffset
+    records: patch.ListDict[ReadRecord, str, ReadRecordUpdate]

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/task"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/rack/task"
 

@@ -11,7 +11,17 @@
 
 package task
 
-import "github.com/synnaxlabs/synnax/pkg/service/rack/task/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack/task/versions"
+	"uuid"
+)
 
 // StatusConfig configures the rack status reporting task, which carries no settings.
 type StatusConfig = versions.StatusConfig
+
+// StatusConfigUpdate holds changes to the fields of the status config. An absent field
+// does not change.
+type StatusConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+}

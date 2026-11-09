@@ -49,6 +49,18 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the project. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the project.
+        group: Is the group the project sits in, if any.
+    """
+
+    name: str
+    group: patch.Change[group_.Key]
+
+
 class Project(BaseModel):
     """Is a named, persistable container that groups the panels of the Console
     application.

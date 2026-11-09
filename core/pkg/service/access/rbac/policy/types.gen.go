@@ -14,6 +14,7 @@ package policy
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -395,4 +396,16 @@ func (u Action) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Update holds changes to the fields of the policy. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the policy.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Objects is the list of resources this policy applies to.
+	Objects *patch.ValueList[resource.ID] `json:"objects,omitzero" msgpack:"objects,omitempty"`
+	// Actions is the list of actions this policy permits.
+	Actions *patch.ValueList[access.Action] `json:"actions,omitzero" msgpack:"actions,omitempty"`
+	// Role is the role that grants this policy to its subjects.
+	Role *role.Key `json:"role,omitzero" msgpack:"role,omitempty"`
 }

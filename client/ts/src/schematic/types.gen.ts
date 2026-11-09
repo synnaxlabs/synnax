@@ -222,6 +222,22 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/**
+ * Update holds changes to the fields of the schematic. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is a human-readable name for the schematic. */
+  name: z.string().optional(),
+  /** group is the group the schematic sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: patch.changeZ(project.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

@@ -21,8 +21,10 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/types.gen.h"
 #include "x/cpp/spatial/types.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni {
 
@@ -37,8 +39,13 @@ struct WriteConfig;
 struct ScanConfig;
 struct CounterPort;
 struct DigitalPort;
+struct ScanConfigUpdate;
+struct DIChannelUpdate;
+struct DOChannelUpdate;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
+struct DigitalReadConfigUpdate;
+struct DigitalWriteConfigUpdate;
 struct BridgePolynomial;
 struct Table;
 struct TwoPointLin;
@@ -53,8 +60,11 @@ struct ZIndex;
 struct CustomScale;
 struct Hardware;
 struct AnalogReadConfig;
+struct AnalogReadConfigUpdate;
 struct CounterReadConfig;
+struct CounterReadConfigUpdate;
 struct AnalogWriteConfig;
+struct AnalogWriteConfigUpdate;
 
 constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
 constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
@@ -395,6 +405,64 @@ struct DigitalPort {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ScanConfigUpdate holds changes to the fields of the scan config. An absent
+/// field does not change.
+struct ScanConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief disabled is true when scanning is paused.
+    std::optional<bool> disabled;
+
+    static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DIChannelUpdate holds changes to the fields of the di channel. An absent
+/// field does not change.
+struct DIChannelUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    std::optional<bool> disabled;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief port is the physical port the channel reads from.
+    std::optional<std::uint32_t> port;
+    /// @brief line is the digital line within the port the channel reads from.
+    std::optional<std::uint8_t> line;
+
+    static DIChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DOChannelUpdate holds changes to the fields of the do channel. An absent
+/// field does not change.
+struct DOChannelUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    std::optional<::synnax::channel::Key> state_channel;
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::optional<std::string> cmd_channel_name;
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::optional<std::string> state_channel_name;
+    /// @brief port is the physical port the channel writes to.
+    std::optional<std::uint32_t> port;
+    /// @brief line is the digital line within the port the channel writes to.
+    std::optional<std::uint8_t> line;
+
+    static DOChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief BuiltInCJC reads the reference temperature from the device's own sensor.
 struct BuiltInCJC {
     std::string source = "built_in";
@@ -447,6 +515,54 @@ struct DigitalWriteConfig : public WriteConfig {
     std::vector<DOChannel> channels;
 
     static DigitalWriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalReadConfigUpdate holds changes to the fields of the digital read
+/// config. An absent field does not change.
+struct DigitalReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief device is the key of the device the task acquires from.
+    std::optional<::synnax::device::Key> device;
+    /// @brief channels are the digital input channels the task acquires.
+    std::optional<::x::patch::List<DIChannel, std::string, DIChannelUpdate>> channels;
+
+    static DigitalReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalWriteConfigUpdate holds changes to the fields of the digital write
+/// config. An absent field does not change.
+struct DigitalWriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the device the task writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief state_rate is the rate at which output state is reported to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> state_rate;
+    /// @brief channels are the digital output channels the task drives.
+    std::optional<::x::patch::List<DOChannel, std::string, DOChannelUpdate>> channels;
+
+    static DigitalWriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -1602,6 +1718,29 @@ struct AnalogReadConfig : public ::synnax::task::ReadConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief AnalogReadConfigUpdate holds changes to the fields of the analog read config.
+/// An absent field does not change.
+struct AnalogReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief channels are the analog input channels the task acquires.
+    std::optional<::x::patch::ValueList<AIChannel>> channels;
+
+    static AnalogReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief CounterReadConfig configures an NI counter read task. Each channel carries
 /// its own device.
 struct CounterReadConfig : public ::synnax::task::ReadConfig {
@@ -1612,12 +1751,58 @@ struct CounterReadConfig : public ::synnax::task::ReadConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief CounterReadConfigUpdate holds changes to the fields of the counter read
+/// config. An absent field does not change.
+struct CounterReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief channels are the counter input channels the task acquires.
+    std::optional<::x::patch::ValueList<CIChannel>> channels;
+
+    static CounterReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief AnalogWriteConfig configures an NI analog write task.
 struct AnalogWriteConfig : public WriteConfig {
     /// @brief channels are the analog output channels the task drives.
     std::vector<AOChannel> channels;
 
     static AnalogWriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnalogWriteConfigUpdate holds changes to the fields of the analog write
+/// config. An absent field does not change.
+struct AnalogWriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the device the task writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief state_rate is the rate at which output state is reported to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> state_rate;
+    /// @brief channels are the analog output channels the task drives.
+    std::optional<::x::patch::ValueList<AOChannel>> channels;
+
+    static AnalogWriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

@@ -89,6 +89,22 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the task. An absent field does not change.
+
+    Attributes:
+        rack: Is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
+        name: Is a human-readable name for the task.
+        config: Is task-specific configuration stored as JSON. Structure varies by task
+            type.
+    """
+
+    rack: rack_.Key
+    name: str
+    config: dict[str, JsonValue]
+
+
 class LinearScale(BaseModel):
     """Maps raw values to engineering units with a slope and offset."""
 

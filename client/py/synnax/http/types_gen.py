@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
 
@@ -133,6 +133,20 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+
+
 class ReadField(BaseModel):
     """Is a single value extracted from an endpoint's JSON response.
 
@@ -194,6 +208,64 @@ class ChannelField(BaseModel):
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
 
+class ReadFieldUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read field. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the field within the endpoint.
+        name: Is the human-readable field name.
+        disabled: Is true when the field is excluded from polling.
+        optional: Is true when a missing value is normal for this field. The task writes
+            fill_value, or NaN on a float channel, and sends no warning.
+        fill_value: Is the value written when an optional field is missing, typed by the
+            channel. Unset writes NaN, which needs a float channel.
+        channel: Is the Synnax channel the extracted value is written to.
+        pointer: Is the JSON Pointer to the value within the response body.
+        data_type: Is the data type of the extracted value.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
+        enum_values: Maps string labels in the response to numeric channel values.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    optional: bool
+    fill_value: patch.Change[JsonValue]
+    channel: channel_.Key
+    pointer: str
+    data_type: telem.DataType
+    time_format: patch.Change[TimeFormat]
+    enum_values: patch.ValueListDict[EnumEntry]
+
+
+class ChannelFieldUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the channel field. An absent field does not
+    change.
+
+    Attributes:
+        pointer: Is the JSON Pointer where the channel value is placed in the body. An
+            empty pointer sends the bare value as the entire body, in which case the
+            endpoint may not declare any additional fields.
+        json_type: Is the JSON type the channel value is serialized as.
+        channel: Is the Synnax command channel that triggers the request.
+        name: Is the human-readable name of the command channel.
+        data_type: Is the data type of the command channel.
+        time_format: Is the output encoding when the command channel holds timestamps.
+            An unset format is ISO 8601.
+        enum_values: Maps numeric channel values to string labels. Only valid when
+            json_type is 'string'.
+    """
+
+    pointer: str
+    json_type: JSONType
+    channel: channel_.Key
+    name: str
+    data_type: telem.DataType
+    time_format: patch.Change[TimeFormat]
+    enum_values: patch.ValueListDict[EnumEntry]
+
+
 class StaticWriteField(BaseWriteField):
     """Places a fixed value in the request body."""
 
@@ -247,6 +319,32 @@ class ReadEndpoint(BaseModel):
         return hash(self.key)
 
 
+class ReadEndpointUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read endpoint. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the endpoint within the task.
+        method: Is the HTTP method used to poll the endpoint.
+        path: Is the URL path appended to the device's base URL.
+        headers: Contains additional headers merged into the request.
+        query_params: Contains query parameters appended to the request URL.
+        body: Is a static body sent with each request. Empty sends no body.
+        fields: Contains the values to extract from the response.
+        index: Is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+    """
+
+    key: Required[str]
+    method: Method
+    path: str
+    headers: patch.ValueListDict[Header]
+    query_params: patch.ValueListDict[QueryParam]
+    body: str
+    fields: patch.ListDict[ReadField, str, ReadFieldUpdate]
+    index: str
+
+
 class WriteEndpoint(BaseModel):
     """Is a single HTTP endpoint written to by a write task.
 
@@ -275,6 +373,31 @@ class WriteEndpoint(BaseModel):
         return hash(self.key)
 
 
+class WriteEndpointUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write endpoint. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
+        method: Is the HTTP method used to send the request.
+        path: Is the URL path appended to the device's base URL.
+        headers: Contains additional headers merged into the request.
+        query_params: Contains query parameters appended to the request URL.
+        channel: Is the command channel whose writes trigger this endpoint.
+        fields: Contains additional static or generated body fields.
+    """
+
+    key: Required[str]
+    disabled: bool
+    method: Method
+    path: str
+    headers: patch.ValueListDict[Header]
+    query_params: patch.ValueListDict[QueryParam]
+    channel: patch.Struct[ChannelFieldUpdate, ChannelField]
+    fields: patch.ValueListDict[WriteField]
+
+
 class ReadConfig(task.PersistConfig):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
@@ -298,6 +421,30 @@ class ReadConfig(task.PersistConfig):
         return hash(self.key)
 
 
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the HTTP server device to poll.
+        rate: Is the polling rate applied to all endpoints, in Hertz.
+        endpoints: Contains the endpoints to poll.
+        nan_fill_enabled: Is true when a float field that is missing or fails to convert
+            is written as NaN. When false, the task skips every field that shares the
+            endpoint and index channel with it.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    rate: telem.Rate
+    endpoints: patch.ListDict[ReadEndpoint, str, ReadEndpointUpdate]
+    nan_fill_enabled: bool
+
+
 class WriteConfig(task.StartConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
     written to an endpoint's command channel.
@@ -313,3 +460,19 @@ class WriteConfig(task.StartConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        device: Is the key of the HTTP server device to write to.
+        endpoints: Contains the endpoints to write to.
+    """
+
+    key: UUID
+    auto_start: bool
+    device: device_.Key
+    endpoints: patch.ListDict[WriteEndpoint, str, WriteEndpointUpdate]

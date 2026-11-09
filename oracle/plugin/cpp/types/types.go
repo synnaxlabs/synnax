@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/presence"
 	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -885,7 +886,7 @@ func (p *Plugin) processField(
 	} else if Indirect(field, entry, data.table) {
 		data.AddInternal("x/cpp/mem/indirect.h")
 		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
-	} else {
+	} else if !presence.Field(field, data.table) {
 		data.AddSystem("optional")
 		cppType = fmt.Sprintf("std::optional<%s>", cppType)
 	}

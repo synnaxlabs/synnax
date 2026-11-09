@@ -29,6 +29,13 @@ export const aliasZ = z.object({
 });
 export interface Alias extends z.infer<typeof aliasZ> {}
 
+/** Update holds changes to the fields of the alias. An absent field does not change. */
+export const updateZ = z.object({
+  /** alias is the human-readable name for the channel within this range context. */
+  alias: z.string().optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

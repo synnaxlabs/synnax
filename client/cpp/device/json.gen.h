@@ -189,6 +189,28 @@ inline x::json::json RetrieveResponse::to_json() const {
     return j;
 }
 
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .location = parser.field<std::optional<std::string>>("location"),
+        .model = parser.field<std::optional<std::string>>("model"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .configured = parser.field<std::optional<bool>>("configured"),
+        .properties = parser.field<std::optional<x::json::json::object_t>>(
+            "properties"
+        ),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->location.has_value()) j["location"] = *this->location;
+    if (this->model.has_value()) j["model"] = *this->model;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->configured.has_value()) j["configured"] = *this->configured;
+    if (this->properties.has_value()) j["properties"] = *this->properties;
+    return j;
+}
+
 inline Action parse_action(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "create") return CreatePayload::parse(parser.child("create"));

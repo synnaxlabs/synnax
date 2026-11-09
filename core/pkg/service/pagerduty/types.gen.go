@@ -11,7 +11,12 @@
 
 package pagerduty
 
-import "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/patch"
+	"uuid"
+)
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert = versions.Alert
@@ -19,3 +24,35 @@ type Alert = versions.Alert
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
 type TaskConfig = versions.TaskConfig
+
+// TaskConfigUpdate holds changes to the fields of the task config. An absent field does
+// not change.
+type TaskConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// RoutingKey is the PagerDuty Events API v2 routing key.
+	RoutingKey *string `json:"routing_key,omitzero" msgpack:"routing_key,omitempty"`
+	// Alerts are the alerts the task evaluates.
+	Alerts *patch.List[Alert, string, AlertUpdate] `json:"alerts,omitzero" msgpack:"alerts,omitempty"`
+}
+
+// AlertUpdate holds changes to the fields of the alert. An absent field does not
+// change.
+type AlertUpdate struct {
+	// Key uniquely identifies the alert within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Status is the key of the Synnax status the alert watches.
+	Status *status.Key `json:"status,omitzero" msgpack:"status,omitempty"`
+	// ErrorsCritical is true when the error variant maps to PagerDuty critical.
+	ErrorsCritical *bool `json:"errors_critical,omitzero" msgpack:"errors_critical,omitempty"`
+	// Component is the PagerDuty component attached to triggered events.
+	Component *string `json:"component,omitzero" msgpack:"component,omitempty"`
+	// Group is the PagerDuty group attached to triggered events.
+	Group *string `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Class is the PagerDuty class attached to triggered events.
+	Class *string `json:"class,omitzero" msgpack:"class,omitempty"`
+	// Disabled is true when the alert is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}

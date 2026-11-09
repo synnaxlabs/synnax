@@ -28,6 +28,13 @@ export const pairZ = z.object({
 });
 export interface Pair extends z.infer<typeof pairZ> {}
 
+/** Update holds changes to the fields of the pair. An absent field does not change. */
+export const updateZ = z.object({
+  /** value is the metadata value stored as a string for flexibility. */
+  value: z.string().optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

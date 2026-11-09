@@ -11,6 +11,8 @@
 
 import { z } from "zod";
 
+import { timeStampZ } from "@/telem/telem";
+
 export const AGGREGATIONS = ["min_max", "average", "decimate"] as const;
 export const aggregationZ = z.enum(AGGREGATIONS);
 export type Aggregation = z.infer<typeof aggregationZ>;
@@ -30,6 +32,18 @@ export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 export const TIME_ZONES = ["local", "UTC"] as const;
 export const timeZoneZ = z.enum(TIME_ZONES);
 export type TimeZone = z.infer<typeof timeZoneZ>;
+
+/**
+ * TimeRangeUpdate holds changes to the fields of the time range. An absent field does
+ * not change.
+ */
+export const timeRangeUpdateZ = z.object({
+  /** start is the inclusive start of the time range. */
+  start: timeStampZ.optional(),
+  /** end is the exclusive end of the time range. */
+  end: timeStampZ.optional(),
+});
+export interface TimeRangeUpdate extends z.infer<typeof timeRangeUpdateZ> {}
 
 /** StrideReduction keeps every factor-th sample of each series read. */
 export const strideReductionZ = z.object({

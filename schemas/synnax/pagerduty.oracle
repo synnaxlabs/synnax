@@ -9,6 +9,7 @@
 
 import "schemas/synnax/status"
 import "schemas/synnax/task"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/pagerduty"
 @py output "client/py/synnax/pagerduty"

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/presence"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -572,6 +573,10 @@ func (p *Plugin) parseExprForField(
 	typeRef := field.Type
 	jsonName := casing.FieldSnake(field.Name)
 	hasDefault := field.Optional || hasRenderableDefault(field, data.table)
+	// Parser::field cannot tell an absent member from null, so the value reads itself.
+	if presence.Field(field, data.table) {
+		return fmt.Sprintf(`%s::parse(parser, "%s")`, cppType, jsonName)
+	}
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.Optional {
@@ -997,6 +1002,10 @@ func (p *Plugin) toJSONExprForField(
 		fieldName = casing.FieldSnake(field.Name)
 	}
 	fieldName = keywords.Escape(fieldName)
+
+	if presence.Field(field, data.table) {
+		return fmt.Sprintf(`this->%s.to_json(j, "%s");`, fieldName, jsonName)
+	}
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.Optional {

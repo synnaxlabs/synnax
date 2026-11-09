@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, NotRequired, TypedDict, TypeVar
+from typing import Generic, Required, TypedDict, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
@@ -49,9 +49,9 @@ class ListMove(BaseModel, Generic[K]):
 
 
 # ListMoveDict is the dict form of ListMove.
-class ListMoveDict(TypedDict, Generic[K]):
-    key: K
-    after: NotRequired[K]
+class ListMoveDict(TypedDict, Generic[K], total=False):
+    key: Required[K]
+    after: K
 
 
 class Set(BaseModel):
@@ -138,12 +138,12 @@ class List(BaseModel, Generic[E, K, U]):
 
 
 # ListDict is the dict form of List.
-class ListDict(TypedDict, Generic[E, K, U]):
-    set: NotRequired[list[E]]
-    insert: NotRequired[list[E]]
-    remove: NotRequired[list[K]]
-    update: NotRequired[list[U]]
-    move: NotRequired[list[ListMoveDict[K]]]
+class ListDict(TypedDict, Generic[E, K, U], total=False):
+    set: list[E]
+    insert: list[E]
+    remove: list[K]
+    update: list[U]
+    move: list[ListMoveDict[K]]
 
 
 class ValueList(BaseModel, Generic[E]):
@@ -165,8 +165,8 @@ class ValueList(BaseModel, Generic[E]):
 
 
 # ValueListDict is the dict form of ValueList.
-class ValueListDict(TypedDict, Generic[E]):
-    set: NotRequired[list[E]]
-    insert: NotRequired[list[E]]
-    remove: NotRequired[list[E]]
-    move: NotRequired[list[ListMoveDict[E]]]
+class ValueListDict(TypedDict, Generic[E], total=False):
+    set: list[E]
+    insert: list[E]
+    remove: list[E]
+    move: list[ListMoveDict[E]]

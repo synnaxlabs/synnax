@@ -273,6 +273,21 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the schematic. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the schematic.
+        group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+    """
+
+    name: str
+    group: patch.Change[group_.Key]
+    project: patch.Change[project_.Key]
+
+
 class Where(BaseModel):
     """Is a filter that selects schematics.
 

@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 
 #include "x/go/spatial/pb/spatial.pb.h"
 
@@ -26,7 +28,9 @@ struct XY;
 struct Dimensions;
 struct SignedDimensions;
 struct ClientXY;
+struct XYUpdate;
 struct Viewport;
+struct ViewportUpdate;
 struct CornerLocation;
 struct StickyUnits;
 struct StickyXY;
@@ -147,6 +151,18 @@ struct Bounds {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief XYUpdate holds changes to the fields of the xy. An absent field does not
+/// change.
+struct XYUpdate {
+    /// @brief x is the horizontal coordinate.
+    std::optional<double> x;
+    /// @brief y is the vertical coordinate.
+    std::optional<double> y;
+
+    static XYUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Viewport is the camera state of a viewport.
 struct Viewport {
     /// @brief zoom is the zoom level where 1.0 equals 100%.
@@ -155,6 +171,18 @@ struct Viewport {
     XY position;
 
     static Viewport parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ViewportUpdate holds changes to the fields of the viewport. An absent field
+/// does not change.
+struct ViewportUpdate {
+    /// @brief zoom is the zoom level where 1.0 equals 100%.
+    std::optional<double> zoom;
+    /// @brief position is the (x, y) pan offset of the viewport.
+    std::optional<::x::patch::Struct<XYUpdate, XY>> position;
+
+    static ViewportUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

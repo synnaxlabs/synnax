@@ -11,9 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TypedDict
 
 from pydantic import BaseModel, Field
+
+from x import patch
 
 X_LOCATION_LEFT: Literal["left"] = "left"
 
@@ -231,6 +233,18 @@ class Bounds(BaseModel):
     upper: float
 
 
+class XYUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the xy. An absent field does not change.
+
+    Attributes:
+        x: Is the horizontal coordinate.
+        y: Is the vertical coordinate.
+    """
+
+    x: float
+    y: float
+
+
 class Viewport(BaseModel):
     """Is the camera state of a viewport.
 
@@ -260,3 +274,15 @@ class StickyXY(BaseModel):
         default_factory=lambda: CornerLocation(x="left", y="top")
     )
     units: StickyUnits = Field(default_factory=lambda: StickyUnits(x="px", y="px"))
+
+
+class ViewportUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the viewport. An absent field does not change.
+
+    Attributes:
+        zoom: Is the zoom level where 1.0 equals 100%.
+        position: Is the (x, y) pan offset of the viewport.
+    """
+
+    zoom: float
+    position: patch.Struct[XYUpdate, XY]

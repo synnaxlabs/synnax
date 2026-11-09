@@ -195,6 +195,31 @@ class Spec(BaseModel):
     preview_viewport: spatial.Viewport | None = None
 
 
+class SpecUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the spec. An absent field does not change.
+
+    Attributes:
+        svg: Is the SVG markup defining the symbol's visual geometry.
+        states: Contains available visual states with regional styling configurations.
+        variant: Is the symbol variant: 'static' or 'actuator'.
+        handles: Contains connection points for linking to other diagram elements.
+        scale: Is the symbol scale factor.
+        stroke_scaled: Is true when stroke width scales with the symbol size.
+        preview_viewport: Is an optional viewport configuration for symbol preview
+            rendering.
+    """
+
+    svg: str
+    states: patch.ValueListDict[State]
+    variant: str
+    handles: patch.ValueListDict[Handle]
+    scale: float
+    stroke_scaled: bool
+    preview_viewport: patch.Change[
+        patch.Struct[spatial.ViewportUpdate, spatial.Viewport]
+    ]
+
+
 class Symbol(BaseModel):
     """Is a persisted schematic symbol defining reusable visual components for diagrams.
 
@@ -213,6 +238,20 @@ class Symbol(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the symbol. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the symbol.
+        data: Is the complete symbol specification.
+        group: Is the group the symbol sits in, if any.
+    """
+
+    name: str
+    data: patch.Struct[SpecUpdate, Spec]
+    group: patch.Change[group_.Key]
 
 
 class CreatePayload(BaseModel):

@@ -88,8 +88,15 @@ var _ = Describe("Actions", func() {
 			Entry("key", "key"),
 			Entry("snapshot", "snapshot"),
 			Entry("config hash", "config_hash"),
-			Entry("config, which its store edits", "config"),
 		)
+
+		It("Should replace the config whole", func() {
+			next := MustSucceed(task.Reduce(base, task.NewSetAction(task.SetPayload{
+				Path:  []string{"config"},
+				Value: map[string]any{"rate": 10},
+			})))
+			Expect(next.Config).To(HaveKeyWithValue("rate", BeNumerically("==", 10)))
+		})
 
 		It("Should reject a value that the field cannot hold", func() {
 			Expect(task.Reduce(base, task.NewSetAction(task.SetPayload{

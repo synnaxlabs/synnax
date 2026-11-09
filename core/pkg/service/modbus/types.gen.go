@@ -11,7 +11,13 @@
 
 package modbus
 
-import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	"uuid"
+)
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
 type RegisterValue = versions.RegisterValue
@@ -122,3 +128,48 @@ type RegisterBit = versions.RegisterBit
 
 // RegisterString interprets consecutive 16-bit registers as a fixed-length string.
 type RegisterString = versions.RegisterString
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Device is the key of the device the task acquires from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Channels are the channels the task acquires.
+	Channels *patch.ValueList[ReadChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the device the task writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Channels are the channels the task drives.
+	Channels *patch.ValueList[WriteChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}

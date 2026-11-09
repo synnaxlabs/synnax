@@ -29,6 +29,21 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/**
+ * Update holds changes to the fields of the policy. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is a human-readable name for the policy. */
+  name: z.string().optional(),
+  /** objects is the list of resources this policy applies to. */
+  objects: patch.valueListZ(resource.idZ).optional(),
+  /** actions is the list of actions this policy permits. */
+  actions: patch.valueListZ(access.actionZ).optional(),
+  /** role is the role that grants this policy to its subjects. */
+  role: role.keyZ.optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

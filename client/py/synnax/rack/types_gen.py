@@ -115,6 +115,25 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the rack. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g.,
+            "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+            integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+    """
+
+    name: str
+    integrations: patch.ValueListDict[str]
+    version: patch.Change[str]
+    group: patch.Change[group_.Key]
+
+
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
     Core. Racks are the integration point between the Core and physical hardware through

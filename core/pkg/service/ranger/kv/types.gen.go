@@ -332,3 +332,9 @@ func (u Action) Type() ActionType {
 	}
 	return ""
 }
+
+// Update holds changes to the fields of the pair. An absent field does not change.
+type Update struct {
+	// Value is the metadata value stored as a string for flexibility.
+	Value *string `json:"value,omitzero" msgpack:"value,omitempty"`
+}

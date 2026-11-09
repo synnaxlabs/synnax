@@ -81,6 +81,25 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/** Update holds changes to the fields of the rack. An absent field does not change. */
+export const updateZ = z.object({
+  /** name is a human-readable name for the rack. */
+  name: z.string().optional(),
+  /**
+   * integrations is the list of hardware integrations this rack supports (e.g., "ni",
+   * "opc", "labjack"). An empty or nil list means the rack supports no integrations.
+   */
+  integrations: patch.valueListZ(z.string()).optional(),
+  /**
+   * version is the version of the Driver that runs the rack, written at each connect.
+   * Absent until a Driver reports it.
+   */
+  version: patch.changeZ(z.string()).optional(),
+  /** group is the group the rack sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

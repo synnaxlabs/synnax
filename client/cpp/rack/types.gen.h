@@ -26,6 +26,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/types.gen.h"
 
 #include "core/pkg/api/rack/pb/rack.pb.h"
@@ -33,6 +34,7 @@
 
 namespace synnax::rack {
 
+struct Update;
 struct Where;
 struct Cursor;
 struct Rack;
@@ -64,6 +66,23 @@ using InsertPayload = ::x::patch::Insert;
 using MovePayload = ::x::patch::Move;
 
 using Status = ::synnax::status::Status<std::monostate>;
+
+/// @brief Update holds changes to the fields of the rack. An absent field does not
+/// change.
+struct Update {
+    /// @brief name is a human-readable name for the rack.
+    std::optional<std::string> name;
+    /// @brief integrations is the list of hardware integrations this rack supports
+    /// (e.g., "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+    /// integrations.
+    std::optional<::x::patch::ValueList<std::string>> integrations;
+    /// @brief version is the version of the Driver that runs the rack, written at each
+    /// connect. Absent until a Driver reports it.
+    ::x::patch::Change<std::string> version;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Where is a filter that selects racks.
 struct Where {

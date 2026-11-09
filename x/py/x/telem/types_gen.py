@@ -11,11 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
-from x.telem.telem import TimeRange, TimeSpan
+from x.telem.telem import TimeRange, TimeSpan, TimeStamp
 
 AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
 
@@ -51,6 +51,18 @@ TIME_ZONE_UTC: Literal["UTC"] = "UTC"
 
 
 TimeZone = Literal["local", "UTC"]
+
+
+class TimeRangeUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the time range. An absent field does not change.
+
+    Attributes:
+        start: Is the inclusive start of the time range.
+        end: Is the exclusive end of the time range.
+    """
+
+    start: TimeStamp
+    end: TimeStamp
 
 
 class DynamicWindow(BaseModel):

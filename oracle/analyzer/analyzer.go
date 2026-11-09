@@ -208,7 +208,7 @@ func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	if declaresFilter(c.ast) {
 		qualifiers.Add(resolution.FilterNamespace)
 	}
-	if declaresActions(c.ast) {
+	if declaresActions(c.ast) || declaresPatch(c.ast) {
 		qualifiers.Add(patchNamespace)
 	}
 	names := usedQualifiedNames(runs)
@@ -367,6 +367,7 @@ func analyze(c *analysisCtx) {
 	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
 	synthesizeRetrieveTypes(c)
+	synthesizeUpdateTypes(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete

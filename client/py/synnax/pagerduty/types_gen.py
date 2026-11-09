@@ -11,12 +11,13 @@
 
 from __future__ import annotations
 
-from typing import override as _override
-from uuid import uuid4
+from typing import Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import status as status_, task
+from x import patch
 
 
 class Alert(BaseModel):
@@ -47,6 +48,21 @@ class Alert(BaseModel):
         return hash(self.key)
 
 
+AlertUpdate = TypedDict(
+    "AlertUpdate",
+    {
+        "key": Required[str],
+        "status": status_.Key,
+        "errors_critical": bool,
+        "component": str,
+        "group": str,
+        "class": str,
+        "disabled": bool,
+    },
+    total=False,
+)
+
+
 class TaskConfig(task.StartConfig):
     """Configures a PagerDuty alert task, which forwards Synnax status changes to
     PagerDuty as events.
@@ -62,3 +78,19 @@ class TaskConfig(task.StartConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class TaskConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the task config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        routing_key: Is the PagerDuty Events API v2 routing key.
+        alerts: Are the alerts the task evaluates.
+    """
+
+    key: UUID
+    auto_start: bool
+    routing_key: str
+    alerts: patch.ListDict[Alert, str, AlertUpdate]

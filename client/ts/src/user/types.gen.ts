@@ -37,6 +37,20 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/** Update holds changes to the fields of the user. An absent field does not change. */
+export const updateZ = z.object({
+  /** name is the user's display name. */
+  name: z.string().optional(),
+  /**
+   * rootUser is true if this is a root/admin user with full system access. Root users
+   * cannot be deleted.
+   */
+  rootUser: z.boolean().optional(),
+  /** role is the role that grants the user its permissions. */
+  role: role.keyZ.optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
@@ -51,6 +65,7 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+export interface UpdateInput extends Omit<z.input<typeof updateZ>, "rootUser"> {}
 
 /**
  * User is an account entity representing a person accessing the Synnax system. Each

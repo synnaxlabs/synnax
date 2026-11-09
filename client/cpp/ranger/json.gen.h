@@ -21,8 +21,10 @@
 #include "x/cpp/color/color.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/json.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::ranger {
 
@@ -168,6 +170,27 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["ranges"] = x::json::to_array(this->ranges);
+    return j;
+}
+
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .name = parser.field<std::optional<std::string>>("name"),
+        .time_range = parser.field<std::optional<
+            ::x::patch::Struct<::x::telem::TimeRangeUpdate, ::x::telem::TimeRange>>>(
+            "time_range"
+        ),
+        .color = ::x::patch::Change<::x::color::Color>::parse(parser, "color"),
+        .parent = ::x::patch::Change<Key>::parse(parser, "parent"),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->time_range.has_value()) j["time_range"] = this->time_range->to_json();
+    this->color.to_json(j, "color");
+    this->parent.to_json(j, "parent");
     return j;
 }
 

@@ -76,6 +76,26 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+export const updateZ = <
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+>(
+  config?: Config,
+) =>
+  z.object({
+    rack: rack.keyZ.optional(),
+    name: z.string().optional(),
+    config: (config ?? record.unknownZ()).optional(),
+    configHash: z.string().optional(),
+  });
+export interface Update<
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+> {
+  rack?: rack.Key;
+  name?: string;
+  config?: z.infer<Config>;
+  configHash?: string;
+}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
@@ -198,6 +218,9 @@ export const scanConfigZ = keyedConfigZ.extend({
   disabled: z.boolean().default(false),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+export type UpdateInput<
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+> = Omit<Update<Config>, "configHash">;
 
 /** Where is a filter that selects tasks. */
 export type Where = {

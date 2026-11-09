@@ -21,6 +21,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/presence"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -863,6 +864,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		data.AddExternal(imp)
 	}
 
+	sd.Msgpack, sd.HasMsgpack = presenceMsgpack(fields, data)
 	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
 	if sd.ToAny {
 		if err := validateToAny(entry, form, sd); err != nil {
@@ -870,6 +872,25 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		}
 	}
 	return sd, nil
+}
+
+// presenceMsgpack returns the package qualifier of the msgpack codec that a struct with
+// a field of a @presence type needs, and false when it holds none. msgpack never
+// decodes a nil field, so the struct carries its JSON form, where a clear is a null
+// that the field decodes. The package that declares the @presence type provides the
+// codec.
+func presenceMsgpack(fields []resolution.Field, data *templateData) (string, bool) {
+	for _, f := range fields {
+		if !presence.Field(f, data.table) {
+			continue
+		}
+		typ, _ := presence.Of(f.Type, data.table)
+		data.AddInternal("vmsgpack", "github.com/vmihailenco/msgpack/v5")
+		rendered := data.resolver.ResolveTypeRef(f.Type, data.ctx)
+		prefix, _, _ := strings.Cut(rendered, naming.GetGoName(typ))
+		return prefix, true
+	}
+	return "", false
 }
 
 // validateToAny errors when @go to_any marks a struct that its ToAny method cannot
@@ -980,7 +1001,8 @@ func (d *templateData) forField(field resolution.Field) *templateData {
 func processField(field resolution.Field, data *templateData) fieldData {
 	data = data.forField(field)
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !typemap.Nilable(field.Type, data.table) {
+	if field.Optional && !typemap.Nilable(field.Type, data.table) &&
+		!presence.Field(field, data.table) {
 		goType = "*" + goType
 	}
 	return fieldData{
@@ -1125,10 +1147,17 @@ type structData struct {
 	HasExtends       bool
 	// ToAny is set by @go to_any: the struct gets a ToAny method.
 	ToAny bool
+	// HasMsgpack is set on a struct with a field of a @presence type, which needs the
+	// msgpack codec that Msgpack qualifies.
+	HasMsgpack bool
+	Msgpack    string
 }
 
 // Instance renders the struct instantiated with its own type parameters.
 func (s structData) Instance() string {
+	if len(s.TypeParams) == 0 {
+		return s.Name
+	}
 	names := make([]string, len(s.TypeParams))
 	for i, tp := range s.TypeParams {
 		names[i] = tp.Name
@@ -1487,6 +1516,18 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- end}}
 	return v.Error()
+}
+{{- end}}
+{{- if .HasMsgpack}}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func ({{$s.Receiver}} {{$s.Instance}}) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return {{.Msgpack}}EncodeMsgpack(enc, {{$s.Receiver}})
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func ({{$s.Receiver}} *{{$s.Instance}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return {{.Msgpack}}DecodeMsgpack(dec, {{$s.Receiver}})
 }
 {{- end}}
 {{- if .ToAny}}

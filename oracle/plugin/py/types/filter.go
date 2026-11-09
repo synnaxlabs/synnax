@@ -207,9 +207,7 @@ func importShorthand(op resolution.Type, data *templateData) string {
 // typedDict declares a TypedDict whose keys are the wire names of fields. It uses class
 // syntax unless a key is a Python keyword, such as "in", which only call syntax takes.
 func typedDict(name string, fields []fieldData, params []string) string {
-	valueType := func(f fieldData) string {
-		return strings.TrimSuffix(f.PyType, " | None")
-	}
+	valueType := func(f fieldData) string { return f.DictType() }
 	if !lo.SomeBy(fields, func(f fieldData) bool { return f.Alias != "" }) {
 		generic := ""
 		if len(params) > 0 {

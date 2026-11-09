@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
-from x import spatial, telem
+from x import patch, spatial, telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
 
@@ -805,6 +805,64 @@ class DigitalPort(BaseModel):
     output: bool = False
 
 
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+
+
+class DIChannelUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the di channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        port: Is the physical port the channel reads from.
+        line: Is the digital line within the port the channel reads from.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    channel: channel_.Key
+    port: int
+    line: int
+
+
+class DOChannelUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the do channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        disabled: Is true when the channel is excluded from the task.
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+        port: Is the physical port the channel writes to.
+        line: Is the digital line within the port the channel writes to.
+    """
+
+    key: Required[str]
+    disabled: bool
+    cmd_channel: channel_.Key
+    state_channel: channel_.Key
+    cmd_channel_name: str
+    state_channel_name: str
+    port: int
+    line: int
+
+
 class BuiltInCJC(BaseModel):
     """Reads the reference temperature from the device's own sensor."""
 
@@ -965,6 +1023,50 @@ class Hardware(BaseModel):
     ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+
+
+class DigitalReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the digital read config. An absent field does not
+    change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        device: Is the key of the device the task acquires from.
+        channels: Are the digital input channels the task acquires.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    device: device_.Key
+    channels: patch.ListDict[DIChannel, str, DIChannelUpdate]
+
+
+class DigitalWriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the digital write config. An absent field does not
+    change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        channels: Are the digital output channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    state_rate: telem.Rate
+    channels: patch.ListDict[DOChannel, str, DOChannelUpdate]
 
 
 class CustomScale(BaseModel):
@@ -1490,6 +1592,27 @@ class AnalogReadConfig(task.ReadConfig):
         return hash(self.key)
 
 
+class AnalogReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the analog read config. An absent field does not
+    change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        channels: Are the analog input channels the task acquires.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    channels: patch.ValueListDict[AIChannel]
+
+
 class CounterReadConfig(task.ReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
 
@@ -1504,6 +1627,27 @@ class CounterReadConfig(task.ReadConfig):
         return hash(self.key)
 
 
+class CounterReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the counter read config. An absent field does not
+    change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        channels: Are the counter input channels the task acquires.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    channels: patch.ValueListDict[CIChannel]
+
+
 class AnalogWriteConfig(WriteConfig):
     """Configures an NI analog write task.
 
@@ -1516,3 +1660,24 @@ class AnalogWriteConfig(WriteConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class AnalogWriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the analog write config. An absent field does not
+    change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        channels: Are the analog output channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    state_rate: telem.Rate
+    channels: patch.ValueListDict[AOChannel]

@@ -11,7 +11,10 @@
 
 package spatial
 
-import "github.com/synnaxlabs/x/spatial/versions"
+import (
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial/versions"
+)
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
@@ -161,4 +164,21 @@ func (o Order) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+// ViewportUpdate holds changes to the fields of the viewport. An absent field does not
+// change.
+type ViewportUpdate struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom *float64 `json:"zoom,omitzero" msgpack:"zoom,omitempty"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position *patch.Struct[XYUpdate, XY] `json:"position,omitzero" msgpack:"position,omitempty"`
+}
+
+// XYUpdate holds changes to the fields of the xy. An absent field does not change.
+type XYUpdate struct {
+	// X is the horizontal coordinate.
+	X *float64 `json:"x,omitzero" msgpack:"x,omitempty"`
+	// Y is the vertical coordinate.
+	Y *float64 `json:"y,omitzero" msgpack:"y,omitempty"`
 }

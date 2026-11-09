@@ -14,9 +14,16 @@ package kafka
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"uuid"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -254,4 +261,159 @@ func (p *Properties) ApplyDefaults() {
 	if p.Sasl.Variant == nil {
 		p.Sasl.Variant = NoneSASL{}
 	}
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the Kafka cluster device to consume from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Topic is the topic the task consumes.
+	Topic *string `json:"topic,omitzero" msgpack:"topic,omitempty"`
+	// Group is the consumer group the task joins. Empty derives the group from the task
+	// key.
+	Group *string `json:"group,omitzero" msgpack:"group,omitempty"`
+	// StartOffset is where the group starts when it has no committed offset.
+	StartOffset *StartOffset `json:"start_offset,omitzero" msgpack:"start_offset,omitempty"`
+	// Records contains the records the task reads, one per record key.
+	Records *patch.List[ReadRecord, string, ReadRecordUpdate] `json:"records,omitzero" msgpack:"records,omitempty"`
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// Device is the key of the Kafka cluster device to produce to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Topic is the topic the task produces to.
+	Topic *string `json:"topic,omitzero" msgpack:"topic,omitempty"`
+	// RecordKey is the source of the key placed on every record.
+	RecordKey *RecordKey `json:"record_key,omitzero" msgpack:"record_key,omitempty"`
+	// Record is the shape of every record.
+	Record *patch.Struct[RecordUpdate, Record] `json:"record,omitzero" msgpack:"record,omitempty"`
+	// Channels contains the channels whose samples are produced.
+	Channels *patch.List[WriteChannel, string, WriteChannelUpdate] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// ReadRecordUpdate holds changes to the fields of the read record. An absent field does
+// not change.
+type ReadRecordUpdate struct {
+	// Key uniquely identifies the record within the task.
+	Key string `json:"key" msgpack:"key"`
+	// RecordKey is the Kafka key of the records read here. Empty reads every record
+	// that no other record of the task claims, keyless ones included.
+	RecordKey *string `json:"record_key,omitzero" msgpack:"record_key,omitempty"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index *string `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Fields contains the values to extract from the record.
+	Fields *patch.List[ReadField, string, ReadFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+}
+
+// RecordUpdate holds changes to the fields of the record. An absent field does not
+// change.
+type RecordUpdate struct {
+	// ValuePointer is the JSON Pointer where the sample value is placed.
+	ValuePointer *string `json:"value_pointer,omitzero" msgpack:"value_pointer,omitempty"`
+	// ChannelPointer is the JSON Pointer where the channel name is placed. Absent omits
+	// the name.
+	ChannelPointer patch.Change[string] `json:"channel_pointer,omitzero" msgpack:"channel_pointer,omitempty"`
+	// TimestampPointer is the JSON Pointer where the sample timestamp is placed. Absent
+	// omits the timestamp.
+	TimestampPointer patch.Change[string] `json:"timestamp_pointer,omitzero" msgpack:"timestamp_pointer,omitempty"`
+	// TimeFormat is the encoding of the sample timestamp.
+	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// Fields contains additional static or generated record fields.
+	Fields *patch.ValueList[http.WriteField] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (r RecordUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, r)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (r *RecordUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, r)
+}
+
+// WriteChannelUpdate holds changes to the fields of the write channel. An absent field
+// does not change.
+type WriteChannelUpdate struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Channel is the Synnax channel whose samples are produced.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// JSONType is the JSON type the sample value is serialized as.
+	JSONType *http.JSONType `json:"json_type,omitzero" msgpack:"json_type,omitempty"`
+	// TimeFormat is the output encoding when the channel holds timestamps. Required for
+	// timestamp channels.
+	TimeFormat patch.Change[http.TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps numeric or boolean channel values to string labels. Only valid
+	// when json_type is 'string'.
+	EnumValues *patch.ValueList[http.EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (w WriteChannelUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, w)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (w *WriteChannelUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, w)
+}
+
+// ReadFieldUpdate holds changes to the fields of the read field. An absent field does
+// not change.
+type ReadFieldUpdate struct {
+	// Key uniquely identifies the field within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the field is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Name is the name given to the channel when the task creates it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Channel is the Synnax channel the extracted value is written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Pointer is the JSON Pointer to the value within the record value.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// DataType is the data type of the extracted value.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// TimeFormat is the encoding of the JSON value when the target channel holds
+	// timestamps. Required for timestamp channels.
+	TimeFormat patch.Change[http.TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps string labels in the record to numeric or boolean channel values.
+	EnumValues *patch.ValueList[http.EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (r ReadFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, r)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (r *ReadFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, r)
 }

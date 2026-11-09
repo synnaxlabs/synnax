@@ -454,3 +454,9 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the group. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the group.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}

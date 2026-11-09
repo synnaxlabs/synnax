@@ -151,6 +151,31 @@ export const specZ = z.object({
 });
 export interface Spec extends z.infer<typeof specZ> {}
 
+/**
+ * SpecUpdate holds changes to the fields of the spec. An absent field does not change.
+ */
+export const specUpdateZ = z.object({
+  /** svg is the SVG markup defining the symbol's visual geometry. */
+  svg: z.string().optional(),
+  /** states contains available visual states with regional styling configurations. */
+  states: patch.valueListZ(stateZ).optional(),
+  /** variant is the symbol variant: 'static' or 'actuator'. */
+  variant: z.string().optional(),
+  /** handles contains connection points for linking to other diagram elements. */
+  handles: patch.valueListZ(handleZ).optional(),
+  /** scale is the symbol scale factor. */
+  scale: z.number().optional(),
+  /** strokeScaled is true when stroke width scales with the symbol size. */
+  strokeScaled: z.boolean().optional(),
+  /**
+   * previewViewport is an optional viewport configuration for symbol preview rendering.
+   */
+  previewViewport: patch
+    .changeZ(patch.structZ({ u: spatial.viewportUpdateZ, t: spatial.viewportZ }))
+    .optional(),
+});
+export interface SpecUpdate extends z.infer<typeof specUpdateZ> {}
+
 /** RetrieveRequest is a request to retrieve symbols. */
 export const retrieveRequestZ = z.strictObject({
   /** where selects the symbols to retrieve. An absent where selects all of them. */
@@ -181,6 +206,19 @@ export const symbolZ = z.object({
   group: group.keyZ.optional(),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
+
+/**
+ * Update holds changes to the fields of the symbol. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is a human-readable name for the symbol. */
+  name: z.string().optional(),
+  /** data is the complete symbol specification. */
+  data: patch.structZ({ u: specUpdateZ, t: specZ }).optional(),
+  /** group is the group the symbol sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
 
 /** CreatePayload replaces the state with the created symbol. Only the Core emits it. */
 export const createPayloadZ = z.object({

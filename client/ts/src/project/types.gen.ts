@@ -28,6 +28,17 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/**
+ * Update holds changes to the fields of the project. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is a human-readable name for the project. */
+  name: z.string().optional(),
+  /** group is the group the project sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

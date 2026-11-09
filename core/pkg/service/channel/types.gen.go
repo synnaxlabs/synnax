@@ -466,3 +466,26 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the channel. An absent field does not change.
+type Update struct {
+	// DataType is the data type of samples stored in this channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// Operations contains aggregation operations applied to this channel's data.
+	Operations *patch.ValueList[Operation] `json:"operations,omitzero" msgpack:"operations,omitempty"`
+	// Expression is an Arc expression for calculated channels. If set, the channel is
+	// automatically configured as virtual.
+	Expression *string `json:"expression,omitzero" msgpack:"expression,omitempty"`
+	// Group is the group the channel sits in, if any.
+	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
+}

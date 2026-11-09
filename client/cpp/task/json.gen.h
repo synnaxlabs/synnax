@@ -23,7 +23,7 @@
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/patch/json.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::task {
@@ -297,6 +297,22 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["tasks"] = x::json::to_array(this->tasks);
+    return j;
+}
+
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .rack = parser.field<std::optional<::synnax::rack::Key>>("rack"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .config = parser.field<std::optional<x::json::json::object_t>>("config"),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->rack.has_value()) j["rack"] = *this->rack;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->config.has_value()) j["config"] = *this->config;
     return j;
 }
 

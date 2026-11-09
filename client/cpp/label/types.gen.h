@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -26,6 +27,7 @@
 
 namespace synnax::label {
 
+struct Update;
 struct Label;
 struct CreatePayload;
 
@@ -45,6 +47,18 @@ using InsertPayload = ::x::patch::Insert;
 using MovePayload = ::x::patch::Move;
 
 using Key = x::uuid::UUID;
+
+/// @brief Update holds changes to the fields of the label. An absent field does not
+/// change.
+struct Update {
+    /// @brief name is a human-readable name for the label.
+    std::optional<std::string> name;
+    /// @brief color is the display color for visual identification of the label.
+    std::optional<::x::color::Color> color;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Label is a tagging and categorization entity with a name and associated
 /// color. Labels can be attached to resources like ranges for organization and

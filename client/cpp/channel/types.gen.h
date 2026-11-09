@@ -27,7 +27,8 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/service/channel/pb/channel.pb.h"
@@ -39,6 +40,7 @@ struct Cursor;
 struct Operation;
 struct Order;
 struct Channel;
+struct Update;
 struct RetrieveRequest;
 struct RetrieveResponse;
 
@@ -229,6 +231,20 @@ struct Channel {
     to_proto() const;
     static std::pair<Channel, x::errors::Error>
     from_proto(const ::api::channel::pb::Channel &pb);
+};
+
+/// @brief Update holds changes to the fields of the channel. An absent field does not
+/// change.
+struct Update {
+    /// @brief operations contains aggregation operations applied to this channel's
+    /// data.
+    std::optional<::x::patch::ValueList<Operation>> operations;
+    /// @brief expression is an Arc expression for calculated channels. If set, the
+    /// channel is automatically configured as virtual.
+    std::optional<std::string> expression;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.

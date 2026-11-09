@@ -47,6 +47,38 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+export interface UpdateSchemas<
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Model extends z.ZodType<string> = z.ZodType<string>,
+> {
+  properties: Properties;
+  model: Model;
+}
+
+export const updateZ = <
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Model extends z.ZodType<string> = z.ZodString,
+>({ properties, model }: Partial<UpdateSchemas<Properties, Model>> = {}) =>
+  z.object({
+    location: z.string().optional(),
+    model: (model ?? z.string()).optional(),
+    name: z.string().optional(),
+    configured: z.boolean().optional(),
+    properties: (properties ?? record.unknownZ()).optional(),
+    group: patch.changeZ(group.keyZ).optional(),
+  });
+export interface Update<
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Model extends z.ZodType<string> = z.ZodString,
+> {
+  location?: string;
+  model?: z.infer<Model>;
+  name?: string;
+  configured?: boolean;
+  properties?: z.infer<Properties>;
+  group?: patch.Change<typeof group.keyZ>;
+}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

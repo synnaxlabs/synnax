@@ -417,3 +417,14 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the user. An absent field does not change.
+type Update struct {
+	// Name is the user's display name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// RootUser is true if this is a root/admin user with full system access. Root users
+	// cannot be deleted.
+	RootUser *bool `json:"root_user,omitzero" msgpack:"root_user,omitempty"`
+	// Role is the role that grants the user its permissions.
+	Role *role.Key `json:"role,omitzero" msgpack:"role,omitempty"`
+}

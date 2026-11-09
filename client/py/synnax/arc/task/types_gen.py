@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, override as _override
+from typing import Literal, TypedDict, override as _override
+from uuid import UUID
 
 from synnax import task
 from synnax.arc import types_gen
@@ -44,3 +45,23 @@ class Config(task.PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        arc_key: Is the key of the Arc module the task executes.
+        hash: Is the semantic hash of the Arc module at deploy time.
+        performance: Sets how closely the runtime holds timer deadlines.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    arc_key: types_gen.Key
+    hash: str
+    performance: Performance

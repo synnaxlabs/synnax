@@ -49,6 +49,20 @@ inline x::json::json CreatePayload::to_json() const {
     return j;
 }
 
+inline Update Update::parse(x::json::Parser parser) {
+    return Update{
+        .name = parser.field<std::optional<std::string>>("name"),
+        .color = parser.field<std::optional<::x::color::Color>>("color"),
+    };
+}
+
+inline x::json::json Update::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->color.has_value()) j["color"] = this->color->to_json();
+    return j;
+}
+
 inline Action parse_action(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "create") return CreatePayload::parse(parser.child("create"));

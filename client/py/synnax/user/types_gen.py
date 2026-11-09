@@ -57,6 +57,18 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the user. An absent field does not change.
+
+    Attributes:
+        name: Is the user's display name.
+        role: Is the role that grants the user its permissions.
+    """
+
+    name: str
+    role: role_.Key
+
+
 class User(BaseModel):
     """Is an account entity representing a person accessing the Synnax system. Each user
     holds one role, which grants its permissions.

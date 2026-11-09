@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,16 +20,23 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::opcua {
 
 struct BaseChannel;
 struct ScanConfig;
+struct ScanConfigUpdate;
+struct ReadChannelUpdate;
+struct WriteChannelUpdate;
 struct ReadChannel;
 struct WriteChannel;
 struct ReadConfig;
+struct ReadConfigUpdate;
 struct WriteConfig;
+struct WriteConfigUpdate;
 
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
@@ -53,6 +61,69 @@ struct BaseChannel {
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfigUpdate holds changes to the fields of the scan config. An absent
+/// field does not change.
+struct ScanConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief disabled is true when scanning is paused.
+    std::optional<bool> disabled;
+
+    static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadChannelUpdate holds changes to the fields of the read channel. An absent
+/// field does not change.
+struct ReadChannelUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief node_id is the OPC UA node ID the channel is bound to.
+    std::optional<std::string> node_id;
+    /// @brief node_name is the browse name of the OPC UA node.
+    std::optional<std::string> node_name;
+    /// @brief data_type is the data type of the Synnax channel.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief channel is the Synnax channel that samples are written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief is_index is true when the channel's Synnax channel is the task's index.
+    std::optional<bool> is_index;
+    /// @brief field is the path to a member of the node's structure value. Names join
+    /// with '.', and '&' escapes the next character. Empty reads the whole value.
+    std::optional<std::string> field;
+
+    static ReadChannelUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannelUpdate holds changes to the fields of the write channel. An
+/// absent field does not change.
+struct WriteChannelUpdate {
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the channel is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief node_id is the OPC UA node ID the channel is bound to.
+    std::optional<std::string> node_id;
+    /// @brief node_name is the browse name of the OPC UA node.
+    std::optional<std::string> node_name;
+    /// @brief data_type is the data type of the Synnax channel.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    std::optional<::synnax::channel::Key> cmd_channel;
+
+    static WriteChannelUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -104,12 +175,68 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadConfigUpdate holds changes to the fields of the read config. An absent
+/// field does not change.
+struct ReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief device is the key of the device representing the OPC UA server.
+    std::optional<::synnax::device::Key> device;
+    /// @brief array_mode is true when each read returns an array of samples per node.
+    std::optional<bool> array_mode;
+    /// @brief array_size is the number of samples in each array when array_mode is
+    /// true.
+    std::optional<std::int32_t> array_size;
+    /// @brief channels are the OPC UA nodes the task acquires.
+    std::optional<::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>
+        channels;
+    /// @brief nan_fill_enabled is true when a bad value of a float channel is written
+    /// as NaN. When false, a bad value skips the read for every channel that shares its
+    /// index.
+    std::optional<bool> nan_fill_enabled;
+
+    static ReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief WriteConfig configures an OPC UA write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief channels are the OPC UA nodes the task drives.
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
+/// field does not change.
+struct WriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the device the task writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief channels are the OPC UA nodes the task drives.
+    std::optional<::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>
+        channels;
+
+    static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

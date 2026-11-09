@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import override as _override
-from uuid import uuid4
+from typing import Required, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 
 class BaseChannel(BaseModel):
@@ -50,6 +50,70 @@ class ScanConfig(task.ScanConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+
+
+class ReadChannelUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read channel. An absent field does not change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from the task.
+        node_id: Is the OPC UA node ID the channel is bound to.
+        node_name: Is the browse name of the OPC UA node.
+        data_type: Is the data type of the Synnax channel.
+        channel: Is the Synnax channel that samples are written to.
+        is_index: Is true when the channel's Synnax channel is the task's index.
+        field: Is the path to a member of the node's structure value. Names join with
+            '.', and '&' escapes the next character. Empty reads the whole value.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    node_id: str
+    node_name: str
+    data_type: telem.DataType
+    channel: channel_.Key
+    is_index: bool
+    field: str
+
+
+class WriteChannelUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write channel. An absent field does not
+    change.
+
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from the task.
+        node_id: Is the OPC UA node ID the channel is bound to.
+        node_name: Is the browse name of the OPC UA node.
+        data_type: Is the data type of the Synnax channel.
+        cmd_channel: Is the Synnax channel commands are read from.
+    """
+
+    key: Required[str]
+    name: str
+    disabled: bool
+    node_id: str
+    node_name: str
+    data_type: telem.DataType
+    cmd_channel: channel_.Key
 
 
 class ReadChannel(BaseChannel):
@@ -113,6 +177,36 @@ class ReadConfig(task.ReadConfig):
         return hash(self.key)
 
 
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        device: Is the key of the device representing the OPC UA server.
+        array_mode: Is true when each read returns an array of samples per node.
+        array_size: Is the number of samples in each array when array_mode is true.
+        channels: Are the OPC UA nodes the task acquires.
+        nan_fill_enabled: Is true when a bad value of a float channel is written as NaN.
+            When false, a bad value skips the read for every channel that shares its
+            index.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    device: device_.Key
+    array_mode: bool
+    array_size: int
+    channels: patch.ListDict[ReadChannel, str, ReadChannelUpdate]
+    nan_fill_enabled: bool
+
+
 class WriteConfig(task.WriteConfig):
     """Configures an OPC UA write task.
 
@@ -125,3 +219,21 @@ class WriteConfig(task.WriteConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        channels: Are the OPC UA nodes the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    channels: patch.ListDict[WriteChannel, str, WriteChannelUpdate]

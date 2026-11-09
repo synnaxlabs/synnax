@@ -47,6 +47,18 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the label. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the label.
+        color: Is the display color for visual identification of the label.
+    """
+
+    name: str
+    color: color_.Color
+
+
 class Label(BaseModel):
     """Is a tagging and categorization entity with a name and associated color. Labels
     can be attached to resources like ranges for organization and filtering.

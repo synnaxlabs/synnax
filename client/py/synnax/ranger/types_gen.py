@@ -145,6 +145,25 @@ class Cursor(BaseModel):
     )
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the range. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the range.
+        time_range: Is the temporal extent of the range, defining its start and end
+            timestamps.
+        color: Is an optional display color for visual identification of the range in
+            user interfaces.
+        parent: Is the key of the range this range is nested in. Empty for a top-level
+            range.
+    """
+
+    name: str
+    time_range: patch.Struct[telem.TimeRangeUpdate, telem.TimeRange]
+    color: patch.Change[color_.Color]
+    parent: patch.Change[Key]
+
+
 class KeyRef(BaseModel):
     """Is a range saved in the Core."""
 

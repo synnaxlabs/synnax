@@ -20,7 +20,9 @@
 #include "client/cpp/http/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/change.h"
+#include "x/cpp/patch/json.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::http {
@@ -287,6 +289,202 @@ inline x::json::json ScanConfig::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
+    return j;
+}
+
+inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
+    return ReadConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .data_saving_disabled = parser.field<std::optional<bool>>(
+            "data_saving_disabled"
+        ),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .rate = parser.field<std::optional<::x::telem::Rate>>("rate"),
+        .endpoints = parser.field<std::optional<
+            ::x::patch::List<ReadEndpoint, std::string, ReadEndpointUpdate>>>(
+            "endpoints"
+        ),
+        .nan_fill_enabled = parser.field<std::optional<bool>>("nan_fill_enabled"),
+    };
+}
+
+inline x::json::json ReadConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->data_saving_disabled.has_value())
+        j["data_saving_disabled"] = *this->data_saving_disabled;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->rate.has_value()) j["rate"] = *this->rate;
+    if (this->endpoints.has_value()) j["endpoints"] = this->endpoints->to_json();
+    if (this->nan_fill_enabled.has_value())
+        j["nan_fill_enabled"] = *this->nan_fill_enabled;
+    return j;
+}
+
+inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
+    return WriteConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .endpoints = parser.field<std::optional<
+            ::x::patch::List<WriteEndpoint, std::string, WriteEndpointUpdate>>>(
+            "endpoints"
+        ),
+    };
+}
+
+inline x::json::json WriteConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->endpoints.has_value()) j["endpoints"] = this->endpoints->to_json();
+    return j;
+}
+
+inline ScanConfigUpdate ScanConfigUpdate::parse(x::json::Parser parser) {
+    return ScanConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .rate = parser.field<std::optional<::x::telem::Rate>>("rate"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+    };
+}
+
+inline x::json::json ScanConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->rate.has_value()) j["rate"] = *this->rate;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    return j;
+}
+
+inline ReadEndpointUpdate ReadEndpointUpdate::parse(x::json::Parser parser) {
+    return ReadEndpointUpdate{
+        .key = parser.field<std::string>("key"),
+        .method = parser.field<std::optional<std::string>>("method"),
+        .path = parser.field<std::optional<std::string>>("path"),
+        .headers = parser.field<std::optional<::x::patch::ValueList<Header>>>(
+            "headers"
+        ),
+        .query_params = parser.field<std::optional<::x::patch::ValueList<QueryParam>>>(
+            "query_params"
+        ),
+        .body = parser.field<std::optional<std::string>>("body"),
+        .fields = parser.field<
+            std::optional<::x::patch::List<ReadField, std::string, ReadFieldUpdate>>>(
+            "fields"
+        ),
+        .index = parser.field<std::optional<std::string>>("index"),
+    };
+}
+
+inline x::json::json ReadEndpointUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->method.has_value()) j["method"] = *this->method;
+    if (this->path.has_value()) j["path"] = *this->path;
+    if (this->headers.has_value()) j["headers"] = this->headers->to_json();
+    if (this->query_params.has_value())
+        j["query_params"] = this->query_params->to_json();
+    if (this->body.has_value()) j["body"] = *this->body;
+    if (this->fields.has_value()) j["fields"] = this->fields->to_json();
+    if (this->index.has_value()) j["index"] = *this->index;
+    return j;
+}
+
+inline WriteEndpointUpdate WriteEndpointUpdate::parse(x::json::Parser parser) {
+    return WriteEndpointUpdate{
+        .key = parser.field<std::string>("key"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .method = parser.field<std::optional<std::string>>("method"),
+        .path = parser.field<std::optional<std::string>>("path"),
+        .headers = parser.field<std::optional<::x::patch::ValueList<Header>>>(
+            "headers"
+        ),
+        .query_params = parser.field<std::optional<::x::patch::ValueList<QueryParam>>>(
+            "query_params"
+        ),
+        .channel = parser.field<
+            std::optional<::x::patch::Struct<ChannelFieldUpdate, ChannelField>>>(
+            "channel"
+        ),
+        .fields = parser.field<std::optional<::x::patch::ValueList<WriteField>>>(
+            "fields"
+        ),
+    };
+}
+
+inline x::json::json WriteEndpointUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->method.has_value()) j["method"] = *this->method;
+    if (this->path.has_value()) j["path"] = *this->path;
+    if (this->headers.has_value()) j["headers"] = this->headers->to_json();
+    if (this->query_params.has_value())
+        j["query_params"] = this->query_params->to_json();
+    if (this->channel.has_value()) j["channel"] = this->channel->to_json();
+    if (this->fields.has_value()) j["fields"] = this->fields->to_json();
+    return j;
+}
+
+inline ReadFieldUpdate ReadFieldUpdate::parse(x::json::Parser parser) {
+    return ReadFieldUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .optional = parser.field<std::optional<bool>>("optional"),
+        .fill_value = ::x::patch::Change<x::json::json>::parse(parser, "fill_value"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .pointer = parser.field<std::optional<std::string>>("pointer"),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
+        .time_format = ::x::patch::Change<std::string>::parse(parser, "time_format"),
+        .enum_values = parser.field<std::optional<::x::patch::ValueList<EnumEntry>>>(
+            "enum_values"
+        ),
+    };
+}
+
+inline x::json::json ReadFieldUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->optional.has_value()) j["optional"] = *this->optional;
+    this->fill_value.to_json(j, "fill_value");
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->pointer.has_value()) j["pointer"] = *this->pointer;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    this->time_format.to_json(j, "time_format");
+    if (this->enum_values.has_value()) j["enum_values"] = this->enum_values->to_json();
+    return j;
+}
+
+inline ChannelFieldUpdate ChannelFieldUpdate::parse(x::json::Parser parser) {
+    return ChannelFieldUpdate{
+        .pointer = parser.field<std::optional<std::string>>("pointer"),
+        .json_type = parser.field<std::optional<std::string>>("json_type"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
+        .time_format = ::x::patch::Change<std::string>::parse(parser, "time_format"),
+        .enum_values = parser.field<std::optional<::x::patch::ValueList<EnumEntry>>>(
+            "enum_values"
+        ),
+    };
+}
+
+inline x::json::json ChannelFieldUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->pointer.has_value()) j["pointer"] = *this->pointer;
+    if (this->json_type.has_value()) j["json_type"] = *this->json_type;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    this->time_format.to_json(j, "time_format");
+    if (this->enum_values.has_value()) j["enum_values"] = this->enum_values->to_json();
     return j;
 }
 

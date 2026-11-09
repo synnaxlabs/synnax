@@ -14,9 +14,12 @@ package ranger
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -379,4 +382,31 @@ func (u Action) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Update holds changes to the fields of the range. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the range.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// TimeRange is the temporal extent of the range, defining its start and end
+	// timestamps.
+	TimeRange *patch.Struct[telem.TimeRangeUpdate, telem.TimeRange] `json:"time_range,omitzero" msgpack:"time_range,omitempty"`
+	// Color is an optional display color for visual identification of the range in user
+	// interfaces.
+	Color patch.Change[color.Color] `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Labels are the keys of the labels attached to the range.
+	Labels *patch.ValueList[label.Key] `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	// Parent is the key of the range this range is nested in. Empty for a top-level
+	// range.
+	Parent patch.Change[Key] `json:"parent,omitzero" msgpack:"parent,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
 }

@@ -20,7 +20,10 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/change.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::http {
 
@@ -29,12 +32,19 @@ struct QueryParam;
 struct EnumEntry;
 struct BaseWriteField;
 struct ScanConfig;
+struct ScanConfigUpdate;
 struct ReadField;
+struct ReadFieldUpdate;
 struct ChannelField;
+struct ChannelFieldUpdate;
 struct ReadEndpoint;
+struct ReadEndpointUpdate;
 struct WriteEndpoint;
+struct WriteEndpointUpdate;
 struct ReadConfig;
+struct ReadConfigUpdate;
 struct WriteConfig;
+struct WriteConfigUpdate;
 
 constexpr const char *TIME_FORMAT_ISO_8601 = "iso8601";
 constexpr const char *TIME_FORMAT_UNIX_SEC = "unix_sec";
@@ -111,6 +121,20 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ScanConfigUpdate holds changes to the fields of the scan config. An absent
+/// field does not change.
+struct ScanConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief disabled is true when scanning is paused.
+    std::optional<bool> disabled;
+
+    static ScanConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadField is a single value extracted from an endpoint's JSON response.
 struct ReadField {
     /// @brief key uniquely identifies the field within the endpoint.
@@ -141,6 +165,37 @@ struct ReadField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadFieldUpdate holds changes to the fields of the read field. An absent
+/// field does not change.
+struct ReadFieldUpdate {
+    /// @brief key uniquely identifies the field within the endpoint.
+    std::string key;
+    /// @brief name is the human-readable field name.
+    std::optional<std::string> name;
+    /// @brief disabled is true when the field is excluded from polling.
+    std::optional<bool> disabled;
+    /// @brief optional is true when a missing value is normal for this field. The task
+    /// writes fill_value, or NaN on a float channel, and sends no warning.
+    std::optional<bool> optional;
+    /// @brief fill_value is the value written when an optional field is missing, typed
+    /// by the channel. Unset writes NaN, which needs a float channel.
+    ::x::patch::Change<x::json::json> fill_value;
+    /// @brief channel is the Synnax channel the extracted value is written to.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief pointer is the JSON Pointer to the value within the response body.
+    std::optional<std::string> pointer;
+    /// @brief data_type is the data type of the extracted value.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief time_format is the encoding of the JSON value when the target channel
+    /// holds timestamps. Required for timestamp channels.
+    ::x::patch::Change<std::string> time_format;
+    /// @brief enum_values maps string labels in the response to numeric channel values.
+    std::optional<::x::patch::ValueList<EnumEntry>> enum_values;
+
+    static ReadFieldUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ChannelField is the command channel value placed into a write endpoint's
 /// body.
 struct ChannelField {
@@ -164,6 +219,32 @@ struct ChannelField {
     std::vector<EnumEntry> enum_values;
 
     static ChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ChannelFieldUpdate holds changes to the fields of the channel field. An
+/// absent field does not change.
+struct ChannelFieldUpdate {
+    /// @brief pointer is the JSON Pointer where the channel value is placed in the
+    /// body. An empty pointer sends the bare value as the entire body, in which case
+    /// the endpoint may not declare any additional fields.
+    std::optional<std::string> pointer;
+    /// @brief json_type is the JSON type the channel value is serialized as.
+    std::optional<std::string> json_type;
+    /// @brief channel is the Synnax command channel that triggers the request.
+    std::optional<::synnax::channel::Key> channel;
+    /// @brief name is the human-readable name of the command channel.
+    std::optional<std::string> name;
+    /// @brief data_type is the data type of the command channel.
+    std::optional<::x::telem::DataType> data_type;
+    /// @brief time_format is the output encoding when the command channel holds
+    /// timestamps. An unset format is ISO 8601.
+    ::x::patch::Change<std::string> time_format;
+    /// @brief enum_values maps numeric channel values to string labels. Only valid when
+    /// json_type is 'string'.
+    std::optional<::x::patch::ValueList<EnumEntry>> enum_values;
+
+    static ChannelFieldUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -228,6 +309,31 @@ struct ReadEndpoint {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadEndpointUpdate holds changes to the fields of the read endpoint. An
+/// absent field does not change.
+struct ReadEndpointUpdate {
+    /// @brief key uniquely identifies the endpoint within the task.
+    std::string key;
+    /// @brief method is the HTTP method used to poll the endpoint.
+    std::optional<std::string> method;
+    /// @brief path is the URL path appended to the device's base URL.
+    std::optional<std::string> path;
+    /// @brief headers contains additional headers merged into the request.
+    std::optional<::x::patch::ValueList<Header>> headers;
+    /// @brief query_params contains query parameters appended to the request URL.
+    std::optional<::x::patch::ValueList<QueryParam>> query_params;
+    /// @brief body is a static body sent with each request. Empty sends no body.
+    std::optional<std::string> body;
+    /// @brief fields contains the values to extract from the response.
+    std::optional<::x::patch::List<ReadField, std::string, ReadFieldUpdate>> fields;
+    /// @brief index is the key of the field whose channel indexes the others. Empty
+    /// when the task stamps samples on arrival.
+    std::optional<std::string> index;
+
+    static ReadEndpointUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief WriteEndpoint is a single HTTP endpoint written to by a write task.
 struct WriteEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
@@ -251,6 +357,30 @@ struct WriteEndpoint {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief WriteEndpointUpdate holds changes to the fields of the write endpoint. An
+/// absent field does not change.
+struct WriteEndpointUpdate {
+    /// @brief key uniquely identifies the endpoint within the task.
+    std::string key;
+    /// @brief disabled is true when the endpoint is excluded from the task.
+    std::optional<bool> disabled;
+    /// @brief method is the HTTP method used to send the request.
+    std::optional<std::string> method;
+    /// @brief path is the URL path appended to the device's base URL.
+    std::optional<std::string> path;
+    /// @brief headers contains additional headers merged into the request.
+    std::optional<::x::patch::ValueList<Header>> headers;
+    /// @brief query_params contains query parameters appended to the request URL.
+    std::optional<::x::patch::ValueList<QueryParam>> query_params;
+    /// @brief channel is the command channel whose writes trigger this endpoint.
+    std::optional<::x::patch::Struct<ChannelFieldUpdate, ChannelField>> channel;
+    /// @brief fields contains additional static or generated body fields.
+    std::optional<::x::patch::ValueList<WriteField>> fields;
+
+    static WriteEndpointUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadConfig configures an HTTP read task, which polls one or more endpoints on
 /// an HTTP server device and writes extracted JSON values to Synnax channels.
 struct ReadConfig : public ::synnax::task::PersistConfig {
@@ -269,6 +399,33 @@ struct ReadConfig : public ::synnax::task::PersistConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ReadConfigUpdate holds changes to the fields of the read config. An absent
+/// field does not change.
+struct ReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the HTTP server device to poll.
+    std::optional<::synnax::device::Key> device;
+    /// @brief rate is the polling rate applied to all endpoints, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief endpoints contains the endpoints to poll.
+    std::optional<::x::patch::List<ReadEndpoint, std::string, ReadEndpointUpdate>>
+        endpoints;
+    /// @brief nan_fill_enabled is true when a float field that is missing or fails to
+    /// convert is written as NaN. When false, the task skips every field that shares
+    /// the endpoint and index channel with it.
+    std::optional<bool> nan_fill_enabled;
+
+    static ReadConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
 struct WriteConfig : public ::synnax::task::StartConfig {
@@ -278,6 +435,24 @@ struct WriteConfig : public ::synnax::task::StartConfig {
     std::vector<WriteEndpoint> endpoints;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
+/// field does not change.
+struct WriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief device is the key of the HTTP server device to write to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief endpoints contains the endpoints to write to.
+    std::optional<::x::patch::List<WriteEndpoint, std::string, WriteEndpointUpdate>>
+        endpoints;
+
+    static WriteConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

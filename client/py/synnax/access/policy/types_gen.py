@@ -50,6 +50,22 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the policy. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the policy.
+        objects: Is the list of resources this policy applies to.
+        actions: Is the list of actions this policy permits.
+        role: Is the role that grants this policy to its subjects.
+    """
+
+    name: str
+    objects: patch.ValueListDict[resource.ID]
+    actions: patch.ValueListDict[action.Action]
+    role: role_.Key
+
+
 class Policy(BaseModel):
     """Is an access control policy that defines which actions are permitted on which
     resources. Each policy belongs to one role, and a subject holds the policies of each

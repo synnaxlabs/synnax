@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -400,4 +401,53 @@ func (u Action) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Update holds changes to the fields of the symbol. An absent field does not change.
+type Update struct {
+	// Name is a human-readable name for the symbol.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Data is the complete symbol specification.
+	Data *patch.Struct[SpecUpdate, Spec] `json:"data,omitzero" msgpack:"data,omitempty"`
+	// Group is the group the symbol sits in, if any.
+	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
+}
+
+// SpecUpdate holds changes to the fields of the spec. An absent field does not change.
+type SpecUpdate struct {
+	// SVG is the SVG markup defining the symbol's visual geometry.
+	SVG *string `json:"svg,omitzero" msgpack:"svg,omitempty"`
+	// States contains available visual states with regional styling configurations.
+	States *patch.ValueList[State] `json:"states,omitzero" msgpack:"states,omitempty"`
+	// Variant is the symbol variant: 'static' or 'actuator'.
+	Variant *string `json:"variant,omitzero" msgpack:"variant,omitempty"`
+	// Handles contains connection points for linking to other diagram elements.
+	Handles *patch.ValueList[Handle] `json:"handles,omitzero" msgpack:"handles,omitempty"`
+	// Scale is the symbol scale factor.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeScaled is true when stroke width scales with the symbol size.
+	StrokeScaled *bool `json:"stroke_scaled,omitzero" msgpack:"stroke_scaled,omitempty"`
+	// PreviewViewport is an optional viewport configuration for symbol preview
+	// rendering.
+	PreviewViewport patch.Change[patch.Struct[spatial.ViewportUpdate, spatial.Viewport]] `json:"preview_viewport,omitzero" msgpack:"preview_viewport,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (s SpecUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, s)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (s *SpecUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, s)
 }

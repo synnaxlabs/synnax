@@ -246,12 +246,32 @@ when most types need it, declare it file-level and omit the exceptions.
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
 
+## Updates
+
+`@patch` marks a field of a record (a struct marked `@actions`) that an update changes.
+`@patch core` marks a field that only the Core sets: the wire update holds it, Python
+and C++ leave it out, and TypeScript derives an `UpdateInput` without it. A type-level
+`@patch` (a task config) takes every wire field. The analyzer derives `Update` for the
+record and `<Type>Update` for a type-level `@patch` and for each struct that their
+fields reach. Every update field is optional:
+
+- An optional field becomes `patch.Change<T>`, the only update field that takes null.
+- A struct becomes `patch.Struct<TUpdate, T>`. A struct with `@go json hand`, a filter,
+  a generic struct, a `record`, and a type parameter are replaced whole.
+- A list becomes `patch.List<E, K, EUpdate>` when its entry has a required `@key`, else
+  `patch.ValueList<E>`. An entry update always holds the key.
+- A field named `set`, `insert`, `remove`, `update`, or `move` is an analyzer error.
+
+Python renders an update as a TypedDict (`@py dict`), and each generic struct that a
+TypedDict holds gets a `<Name>Dict` form. `@presence` marks a type whose value carries
+its own absence (`patch.Change`): an optional field of it holds the value itself, with
+no Go pointer and no C++ `std::optional`.
+
 ## Path actions
 
-`@patch` marks a field of a document (a struct marked `@actions`) that path actions may
-edit. A path to any other field fails, so a Core-owned field such as `labels` gets no
-tag. Go generates a `Patch` method for the document and for every struct that a `@patch`
-field reaches, in the version package that declares the struct. A struct with a
+Go also generates a `Patch` method for each record with `@patch` fields and for every
+struct that a `@patch` field reaches, in the version package that declares the struct.
+A path to any other field, or to a `@patch core` field, fails. A struct with a
 hand-written Go JSON decoder, such as `color.Color`, declares `@go json hand` and gets
 no `Patch` method. Only a whole set changes it, and that set runs the decoder.
 

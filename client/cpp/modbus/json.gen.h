@@ -21,7 +21,8 @@
 #include "client/cpp/modbus/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/json.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::modbus {
@@ -189,6 +190,76 @@ inline x::json::json RegisterString::to_json() const {
     x::json::json j = x::json::json::object();
     j["length"] = this->length;
     if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
+    return j;
+}
+
+inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
+    return ReadConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .data_saving_disabled = parser.field<std::optional<bool>>(
+            "data_saving_disabled"
+        ),
+        .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
+        .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .channels = parser.field<std::optional<::x::patch::ValueList<ReadChannel>>>(
+            "channels"
+        ),
+    };
+}
+
+inline x::json::json ReadConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->data_saving_disabled.has_value())
+        j["data_saving_disabled"] = *this->data_saving_disabled;
+    if (this->sample_rate.has_value()) j["sample_rate"] = *this->sample_rate;
+    if (this->stream_rate.has_value()) j["stream_rate"] = *this->stream_rate;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->channels.has_value()) j["channels"] = this->channels->to_json();
+    return j;
+}
+
+inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
+    return WriteConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .data_saving_disabled = parser.field<std::optional<bool>>(
+            "data_saving_disabled"
+        ),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .channels = parser.field<std::optional<::x::patch::ValueList<WriteChannel>>>(
+            "channels"
+        ),
+    };
+}
+
+inline x::json::json WriteConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->data_saving_disabled.has_value())
+        j["data_saving_disabled"] = *this->data_saving_disabled;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->channels.has_value()) j["channels"] = this->channels->to_json();
+    return j;
+}
+
+inline ScanConfigUpdate ScanConfigUpdate::parse(x::json::Parser parser) {
+    return ScanConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .rate = parser.field<std::optional<::x::telem::Rate>>("rate"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+    };
+}
+
+inline x::json::json ScanConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->rate.has_value()) j["rate"] = *this->rate;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
     return j;
 }
 

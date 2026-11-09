@@ -21,7 +21,9 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::modbus {
 
@@ -31,8 +33,11 @@ struct BaseWriteChannel;
 struct ScanConfig;
 struct RegisterBit;
 struct RegisterString;
+struct ScanConfigUpdate;
 struct WriteConfig;
+struct WriteConfigUpdate;
 struct ReadConfig;
+struct ReadConfigUpdate;
 
 /// @brief RegisterValue interprets one or more 16-bit registers as a single typed
 /// value.
@@ -110,6 +115,20 @@ struct RegisterString {
     std::optional<bool> bytes_swapped;
 
     static RegisterString parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfigUpdate holds changes to the fields of the scan config. An absent
+/// field does not change.
+struct ScanConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    std::optional<::x::telem::Rate> rate;
+    /// @brief disabled is true when scanning is paused.
+    std::optional<bool> disabled;
+
+    static ScanConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -257,6 +276,26 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief WriteConfigUpdate holds changes to the fields of the write config. An absent
+/// field does not change.
+struct WriteConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief device is the key of the device the task writes to.
+    std::optional<::synnax::device::Key> device;
+    /// @brief channels are the channels the task drives.
+    std::optional<::x::patch::ValueList<WriteChannel>> channels;
+
+    static WriteConfigUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadConfig configures a Modbus read task.
 struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device the task acquires from.
@@ -265,6 +304,31 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     std::vector<ReadChannel> channels;
 
     static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadConfigUpdate holds changes to the fields of the read config. An absent
+/// field does not change.
+struct ReadConfigUpdate {
+    /// @brief key is the unique identifier for the stored configuration record.
+    std::optional<x::uuid::UUID> key;
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    std::optional<bool> auto_start;
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    std::optional<bool> data_saving_disabled;
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    std::optional<::x::telem::Rate> sample_rate;
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    std::optional<::x::telem::Rate> stream_rate;
+    /// @brief device is the key of the device the task acquires from.
+    std::optional<::synnax::device::Key> device;
+    /// @brief channels are the channels the task acquires.
+    std::optional<::x::patch::ValueList<ReadChannel>> channels;
+
+    static ReadConfigUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

@@ -23,6 +23,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -31,6 +32,7 @@ namespace synnax::arc::directory {
 struct Directory;
 struct Where;
 struct Cursor;
+struct Update;
 struct Order;
 struct CreatePayload;
 struct RetrieveResponse;
@@ -125,6 +127,18 @@ struct Cursor {
     std::optional<std::string> name;
 
     static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update holds changes to the fields of the directory. An absent field does not
+/// change.
+struct Update {
+    /// @brief name is the name of the directory, one segment of an import path.
+    std::optional<std::string> name;
+    /// @brief parent is the directory that holds this directory. The root has none.
+    ::x::patch::Change<Key> parent;
+
+    static Update parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

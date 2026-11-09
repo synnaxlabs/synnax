@@ -33,6 +33,9 @@ type Type struct {
 	// Filter is the filter definition the type was declared as, or nil. Form holds
 	// the struct the definition expands into.
 	Filter *Filter
+	// Updates is the qualified name of the struct or union that the type changes, set
+	// on the update types that the analyzer derives.
+	Updates string
 }
 
 // RetrieveKey returns the key type that a `@retrieve key` expression declares on typ,

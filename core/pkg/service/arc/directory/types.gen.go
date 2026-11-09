@@ -373,3 +373,21 @@ func (u Action) Validate() error {
 	}
 	return nil
 }
+
+// Update holds changes to the fields of the directory. An absent field does not change.
+type Update struct {
+	// Name is the name of the directory, one segment of an import path.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Parent is the directory that holds this directory. The root has none.
+	Parent patch.Change[Key] `json:"parent,omitzero" msgpack:"parent,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, u)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, u)
+}

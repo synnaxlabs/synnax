@@ -11,7 +11,15 @@
 
 package http
 
-import "github.com/synnaxlabs/synnax/pkg/service/http/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"uuid"
+)
 
 // Method is the HTTP method used when requesting an endpoint.
 type Method = versions.Method
@@ -133,3 +141,162 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = versions.ScanConfig
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the HTTP server device to poll.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Rate is the polling rate applied to all endpoints, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Endpoints contains the endpoints to poll.
+	Endpoints *patch.List[ReadEndpoint, string, ReadEndpointUpdate] `json:"endpoints,omitzero" msgpack:"endpoints,omitempty"`
+	// NanFillEnabled is true when a float field that is missing or fails to convert is
+	// written as NaN. When false, the task skips every field that shares the endpoint
+	// and index channel with it.
+	NanFillEnabled *bool `json:"nan_fill_enabled,omitzero" msgpack:"nan_fill_enabled,omitempty"`
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// Device is the key of the HTTP server device to write to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Endpoints contains the endpoints to write to.
+	Endpoints *patch.List[WriteEndpoint, string, WriteEndpointUpdate] `json:"endpoints,omitzero" msgpack:"endpoints,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+}
+
+// ReadEndpointUpdate holds changes to the fields of the read endpoint. An absent field
+// does not change.
+type ReadEndpointUpdate struct {
+	// Key uniquely identifies the endpoint within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Method is the HTTP method used to poll the endpoint.
+	Method *Method `json:"method,omitzero" msgpack:"method,omitempty"`
+	// Path is the URL path appended to the device's base URL.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
+	// Headers contains additional headers merged into the request.
+	Headers *patch.ValueList[Header] `json:"headers,omitzero" msgpack:"headers,omitempty"`
+	// QueryParams contains query parameters appended to the request URL.
+	QueryParams *patch.ValueList[QueryParam] `json:"query_params,omitzero" msgpack:"query_params,omitempty"`
+	// Body is a static body sent with each request. Empty sends no body.
+	Body *string `json:"body,omitzero" msgpack:"body,omitempty"`
+	// Fields contains the values to extract from the response.
+	Fields *patch.List[ReadField, string, ReadFieldUpdate] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index *string `json:"index,omitzero" msgpack:"index,omitempty"`
+}
+
+// WriteEndpointUpdate holds changes to the fields of the write endpoint. An absent
+// field does not change.
+type WriteEndpointUpdate struct {
+	// Key uniquely identifies the endpoint within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the endpoint is excluded from the task.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Method is the HTTP method used to send the request.
+	Method *Method `json:"method,omitzero" msgpack:"method,omitempty"`
+	// Path is the URL path appended to the device's base URL.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
+	// Headers contains additional headers merged into the request.
+	Headers *patch.ValueList[Header] `json:"headers,omitzero" msgpack:"headers,omitempty"`
+	// QueryParams contains query parameters appended to the request URL.
+	QueryParams *patch.ValueList[QueryParam] `json:"query_params,omitzero" msgpack:"query_params,omitempty"`
+	// Channel is the command channel whose writes trigger this endpoint.
+	Channel *patch.Struct[ChannelFieldUpdate, ChannelField] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Fields contains additional static or generated body fields.
+	Fields *patch.ValueList[WriteField] `json:"fields,omitzero" msgpack:"fields,omitempty"`
+}
+
+// ReadFieldUpdate holds changes to the fields of the read field. An absent field does
+// not change.
+type ReadFieldUpdate struct {
+	// Key uniquely identifies the field within the endpoint.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable field name.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Disabled is true when the field is excluded from polling.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// Optional is true when a missing value is normal for this field. The task writes
+	// fill_value, or NaN on a float channel, and sends no warning.
+	Optional *bool `json:"optional,omitzero" msgpack:"optional,omitempty"`
+	// FillValue is the value written when an optional field is missing, typed by the
+	// channel. Unset writes NaN, which needs a float channel.
+	FillValue patch.Change[any] `json:"fill_value,omitzero" msgpack:"fill_value,omitempty"`
+	// Channel is the Synnax channel the extracted value is written to.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Pointer is the JSON Pointer to the value within the response body.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// DataType is the data type of the extracted value.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// TimeFormat is the encoding of the JSON value when the target channel holds
+	// timestamps. Required for timestamp channels.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps string labels in the response to numeric channel values.
+	EnumValues *patch.ValueList[EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (r ReadFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, r)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (r *ReadFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, r)
+}
+
+// ChannelFieldUpdate holds changes to the fields of the channel field. An absent field
+// does not change.
+type ChannelFieldUpdate struct {
+	// Pointer is the JSON Pointer where the channel value is placed in the body. An
+	// empty pointer sends the bare value as the entire body, in which case the endpoint
+	// may not declare any additional fields.
+	Pointer *string `json:"pointer,omitzero" msgpack:"pointer,omitempty"`
+	// JSONType is the JSON type the channel value is serialized as.
+	JSONType *JSONType `json:"json_type,omitzero" msgpack:"json_type,omitempty"`
+	// Channel is the Synnax command channel that triggers the request.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Name is the human-readable name of the command channel.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// DataType is the data type of the command channel.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
+	TimeFormat patch.Change[TimeFormat] `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps numeric channel values to string labels. Only valid when
+	// json_type is 'string'.
+	EnumValues *patch.ValueList[EnumEntry] `json:"enum_values,omitzero" msgpack:"enum_values,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (c ChannelFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, c)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (c *ChannelFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, c)
+}

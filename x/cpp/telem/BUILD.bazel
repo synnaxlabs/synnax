@@ -20,6 +20,7 @@ cc_library(
     hdrs = [
         "clock_skew.h",
         "frame.h",
+        "json.gen.h",
         "mono_clock.h",
         "series.h",
         "telem.h",

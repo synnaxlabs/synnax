@@ -47,6 +47,19 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the role. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
+        description: Is an optional description explaining what permissions the role
+            provides.
+    """
+
+    name: str
+    description: str
+
+
 class Role(BaseModel):
     """Is a named collection of policies that can be assigned to users, enabling
     group-based permission management. Roles define what actions users can perform on

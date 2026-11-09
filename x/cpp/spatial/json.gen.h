@@ -14,6 +14,7 @@
 #include <string>
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/spatial/types.gen.h"
 
 namespace x::spatial {
@@ -165,6 +166,36 @@ inline x::json::json Bounds::to_json() const {
     x::json::json j = x::json::json::object();
     j["lower"] = this->lower;
     j["upper"] = this->upper;
+    return j;
+}
+
+inline ViewportUpdate ViewportUpdate::parse(x::json::Parser parser) {
+    return ViewportUpdate{
+        .zoom = parser.field<std::optional<double>>("zoom"),
+        .position = parser.field<std::optional<::x::patch::Struct<XYUpdate, XY>>>(
+            "position"
+        ),
+    };
+}
+
+inline x::json::json ViewportUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->zoom.has_value()) j["zoom"] = *this->zoom;
+    if (this->position.has_value()) j["position"] = this->position->to_json();
+    return j;
+}
+
+inline XYUpdate XYUpdate::parse(x::json::Parser parser) {
+    return XYUpdate{
+        .x = parser.field<std::optional<double>>("x"),
+        .y = parser.field<std::optional<double>>("y"),
+    };
+}
+
+inline x::json::json XYUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->x.has_value()) j["x"] = *this->x;
+    if (this->y.has_value()) j["y"] = *this->y;
     return j;
 }
 

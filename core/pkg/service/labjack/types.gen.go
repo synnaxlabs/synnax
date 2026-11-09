@@ -11,7 +11,14 @@
 
 package labjack
 
-import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"uuid"
+)
 
 // TemperatureUnits are the engineering units for a temperature measurement.
 type TemperatureUnits = versions.TemperatureUnits
@@ -114,3 +121,69 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures a LabJack scan task.
 type ScanConfig = versions.ScanConfig
+
+// ReadConfigUpdate holds changes to the fields of the read config. An absent field does
+// not change.
+type ReadConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate *telem.Rate `json:"sample_rate,omitzero" msgpack:"sample_rate,omitempty"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate *telem.Rate `json:"stream_rate,omitzero" msgpack:"stream_rate,omitempty"`
+	// Device is the key of the device the task acquires from.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// Channels are the channels the task acquires.
+	Channels *patch.ValueList[ReadChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
+	// reports a skew warning. When absent, the Driver picks two seconds of scans.
+	DeviceScanBacklogWarnOnCount patch.Change[uint32] `json:"device_scan_backlog_warn_on_count,omitzero" msgpack:"device_scan_backlog_warn_on_count,omitempty"`
+	// LjmScanBacklogWarnOnCount is the LJM-side scan backlog above which the task
+	// reports a skew warning. When absent, the Driver picks one second of scans.
+	LjmScanBacklogWarnOnCount patch.Change[uint32] `json:"ljm_scan_backlog_warn_on_count,omitzero" msgpack:"ljm_scan_backlog_warn_on_count,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (r ReadConfigUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, r)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (r *ReadConfigUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, r)
+}
+
+// WriteConfigUpdate holds changes to the fields of the write config. An absent field
+// does not change.
+type WriteConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// Device is the key of the device the task writes to.
+	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
+	StateRate *telem.Rate `json:"state_rate,omitzero" msgpack:"state_rate,omitempty"`
+	// Channels are the channels the task drives.
+	Channels *patch.ValueList[WriteChannel] `json:"channels,omitzero" msgpack:"channels,omitempty"`
+}
+
+// ScanConfigUpdate holds changes to the fields of the scan config. An absent field does
+// not change.
+type ScanConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate *telem.Rate `json:"rate,omitzero" msgpack:"rate,omitempty"`
+	// Disabled is true when scanning is paused.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
+	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+	TCPScanMultiplier *uint32 `json:"tcp_scan_multiplier,omitzero" msgpack:"tcp_scan_multiplier,omitempty"`
+}

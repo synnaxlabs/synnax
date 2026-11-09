@@ -27,6 +27,18 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
+/** Update holds changes to the fields of the role. An absent field does not change. */
+export const updateZ = z.object({
+  /** name is a human-readable name for the role (e.g., 'Administrator', 'Engineer'). */
+  name: z.string().optional(),
+  /**
+   * description is an optional description explaining what permissions the role
+   * provides.
+   */
+  description: z.string().optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 

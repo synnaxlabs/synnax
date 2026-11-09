@@ -15,24 +15,28 @@
 
 TimeStamp int64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit signed integer representing nanoseconds since the Unix epoch
         (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
         telemetry timestamps.
     """
     @py hand
+    @py include  "x/py/x/telem/telem"
     @ts hand
+    @ts include  "x/ts/src/telem/telem"
 }
 
 TimeSpan int64 {
     @cpp hand
-    @doc value  """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit signed integer representing a duration in nanoseconds. Used for
         expressing time intervals, sampling periods, and durations throughout the
         telemetry system.
     """
     @py hand
-    @py include "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -45,14 +49,15 @@ TimeRange struct {
     }
 
     @cpp hand
-    @doc value  """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a time interval defined by a start and end timestamp. The range is
         start-inclusive and end-exclusive, following standard interval conventions for
         predictable boundary handling.
     """
     @go marshal
     @py hand
-    @py include "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -115,7 +120,8 @@ Window union on variant {
 
 Rate float64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
         frequencies and calculate sample counts over time intervals.
     """
@@ -125,7 +131,8 @@ Rate float64 {
 
 Size int64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a byte measurement used for storage capacity and data volume representation.
         Supports conversion to human-readable formats (B, kB, MB, GB, TB).
     """
@@ -135,7 +142,8 @@ Size int64 {
 
 Alignment uint64 {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a 64-bit index for positioning samples within multi-array structures. Packs a
         domain index (which array) and sample index (position within array) into a
         single value for efficient multi-dimensional data access.
@@ -146,7 +154,8 @@ Alignment uint64 {
 
 DataType string {
     @cpp hand
-    @doc value """
+    @cpp include "x/cpp/telem/telem.h"
+    @doc value   """
         is a string identifier specifying the format of telemetry samples. Supports
         fixed-density types (float64, int32, timestamp, etc.) with known byte sizes and
         variable-density types (String, JSON, Bytes) for flexible data storage.

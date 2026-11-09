@@ -20,7 +20,8 @@
 #include "client/cpp/opcua/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/patch/json.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::opcua {
@@ -160,6 +161,137 @@ inline x::json::json ScanConfig::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
+    return j;
+}
+
+inline ReadConfigUpdate ReadConfigUpdate::parse(x::json::Parser parser) {
+    return ReadConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .data_saving_disabled = parser.field<std::optional<bool>>(
+            "data_saving_disabled"
+        ),
+        .sample_rate = parser.field<std::optional<::x::telem::Rate>>("sample_rate"),
+        .stream_rate = parser.field<std::optional<::x::telem::Rate>>("stream_rate"),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .array_mode = parser.field<std::optional<bool>>("array_mode"),
+        .array_size = parser.field<std::optional<std::int32_t>>("array_size"),
+        .channels = parser.field<std::optional<
+            ::x::patch::List<ReadChannel, std::string, ReadChannelUpdate>>>("channels"),
+        .nan_fill_enabled = parser.field<std::optional<bool>>("nan_fill_enabled"),
+    };
+}
+
+inline x::json::json ReadConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->data_saving_disabled.has_value())
+        j["data_saving_disabled"] = *this->data_saving_disabled;
+    if (this->sample_rate.has_value()) j["sample_rate"] = *this->sample_rate;
+    if (this->stream_rate.has_value()) j["stream_rate"] = *this->stream_rate;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->array_mode.has_value()) j["array_mode"] = *this->array_mode;
+    if (this->array_size.has_value()) j["array_size"] = *this->array_size;
+    if (this->channels.has_value()) j["channels"] = this->channels->to_json();
+    if (this->nan_fill_enabled.has_value())
+        j["nan_fill_enabled"] = *this->nan_fill_enabled;
+    return j;
+}
+
+inline WriteConfigUpdate WriteConfigUpdate::parse(x::json::Parser parser) {
+    return WriteConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .auto_start = parser.field<std::optional<bool>>("auto_start"),
+        .data_saving_disabled = parser.field<std::optional<bool>>(
+            "data_saving_disabled"
+        ),
+        .device = parser.field<std::optional<::synnax::device::Key>>("device"),
+        .channels = parser.field<std::optional<
+            ::x::patch::List<WriteChannel, std::string, WriteChannelUpdate>>>(
+            "channels"
+        ),
+    };
+}
+
+inline x::json::json WriteConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->auto_start.has_value()) j["auto_start"] = *this->auto_start;
+    if (this->data_saving_disabled.has_value())
+        j["data_saving_disabled"] = *this->data_saving_disabled;
+    if (this->device.has_value()) j["device"] = *this->device;
+    if (this->channels.has_value()) j["channels"] = this->channels->to_json();
+    return j;
+}
+
+inline ScanConfigUpdate ScanConfigUpdate::parse(x::json::Parser parser) {
+    return ScanConfigUpdate{
+        .key = parser.field<std::optional<x::uuid::UUID>>("key"),
+        .rate = parser.field<std::optional<::x::telem::Rate>>("rate"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+    };
+}
+
+inline x::json::json ScanConfigUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->rate.has_value()) j["rate"] = *this->rate;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    return j;
+}
+
+inline ReadChannelUpdate ReadChannelUpdate::parse(x::json::Parser parser) {
+    return ReadChannelUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .node_id = parser.field<std::optional<std::string>>("node_id"),
+        .node_name = parser.field<std::optional<std::string>>("node_name"),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
+        .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
+        .is_index = parser.field<std::optional<bool>>("is_index"),
+        .field = parser.field<std::optional<std::string>>("field"),
+    };
+}
+
+inline x::json::json ReadChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->node_id.has_value()) j["node_id"] = *this->node_id;
+    if (this->node_name.has_value()) j["node_name"] = *this->node_name;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    if (this->channel.has_value()) j["channel"] = *this->channel;
+    if (this->is_index.has_value()) j["is_index"] = *this->is_index;
+    if (this->field.has_value()) j["field"] = *this->field;
+    return j;
+}
+
+inline WriteChannelUpdate WriteChannelUpdate::parse(x::json::Parser parser) {
+    return WriteChannelUpdate{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .disabled = parser.field<std::optional<bool>>("disabled"),
+        .node_id = parser.field<std::optional<std::string>>("node_id"),
+        .node_name = parser.field<std::optional<std::string>>("node_name"),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
+        .cmd_channel = parser.field<std::optional<::synnax::channel::Key>>(
+            "cmd_channel"
+        ),
+    };
+}
+
+inline x::json::json WriteChannelUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->disabled.has_value()) j["disabled"] = *this->disabled;
+    if (this->node_id.has_value()) j["node_id"] = *this->node_id;
+    if (this->node_name.has_value()) j["node_name"] = *this->node_name;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    if (this->cmd_channel.has_value()) j["cmd_channel"] = *this->cmd_channel;
     return j;
 }
 

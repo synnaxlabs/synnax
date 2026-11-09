@@ -276,3 +276,12 @@ func (u Reduction) Validate() error {
 	}
 	return nil
 }
+
+// TimeRangeUpdate holds changes to the fields of the time range. An absent field does
+// not change.
+type TimeRangeUpdate struct {
+	// Start is the inclusive start of the time range.
+	Start *TimeStamp `json:"start,omitzero" msgpack:"start,omitempty"`
+	// End is the exclusive end of the time range.
+	End *TimeStamp `json:"end,omitzero" msgpack:"end,omitempty"`
+}

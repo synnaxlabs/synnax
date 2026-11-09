@@ -3407,55 +3407,106 @@ var _ = Describe("Collection type aliases and maps", func() {
 })
 
 var _ = Describe("Dict forms", func() {
-	It("Should declare the dict form of a struct with @py dict", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		typesPlugin := types.New(types.DefaultOptions())
-		source := `
-			@py output "out"
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
 
-			Move struct<K> {
-				key   K
-				after K?
-				@py dict
-			}
-
-			Ops struct<E, K> {
-				insert E[]?
-				move   Move<K>[]?
-				@py dict
-			}
-		`
-		resp := MustGenerate(ctx, source, "ops", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").ToContain(
-			"from typing import Generic, NotRequired, TypedDict, TypeVar",
-			"# MoveDict is the dict form of Move.\n"+
-				"class MoveDict(TypedDict, Generic[K]):\n"+
-				"    key: K\n"+
-				"    after: NotRequired[K]",
-			"# OpsDict is the dict form of Ops.\n"+
-				"class OpsDict(TypedDict, Generic[E, K]):\n"+
-				"    insert: NotRequired[list[E]]\n"+
-				"    move: NotRequired[list[MoveDict[K]]]",
-		)
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should reject a dict form with a keyword field", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		typesPlugin := types.New(types.DefaultOptions())
-		source := `
+	It("Should render a struct with @py dict as a TypedDict", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, `
+			@py output "out"
+
+			Update struct {
+				key  int32
+				name string?
+				rate float64 = 1
+				@py dict
+			}
+		`, "ops", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				"from typing import Required, TypedDict",
+				"class Update(TypedDict, total=False):",
+				"    key: Required[int]",
+				"    name: str\n",
+				"    rate: float\n",
+			).
+			ToNotContain("class Update(BaseModel")
+	})
+
+	It("Should declare the dict form of each generic struct that a TypedDict holds",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				@py output "out"
+
+				Move struct<K> {
+					key   K
+					after K?
+				}
+
+				Ops struct<E, K> {
+					insert E[]?
+					move   Move<K>[]?
+				}
+
+				Update struct {
+					ops Ops<string, int32>?
+					@py dict
+				}
+			`, "ops", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"class Move(BaseModel, Generic[K]):",
+				"# MoveDict is the dict form of Move.\n"+
+					"class MoveDict(TypedDict, Generic[K], total=False):\n"+
+					"    key: Required[K]\n"+
+					"    after: K",
+				"# OpsDict is the dict form of Ops.\n"+
+					"class OpsDict(TypedDict, Generic[E, K], total=False):\n"+
+					"    insert: list[E]\n"+
+					"    move: list[MoveDict[K]]",
+				"    ops: OpsDict[str, int]",
+			)
+		},
+	)
+
+	It("Should declare a TypedDict with a keyword key in call syntax", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
 			@py output "out"
 
 			Range struct {
-				in int32
+				in int32?
 				@py dict
 			}
-		`
-		req := MustGenerateRequest(ctx, source, "range", loader)
-		Expect(typesPlugin.Generate(req)).Error().To(
-			MatchError(
-				ContainSubstring("@py dict cannot declare the keyword field in"),
-			),
+		`, "range", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"Range = TypedDict(\n    \"Range\",\n    {\"in\": int},\n" +
+				"    total=False,\n)",
 		)
+	})
+
+	It("Should reject a dict form of a struct with a parent", func(ctx SpecContext) {
+		req := MustGenerateRequest(ctx, `
+			@py output "out"
+
+			Base struct {
+				key int32
+			}
+
+			Update struct extends Base {
+				name string?
+				@py dict
+			}
+		`, "ops", loader)
+		Expect(typesPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"ops.Update: a dict form needs a struct with no parent and no filter input",
+		)))
 	})
 })
 

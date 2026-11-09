@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 TEMPERATURE_UNITS_CELSIUS: Literal["C"] = "C"
 
@@ -113,6 +113,23 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+        tcp_scan_multiplier: Is the number of scan cycles between TCP device scans. USB
+            devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
+    tcp_scan_multiplier: int
+
+
 class AnalogReadChannel(BaseReadChannel):
     """Reads a voltage from an analog input port."""
 
@@ -201,6 +218,36 @@ class ReadConfig(task.ReadConfig):
         return hash(self.key)
 
 
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        device: Is the key of the device the task acquires from.
+        channels: Are the channels the task acquires.
+        device_scan_backlog_warn_on_count: Is the device-side scan backlog above which
+            the task reports a skew warning. When absent, the Driver picks two seconds
+            of scans.
+        ljm_scan_backlog_warn_on_count: Is the LJM-side scan backlog above which the
+            task reports a skew warning. When absent, the Driver picks one second of
+            scans.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    device: device_.Key
+    channels: patch.ValueListDict[ReadChannel]
+    device_scan_backlog_warn_on_count: patch.Change[int]
+    ljm_scan_backlog_warn_on_count: patch.Change[int]
+
+
 class WriteConfig(task.WriteConfig):
     """Configures a LabJack write task.
 
@@ -215,3 +262,23 @@ class WriteConfig(task.WriteConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        channels: Are the channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    state_rate: telem.Rate
+    channels: patch.ValueListDict[WriteChannel]

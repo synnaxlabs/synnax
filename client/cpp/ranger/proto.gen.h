@@ -23,7 +23,7 @@
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/json.gen.h"
 
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"

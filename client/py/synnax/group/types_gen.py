@@ -58,6 +58,16 @@ class Order(BaseModel):
     descending: bool = False
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the group. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the group.
+    """
+
+    name: str
+
+
 class Group(BaseModel):
     """Is a named folder that holds records of the types its scope allows. A group sits
     in its parent, or at the top of its tree when it has none.

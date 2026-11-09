@@ -27,7 +27,9 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/change.h"
 #include "x/cpp/patch/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -39,6 +41,7 @@ namespace synnax::ranger {
 struct Range;
 struct Where;
 struct Cursor;
+struct Update;
 struct Order;
 struct CreatePayload;
 struct RetrieveResponse;
@@ -168,6 +171,27 @@ struct Cursor {
     to_proto() const;
     static std::pair<Cursor, x::errors::Error>
     from_proto(const ::api::ranger::pb::Cursor &pb);
+};
+
+/// @brief Update holds changes to the fields of the range. An absent field does not
+/// change.
+struct Update {
+    /// @brief name is a human-readable name for the range.
+    std::optional<std::string> name;
+    /// @brief time_range is the temporal extent of the range, defining its start and
+    /// end timestamps.
+    std::optional<
+        ::x::patch::Struct<::x::telem::TimeRangeUpdate, ::x::telem::TimeRange>>
+        time_range;
+    /// @brief color is an optional display color for visual identification of the range
+    /// in user interfaces.
+    ::x::patch::Change<::x::color::Color> color;
+    /// @brief parent is the key of the range this range is nested in. Empty for a
+    /// top-level range.
+    ::x::patch::Change<Key> parent;
+
+    static Update parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief Order is a sort of ranges.

@@ -299,11 +299,6 @@ var _ = Describe("Go Patch Plugin", func() {
 				"tags string[]? {\n@patch\n}",
 				"doc.Doc.tags: path actions do not support an optional list or map",
 			),
-			Entry(
-				"a field without a JSON form",
-				"secret string {\n@patch\n@go wire omit\n}",
-				"doc.Doc.secret: a field without a JSON form cannot be @patch",
-			),
 		)
 
 		It(
@@ -337,6 +332,8 @@ var _ = Describe("Go Patch Plugin", func() {
 
 	Describe("Store documents", func() {
 		const store = `
+			import "schemas/x/patch"
+
 			@go output "core/pkg/service/cfg"
 
 			Mode enum {
@@ -508,6 +505,8 @@ var _ = Describe("Go Patch Plugin", func() {
 		DescribeTable("Should reject a value that the hash cannot write",
 			func(ctx SpecContext, field, msg string) {
 				req := MustGenerateRequest(ctx, `
+					import "schemas/x/patch"
+
 					@go output "core/pkg/service/cfg"
 
 					Config struct {

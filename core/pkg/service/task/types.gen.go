@@ -453,3 +453,19 @@ func (u Action) Type() ActionType {
 	}
 	return ""
 }
+
+// Update holds changes to the fields of the task. An absent field does not change.
+type Update struct {
+	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
+	// been assigned a rack; required to start.
+	Rack *rack.Key `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	// Name is a human-readable name for the task.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Config is task-specific configuration stored as JSON. Structure varies by task
+	// type.
+	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config"`
+	// ConfigHash is the Core-assigned hash of config, rewritten on every write and
+	// ignored on writes from clients. Compare against a status's config_hash to detect
+	// drift.
+	ConfigHash *string `json:"config_hash,omitzero" msgpack:"config_hash,omitempty"`
+}

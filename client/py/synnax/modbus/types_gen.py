@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
-from uuid import uuid4
+from typing import Annotated, Literal, TypedDict, override as _override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
+from x import patch, telem
 
 
 class RegisterValue(BaseModel):
@@ -109,6 +109,20 @@ class RegisterString(BaseModel):
 
     length: int = Field(ge=1, le=250)
     bytes_swapped: bool | None = None
+
+
+class ScanConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scan config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    key: UUID
+    rate: telem.Rate
+    disabled: bool
 
 
 class CoilWriteChannel(BaseWriteChannel):
@@ -214,6 +228,24 @@ class WriteConfig(task.WriteConfig):
         return hash(self.key)
 
 
+class WriteConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the write config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        device: Is the key of the device the task writes to.
+        channels: Are the channels the task drives.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    device: device_.Key
+    channels: patch.ValueListDict[WriteChannel]
+
+
 class ReadConfig(task.ReadConfig):
     """Configures a Modbus read task.
 
@@ -228,3 +260,25 @@ class ReadConfig(task.ReadConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ReadConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the read config. An absent field does not change.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+        device: Is the key of the device the task acquires from.
+        channels: Are the channels the task acquires.
+    """
+
+    key: UUID
+    auto_start: bool
+    data_saving_disabled: bool
+    sample_rate: telem.Rate
+    stream_rate: telem.Rate
+    device: device_.Key
+    channels: patch.ValueListDict[ReadChannel]

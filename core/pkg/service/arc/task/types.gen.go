@@ -11,7 +11,11 @@
 
 package task
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"uuid"
+)
 
 // Performance sets how closely the Arc runtime holds timer deadlines. A higher level is
 // more precise and uses more CPU.
@@ -30,3 +34,20 @@ const (
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config = versions.Config
+
+// ConfigUpdate holds changes to the fields of the config. An absent field does not
+// change.
+type ConfigUpdate struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart *bool `json:"auto_start,omitzero" msgpack:"auto_start,omitempty"`
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled *bool `json:"data_saving_disabled,omitzero" msgpack:"data_saving_disabled,omitempty"`
+	// ArcKey is the key of the Arc module the task executes.
+	ArcKey *arc.Key `json:"arc_key,omitzero" msgpack:"arc_key,omitempty"`
+	// Hash is the semantic hash of the Arc module at deploy time.
+	Hash *string `json:"hash,omitzero" msgpack:"hash,omitempty"`
+	// Performance sets how closely the runtime holds timer deadlines.
+	Performance *Performance `json:"performance,omitzero" msgpack:"performance,omitempty"`
+}

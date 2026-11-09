@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/task"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/http"
