@@ -82,8 +82,13 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
         names = {p: d.name for p, d in sorted(found.items())}
         raise TimeoutError(f"Expected the slaves {SLAVES} present, but found {names}")
     for pos in STGS:
+        client.devices.dispatch(
+            slaves[pos].key,
+            sy.device.set(
+                sy.device.SetPayload(path=["properties", "op_mode"], value=STG_DC)
+            ),
+        )
         slaves[pos].properties["op_mode"] = STG_DC
-        slaves[pos] = client.devices.create(slaves[pos])
     return slaves
 
 

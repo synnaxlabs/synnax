@@ -537,14 +537,8 @@ class ExecutionClient:
         )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        return self._client.ranges.create(
-            key=test_range.key,
-            name=test_range.name,
-            time_range=sy.TimeRange(
-                start=test_range.time_range.start,
-                end=sy.TimeStamp.now(),
-            ),
-        )
+        self._client.ranges.set_end(test_range.key, sy.TimeStamp.now())
+        return self._client.ranges.retrieve(key=test_range.key)
 
     # ----- Timeout monitoring -----
 
