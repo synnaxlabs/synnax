@@ -153,58 +153,31 @@ export const setDirectoryPayloadZ = z.object({
 
 export type SetDirectoryPayload = z.infer<typeof setDirectoryPayloadZ>;
 
-/** Set replaces the value at a path in the graph's node inputs. */
-export const setPayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  value: caseconv.preserveCase(z.unknown()),
-  guards: patch.guardZ.array().default(() => []),
-});
+/**
+ * Set replaces the value at a path. It creates the absent objects on the path, and does
+ * nothing when the path goes through a missing list entry.
+ */
+export const setPayloadZ = patch.setZ;
 
-export type SetPayload = z.infer<typeof setPayloadZ>;
+export type SetPayload = patch.Set;
+
+/** Remove removes an entry from a list or a field from an object. */
+export const removePayloadZ = patch.removeZ;
+
+export type RemovePayload = patch.Remove;
 
 /**
- * Remove removes an entry from a list or a field from an object in the graph's node
- * inputs.
+ * Insert adds an entry to a list. It does nothing when an entry with the same key
+ * exists.
  */
-export const removePayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  key: z.string(),
-  guards: patch.guardZ.array().default(() => []),
-});
+export const insertPayloadZ = patch.insertZ;
 
-export type RemovePayload = z.infer<typeof removePayloadZ>;
+export type InsertPayload = patch.Insert;
 
-/** Insert adds an entry to a list in the graph's node inputs. */
-export const insertPayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  value: caseconv.preserveCase(z.unknown()),
-  after: z.string().optional(),
-  guards: patch.guardZ.array().default(() => []),
-});
+/** Move moves an entry in a list. It does nothing when the entry is missing. */
+export const movePayloadZ = patch.moveZ;
 
-export type InsertPayload = z.infer<typeof insertPayloadZ>;
-
-/** Move moves an entry in a list in the graph's node inputs. */
-export const movePayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  key: z.string(),
-  after: z.string().optional(),
-  guards: patch.guardZ.array().default(() => []),
-});
-
-export type MovePayload = z.infer<typeof movePayloadZ>;
+export type MovePayload = patch.Move;
 
 export type Action =
   | { type: "create"; create: CreatePayload }

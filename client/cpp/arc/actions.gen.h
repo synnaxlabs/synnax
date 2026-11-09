@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -38,8 +37,6 @@ namespace synnax::arc {
 /// @brief CreatePayload replaces the document with the given created state. Emitted by
 /// the Core on create so remote caches ingest new documents; clients never dispatch it.
 struct CreatePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "create";
     Arc arc;
 
     static CreatePayload parse(x::json::Parser parser);
@@ -48,8 +45,6 @@ struct CreatePayload {
 
 /// @brief RenamePayload renames the Arc module.
 struct RenamePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "rename";
     std::string name;
 
     static RenamePayload parse(x::json::Parser parser);
@@ -60,8 +55,6 @@ struct RenamePayload {
 /// otherwise replaces the existing node in place. Operates only on the node's position;
 /// the node's function type and inputs are set separately via SetNodeInputs.
 struct SetNodePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set_node";
     ::arc::graph::Node node;
 
     static SetNodePayload parse(x::json::Parser parser);
@@ -70,8 +63,6 @@ struct SetNodePayload {
 
 /// @brief SetNodePositionPayload moves a graph node to a new canvas position.
 struct SetNodePositionPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set_node_position";
     std::string key;
     ::x::spatial::XY position;
 
@@ -84,8 +75,6 @@ struct SetNodePositionPayload {
 /// fields; fields absent from the payload are preserved. The node's function type is
 /// held under "type".
 struct SetNodeInputsPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set_node_inputs";
     std::string key;
     x::json::json::object_t inputs;
 
@@ -96,8 +85,6 @@ struct SetNodeInputsPayload {
 /// @brief RemoveNodePayload removes the node with the given key along with its inputs
 /// entry and any edges connected to it.
 struct RemoveNodePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "remove_node";
     std::string key;
 
     static RemoveNodePayload parse(x::json::Parser parser);
@@ -108,8 +95,6 @@ struct RemoveNodePayload {
 /// same source and target handles already exists, so concurrent additions of the same
 /// connection converge regardless of differing keys.
 struct AddEdgePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "add_edge";
     ::arc::graph::Edge edge;
 
     static AddEdgePayload parse(x::json::Parser parser);
@@ -118,8 +103,6 @@ struct AddEdgePayload {
 
 /// @brief RemoveEdgePayload removes the edge with the given key, if present.
 struct RemoveEdgePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "remove_edge";
     std::string key;
 
     static RemoveEdgePayload parse(x::json::Parser parser);
@@ -129,8 +112,6 @@ struct RemoveEdgePayload {
 /// @brief ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
 /// preserving its key and kind. No-op when no edge with the key exists.
 struct ReconnectEdgePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "reconnect_edge";
     std::string key;
     ::arc::ir::Handle source;
     ::arc::ir::Handle target;
@@ -143,8 +124,6 @@ struct ReconnectEdgePayload {
 /// against the module's text. The payload is a sequence CRDT operation; the server
 /// relays it to the other editors of the module without interpreting it.
 struct InsertCharPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "insert_char";
     /// @brief id is the identity of the inserted character.
     ::x::crdt::ID id;
     /// @brief origin is the existing character this one anchors to. Anchoring to the
@@ -164,8 +143,6 @@ struct InsertCharPayload {
 /// against the module's text. The payload is a sequence CRDT operation; the server
 /// relays it to the other editors of the module without interpreting it.
 struct DeleteCharPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "delete_char";
     /// @brief id is the identity of the character to tombstone.
     ::x::crdt::ID id;
 
@@ -179,8 +156,6 @@ struct DeleteCharPayload {
 /// space held by tombstoned characters. Because the characters are already deleted, and
 /// thus invisible, applying it never changes the materialized text.
 struct ForgetCharsPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "forget_chars";
     std::vector<::x::crdt::ID> ids;
 
     static ForgetCharsPayload parse(x::json::Parser parser);
@@ -190,84 +165,29 @@ struct ForgetCharsPayload {
 /// @brief SetDirectoryPayload moves the Arc into the directory with the given key. The
 /// root Arcs directory holds the Arcs at the top level.
 struct SetDirectoryPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set_directory";
     x::uuid::UUID directory;
 
     static SetDirectoryPayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief SetPayload replaces the value at a path in the graph's node inputs.
-struct SetPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set";
-    /// @brief path is the path to the value. A segment into a list names the key of an
-    /// entry.
-    std::vector<std::string> path;
-    /// @brief value is the new value.
-    x::json::json value;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
 
-    static SetPayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
 
-/// @brief RemovePayload removes an entry from a list or a field from an object in the
-/// graph's node inputs.
-struct RemovePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "remove";
-    /// @brief path is the path to the list or object.
-    std::vector<std::string> path;
-    /// @brief key is the key of the list entry or the name of the object field.
-    std::string key;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
 
-    static RemovePayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief InsertPayload adds an entry to a list in the graph's node inputs.
-struct InsertPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "insert";
-    /// @brief path is the path to the list.
-    std::vector<std::string> path;
-    /// @brief value is the new entry. It is an object with a string key.
-    x::json::json value;
-    /// @brief after is the key of the entry that the new entry goes after. The entry
-    /// goes first when absent, and last when no entry has the key.
-    std::optional<std::string> after;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
-
-    static InsertPayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief MovePayload moves an entry in a list in the graph's node inputs.
-struct MovePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "move";
-    /// @brief path is the path to the list.
-    std::vector<std::string> path;
-    /// @brief key is the key of the entry to move.
-    std::string key;
-    /// @brief after is the key of the entry that the moved entry goes after. The entry
-    /// goes first when absent, and last when no other entry has the key.
-    std::optional<std::string> after;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
-
-    static MovePayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 /// @brief Action is a discriminated union for all Arc mutations. Its JSON form is
-/// {"type": t, t: payload}, where t is the TYPE of the payload.
+/// {"type": t, t: payload}, where t is the type of the action.
 using Action = std::variant<
     CreatePayload,
     RenamePayload,
@@ -550,136 +470,34 @@ inline x::json::json SetDirectoryPayload::to_json() const {
     return j;
 }
 
-inline SetPayload SetPayload::parse(x::json::Parser parser) {
-    return SetPayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .value = parser.field<x::json::json>("value"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json SetPayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["value"] = this->value;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline RemovePayload RemovePayload::parse(x::json::Parser parser) {
-    return RemovePayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .key = parser.field<std::string>("key"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json RemovePayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["key"] = this->key;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline InsertPayload InsertPayload::parse(x::json::Parser parser) {
-    return InsertPayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .value = parser.field<x::json::json>("value"),
-        .after = parser.field<std::optional<std::string>>("after"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json InsertPayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["value"] = this->value;
-    if (this->after.has_value()) j["after"] = *this->after;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline MovePayload MovePayload::parse(x::json::Parser parser) {
-    return MovePayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .key = parser.field<std::string>("key"),
-        .after = parser.field<std::optional<std::string>>("after"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json MovePayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["key"] = this->key;
-    if (this->after.has_value()) j["after"] = *this->after;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
-    if (type == CreatePayload::TYPE)
-        return CreatePayload::parse(parser.child(CreatePayload::TYPE));
-    if (type == RenamePayload::TYPE)
-        return RenamePayload::parse(parser.child(RenamePayload::TYPE));
-    if (type == SetNodePayload::TYPE)
-        return SetNodePayload::parse(parser.child(SetNodePayload::TYPE));
-    if (type == SetNodePositionPayload::TYPE)
-        return SetNodePositionPayload::parse(
-            parser.child(SetNodePositionPayload::TYPE)
-        );
-    if (type == SetNodeInputsPayload::TYPE)
-        return SetNodeInputsPayload::parse(parser.child(SetNodeInputsPayload::TYPE));
-    if (type == RemoveNodePayload::TYPE)
-        return RemoveNodePayload::parse(parser.child(RemoveNodePayload::TYPE));
-    if (type == AddEdgePayload::TYPE)
-        return AddEdgePayload::parse(parser.child(AddEdgePayload::TYPE));
-    if (type == RemoveEdgePayload::TYPE)
-        return RemoveEdgePayload::parse(parser.child(RemoveEdgePayload::TYPE));
-    if (type == ReconnectEdgePayload::TYPE)
-        return ReconnectEdgePayload::parse(parser.child(ReconnectEdgePayload::TYPE));
-    if (type == InsertCharPayload::TYPE)
-        return InsertCharPayload::parse(parser.child(InsertCharPayload::TYPE));
-    if (type == DeleteCharPayload::TYPE)
-        return DeleteCharPayload::parse(parser.child(DeleteCharPayload::TYPE));
-    if (type == ForgetCharsPayload::TYPE)
-        return ForgetCharsPayload::parse(parser.child(ForgetCharsPayload::TYPE));
-    if (type == SetDirectoryPayload::TYPE)
-        return SetDirectoryPayload::parse(parser.child(SetDirectoryPayload::TYPE));
-    if (type == SetPayload::TYPE)
-        return SetPayload::parse(parser.child(SetPayload::TYPE));
-    if (type == RemovePayload::TYPE)
-        return RemovePayload::parse(parser.child(RemovePayload::TYPE));
-    if (type == InsertPayload::TYPE)
-        return InsertPayload::parse(parser.child(InsertPayload::TYPE));
-    if (type == MovePayload::TYPE)
-        return MovePayload::parse(parser.child(MovePayload::TYPE));
+    if (type == "create") return CreatePayload::parse(parser.child("create"));
+    if (type == "rename") return RenamePayload::parse(parser.child("rename"));
+    if (type == "set_node") return SetNodePayload::parse(parser.child("set_node"));
+    if (type == "set_node_position")
+        return SetNodePositionPayload::parse(parser.child("set_node_position"));
+    if (type == "set_node_inputs")
+        return SetNodeInputsPayload::parse(parser.child("set_node_inputs"));
+    if (type == "remove_node")
+        return RemoveNodePayload::parse(parser.child("remove_node"));
+    if (type == "add_edge") return AddEdgePayload::parse(parser.child("add_edge"));
+    if (type == "remove_edge")
+        return RemoveEdgePayload::parse(parser.child("remove_edge"));
+    if (type == "reconnect_edge")
+        return ReconnectEdgePayload::parse(parser.child("reconnect_edge"));
+    if (type == "insert_char")
+        return InsertCharPayload::parse(parser.child("insert_char"));
+    if (type == "delete_char")
+        return DeleteCharPayload::parse(parser.child("delete_char"));
+    if (type == "forget_chars")
+        return ForgetCharsPayload::parse(parser.child("forget_chars"));
+    if (type == "set_directory")
+        return SetDirectoryPayload::parse(parser.child("set_directory"));
+    if (type == "set") return SetPayload::parse(parser.child("set"));
+    if (type == "remove") return RemovePayload::parse(parser.child("remove"));
+    if (type == "insert") return InsertPayload::parse(parser.child("insert"));
+    if (type == "move") return MovePayload::parse(parser.child("move"));
     parser.field_err("type", "unknown Action type: " + type);
     return {};
 }
@@ -688,9 +506,44 @@ inline x::json::json to_json(const Action &value) {
     return std::visit(
         [](const auto &payload) {
             using Payload = std::decay_t<decltype(payload)>;
+            std::string type;
+            if constexpr (std::is_same_v<Payload, CreatePayload>)
+                type = "create";
+            else if constexpr (std::is_same_v<Payload, RenamePayload>)
+                type = "rename";
+            else if constexpr (std::is_same_v<Payload, SetNodePayload>)
+                type = "set_node";
+            else if constexpr (std::is_same_v<Payload, SetNodePositionPayload>)
+                type = "set_node_position";
+            else if constexpr (std::is_same_v<Payload, SetNodeInputsPayload>)
+                type = "set_node_inputs";
+            else if constexpr (std::is_same_v<Payload, RemoveNodePayload>)
+                type = "remove_node";
+            else if constexpr (std::is_same_v<Payload, AddEdgePayload>)
+                type = "add_edge";
+            else if constexpr (std::is_same_v<Payload, RemoveEdgePayload>)
+                type = "remove_edge";
+            else if constexpr (std::is_same_v<Payload, ReconnectEdgePayload>)
+                type = "reconnect_edge";
+            else if constexpr (std::is_same_v<Payload, InsertCharPayload>)
+                type = "insert_char";
+            else if constexpr (std::is_same_v<Payload, DeleteCharPayload>)
+                type = "delete_char";
+            else if constexpr (std::is_same_v<Payload, ForgetCharsPayload>)
+                type = "forget_chars";
+            else if constexpr (std::is_same_v<Payload, SetDirectoryPayload>)
+                type = "set_directory";
+            else if constexpr (std::is_same_v<Payload, SetPayload>)
+                type = "set";
+            else if constexpr (std::is_same_v<Payload, RemovePayload>)
+                type = "remove";
+            else if constexpr (std::is_same_v<Payload, InsertPayload>)
+                type = "insert";
+            else if constexpr (std::is_same_v<Payload, MovePayload>)
+                type = "move";
             x::json::json j = x::json::json::object();
-            j["type"] = Payload::TYPE;
-            j[Payload::TYPE] = payload.to_json();
+            j["type"] = type;
+            j[type] = payload.to_json();
             return j;
         },
         value
