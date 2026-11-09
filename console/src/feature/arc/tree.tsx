@@ -103,7 +103,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "arc",
   icon: ({ data }) => {
     const TypeIcon = PlatformArc.TYPE_ICONS[(data as Pick<arc.Arc, "type">).type];
     return <TypeIcon />;
@@ -181,7 +180,6 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
 const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 
 const DirectoryItem = Tree.createItem({
-  type: "arc_directory",
   icon: <Icon.Group />,
   children: ({ client, id }) => [
     Tree.createSource(

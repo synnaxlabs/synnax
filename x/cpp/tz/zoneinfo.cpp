@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
+#include "x/cpp/tz/zoneinfo.h"
 
-import { Tree } from "@/platform/tree";
+namespace x::tz::zoneinfo {
+namespace {
+#include "x/cpp/tz/zoneinfo.inc"
+}
 
-const TreeItem = Tree.createItem({ type: "node", icon: <Icon.Node /> });
+std::string_view data() {
+    return {reinterpret_cast<const char *>(DATA), sizeof(DATA)};
+}
 
-export const TREE_ITEMS = { node: TreeItem } satisfies Tree.Items;
+std::span<const Entry> entries() {
+    return ENTRIES;
+}
+
+}

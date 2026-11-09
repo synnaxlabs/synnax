@@ -167,7 +167,6 @@ const children: Tree.Children = ({ client, id }) => [
 ];
 
 const TreeItem = Tree.createItem({
-  type: "device",
   icon,
   children,
   ContextMenu: TreeContextMenu,

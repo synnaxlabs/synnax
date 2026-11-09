@@ -47,7 +47,6 @@ export interface BaseProps {
   client: Synnax;
   store: Session.Store;
   openTab: Panel.OpenTab;
-  addStatus: Status.Adder;
   handleError: Status.ErrorHandler;
 }
 
