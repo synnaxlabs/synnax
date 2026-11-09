@@ -42,6 +42,7 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 const setResZ = setReqZ;
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 export type RetrieveMultipleParams = RetrieveRequest;
 
@@ -248,13 +249,20 @@ export class Client extends query.Retriever<
     };
   }
 
-  /**
-   * Writes the status again with the name, as set does.
-   * @throws {NotFoundError} if the status does not exist.
-   */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const status = await this.retrieve(key);
-    await this.set({ ...status, name }, opts);
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/status/rename",
+          { key, name },
+          renameReqZ,
+          emptyResZ,
+        ),
+    });
+    rename();
   }
 
   /**

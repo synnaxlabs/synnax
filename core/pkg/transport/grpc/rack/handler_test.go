@@ -14,15 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	grpcrack "github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Create", func() {
@@ -153,5 +156,30 @@ var _ = Describe("Dispatch", func() {
 			Key:     65537,
 			Actions: [][]byte{[]byte(`{"type": 1}`)},
 		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+
+	It("Should encode each action as JSON that decodes to the same action", func(
+		ctx SpecContext,
+	) {
+		translator := transport.RackDispatch.(*fgrpc.UnaryServer[
+			rack.DispatchRequest,
+			*grpcrack.DispatchRequest,
+			struct{},
+			*emptypb.Empty,
+		]).RequestTranslator.(fgrpc.Translator[
+			rack.DispatchRequest,
+			*grpcrack.DispatchRequest,
+		])
+		req := rack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: []svcrack.Action{svcrack.NewSetAction(svcrack.SetPayload{
+				Path:   []string{"version"},
+				Value:  "0.2.0",
+				Guards: []patch.Guard{{Path: []string{"version"}, Value: "0.1.0"}},
+			})},
+		}
+		Expect(translator.Backward(ctx, MustSucceed(translator.Forward(ctx, req)))).
+			To(Equal(req))
 	})
 })

@@ -802,8 +802,35 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		return w.svc.cfg.Channel.Rename(ctx, renameMap)
-	})
+	for i, key := range keys {
+		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
+	}
+	if len(keys) > 0 {
+		count := len(w.svc.renames.Pending(w.tx))
+		gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+			return w.renameStored(ctx, count)
+		})
+	}
 	return nil
+}
+
+// rename is a new name for a channel.
+type rename struct {
+	key  Key
+	name string
+}
+
+// renameStored sends every rename in the transaction of w to storage in one call when
+// count is the number of renames in the transaction. Only the hook of the last rename
+// sends. It runs after the storage creates registered before that rename.
+func (w Writer) renameStored(ctx context.Context, count int) error {
+	renames := w.svc.renames.Pending(w.tx)
+	if len(renames) != count {
+		return nil
+	}
+	names := make(map[Key]string, len(renames))
+	for _, r := range renames {
+		names[r.key] = r.name
+	}
+	return w.svc.cfg.Channel.Rename(ctx, names)
 }

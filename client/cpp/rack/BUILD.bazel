@@ -56,3 +56,14 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":rack",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

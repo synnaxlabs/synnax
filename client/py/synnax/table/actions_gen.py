@@ -178,7 +178,7 @@ class SetPayload(BaseModel):
     """
 
     path: list[str] = Field(default_factory=list)
-    value: JsonValue
+    value: JsonValue | None = None
     guards: list[patch.Guard] = Field(default_factory=list)
 
 
@@ -208,7 +208,7 @@ class InsertPayload(BaseModel):
     """
 
     path: list[str] = Field(default_factory=list)
-    value: JsonValue
+    value: JsonValue | None = None
     after: str | None = None
     guards: list[patch.Guard] = Field(default_factory=list)
 

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
@@ -22,11 +23,13 @@ import (
 	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	grpcranger "github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -141,6 +144,31 @@ var _ = Describe("Dispatch", func() {
 			Key:     uuid.New().String(),
 			Actions: [][]byte{[]byte(`{"type": 1}`)},
 		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+
+	It("Should encode each action as JSON that decodes to the same action", func(
+		ctx SpecContext,
+	) {
+		translator := transport.RangeDispatch.(*fgrpc.UnaryServer[
+			ranger.DispatchRequest,
+			*grpcranger.DispatchRequest,
+			struct{},
+			*emptypb.Empty,
+		]).RequestTranslator.(fgrpc.Translator[
+			ranger.DispatchRequest,
+			*grpcranger.DispatchRequest,
+		])
+		req := ranger.DispatchRequest{
+			Key:         uuid.New(),
+			DispatchKey: "dk",
+			Actions: []svcranger.Action{svcranger.NewSetAction(svcranger.SetPayload{
+				Path:   []string{"name"},
+				Value:  "Cold flow",
+				Guards: []patch.Guard{{Path: []string{"name"}, Value: "Hot fire"}},
+			})},
+		}
+		Expect(translator.Backward(ctx, MustSucceed(translator.Forward(ctx, req)))).
+			To(Equal(req))
 	})
 })
 
