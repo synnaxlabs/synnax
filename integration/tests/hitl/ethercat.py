@@ -150,7 +150,7 @@ class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):
         with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             sy.sleep(self.TASK_DURATION)  # noqa: TID251 acquire for a fixed time
         counts = counter.read(sy.TimeRange(start, sy.TimeStamp.MAX)).to_numpy()
-        if len(counts) < 2 or len(set(counts)) < len(counts) // 2:
+        if len(set(counts)) < max(2, len(counts) // 2):
             raise AssertionError(
                 f"Expected the cycle counter to advance, but read {counts}"
             )
@@ -211,9 +211,12 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
         assert self.tsk is not None and self.command_values is not None
         expected = self.command_values[-1]
         states = [ch.state_channel for ch in self.tsk.config.channels]
+        # A state from before the last command can come from an earlier run of the task.
+        cmd = self.client.channels.retrieve(self.tsk.config.channels[0].cmd_channel)
+        sent = sy.TimeStamp(self.client.read_latest(cmd.index).to_numpy()[-1])
 
         def written() -> bool | None:
-            frame = self.client.read_latest(states)
+            frame = self.client.read(sy.TimeRange(sent, sy.TimeStamp.MAX), states)
             done = all(
                 len(frame[k]) > 0 and frame[k][-1] == v
                 for k, v in zip(states, expected, strict=True)
