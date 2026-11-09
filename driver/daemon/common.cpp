@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cerrno>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
 
 #include "absl/log/log.h"
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -38,6 +41,33 @@ x::errors::Error create_system_user() {
     return x::errors::NIL;
 }
 
+namespace {
+/// @brief a descriptor that closes itself.
+struct FD {
+    int fd = -1;
+    ~FD() {
+        if (this->fd >= 0) close(this->fd);
+    }
+};
+
+x::errors::Error errno_error(const std::string &action) {
+    return x::errors::Error(action + ": " + std::strerror(errno));
+}
+
+/// @brief copies all of in to out, retrying short writes.
+bool copy_all(const int in, const int out) {
+    char buf[65536];
+    ssize_t n = 0;
+    while ((n = read(in, buf, sizeof(buf))) > 0)
+        for (ssize_t off = 0; off < n;) {
+            const auto w = write(out, buf + off, static_cast<size_t>(n - off));
+            if (w < 0) return false;
+            off += w;
+        }
+    return n == 0;
+}
+}
+
 x::errors::Error install_binary(
     const fs::path &src,
     const fs::path &dst,
@@ -49,33 +79,32 @@ x::errors::Error install_binary(
     fs::create_directories(dst.parent_path(), ec);
     if (ec)
         return x::errors::Error("failed to create binary directory: " + ec.message());
-    constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-    // An install run from the installed binary would copy the file onto itself, which
-    // copy_file rejects. Skip the copy: the binary is already in place.
-    if (fs::exists(dst, ec) && fs::equivalent(src, dst, ec)) {
-        if (chown(dst.c_str(), uid, gid) != 0 || chmod(dst.c_str(), mode) != 0)
-            return x::errors::Error("failed to set binary permissions");
-        return x::errors::NIL;
-    }
+    FD dir{
+        open(dst.parent_path().c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+    };
+    if (dir.fd < 0) return errno_error("failed to open binary directory");
+    FD in{open(src.c_str(), O_RDONLY | O_CLOEXEC)};
+    if (in.fd < 0) return errno_error("failed to open binary");
+    // The service user may own the directory, so root never follows a link in it.
     // Renaming a complete copy over the old binary keeps it in place if the copy fails,
     // and avoids ETXTBSY when a process still runs the old binary.
-    fs::path tmp_path = dst;
-    tmp_path += "." + std::to_string(getpid()) + ".tmp";
-    fs::copy_file(src, tmp_path, fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-        const auto msg = ec.message();
-        fs::remove(tmp_path, ec);
-        return x::errors::Error("failed to copy binary: " + msg);
-    }
-    if (chown(tmp_path.c_str(), uid, gid) != 0 || chmod(tmp_path.c_str(), mode) != 0) {
-        fs::remove(tmp_path, ec);
-        return x::errors::Error("failed to set binary permissions");
-    }
-    fs::rename(tmp_path, dst, ec);
-    if (ec) {
-        const auto msg = ec.message();
-        fs::remove(tmp_path, ec);
-        return x::errors::Error("failed to replace binary: " + msg);
+    const auto name = dst.filename().string();
+    const auto tmp = name + "." + std::to_string(getpid()) + ".tmp";
+    unlinkat(dir.fd, tmp.c_str(), 0);
+    FD out{openat(
+        dir.fd,
+        tmp.c_str(),
+        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+        S_IRUSR | S_IWUSR
+    )};
+    if (out.fd < 0) return errno_error("failed to create binary copy");
+    constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+    if (!copy_all(in.fd, out.fd) || fchown(out.fd, uid, gid) != 0 ||
+        fchmod(out.fd, mode) != 0 || fsync(out.fd) != 0 ||
+        renameat(dir.fd, tmp.c_str(), dir.fd, name.c_str()) != 0) {
+        auto err = errno_error("failed to install binary");
+        unlinkat(dir.fd, tmp.c_str(), 0);
+        return err;
     }
     return x::errors::NIL;
 }
