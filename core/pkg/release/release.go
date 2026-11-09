@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"aead.dev/minisign"
 	"github.com/synnaxlabs/x/errors"
@@ -31,13 +32,16 @@ type Config struct {
 	URL string
 	// PublicKey is the minisign public key that checks each signature.
 	PublicKey string
+	// StallTimeout is how long Download waits for data before it fails.
+	StallTimeout time.Duration
 }
 
 // DefaultConfig gets the files of the Synnax releases on GitHub. Its key is the one
 // that the desktop Console updater checks.
 var DefaultConfig = Config{
-	URL:       "https://github.com/synnaxlabs/synnax/releases/download",
-	PublicKey: "RWQgxxfjVfpFyJKxsLvQ4hcTpvkSs4DJq0kIvcvdk49PTCCkovyHWZr1",
+	URL:          "https://github.com/synnaxlabs/synnax/releases/download",
+	PublicKey:    "RWQgxxfjVfpFyJKxsLvQ4hcTpvkSs4DJq0kIvcvdk49PTCCkovyHWZr1",
+	StallTimeout: time.Minute,
 }
 
 var (
@@ -64,7 +68,7 @@ func Download(
 		return errors.Wrap(err, "invalid release public key")
 	}
 	url := fmt.Sprintf("%s/%s/v%s/%s", cfg.URL, product, version, name)
-	sigBody, err := fetch(ctx, url+".sig")
+	sigBody, err := fetch(ctx, url+".sig", cfg.StallTimeout)
 	if err != nil {
 		return err
 	}
@@ -78,7 +82,7 @@ func Download(
 	if err != nil {
 		return errors.Wrapf(ErrSignature, "%s", url)
 	}
-	body, err := fetch(ctx, url)
+	body, err := fetch(ctx, url, cfg.StallTimeout)
 	if err != nil {
 		return err
 	}
@@ -103,22 +107,59 @@ func Download(
 	return nil
 }
 
-func fetch(ctx context.Context, url string) (io.ReadCloser, error) {
+// fetch returns the body of url. The request fails when no data arrives for stall.
+func fetch(
+	ctx context.Context,
+	url string,
+	stall time.Duration,
+) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	timer := time.AfterFunc(stall, func() {
+		cancel(errors.Newf("failed to download %s: no data for %s", url, stall))
+	})
+	r := &stallReader{cancel: cancel, timer: timer, stall: stall}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, r.Close())
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, r.Close())
 	}
+	r.ReadCloser = res.Body
 	switch res.StatusCode {
 	case http.StatusOK:
-		return res.Body, nil
+		return r, nil
 	case http.StatusNotFound:
 		err = errors.Wrapf(ErrNotFound, "%s", url)
 	default:
 		err = errors.Newf("failed to download %s: %s", url, res.Status)
 	}
-	return nil, errors.Combine(err, res.Body.Close())
+	return nil, errors.Combine(err, r.Close())
+}
+
+// stallReader reads a response body and cancels its request when no data arrives for
+// stall.
+type stallReader struct {
+	io.ReadCloser
+	cancel context.CancelCauseFunc
+	timer  *time.Timer
+	stall  time.Duration
+}
+
+func (r *stallReader) Read(p []byte) (int, error) {
+	n, err := r.ReadCloser.Read(p)
+	if n > 0 {
+		r.timer.Reset(r.stall)
+	}
+	return n, err
+}
+
+func (r *stallReader) Close() (err error) {
+	r.timer.Stop()
+	r.cancel(nil)
+	if r.ReadCloser != nil {
+		err = r.ReadCloser.Close()
+	}
+	return err
 }
