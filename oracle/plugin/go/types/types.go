@@ -255,6 +255,10 @@ type predecessor struct {
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
+	// names maps an aliased type's qualified name to the Go name the predecessor
+	// package declares. A frozen package declares its version file's name, which a
+	// live @go name does not change.
+	names map[string]string
 }
 
 // AliasedTypes returns the qualified names of all types that alias their predecessor
@@ -586,7 +590,8 @@ func renderGoFile(
 				predAlias = naming.DerivePackageName(pred.path)
 				imports.AddInternal(predAlias, resolveGoImportPath(pred.path, repoRoot))
 			}
-			for _, a := range buildAliasDecls(d, predAlias, data) {
+			target := pred.names[d.typ.QualifiedName]
+			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
 			continue

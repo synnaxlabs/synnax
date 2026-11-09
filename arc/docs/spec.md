@@ -132,7 +132,8 @@ TypeCast ::= Type '(' Expression ')'
 - Narrowing (e.g., `i8(i64_val)`) truncates
 - Signed ↔ Unsigned saturates at bounds
 - Float → Integer truncates toward zero, saturates on overflow
-- Integer overflow uses two's-complement wrapping
+- Integer overflow uses two's-complement wrapping. An expression made only of integer
+  literals that overflows its type is a compile error (`ARC6001`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -295,6 +296,39 @@ length := len(data) // 3 (i64)
 msg := "hello"
 chars := len(msg) // 5 (i64)
 current := now() // current timestamp (i64 ns)
+```
+
+## NaN and infinity
+
+A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x != x` is
+true only for NaN. The `math` module has these members. They are not keywords, so a
+channel or a variable can use the name `nan` or `inf`.
+
+- `math.is_nan(x)` - Returns `true` if `x` is NaN
+- `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
+- `math.nan` - The NaN value
+- `math.inf` - The positive infinity value. `-math.inf` is negative infinity
+
+The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
+literal is read as a float. The constants act like a float literal: they fit `f32` or
+`f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
+error. In a flow, write a constant in parentheses: `x -> (math.nan) -> y`.
+`x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is
+always `false`, so each fails with error ARC2004: test with `math.is_nan(x)` or
+`not math.is_nan(x)`.
+
+```arc
+import math
+
+sequence main {
+    stage spin_down {
+        not math.is_finite(pump_speed) or pump_speed < 15 => next
+    }
+    stage stopped {
+        1 -> pump_stopped
+    }
+}
 ```
 
 ## Functions
@@ -776,10 +810,15 @@ These simplify implementation while maintaining expressiveness:
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
 - **Operands**: Non-`bool` logical operands
+- **Constants**: An expression made only of integer literals that overflows its type
+  (`ARC6001`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`ARC6002`), such as `x := 1 / 0`. A negated literal is one signed value, so
+  `x i8 := -128` fits. A cast passes a constant through only when the target type holds
+  it. Float arithmetic follows IEEE 754 and is never a constant error.
 
 ### Runtime errors
 
-- **Arithmetic**: Division/modulo by zero
+- **Arithmetic**: Integer division/modulo by a zero that is not constant
 - **Array/String**: Out-of-bounds access, length mismatch in series operations
 - **Channel**: Type mismatches (if not statically verified)
 
