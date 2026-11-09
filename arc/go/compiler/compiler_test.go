@@ -1683,6 +1683,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string, expected uint64) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
@@ -1694,8 +1695,8 @@ var _ = Describe("Compiler", func() {
 				results := MustSucceed(guard.Call(ctx))
 				Expect(results).To(ConsistOf(expected))
 			},
-			Entry("false and", "false and (i32(1) / i32(0)) > i32(0)", uint64(0)),
-			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
+			Entry("false and", "false and (i32(1) / zero) > i32(0)", uint64(0)),
+			Entry("true or", "true or (i32(1) / zero) > i32(0)", uint64(1)),
 		)
 
 		DescribeTable(
@@ -1703,6 +1704,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
@@ -1713,8 +1715,8 @@ var _ = Describe("Compiler", func() {
 				).Error().
 					To(MatchError(ContainSubstring("integer divide by zero")))
 			},
-			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
-			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),
+			Entry("true and", "true and (i32(1) / zero) > i32(0)"),
+			Entry("false or", "false or (i32(1) / zero) > i32(0)"),
 		)
 	})
 
