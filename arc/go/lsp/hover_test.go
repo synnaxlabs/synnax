@@ -192,6 +192,22 @@ var _ = Describe("Hover", func() {
 			},
 		)
 
+		It("should provide hover for 'math.is_nan'", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return math.is_nan(x)\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 18},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.is_nan"))
+			Expect(
+				HoverContents(hover),
+			).To(ContainSubstring("true if a float value is NaN"))
+		})
+
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
 			content := "import math\n\nsensor -> math.avg() -> output"
 			OpenArcDocument(server, ctx, uri, content)

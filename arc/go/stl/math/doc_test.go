@@ -14,21 +14,27 @@ import (
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/doc"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // hoverExamples returns one table entry for each Arc code block in the hover docs of
-// the math module and its members.
-func hoverExamples() []TableEntry {
-	var entries []TableEntry
+// the math module and its members, and the names of the members that have one.
+func hoverExamples() ([]TableEntry, set.Set[string]) {
+	var (
+		entries []TableEntry
+		names   = make(set.Set[string])
+	)
 	add := func(name string, d doc.Doc) {
 		for i, block := range d.Blocks() {
 			if code, ok := strings.CutPrefix(block.Render(), "```arc\n"); ok {
+				names.Add(name)
 				entries = append(entries, Entry(
 					fmt.Sprintf("%s block %d", name, i),
 					strings.TrimSuffix(code, "\n```"),
@@ -45,7 +51,7 @@ func hoverExamples() []TableEntry {
 			add("math."+member.Name, member.Doc)
 		}
 	}
-	return entries
+	return entries, names
 }
 
 // newExampleRoot returns a root with the channels the hover examples use.
@@ -65,6 +71,20 @@ func newExampleRoot() *symbol.Symbol {
 }
 
 var _ = Describe("Hover examples", func() {
+	entries, names := hoverExamples()
+
+	It("Should find an example for every documented member", func() {
+		Expect(names).To(Equal(set.New(
+			"math.avg",
+			"math.min",
+			"math.max",
+			"math.derivative",
+			"math.is_nan",
+			"math.is_infinite",
+			"math.is_finite",
+		)))
+	})
+
 	DescribeTable("Should compile",
 		func(ctx SpecContext, code string) {
 			MustSucceed(arc.CompileText(
@@ -73,6 +93,6 @@ var _ = Describe("Hover examples", func() {
 				newExampleRoot(),
 			))
 		},
-		hoverExamples(),
+		entries,
 	)
 })

@@ -486,8 +486,7 @@ func (s *Server) getCompletionItems(
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
 		// functions, constants, and module-qualified members alongside the
-		// stage keyword. ExecWASM-only functions are filtered out by the
-		// execFilter below.
+		// stage keyword.
 		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
@@ -524,12 +523,10 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation {
+		// A flow expression can call a WASM function, so only a func body filters.
 		var execFilter symbol.ExecContext
-		switch nesting {
-		case NestingFunction:
+		if nesting == NestingFunction {
 			execFilter = symbol.ExecWASM
-		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
-			execFilter = symbol.ExecFlow
 		}
 		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
 		startChar := pos.Character - uint32(len(prefix))

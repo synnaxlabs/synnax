@@ -1098,6 +1098,40 @@ var _ = Describe("Completion", func() {
 				"Internal symbol math.add should not appear in module-qualified completion")
 		})
 
+		DescribeTable(
+			"Should complete float checks and constants",
+			func(ctx SpecContext, content string, line, col int) {
+				server = MustSucceed(
+					lsp.New(
+						lsp.Config{
+							NewRoot: func() *symbol.Symbol { return NewRoot(nil) },
+						},
+					),
+				)
+				server.SetClient(&MockClient{})
+				OpenArcDocument(server, ctx, docURI, content)
+
+				completions := Completion(
+					server,
+					ctx,
+					docURI,
+					uint32(line),
+					uint32(col),
+				)
+				check, found := FindCompletion(completions.Items, "is_nan")
+				Expect(found).To(BeTrue())
+				Expect(ItemTextEdit(check).NewText).To(Equal("math.is_nan($0)"))
+			},
+			Entry("in a flow", "math.", 0, 5),
+			Entry("in a func body", "func f() {\n    x := math.\n}", 1, 14),
+			Entry(
+				"in a stage",
+				"sequence s {\n    stage a {\n        math.\n    }\n}",
+				2,
+				13,
+			),
+		)
+
 		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
 			server = MustSucceed(
 				lsp.New(
