@@ -18,6 +18,10 @@ import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   running: z.ZodBoolean;
   cmd: z.ZodDefault<z.ZodString>;
@@ -54,6 +58,15 @@ export const keyedConfigZ = z.object({
   key: z.uuid().default(uuid.create),
 });
 export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
+
+/** Order is a sort of tasks. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -235,6 +248,15 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
+/** Cursor is a position in an order of tasks: the sort value and the key of a task. */
+export const cursorZ = z.object({
+  /** key is the key of the task at the position. */
+  key: keyZ,
+  /** name is the name of the task at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -290,6 +312,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the tasks that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the tasks. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the tasks strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most tasks to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching tasks to skip. */

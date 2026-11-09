@@ -18,12 +18,57 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Cursor is a position in an order of policies: the sort value and the key of a policy.
+type Cursor struct {
+	// Key is the key of the policy at the position.
+	Key rbacpolicy.Key `json:"key" msgpack:"key"`
+	// Name is the name of the policy at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that policies can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the policies by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of policies.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
+
 // RetrieveRequest is a request to retrieve policies.
 type RetrieveRequest struct {
 	// Where selects the policies to retrieve. An absent where selects all of them.
 	Where *rbacpolicy.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the policies that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the policies. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the policies strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most policies to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching policies to skip.
@@ -36,6 +81,9 @@ func (r RetrieveRequest) Validate() error {
 	v := validate.New("RetrieveRequest")
 	if r.Where != nil {
 		v.Exec(func() error { return validate.PathedError(r.Where.Validate(), "where") })
+	}
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
 	}
 	return v.Error()
 }

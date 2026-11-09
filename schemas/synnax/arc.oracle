@@ -67,6 +67,7 @@ Base struct {
     name      string {
         @doc value         "is a human-readable name for the module."
         @filter
+        @index sorted
         @search
         @validate required
     }

@@ -34,8 +34,12 @@ namespace synnax::device {
 
 struct StatusDetails;
 struct Where;
+struct Cursor;
+struct Order;
 struct RetrieveRequest;
 struct RetrieveResponse;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 using Key = std::string;
 
@@ -116,53 +120,42 @@ struct Where {
     from_proto(const ::service::device::pb::Where &pb);
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Cursor is a position in an order of devices: the sort value and the key of a
+/// device.
+struct Cursor {
+    /// @brief key is the key of the device at the position.
+    Key key;
+    /// @brief name is the name of the device at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the devices that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most devices to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching devices to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
-
-/// @brief RetrieveRequest is a request to retrieve devices.
-struct RetrieveRequest {
-    /// @brief where selects the devices to retrieve. An absent where selects all of
-    /// them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the devices that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most devices to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching devices to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .limit = options.limit,
-            .offset = options.offset,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::device::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::device::pb::Cursor;
+    [[nodiscard]] std::pair<::api::device::pb::Cursor, x::errors::Error>
     to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::device::pb::RetrieveRequest &pb);
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::device::pb::Cursor &pb);
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Order is a sort of devices.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::Order;
+    [[nodiscard]] std::pair<::api::device::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::device::pb::Order &pb);
 };
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
@@ -202,6 +195,63 @@ struct Device {
     to_proto() const;
     static std::pair<Device, x::errors::Error>
     from_proto(const ::service::device::pb::Device &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching devices to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching devices to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .offset = options.offset,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::device::pb::RetrieveRequest &pb);
 };
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.

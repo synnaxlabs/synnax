@@ -16,6 +16,19 @@ import { access } from "@/access/action";
 import { role } from "@/access/role";
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of policies. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -72,6 +85,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** roles matches the policies of any of the given roles. */
   roles: zod.nullToUndefined(role.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of policies: the sort value and the key of a policy.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the policy at the position. */
+  key: keyZ,
+  /** name is the name of the policy at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export interface New extends z.input<typeof policyZ> {}
 
 /** RetrieveResponse holds the policies a RetrieveRequest selects. */
@@ -87,6 +111,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the policies that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the policies. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the policies strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most policies to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching policies to skip. */

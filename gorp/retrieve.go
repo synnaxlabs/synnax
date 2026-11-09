@@ -13,11 +13,13 @@ package gorp
 import (
 	"bytes"
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -50,6 +52,9 @@ type Retrieve[K Key, E Entry[K]] struct {
 	// orderBy drives ordered iteration via a SortedIndex. Nil means
 	// keyspace order.
 	orderBy OrderQuery[K, E]
+	// after starts a keyspace-order query strictly past this key. Nil starts at the
+	// first key.
+	after *K
 	// validators run after entries are collected; a non-nil return
 	// aborts Exec with that error.
 	validators []Validator[K, E]
@@ -145,10 +150,27 @@ func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
 
+// After starts the query strictly past key in keyspace order, so a page can resume
+// after the last key of the previous one. The key need not have an entry. After panics
+// on a query with an OrderBy, since an OrderQuery carries its own cursor.
+func (r Retrieve[K, E]) After(key K) Retrieve[K, E] {
+	if r.hasOrderBy() {
+		panic(errCursorWithOrder)
+	}
+	r.after = &key
+	return r
+}
+
+const errCursorWithOrder = "gorp: After cannot combine with OrderBy"
+
 // OrderBy walks the results in the order defined by the given OrderQuery,
-// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(cursor)
-// chained for cursor-based pagination). Combine with Limit for paged walks.
+// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(value, key)
+// chained for cursor-based pagination). Combine with Limit for paged walks. OrderBy
+// panics on a query with an After.
 func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
+	if r.after != nil {
+		panic(errCursorWithOrder)
+	}
 	r.orderBy = o
 	return r
 }
@@ -312,7 +334,9 @@ func (r Retrieve[K, E]) Count(
 	}
 
 	reader := wrapReader[K, E](snap, r.keyPrefix)
-	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := reader.OpenIterator(
+		IterOptions{prefix: r.prefix, after: r.encodedAfter()},
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -405,8 +429,10 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 		capacity = min(capacity, r.limit)
 	}
 	// An index returns its keys in no fixed order, so a page follows storage order.
-	if (r.limit > 0 || r.offset > 0) && !r.IsBareKeys() && !r.filter.keys.Ranked() {
-		keys = storageOrder(keys)
+	if r.after != nil {
+		keys = storageOrder(keys, r.after)
+	} else if (r.limit > 0 || r.offset > 0) && !r.IsBareKeys() && !r.filter.keys.Ranked() {
+		keys = storageOrder(keys, nil)
 	}
 	r.entries.ensureCap(capacity)
 	for _, k := range keys {
@@ -445,8 +471,19 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 	return notFound, r.runValidators(gorpCtx, r.entries.All())
 }
 
-// storageOrder returns a copy of keys in the order a table scan visits them.
-func storageOrder[K Key](keys []K) []K {
+// encodedAfter returns the encoded form of the keyspace cursor, or nil when the query
+// has none.
+func (r Retrieve[K, E]) encodedAfter() []byte {
+	if r.after == nil {
+		return nil
+	}
+	codec := key.NewCodec[K](nil)
+	return bytes.Clone(codec.Encode(*r.after))
+}
+
+// storageOrder returns a copy of keys in the order a table scan visits them. A non-nil
+// after drops the keys that a scan visits at or before it.
+func storageOrder[K Key](keys []K, after *K) []K {
 	type encoded struct {
 		key        K
 		start, end int
@@ -464,9 +501,15 @@ func storageOrder[K Key](keys []K) []K {
 	slices.SortFunc(pairs, func(a, b encoded) int {
 		return bytes.Compare(raw[a.start:a.end], raw[b.start:b.end])
 	})
-	sorted := make([]K, len(pairs))
-	for i, p := range pairs {
-		sorted[i] = p.key
+	sorted := make([]K, 0, len(pairs))
+	var bound []byte
+	if after != nil {
+		bound = bytes.Clone(codec.Encode(*after))
+	}
+	for _, p := range pairs {
+		if bound == nil || bytes.Compare(raw[p.start:p.end], bound) > 0 {
+			sorted = append(sorted, p.key)
+		}
 	}
 	return sorted
 }
@@ -478,7 +521,9 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 		gorpCtx    = newContext(ctx, snap)
 	)
 	reader := wrapReader[K, E](snap, r.keyPrefix)
-	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := reader.OpenIterator(
+		IterOptions{prefix: r.prefix, after: r.encodedAfter()},
+	)
 	if err != nil {
 		return err
 	}
@@ -527,37 +572,37 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 	return err
 }
 
-// execOrdered walks the configured OrderQuery, fetching entries per-key
-// in walk order. Any Where filter is applied as a post-filter against
-// each fetched entry.
+// minWalkBatch is the fewest keys an ordered walk takes from its index at a time, so a
+// filter that rejects most entries does not cost one index lock per entry.
+const minWalkBatch = 128
+
+// execOrdered walks the configured OrderQuery, fetching entries per-key in walk order
+// and matching each against the filter until it collects the limit.
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
-	if r.orderBy == nil {
-		return nil
-	}
-	keys := r.orderBy.walkOrder(r.limit)
-	if len(keys) == 0 {
-		if r.entries.isMultiple {
-			r.entries.replace(nil)
-			return nil
-		}
-		if !r.entries.Bound() {
-			return nil
-		}
-		return errors.Wrapf(
-			query.ErrNotFound,
-			"no %s found matching query",
-			types.PluralName[E](),
-		)
-	}
 	var (
-		reader   = wrapReader[K, E](snap, r.keyPrefix)
-		filtered = make([]E, 0, len(keys))
-		gorpCtx  = newContext(ctx, snap)
-		e        E
-		zero     E
+		reader  = wrapReader[K, E](snap, r.keyPrefix)
+		matched = make([]E, 0, min(r.offset+r.limit, minWalkBatch))
+		counted = set.New[K]()
+		moved   = make(map[K]E)
+		gorpCtx = newContext(ctx, snap)
+		batch   int
+		bounded []K
 	)
-	for _, k := range keys {
-		e = zero
+	if r.HasFilterKeys() {
+		bounded = r.filter.keys.Keys()
+	}
+	if r.limit > 0 {
+		batch = max(r.offset+r.limit, minWalkBatch)
+	}
+	// One snapshot of the index finds each key once, so the walk keeps an entry that
+	// moved after the snapshot and sorts it into place at the end.
+	snapshot := r.HasFilterKeys() || batch == 0
+	for k, holds := range r.orderBy.walk(bounded, batch) {
+		// A commit between two batches can move a counted key ahead of the walk.
+		if counted.Contains(k) {
+			continue
+		}
+		var e E
 		b, closer, err := reader.get(ctx, k, &e)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
@@ -565,30 +610,47 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			}
 			return err
 		}
-		match, mErr := r.match(gorpCtx, &e, nil, b)
-		if mErr != nil {
-			return errors.Combine(mErr, closer.Close())
+		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
+		if cErr := closer.Close(); mErr != nil || cErr != nil {
+			return errors.Combine(mErr, cErr)
 		}
-		if match {
-			filtered = append(filtered, e)
+		if !match {
+			continue
 		}
-		if cErr := closer.Close(); cErr != nil {
-			return cErr
+		if snapshot {
+			matched = append(matched, e)
+			continue
+		}
+		// A commit between the walk and the read can move the entry, so it is sorted
+		// into place at the end by the value it holds now.
+		if !holds(&e) {
+			moved[k] = e
+			continue
+		}
+		counted.Add(k)
+		delete(moved, k)
+		matched = append(matched, e)
+		if r.limit > 0 && len(matched) == r.offset+r.limit {
+			break
 		}
 	}
-	r.entries.replace(filtered)
+	if snapshot || len(moved) > 0 {
+		matched = r.orderBy.sort(append(matched, slices.Collect(maps.Values(moved))...))
+	}
+	matched = matched[min(r.offset, len(matched)):]
+	if r.limit > 0 {
+		matched = matched[:min(r.limit, len(matched))]
+	}
+	r.entries.replace(matched)
 	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
 		return vErr
 	}
-	if r.entries.isMultiple || !r.entries.Bound() {
+	if r.entries.isMultiple || !r.entries.Bound() || len(matched) > 0 {
 		return nil
 	}
-	if len(filtered) == 0 {
-		return errors.Wrapf(
-			query.ErrNotFound,
-			"no %s found matching query",
-			types.PluralName[E](),
-		)
-	}
-	return nil
+	return errors.Wrapf(
+		query.ErrNotFound,
+		"no %s found matching query",
+		types.PluralName[E](),
+	)
 }

@@ -820,6 +820,31 @@ var _ = Describe("Service", func() {
 				})).To(ConsistOf(byAlias.Key(), byName.Key()))
 			})
 
+			DescribeTable("Should reject a request that a search cannot answer", func(
+				ctx SpecContext,
+				req apichannel.RetrieveRequest,
+				msg string,
+			) {
+				req.Where, req.SearchTerm = both, term
+				Expect(retrieveChannels(
+					AuthedCtx(ctx, author),
+					apichannel.AliasedRetrieveRequest{Request: req, RangeKey: &rng.Key},
+				)).Error().To(MatchError(msg))
+			},
+				Entry(
+					"an order",
+					apichannel.RetrieveRequest{
+						Order: &apichannel.Order{Field: apichannel.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"a cursor",
+					apichannel.RetrieveRequest{After: &apichannel.Cursor{Key: 1}},
+					"after: a search cannot resume after a position: validation error",
+				),
+			)
+
 			It("Should return no channel for a zero limit", func(ctx SpecContext) {
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,

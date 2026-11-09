@@ -88,6 +88,13 @@ func (r Retrieve[D]) Offset(offset int) Retrieve[D] {
 	return r
 }
 
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve[D]) After(key Key) Retrieve[D] {
+	r.gorp = r.gorp.After(key)
+	return r
+}
+
 // SkipMissingKeys makes Exec treat a key with no status as a non-match instead of
 // returning query.ErrNotFound.
 func (r Retrieve[D]) SkipMissingKeys() Retrieve[D] {

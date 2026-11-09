@@ -292,6 +292,7 @@ LinePlot struct {
     }
     name     string       {
         @doc value         "is a human-readable name for the line plot."
+        @index sorted
         @search
         @validate required
     }

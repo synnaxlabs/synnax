@@ -349,6 +349,21 @@ func (s *Service) match(
 		}
 		return res, nil
 	}
+	if r.Order != nil {
+		return nil, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+			"order",
+		)
+	}
+	if r.After != nil {
+		return nil, validate.PathedError(
+			errors.Wrap(
+				validate.ErrValidation,
+				"a search cannot resume after a position",
+			),
+			"after",
+		)
+	}
 	// The alias search pages the merged list, so the query carries only the where.
 	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {

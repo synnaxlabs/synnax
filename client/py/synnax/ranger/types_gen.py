@@ -21,7 +21,26 @@ from synnax.resource import ID
 from x import color as color_, filter, telem
 from x.filter import shorthand
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+ORDER_FIELD_TIME_RANGE_START: Literal["time_range_start"] = "time_range_start"
+
+
+OrderField = Literal["name", "time_range_start"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of ranges.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Payload(BaseModel):
@@ -101,6 +120,23 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of ranges: the sort value and the key of a range.
+
+    Attributes:
+        key: Is the key of the range at the position.
+        name: Is the name of the range at the position, when the order sorts by it.
+        time_range_start: Is the time range start of the range at the position, when the
+            order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+    time_range_start: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
 class KeyRef(BaseModel):
     """Is a range saved in the Core."""
 
@@ -139,6 +175,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the ranges to retrieve. An absent where selects all of them.
         search_term: Keeps the ranges that match the term, closest match first.
+        order: Sorts the ranges. An absent order sorts them by key.
+        after: Starts the ranges strictly past this position in their order.
         limit: Is the most ranges to return.
         offset: Is the number of matching ranges to skip.
     """
@@ -147,6 +185,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
 

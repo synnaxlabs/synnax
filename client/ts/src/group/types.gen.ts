@@ -14,6 +14,19 @@ import { z } from "zod";
 
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of groups. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -72,6 +85,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   nested: z.boolean().optional(),
 });
 
+/**
+ * Cursor is a position in an order of groups: the sort value and the key of a group.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the group at the position. */
+  key: keyZ,
+  /** name is the name of the group at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /** RetrieveResponse holds the groups a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({
   /** groups are the groups the request selects. */
@@ -85,6 +109,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the groups that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the groups. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the groups strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most groups to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching groups to skip. */

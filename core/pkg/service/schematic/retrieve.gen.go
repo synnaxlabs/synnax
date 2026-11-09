@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Schematic table for references. Pass it as
@@ -36,6 +37,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name     *gorp.SortedIndex[Key, Schematic, string]
 	group    *gorp.KeyReference[Key, Schematic, group.Key]
 	project  *gorp.KeyReference[Key, Schematic, project.Key]
 	rangeVal *gorp.KeyReference[Key, Schematic, ranger.Key]
@@ -47,6 +49,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Schematic, string](
+			"name",
+			func(e *Schematic) string { return compare.TextKey(string(e.Name)) },
+		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, group.Key]{
 			Name:     "group",
 			Table:    "group",
@@ -97,6 +103,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Schematic] {
 	return []gorp.Index[Key, Schematic]{
+		i.name,
 		i.search,
 	}
 }
@@ -116,6 +123,37 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Schematic] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Schematic]
+
+// OrderBy walks the schematics in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Schematic] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Schematic] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -278,6 +316,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 

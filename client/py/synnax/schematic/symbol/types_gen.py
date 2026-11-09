@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict, override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -20,6 +20,11 @@ from synnax import group as group_
 from synnax.resource import ID
 from x import color, filter, spatial
 from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
@@ -55,6 +60,18 @@ class Handle(BaseModel):
     key: str
     position: spatial.XY
     orientation: spatial.OuterLocation
+
+
+class Order(BaseModel):
+    """Is a sort of symbols.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Where(BaseModel):
@@ -100,6 +117,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of symbols: the sort value and the key of a symbol.
+
+    Attributes:
+        key: Is the key of the symbol at the position.
+        name: Is the name of the symbol at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class State(BaseModel):
     """Is a named visual state of a symbol with regional styling configurations.
 
@@ -120,6 +149,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the symbols to retrieve. An absent where selects all of them.
         search_term: Keeps the symbols that match the term, closest match first.
+        order: Sorts the symbols. An absent order sorts them by key.
+        after: Starts the symbols strictly past this position in their order.
         limit: Is the most symbols to return.
         offset: Is the number of matching symbols to skip.
     """
@@ -128,6 +159,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
 

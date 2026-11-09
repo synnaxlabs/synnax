@@ -17,18 +17,43 @@ import "core/pkg/service/legacy/device/pb/device.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/device/pb";
 
+// OrderField is a field that devices can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
+// Cursor is a position in an order of devices: the sort value and the key of a device.
+message Cursor {
+  // key is the key of the device at the position.
+  string key = 1;
+  // name is the name of the device at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of devices.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
+}
+
 // RetrieveRequest is a request to retrieve devices.
 message RetrieveRequest {
   // where selects the devices to retrieve. An absent where selects all of them.
   optional .service.device.pb.Where where = 1;
   // search_term keeps the devices that match the term, closest match first.
   string search_term = 2;
+  // order sorts the devices. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the devices strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most devices to return.
-  optional uint32 limit = 3;
+  optional uint32 limit = 5;
   // offset is the number of matching devices to skip.
-  uint32 offset = 4;
+  uint32 offset = 6;
   // include_status includes the status of each record.
-  bool include_status = 5;
+  bool include_status = 7;
 }
 
 // RetrieveResponse holds the devices a RetrieveRequest selects.

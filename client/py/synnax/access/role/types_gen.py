@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict, override as _override
+from typing import Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,7 +19,24 @@ from pydantic import BaseModel, ConfigDict, Field
 from synnax.resource import ID
 from x import filter
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of roles.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Role(BaseModel):
@@ -83,6 +100,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of roles: the sort value and the key of a role.
+
+    Attributes:
+        key: Is the key of the role at the position.
+        name: Is the name of the role at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class RetrieveResponse(BaseModel):
     """Holds the roles a RetrieveRequest selects.
 
@@ -99,6 +128,8 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the roles to retrieve. An absent where selects all of them.
         search_term: Keeps the roles that match the term, closest match first.
+        order: Sorts the roles. An absent order sorts them by key.
+        after: Starts the roles strictly past this position in their order.
         limit: Is the most roles to return.
         offset: Is the number of matching roles to skip.
     """
@@ -107,6 +138,8 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     offset: int = Field(default=0, ge=0, le=4294967295)
 

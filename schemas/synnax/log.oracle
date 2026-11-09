@@ -77,6 +77,7 @@ Log struct {
     }
     name                 string         {
         @doc value         "is a human-readable name for the log."
+        @index sorted
         @search
         @validate required
     }

@@ -478,6 +478,25 @@ var _ = Describe("Retrieve", func() {
 					Expect(res).To(HaveLen(2))
 				},
 			)
+
+			It(
+				"Should return nothing when the cursor sorts past the prefix",
+				func(ctx SpecContext) {
+					es := []prefixEntry{{ID: 1, Data: "a"}, {ID: 2, Data: "b"}}
+					Expect(
+						gorp.NewCreate[string, prefixEntry]().Entries(&es).
+							Exec(ctx, tx),
+					).To(Succeed())
+					var res []prefixEntry
+					Expect(gorp.NewRetrieve[string, prefixEntry]().
+						WherePrefix([]byte("prefix-1")).
+						After("prefix-2").
+						Entries(&res).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 
@@ -658,6 +677,87 @@ var _ = Describe("Retrieve", func() {
 						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 					Expect(res).To(Equal([]entry{entries[1]}))
 				})
+		})
+
+		Describe("After", func() {
+			BeforeEach(func(ctx SpecContext) {
+				more := make([]entry, 300)
+				for i := range more {
+					more[i] = entry{ID: int32(1000 + i), Data: "data"}
+				}
+				Expect(
+					gorp.NewCreate[int32, entry]().Entries(&more).Exec(ctx, tx),
+				).To(Succeed())
+			})
+
+			It("Should start a scan strictly past the key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					After(1001).
+					Limit(2).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1002, Data: "data"},
+					{ID: 1003, Data: "data"},
+				}))
+			})
+
+			It("Should start past a key with no entry", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					After(999).
+					Limit(1).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{{ID: 1000, Data: "data"}}))
+			})
+
+			It("Should return nothing past the last key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					After(1299).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(BeEmpty())
+			})
+
+			It("Should page through a key filter", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.And(
+						gorp.MatchKeys[int32, entry](1005, 1001, 1003, 1002),
+						gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
+							return e.ID != 1003, nil
+						}),
+					)).
+					After(1001).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1002, Data: "data"},
+					{ID: 1005, Data: "data"},
+				}))
+			})
+
+			It("Should drop the filter keys up to the key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1005, 1000, 1001, 1003)).
+					After(1001).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1003, Data: "data"},
+					{ID: 1005, Data: "data"},
+				}))
+			})
+
+			It("Should count only the entries past the key", func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					After(1289).
+					Count(ctx, tx)).To(Equal(10))
+			})
 		})
 
 		Describe("Offset", func() {

@@ -127,6 +127,7 @@ Panel struct {
     }
     name    string       {
         @doc value         "is a human-readable name for the panel."
+        @index sorted
         @search
         @validate required
     }

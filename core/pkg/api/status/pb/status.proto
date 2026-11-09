@@ -17,16 +17,41 @@ import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/status/pb";
 
+// OrderField is a field that statuses can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
+// Cursor is a position in an order of statuses: the sort value and the key of a status.
+message Cursor {
+  // key is the key of the status at the position.
+  string key = 1;
+  // name is the name of the status at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of statuses.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
+}
+
 // RetrieveRequest is a request to retrieve statuses.
 message RetrieveRequest {
   // where selects the statuses to retrieve. An absent where selects all of them.
   optional .service.status.pb.Where where = 1;
   // search_term keeps the statuses that match the term, closest match first.
   string search_term = 2;
+  // order sorts the statuses. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the statuses strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most statuses to return.
-  optional uint32 limit = 3;
+  optional uint32 limit = 5;
   // offset is the number of matching statuses to skip.
-  uint32 offset = 4;
+  uint32 offset = 6;
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.
