@@ -48,6 +48,6 @@ class Float(float):
         return core_schema.no_info_plain_validator_function(
             cls,
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda v: Float(v).encode()
+                lambda v: Float(v).encode(), when_used="json"
             ),
         )

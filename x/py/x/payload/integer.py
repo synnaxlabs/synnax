@@ -41,7 +41,7 @@ class _Decimal(int):
         return core_schema.no_info_plain_validator_function(
             cls,
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda v: str(int(v))
+                lambda v: str(int(v)), when_used="json"
             ),
         )
 

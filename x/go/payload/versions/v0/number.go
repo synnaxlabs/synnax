@@ -16,6 +16,7 @@ import (
 
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Float is a 64-bit float. It is a JSON number when finite, and the text "NaN",
@@ -70,11 +71,19 @@ func (f *Float) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		case "-Infinity":
 			*f = Float(math.Inf(-1))
 		default:
-			return errors.Newf(`cannot decode a float from %q`, s)
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot decode a float from %q",
+				s,
+			)
 		}
 		return nil
 	default:
-		return errors.Newf("cannot decode a float from JSON %s", tok.Kind().String())
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot decode a float from JSON %s",
+			tok.Kind().String(),
+		)
 	}
 }
 

@@ -12,8 +12,8 @@ import { z } from "zod";
 
 import { payload } from "@/payload";
 
-describe("payload.Float", () => {
-  describe("decode", () => {
+describe("payload", () => {
+  describe("floatZ", () => {
     it.each([
       [1.5, 1.5],
       ["NaN", NaN],
@@ -26,9 +26,7 @@ describe("payload.Float", () => {
     it.each(["inf", "1.5", true, null])("should reject %s", (input) => {
       expect(payload.floatZ.safeParse(input).success).toBe(false);
     });
-  });
 
-  describe("encode", () => {
     it.each([
       [1.5, 1.5],
       [NaN, "NaN"],
@@ -38,13 +36,43 @@ describe("payload.Float", () => {
       expect(z.encode(payload.floatZ, input)).toBe(expected);
     });
 
+    it("should parse a decoded non-finite fill again", () => {
+      const read = payload.floatReadZ.parse({ enumValues: [], fill: "-Infinity" });
+      expect(payload.floatReadZ.parse(read).fill).toBe(-Infinity);
+    });
+
     it("should encode a non-finite fill inside a read", () => {
       const read = payload.floatReadZ.parse({ enumValues: [], fill: "-Infinity" });
-      expect(read.fill).toBe(-Infinity);
       expect(z.encode(payload.floatReadZ, read)).toEqual({
         enumValues: [],
         fill: "-Infinity",
       });
+    });
+  });
+
+  describe("integerZ", () => {
+    it.each(["0", "-9223372036854775808", "9223372036854775807"])(
+      "should accept %s",
+      (input) => {
+        expect(payload.integerZ.parse(input)).toBe(input);
+      },
+    );
+
+    it.each(["abc", "1.5", "", " 1", "9223372036854775808", 1])(
+      "should reject %s",
+      (input) => {
+        expect(payload.integerZ.safeParse(input).success).toBe(false);
+      },
+    );
+  });
+
+  describe("unsignedZ", () => {
+    it.each(["0", "18446744073709551615"])("should accept %s", (input) => {
+      expect(payload.unsignedZ.parse(input)).toBe(input);
+    });
+
+    it.each(["-1", "18446744073709551616", "1e3"])("should reject %s", (input) => {
+      expect(payload.unsignedZ.safeParse(input).success).toBe(false);
     });
   });
 });

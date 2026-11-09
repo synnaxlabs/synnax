@@ -16,7 +16,7 @@ import "schemas/x/telem"
 
 Float float64 {
     @cpp hand
-    @cpp include "x/cpp/payload/float.h"
+    @cpp include "x/cpp/payload/number.h"
     @doc value   """
         is a 64-bit float. It is a JSON number when finite, and the text "NaN",
         "Infinity", or "-Infinity" when not.
@@ -25,27 +25,33 @@ Float float64 {
     @py hand
     @py include  "x/py/x/payload/float"
     @ts hand
-    @ts include  "x/ts/src/payload/float"
+    @ts include  "x/ts/src/payload/number"
 }
 
 Integer int64 {
-    @doc value  """
+    @cpp hand
+    @cpp include "x/cpp/payload/number.h"
+    @doc value   """
         is a signed 64-bit integer. It is a JSON string of decimal digits, so it keeps
         every digit.
     """
     @py hand
-    @py include "x/py/x/payload/integer"
-    @ts type    "string"
+    @py include  "x/py/x/payload/integer"
+    @ts hand
+    @ts include  "x/ts/src/payload/number"
 }
 
 Unsigned uint64 {
-    @doc value  """
+    @cpp hand
+    @cpp include "x/cpp/payload/number.h"
+    @doc value   """
         is an unsigned 64-bit integer. It is a JSON string of decimal digits, so it
         keeps every digit.
     """
     @py hand
-    @py include "x/py/x/payload/integer"
-    @ts type    "string"
+    @py include  "x/py/x/payload/integer"
+    @ts hand
+    @ts include  "x/ts/src/payload/number"
 }
 
 Kind enum {

@@ -12,11 +12,13 @@ package v0_test
 import (
 	"encoding/json/v2"
 	"math"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/x/payload/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Number", func() {
@@ -48,7 +50,8 @@ var _ = Describe("Number", func() {
 		DescribeTable("Should reject a value that is not a float",
 			func(data string) {
 				var f v0.Float
-				Expect(json.Unmarshal([]byte(data), &f)).To(HaveOccurred())
+				Expect(json.Unmarshal([]byte(data), &f)).
+					To(MatchError(validate.ErrValidation))
 			},
 			Entry("other text", `"inf"`),
 			Entry("boolean", "true"),
@@ -73,7 +76,7 @@ var _ = Describe("Number", func() {
 		It("Should reject a value out of range", func() {
 			var i v0.Integer
 			Expect(json.Unmarshal([]byte(`"9223372036854775808"`), &i)).
-				To(HaveOccurred())
+				To(MatchError(strconv.ErrRange))
 		})
 	})
 
@@ -89,7 +92,7 @@ var _ = Describe("Number", func() {
 		})
 		It("Should reject a negative value", func() {
 			var u v0.Unsigned
-			Expect(json.Unmarshal([]byte(`"-1"`), &u)).To(HaveOccurred())
+			Expect(json.Unmarshal([]byte(`"-1"`), &u)).To(MatchError(strconv.ErrSyntax))
 		})
 	})
 

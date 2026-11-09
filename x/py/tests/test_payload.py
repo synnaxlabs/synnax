@@ -42,6 +42,11 @@ class TestFloat:
         assert '"fill":"-Infinity"' in dumped
         assert payload.FloatRead.model_validate_json(dumped).fill == -math.inf
 
+    def test_python_dump_keeps_float(self) -> None:
+        """Should keep a float in a Python-mode dump."""
+        dumped = payload.FloatRead.model_validate({"fill": "NaN"}).model_dump()
+        assert math.isnan(dumped["fill"])
+
     def test_finite_fill_is_a_number(self) -> None:
         """Should write a finite fill as a JSON number."""
         read = payload.FloatRead(fill=payload.Float(2.5))
@@ -56,6 +61,11 @@ class TestInteger:
         dumped = read.model_dump_json()
         assert '"fill":"-9223372036854775808"' in dumped
         assert payload.IntegerRead.model_validate_json(dumped).fill == -(2**63)
+
+    def test_python_dump_keeps_int(self) -> None:
+        """Should keep an int in a Python-mode dump."""
+        read = payload.IntegerRead.model_validate({"fill": "-12"})
+        assert read.model_dump()["fill"] == -12
 
     @pytest.mark.parametrize("value", ["9223372036854775808", "1.5", "1_000", True])
     def test_invalid(self, value: str | bool) -> None:

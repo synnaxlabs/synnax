@@ -11,14 +11,8 @@
 
 import { z } from "zod";
 
-import { floatZ } from "@/payload/float";
+import { floatZ, integerZ, unsignedZ } from "@/payload/number";
 import { telem } from "@/telem";
-
-export const integerZ = z.string();
-export type Integer = z.infer<typeof integerZ>;
-
-export const unsignedZ = z.string();
-export type Unsigned = z.infer<typeof unsignedZ>;
 
 export const TIME_FORMATS = [
   "iso8601",
