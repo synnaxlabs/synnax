@@ -11,26 +11,19 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax import group as group_, status as status_
+from synnax.access import role as role_
+from synnax.resource import ID
 from x import filter
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
-
-class StatusDetails(BaseModel):
-    """Contains rack-specific status details.
-
-    Attributes:
-        rack: Is the key of the rack this status pertains to.
-    """
-
-    rack: Key = Field(ge=0, le=4294967295)
+Status: TypeAlias = status_.Status
 
 
 class Where(BaseModel):
@@ -44,8 +37,8 @@ class Where(BaseModel):
         name: Selects by name.
         embedded: Selects by embedded.
         integrations: Selects by integrations.
-        host_is_node: Matches racks on the Core that serves the request, or racks on
-            other Cores when false.
+        groups: Matches the racks in any of the given groups.
+        grouped: Matches the racks in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -57,7 +50,13 @@ class Where(BaseModel):
     name: filter.String | None = None
     embedded: filter.Bool | None = None
     integrations: filter.Contains[str] | None = None
-    host_is_node: bool | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -72,12 +71,44 @@ WhereInput = TypedDict(
         "name": filter.StringInput,
         "embedded": filter.BoolInput,
         "integrations": filter.ContainsInput[str],
-        "host_is_node": bool,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
 
-Status: TypeAlias = status_.Status[StatusDetails]
+
+class Base(BaseModel):
+    """Is a collection container for hardware devices and tasks running on a specific
+    Core. Racks are the integration point between the Core and physical hardware through
+    the Driver.
+
+    Attributes:
+        key: Is the composite identifier for this rack.
+        name: Is a human-readable name for the rack.
+        embedded: Is true if this rack is embedded within the Synnax server process.
+        status: Is the current operational status of the rack.
+        integrations: Is the list of hardware integrations this rack supports (e.g.,
+            "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+            integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+        role: Is the role that grants the rack its permissions.
+    """
+
+    key: Key = Field(ge=0, le=4294967295)
+    name: str
+    embedded: bool = False
+    status: Status | None = None
+    integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
+    group: group_.Key | None = None
+    role: role_.Key
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class RetrieveRequest(BaseModel):
@@ -100,10 +131,8 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
-class Base(BaseModel):
-    """Is a collection container for hardware devices and tasks running on a specific
-    Core. Racks are the integration point between the Core and physical hardware through
-    the Driver.
+class Rack(BaseModel):
+    """Contains parameters for creating a new rack.
 
     Attributes:
         key: Is the composite identifier for this rack.
@@ -113,29 +142,20 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
-    """
-
-    key: Key = Field(ge=0, le=4294967295)
-    name: str
-    embedded: bool = False
-    status: Status | None = None
-    integrations: list[str] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class Rack(Base):
-    """Contains parameters for creating a new rack.
-
-    Attributes:
-        key: Is the composite identifier for this rack.
-        embedded: Is true if this rack is embedded within the Synnax server process.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
+        group: Is the group the rack sits in, if any.
+        role: Is the role that grants the rack its permissions.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
+    name: str
     embedded: bool = Field(default=False, exclude=True)
+    status: Status | None = None
+    integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
+    group: group_.Key | None = None
+    role: role_.Key | None = Field(default=None, exclude=True)
 
     @_override
     def __hash__(self) -> int:
@@ -155,8 +175,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="rack")
+TYPE_RESOURCE_ID = ID(type="rack")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="rack", key=str(key))

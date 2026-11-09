@@ -10,17 +10,19 @@
 package kv_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("KV", Ordered, func() {
@@ -28,37 +30,27 @@ var _ = Describe("KV", Ordered, func() {
 		db        *gorp.DB
 		rangerSvc *ranger.Service
 		kvSvc     *kv.Service
-		otg       *ontology.Ontology
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
-		lab := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: db,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Label:    lab,
+			DB:    db,
+			Group: g,
 		}))
 		kvSvc = MustOpen(kv.OpenService(ctx, kv.ServiceConfig{
 			DB: db,
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	It("Should be able to store key-value pairs in a range", func(ctx SpecContext) {
@@ -74,6 +66,50 @@ var _ = Describe("KV", Ordered, func() {
 			kvSvc.NewWriter(tx).
 				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
 		).To(Succeed())
+	})
+
+	It("Should retrieve key-value pairs through a snapshot", func(ctx SpecContext) {
+		r := &ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var pairs []kv.Pair
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			pairs, err = kvSvc.NewReader(snap).GetMany(ctx, r.Key, []string{"key"})
+			return err
+		})).To(Succeed())
+		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
+	})
+
+	It("Should list key-value pairs through a snapshot", func(ctx SpecContext) {
+		r := &ranger.Range{
+			Name: "Range",
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(10 * telem.Second),
+			},
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var pairs []kv.Pair
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			pairs, err = kvSvc.NewReader(snap).List(ctx, r.Key)
+			return err
+		})).To(Succeed())
+		Expect(pairs).To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
 	})
 
 	It(
@@ -134,6 +170,27 @@ var _ = Describe("KV", Ordered, func() {
 		))
 	})
 
+	It("Should reject a pair on a range that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		err := kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: missing, Key: "key", Value: "value"},
+		})
+		Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+		Expect(err).To(MatchError(
+			"range: range " + missing.String() + " does not exist: validation error",
+		))
+	})
+
+	It("Should delete the pairs of a deleted range", func(ctx SpecContext) {
+		r := &ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: r.Key, Key: "key", Value: "value"},
+		})).To(Succeed())
+		Expect(rangerSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+		Expect(kvSvc.NewReader(tx).List(ctx, r.Key)).To(BeEmpty())
+	})
+
 	It("Should be able to list all key-value pairs in a range", func(ctx SpecContext) {
 		r := &ranger.Range{
 			Name: "Range",
@@ -158,5 +215,23 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		}))
+	})
+})
+
+var _ = Describe("RangeOf", func() {
+	It("Should return the range of a pair key", func() {
+		rng := uuid.New()
+		key := kv.Pair{Range: rng, Key: "k<--->v"}.GorpKey()
+		Expect(kv.RangeOf(key)).To(Equal(rng))
+	})
+
+	It("Should return a validation error for a key whose range is not a UUID", func() {
+		Expect(kv.RangeOf("range<--->k")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"%q is not the key of a range key-value pair",
+				"range<--->k",
+			)),
+		))
 	})
 })

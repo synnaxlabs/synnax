@@ -26,12 +26,12 @@ Client::Client(
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.key = key}, options, "key " + std::to_string(key));
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<Rack, x::errors::Error>
 Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(Where{.name = name}, options, "name " + name);
+    return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
 std::pair<std::vector<Rack>, x::errors::Error>
@@ -54,20 +54,12 @@ std::pair<Rack, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve_one(where, options, where.to_json().dump());
-}
-
-std::pair<Rack, x::errors::Error> Client::retrieve_one(
-    const Where &where,
-    const RetrieveOptions &options,
-    const std::string &query
-) const {
     if (options.limit.has_value() || options.offset != 0)
         return {Rack{}, errors::paged_one_error()};
     auto [racks, err] = this->retrieve(where, options);
     if (err) return {Rack{}, err};
-    if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (racks.size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};
+    if (const auto one_err = errors::check_one("rack", where.to_json(), racks.size()))
+        return {Rack{}, one_err};
     return {std::move(racks[0]), x::errors::NIL};
 }
 

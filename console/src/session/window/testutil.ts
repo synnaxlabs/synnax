@@ -35,7 +35,9 @@ export const documentIn = <Doc>(
   windowKey: string = MAIN_WINDOW,
 ): Doc | undefined => slice.windows[windowKey]?.[key];
 
-/** Drift state naming the main window, for specs building a window-keyed store state. */
+/**
+ * Drift state naming the main window, for specs building a window-keyed store state.
+ */
 export const DRIFT_STATE: Drift.StoreState = {
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
 };

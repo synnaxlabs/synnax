@@ -117,12 +117,6 @@ public:
     set_end(const Key &key, x::telem::TimeStamp end) const;
 
 private:
-    [[nodiscard]] std::pair<Range, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief range retrieval transport.
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.

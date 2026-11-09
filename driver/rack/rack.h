@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -125,11 +126,18 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
+    /// @brief the version of the Core when it runs another minor than this Driver. The
+    /// Driver then starts no tasks. Set by load_remote.
+    std::optional<std::string> incompatible_core_version;
 
-    /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory>
-    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
+    /// @brief returns a new task factory to use for creating tasks in the task manager.
+    /// Give it the same client as the task manager. With an incompatible Core, the
+    /// factory runs only the rack status, which reports the mismatch, and refuses every
+    /// other task.
+    [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {
@@ -283,7 +291,8 @@ struct Config {
     [[nodiscard]] x::errors::Error enroll();
 
     /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
-    /// it logs in with the password and loads the saved rack.
+    /// it logs in with the password and loads the saved rack. Writes the rack with this
+    /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
 };
 

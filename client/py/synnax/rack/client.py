@@ -13,10 +13,12 @@ from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -33,11 +35,16 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: group_.Key | None = None
 
 
 class Client:
@@ -55,7 +62,9 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
+    def create(
+        self, *, key: Key = 0, name: str = "", group: group_.Key | None = None
+    ) -> Rack: ...
 
     @overload
     def create(self, racks: Rack) -> Rack: ...
@@ -67,12 +76,13 @@ class Client:
         self,
         racks: Rack | list[Rack] | None = None,
         *,
-        key: int = 0,
+        key: Key = 0,
         name: str = "",
+        group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
-            racks = [Rack(key=key, name=name)]
+            racks = [Rack(key=key, name=name, group=group)]
         elif isinstance(racks, Rack):
             racks = [racks]
         else:
@@ -83,7 +93,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
@@ -98,6 +108,15 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves racks into a group, or out of their group when group is None.
+
+        :param keys: The key of the rack to move, or a list of keys.
+        :param group: The key of the group to move the racks into.
+        """
+        req = _SetGroupRequest(keys=normalize(keys), group=group)
+        self._client.send("/rack/set-group", req, Empty)
+
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
 
@@ -109,7 +128,8 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -127,7 +147,8 @@ class Client:
         name: str,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -145,7 +166,8 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -166,7 +188,8 @@ class Client:
         name: list[str] | filter.StringDict | filter.String = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -207,8 +230,9 @@ class Client:
         :param embedded: Keeps racks that are, or are not, embedded in a Core.
         :param integrations: Keeps racks that support this integration, or any
             integration in the list.
-        :param host_is_node: Keeps racks on the Core that serves the request, or racks
-            on other Cores when False.
+        :param groups: Keeps racks in any of these groups.
+        :param grouped: Keeps only racks in a group when True, and only racks in no
+            group when False.
         :param and_: Keeps racks that match every filter in the list.
         :param or_: Keeps racks that match any filter in the list.
         :param not_: Keeps racks that do not match the filter.
@@ -246,11 +270,11 @@ class Client:
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
-        return sole("Rack", fields, res.racks) if single else res.racks
+        return sole("rack", req, res.racks) if single else res.racks
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
-            racks = self.retrieve(embedded=True, host_is_node=True, limit=1)
+            racks = self.retrieve(embedded=True, limit=1)
             if len(racks) == 0:
                 raise NotFoundError("Embedded rack not found")
             self._embedded_rack = racks[0]

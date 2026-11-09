@@ -13,8 +13,8 @@ import { z } from "zod";
 
 import { type connection } from "@/connection";
 import { type Info, infoZ, type State } from "@/license/types.gen";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
+import { type resource } from "@/resource";
 
 export const STATE_MESSAGES: Record<State, string> = {
   ok: "Licensed",
@@ -28,7 +28,7 @@ const deactivateReqZ = z.object({ jti: z.uuid() });
 const KEY = "license";
 
 /** The license as an access control object. Reading it takes a retrieve grant. */
-export const ONTOLOGY_ID: ontology.ID = { type: "builtin", key: KEY };
+export const RESOURCE_ID: resource.ID = { type: "builtin", key: KEY };
 
 export const RETRIEVE_ENDPOINT = "/license/retrieve";
 export const ACTIVATE_ENDPOINT = "/license/activate";
@@ -36,7 +36,8 @@ export const DEACTIVATE_ENDPOINT = "/license/deactivate";
 
 /**
  * The channel the Core announces license changes on. A sample names the license, never
- * carries it, so the client rereads it through the retrieve endpoint's permission check.
+ * carries it, so the client rereads it through the retrieve endpoint's permission
+ * check.
  */
 export const SET_CHANNEL_NAME = "sy_license_set";
 

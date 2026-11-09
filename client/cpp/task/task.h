@@ -48,13 +48,6 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
 
-/// @brief Returns a unique status key for a task.
-/// @param task The task.
-/// @returns A unique key for status updates, derived from the task key.
-inline std::string status_key(const Task &task) {
-    return ontology_id(task.key).string();
-}
-
 /// @brief Stream output operator for Task.
 /// @param os The output stream.
 /// @param task The task to output.
@@ -156,13 +149,6 @@ public:
     }
 
 private:
-    [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Key of rack that this client belongs to.
     rack::Key rack{};
     /// @brief Task creation transport.

@@ -138,12 +138,6 @@ public:
     [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
-    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_one(
-        const Where &where,
-        const RetrieveOptions &options,
-        const std::string &query
-    ) const;
-
     /// @brief Client for retrieving Arc programs.
     std::shared_ptr<RetrieveClient> retrieve_client;
 

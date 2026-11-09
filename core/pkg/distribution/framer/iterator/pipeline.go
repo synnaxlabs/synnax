@@ -35,15 +35,15 @@ type Pipeline struct {
 }
 
 // Exec sends req, appends its data responses to value, and returns its ack. If the
-// StreamIterator exits first, Exec and every later call return false and the error that
-// stopped it. An exit without an error returns an error that wraps ErrClosed. After
-// Close, Exec returns ErrClosed.
-func (p *Pipeline) Exec(req Request, value *[]Response) (bool, error) {
+// StreamIterator exits first, Exec and every later call return a false ack with the
+// error that stopped it. An exit without an error gives an error that wraps ErrClosed.
+// After Close, the ack holds ErrClosed.
+func (p *Pipeline) Exec(req Request, value *[]Response) Response {
 	if p.closed {
-		return false, ErrClosed
+		return failedAck(ErrClosed)
 	}
 	if p.stopped {
-		return false, p.stopErr
+		return failedAck(p.stopErr)
 	}
 	requests := p.Requests.Inlet()
 	for {
@@ -58,14 +58,20 @@ func (p *Pipeline) Exec(req Request, value *[]Response) (bool, error) {
 						"iterator exited without a response",
 					)
 				}
-				return false, p.stopErr
+				return failedAck(p.stopErr)
 			}
 			if res.Variant == ResponseVariantAck {
-				return res.Ack, res.Error
+				return res
 			}
 			*value = append(*value, res)
 		}
 	}
+}
+
+func failedAck(
+	err error,
+) Response {
+	return Response{Variant: ResponseVariantAck, Error: err}
 }
 
 // Close stops the StreamIterator and returns the error that stopped it. Closing a

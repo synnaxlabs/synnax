@@ -15,7 +15,7 @@ import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
 import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(device.TYPE_RESOURCE_ID);
 
 const ConnectClusterCommand = Command.create({
   key: "kafka_connect_cluster",

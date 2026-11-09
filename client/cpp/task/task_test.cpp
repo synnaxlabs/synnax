@@ -123,11 +123,7 @@ TEST(TaskTests, testRetrieveOneWhereNotFound) {
     ASSERT_NIL(client.racks.create(r));
     const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(
-        err.data,
-        R"(task matching {"type":{"case_insensitive":false,"eq":"missing_type"}} )"
-        "not found."
-    );
+    ASSERT_EQ(err.data, R"(Found no task where type = "missing_type")");
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -199,10 +195,10 @@ TEST(TaskTests, testDeleteTask) {
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
 }
 
-/// @brief it should convert a task key to an ontology ID
-TEST(TaskTests, testTaskOntologyId) {
+/// @brief it should convert a task key to a resource ID
+TEST(TaskTests, testTaskResourceID) {
     const auto key = x::uuid::create();
-    const auto id = ontology_id(key);
+    const auto id = resource_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, key.to_string());
 }
@@ -355,6 +351,26 @@ TEST(TaskTests, testRetrieveTaskRejectsPage) {
     }
 }
 
+/// @brief it should page a retrieve of the tasks on a rack that a filter matches.
+TEST(TaskTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (int i = 0; i < 3; i++) {
+        auto t = Task{
+            .name = std::to_string(gen_rand_task()),
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    const auto where = Where{.type = "pagerduty_alert"};
+    const auto first = ASSERT_NIL_P(r.tasks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(r.tasks.retrieve(where, {.offset = 2}));
+    ASSERT_EQ(rest.size(), 1);
+}
+
 /// @brief it should retrieve multiple tasks by their types.
 TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
@@ -386,17 +402,9 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_TRUE(found2);
 }
 
-TEST(TaskTests, testTaskStatusKey) {
-    const auto key = x::uuid::create();
-    const auto t = Task{.key = key};
-    ASSERT_EQ(task::status_key(t), "task:" + key.to_string());
-}
-
 /// @brief it should correctly parse StatusDetails from JSON.
 TEST(StatusDetailsTests, testParseFromJSON) {
-    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", task_key.to_string()},
         {"cmd", "start"},
         {"running", true},
         {"data", {{"routing_key", "rk"}}}
@@ -404,7 +412,6 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
@@ -413,15 +420,12 @@ TEST(StatusDetailsTests, testParseFromJSON) {
 
 /// @brief it should correctly serialize StatusDetails to JSON.
 TEST(StatusDetailsTests, testToJSON) {
-    const auto task_key = x::uuid::create();
     StatusDetails details{
-        .task = task_key,
         .running = false,
         .cmd = "stop",
         .data = x::json::json{{"status", "completed"}},
     };
     const auto j = details.to_json();
-    ASSERT_EQ(j["task"], task_key.to_string());
     ASSERT_EQ(j["cmd"], "stop");
     ASSERT_EQ(j["running"], false);
     ASSERT_EQ(j["data"]["status"], "completed");
@@ -430,7 +434,6 @@ TEST(StatusDetailsTests, testToJSON) {
 /// @brief it should round-trip StatusDetails through JSON.
 TEST(StatusDetailsTests, testRoundTrip) {
     StatusDetails original{
-        .task = x::uuid::create(),
         .running = true,
         .cmd = "configure",
         .data = x::json::json{{"config", "test"}, {"version", 2}},
@@ -439,7 +442,6 @@ TEST(StatusDetailsTests, testRoundTrip) {
     x::json::Parser parser(j);
     auto recovered = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.task, original.task);
     ASSERT_EQ(recovered.cmd, original.cmd);
     ASSERT_EQ(recovered.running, original.running);
     ASSERT_TRUE(recovered.data.has_value());
@@ -477,9 +479,7 @@ TEST(StatusDetailsTests, testToProtoReportsBadData) {
 
 /// @brief it should handle empty cmd field correctly.
 TEST(StatusDetailsTests, testEmptyCmd) {
-    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", task_key.to_string()},
         {"cmd", ""},
         {"running", true},
         {"data", x::json::json::object()}
@@ -487,7 +487,6 @@ TEST(StatusDetailsTests, testEmptyCmd) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "");
     ASSERT_EQ(details.running, true);
 }

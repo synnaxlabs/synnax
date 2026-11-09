@@ -9,8 +9,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <map>
+#include <span>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -47,6 +52,8 @@ class MockAPI final : public API {
     int activate_result = 0;
     /// @brief configurable return value for master_slave_config.
     bool slave_config_fails = false;
+    /// @brief whether slave_config_sdo fails.
+    bool config_sdo_fails = false;
 
     /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
     size_t output_domain_offset = 0;
@@ -74,6 +81,10 @@ class MockAPI final : public API {
     /// @brief next sentinel address for slave config allocation.
     uintptr_t next_slave_config_addr = 0x100;
 
+    /// @brief abort codes for objects that reject SDO downloads, keyed by index and
+    /// sub-index. A code of 0 makes the download time out.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_download_aborts;
+
     /// @brief tracks whether release_master was called.
     bool release_master_called_val = false;
     /// @brief tracks whether master_deactivate was called.
@@ -94,8 +105,45 @@ public:
     std::vector<FakeSync> fake_syncs;
     /// @brief (index, sub_index) pairs passed to slave_config_reg_pdo_entry.
     std::vector<std::pair<uint16_t, uint8_t>> registered_entries;
+    /// @brief one SDO write: slave position, index, sub-index, and bytes.
+    struct SDOWrite {
+        uint16_t position;
+        uint16_t index;
+        uint8_t sub_index;
+        std::vector<uint8_t> data;
+
+        bool operator==(const SDOWrite &) const = default;
+    };
+    /// @brief SDO downloads in call order.
+    std::vector<SDOWrite> sdo_downloads;
+    /// @brief SDOs added to slave configs, in call order.
+    std::vector<SDOWrite> config_sdos;
+    /// @brief the object dictionary of each slave, keyed by position, index, and
+    /// sub-index. A download writes to it, and an upload of a missing object aborts.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief one entry of a PDO passed to slave_config_pdos.
+    struct ConfiguredEntry {
+        uint16_t position;
+        uint8_t sync_index;
+        uint16_t pdo_index;
+        uint16_t index;
+        uint8_t sub_index;
+        uint8_t bit_length;
+
+        bool operator==(const ConfiguredEntry &) const = default;
+    };
+    /// @brief the PDO entries passed to slave_config_pdos, in call order.
+    std::vector<ConfiguredEntry> configured_entries;
+    /// @brief the slave position and sync manager of each cleared PDO assignment.
+    std::vector<std::pair<uint16_t, uint8_t>> cleared_assignments;
+    /// @brief the slave position and PDO index of each cleared PDO mapping.
+    std::vector<std::pair<uint16_t, uint16_t>> cleared_mappings;
 
     MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
+
+    void set_sdo_download_abort(uint16_t index, uint8_t sub_index, uint32_t code) {
+        this->sdo_download_aborts[{index, sub_index}] = code;
+    }
 
     void set_check_device_err(const x::errors::Error &err) {
         this->check_device_err = err;
@@ -147,6 +195,8 @@ public:
     void set_activate_result(int result) { this->activate_result = result; }
 
     void set_slave_config_fails(bool fails) { this->slave_config_fails = fails; }
+
+    void set_config_sdo_fails(bool fails) { this->config_sdo_fails = fails; }
 
     void set_output_domain_size(size_t sz) {
         this->output_domain_sz = sz;
@@ -303,6 +353,113 @@ public:
         initial_state.online = 1;
         self->slave_config_states[reinterpret_cast<uintptr_t>(sc)] = initial_state;
         return sc;
+    }
+
+    int slave_config_sdo(
+        ec_slave_config_t *sc,
+        uint16_t index,
+        uint8_t subindex,
+        const uint8_t *data,
+        size_t size
+    ) const override {
+        if (this->config_sdo_fails) return -ENOMEM;
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs)
+            if (config == sc)
+                self->config_sdos.push_back(
+                    {pos, index, subindex, std::vector(data, data + size)}
+                );
+        return 0;
+    }
+
+    int slave_config_pdos(
+        ec_slave_config_t *sc,
+        unsigned int n_syncs,
+        const ec_sync_info_t syncs[]
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs) {
+            if (config != sc) continue;
+            for (const auto &sync: std::span(syncs, n_syncs))
+                for (const auto &pdo: std::span(sync.pdos, sync.n_pdos))
+                    for (const auto &entry: std::span(pdo.entries, pdo.n_entries))
+                        self->configured_entries.push_back({
+                            .position = pos,
+                            .sync_index = sync.index,
+                            .pdo_index = pdo.index,
+                            .index = entry.index,
+                            .sub_index = entry.subindex,
+                            .bit_length = entry.bit_length,
+                        });
+        }
+        return 0;
+    }
+
+    int slave_config_pdo_assign_clear(
+        ec_slave_config_t *sc,
+        uint8_t sync_index
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs)
+            if (config == sc) self->cleared_assignments.emplace_back(pos, sync_index);
+        return 0;
+    }
+
+    int slave_config_pdo_mapping_clear(
+        ec_slave_config_t *sc,
+        uint16_t pdo_index
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        for (const auto &[pos, config]: this->created_slave_configs)
+            if (config == sc) self->cleared_mappings.emplace_back(pos, pdo_index);
+        return 0;
+    }
+
+    int master_sdo_download(
+        ec_master_t *,
+        uint16_t slave_position,
+        uint16_t index,
+        uint8_t subindex,
+        const uint8_t *data,
+        size_t data_size,
+        uint32_t *abort_code
+    ) const override {
+        auto *self = const_cast<MockAPI *>(this);
+        self->sdo_downloads.push_back(
+            {slave_position, index, subindex, std::vector(data, data + data_size)}
+        );
+        const auto it = this->sdo_download_aborts.find({index, subindex});
+        if (it != this->sdo_download_aborts.end()) {
+            *abort_code = it->second;
+            return -EIO;
+        }
+        uint32_t value = 0;
+        for (size_t i = 0; i < data_size && i < sizeof(value); i++)
+            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        self->objects[{slave_position, index, subindex}] = value;
+        return 0;
+    }
+
+    int master_sdo_upload(
+        ec_master_t *,
+        uint16_t slave_position,
+        uint16_t index,
+        uint8_t subindex,
+        uint8_t *target,
+        size_t target_size,
+        size_t *result_size,
+        uint32_t *abort_code
+    ) const override {
+        const auto it = this->objects.find({slave_position, index, subindex});
+        if (it == this->objects.end()) {
+            *abort_code = 0x06020000;
+            return -EIO;
+        }
+        const size_t size = std::min(target_size, sizeof(it->second));
+        for (size_t i = 0; i < size; i++)
+            target[i] = static_cast<uint8_t>(it->second >> (8 * i));
+        *result_size = size;
+        return 0;
     }
 
     int slave_config_state(

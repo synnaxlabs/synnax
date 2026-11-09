@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"io"
 	"runtime"
 	"time"
 
@@ -567,6 +566,57 @@ var _ = Describe("Control", func() {
 					)
 				})
 
+				Describe("Refused open", func() {
+					It(
+						"Should refuse a held virtual channel and free the rest",
+						func(ctx SpecContext) {
+							var (
+								freeKey = GenerateChannelKey()
+								heldKey = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Name:     "free",
+									Key:      freeKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+								cesium.Channel{
+									Name:     "held",
+									Key:      heldKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+							)).To(Succeed())
+							MustOpen(
+								db.OpenWriter(ctx, cesium.WriterConfig{
+									ControlSubject: xcontrol.Subject{Name: "Holder"},
+									Channels:       []cesium.ChannelKey{heldKey},
+									Authorities: []xcontrol.Authority{
+										xcontrol.AuthorityAbsolute,
+									},
+								}),
+							)
+							Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject: xcontrol.Subject{Name: "Refused"},
+								Channels: []cesium.ChannelKey{
+									freeKey,
+									heldKey,
+								},
+								Authorities:       []xcontrol.Authority{100},
+								ErrOnUnauthorized: new(true),
+							})).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject:    xcontrol.Subject{Name: "Next"},
+								Channels:          []cesium.ChannelKey{freeKey},
+								Authorities:       []xcontrol.Authority{1},
+								ErrOnUnauthorized: new(true),
+							}))
+						},
+					)
+				})
+
 				// A writer that writes both a data channel and its index must
 				// gain control of the index when SetAuthority names only the
 				// data channel, since a data sample cannot be written without
@@ -922,7 +972,6 @@ var _ = Describe("Control", func() {
 						dataStreamerOut                     confluence.Outlet[cesium.StreamerResponse]
 						controlUpdates                      <-chan cesium.ControlUpdate
 						disconnectControl                   observe.Disconnect
-						shutdown                            io.Closer
 					)
 					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
@@ -951,7 +1000,7 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 						By("Opening the first writer")
-						w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w1 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							ControlSubject: xcontrol.Subject{Name: "Writer One"},
 							Start:          start,
 							Channels: []cesium.ChannelKey{
@@ -964,7 +1013,7 @@ var _ = Describe("Control", func() {
 							Sync:              new(true),
 						}))
 						By("Opening the second writer")
-						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w2 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          start,
 							ControlSubject: xcontrol.Subject{Name: "Writer Two"},
 							Channels: []cesium.ChannelKey{
@@ -986,23 +1035,20 @@ var _ = Describe("Control", func() {
 							}),
 						)
 						sCtx, cancel := signal.Isolated()
-						shutdown = signal.NewHardShutdown(sCtx, cancel)
+						DeferClose(signal.NewHardShutdown(sCtx, cancel))
 						dataStreamerIn, dataStreamerOut = confluence.Attach(
 							dataStreamer,
 							2,
 						)
 						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						DeferCleanup(func() {
+							dataStreamerIn.Close()
+							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
+						})
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
 						controlUpdates, disconnectControl = observeControl(db)
-					})
-					AfterEach(func() {
-						disconnectControl()
-						Expect(w1.Close()).To(Succeed())
-						Expect(w2.Close()).To(Succeed())
-						dataStreamerIn.Close()
-						Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-						Expect(shutdown.Close()).To(Succeed())
+						DeferCleanup(disconnectControl)
 					})
 
 					// Set up:

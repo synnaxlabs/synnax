@@ -78,12 +78,15 @@ describe("Browser", () => {
       { wrapper },
     );
     await screen.findByText("Browser");
-    await screen.findByText(/not found/i);
+    const missing = new RegExp(
+      `Found no task where rack = ${dev.rack} and type = "opc_scan"`,
+    );
+    await screen.findByText(missing);
     expect(statuses).toHaveLength(0);
     const refresh = getIconButton(container, "refresh");
     expect(refresh.disabled).toBe(false);
     fireEvent.click(refresh);
-    await screen.findByText(/not found/i);
+    await screen.findByText(missing);
     expect(statuses).toHaveLength(0);
   });
 });

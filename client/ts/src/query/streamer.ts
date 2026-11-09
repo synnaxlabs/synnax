@@ -30,9 +30,8 @@ export interface Listener<Z extends z.ZodType = z.ZodType> {
 }
 
 /**
- * Sorts channel names to ensure deletions are processed before other changes. This
- * ensures that modifications to things like relationships (delete followed by create)
- * are processed in the correct order.
+ * Sorts channel names so deletions are processed before other changes, so a delete and
+ * a re-create of one record in the same frame apply in order.
  * @returns Sort order (-1, 0, or 1)
  */
 const channelNameSort = (a: string, b: string) => {
@@ -127,8 +126,8 @@ export const createStreamer = ({
       { channels },
       {
         breaker: breakerConfig,
-        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
-        // circuit
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness
+        // short circuit
         onReopen: () => {
           onLive?.();
           onReopen?.();

@@ -28,6 +28,9 @@ var (
 	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
 	ErrDBClosed = resource.NewClosedError("domain.db")
+	// ErrIndexWriteFailed is returned by a commit whose index write queued behind an
+	// earlier one that failed. The next write of the index restores every pointer.
+	ErrIndexWriteFailed = errors.New("an earlier write of the index failed")
 )
 
 // NewRangeWriteConflictError creates a new error returned when existing data in the

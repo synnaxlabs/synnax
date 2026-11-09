@@ -250,6 +250,7 @@ describe("MQTT.Device.useConnectModal", () => {
     await renderEditModal(dev.key);
     await screen.findByDisplayValue(dev.name);
     pressSaveTrigger();
-    expect(await screen.findByText(/not found/i)).toBeTruthy();
+    const missing = `Found no task where rack = ${rack.key} and type = "mqtt_scan"`;
+    expect(await screen.findByText(new RegExp(missing))).toBeTruthy();
   });
 });
