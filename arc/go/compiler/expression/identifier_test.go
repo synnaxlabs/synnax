@@ -847,3 +847,73 @@ var _ = Describe("Identifier Compilation", func() {
 		)
 	})
 })
+
+var _ = Describe("Channel keys", func() {
+	Describe("SameFunction", func() {
+		It(
+			"Should match symbols of one function or of the module level",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				root := ctx.Scope.Root()
+				local := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "l", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				top := MustSucceed(root.Add(ctx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				other := MustSucceed(root.Add(ctx, symbol.Symbol{
+					Name: "g", Kind: symbol.KindFunction,
+				}))
+				otherLocal := MustSucceed(other.Add(ctx, symbol.Symbol{
+					Name: "o", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				Expect(expression.SameFunction(ctx.Scope, local)).To(BeTrue())
+				Expect(expression.SameFunction(ctx.Scope, top)).To(BeFalse())
+				Expect(expression.SameFunction(local, otherLocal)).To(BeFalse())
+				Expect(expression.SameFunction(top, root)).To(BeTrue())
+			},
+		)
+	})
+
+	Describe("EmitChannelKey", func() {
+		It(
+			"Should load the key of a channel variable of the function from its local",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				a := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "a", Kind: symbol.KindVariable, Type: types.Chan(types.U8()),
+				}))
+				expression.EmitChannelKey(ctx, a)
+				Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpLocalGet, a.ID))
+			},
+		)
+
+		It(
+			"Should push the key of an alias declared outside the function",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				key := 7
+				alias := MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name:     "a",
+					Kind:     symbol.KindVariable,
+					Type:     types.Chan(types.U8()),
+					SourceID: &key,
+				}))
+				expression.EmitChannelKey(ctx, alias)
+				Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpI32Const, int32(7)))
+			},
+		)
+
+		It("Should push the key of a channel", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			ch := &symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				ID:   42,
+				Type: types.Chan(types.U8()),
+			}
+			expression.EmitChannelKey(ctx, ch)
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpI32Const, int32(42)))
+		})
+	})
+})

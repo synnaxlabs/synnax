@@ -90,6 +90,22 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).To(ContainSubstring(".max(99.500000)"))
 	})
 
+	It("Should emit gt for number fields", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Wave struct {
+				cycles    int32 @validate { gt 0 }
+				frequency float64 @validate { gt 0.5 }
+			}
+		`
+		resp := MustGenerate(ctx, source, "wave", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(".gt(0)"))
+		Expect(content).To(ContainSubstring(".gt(0.500000)"))
+		Expect(content).ToNot(ContainSubstring(".min("))
+	})
+
 	It("Should emit string default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"

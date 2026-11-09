@@ -2734,6 +2734,13 @@ func (p *Plugin) applyValidation(
 				zodType = fmt.Sprintf("%s.min(%f)", zodType, rules.Min.Float)
 			}
 		}
+		if rules.GT != nil {
+			if rules.GT.IsInt {
+				zodType = fmt.Sprintf("%s.gt(%d)", zodType, rules.GT.Int)
+			} else {
+				zodType = fmt.Sprintf("%s.gt(%f)", zodType, rules.GT.Float)
+			}
+		}
 		if rules.Max != nil {
 			if rules.Max.IsInt {
 				zodType = fmt.Sprintf("%s.max(%d)", zodType, rules.Max.Int)
