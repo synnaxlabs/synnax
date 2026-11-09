@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -64,6 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	copyTask = bind.Write(binder, apiSvc.Copy)

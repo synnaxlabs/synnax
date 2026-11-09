@@ -14,6 +14,7 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "role";
+const PLURAL_RESOURCE_NAME = "roles";
 
 export type RetrieveQuery = {
   key: string;
@@ -46,6 +47,23 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   onChange: ({ client, query }, handler) =>
     client.access.roles.watch(query).onChange(handler),
   getCached: ({ client, query }) => client.access.roles.watch(query).getCached(),
+});
+
+export type RetrieveMultipleQuery = {
+  keys: access.role.Key[];
+};
+
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  access.role.Role[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.access.roles.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.access.roles.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) =>
+    client.access.roles.watch(keys).getCached(),
 });
 
 export type ForUserQuery = {

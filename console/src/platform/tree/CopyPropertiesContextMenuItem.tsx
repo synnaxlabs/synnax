@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource } from "@synnaxlabs/client";
+import { type resource, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { binary } from "@synnaxlabs/x";
@@ -16,20 +16,29 @@ import { type ReactElement } from "react";
 import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
 import { useResource } from "@/platform/tree/useResource";
 
-interface ItemProps {
-  id: resource.ID;
-  state: TreeState;
+/** Retrieves the record that a tree node shows. */
+export interface Retrieve {
+  (client: Synnax, key: string): Promise<unknown>;
 }
 
-const Item = ({ id, state }: ItemProps): ReactElement | null => {
+interface ItemProps {
+  client: Synnax;
+  id: resource.ID;
+  state: TreeState;
+  retrieve: Retrieve;
+}
+
+const Item = ({ client, id, state, retrieve }: ItemProps): ReactElement | null => {
   const resource = useResource(state, id);
   if (resource == null) return null;
-  const { data, name } = resource;
   return (
     <Menu.CopyItem
       itemKey="copyData"
-      text={() => binary.JSON_CODEC.encodeString(data)}
-      successMessage={{ message: "Copied properties to clipboard", name }}
+      text={async () => binary.JSON_CODEC.encodeString(await retrieve(client, id.key))}
+      successMessage={{
+        message: "Copied properties to clipboard",
+        name: resource.name,
+      }}
     >
       <Icon.JSON />
       Copy properties
@@ -37,10 +46,16 @@ const Item = ({ id, state }: ItemProps): ReactElement | null => {
   );
 };
 
+export interface CopyPropertiesContextMenuItemProps extends ContextMenuProps {
+  retrieve: Retrieve;
+}
+
 export const CopyPropertiesContextMenuItem = ({
+  client,
   selection: { ids },
   state,
-}: ContextMenuProps): ReactElement | null => {
+  retrieve,
+}: CopyPropertiesContextMenuItemProps): ReactElement | null => {
   if (ids.length !== 1) return null;
-  return <Item id={ids[0]} state={state} />;
+  return <Item client={client} id={ids[0]} state={state} retrieve={retrieve} />;
 };

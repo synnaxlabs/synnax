@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiview "github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -52,7 +53,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apiview.NewService(apiview.ServiceConfig{View: svc.View}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)

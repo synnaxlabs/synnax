@@ -546,6 +546,41 @@ describe("queries", () => {
     });
   });
 
+  describe("result selectors", () => {
+    const createDevice = async () => {
+      const rack = await client.racks.create({ name: "test" });
+      return await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "dev1",
+        make: id.create(),
+        model: "test",
+        properties: {},
+      });
+    };
+
+    it("should read the make of a device", async () => {
+      const dev = await createDevice();
+      const { result } = renderHook(() => Device.useResultMake({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toEqual(dev.make));
+    });
+
+    it("should follow a change to the location of a device", async () => {
+      const dev = await createDevice();
+      const { result } = renderHook(() => Device.useResultLocation({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toEqual("dev1"));
+      await act(async () => {
+        await client.devices.create({ ...dev, location: "dev2" });
+      });
+      await waitFor(() => expect(result.current.data).toEqual("dev2"));
+    });
+  });
+
   describe("keyed multi-retrieve", () => {
     it("should retrieve multiple devices from the server when none are cached", async () => {
       const rack = await client.racks.create({ name: "test" });

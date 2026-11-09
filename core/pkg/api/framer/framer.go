@@ -438,7 +438,7 @@ func (s *Service) openIterator(
 		Variant: framer.IteratorResponseVariantAck,
 		Ack:     true,
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(iter))
 	}
 	return iter, nil
 }
@@ -752,7 +752,18 @@ func (s *Service) openWriter(
 		Command: framer.WriterCommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(w))
 	}
 	return w, nil
+}
+
+// release frees what an opened segment owns when the segment will never join a
+// pipeline. Its routines run on a canceled context only to release it.
+func release[I, O confluence.Value](seg confluence.Segment[I, O]) error {
+	sCtx, cancel := signal.Isolated()
+	seg.InFrom(confluence.NewStream[I]())
+	seg.OutTo(confluence.NewStream[O]())
+	cancel()
+	seg.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return errors.Skip(sCtx.Wait(), context.Canceled)
 }

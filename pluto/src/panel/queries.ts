@@ -15,7 +15,7 @@ import {
   type resource,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { array, color, compare, deep, type optional, verbs } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -27,15 +27,27 @@ const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const { use, useEnsure, useInvalidate, useResult, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
-    onChange: ({ client, query }, handler) =>
-      client.panels.watch(query.key).onChange(handler),
-    getCached: ({ client, query }) => client.panels.watch(query.key).getCached(),
-    awaitCreation: true,
-  });
+export const {
+  use,
+  useEnsure,
+  useInvalidate,
+  useResult,
+  createSelector,
+  createResultSelector,
+} = Flux.createRetrieve<RetrieveQuery, panel.Panel>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.panels.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.panels.watch(query.key).getCached(),
+  awaitCreation: true,
+});
+
+/** Compared by value: a change to the panel's layout is silenced. */
+export const useResultAppearance = createResultSelector(
+  ({ icon, color: c }) => ({ icon, color: c }),
+  (a, b) => a.icon === b.icon && color.equals(a.color, b.color),
+);
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 

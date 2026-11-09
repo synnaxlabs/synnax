@@ -656,6 +656,37 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultKind", () => {
+    it("should read the icon and flags of a channel and keep them across a rename", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => ({
+          kind: Channel.useResultKind({ key: ch.key }),
+          name: Channel.useResultName({ key: ch.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.kind.data).toEqual({
+          icon: Channel.resolveIcon(ch.payload),
+          internal: false,
+          virtual: true,
+        }),
+      );
+      const before = result.current.kind.data;
+      const name = id.create();
+      await act(async () => {
+        await client.channels.rename(ch.key, name);
+      });
+      await waitFor(() => expect(result.current.name.data).toEqual(name));
+      expect(result.current.kind.data).toBe(before);
+    });
+  });
+
   describe("useResultList", () => {
     it("should search channels and follow a new match", async () => {
       const token = `rl${Math.random().toString(36).slice(2)}`;

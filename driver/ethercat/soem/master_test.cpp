@@ -487,6 +487,182 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsEachSlaveFromItsOwnDictionary) {
     EXPECT_EQ(slaves[1].properties.input_pdos[0].bit_length, 32);
 }
 
+/// @brief it should read the PDO layout of a slave that supports complete access with
+/// one read of each whole object.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsWholeObjectsWithCompleteAccess) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.complete_access = true;
+    slave.complete_objects = {
+        {0x1C00, {4, 0, 1, 2, 3, 4}},
+        {ECT_SDO_RXPDOASSIGN, {0, 0}},
+        {ECT_SDO_TXPDOASSIGN, {1, 0, 0x00, 0x1A}},
+        {0x1A00, {2, 0, 0x10, 0x01, 0x00, 0x60, 0x20, 0x02, 0x00, 0x60}},
+    };
+    this->add_slave(slave);
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 1);
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].index, 0x6000);
+    EXPECT_EQ(inputs[0].sub_index, 1);
+    EXPECT_EQ(inputs[0].bit_length, 16);
+    EXPECT_EQ(inputs[1].sub_index, 2);
+    EXPECT_EQ(inputs[1].bit_length, 32);
+}
+
+namespace {
+/// @brief returns a slave of model 0x1234:0x5678 at revision rev with one TxPDO,
+/// 0x1A00, that maps 0x6000:01.
+MockSlaveInfo create_named_slave(const uint32_t rev) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = 0x1234;
+    slave.eep_id = 0x5678;
+    slave.eep_rev = rev;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {
+        {{0x1C00, 0}, 4},
+        {{0x1C00, 3}, 3},
+        {{0x1C00, 4}, 4},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 1},
+        {{0x1A00, 1}, 0x60000110},
+    };
+    return slave;
+}
+
+/// @brief makes a slave list the given module identities in its detected module list.
+void set_modules(MockSlaveInfo &slave, const std::vector<uint32_t> &modules) {
+    slave.sdo_objects[{0xF050, 0}] = static_cast<uint32_t>(modules.size());
+    for (size_t i = 0; i < modules.size(); ++i)
+        slave.sdo_objects[{0xF050, static_cast<uint8_t>(i + 1)}] = modules[i];
+}
+}
+
+/// @brief it should give each slave of a model the names and data types that it read
+/// from the first one.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheNamesOfAModelOnce) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    this->mock->slave_infos[0].od_names = {{0x1A00, "Inputs"}};
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Status", 0x0006}}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    for (const auto &s: slaves) {
+        ASSERT_EQ(s.properties.input_pdos.size(), 1);
+        EXPECT_EQ(s.properties.input_pdos[0].name, "Status");
+        EXPECT_EQ(s.properties.input_pdos[0].data_type, x::telem::UINT16_T);
+        EXPECT_EQ(s.properties.input_pdos[0].pdo_name, "Inputs");
+    }
+}
+
+/// @brief it should read the names and data types of a slave whose model has another
+/// revision.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheNamesOfEachRevision) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(2));
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Status", 0x0006}}};
+    this->mock->slave_infos[1].oe_entries = {{{0x6000, 1}, {"Value", 0x0008}}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    ASSERT_EQ(slaves[1].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].name, "Value");
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should read the names and data types of a slave of a model whose modules
+/// differ from those of the first slave.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheNamesOfEachModuleList) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    set_modules(this->mock->slave_infos[0], {0x1001});
+    set_modules(this->mock->slave_infos[1], {0x1002});
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Status", 0x0006}}};
+    this->mock->slave_infos[1].oe_entries = {{{0x6000, 1}, {"Value", 0x0003}}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    ASSERT_EQ(slaves[1].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].name, "Value");
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].data_type, x::telem::INT16_T);
+}
+
+/// @brief it should read the names and data types of a slave again when its modules
+/// change between scans.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheNamesAgainAfterAModuleChange) {
+    this->add_slave(create_named_slave(1));
+    set_modules(this->mock->slave_infos[0], {0x1001});
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Status", 0x0006}}};
+    ASSERT_NIL_P(this->master->scan());
+    this->master->deactivate();
+    set_modules(this->mock->slave_infos[0], {0x1002});
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Value", 0x0003}}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 1);
+    ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].name, "Value");
+    EXPECT_EQ(slaves[0].properties.input_pdos[0].data_type, x::telem::INT16_T);
+}
+
+/// @brief it should read the names and data types of a slave that does not give its
+/// detected modules, also when another slave of its model came first.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsTheNamesOfASlaveWithUnknownModules) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    this->mock->slave_infos[1].sdo_read_aborts = {{{0xF050, 0}, 0x06010000}};
+    this->mock->slave_infos[0].oe_entries = {{{0x6000, 1}, {"Status", 0x0006}}};
+    this->mock->slave_infos[1].oe_entries = {{{0x6000, 1}, {"Value", 0x0003}}};
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    ASSERT_EQ(slaves[1].properties.input_pdos.size(), 1);
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].name, "Value");
+    EXPECT_EQ(slaves[1].properties.input_pdos[0].data_type, x::telem::INT16_T);
+}
+
+/// @brief it should give each slave of a model the synchronization modes that it read
+/// from the SII of the first one.
+TEST_F(SOEMMasterTest, ScanReadsTheOpModesOfAModelOnce) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    set_op_modes(this->mock->slave_infos[0], {DC_SECOND});
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    ASSERT_EQ(slaves[1].properties.op_modes.size(), 1);
+    EXPECT_EQ(slaves[1].properties.op_modes[0].name, DC_SECOND.name);
+}
+
+/// @brief it should read the SII of the next slave of a model when the SII of the first
+/// one gives no synchronization modes.
+TEST_F(SOEMMasterTest, ScanReadsTheOpModesAgainAfterAReadFindsNone) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    set_op_modes(this->mock->slave_infos[1], {DC_SECOND});
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_TRUE(slaves[0].properties.op_modes.empty());
+    ASSERT_EQ(slaves[1].properties.op_modes.size(), 1);
+    EXPECT_EQ(slaves[1].properties.op_modes[0].name, DC_SECOND.name);
+}
+
 /// @brief it should wait for the slaves to reach PRE-OP before it reads PDOs from the
 /// CoE object dictionary.
 TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
