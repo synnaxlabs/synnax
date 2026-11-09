@@ -40,21 +40,21 @@ sudo synnax-driver install
   as root and starts with the controller. `install` copies the binary to
   `/usr/local/bin`, and does not start the service, so run `synnax-driver start`. The
   Driver writes its logs to `/var/log/synnax-driver.log`.
-- **Windows** -> creates the service `SynnaxDriver`, which runs the binary from its
-  folder as LocalSystem and starts with the computer. Windows restarts it when it stops
-  with an error. The Driver writes its logs to
-  `C:\ProgramData\synnax-driver\logs\driver.log`.
-- **macOS** -> creates the launchd service `com.synnaxlabs.driver` in
-  `/Library/LaunchDaemons` and the environment file `/etc/synnax/driver.env`. The
-  service runs the binary from its folder as root and starts with the computer. launchd
-  restarts it when it stops with an error. The Driver writes its logs to
-  `/Library/Logs/synnax-driver.log`.
+- **Windows** -> copies the binary to `C:\Program Files\Synnax Driver\` and creates the
+  service `SynnaxDriver`, which runs that copy as LocalSystem and starts with the
+  computer. Windows restarts it when it stops with an error. The Driver writes its logs
+  to `C:\ProgramData\synnax-driver\logs\driver.log`.
+- **macOS** -> copies the binary to `/Library/Application Support/synnax-driver/bin/`,
+  and creates the launchd service `com.synnaxlabs.driver` in `/Library/LaunchDaemons`
+  and the environment file `/etc/synnax/driver.env`. The service runs that copy as root
+  and starts with the computer. launchd restarts it when it stops with an error. The
+  Driver writes its logs to `/Library/Logs/synnax-driver.log`.
 
 `install` does not start the service. When the service already exists, `install` stops
 it first. On Linux, run `systemctl enable` and `start` again after you install again. On
-Windows and macOS, `install` also moves a
-[login without admin rights](/reference/enterprise/driver/configuration#state-file) to
-the service.
+Windows and macOS, `install` also moves the
+[login of the user](/reference/enterprise/driver/configuration#state-file) to the
+service.
 
 <Divider.Divider x />
 
@@ -77,7 +77,7 @@ Password:
 ```
 
 Run `login` with admin rights, so that the service reads the login. On Linux and macOS,
-`login` also reads the
+while the service is installed, `login` also reads the
 [environment file](/reference/enterprise/driver/configuration#environment-file), which
 only root can read. Restart a running Driver to use the new key.
 

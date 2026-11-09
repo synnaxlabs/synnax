@@ -44,7 +44,11 @@ cc_library(
             "-lsystemd",
         ],
         "@platforms//os:macos": [],
-        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:advapi32.lib",
+            "/DEFAULTLIB:ole32.lib",
+            "/DEFAULTLIB:shell32.lib",
+        ],
     }),
     visibility = ["//visibility:public"],
     deps = [

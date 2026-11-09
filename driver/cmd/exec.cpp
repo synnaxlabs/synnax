@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/log/globals.h"
 #include "absl/log/log.h"
@@ -19,6 +21,7 @@
 
 #include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"
+#include "driver/rack/rack.h"
 
 namespace driver::cmd {
 // Subcommands are defined in sibling files, one per command.
@@ -62,7 +65,13 @@ void print_usage() {
 
 int exec(const int argc, char *argv[]) {
     x::crash::install("synnax-driver");
-    auto args = x::args::Parser(argc, argv);
+    std::vector<std::string> argv_vec(argv, argv + argc);
+    // The service reads the state of the computer. While it is installed, and during
+    // install, every command uses that state, so a login reaches the service.
+    const bool installed = daemon::installed() ||
+                           (argc > 1 && std::string(argv[1]) == "install");
+    if (installed) argv_vec.push_back(rack::MACHINE_STATE_FLAG);
+    auto args = x::args::Parser(std::move(argv_vec));
     // Color only when stderr is a terminal so ANSI codes never land in redirected log
     // files (systemd journal, /var/log/synnax-driver.log on NI Linux RT).
     x::log::init(!args.flag("--no-color") && x::log::stderr_is_terminal());
@@ -75,7 +84,7 @@ int exec(const int argc, char *argv[]) {
     }
     // The service manager gives the service the environment file. login reads it
     // itself, so its connection check sees the same variables as the service.
-    if (command == "login")
+    if (command == "login" && installed)
         if (const auto err = daemon::load_env()) {
             LOG(ERROR) << err << ". Run login with sudo.";
             return 1;

@@ -38,31 +38,30 @@ x::errors::Error create_system_user() {
     return x::errors::NIL;
 }
 
-x::errors::Error
-install_binary(const fs::path &path, const uid_t uid, const gid_t gid) {
-    LOG(INFO) << "moving binary to " << path;
+x::errors::Error install_binary(
+    const fs::path &src,
+    const fs::path &dst,
+    const uid_t uid,
+    const gid_t gid
+) {
+    LOG(INFO) << "copying binary to " << dst;
     std::error_code ec;
-    const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
-    if (ec)
-        return x::errors::Error(
-            "failed to get current executable path: " + ec.message()
-        );
-    fs::create_directories(path.parent_path(), ec);
+    fs::create_directories(dst.parent_path(), ec);
     if (ec)
         return x::errors::Error("failed to create binary directory: " + ec.message());
     constexpr auto mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     // An install run from the installed binary would copy the file onto itself, which
     // copy_file rejects. Skip the copy: the binary is already in place.
-    if (fs::exists(path, ec) && fs::equivalent(curr_bin_path, path, ec)) {
-        if (chown(path.c_str(), uid, gid) != 0 || chmod(path.c_str(), mode) != 0)
+    if (fs::exists(dst, ec) && fs::equivalent(src, dst, ec)) {
+        if (chown(dst.c_str(), uid, gid) != 0 || chmod(dst.c_str(), mode) != 0)
             return x::errors::Error("failed to set binary permissions");
         return x::errors::NIL;
     }
     // Renaming a complete copy over the old binary keeps it in place if the copy fails,
     // and avoids ETXTBSY when a process still runs the old binary.
-    fs::path tmp_path = path;
+    fs::path tmp_path = dst;
     tmp_path += "." + std::to_string(getpid()) + ".tmp";
-    fs::copy_file(curr_bin_path, tmp_path, fs::copy_options::overwrite_existing, ec);
+    fs::copy_file(src, tmp_path, fs::copy_options::overwrite_existing, ec);
     if (ec) {
         const auto msg = ec.message();
         fs::remove(tmp_path, ec);
@@ -72,7 +71,7 @@ install_binary(const fs::path &path, const uid_t uid, const gid_t gid) {
         fs::remove(tmp_path, ec);
         return x::errors::Error("failed to set binary permissions");
     }
-    fs::rename(tmp_path, path, ec);
+    fs::rename(tmp_path, dst, ec);
     if (ec) {
         const auto msg = ec.message();
         fs::remove(tmp_path, ec);

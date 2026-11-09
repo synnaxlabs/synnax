@@ -242,6 +242,10 @@ x::errors::Error setup_pid_file() {
     return x::errors::NIL;
 }
 
+bool installed() {
+    return fs::exists(INIT_SCRIPT_PATH);
+}
+
 x::errors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "checking for existing service";
@@ -257,7 +261,7 @@ x::errors::Error install_service() {
 
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
-    if (auto err = install_binary(BINARY_PATH, 0, 0)) return err;
+    if (auto err = install_binary("/proc/self/exe", BINARY_PATH, 0, 0)) return err;
 
     if (auto err = setup_pid_file()) {
         LOG(ERROR) << "failed to setup PID file: " << err.message();

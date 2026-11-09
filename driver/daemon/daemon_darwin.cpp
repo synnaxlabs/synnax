@@ -32,19 +32,22 @@ const std::string LABEL = "com.synnaxlabs.driver";
 const std::string TARGET = "system/" + LABEL;
 const std::string PLIST_PATH = "/Library/LaunchDaemons/" + LABEL + ".plist";
 const std::string LOG_PATH = "/Library/Logs/synnax-driver.log";
-const std::string BINARY_PLACEHOLDER = "{binary}";
+/// @brief only root can write the folders of the binary that the service runs.
+const fs::path BINARY_PATH = "/Library/Application Support/synnax-driver/bin/"
+                             "synnax-driver";
 
 /// @brief launchd restarts the Driver when it exits with a nonzero code or crashes.
-const std::string PLIST_TEMPLATE = R"(<?xml version="1.0" encoding="UTF-8"?>
+const std::string PLIST = R"(<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.synnaxlabs.driver</string>
+    <string>)" + LABEL + R"(</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{binary}</string>
+        <string>)" + BINARY_PATH.string() +
+                          R"(</string>
         <string>internal-start</string>
         <string>--disable-stdin-stop</string>
     </array>
@@ -56,42 +59,29 @@ const std::string PLIST_TEMPLATE = R"(<?xml version="1.0" encoding="UTF-8"?>
         <false/>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Library/Logs/synnax-driver.log</string>
+    <string>)" + LOG_PATH +
+                          R"(</string>
     <key>StandardErrorPath</key>
-    <string>/Library/Logs/synnax-driver.log</string>
+    <string>)" + LOG_PATH +
+                          R"(</string>
 </dict>
 </plist>
 )";
 
-std::string escape_xml(const std::string &value) {
-    std::string out;
-    for (const char c: value) {
-        if (c == '&')
-            out += "&amp;";
-        else if (c == '<')
-            out += "&lt;";
-        else if (c == '>')
-            out += "&gt;";
-        else
-            out += c;
-    }
-    return out;
-}
-
-std::pair<std::string, x::errors::Error> executable_path() {
+std::pair<fs::path, x::errors::Error> executable_path() {
     uint32_t size = 0;
     _NSGetExecutablePath(nullptr, &size);
     std::vector<char> buf(size);
     if (_NSGetExecutablePath(buf.data(), &size) != 0)
-        return {"", x::errors::Error("failed to get current executable path")};
+        return {{}, x::errors::Error("failed to get current executable path")};
     std::error_code ec;
-    const auto path = fs::canonical(buf.data(), ec);
+    auto path = fs::canonical(buf.data(), ec);
     if (ec)
         return {
-            "",
+            {},
             x::errors::Error("failed to get current executable path: " + ec.message())
         };
-    return {path.string(), x::errors::NIL};
+    return {path, x::errors::NIL};
 }
 
 // NOLINTBEGIN(bugprone-command-processor): each command is built from constants.
@@ -131,25 +121,24 @@ int run(const Config &config) {
     }
 }
 
+bool installed() {
+    return fs::exists(PLIST_PATH);
+}
+
 x::errors::Error install_service() {
     if (fs::exists(PLIST_PATH) && loaded()) {
         LOG(INFO) << "Existing service found, stopping it";
         if (auto err = launchctl("bootout " + TARGET, "stop")) return err;
     }
     if (auto err = create_env_file()) return err;
-    auto [binary, err] = executable_path();
-    if (err) return err;
-    std::string plist = PLIST_TEMPLATE;
-    plist.replace(
-        plist.find(BINARY_PLACEHOLDER),
-        BINARY_PLACEHOLDER.size(),
-        escape_xml(binary)
-    );
+    const auto [binary, path_err] = executable_path();
+    if (path_err) return path_err;
+    if (auto err = install_binary(binary, BINARY_PATH, 0, 0)) return err;
     LOG(INFO) << "Creating service file at " << PLIST_PATH;
     const auto tmp_path = PLIST_PATH + ".tmp";
     std::ofstream file(tmp_path);
     if (!file) return x::errors::Error("failed to create service file");
-    file << plist;
+    file << PLIST;
     file.close();
     // launchd refuses a file that someone other than root can write.
     if (chown(tmp_path.c_str(), 0, 0) != 0 ||

@@ -19,10 +19,14 @@ namespace driver::daemon {
 /// @brief creates the synnax system user the service runs as, if it does not exist.
 x::errors::Error create_system_user();
 
-/// @brief copies the running binary to path with mode 0755, owned by uid and gid. Skips
-/// the copy when the running binary is already at path. Requires root.
-x::errors::Error
-install_binary(const std::filesystem::path &path, uid_t uid, gid_t gid);
+/// @brief copies the binary at src to dst with mode 0755, owned by uid and gid. Skips
+/// the copy when src is already dst. Requires root.
+x::errors::Error install_binary(
+    const std::filesystem::path &src,
+    const std::filesystem::path &dst,
+    uid_t uid,
+    gid_t gid
+);
 
 /// @brief creates the Driver's environment file, owned by root with mode 0600, so only
 /// root can read the password in it. An existing file keeps its contents but gets that

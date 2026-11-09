@@ -52,6 +52,10 @@ const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
 
+/// @brief the flag that selects the state of the computer, which the Driver service
+/// reads, over the state of the user.
+const std::string MACHINE_STATE_FLAG = "--machine-state";
+
 struct RemoteInfo {
     /// @brief a saved rack that still needs enrollment. It is saved again only while
     /// the Driver cannot enroll it.
@@ -273,8 +277,8 @@ struct Config {
     /// computer to LocalSystem and the administrators. Skips state that does not exist.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
 
-    /// @brief moves the state that the user saved without admin rights to the state of
-    /// the computer, which the service reads, unless that state exists. Does nothing on
+    /// @brief moves the state and OPC UA certificates of the user to the state of the
+    /// computer, which the service reads, unless that state exists. Does nothing on
     /// Linux or with a --state-file argument. Requires admin rights.
     static x::errors::Error move_user_state(x::args::Parser &args);
 
@@ -321,7 +325,8 @@ class Rack {
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
-    /// should stop operations and shut down.
+    /// should stop operations and shut down. Calls on_shutdown unless a stop caused
+    /// the exit.
     bool
     should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
 
@@ -338,7 +343,8 @@ public:
     /// down prematurely
     void start(x::args::Parser &args, std::function<void()> on_shutdown = nullptr);
 
-    /// @brief stops the rack.
+    /// @brief stops the rack. Returns the error that stopped the rack before this call,
+    /// or NIL when the rack was still running.
     x::errors::Error stop();
 };
 }

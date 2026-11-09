@@ -22,10 +22,15 @@ bool Rack::should_exit(
 ) {
     this->run_err = err;
     if (!err) return false;
-    const auto breaker_ok = synnax::errors::is_temporarily_unavailable(err) &&
-                            breaker.wait(err);
-    if (!breaker_ok && on_shutdown) on_shutdown();
-    return !breaker_ok;
+    if (synnax::errors::is_temporarily_unavailable(err) && this->breaker.wait(err))
+        return false;
+    // A stop came first, so the error did not stop the rack.
+    if (!this->breaker.running()) {
+        this->run_err = x::errors::NIL;
+        return true;
+    }
+    if (on_shutdown) on_shutdown();
+    return true;
 }
 
 Rack::~Rack() {

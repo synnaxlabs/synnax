@@ -35,7 +35,7 @@ const fs::path BINARY_DIR = "/var/lib/synnax-driver/bin";
 const fs::path BINARY_PATH = BINARY_DIR / "synnax-driver";
 const fs::path LINK_PATH = "/usr/local/bin/synnax-driver";
 
-const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+const std::string SYSTEMD_SERVICE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/enterprise/driver/install
 After=network-online.target
@@ -45,7 +45,8 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
-ExecStart=/var/lib/synnax-driver/bin/synnax-driver internal-start --disable-stdin-stop
+ExecStart=)" + BINARY_PATH.string() +
+                                    R"( internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
 EnvironmentFile=-/etc/synnax/driver.env
@@ -148,7 +149,13 @@ x::errors::Error install_service_binary() {
     if (chown(BINARY_DIR.c_str(), user->pw_uid, user->pw_gid) != 0 ||
         chmod(BINARY_DIR.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
         return x::errors::Error("Failed to give binary directory to the synnax user");
-    if (auto err = install_binary(BINARY_PATH, user->pw_uid, user->pw_gid)) return err;
+    if (auto err = install_binary(
+            "/proc/self/exe",
+            BINARY_PATH,
+            user->pw_uid,
+            user->pw_gid
+        ))
+        return err;
     LOG(INFO) << "Linking " << LINK_PATH << " to " << BINARY_PATH;
     fs::path tmp_path = LINK_PATH;
     tmp_path += "." + std::to_string(getpid()) + ".tmp";
@@ -162,6 +169,10 @@ x::errors::Error install_service_binary() {
         return x::errors::Error("Failed to link binary: " + msg);
     }
     return x::errors::NIL;
+}
+
+bool installed() {
+    return fs::exists(SYSTEMD_SERVICE_PATH);
 }
 
 x::errors::Error install_service() {
@@ -195,7 +206,7 @@ x::errors::Error install_service() {
     std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
     if (!service_file) return x::errors::Error("Failed to create service file");
 
-    service_file << SYSTEMD_SERVICE_TEMPLATE;
+    service_file << SYSTEMD_SERVICE;
     service_file.close();
 
     if (chmod(SYSTEMD_SERVICE_PATH.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)

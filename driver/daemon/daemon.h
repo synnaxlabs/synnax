@@ -33,6 +33,9 @@ struct Config {
     ApplicationCallback callback;
 };
 
+/// @brief returns true when the Driver service is installed on this computer.
+bool installed();
+
 x::errors::Error install_service();
 
 x::errors::Error uninstall_service();

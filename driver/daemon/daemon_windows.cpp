@@ -20,7 +20,11 @@
 #include <vector>
 
 #include "absl/log/log.h"
+// clang-format off
+// shlobj.h must be included after windows.h.
 #include <windows.h>
+#include <shlobj.h>
+// clang-format on
 
 #include "x/cpp/shutdown/shutdown.h"
 
@@ -163,6 +167,43 @@ std::wstring executable_path() {
     }
 }
 
+/// @brief returns where the service binary goes. Users cannot create or change files
+/// in Program Files, so only an administrator can replace the binary that LocalSystem
+/// runs.
+std::pair<fs::path, x::errors::Error> binary_path() {
+    PWSTR dir = nullptr;
+    const auto result = SHGetKnownFolderPath(FOLDERID_ProgramFiles, 0, nullptr, &dir);
+    const fs::path program_files = SUCCEEDED(result) ? fs::path(dir) : fs::path();
+    CoTaskMemFree(dir);
+    if (FAILED(result))
+        return {
+            {},
+            windows_error("failed to find Program Files", static_cast<DWORD>(result))
+        };
+    return {program_files / "Synnax Driver" / "synnax-driver.exe", x::errors::NIL};
+}
+
+/// @brief copies the running binary to path, unless it runs from path.
+x::errors::Error install_binary(const fs::path &path) {
+    LOG(INFO) << "Copying binary to " << path;
+    const fs::path src = executable_path();
+    std::error_code ec;
+    fs::create_directories(path.parent_path(), ec);
+    if (ec)
+        return x::errors::Error("failed to create binary directory: " + ec.message());
+    if (fs::exists(path, ec) && fs::equivalent(src, path, ec)) return x::errors::NIL;
+    fs::path tmp_path = path;
+    tmp_path += ".tmp";
+    fs::copy_file(src, tmp_path, fs::copy_options::overwrite_existing, ec);
+    if (!ec) fs::rename(tmp_path, path, ec);
+    if (ec) {
+        const auto msg = ec.message();
+        fs::remove(tmp_path, ec);
+        return x::errors::Error("failed to copy binary: " + msg);
+    }
+    return x::errors::NIL;
+}
+
 /// @brief the state of the service while the service manager runs it.
 struct Service {
     const Config &config;
@@ -263,6 +304,14 @@ int run(const Config &config) {
     return 1;
 }
 
+bool installed() {
+    Handle manager;
+    if (open_manager(manager, SC_MANAGER_CONNECT)) return false;
+    Handle service;
+    if (open_service(manager, service, SERVICE_QUERY_STATUS)) return false;
+    return service.h != nullptr;
+}
+
 x::errors::Error install_service() {
     LOG(INFO) << "Creating log directory at " << LOG_PATH.parent_path();
     std::error_code ec;
@@ -274,13 +323,18 @@ x::errors::Error install_service() {
             SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE
         ))
         return err;
-    const auto command = L"\"" + executable_path() +
-                         L"\" internal-start --disable-stdin-stop";
     Handle service;
     if (auto err = open_service(manager, service, SERVICE_ALL_ACCESS)) return err;
     if (service.h != nullptr) {
         LOG(INFO) << "Existing service found, stopping and updating it";
         if (auto err = stop_and_wait(service)) return err;
+    }
+    const auto [binary, path_err] = binary_path();
+    if (path_err) return path_err;
+    if (auto err = install_binary(binary)) return err;
+    const auto command = L"\"" + binary.wstring() +
+                         L"\" internal-start --disable-stdin-stop";
+    if (service.h != nullptr) {
         if (ChangeServiceConfigW(
                 service.h,
                 SERVICE_WIN32_OWN_PROCESS,

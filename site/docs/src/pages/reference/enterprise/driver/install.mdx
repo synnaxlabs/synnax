@@ -94,10 +94,11 @@ Open a new terminal as administrator, and install the Windows service:
 synnax-driver install
 ```
 
-The `install` command creates the `SynnaxDriver` service, which runs the binary from its
-folder. The service runs as LocalSystem and starts with the computer. Windows restarts
-it when it stops with an error. `install` does not start the service. To upgrade the
-Driver, run `synnax-driver stop`, replace the binary, and run `install` again.
+The `install` command copies the binary to `C:\Program Files\Synnax Driver\` and creates
+the `SynnaxDriver` service, which runs that copy. The service runs as LocalSystem and
+starts with the computer. Windows restarts it when it stops with an error. `install`
+does not start the service. To upgrade the Driver, replace the binary, run `install`
+again, and start the service.
 
 </Fragment>
 <Fragment slot="macOS">
@@ -120,11 +121,13 @@ Install the launchd service:
 sudo synnax-driver install
 ```
 
-The `install` command creates the service `com.synnaxlabs.driver` in
-`/Library/LaunchDaemons`, which runs the binary from its folder, and the empty
-environment file `/etc/synnax/driver.env`. The service runs as root and starts with the
-computer. launchd restarts it when it stops with an error. `install` does not start the
-service. After you upgrade the Driver, run `sudo synnax-driver install` again.
+The `install` command copies the binary to
+`/Library/Application Support/synnax-driver/bin/`, creates the service
+`com.synnaxlabs.driver` in `/Library/LaunchDaemons`, which runs that copy, and creates
+the empty environment file `/etc/synnax/driver.env`. The service runs as root and starts
+with the computer. launchd restarts it when it stops with an error. `install` does not
+start the service. After you upgrade the Driver, run `sudo synnax-driver install` again,
+and start the service.
 
 </Fragment>
 </Driver.Tabs>
