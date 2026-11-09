@@ -92,6 +92,39 @@ TEST(ReadLayoutTest, ReadsThePDOsOfEachSyncManager) {
     EXPECT_EQ(entries[2].sub_index, 17);
 }
 
+/// @brief it should read the PDOs of the process data sync managers past SM3.
+TEST(ReadLayoutTest, ReadsTheSyncManagersPastSM3) {
+    const auto syncs = ASSERT_NIL_P(read_layout(
+        reader(with(
+            LAYOUT,
+            {{{0x1C00, 0}, 6},
+             {{0x1C00, 5}, 3},
+             {{0x1C00, 6}, 4},
+             {{0x1C14, 0}, 1},
+             {{0x1C14, 1}, 0x1604},
+             {{0x1604, 0}, 1},
+             {{0x1604, 1}, 0x70200120},
+             {{0x1C15, 0}, 1},
+             {{0x1C15, 1}, 0x1A04},
+             {{0x1A04, 0}, 1},
+             {{0x1A04, 1}, 0x60040120}}
+        )),
+        8,
+        OnError::FAIL
+    ));
+    ASSERT_EQ(syncs.size(), 4);
+    EXPECT_EQ(syncs[2].index, 4);
+    EXPECT_FALSE(syncs[2].is_input);
+    ASSERT_EQ(syncs[2].pdos.size(), 1);
+    EXPECT_EQ(syncs[2].pdos[0].index, 0x1604);
+    EXPECT_EQ(syncs[3].index, 5);
+    EXPECT_TRUE(syncs[3].is_input);
+    ASSERT_EQ(syncs[3].pdos.size(), 1);
+    ASSERT_EQ(syncs[3].pdos[0].entries.size(), 1);
+    EXPECT_EQ(syncs[3].pdos[0].entries[0].index, 0x6004);
+    EXPECT_EQ(syncs[3].pdos[0].entries[0].bit_length, 32);
+}
+
 /// @brief it should return no sync managers for a slave without the sync manager type
 /// object, whose layout its EEPROM lists.
 TEST(ReadLayoutTest, ReturnsNoSyncManagersWithoutTheTypeObject) {
