@@ -12,7 +12,6 @@ import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   addChannel,
   addRange,
   createReduceAll,
@@ -49,7 +48,7 @@ import {
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
-import { type LinePlot, linePlotZ } from "@/lineplot/types.gen";
+import { type Action, type LinePlot, linePlotZ } from "@/lineplot/types.gen";
 import { type ranger } from "@/ranger";
 
 const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult =>

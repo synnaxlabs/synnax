@@ -12,7 +12,6 @@ import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   addEdge,
   createReduceAll,
   type HandlerResult,
@@ -24,6 +23,7 @@ import {
   setNodePosition,
 } from "@/schematic/actions.gen";
 import {
+  type Action,
   type ElementConfig,
   elementConfigZ,
   type Schematic,

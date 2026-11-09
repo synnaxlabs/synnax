@@ -149,7 +149,9 @@ describe("task.reduceAll", () => {
   describe("create", () => {
     it("should replace the task with the created task", () => {
       const created = { ...createTask(), name: "Created", configHash: "h3" };
-      const { next } = task.reduceAll(createTask(), [task.create({ task: created })]);
+      const { next } = task.reduceAll(createTask(), [
+        { type: "create", create: { task: created } },
+      ]);
       expect(next).toEqual(created);
     });
   });
@@ -168,7 +170,9 @@ describe("task.createOf", () => {
       },
     });
     const { status: _, ...expected } = created;
-    expect(task.createOf(task.create({ task: created }))).toEqual(expected);
+    expect(task.createOf({ type: "create", create: { task: created } })).toEqual(
+      expected,
+    );
   });
 
   it("should return undefined for another action", () => {

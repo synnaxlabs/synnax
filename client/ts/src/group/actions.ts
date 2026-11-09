@@ -13,12 +13,11 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/group/actions.gen";
-import { type Group } from "@/group/types.gen";
+import { type Action, type Group } from "@/group/types.gen";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.
 const documentZ = z.object({ name: z.string() });

@@ -26,19 +26,14 @@ import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { query } from "@/query";
 import { createOf, encode, reduceAll } from "@/ranger/actions";
-import {
-  type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/ranger/actions.gen";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
 import {
+  type Action,
   type Key,
   keyZ,
   type New,

@@ -17,12 +17,14 @@ from freighter import Empty, UnaryClient
 from synnax import group as group_, rack as rack_
 from synnax.device import actions_gen
 from synnax.device.types_gen import (
+    Action,
     Cursor,
     Device,
     Key,
     Order,
     RetrieveRequest,
     RetrieveResponse,
+    SetPayload,
     Where,
     WhereInput,
 )
@@ -42,7 +44,7 @@ _CreateResponse = _CreateRequest
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -139,9 +141,7 @@ class Client:
         :param name: The new name for the device.
         :raises NotFoundError: If no device has the given key.
         """
-        self.dispatch(
-            key, actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
-        )
+        self.dispatch(key, actions_gen.set(SetPayload(path=["name"], value=name)))
 
     def set_group(self, keys: list[Key], group: group_.Key | None = None) -> None:
         """Moves devices into a group, or out of their group when group is None.
@@ -151,16 +151,14 @@ class Client:
             sit under the rack of each device.
         """
         value = None if group is None else str(group)
-        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        action = actions_gen.set(SetPayload(path=["group"], value=value))
         send_batch(
             self._client,
             "/device/dispatch",
             [_DispatchRequest(key=k, actions=[action]) for k in keys],
         )
 
-    def dispatch(
-        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
-    ) -> None:
+    def dispatch(self, key: Key, actions: Action | list[Action]) -> None:
         """Applies actions to a device, in order, in one transaction.
 
         :param key: The key of the device.

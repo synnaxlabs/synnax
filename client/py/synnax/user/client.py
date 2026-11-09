@@ -17,7 +17,17 @@ from synnax.exceptions import ValidationError
 from synnax.transport import send_batch
 from synnax.user import actions_gen
 from synnax.user.payload import New, User
-from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import (
+    Action,
+    Cursor,
+    Key,
+    Order,
+    RetrieveRequest,
+    SetPayload,
+    SetUsernamePayload,
+    Where,
+    WhereInput,
+)
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -43,7 +53,7 @@ class _DeleteRequest(BaseModel):
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class Client:
@@ -102,15 +112,13 @@ class Client:
         return res
 
     def change_username(self, key: Key, username: str) -> None:
-        action = actions_gen.set_username(
-            actions_gen.SetUsernamePayload(username=username)
-        )
+        action = actions_gen.set_username(SetUsernamePayload(username=username))
         self.client.send(
             "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
         )
 
     def change_name(self, key: Key, *, name: str) -> None:
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         self.client.send(
             "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
         )
@@ -125,7 +133,7 @@ class Client:
             not exist.
         :raises NotFoundError: If one of the users does not exist.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["role"], value=str(role)))
+        action = actions_gen.set(SetPayload(path=["role"], value=str(role)))
         send_batch(
             self.client,
             "/user/dispatch",

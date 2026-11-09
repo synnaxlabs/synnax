@@ -20,7 +20,6 @@ import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/user/actions";
 import {
-  type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
@@ -29,6 +28,7 @@ import {
 } from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
+  type Action,
   type Key,
   keyZ,
   type New,

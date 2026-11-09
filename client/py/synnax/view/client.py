@@ -16,11 +16,13 @@ from freighter import Empty, UnaryClient
 from synnax.util import request_where, returns_one, sole
 from synnax.view import actions_gen
 from synnax.view.types_gen import (
+    Action,
     Cursor,
     Key,
     Order,
     RetrieveRequest,
     RetrieveResponse,
+    SetPayload,
     Type,
     View,
     Where,
@@ -40,7 +42,7 @@ _CreateResponse = _CreateRequest
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -84,7 +86,7 @@ class Client:
         :param name: The new name for the view.
         :raises NotFoundError: If no view has the given key.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/view/dispatch", req, Empty)
 

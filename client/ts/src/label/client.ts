@@ -14,13 +14,9 @@ import z from "zod";
 import { actions } from "@/actions";
 import { type batch } from "@/batch";
 import { createOf, encode, reduceAll } from "@/label/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ } from "@/label/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-} from "@/label/actions.gen";
-import {
   type Key,
   keyZ,
   type Label,

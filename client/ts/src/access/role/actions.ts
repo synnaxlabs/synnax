@@ -12,12 +12,11 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/access/role/actions.gen";
-import { type Role } from "@/access/role/types.gen";
+import { type Action, type Role } from "@/access/role/types.gen";
 import { actions } from "@/actions";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.

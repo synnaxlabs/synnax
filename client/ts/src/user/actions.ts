@@ -12,13 +12,8 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import {
-  type Action,
-  createReduceAll,
-  type HandlerResult,
-  type Handlers,
-} from "@/user/actions.gen";
-import { type User } from "@/user/types.gen";
+import { createReduceAll, type HandlerResult, type Handlers } from "@/user/actions.gen";
+import { type Action, type User } from "@/user/types.gen";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.
 // Only the Core sets root_user.

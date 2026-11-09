@@ -13,12 +13,11 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/arc/directory/actions.gen";
-import { type Directory } from "@/arc/directory/types.gen";
+import { type Action, type Directory } from "@/arc/directory/types.gen";
 
 // The fields that path actions edit, checked for shape only. The Core validates them.
 const documentZ = z.object({

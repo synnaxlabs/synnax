@@ -16,12 +16,14 @@ from freighter import Empty, FileTransport, UnaryClient
 from synnax import group as group_, imex
 from synnax.project import actions_gen
 from synnax.project.types_gen import (
+    Action,
     Cursor,
     Key,
     Order,
     Project,
     RetrieveRequest,
     RetrieveResponse,
+    SetPayload,
     Where,
     WhereInput,
 )
@@ -46,7 +48,7 @@ class _DeleteRequest(BaseModel):
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _ExportRequest(BaseModel):
@@ -130,7 +132,7 @@ class Client:
         :param key: The key of the project to rename.
         :param name: The new name for the project.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/project/dispatch", req, Empty)
 

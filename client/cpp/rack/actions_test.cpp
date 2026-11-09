@@ -19,7 +19,7 @@ namespace synnax::rack {
 /// @brief it should parse a create action from the JSON that it writes.
 TEST(ActionsTests, testCreateRoundTrip) {
     const x::json::Parser parser(
-        to_json(create({.rack = {.key = 12, .name = "Edge"}}))
+        to_json(Action{CreatePayload{.rack = {.key = 12, .name = "Edge"}}})
     );
     const auto action = parse_action(parser);
     ASSERT_NIL(parser.error());

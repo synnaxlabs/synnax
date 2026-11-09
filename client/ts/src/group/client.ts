@@ -15,7 +15,6 @@ import { actions } from "@/actions";
 import { type batch } from "@/batch";
 import { createOf, reduceAll } from "@/group/actions";
 import {
-  type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
@@ -25,6 +24,7 @@ import {
 import { type MemberType } from "@/group/members.gen";
 import { isMember } from "@/group/move";
 import {
+  type Action,
   type Group,
   groupZ,
   type Key,

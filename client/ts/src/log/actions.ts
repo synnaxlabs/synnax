@@ -12,7 +12,6 @@ import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   addChannel,
   createReduceAll,
   type HandlerResult,
@@ -31,7 +30,7 @@ import {
   setTimeZone,
   swapChannel,
 } from "@/log/actions.gen";
-import { channelEntryZ, type Log, logZ } from "@/log/types.gen";
+import { type Action, channelEntryZ, type Log, logZ } from "@/log/types.gen";
 
 const applyPath = (state: Draft<Log>, action: patch.Action): HandlerResult =>
   actions.applyPath(state, action, logZ);

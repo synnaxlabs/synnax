@@ -14,12 +14,15 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.group import actions_gen
 from synnax.group.types_gen import (
+    Action,
     Cursor,
     Group,
     Key,
     Order,
     RetrieveRequest,
     RetrieveResponse,
+    SetParentPayload,
+    SetPayload,
     Where,
     WhereInput,
 )
@@ -47,7 +50,7 @@ class _DeleteReq(BaseModel):
 class _DispatchReq(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class Client:
@@ -194,7 +197,7 @@ class Client:
         return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: Key, name: str) -> Empty:
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         return self._client.send(
             "/group/dispatch", _DispatchReq(key=key, actions=[action]), Empty
         )
@@ -209,9 +212,7 @@ class Client:
         :param parent: The group, project, or rack to move the groups under.
         """
         action = actions_gen.set_parent(
-            actions_gen.SetParentPayload(
-                parent=ID(parent) if parent is not None else None
-            )
+            SetParentPayload(parent=ID(parent) if parent is not None else None)
         )
         send_batch(
             self._client,

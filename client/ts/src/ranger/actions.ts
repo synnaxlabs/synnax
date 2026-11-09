@@ -21,12 +21,11 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/ranger/actions.gen";
-import { type Payload } from "@/ranger/types.gen";
+import { type Action, type Payload } from "@/ranger/types.gen";
 
 // The part of a range that path actions edit. It checks shape but not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.

@@ -36,14 +36,9 @@ import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/task/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/task/actions.gen";
-import {
   type Command,
   commandZ,
   type Key,

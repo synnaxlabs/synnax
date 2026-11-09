@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { createOf, reduceAll } from "@/device/actions";
-import { create, set, setRack } from "@/device/actions.gen";
-import { type Device } from "@/device/types.gen";
+import { set, setRack } from "@/device/actions.gen";
+import { type Action, type Device } from "@/device/types.gen";
 
 const DEVICE: Omit<Device, "status"> = {
   key: "d1",
@@ -42,7 +42,7 @@ describe("device actions", () => {
 
   it("should drop the status that a create carries", () => {
     const created = { ...DEVICE, name: "Created", status: undefined };
-    const action = create({ device: created });
+    const action: Action = { type: "create", create: { device: created } };
     expect(createOf(action)).toEqual({ ...DEVICE, name: "Created" });
     expect(reduceAll(DEVICE, [action]).next).toEqual({ ...DEVICE, name: "Created" });
   });

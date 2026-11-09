@@ -18,7 +18,6 @@ import { query } from "@/query";
 import { ranger } from "@/ranger";
 import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
-  type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
@@ -26,6 +25,7 @@ import {
 } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
+  type Action,
   type Key,
   keyZ,
   type New,

@@ -14,14 +14,9 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { query } from "@/query";
 import { createOf, reduceAll } from "@/view/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/view/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/view/actions.gen";
-import {
   type Key,
   keyZ,
   type New,

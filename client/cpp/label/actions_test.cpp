@@ -18,7 +18,9 @@
 namespace synnax::label {
 /// @brief it should parse a create action from the JSON that it writes.
 TEST(ActionsTests, testCreateRoundTrip) {
-    const x::json::Parser parser(to_json(create({.label = {.name = "Hot"}})));
+    const x::json::Parser parser(
+        to_json(Action{CreatePayload{.label = {.name = "Hot"}}})
+    );
     const auto action = parse_action(parser);
     ASSERT_NIL(parser.error());
     ASSERT_TRUE(std::holds_alternative<CreatePayload>(action));

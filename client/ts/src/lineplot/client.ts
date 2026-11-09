@@ -14,14 +14,9 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/lineplot/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/lineplot/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/lineplot/actions.gen";
-import {
   type Key,
   keyZ,
   type LinePlot,

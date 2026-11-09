@@ -8,14 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.device.actions_gen import (
-    Action,
-    CreatePayload,
-    InsertPayload,
-    MovePayload,
-    RemovePayload,
-    SetPayload,
-    SetRackPayload,
-    create,
     insert,
     move,
     remove,
@@ -26,10 +18,17 @@ from synnax.device.client import Client
 from synnax.device.properties import ensure_object
 from synnax.device.types_gen import (
     TYPE_RESOURCE_ID,
+    Action,
+    CreatePayload,
     Cursor,
     Device,
+    InsertPayload,
     Key,
+    MovePayload,
     Order,
+    RemovePayload,
+    SetPayload,
+    SetRackPayload,
     Status,
     StatusDetails,
     Where,
@@ -55,7 +54,6 @@ __all__ = [
     "StatusDetails",
     "Where",
     "WhereInput",
-    "create",
     "ensure_object",
     "insert",
     "move",

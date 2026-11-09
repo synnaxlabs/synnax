@@ -19,7 +19,7 @@ namespace synnax::task {
 /// @brief it should parse a create action from the JSON that it writes.
 TEST(ActionsTests, testCreateRoundTrip) {
     const x::json::Parser parser(
-        to_json(create({.task = {.name = "Read", .type = "modbus_read"}}))
+        to_json(Action{CreatePayload{.task = {.name = "Read", .type = "modbus_read"}}})
     );
     const auto action = parse_action(parser);
     ASSERT_NIL(parser.error());

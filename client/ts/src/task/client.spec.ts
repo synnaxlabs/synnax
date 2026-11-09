@@ -140,15 +140,18 @@ describe("task.Client", () => {
               dispatchKey: "remote-dispatch",
               seq: 1,
               actions: [
-                task.create({
-                  task: {
-                    key,
-                    name: "created remotely",
-                    type: "test",
-                    config: {},
-                    status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                {
+                  type: "create",
+                  create: {
+                    task: {
+                      key,
+                      name: "created remotely",
+                      type: "test",
+                      config: {},
+                      status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                    },
                   },
-                }),
+                },
               ],
             },
           ]),
@@ -184,15 +187,18 @@ describe("task.Client", () => {
               dispatchKey: "remote-dispatch",
               seq: 1,
               actions: [
-                task.create({
-                  task: {
-                    key,
-                    name: "held",
-                    type: "test",
-                    config: {},
-                    status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                {
+                  type: "create",
+                  create: {
+                    task: {
+                      key,
+                      name: "held",
+                      type: "test",
+                      config: {},
+                      status: createStatus(key, "Task not deployed", TimeStamp.now()),
+                    },
                   },
-                }),
+                },
               ],
             },
           ]),

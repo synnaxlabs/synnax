@@ -12,11 +12,9 @@ import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
-  type InsertTabsPayload,
 } from "@/panel/actions.gen";
 import {
   findNode,
@@ -28,6 +26,8 @@ import {
   tabLeafPath,
 } from "@/panel/tree";
 import {
+  type Action,
+  type InsertTabsPayload,
   type LeafNode,
   type Node,
   type Panel,

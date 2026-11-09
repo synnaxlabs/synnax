@@ -142,14 +142,18 @@ describe("ranger.reduceAll", () => {
     it("should replace the range, dropping fields the created range lacks", () => {
       const prev = { ...createRange(), color: color.construct("#00ff00") };
       const created = { ...createRange(), name: "Created" };
-      const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
+      const { next } = ranger.reduceAll(prev, [
+        { type: "create", create: { range: created } },
+      ]);
       expect(next).toEqual(created);
     });
 
     it("should keep the labels so a late create echo cannot undo a label write", () => {
       const prev = { ...createRange(), labels: [LABEL] };
       const created = { ...createRange(), name: "Created" };
-      const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
+      const { next } = ranger.reduceAll(prev, [
+        { type: "create", create: { range: created } },
+      ]);
       expect(next).toEqual({ ...created, labels: [LABEL] });
     });
   });
@@ -189,7 +193,7 @@ describe("ranger.encode", () => {
 describe("ranger.createOf", () => {
   it("should return the range that a create carries", () => {
     const range = createRange();
-    expect(ranger.createOf(ranger.create({ range }))).toEqual(range);
+    expect(ranger.createOf({ type: "create", create: { range } })).toEqual(range);
   });
 
   it("should return undefined for a path action", () => {

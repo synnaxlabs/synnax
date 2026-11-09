@@ -33,6 +33,7 @@ from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
 from synnax.task import actions_gen
 from synnax.task.types_gen import (
+    Action,
     Command,
     Cursor,
     Key,
@@ -40,6 +41,7 @@ from synnax.task.types_gen import (
     Payload,
     RetrieveRequest,
     RetrieveResponse,
+    SetPayload,
     Status,
     Where,
     WhereInput,
@@ -65,7 +67,7 @@ _CreateResponse = _CreateRequest
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -510,10 +512,10 @@ class Client:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
             task.set_internal(self.sugar(created)[0])
             return task
-        actions: list[actions_gen.Action] = [
-            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
-            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
-            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        actions: list[Action] = [
+            actions_gen.set(SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(SetPayload(path=["config"], value=pld.config)),
         ]
         req = _DispatchRequest(key=pld.key, actions=actions)
         self._client.send("/task/dispatch", req, Empty)
@@ -531,7 +533,7 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/task/dispatch", req, Empty)
 

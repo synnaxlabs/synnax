@@ -12,7 +12,6 @@ import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   addCol,
   addRow,
   createReduceAll,
@@ -27,6 +26,7 @@ import {
   setCell,
 } from "@/table/actions.gen";
 import {
+  type Action,
   type Cell,
   type CellConfig,
   cellConfigZ,

@@ -16,14 +16,9 @@ import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
 import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/table/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/table/actions.gen";
-import {
   type Key,
   keyZ,
   type New,

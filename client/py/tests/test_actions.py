@@ -16,15 +16,15 @@ import pytest
 from pydantic import BaseModel, TypeAdapter
 
 import synnax
-from synnax.device import actions_gen as device_actions
-from synnax.ranger import actions_gen as ranger_actions
+from synnax.device import actions_gen as device_actions, types_gen as device_types
+from synnax.ranger import actions_gen as ranger_actions, types_gen as ranger_types
 from x.codec import JSONCodec
 
 CASES = [
     pytest.param(
-        ranger_actions.Action,
+        ranger_types.Action,
         ranger_actions.set(
-            ranger_actions.SetPayload(path=["time_range", "end"], value=100)
+            ranger_types.SetPayload(path=["time_range", "end"], value=100)
         ),
         {
             "type": "set",
@@ -33,9 +33,9 @@ CASES = [
         id="range",
     ),
     pytest.param(
-        device_actions.Action,
+        device_types.Action,
         device_actions.set(
-            device_actions.SetPayload(path=["properties"], value={"port": 502})
+            device_types.SetPayload(path=["properties"], value={"port": 502})
         ),
         {
             "type": "set",
@@ -44,9 +44,9 @@ CASES = [
         id="device",
     ),
     pytest.param(
-        ranger_actions.Action,
+        ranger_types.Action,
         ranger_actions.set(
-            ranger_actions.SetPayload(path=["time_range", "end"], value=None)
+            ranger_types.SetPayload(path=["time_range", "end"], value=None)
         ),
         {"type": "set", "set": {"path": ["time_range", "end"], "guards": []}},
         id="null",
@@ -79,5 +79,11 @@ class TestActions:
 
     @pytest.mark.parametrize("module", MODULES)
     def test_import(self, module: str) -> None:
-        """Should import every action module and build its Action adapter."""
-        TypeAdapter(importlib.import_module(module).Action)
+        """Should import every action module and build the Action adapter of its
+        package."""
+        importlib.import_module(module)
+        types = importlib.import_module(
+            module.removesuffix("actions_gen") + "types_gen"
+        )
+        TypeAdapter(types.Action)
+

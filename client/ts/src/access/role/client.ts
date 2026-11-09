@@ -13,13 +13,13 @@ import { z } from "zod";
 
 import { createOf, reduceAll } from "@/access/role/actions";
 import {
-  type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
   set,
 } from "@/access/role/actions.gen";
 import {
+  type Action,
   type Key,
   keyZ,
   type New,

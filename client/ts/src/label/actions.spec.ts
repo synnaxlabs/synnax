@@ -82,7 +82,7 @@ describe("label.reduceAll", () => {
     it("should replace the label", () => {
       const created = { ...createLabel(), name: "Created" };
       const { next, inverse } = label.reduceAll(createLabel(), [
-        label.create({ label: created }),
+        { type: "create", create: { label: created } },
       ]);
       expect(next).toEqual(created);
       expect(inverse).toEqual([]);
@@ -93,7 +93,7 @@ describe("label.reduceAll", () => {
 describe("label.createOf", () => {
   it("should return the label that a create carries", () => {
     const lbl = createLabel();
-    expect(label.createOf(label.create({ label: lbl }))).toEqual(lbl);
+    expect(label.createOf({ type: "create", create: { label: lbl } })).toEqual(lbl);
   });
 
   it("should return undefined for a path action", () => {

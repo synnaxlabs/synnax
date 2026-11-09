@@ -17,11 +17,13 @@ from synnax import group as group_
 from synnax.exceptions import NotFoundError
 from synnax.rack import actions_gen
 from synnax.rack.types_gen import (
+    Action,
     Cursor,
     Key,
     Order,
     Rack,
     RetrieveRequest,
+    SetPayload,
     Where,
     WhereInput,
 )
@@ -42,7 +44,7 @@ class _CreateResponse(BaseModel):
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -110,7 +112,7 @@ class Client:
         :param name: The new name for the rack.
         :raises NotFoundError: If no rack has the given key.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/rack/dispatch", req, Empty)
         if self._embedded_rack is not None and self._embedded_rack.key == key:
@@ -123,7 +125,7 @@ class Client:
         :param group: The key of the group to move the racks into.
         """
         value = None if group is None else str(group)
-        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        action = actions_gen.set(SetPayload(path=["group"], value=value))
         send_batch(
             self._client,
             "/rack/dispatch",

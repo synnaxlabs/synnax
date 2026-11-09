@@ -15,13 +15,13 @@ import { actions } from "@/actions";
 import { setDirectory } from "@/arc/actions.gen";
 import { createOf, reduceAll } from "@/arc/directory/actions";
 import {
-  type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
   set,
 } from "@/arc/directory/actions.gen";
 import {
+  type Action,
   type Directory,
   directoryZ,
   type Key,

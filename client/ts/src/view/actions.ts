@@ -14,13 +14,8 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
-import {
-  type Action,
-  createReduceAll,
-  type HandlerResult,
-  type Handlers,
-} from "@/view/actions.gen";
-import { type Type, type View } from "@/view/types.gen";
+import { createReduceAll, type HandlerResult, type Handlers } from "@/view/actions.gen";
+import { type Action, type Type, type View } from "@/view/types.gen";
 
 // The fields that path actions edit for each type of view, checked for shape only. The
 // Core validates them.

@@ -13,14 +13,9 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { createOf, reduceAll } from "@/device/actions";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/device/actions.gen";
 import {
   type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/device/actions.gen";
-import {
   type Device,
   type DeviceSchemas,
   deviceZ,

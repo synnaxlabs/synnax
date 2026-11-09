@@ -11,13 +11,8 @@ import { patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
-import {
-  type Action,
-  createReduceAll,
-  type HandlerResult,
-  type Handlers,
-} from "@/task/actions.gen";
-import { type Payload, payloadZ } from "@/task/types.gen";
+import { createReduceAll, type HandlerResult, type Handlers } from "@/task/actions.gen";
+import { type Action, type Payload, payloadZ } from "@/task/types.gen";
 
 // The cache decodes every task with the generic schema, so actions convert with it.
 const PAYLOAD_Z = payloadZ();

@@ -17,16 +17,11 @@ import { z } from "zod/v4";
 
 import { actions } from "@/actions";
 import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
-import {
-  type Action,
-  dispatchReqZ,
-  dispatchResZ,
-  scopedActionZ,
-  set,
-} from "@/arc/actions.gen";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
+  type Action,
   type Arc,
   arcZ,
   type Key,

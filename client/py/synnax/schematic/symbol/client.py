@@ -15,9 +15,11 @@ from freighter import Empty, UnaryClient
 from synnax import group
 from synnax.schematic.symbol import actions_gen
 from synnax.schematic.symbol.types_gen import (
+    Action,
     Key,
     RetrieveRequest,
     RetrieveResponse,
+    SetPayload,
     Symbol,
     Where,
     WhereInput,
@@ -38,7 +40,7 @@ class _CreateResponse(BaseModel):
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[actions_gen.Action]
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -175,7 +177,7 @@ class Client:
         :param key: The key of the symbol to rename.
         :param name: The new name for the symbol.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        action = actions_gen.set(SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/schematic/symbol/dispatch", req, Empty)
 

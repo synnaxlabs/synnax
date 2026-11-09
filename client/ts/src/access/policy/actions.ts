@@ -13,12 +13,11 @@ import { z } from "zod";
 
 import { access } from "@/access/action";
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/access/policy/actions.gen";
-import { type Policy } from "@/access/policy/types.gen";
+import { type Action, type Policy } from "@/access/policy/types.gen";
 import { actions } from "@/actions";
 import { resource } from "@/resource";
 
