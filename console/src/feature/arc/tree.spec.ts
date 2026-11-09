@@ -52,13 +52,13 @@ const createArcInDirectory = async () => {
 describe("arc/tree", () => {
   describe("icon", () => {
     it("should draw the icon of the Arc's type", async () => {
-      const { arc, root, arcsID } = await createArcInDirectory();
+      const { arc, root } = await createArcInDirectory();
       const mod = await client.arcs.create({
         name: uniqueName("mod"),
         type: "module",
         source: { mode: "text" },
       });
-      await client.arcs.directories.move(arcsID, root, clientArc.resourceID(mod.key));
+      await client.arcs.directories.move(root, clientArc.resourceID(mod.key));
       await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       const iconOf = async (name: string, icon: string) =>
         (await findTreeRow(name)).querySelector(`.lyra-icon--${icon}`);
