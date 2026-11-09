@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { type arc, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -23,6 +23,41 @@ export const { use: useRootKey } = Flux.createRetrieve<
 >({
   name: "root directory",
   retrieve: async ({ client }) => (await client.arcs.directories.retrieveRoot()).key,
+});
+
+export type RetrieveAncestorsQuery = { keys: arc.directory.Key[] };
+
+const getCachedAncestry = (
+  client: Synnax,
+  keys: arc.directory.Key[],
+): arc.directory.Directory[] | undefined => {
+  const directories = client.arcs.directories.watch(keys).getCached();
+  const ancestors = client.arcs.directories.getCachedAncestors(keys);
+  if (!query.isLive(directories) || ancestors == null) return undefined;
+  return [...directories, ...ancestors];
+};
+
+/**
+ * Retrieves the directories with the keys and every directory above them, up to the
+ * root. A rename or a move of one of them updates the answer.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  RetrieveAncestorsQuery,
+  arc.directory.Directory[]
+>({
+  name: "directory ancestors",
+  retrieve: async ({ client, query: { keys } }) => {
+    const [directories, ancestors] = await Promise.all([
+      client.arcs.directories.retrieve(keys),
+      client.arcs.directories.retrieveAncestors(keys),
+    ]);
+    return [...directories, ...ancestors];
+  },
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.arcs.directories.onAncestorsChange(keys, () =>
+      handler(getCachedAncestry(client, keys)),
+    ),
+  getCached: ({ client, query: { keys } }) => getCachedAncestry(client, keys),
 });
 
 export interface CreateParams extends arc.directory.CreateParams {}

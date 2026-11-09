@@ -29,6 +29,7 @@ import {
   shortcutZ,
 } from "@/arc/directory/where.gen";
 import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -108,6 +109,55 @@ export class Client extends query.Retriever<
   async retrieveRoot(): Promise<Directory> {
     const [root] = await this.retrieve({ nested: false });
     return root;
+  }
+
+  /**
+   * Retrieves every directory above the directories that is not one of them, each once.
+   * The chain ends at the root.
+   * @throws {NotFoundError} if a directory or one above it does not exist.
+   */
+  async retrieveAncestors(keys: Key | Key[]): Promise<Directory[]> {
+    await this.store.track(async (since) => {
+      this.store.ingest(await this.execRetrieve({}), { since });
+    });
+    const ancestors = this.getCachedAncestors(keys);
+    if (ancestors != null) return ancestors;
+    const listed = array.toArray(keys).join(", ");
+    throw new NotFoundError(`Arc directory ${listed} or one above it not found`);
+  }
+
+  /**
+   * Returns every cached directory above the directories that is not one of them, each
+   * once, or undefined when a directory on the chain is not cached.
+   */
+  getCachedAncestors(keys: Key | Key[]): Directory[] | undefined {
+    const starts = array.toArray(keys);
+    const visited = new Set<Key>(starts);
+    const ancestors: Directory[] = [];
+    for (const key of starts) {
+      const start = this.store.get(key);
+      if (start == null) return undefined;
+      let { parent } = start;
+      while (parent != null && !visited.has(parent)) {
+        const d = this.store.get(parent);
+        if (d == null) return undefined;
+        visited.add(d.key);
+        ancestors.push(d);
+        parent = d.parent;
+      }
+    }
+    return ancestors;
+  }
+
+  /**
+   * Calls the handler with the cached ancestors of the directories after each change to
+   * a cached directory, since a rename or a move of any directory can change them.
+   */
+  onAncestorsChange(
+    keys: Key | Key[],
+    handler: query.ChangeHandler<Directory[]>,
+  ): destructor.Destructor {
+    return this.store.subscribe(() => handler(this.getCachedAncestors(keys)));
   }
 
   /**

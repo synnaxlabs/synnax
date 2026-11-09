@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
 import { NotFoundError, type Synnax, ValidationError } from "@/index";
@@ -142,6 +142,96 @@ describe("arc.directory", () => {
     ).rejects.toSatisfy(ValidationError.matches);
     const res = await client.arcs.retrieve({ key: a.key });
     expect(res.directory).toBe(root.key);
+  });
+
+  const createChain = async (): Promise<arc.directory.Directory[]> => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const mid = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const leaf = await client.arcs.directories.create({
+      parent: mid.key,
+      name: uniqueName(),
+    });
+    return [root, mid, leaf];
+  };
+
+  describe("retrieveAncestors", () => {
+    it("should retrieve the directories above a directory up to the root", async () => {
+      const [root, mid, leaf] = await createChain();
+      expect(await client.arcs.directories.retrieveAncestors(leaf.key)).toEqual([
+        mid,
+        root,
+      ]);
+    });
+
+    it("should return each directory above the directories once", async () => {
+      const [root, mid, leaf] = await createChain();
+      expect(
+        await client.arcs.directories.retrieveAncestors([leaf.key, mid.key]),
+      ).toEqual([root]);
+    });
+
+    it("should throw when a directory does not exist", async () => {
+      await expect(
+        client.arcs.directories.retrieveAncestors(uuid.create()),
+      ).rejects.toSatisfy(NotFoundError.matches);
+    });
+  });
+
+  describe("getCachedAncestors", () => {
+    it("should give the directories that a retrieve gives", async () => {
+      const [, mid, leaf] = await createChain();
+      const retrieved = await client.arcs.directories.retrieveAncestors([
+        leaf.key,
+        mid.key,
+      ]);
+      expect(client.arcs.directories.getCachedAncestors([leaf.key, mid.key])).toEqual(
+        retrieved,
+      );
+    });
+
+    it("should return undefined when a directory above is not cached", async () => {
+      const [, , leaf] = await createChain();
+      const other = createTestClient();
+      await other.arcs.directories.retrieve([leaf.key]);
+      expect(other.arcs.directories.getCachedAncestors(leaf.key)).toBeUndefined();
+    });
+  });
+
+  describe("onAncestorsChange", () => {
+    it("should call the handler when a directory above changes", async () => {
+      const [root, mid, leaf] = await createChain();
+      await client.arcs.directories.retrieveAncestors(leaf.key);
+      const handler = vi.fn();
+      const stop = client.arcs.directories.onAncestorsChange(leaf.key, handler);
+      const name = uniqueName();
+      await client.arcs.directories.rename(mid.key, name);
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([
+          expect.objectContaining({ key: mid.key, name }),
+          expect.objectContaining({ key: root.key }),
+        ]);
+      const dest = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      await client.arcs.directories.move(
+        arc.directory.resourceID(root.key),
+        arc.directory.resourceID(dest.key),
+        arc.directory.resourceID(mid.key),
+      );
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([
+          expect.objectContaining({ key: mid.key }),
+          expect.objectContaining({ key: dest.key }),
+          expect.objectContaining({ key: root.key }),
+        ]);
+      stop();
+    });
   });
 
   describe("cache of another client", () => {
