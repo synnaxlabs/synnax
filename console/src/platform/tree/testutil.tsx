@@ -100,7 +100,7 @@ export const createState = (
   };
 };
 
-/** Builds a tree resource for the given id with an optional name and data payload. */
+/** Builds a tree resource for the given id and name. */
 export const createResource = (id: resource.ID, name: string): Tree.Resource => ({
   key: resource.idToString(id),
   id,

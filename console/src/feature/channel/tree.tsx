@@ -221,9 +221,9 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key), rangeKey: activeRange?.key };
   const { data: alias } = PChannel.useResultAlias(params);
   const { data: chStatus } = PChannel.useResultStatus(params);
-  const { data: ch } = PChannel.useResult(params);
+  const { data: kind } = PChannel.useResultKind(params);
   const name = alias ?? resource.name;
-  const DataTypeIcon = PChannel.resolveIcon(ch?.payload);
+  const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();
   return (
@@ -236,7 +236,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow
-        disabled={ch?.internal === true}
+        disabled={kind?.internal === true}
         onChange
         highlight={highlight}
       />
@@ -249,7 +249,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>
       )}
-      {ch?.virtual === true && <Icon.Virtual color={9} />}
+      {kind?.virtual === true && <Icon.Virtual color={9} />}
     </PTree.Item>
   );
 };
