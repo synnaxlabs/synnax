@@ -530,14 +530,14 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->doubles[DAQmx_Dev_AI_MinRate] = 0.1;
     api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
     api->doubles[DAQmx_Dev_AI_MaxMultiChanRate] = 250000;
-    api->doubles[DAQmx_Dev_AO_MaxRate] = 833333;
+    api->doubles[DAQmx_Dev_AO_MaxRate] = 833333.3333333334;
     api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02};
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
-    EXPECT_FLOAT_EQ(hw.ai_min_rate.hz(), 0.1);
+    EXPECT_DOUBLE_EQ(hw.ai_min_rate.hz(), 0.1);
     EXPECT_EQ(hw.ai_max_single_channel_rate.hz(), 250000);
     EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 250000);
-    EXPECT_EQ(hw.ao_max_rate.hz(), 833333);
+    EXPECT_DOUBLE_EQ(hw.ao_max_rate.hz(), 833333.3333333334);
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
     EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);
