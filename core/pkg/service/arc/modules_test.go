@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/crdt"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
@@ -49,6 +51,9 @@ var _ = Describe("Modules", func() {
 	textSource := func(raw string) arc.Source {
 		return arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: raw}}}
 	}
+	resolveModule := func(ctx SpecContext, path string) (*symbol.Symbol, error) {
+		return svc.NewRoot(tx, &channel.Lookups{}).ResolveModule(ctx, path)
+	}
 	Context("ResolveModule", func() {
 		BeforeEach(func(ctx SpecContext) {
 			tx = DeferClose(db.OpenTx())
@@ -58,7 +63,7 @@ var _ = Describe("Modules", func() {
 
 		It("Should resolve a module directly under Arcs", func(ctx SpecContext) {
 			createArc(ctx, arc.TypeModule, "m", textSource(source))
-			mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "m"))
+			mod := MustSucceed(resolveModule(ctx, "m"))
 			Expect(mod.Kind).To(Equal(symbol.KindModule))
 			Expect(mod.FindChild("f").Exported).To(BeTrue())
 		})
@@ -68,20 +73,20 @@ var _ = Describe("Modules", func() {
 			sub := createDirectory(ctx, "sub", lib.Key)
 			a := createArc(ctx, arc.TypeModule, "m", textSource(source))
 			Expect(w.Move(ctx, root, sub.Key, a.ResourceID())).To(Succeed())
-			mod := MustSucceed(svc.NewRoot(tx).ResolveModule(ctx, "lib.sub.m"))
+			mod := MustSucceed(resolveModule(ctx, "lib.sub.m"))
 			Expect(mod.Name).To(Equal("lib.sub.m"))
-			Expect(svc.NewRoot(tx).ResolveModule(ctx, "m")).Error().
+			Expect(resolveModule(ctx, "m")).Error().
 				To(MatchError(symbol.ErrModuleNotFound))
 		})
 
 		It("Should report a path through a missing directory", func(ctx SpecContext) {
-			Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope.m")).Error().
+			Expect(resolveModule(ctx, "nope.m")).Error().
 				To(MatchError(symbol.ErrModuleNotFound))
 		})
 
 		It("Should refuse to import an automation", func(ctx SpecContext) {
 			createArc(ctx, arc.TypeAutomation, "a", textSource(source))
-			Expect(svc.NewRoot(tx).ResolveModule(ctx, "a")).Error().To(MatchError(
+			Expect(resolveModule(ctx, "a")).Error().To(MatchError(
 				ContainSubstring(`"a" is an automation and cannot be imported`),
 			))
 		})
@@ -93,13 +98,13 @@ var _ = Describe("Modules", func() {
 				"g",
 				arc.Source{Variant: arc.GraphSource{}},
 			)
-			Expect(svc.NewRoot(tx).ResolveModule(ctx, "g")).Error().To(MatchError(
+			Expect(resolveModule(ctx, "g")).Error().To(MatchError(
 				ContainSubstring(`module "g" is a graph and cannot be imported`),
 			))
 		})
 
 		It("Should report an unknown module", func(ctx SpecContext) {
-			Expect(svc.NewRoot(tx).ResolveModule(ctx, "nope")).Error().
+			Expect(resolveModule(ctx, "nope")).Error().
 				To(MatchError(symbol.ErrModuleNotFound))
 		})
 	})
@@ -117,7 +122,7 @@ var _ = Describe("Modules", func() {
 				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
 			})).To(Succeed())
 		})
-		server := MustSucceed(svc.NewLSP())
+		server := MustSucceed(svc.NewLSP(lspConfig))
 		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
 		client := &MockClient{}
 		server.SetClient(client)
@@ -128,5 +133,46 @@ var _ = Describe("Modules", func() {
 			"import lsp_module\n\nfunc g() i64 { return lsp_module.f() }",
 		)
 		Expect(client.Diagnostics()).To(BeEmpty())
+	})
+
+	It("Should compile again when a module's text changes before the check", func(
+		ctx SpecContext,
+	) {
+		m := newArc(
+			arc.TypeModule,
+			arc.Base{Name: "checked_module", Source: textSource("")},
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &m)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, m.Base().Key)
+			})).To(Succeed())
+		})
+		var compiles int
+		mod := MustSucceed(channel.CompileConsistent(ctx, db, func(
+			snap gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (*symbol.Symbol, error) {
+			compiles++
+			mod, err := svc.NewRoot(snap, lookups).ResolveModule(ctx, "checked_module")
+			if compiles == 1 {
+				inserts := crdt.New(2).Insert(0, source)
+				acts := make([]arc.Action, len(inserts))
+				for i, in := range inserts {
+					acts[i] = arc.NewInsertCharAction(arc.InsertCharPayload{
+						ID:     in.ID,
+						Origin: in.Origin,
+						Side:   in.Side,
+						Char:   in.Char,
+					})
+				}
+				Expect(dispatch(ctx, m.Base().Key, "dk", acts)).To(Succeed())
+			}
+			return mod, err
+		}))
+		Expect(compiles).To(Equal(2))
+		Expect(mod.FindChild("f")).ToNot(BeNil())
 	})
 })

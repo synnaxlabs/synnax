@@ -155,7 +155,8 @@ var _ = Describe("View", func() {
 						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(Equal(s.WithName("After")))
+					s.SetBase(view.Base{Key: s.GorpKey(), Name: "After"})
+					Expect(res).To(Equal(s))
 				},
 			)
 			It(

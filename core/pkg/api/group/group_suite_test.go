@@ -41,11 +41,13 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apigroup.Service
-	// create, del, rename, and setParent run their routes as the API layer binds them.
+	// create, del, rename, setParent, and dispatch run their routes as the API layer
+	// binds them.
 	create    freighter.UnaryHandler[apigroup.CreateRequest, apigroup.CreateResponse]
 	del       freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
 	rename    freighter.UnaryHandler[apigroup.RenameRequest, struct{}]
 	setParent freighter.UnaryHandler[apigroup.SetParentRequest, struct{}]
+	dispatch  freighter.UnaryHandler[apigroup.DispatchRequest, struct{}]
 	// retrieveGroups and retrieveAncestors run their routes as the API layer binds
 	// them.
 	retrieveGroups freighter.UnaryHandler[
@@ -71,6 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
 	setParent = bind.Write(binder, apiSvc.SetParent)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieveGroups = bind.Read(binder, apiSvc.Retrieve)
 	retrieveAncestors = bind.Read(binder, apiSvc.RetrieveAncestors)
 })

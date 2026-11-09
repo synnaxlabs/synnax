@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -46,11 +47,13 @@ func (d *storedDetails) DecodeMsgpack(dec *msgpack.Decoder) (err error) {
 	return err
 }
 
-// Writer is used to create and update statuses within the DB.
+// Writer is used to create and update statuses within the DB. Each create or update
+// attaches a set action that holds the stored status.
 type Writer struct {
-	tx      gorp.Tx
-	table   *gorp.Table[Key, Status[any]]
-	indexes indexes
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Status[any]]
+	indexes    indexes
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Set creates or updates a status. A status with an owner goes to the status its owner
@@ -65,7 +68,7 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	if err := w.Resolve(ctx, s); err != nil {
 		return err
 	}
-	return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
+	return w.write(ctx, s.ToAny())
 }
 
 // SetMany calls Set for each status, in order.
@@ -191,7 +194,16 @@ func (w Writer) update(
 		return err
 	}
 	change(&s)
-	return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
+	return w.write(ctx, s.ToAny())
+}
+
+// write stores s and attaches a set action that holds it.
+func (w Writer) write(ctx context.Context, s Status[any]) error {
+	if err := w.table.NewCreate().Entry(&s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewSetAction(SetPayload{Status: s}))
+	return nil
 }
 
 func (w Writer) retrieveRaw(

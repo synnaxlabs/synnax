@@ -476,6 +476,18 @@ Symbol struct {
 			},
 		)
 
+		It(
+			"Should error when an exported version's file marks no type",
+			func(ctx SpecContext) {
+				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+					3: logChain(false),
+				})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"version 3 of schemas/synnax/log exports no @go imex type",
+				))
+			},
+		)
+
 		It("Should import the configured runtime package", func(ctx SpecContext) {
 			custom := imex.New(imex.Options{
 				FileNamePattern:    "imex.gen.go",
@@ -671,6 +683,86 @@ ScanConfig struct {
 				).
 					ToBeValidGoSource()
 			})
+
+			It(
+				"Should keep a frozen version file when the current version adds a type",
+				func(ctx SpecContext) {
+					const (
+						readOnly = "ReadConfig struct {\n\tkey uuid @key\n\n" +
+							"\t@go imex body\n}\n"
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+						v2Path = "core/pkg/service/modbus/versions/v2/imex.gen.go"
+					)
+					before := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead,
+						map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n",
+						},
+					)))
+					after := MustSucceed(p.Generate(configRequest(
+						ctx, GinkgoT().TempDir(), map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n\n" +
+								"ScanConfig struct {\n\tkey uuid @key\n\n" +
+								"\t@go imex body\n}\n",
+						},
+					)))
+					ExpectContent(before, v1Path).ToContain(
+						"// Version is the portable schema version of the ReadConfig " +
+							"shape this package defines.",
+					)
+					Expect(MustContentOf(after, v1Path)).To(
+						Equal(MustContentOf(before, v1Path)),
+					)
+					ExpectContent(after, v2Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+				},
+			)
+
+			It(
+				"Should keep a frozen version file when the live target set changes",
+				func(ctx SpecContext) {
+					const (
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+					)
+					chain := map[int]string{
+						1: configChain("\n\t@go imex body"),
+						2: "ReadConfig = v1.ReadConfig\n\nScanConfig = v1.ScanConfig\n",
+					}
+					both := MustSucceed(p.Generate(
+						configRequest(ctx, GinkgoT().TempDir(), chain),
+					))
+					readOnly := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead, chain,
+					)))
+					ExpectContent(both, v1Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+					Expect(MustContentOf(readOnly, v1Path)).To(
+						Equal(MustContentOf(both, v1Path)),
+					)
+				},
+			)
 
 			It(
 				"Should error when a bare marker shares a package with a body type",

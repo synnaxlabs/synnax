@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -505,8 +506,11 @@ var _ = Describe("Write", func() {
 				changed := MustSucceed(svc.Password.Hash("changed"))
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Password.NewWriter(tx).
-							ChangePassword(ctx, other.ResourceID(), changed)
+						return svc.Password.NewWriter(tx).Apply(
+							ctx,
+							other.ResourceID(),
+							password.NewSetHashAction(changed),
+						)
 					},
 					needed: need{access.ActionUpdate, other.ResourceID()},
 				}
@@ -705,7 +709,7 @@ var _ = Describe("Write", func() {
 			"a role",
 			func(ctx context.Context, tx gorp.Tx, u user.User) error {
 				return svc.User.NewWriter(tx).
-					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, nil, u.Key)
+					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, u.Key)
 			},
 		),
 	)
