@@ -213,9 +213,8 @@ export interface CreateBasePropsParams {
 }
 
 /**
- * Builds {@link Tree.BaseProps} with the given client and store. The tab and
- * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
- * observe them.
+ * Builds {@link Tree.BaseProps} with the given client and store. The tab and error
+ * callbacks default to no-ops. Pass overrides, such as vi.fn() spies, to observe them.
  */
 export const createBaseProps = ({
   client,

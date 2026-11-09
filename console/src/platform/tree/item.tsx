@@ -72,9 +72,9 @@ export interface Drop {
 }
 
 /**
- * Item renders a single resource row in the resource tree. The component carries the
- * static, render-independent behavior for its resource type (children, drag, context
- * menu, visibility) as properties, read imperatively by the Tree.
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, drag, context menu) as properties, which the
+ * Tree reads imperatively.
  */
 export interface Item extends FC<ItemProps> {
   hasChildren: boolean;
