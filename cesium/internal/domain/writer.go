@@ -87,10 +87,10 @@ func (w WriterConfig) Validate() error {
 	v := validate.New("domain.writer_config")
 	v.Ternary(
 		"end",
-		w.End.Before(w.Start),
+		!w.End.IsZero() && w.End.Before(w.Start),
 		"end timestamp must be after or equal to start timestamp",
 	)
-	return nil
+	return v.Error()
 }
 
 func (w WriterConfig) Override(other WriterConfig) WriterConfig {
