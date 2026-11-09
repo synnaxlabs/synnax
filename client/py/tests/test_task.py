@@ -425,11 +425,10 @@ class TestTaskClient:
         assert status.message == "Started task"
         t.join()
 
-    @pytest.mark.parametrize("command", ["start", "stop"])
-    def test_start_and_stop_raise_when_the_driver_fails_the_command(
-        self, client: sy.Synnax, command: str
+    def test_start_raises_when_the_driver_fails_the_start(
+        self, client: sy.Synnax
     ) -> None:
-        """start() and stop() raise the error status that the driver sends."""
+        """start() raises the error status that the driver sends."""
         tsk = sy.pagerduty.AlertTask(
             client.tasks.create(name="test", type="pagerduty_alert")
         )
@@ -441,8 +440,26 @@ class TestTaskClient:
         t.start()
         ready.wait()
         with pytest.raises(RuntimeError) as err:
-            getattr(tsk, command)(timeout=5)
+            tsk.start(timeout=5)
         assert str(err.value) == "Failed: slave 1 refused"
+        t.join()
+
+    def test_stop_returns_when_the_stop_status_carries_an_error(
+        self, client: sy.Synnax
+    ) -> None:
+        """stop() returns on an error status, which carries an earlier error of the
+        task."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_ERROR, "Failed to read data", ""),
+        )
+        t.start()
+        ready.wait()
+        tsk.stop(timeout=5)
         t.join()
 
     @pytest.mark.parametrize("command", ["start", "stop"])

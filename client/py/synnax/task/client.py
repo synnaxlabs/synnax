@@ -350,10 +350,11 @@ class StarterStopperMixin:
             whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the stop or send its
             final status in time.
-        :raises RuntimeError: If the driver fails to stop the task, or if the driver
-            goes down during the wait.
+        :raises RuntimeError: If the driver of the task goes down during the wait. An
+            error status does not raise, because the stop status carries the last error
+            of the task.
         """
-        _raise_if_failed(self._internal.execute_command_sync("stop", timeout=timeout))
+        self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
