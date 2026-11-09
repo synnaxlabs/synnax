@@ -43,6 +43,14 @@ func mergeSettings(s *settings, u settingsUpdate) error {
 	return u.Stream.ApplyTo(&s.Stream)
 }
 
+// settingsDefaults gives stream a default of 7, and rate no default.
+func settingsDefaults(u settingsUpdate) (settings, error) {
+	if u.Rate.IsZero() {
+		return settings{}, errors.Wrap(validate.ErrValidation, "rate is required")
+	}
+	return settings{Stream: 7}, nil
+}
+
 func applyPorts(base []portEntry, ops ports) ([]portEntry, error) {
 	err := patch.ApplyList(&base, ops, portKey, portUpdateKey, mergePort)
 	return base, err
@@ -93,7 +101,7 @@ var _ = Describe("Apply", func() {
 			s := &old
 			Expect(patch.ApplyOptionalStruct(&s, patch.To(patch.Merge[settings](
 				settingsUpdate{Stream: patch.To(3)},
-			)), mergeSettings)).To(Succeed())
+			)), mergeSettings, settingsDefaults)).To(Succeed())
 			Expect(*s).To(Equal(settings{Rate: 1, Stream: 3}))
 			Expect(old).To(Equal(settings{Rate: 1, Stream: 2}))
 		})
@@ -104,29 +112,46 @@ var _ = Describe("Apply", func() {
 				&s,
 				patch.To(patch.Replace[settingsUpdate](settings{Rate: 4})),
 				mergeSettings,
+				settingsDefaults,
 			)).To(Succeed())
 			Expect(*s).To(Equal(settings{Rate: 4}))
 			Expect(patch.ApplyOptionalStruct(
 				&s,
 				patch.Change[settingsField]{},
 				mergeSettings,
+				settingsDefaults,
 			)).To(Succeed())
 			Expect(*s).To(Equal(settings{Rate: 4}))
 			Expect(patch.ApplyOptionalStruct(
 				&s,
 				patch.Clear[settingsField](),
 				mergeSettings,
+				settingsDefaults,
 			)).To(Succeed())
 			Expect(s).To(BeNil())
 		})
 
-		It("Should fail to merge into an absent optional struct", func() {
+		It("Should merge into the defaults of an absent optional struct", func() {
 			var s *settings
 			Expect(patch.ApplyOptionalStruct(&s, patch.To(patch.Merge[settings](
 				settingsUpdate{Rate: patch.To(1)},
-			)), mergeSettings)).To(MatchError(patch.ErrStale))
-			Expect(s).To(BeNil())
+			)), mergeSettings, settingsDefaults)).To(Succeed())
+			Expect(*s).To(Equal(settings{Rate: 1, Stream: 7}))
 		})
+
+		It(
+			"Should fail to merge into an absent optional struct without defaults",
+			func() {
+				var s *settings
+				Expect(patch.ApplyOptionalStruct(&s, patch.To(patch.Merge[settings](
+					settingsUpdate{Stream: patch.To(1)},
+				)), mergeSettings, settingsDefaults)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("rate is required")),
+				))
+				Expect(s).To(BeNil())
+			},
+		)
 	})
 
 	Describe("ApplyList", func() {

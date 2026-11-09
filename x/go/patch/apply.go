@@ -103,11 +103,15 @@ func (s Struct[U, T]) ApplyTo(dst *T, merge func(*T, U) error) error {
 
 // ApplyOptionalStruct applies c to the optional struct field dst. merge merges a
 // partial into a copy of the value that dst points to. A merge into an absent field
-// returns an error wrapping ErrStale.
+// merges into the value that defaults returns for the partial. defaults returns an
+// error
+// wrapping validate.ErrValidation for a field with no default that the partial does not
+// give.
 func ApplyOptionalStruct[U, T any](
 	dst **T,
 	c Change[Struct[U, T]],
 	merge func(*T, U) error,
+	defaults func(U) (T, error),
 ) error {
 	if c.Cleared() {
 		*dst = nil
@@ -117,12 +121,14 @@ func ApplyOptionalStruct[U, T any](
 	if !ok {
 		return nil
 	}
-	if _, merges := s.Merged(); merges && *dst == nil {
-		return errors.Wrap(ErrStale, "the struct to merge into is absent")
-	}
 	var v T
 	if *dst != nil {
 		v = **dst
+	} else if u, merges := s.Merged(); merges {
+		var err error
+		if v, err = defaults(u); err != nil {
+			return err
+		}
 	}
 	if err := s.ApplyTo(&v, merge); err != nil {
 		return err

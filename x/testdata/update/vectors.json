@@ -176,7 +176,7 @@
       }
     },
     {
-      "name": "a merge into an absent optional struct is stale",
+      "name": "a merge into an absent optional struct starts from its defaults",
       "doc": {
         "name": "Hot fire",
         "group": "Tests",
@@ -190,7 +190,36 @@
         "tags": ["a", "b"]
       },
       "update": { "value": { "limits": { "high": 2 } } },
-      "error": { "kind": "stale", "message": "the struct to merge into is absent" }
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 2 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a merge into an absent optional struct needs each field without a default",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "tags": ["a", "b"]
+      },
+      "update": { "value": { "limits": { "low": 1 } } },
+      "error": { "kind": "validation", "message": "high is required" }
     },
     {
       "name": "set replaces a value list",
