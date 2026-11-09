@@ -759,12 +759,12 @@ func sameEnumValues(a, b resolution.EnumForm) bool {
 	if len(a.Values) != len(b.Values) {
 		return false
 	}
-	values := make(set.Set[any], len(a.Values))
+	values := make(map[string]any, len(a.Values))
 	for _, v := range a.Values {
-		values.Add(v.Value)
+		values[v.Name] = v.Value
 	}
 	for _, v := range b.Values {
-		if !values.Contains(v.Value) {
+		if old, ok := values[v.Name]; !ok || old != v.Value {
 			return false
 		}
 	}
