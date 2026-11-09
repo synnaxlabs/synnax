@@ -279,6 +279,64 @@ var _ = Describe("Service", func() {
 				retrieveCertificate(ctx, c.Base().Key).Base().Name,
 			).To(Equal("Replaced"))
 		})
+		It("Should deny a replace that renames the key secret without update on it",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				c := createCertificateWithKey(ctx, "Plant")
+				stored := c.Variant.(certificate.StoredCertificate)
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					c.ResourceID(),
+					statusType,
+				)
+				Expect(create(AuthedCtx(ctx, u),
+					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
+						Key:    c.Base().Key,
+						Source: secret.SourceStored,
+						Name:   "Replaced",
+						Pem:    stored.Pem,
+					}}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						u.ResourceID().String()+" cannot update "+
+							secret.ResourceID(*stored.PrivateKey).String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
+		It("Should deny a file replace without delete access on the key secret",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				c := createCertificateWithKey(ctx, "Plant")
+				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					c.ResourceID(),
+					statusType,
+				)
+				Expect(create(AuthedCtx(ctx, u),
+					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Plant",
+						CertificatePath: "/etc/plant/cert.pem",
+					}}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						u.ResourceID().String()+" cannot delete "+
+							secret.ResourceID(key).String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
 		DescribeTable("Should reject an invalid input",
 			func(ctx SpecContext, in apicertificate.Input, msg string) {
 				u := createUser(ctx)
@@ -416,6 +474,30 @@ var _ = Describe("Service", func() {
 			Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
 				To(Equal("Before"))
 		})
+		It("Should deny a name edit without update access on the key secret",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				c := createCertificateWithKey(ctx, "Before")
+				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					c.ResourceID(),
+					statusType,
+				)
+				Expect(dispatch(AuthedCtx(ctx, u), setName(c.Base().Key))).
+					Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						u.ResourceID().String()+" cannot update "+
+							secret.ResourceID(key).String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+					To(Equal("Before"))
+			},
+		)
 	})
 
 	Describe("Rename", func() {
