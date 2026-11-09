@@ -699,4 +699,27 @@ var _ = Describe("Write task", func() {
 				}
 			}, "time_format alone encodes"),
 	)
+
+	It("Should reject enum values on a number JSON type", func(ctx SpecContext) {
+		_, data := createIndexed(ctx, telem.Uint8T)
+		dev := createDevice(ctx, clusterProperties())
+		cfg := kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  "t",
+			Channels: []kafka.WriteChannel{{
+				Key:        "c1",
+				Channel:    data.Key(),
+				JSONType:   http.JSONTypeNumber,
+				EnumValues: onOff,
+			}},
+		}
+		Expect(
+			f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+		).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				`channel "c1": enum values require the string JSON type`,
+			)),
+		))
+	})
 })
