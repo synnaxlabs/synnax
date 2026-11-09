@@ -20,8 +20,8 @@ const (
 	HandleBytes = 64
 )
 
-// ErrLimit is the panic value of Create when a string would pass MaxBytes. A host
-// function that panics traps the guest call that made it.
+// ErrLimit is the panic value of Create and CreateView when a string would pass
+// MaxBytes. A host function that panics traps the guest call that made it.
 var ErrLimit = errors.New("program made too many strings in one cycle")
 
 // literalHandleBase is the starting value for literal string handles.
@@ -64,7 +64,8 @@ func (s *ProgramState) Create(str string) uint32 {
 }
 
 // CreateView stores a string that is held elsewhere, such as a stateful variable, and
-// returns a transient handle for it. Only its handle counts toward MaxBytes.
+// returns a transient handle for it. Only its handle counts toward MaxBytes. It panics
+// with ErrLimit when the handle would pass MaxBytes.
 func (s *ProgramState) CreateView(str string) uint32 {
 	return s.create(str, HandleBytes)
 }
