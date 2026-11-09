@@ -404,10 +404,12 @@ export class Log
         this.setState((s) => ({ ...s, wheelPos: locked }));
       }
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
-      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      // taken at the bottom starts there, so it takes a return or a downward scroll. A
+      // view that waits for its time stays paused.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
       else if (
+        this.seeking == null &&
         i.telem.wrapped.live !== false &&
         (scrollState.awayFromEnd || dist < 0)
       ) {
@@ -830,6 +832,8 @@ export class Log
     this.scrollState.tail = 0;
     if (!reached && telem.wrapped.exhausted === false) return;
     this.seeking = null;
+    // A view that lands on the newest entry starts there, as a pause does.
+    this.scrollState.awayFromEnd = false;
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 
