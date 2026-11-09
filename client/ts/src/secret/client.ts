@@ -138,6 +138,10 @@ export class Client extends query.Retriever<
           await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
         ).map(toUses),
     });
+    // A secret created again under a deleted key reads its uses again.
+    store.subscribe((event) => {
+      if (event.variant === "delete") usesStore.evict(event.key);
+    });
     // The Core announces no change to uses. Refetches run outside the change stream and
     // one at a time, so an older reply cannot overwrite a newer one. A change that
     // arrives while a refetch waits joins it.
