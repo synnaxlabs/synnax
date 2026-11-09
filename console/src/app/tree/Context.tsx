@@ -22,6 +22,7 @@ import { Rack } from "@/feature/rack";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { User } from "@/feature/user";
+import { Group as PlatformGroup } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
 // The member types each group scope lists, wired here rather than by each feature.
@@ -57,5 +58,7 @@ const TREE_ITEMS: Tree.Items = {
 export interface ContextProps extends PropsWithChildren<{}> {}
 
 export const Context = ({ children }: ContextProps): ReactElement => (
-  <Tree.Provider items={TREE_ITEMS}>{children}</Tree.Provider>
+  <Tree.Provider items={TREE_ITEMS} contextMenus={PlatformGroup.TREE_CONTEXT_MENUS}>
+    {children}
+  </Tree.Provider>
 );

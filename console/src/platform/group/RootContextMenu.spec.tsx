@@ -21,7 +21,7 @@ import {
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
+import { Group } from "@/platform/group";
 import { createResource, createState } from "@/platform/tree/testutil";
 import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 
@@ -36,7 +36,7 @@ const renderMenus = async (
   await renderSuspended(
     <>
       {roots.map((root) => (
-        <DefaultContextMenu
+        <Group.RootContextMenu
           key={root.type}
           root={root}
           state={createState([createResource(root, uniqueName("root"))])}
@@ -47,7 +47,7 @@ const renderMenus = async (
   );
 };
 
-describe("Tree.DefaultContextMenu", () => {
+describe("Group.RootContextMenu", () => {
   it("should offer the new group item to an engineer", async () => {
     await renderMenus(await roles.get("Engineer"));
     expect(await screen.findByText("New group")).toBeTruthy();

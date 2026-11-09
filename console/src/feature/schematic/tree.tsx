@@ -104,12 +104,15 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.schematics.retrieve(key);
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
     state,
   } = props;
   const activeRange = Range.useResolve();
+  const schematics = Base.useMultiple({ keys: ids.map(({ key }) => key) });
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
@@ -139,7 +142,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
+      {schematics.every((s) => !s.snapshot) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
           <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
@@ -156,7 +159,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />

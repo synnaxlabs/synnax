@@ -37,6 +37,8 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.devices.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
@@ -47,12 +49,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
+  const { data: firstMake } = Device.useResultMake(
+    singleResource ? { key: ids[0].key } : null,
+  );
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const make = singleResource ? getMake(first?.data?.make) : null;
+  const make = singleResource ? getMake(firstMake) : null;
   const customMenuItems =
     make == null ? null : <ContextMenuItems {...props} make={make} />;
   return (
@@ -89,7 +94,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               }
             />
           )}
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -100,17 +105,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const icon = (resource: Tree.Resource) => getIcon(getMake(resource.data?.make));
-
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useResultStatus({ key: resource.id.key }).data;
-  const location =
-    typeof resource.data?.location === "string" ? resource.data.location : "";
+  const query = { key: resource.id.key };
+  const { data: devStatus } = Device.useResultStatus(query);
+  const { data: make } = Device.useResultMake(query);
+  const { data: location = "" } = Device.useResultLocation(query);
   return (
     <PTree.Item className={CSS.cls(className, CSS.B("device-tree-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
-        {icon(resource)}
+        {getIcon(getMake(make))}
         <Text.MaybeEditable
           id={List.itemNameID(itemKey)}
           className={CSS.B("name")}
@@ -169,7 +173,6 @@ const children: Tree.Children = ({ client, id }) => [
 
 const TreeItem = Tree.createItem({
   linkable: true,
-  icon,
   children,
   ContextMenu: TreeContextMenu,
   Content,

@@ -223,7 +223,7 @@ describe("lineplot/tree", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.resourceID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Plot"));
+      const items = Item.haulItems(createResource(id, "My Plot"), client);
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

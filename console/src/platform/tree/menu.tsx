@@ -18,25 +18,29 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
-import { findAncestors, findContainedKeys } from "@/platform/tree/ancestry";
 import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
-import { type DefaultContextMenuProps } from "@/platform/tree/DefaultContextMenu";
 import { type Item } from "@/platform/tree/item";
-import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
-import { type ResultNodes } from "@/platform/tree/search";
 import { isMoreKey, type Store } from "@/platform/tree/store";
-import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
+import {
+  type ContextMenuProps,
+  type RootContextMenuProps,
+  type TreeState,
+} from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
-const FallbackContextMenu = (): ReactElement => (
+/** A menu that holds only the reload of the Console. */
+export const FallbackContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
 );
 
-// Cmd+C copies a resource of any type, so a type without a menu still offers Copy.
-const CopyContextMenu = (props: ContextMenuProps): ReactElement => (
+/**
+ * A menu that holds Copy and the reload of the Console, for a selection with no menu of
+ * its own. Cmd+C copies a resource of any type.
+ */
+export const CopyContextMenu = (props: ContextMenuProps): ReactElement => (
   <ContextMenu.Menu>
     <CopyContextMenuItem {...props} />
     <Menu.Divider />
@@ -60,11 +64,12 @@ export interface UseMenuProps {
   client: Client;
   store: Store;
   root: resource.ID;
-  results?: ResultNodes;
   selected: string[];
   state: TreeState;
   /** The menu for a right-click on empty space. */
-  rootContextMenu: FC<DefaultContextMenuProps>;
+  rootContextMenu: FC<RootContextMenuProps>;
+  /** The menu for a selection of more than one resource type. */
+  mixedContextMenu: FC<ContextMenuProps>;
   resolveItem: (type: resource.Type) => Item;
   handleError: Status.ErrorHandler;
 }
@@ -74,10 +79,10 @@ export const useMenu = ({
   client,
   store,
   root,
-  results,
   selected,
   state,
   rootContextMenu: RootContextMenu,
+  mixedContextMenu,
   resolveItem,
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
@@ -98,12 +103,12 @@ export const useMenu = ({
     const ids = keys.map((key) => resource.parseID(key));
     // A selected node's own children do not count, since an action on the node carries
     // them along. Flat search results show both at the same depth.
-    const contained = findContainedKeys(store, keys, results?.ancestors);
+    const contained = store.getContained(keys);
     const top = Base.getAllNodesOfMinDepth(
       Base.filterShape(state.shape, (key) => keys.includes(key) && !contained.has(key)),
     );
     const parents = unique.by(
-      top.map((key) => findAncestors(store, key, root, results?.paths)[0]),
+      top.map((key) => store.getAncestors(key)[0]),
       (id) => resource.idToString(id),
     );
     const props: ContextMenuProps = {
@@ -122,7 +127,7 @@ export const useMenu = ({
     const allSameType = ids.every((id) => id.type === ids[0].type);
     const M = allSameType
       ? (resolveItem(ids[0].type).ContextMenu ?? CopyContextMenu)
-      : MultipleSelectionContextMenu;
+      : mixedContextMenu;
     return <SelectionContextMenu menu={M} {...props} />;
   };
 

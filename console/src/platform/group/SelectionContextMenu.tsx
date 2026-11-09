@@ -11,22 +11,23 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { Group } from "@/platform/group";
-import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
-import { type ContextMenu as ItemContextMenu } from "@/platform/tree/types";
+import { ContextMenuItem } from "@/platform/group/ContextMenuItem";
+import { useCreateFromSelection } from "@/platform/group/useCreateFromSelection";
+import { Tree } from "@/platform/tree";
 
-export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
+/** The menu for a tree selection of more than one resource type. */
+export const SelectionContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
     state: { shape },
   } = props;
-  const groupFromSelection = Group.useCreateFromSelection();
+  const groupFromSelection = useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
         <>
-          <Group.ContextMenuItem
+          <ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
@@ -36,7 +37,7 @@ export const MultipleSelectionContextMenu: ItemContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      <CopyContextMenuItem {...props} />
+      <Tree.CopyContextMenuItem {...props} />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>

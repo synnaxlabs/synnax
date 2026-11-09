@@ -14,11 +14,6 @@ import { compare, type destructor } from "@synnaxlabs/x";
 import { type Source, type Window } from "@/platform/tree/children";
 import { type Resource } from "@/platform/tree/types";
 
-/** The resource types the tree shows before other resources. */
-export const FOLDER_TYPES = new Set<resource.Type>(["group", "arc_directory"]);
-
-const isFolder = ({ id }: Resource): boolean => FOLDER_TYPES.has(id.type);
-
 const MORE_PREFIX = "more/";
 
 const moreKey = (folder: string): string => `${MORE_PREFIX}${folder}`;
@@ -42,9 +37,15 @@ export interface Draft {
 /** The search answer a tree shows in place of its top level. */
 export interface Results {
   nodes: Base.Node<string>[];
-  /** The groups that show only their matches. */
+  /** The folders that show only the matches below them, not every child. */
   fixed: Set<string>;
+  /** The folders to expand when they first show, so the matches inside them show. */
+  expanded: string[];
+  /** The folders above each node at the top of the results, nearest first. */
+  paths: Map<string, resource.ID[]>;
   resources: Map<string, Resource>;
+  /** The keys of every folder above each match, over all of its paths. */
+  ancestors: Map<string, Set<string>>;
 }
 
 export interface StoreConfig {
@@ -52,6 +53,8 @@ export interface StoreConfig {
   /** Lists the children of a node. */
   list: (id: resource.ID) => Source[];
   hasChildren: (type: resource.Type) => boolean;
+  /** Whether nodes of the type show before the other children of their parent. */
+  isFolder: (type: resource.Type) => boolean;
   /** Receives the error of each list fetch that fails. */
   onError: (error: unknown) => void;
   results?: Results;
@@ -108,7 +111,10 @@ interface Merged {
 }
 
 // Folders show first, so a folder list with more hides the other records.
-const merge = (windows: Array<Window | undefined>): Merged | undefined => {
+const merge = (
+  windows: Array<Window | undefined>,
+  isFolder: (type: resource.Type) => boolean,
+): Merged | undefined => {
   if (!windows.every((w): w is Window => w != null)) return undefined;
   const indices = windows.map((_, i) => i);
   // Deletes can empty a window with more, and its next page can sort first.
@@ -116,7 +122,9 @@ const merge = (windows: Array<Window | undefined>): Merged | undefined => {
     (i) => windows[i].more && windows[i].resources.length === 0,
   );
   if (emptied.length > 0) return { keys: [], pending: emptied };
-  const folders = indices.filter((i) => windows[i].resources.some(isFolder));
+  const folders = indices.filter((i) =>
+    windows[i].resources.some(({ id }) => isFolder(id.type)),
+  );
   const rest = indices.filter((i) => !folders.includes(i));
   const withMore = (of: number[]) => of.filter((i) => windows[i].more);
   const head = segment(folders.map((i) => windows[i]));
@@ -147,6 +155,8 @@ export class Store {
   private readonly listeners = new Set<() => void>();
   private readonly keyListeners = new Map<string, Set<() => void>>();
   private results?: Results;
+  /** The result folders expanded once, so a folder the user closes stays closed. */
+  private readonly autoExpanded = new Set<string>();
   private resultChildren = new Map<string, string[]>();
   private expanded = new Set<string>();
   private expandedKeys: string[] = [];
@@ -165,6 +175,7 @@ export class Store {
     this.indexResults(config.results);
     if (config.results == null)
       this.folders.set(this.rootKey, this.createFolder(config.root));
+    else this.setExpandedKeys(this.toAutoExpand(config.results));
     this.refresh();
   }
 
@@ -180,8 +191,7 @@ export class Store {
 
   /** Sets the expanded nodes. An expanded node whose parents show opens. */
   setExpanded(keys: string[]): void {
-    this.expandedKeys = keys;
-    this.expanded = new Set(keys);
+    this.setExpandedKeys(keys);
     this.refresh();
     this.listeners.forEach((handler) => handler());
   }
@@ -189,9 +199,14 @@ export class Store {
   /** Returns the keys of the expanded nodes. Equal until they change. */
   readonly getExpanded = (): string[] => this.expandedKeys;
 
-  /** Sets the search answer the tree shows. */
+  /**
+   * Sets the search answer the tree shows, and expands each of its folders the first
+   * time the folder shows.
+   */
   setResults(results: Results): void {
     this.indexResults(results);
+    const opening = this.toAutoExpand(results);
+    if (opening.length > 0) return this.setExpanded([...this.expandedKeys, ...opening]);
     this.refresh();
   }
 
@@ -215,6 +230,44 @@ export class Store {
   /** Returns the shown children of an open node, or undefined. */
   getChildren(key: string): string[] | undefined {
     return this.children.get(key);
+  }
+
+  /**
+   * Returns the IDs above a shown node, nearest first, ending with the root. A node at
+   * the top of the results sits in the folders that its path gives.
+   */
+  getAncestors(key: string): resource.ID[] {
+    const ancestors: resource.ID[] = [];
+    let top = key;
+    for (
+      let parent = this.parents.get(key);
+      parent != null && parent !== this.rootKey;
+      parent = this.parents.get(parent)
+    ) {
+      ancestors.push(resource.parseID(parent));
+      top = parent;
+    }
+    ancestors.push(...(this.results?.paths.get(top) ?? []), this.config.root);
+    return ancestors;
+  }
+
+  /**
+   * Returns the keys that sit inside another key of the set, in the tree or above a
+   * match of the results. Depth cannot tell: two nodes at different depths are often
+   * unrelated.
+   */
+  getContained(keys: string[]): Set<string> {
+    const all = new Set(keys);
+    const contained = (key: string): boolean => {
+      for (
+        let parent = this.parents.get(key);
+        parent != null;
+        parent = this.parents.get(parent)
+      )
+        if (all.has(parent)) return true;
+      return [...(this.results?.ancestors.get(key) ?? [])].some((a) => all.has(a));
+    };
+    return new Set(keys.filter(contained));
   }
 
   /** Returns the key of the node's parent, or undefined for a node not shown. */
@@ -290,6 +343,18 @@ export class Store {
     index(this.rootKey, results.nodes);
   }
 
+  private setExpandedKeys(keys: string[]): void {
+    this.expandedKeys = keys;
+    this.expanded = new Set(keys);
+  }
+
+  // Returns the folders of the results that have not been expanded before.
+  private toAutoExpand({ expanded }: Results): string[] {
+    const opening = expanded.filter((key) => !this.autoExpanded.has(key));
+    opening.forEach((key) => this.autoExpanded.add(key));
+    return opening.filter((key) => !this.expanded.has(key));
+  }
+
   private createFolder(id: resource.ID): Folder {
     const sources = this.config.list(id);
     return {
@@ -321,7 +386,7 @@ export class Store {
     }
   }
 
-  // Results show in place of the lists of the root and of the fixed groups.
+  // Results show in place of the lists of the root and of the fixed folders.
   private showsResults(key: string): boolean {
     return (
       this.results != null && (key === this.rootKey || this.results.fixed.has(key))
@@ -360,7 +425,7 @@ export class Store {
     const { merged, windows } = folder;
     if (merged != null && compare.arraysEqual(merged.windows, windows))
       return merged.value;
-    const value = merge(windows);
+    const value = merge(windows, this.config.isFolder);
     folder.merged = { windows: [...windows], value };
     return value;
   }

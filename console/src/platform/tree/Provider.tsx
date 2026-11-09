@@ -8,21 +8,52 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { type Items } from "@/platform/tree/item";
+import { CopyContextMenu, FallbackContextMenu } from "@/platform/tree/menu";
+import { type ContextMenu, type RootContextMenuProps } from "@/platform/tree/types";
 
-const [Context, useContext] = context.create<Items>({
+export interface ContextMenus {
+  /** The menu for a right-click on empty space. */
+  root: FC<RootContextMenuProps>;
+  /** The menu for a selection of more than one resource type. */
+  mixed: ContextMenu;
+}
+
+interface ContextValue {
+  items: Items;
+  contextMenus: ContextMenus;
+}
+
+const [Context, useContext] = context.create<ContextValue>({
   displayName: "Tree.Context",
   providerName: "Tree.Provider",
 });
 
-export const useItems = (): Items => useContext("Tree.useItems");
+export const useItems = (): Items => useContext("Tree.useItems").items;
+
+export const useContextMenus = (): ContextMenus =>
+  useContext("Tree.useContextMenus").contextMenus;
+
+const FALLBACK_CONTEXT_MENUS: ContextMenus = {
+  root: FallbackContextMenu,
+  mixed: CopyContextMenu,
+};
 
 export interface ProviderProps extends PropsWithChildren {
   items: Items;
+  /**
+   * Defaults to a root menu that holds only the reload of the Console, and a mixed menu
+   * that adds Copy.
+   */
+  contextMenus?: ContextMenus;
 }
 
-export const Provider = ({ items, ...rest }: ProviderProps): ReactElement => (
-  <Context value={items} {...rest} />
+export const Provider = ({
+  items,
+  contextMenus = FALLBACK_CONTEXT_MENUS,
+  ...rest
+}: ProviderProps): ReactElement => (
+  <Context value={{ items, contextMenus }} {...rest} />
 );

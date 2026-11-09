@@ -110,6 +110,9 @@ const OPCUADriverCertificateItem = ({
   );
 };
 
+const retrieve: Tree.Retrieve = async (c, key) =>
+  (await c.racks.retrieve({ key: Number(key) })).payload;
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
@@ -179,7 +182,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
-      {isSingle && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      {isSingle && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />

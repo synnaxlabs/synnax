@@ -19,7 +19,9 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { binary } from "@synnaxlabs/x";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -277,6 +279,18 @@ describe("rack children", () => {
     expandTreeRow(r.name);
     await findTreeRow(chassis.name);
     expect(screen.queryByText(module.name)).toBeNull();
+  });
+});
+
+describe("copy properties", () => {
+  it("should copy the stored rack as JSON", async () => {
+    const writeText = stubClipboardWriteText();
+    const r = await createRack();
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(binary.JSON_CODEC.encodeString(r.payload)),
+    );
   });
 });
 

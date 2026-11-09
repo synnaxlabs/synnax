@@ -11,14 +11,14 @@ import { NotFoundError, resource, type Synnax as Client } from "@synnaxlabs/clie
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { array, state as xstate, unique } from "@synnaxlabs/x";
+import { array, state as xstate } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type FC,
@@ -34,22 +34,18 @@ import {
 import { CSS } from "@/platform/css";
 import { type Source } from "@/platform/tree/children";
 import { LIMIT } from "@/platform/tree/createSearch";
-import {
-  DefaultContextMenu,
-  type DefaultContextMenuProps,
-} from "@/platform/tree/DefaultContextMenu";
 import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
-import { useItems } from "@/platform/tree/Provider";
+import { useContextMenus, useItems } from "@/platform/tree/Provider";
+import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
+import { isMoreKey, type Results, Store } from "@/platform/tree/store";
 import {
-  MatchProvider,
-  type ResultNodes,
-  type Search,
-  type SearchAnswer,
-} from "@/platform/tree/search";
-import { isMoreKey, Store } from "@/platform/tree/store";
-import { type GetResource, type Resource, type TreeState } from "@/platform/tree/types";
+  type GetResource,
+  type Resource,
+  type RootContextMenuProps,
+  type TreeState,
+} from "@/platform/tree/types";
 import { useCopy } from "@/platform/tree/useCopy";
 
 interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
@@ -61,9 +57,9 @@ interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
    */
   listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
-  /** The menu for a right-click on empty space. */
-  rootContextMenu?: FC<DefaultContextMenuProps>;
-  results?: ResultNodes;
+  /** The menu for a right-click on empty space. Defaults to the provider's menu. */
+  rootContextMenu?: FC<RootContextMenuProps>;
+  results?: Results;
   className?: string;
 }
 
@@ -181,6 +177,7 @@ const createStore = ({
       return children({ client, id, root });
     },
     hasChildren: (type) => resolveItem(type).hasChildren,
+    isFolder: (type) => resolveItem(type).folder,
     onError: (e) => handleError(e, "Failed to retrieve resources"),
     results,
   });
@@ -190,13 +187,14 @@ const Internal = ({
   root,
   listRoot,
   emptyContent,
-  rootContextMenu = DefaultContextMenu,
+  rootContextMenu,
   results,
   className,
   ref,
   onKeyDown,
 }: InternalProps): ReactElement => {
   const items = useItems();
+  const contextMenus = useContextMenus();
   const resolveItem = (type: resource.Type): Item => items[type] ?? DefaultItem;
   const handleError = Status.useErrorHandler();
   const rootKey = resource.idToString(root);
@@ -218,15 +216,8 @@ const Internal = ({
 
   useEffect(() => store.start(), [store]);
 
-  // Groups open on arrival once, so a group the user closes stays closed.
-  const openedRef = useInitializerRef(() => new Set<string>());
   useEffect(() => {
-    if (results == null) return;
-    store.setResults(results);
-    const opening = results.expanded.filter((key) => !openedRef.current.has(key));
-    opening.forEach((key) => openedRef.current.add(key));
-    if (opening.length > 0)
-      handleExpandedChange((prev) => unique.unique([...prev, ...opening]));
+    if (results != null) store.setResults(results);
   }, [store, results]);
 
   // Selection drives the context menu, and a key with no node poisons every later
@@ -279,7 +270,6 @@ const Internal = ({
     client,
     store,
     root,
-    results,
     resolveItem,
     selectedRef,
     contract,
@@ -290,10 +280,10 @@ const Internal = ({
     client,
     store,
     root,
-    results,
     selected,
     state,
-    rootContextMenu,
+    rootContextMenu: rootContextMenu ?? contextMenus.root,
+    mixedContextMenu: contextMenus.mixed,
     resolveItem,
     handleError,
   });
@@ -362,7 +352,7 @@ const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   </Text.Text>
 );
 
-interface ResultsProps extends Pick<
+interface AnswerProps extends Pick<
   Search,
   "noun" | "layout" | "fieldRef" | "resultsRef"
 > {
@@ -371,7 +361,7 @@ interface ResultsProps extends Pick<
   answer: SearchAnswer;
 }
 
-const Results = ({
+const Answer = ({
   client,
   root,
   noun,
@@ -379,7 +369,7 @@ const Results = ({
   answer,
   fieldRef,
   resultsRef,
-}: ResultsProps): ReactElement => {
+}: AnswerProps): ReactElement => {
   // A second Escape, in the field, closes the search.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Escape" || e.target !== e.currentTarget) return;
@@ -423,8 +413,8 @@ export interface TreeProps {
    */
   listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
-  /** The menu for a right-click on empty space. */
-  rootContextMenu?: FC<DefaultContextMenuProps>;
+  /** The menu for a right-click on empty space. Defaults to the provider's menu. */
+  rootContextMenu?: FC<RootContextMenuProps>;
   /** Shows the search answer in place of the tree while the search has one. */
   search?: Search;
 }
@@ -444,7 +434,7 @@ export const Tree = ({
       {/* The results come ahead of the hidden tree, so a lookup by item ID, such as
           the start of a rename, finds the result first. */}
       {search?.answer != null && (
-        <Results
+        <Answer
           client={client}
           root={root}
           noun={search.noun}

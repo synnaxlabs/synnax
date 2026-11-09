@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, resource, type user } from "@synnaxlabs/client";
+import { access, query, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -51,6 +51,8 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   };
 };
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.users.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     state,
@@ -65,9 +67,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const openCredentials = Credential.useModal();
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
+  const { data: firstUser } = User.useResult(
+    singleResource ? { key: ids[0].key } : null,
+  );
   const { data: currentKey } = User.useResultKey({});
   const isNotCurrentUser = first != null && first.id.key !== currentKey;
-  const isRootUser = first?.data?.root_user === true;
+  const isRootUser = firstUser?.rootUser === true;
   const isSelf = ids[0]?.key === currentKey;
 
   return (
@@ -99,7 +104,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
-      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      {singleResource && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
@@ -111,8 +118,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
-  haulItems: ({ data }) =>
-    data == null ? [] : [User.createHaulItem(data as user.User)],
+  haulItems: ({ id }, client) => {
+    const u = client.users.watch(id.key).getCached();
+    return query.isLive(u) ? [User.createHaulItem(u)] : [];
+  },
 });
 
 export const TREE_ITEMS = { user: TreeItem } satisfies Tree.Items;
