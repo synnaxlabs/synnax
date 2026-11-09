@@ -34,9 +34,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // Create creates the ICD, or replaces it whole when an ICD with its key exists. Create
 // assigns keys to the ICD, its messages, and their fields where absent. It returns a
 // path-scoped validation error when the ICD breaks a rule of its schema. Problems that
-// Check finds do not stop the save. After the transaction commits, Create broadcasts a
-// create action that carries the stored ICD. Create does not wait for dispatches to the
-// ICD: Service.Create does.
+// Check finds do not stop the save. Create attaches a create action that carries the
+// stored ICD to the transaction, so its commit broadcasts the action.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	if ic.Key == uuid.Nil() {
 		ic.Key = uuid.New()
@@ -48,12 +47,7 @@ func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	if err := w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
-		w.tx,
-		ic.Key,
-		NewCreateAction(CreatePayload{ICD: *ic}),
-	)
+	w.dispatcher.Attach(w.tx, ic.Key, NewCreateAction(CreatePayload{ICD: *ic}))
 	return nil
 }
 
@@ -72,8 +66,7 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 // and each of its fields keeps the key of that message's field with its name. Import
 // stores the result as Create does and returns it. It returns a path-scoped validation
 // error when data does not parse or the result breaks a rule of the ICD's schema, and
-// an error wrapping query.ErrNotFound when no ICD has the key. Import does not wait for
-// dispatches to the ICD: Service.ImportFile does.
+// an error wrapping query.ErrNotFound when no ICD has the key.
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,
@@ -105,9 +98,14 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// apply applies the actions to the ICD with the given key and stores the result.
-func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
-	return w.table.
+// Apply applies the actions to the ICD with the given key, stores the result, and
+// attaches the actions to the transaction, so its commit broadcasts them. Problems that
+// Check finds do not stop it. It returns an error wrapping validate.ErrValidation when
+// an action is a create or the ICD cannot hold its value, a path-scoped validation
+// error when the result breaks a rule of the ICD's schema, and an error wrapping
+// query.ErrNotFound when no ICD has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.
 		NewUpdate().
 		Where(gorp.MatchKeys[Key, ICD](key)).
 		ChangeErr(func(_ gorp.Context, ic ICD) (ICD, error) {
@@ -120,7 +118,11 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 			}
 			return next, nil
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // assignKeys gives a new key to every message and field that has none. It skips text

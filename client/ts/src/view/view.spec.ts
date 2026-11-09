@@ -194,7 +194,7 @@ describe("View", () => {
       ]);
       const keys = views.map((v) => v.key);
       await client.views.delete(keys);
-      expect(await client.views.retrieve({ where: { key: { in: keys } } })).toEqual([]);
+      expect(await client.views.retrieve({ key: keys })).toEqual([]);
     });
   });
 });

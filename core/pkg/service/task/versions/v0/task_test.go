@@ -69,11 +69,6 @@ var _ = Describe("Task", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Task{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the task resource identifier", func() {
 			Expect(v0.Task{Key: key}.ResourceID()).To(Equal(key.ResourceID()))

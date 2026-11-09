@@ -10,11 +10,7 @@
 package icd_test
 
 import (
-	"cmp"
 	"context"
-	"fmt"
-	"slices"
-	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Dispatch", func() {
+var _ = Describe("Apply", func() {
 	type frame = actions.Scoped[icd.Key, icd.Action]
 	var (
 		editDB  *gorp.DB
@@ -55,11 +51,13 @@ var _ = Describe("Dispatch", func() {
 			canMessage("Engine", 0x100, field("rpm", 0), field("temp", 8)),
 			canMessage("Brakes", 0x101, field("pressure", 0)),
 		}}
-		Expect(editSvc.NewWriter(nil).Create(ctx, &bus)).To(Succeed())
+		Expect(editDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return editSvc.NewWriter(tx).Create(ctx, &bus)
+		})).To(Succeed())
 	})
 	record := func() *Recorder[icd.Key, icd.Action] {
 		rec := &Recorder[icd.Key, icd.Action]{}
-		DeferCleanup(editSvc.ObserveActions().OnChange(rec.Record))
+		DeferCleanup(editSvc.OnAction(rec.Record))
 		return rec
 	}
 	retrieve := func(ctx context.Context) icd.ICD {
@@ -68,11 +66,23 @@ var _ = Describe("Dispatch", func() {
 		Expect(editSvc.NewRetrieve().
 			Where(icd.MatchKeys(bus.Key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, editDB)).To(Succeed())
 		return res
 	}
+	apply := func(
+		ctx context.Context,
+		key icd.Key,
+		dispatchKey string,
+		acts ...icd.Action,
+	) error {
+		return editDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return editSvc.NewWriter(tx).
+				WithDispatchKey(dispatchKey).
+				Apply(ctx, key, acts...)
+		})
+	}
 	dispatch := func(ctx context.Context, acts ...icd.Action) error {
-		return editSvc.Dispatch(ctx, bus.Key, "dk", acts)
+		return apply(ctx, bus.Key, "dk", acts...)
 	}
 	set := func(path []string, value any, guards ...patch.Guard) icd.Action {
 		return icd.NewSetAction(icd.SetPayload{
@@ -204,15 +214,14 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should return not found for a missing ICD", func(ctx SpecContext) {
-		Expect(editSvc.Dispatch(ctx, uuid.New(), "dk", []icd.Action{
-			set([]string{"name"}, "Vehicle"),
-		})).To(MatchError(query.ErrNotFound))
+		Expect(apply(ctx, uuid.New(), "dk", set([]string{"name"}, "Vehicle"))).
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {
 		rec := record()
 		acts := []icd.Action{set([]string{"name"}, "Vehicle")}
-		Expect(editSvc.Dispatch(ctx, bus.Key, "dk-1", acts)).To(Succeed())
+		Expect(apply(ctx, bus.Key, "dk-1", acts...)).To(Succeed())
 		frames := rec.Snapshot()
 		Expect(frames).To(HaveLen(1))
 		f := frames[0]
@@ -220,115 +229,6 @@ var _ = Describe("Dispatch", func() {
 		Expect(f.DispatchKey).To(Equal("dk-1"))
 		Expect(f.Seq).To(BeNumerically(">", 0))
 		Expect(f.Actions).To(Equal(acts))
-	})
-
-	// build applies the broadcasts in Seq order to bus, as a client does. A client
-	// applies a create as a whole replace, which Reduce rejects.
-	build := func(frames []frame) icd.ICD {
-		GinkgoHelper()
-		slices.SortFunc(
-			frames,
-			func(a, b frame) int { return cmp.Compare(a.Seq, b.Seq) },
-		)
-		built := bus
-		for _, f := range frames {
-			if c := f.Actions[0].Create; c != nil {
-				built = c.ICD
-			} else {
-				built = MustSucceed(icd.Reduce(built, f.Actions...))
-			}
-		}
-		return built
-	}
-
-	Describe("Create", func() {
-		It("Should store what the broadcasts build when dispatches run alongside", func(
-			ctx SpecContext,
-		) {
-			rec := record()
-			const n = 16
-			var wg sync.WaitGroup
-			for i := range n {
-				wg.Go(func() {
-					defer GinkgoRecover()
-					ic := bus
-					ic.Name = fmt.Sprintf("Replaced %d", i)
-					ics := []icd.ICD{ic}
-					Expect(editSvc.Create(ctx, "dk", &ics)).To(Succeed())
-				})
-				wg.Go(func() {
-					defer GinkgoRecover()
-					Expect(dispatch(
-						ctx,
-						set(messagePath(0, "name"), fmt.Sprintf("Engine %d", i)),
-					)).To(Succeed())
-				})
-			}
-			wg.Wait()
-			built, stored := build(rec.Snapshot()), retrieve(ctx)
-			Expect(built.Name).To(Equal(stored.Name))
-			Expect(built.Messages[0].Name).To(Equal(stored.Messages[0].Name))
-		})
-	})
-
-	Describe("ImportFile", func() {
-		dbcFile := func(i int) []byte {
-			return fmt.Appendf(nil, "VERSION \"\"\n\nBU_: Ecu\n\n"+
-				"BO_ 256 Engine%d: 8 Ecu\n"+
-				" SG_ Rpm : 0|16@1+ (1,0) [0|65535] \"rpm\" Ecu\n", i)
-		}
-
-		It("Should store the import and broadcast it with the dispatch key", func(
-			ctx SpecContext,
-		) {
-			rec := record()
-			res := MustSucceed(
-				editSvc.ImportFile(
-					ctx,
-					bus.Key,
-					"dk-import",
-					icd.FormatDBC,
-					dbcFile(0),
-				),
-			)
-			Expect(retrieve(ctx).Messages[0].Name).To(Equal("Engine0"))
-			frames := rec.Snapshot()
-			Expect(frames).To(ConsistOf(frame{
-				Key:         bus.Key,
-				DispatchKey: "dk-import",
-				Seq:         frames[0].Seq,
-				Actions: []icd.Action{
-					icd.NewCreateAction(icd.CreatePayload{ICD: res}),
-				},
-			}))
-		})
-
-		It("Should store what the broadcasts build when dispatches run alongside", func(
-			ctx SpecContext,
-		) {
-			rec := record()
-			const n = 16
-			var wg sync.WaitGroup
-			for i := range n {
-				wg.Go(func() {
-					defer GinkgoRecover()
-					Expect(editSvc.ImportFile(
-						ctx, bus.Key, "dk", icd.FormatDBC, dbcFile(i),
-					)).Error().ToNot(HaveOccurred())
-				})
-				wg.Go(func() {
-					defer GinkgoRecover()
-					Expect(dispatch(
-						ctx,
-						set([]string{"name"}, fmt.Sprintf("Bus %d", i)),
-					)).To(Succeed())
-				})
-			}
-			wg.Wait()
-			built, stored := build(rec.Snapshot()), retrieve(ctx)
-			Expect(built.Name).To(Equal(stored.Name))
-			Expect(messageKeys(built.Messages)).To(Equal(messageKeys(stored.Messages)))
-		})
 	})
 
 	Describe("Writer", func() {
@@ -357,9 +257,13 @@ var _ = Describe("Dispatch", func() {
 			ctx SpecContext,
 		) {
 			rec := record()
-			res := MustSucceed(editSvc.NewWriter(nil).
-				WithDispatchKey("dk-import").
-				Import(ctx, bus.Key, icd.FormatDBC, []byte(importDBC)))
+			var res icd.ICD
+			Expect(editDB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				res, err = editSvc.NewWriter(tx).
+					WithDispatchKey("dk-import").
+					Import(ctx, bus.Key, icd.FormatDBC, []byte(importDBC))
+				return err
+			})).To(Succeed())
 			frames := rec.Snapshot()
 			Expect(frames).To(ConsistOf(frame{
 				Key:         bus.Key,

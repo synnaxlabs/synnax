@@ -35,7 +35,7 @@ class _RenameRequest(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _RetrieveResponse(BaseModel):
@@ -63,7 +63,7 @@ class Client:
 
     @overload
     def create(
-        self, *, key: int = 0, name: str = "", group: group_.Key | None = None
+        self, *, key: Key = 0, name: str = "", group: group_.Key | None = None
     ) -> Rack: ...
 
     @overload
@@ -76,7 +76,7 @@ class Client:
         self,
         racks: Rack | list[Rack] | None = None,
         *,
-        key: int = 0,
+        key: Key = 0,
         name: str = "",
         group: group_.Key | None = None,
     ) -> Rack | list[Rack]:
@@ -93,7 +93,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]) -> None:
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
@@ -128,7 +128,6 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -148,7 +147,6 @@ class Client:
         name: str,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -168,7 +166,6 @@ class Client:
         name: filter.StringInput = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -191,7 +188,6 @@ class Client:
         name: list[str] | filter.StringDict | filter.String = ...,
         embedded: filter.BoolInput = ...,
         integrations: filter.ContainsInput[str] = ...,
-        host_is_node: bool = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -234,8 +230,6 @@ class Client:
         :param embedded: Keeps racks that are, or are not, embedded in a Core.
         :param integrations: Keeps racks that support this integration, or any
             integration in the list.
-        :param host_is_node: Keeps racks on the Core that serves the request, or racks
-            on other Cores when False.
         :param groups: Keeps racks in any of these groups.
         :param grouped: Keeps only racks in a group when True, and only racks in no
             group when False.
@@ -280,7 +274,7 @@ class Client:
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
-            racks = self.retrieve(embedded=True, host_is_node=True, limit=1)
+            racks = self.retrieve(embedded=True, limit=1)
             if len(racks) == 0:
                 raise NotFoundError("Embedded rack not found")
             self._embedded_rack = racks[0]

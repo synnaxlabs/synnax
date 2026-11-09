@@ -11,8 +11,6 @@ package icd
 
 import (
 	"context"
-	"io"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -103,19 +101,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = s.cfg.Signals.PublishActions(
-		ctx,
-		signals.ActionPublisherConfig[Key, Action]{
-			Observable: s.state,
-			Name:       "icd_action",
-		},
-	); !ok(err, sig) {
+	if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_icd_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+		Table:    tableName,
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-	deleteCfg.DisableSet = true
-	if sig, err = s.cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+	if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, ICD]{
+		Changes:     s.table.Changes,
+		Resource:    ResourceID,
+		SetDisabled: new(true),
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -125,90 +123,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // concurrently with any other service method.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// ObserveActions returns an observable of the actions that Dispatch and Writer emit.
-// Handlers run synchronously after the transaction that applied the actions commits.
-func (s *Service) ObserveActions() observe.Observable[actions.Scoped[Key, Action]] {
-	return s.state
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnChange(handler)
 }
 
-// Dispatch applies the actions atomically to the ICD with the given key. Dispatches for
-// the same ICD run one at a time, each in its own transaction, and the actions are
-// broadcast after the commit. dispatchKey is carried onto the broadcast so the sender
-// recognizes its echo. Problems that Check finds do not stop a dispatch. Dispatch
-// returns an error wrapping validate.ErrValidation when an action is a create or the
-// ICD cannot hold its value, a path-scoped validation error when the result breaks a
-// rule of the ICD's schema, and an error wrapping query.ErrNotFound when no ICD has the
-// key.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) ([]Action, error) {
-			return nil, s.NewWriter(tx).apply(ctx, key, acts)
-		},
-	)
-}
-
-// Create creates or replaces the ICDs as Writer.Create does, all in one transaction.
-// Creates, imports, and dispatches for the same ICD run one at a time. dispatchKey is
-// carried onto the broadcasts so the sender recognizes its echo.
-func (s *Service) Create(ctx context.Context, dispatchKey string, ics *[]ICD) error {
-	keys := make([]Key, 0, len(*ics))
-	for _, ic := range *ics {
-		if ic.Key != uuid.Nil() {
-			keys = append(keys, ic.Key)
-		}
-	}
-	return s.state.Exec(ctx, keys, func(tx gorp.Tx) error {
-		return s.NewWriter(tx).WithDispatchKey(dispatchKey).CreateMany(ctx, ics)
-	})
-}
-
-// ImportFile imports data into the ICD with the given key as Writer.Import does, in its
-// own transaction. Imports and dispatches for the same ICD run one at a time.
-// dispatchKey is carried onto the broadcast so the sender recognizes its echo.
-func (s *Service) ImportFile(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	format Format,
-	data []byte,
-) (ICD, error) {
-	var ic ICD
-	if err := s.state.Exec(ctx, []Key{key}, func(tx gorp.Tx) (err error) {
-		ic, err = s.NewWriter(tx).
-			WithDispatchKey(dispatchKey).
-			Import(ctx, key, format, data)
-		return err
-	}); err != nil {
-		return ICD{}, err
-	}
-	return ic, nil
-}
-
-// NewWriter opens a Writer that executes against tx, or directly against the database
-// when tx is nil.
+// NewWriter opens a Writer that creates, edits, and deletes ICDs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return Writer{
-		tx:         tx,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
-	}
+	return Writer{tx: tx, table: s.table, dispatcher: s.state.Dispatcher()}
 }
 
 // NewRetrieve opens a query for ICDs.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }

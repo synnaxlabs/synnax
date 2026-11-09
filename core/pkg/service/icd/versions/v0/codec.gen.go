@@ -295,11 +295,11 @@ func (iv Identifier) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "can":
 		var v CanIdentifier
 		if v.ID, err = r.Uint32(); err != nil {
@@ -448,11 +448,11 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "number":
 		var v NumberJSONField
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
@@ -575,11 +575,11 @@ func (p Payload) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (p *Payload) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "binary":
 		var v BinaryPayload
 		{
@@ -704,11 +704,11 @@ func (tf TextField) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (tf *TextField) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "delimited":
 		var v DelimitedTextField
 		if err := v.BaseField.DecodeOrc(r); err != nil {

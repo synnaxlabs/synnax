@@ -313,7 +313,9 @@ var _ = Describe("Writer", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
 			GinkgoHelper()
 			p := panel.Panel{Name: "test", Root: root, Project: &proj.Key}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			return p.Key
 		}
 
@@ -321,7 +323,7 @@ var _ = Describe("Writer", func() {
 			"Should reject an action that leaves the panel invalid",
 			func(ctx SpecContext) {
 				key := create(ctx, leafNode())
-				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{}),
 				})).To(MatchError(ContainSubstring("name: required")))
 				Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
@@ -330,7 +332,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
-			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+			Expect(dispatch(ctx, key, "d1", []panel.Action{
 				{Type: panel.ActionTypeRename},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
@@ -341,7 +343,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				target := create(ctx, leafNode())
 				other := create(ctx, leafNode())
-				Expect(svc.Dispatch(ctx, target, "d1", []panel.Action{
+				Expect(dispatch(ctx, target, "d1", []panel.Action{
 					panel.NewCreateAction(panel.CreatePayload{
 						Panel: panel.Panel{
 							Key:     other,
@@ -362,7 +364,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
-			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+			Expect(dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 			})).To(Succeed())
 			Expect(retrieve(ctx, db, key).Name).To(Equal("renamed"))
@@ -373,7 +375,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode())
-				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(
 						panel.InsertTabsPayload{
 							Tabs:       []panel.Tab{tab(tabKey)},
@@ -390,7 +392,7 @@ var _ = Describe("Writer", func() {
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode())
-			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+			Expect(dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
 				panel.NewInsertTabsAction(
 					panel.InsertTabsPayload{
@@ -408,7 +410,7 @@ var _ = Describe("Writer", func() {
 			"Should apply no action when one in the batch is rejected",
 			func(ctx SpecContext) {
 				key := create(ctx, leafNode())
-				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
 					panel.NewMoveTabAction(
 						panel.MoveTabPayload{
@@ -426,7 +428,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode(viewTab(tabKey, "selector")))
-				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(
 						panel.InsertTabsPayload{
 							Tabs:       []panel.Tab{tab(tabKey)},
@@ -450,7 +452,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.Dispatch(ctx, key, "client-xyz", []panel.Action{
+					dispatch(ctx, key, "client-xyz", []panel.Action{
 						panel.NewRenameAction(panel.RenamePayload{Name: "broadcast"}),
 					}),
 				).To(Succeed())
@@ -470,7 +472,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				for _, name := range []string{"a", "b", "c"} {
-					Expect(svc.Dispatch(ctx, key, "d", []panel.Action{
+					Expect(dispatch(ctx, key, "d", []panel.Action{
 						panel.NewRenameAction(panel.RenamePayload{Name: name}),
 					})).To(Succeed())
 				}
@@ -487,7 +489,7 @@ var _ = Describe("Writer", func() {
 				key := create(ctx, leafNode())
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewMoveTabAction(
 						panel.MoveTabPayload{
 							Key:        uuid.New(),

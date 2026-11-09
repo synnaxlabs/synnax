@@ -28,9 +28,6 @@ func (u User) ResourceID() resource.ID {
 // GorpKey implements gorp.Entry.
 func (u User) GorpKey() Key { return u.Key }
 
-// SetOptions implements gorp.Entry.
-func (User) SetOptions() []any { return nil }
-
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // MessagePack field names (e.g. "Key", "Username") and new lowercase field names for
 // backward compatibility.

@@ -88,29 +88,32 @@ type SetNodePayload struct {
 	Config *ElementConfig `json:"config,omitzero" msgpack:"config,omitempty"`
 }
 
-// RemoveNodePayload removes a node and any config stored under its key.
+// RemoveNodePayload removes the node, its config, and the edges that connect to it and
+// their configs. No-op when no node has the key.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
 // AddEdgePayload appends the edge to the schematic. No-op when an edge with the same
-// key already exists.
+// key already exists, or when the source or target node does not exist.
 type AddEdgePayload struct {
 	Edge Edge `json:"edge" msgpack:"edge"`
 }
 
-// RemoveEdgePayload removes the edge with the given key, if present.
+// RemoveEdgePayload removes the edge with the given key and its config, if present.
 type RemoveEdgePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
 // SetConfigPayload replaces the config entry stored under the given node or edge key.
+// No-op when no node or edge has the key.
 type SetConfigPayload struct {
 	Key    string        `json:"key" msgpack:"key"`
 	Config ElementConfig `json:"config" msgpack:"config"`
 }
 
-// SetPayload replaces the value at a path in the schematic's element configs.
+// SetPayload replaces the value at a path in the schematic's element configs. No-op
+// when no node or edge has the config's key.
 type SetPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
@@ -118,14 +121,15 @@ type SetPayload struct {
 }
 
 // RemovePayload removes an entry from a list or a field from an object in the
-// schematic's element configs.
+// schematic's element configs. No-op when no node or edge has the config's key.
 type RemovePayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Key    string        `json:"key" msgpack:"key"`
 	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
-// InsertPayload adds an entry to a list in the schematic's element configs.
+// InsertPayload adds an entry to a list in the schematic's element configs. No-op when
+// no node or edge has the config's key.
 type InsertPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
@@ -133,7 +137,8 @@ type InsertPayload struct {
 	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
-// MovePayload moves an entry in a list in the schematic's element configs.
+// MovePayload moves an entry in a list in the schematic's element configs. No-op when
+// no node or edge has the config's key.
 type MovePayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Key    string        `json:"key" msgpack:"key"`

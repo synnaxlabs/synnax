@@ -32,11 +32,6 @@ var _ = Describe("View", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.View{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the view resource identifier", func() {
 			k := uuid.New()

@@ -46,12 +46,11 @@ describe("policy", () => {
       });
       const subjects = [user.resourceID(u.key)];
       const key = { in: [held.key, other.key] };
-      const matched = await client.access.policies.retrieve({
-        where: { subjects, key },
-      });
+      const matched = await client.access.policies.retrieve({ subjects, key });
       expect(matched.map((p) => p.key)).toEqual([held.key]);
       const unmatched = await client.access.policies.retrieve({
-        where: { not: { subjects }, key },
+        not: { subjects },
+        key,
       });
       expect(unmatched.map((p) => p.key)).toEqual([other.key]);
     });
@@ -66,14 +65,14 @@ describe("policy", () => {
 
       // Retrieve only internal policies (built-in system policies)
       const internalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: true } },
+        internal: true,
       });
       expect(internalPolicies.length).toBeGreaterThan(0);
       expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
       expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
 
       const nonInternalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: false } },
+        internal: false,
       });
       expect(nonInternalPolicies.every((p) => p.internal !== true)).toBe(true);
       expect(nonInternalPolicies.find((p) => p.key === created.key)).toBeDefined();
@@ -175,7 +174,11 @@ describe("policy", () => {
 
     it("should allow the caller to delete policies on a role it can update", async () => {
       const userClient = await createTestClientWithPolicy(client, [
-        { name: "test", objects: [policy.resourceID("")], actions: ["delete"] },
+        {
+          name: "test",
+          objects: [policy.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
         { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
       ]);
       const randomPolicy = await client.access.policies.create({
@@ -294,15 +297,13 @@ describe("cached reads", () => {
         () => {},
       );
       try {
-        expect(
-          await client.access.policies.retrieve({ where: { subjects: [subject] } }),
-        ).toEqual([]);
+        expect(await client.access.policies.retrieve({ subjects: [subject] })).toEqual(
+          [],
+        );
         await remote.users.setRole(u.key, owner.key);
         await expect
           .poll(() => {
-            const cached = client.access.policies.getCached({
-              where: { subjects: [subject] },
-            });
+            const cached = client.access.policies.getCached({ subjects: [subject] });
             return query.isLive(cached) && cached.some(({ key }) => key === p.key);
           })
           .toBe(true);

@@ -15,6 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiicd "github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -35,22 +38,36 @@ func TestAPIICD(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apiicd.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// create, retrieve, check, dispatch, importFile, and del run their routes as the
+	// API layer binds them.
+	create     freighter.UnaryHandler[apiicd.CreateRequest, apiicd.CreateResponse]
+	retrieve   freighter.UnaryHandler[apiicd.RetrieveRequest, apiicd.RetrieveResponse]
+	check      freighter.UnaryHandler[apiicd.CheckRequest, apiicd.CheckResponse]
+	dispatch   freighter.UnaryHandler[apiicd.DispatchRequest, struct{}]
+	importFile freighter.UnaryHandler[apiicd.ImportRequest, apiicd.ImportResponse]
+	del        freighter.UnaryHandler[apiicd.DeleteRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
-	apiSvc = MustSucceed(apiicd.NewService(apiicd.ServiceConfig{
-		ICD:  svc.ICD,
-		RBAC: svc.RBAC,
-	}))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	apiSvc := MustSucceed(apiicd.NewService(apiicd.ServiceConfig{ICD: svc.ICD}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	create = bind.Write(binder, apiSvc.Create)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	check = bind.Read(binder, apiSvc.Check)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	importFile = bind.Write(binder, apiSvc.Import)
+	del = bind.Write(binder, apiSvc.Delete)
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(rbactestutil.CreateUser(ctx, svc.RBAC, svc.User, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "icd-" + uuid.New().String(),
 	}))
 }
@@ -58,7 +75,9 @@ func createUser(ctx SpecContext) user.User {
 func createICD(ctx SpecContext, name string) icd.ICD {
 	GinkgoHelper()
 	ic := icd.ICD{Name: name}
-	Expect(svc.ICD.NewWriter(nil).Create(ctx, &ic)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.ICD.NewWriter(tx).Create(ctx, &ic)
+	})).To(Succeed())
 	return ic
 }
 
@@ -68,12 +87,11 @@ func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
 	Expect(svc.ICD.NewRetrieve().
 		Where(icd.MatchKeys(key)).
 		Entry(&ic).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return ic
 }
 
-// grantOn grants the action on the given objects to the subject. Writes commit directly
-// so the enforcers, which read committed state, observe them.
+// grantOn grants the action on the given objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -83,5 +101,7 @@ func grantOn(
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
 	actions := []access.Action{action}
-	MustSucceed(rbactestutil.Grant(ctx, svc.RBAC, svc.User, key, actions, objects...))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

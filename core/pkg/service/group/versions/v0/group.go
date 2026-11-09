@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Group{}
 // GorpKey implements gorp.Entry.
 func (g Group) GorpKey() Key { return g.Key }
 
-// SetOptions implements gorp.Entry.
-func (Group) SetOptions() []any { return nil }
-
 // ResourceID returns the resource.ID for the group.
 func (g Group) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}

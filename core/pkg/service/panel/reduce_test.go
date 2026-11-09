@@ -20,7 +20,7 @@ import (
 )
 
 // Reduce drives an action through its generated constructor and the generated
-// dispatcher - the production Writer.Dispatch path - whereas the Actions specs
+// dispatcher - the production Writer.Apply path - whereas the Actions specs
 // invoke each payload's Handle directly. These specs cover the New*Action
 // constructors and every Reduce branch.
 var _ = Describe("Reduce", func() {

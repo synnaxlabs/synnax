@@ -26,6 +26,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -43,6 +44,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Name:     "channels.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
@@ -70,6 +72,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *WriteConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -87,6 +90,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Name:     "channels.cmd_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {

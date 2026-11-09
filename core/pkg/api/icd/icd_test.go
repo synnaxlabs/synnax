@@ -34,7 +34,7 @@ var _ = Describe("ICD", func() {
 		It("Should create an ICD when create is granted", func(ctx SpecContext) {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
-			res := MustSucceed(apiSvc.Create(
+			res := MustSucceed(create(
 				AuthedCtx(ctx, u),
 				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			))
@@ -48,8 +48,8 @@ var _ = Describe("ICD", func() {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
 			rec := &Recorder[icd.Key, icd.Action]{}
-			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
-			MustSucceed(apiSvc.Create(
+			DeferCleanup(svc.ICD.OnAction(rec.Record))
+			MustSucceed(create(
 				AuthedCtx(ctx, u),
 				apiicd.CreateRequest{
 					ICDs:        []icd.ICD{{Name: "Bus"}},
@@ -62,7 +62,7 @@ var _ = Describe("ICD", func() {
 		})
 
 		It("Should reject a create that is not granted", func(ctx SpecContext) {
-			Expect(apiSvc.Create(
+			Expect(create(
 				AuthedCtx(ctx, createUser(ctx)),
 				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -76,7 +76,7 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Engine")
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ic.ResourceID())
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieve(
 				AuthedCtx(ctx, u),
 				apiicd.RetrieveRequest{
 					Where: &icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{ic.Key}}},
@@ -85,9 +85,20 @@ var _ = Describe("ICD", func() {
 			Expect(res.ICDs).To(HaveExactElements(HaveField("Name", "Engine")))
 		})
 
+		It("Should leave out the ICDs that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			shown := createICD(ctx, "Shown")
+			createICD(ctx, "Unshown")
+			u := createUser(ctx)
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, shown.ResourceID())
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiicd.RetrieveRequest{}))
+			Expect(res.ICDs).To(HaveExactElements(HaveField("Key", shown.Key)))
+		})
+
 		It("Should reject a retrieve that is not granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Hidden")
-			Expect(apiSvc.Retrieve(
+			Expect(retrieve(
 				AuthedCtx(ctx, createUser(ctx)),
 				apiicd.RetrieveRequest{
 					Where: &icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{ic.Key}}},
@@ -100,7 +111,7 @@ var _ = Describe("ICD", func() {
 		It("Should return every problem in an ICD", func(ctx SpecContext) {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, icdType)
-			res := MustSucceed(apiSvc.Check(
+			res := MustSucceed(check(
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{}},
 			))
@@ -112,7 +123,7 @@ var _ = Describe("ICD", func() {
 		It("Should return no problems for a valid ICD", func(ctx SpecContext) {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, icdType)
-			res := MustSucceed(apiSvc.Check(
+			res := MustSucceed(check(
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{Name: "Bus"}},
 			))
@@ -120,7 +131,7 @@ var _ = Describe("ICD", func() {
 		})
 
 		It("Should reject a check that is not granted", func(ctx SpecContext) {
-			Expect(apiSvc.Check(
+			Expect(check(
 				AuthedCtx(ctx, createUser(ctx)),
 				apiicd.CheckRequest{ICD: icd.ICD{Name: "Bus"}},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -137,7 +148,7 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Old")
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
-			MustSucceed(apiSvc.Dispatch(
+			MustSucceed(dispatch(
 				AuthedCtx(ctx, u),
 				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			))
@@ -146,7 +157,7 @@ var _ = Describe("ICD", func() {
 
 		It("Should reject a dispatch that is not granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Fixed")
-			Expect(apiSvc.Dispatch(
+			Expect(dispatch(
 				AuthedCtx(ctx, createUser(ctx)),
 				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -157,7 +168,7 @@ var _ = Describe("ICD", func() {
 			u := createUser(ctx)
 			key := uuid.New()
 			grantOn(ctx, u.ResourceID(), access.ActionUpdate, icd.ResourceID(key))
-			Expect(apiSvc.Dispatch(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
 				apiicd.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
 			)).Error().To(MatchError(query.ErrNotFound))
@@ -170,7 +181,7 @@ var _ = Describe("ICD", func() {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
-			res := MustSucceed(apiSvc.Import(
+			res := MustSucceed(importFile(
 				AuthedCtx(ctx, u),
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
 			))
@@ -185,9 +196,9 @@ var _ = Describe("ICD", func() {
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionUpdate, ic.ResourceID())
 			rec := &Recorder[icd.Key, icd.Action]{}
-			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
+			DeferCleanup(svc.ICD.OnAction(rec.Record))
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
-			res := MustSucceed(apiSvc.Import(
+			res := MustSucceed(importFile(
 				AuthedCtx(ctx, u),
 				apiicd.ImportRequest{
 					Key:         ic.Key,
@@ -206,7 +217,7 @@ var _ = Describe("ICD", func() {
 
 		It("Should reject an import that is not granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Locked")
-			Expect(apiSvc.Import(
+			Expect(importFile(
 				AuthedCtx(ctx, createUser(ctx)),
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -218,21 +229,19 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Doomed")
 			u := createUser(ctx)
 			grantOn(ctx, u.ResourceID(), access.ActionDelete, ic.ResourceID())
-			MustSucceed(apiSvc.Delete(
+			MustSucceed(del(
 				AuthedCtx(ctx, u),
-				nil,
 				apiicd.DeleteRequest{Keys: []icd.Key{ic.Key}},
 			))
 			Expect(svc.ICD.NewRetrieve().
 				Where(icd.MatchKeys(ic.Key)).
-				Exists(ctx, nil)).To(BeFalse())
+				Exists(ctx, db)).To(BeFalse())
 		})
 
 		It("Should reject a delete that is not granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Kept")
-			Expect(apiSvc.Delete(
+			Expect(del(
 				AuthedCtx(ctx, createUser(ctx)),
-				nil,
 				apiicd.DeleteRequest{Keys: []icd.Key{ic.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})

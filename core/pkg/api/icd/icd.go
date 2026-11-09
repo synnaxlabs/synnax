@@ -13,9 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -30,10 +28,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -45,7 +39,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ICD = override.Nil(c.ICD, other.ICD)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -53,13 +46,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.icd")
 	v.NotNil("icd", c.ICD)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service is the API for interface control documents.
 type Service struct {
-	access   *rbac.Service
 	internal *icd.Service
 }
 
@@ -69,7 +60,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.ICD, access: cfg.RBAC}, nil
+	return &Service{internal: cfg.ICD}, nil
 }
 
 type (
@@ -87,19 +78,15 @@ type CreateResponse struct {
 	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
-// Create creates the given ICDs, or replaces whole those whose keys exist.
+// Create creates the given ICDs in tx, or replaces whole those whose keys exist.
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeICD}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	if err := s.internal.Create(ctx, req.DispatchKey, &req.ICDs); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.ICDs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{ICDs: req.ICDs}, nil
@@ -110,40 +97,41 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[icd.Key, icd.Action]
 
-// Dispatch applies the action sequence to the target ICD atomically. Subscribers to the
-// ICD action signals receive the sequence after the transaction commits.
+// Dispatch applies the action sequence to the target ICD in tx. Subscribers to the ICD
+// action channel receive the sequence after tx commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{icd.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
-// Retrieve returns the ICDs that a request selects.
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the ICDs that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, icd.ResourceID)
+}
+
+// Retrieve returns the ICDs that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.ICDs))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.ICDs))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: icd.ResourceIDsFromICDs(res.ICDs),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, icd.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -157,13 +145,14 @@ type CheckResponse struct {
 	Problems validate.Problems `json:"problems" msgpack:"problems"`
 }
 
-// Check returns every problem in an ICD without storing it.
-func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{{Type: resource.TypeICD}},
-	}); err != nil {
+// Check returns every problem in an ICD without storing it. The subject needs retrieve
+// on all ICDs.
+func (s *Service) Check(
+	_ context.Context,
+	snap bind.Snapshot,
+	req CheckRequest,
+) (CheckResponse, error) {
+	if err := snap.Enforce(resource.ID{Type: resource.TypeICD}); err != nil {
 		return CheckResponse{}, err
 	}
 	return CheckResponse{Problems: icd.Check(req.ICD)}, nil
@@ -181,26 +170,16 @@ type ImportResponse struct {
 	ICD ICD `json:"icd" msgpack:"icd"`
 }
 
-// Import replaces the messages of an ICD with those parsed from a DBC file or a field
-// table.
+// Import replaces the messages of an ICD in tx with those parsed from a DBC file or a
+// field table.
 func (s *Service) Import(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{icd.ResourceID(req.Key)},
-	}); err != nil {
-		return ImportResponse{}, err
-	}
-	ic, err := s.internal.ImportFile(
-		ctx,
-		req.Key,
-		req.DispatchKey,
-		req.Format,
-		req.Data,
-	)
+	ic, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Import(ctx, req.Key, req.Format, req.Data)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -211,18 +190,12 @@ type DeleteRequest struct {
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes ICDs.
+// Delete deletes the ICDs with the given keys in tx. A key that matches no ICD is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: icd.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

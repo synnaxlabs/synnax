@@ -12,8 +12,15 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Any, Literal, TypeVar, overload, override
-from typing import Protocol as BaseProtocol
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Protocol as BaseProtocol,
+    TypeVar,
+    overload,
+    override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -21,13 +28,7 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import rack as rack_
-from synnax import ranger
-from synnax.device import Client as DeviceClient
-from synnax.device import Device
-from synnax.framer import Client as FrameClient
-from synnax.rack import Client as RackClient
-from synnax.rack import Rack
+from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
 from synnax.task.types_gen import (
     Command,
@@ -44,6 +45,10 @@ from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.timing import Timer
+
+# synnax.arc imports synnax.task at load time.
+if TYPE_CHECKING:
+    from synnax import arc
 
 
 class _CreateRequest(BaseModel):
@@ -99,20 +104,20 @@ def assign_keys(records: Iterable[_Keyed]) -> None:
 
 class Task:
     key: Key
-    rack: int
+    rack: rack_.Key
     name: str
     type: str
     config: Mapping[str, object]
     config_hash: str
     snapshot: bool
     status: Status | None
-    _cached_frame_client: FrameClient | None
+    _cached_frame_client: framer.Client | None
 
     def __init__(
         self,
         *,
         key: Key | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | None = None,
@@ -120,7 +125,7 @@ class Task:
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
-        _frame_client: FrameClient | None = None,
+        _frame_client: framer.Client | None = None,
     ):
         self.key = uuid4() if key is None else key
         self.rack = rack
@@ -134,7 +139,7 @@ class Task:
         self._cached_frame_client = _frame_client
 
     @property
-    def _frame_client(self) -> FrameClient:
+    def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or "
@@ -165,7 +170,9 @@ class Task:
     def resource_id(self) -> ID:
         return resource_id(self.key)
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         Default implementation for base Task class does nothing and returns None.
@@ -252,7 +259,9 @@ class Protocol(BaseProtocol):
 
     def set_internal(self, task: Task) -> None: ...
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         This method can be overridden by tasks that need to synchronize
@@ -333,19 +342,19 @@ class JSONConfigMixin[C: BaseModel](Protocol):
 
 class Client:
     _client: UnaryClient
-    _frame_client: FrameClient
-    _default_rack: Rack | None
-    _racks: RackClient
-    _device_client: DeviceClient
+    _frame_client: framer.Client
+    _default_rack: rack_.Rack | None
+    _racks: rack_.Client
+    _device_client: device_.Client
     instrumentation: Instrumentation = NOOP
 
     def __init__(
         self,
         *,
         client: UnaryClient,
-        frame_client: FrameClient,
-        rack_client: RackClient,
-        device_client: DeviceClient,
+        frame_client: framer.Client,
+        rack_client: rack_.Client,
+        device_client: device_.Client,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
@@ -363,7 +372,7 @@ class Client:
         name: str,
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
     ) -> Task: ...
 
     @overload
@@ -380,7 +389,7 @@ class Client:
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
     ) -> Task | list[Task]:
         is_single = True
         json_config: dict[str, JsonValue] = (
@@ -410,7 +419,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: Payload, *, rack: int = 0) -> Payload:
+    def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
         if rack == 0:
@@ -468,7 +477,7 @@ class Client:
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
-        arcs: UUID | list[UUID] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -489,7 +498,7 @@ class Client:
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
-        arcs: UUID | list[UUID] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -510,7 +519,7 @@ class Client:
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
-        arcs: UUID | list[UUID] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -534,7 +543,7 @@ class Client:
         internal: filter.BoolInput = ...,
         snapshot: filter.BoolInput = ...,
         ranges: ranger.Key | list[ranger.Key] = ...,
-        arcs: UUID | list[UUID] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -636,7 +645,7 @@ class Client:
             for t in tasks
         ]
 
-    def list(self, rack: int | None = None) -> list[Task]:
+    def list(self, rack: rack_.Key | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
         default rack. Excludes internal system tasks (scanner tasks and rack state).
 

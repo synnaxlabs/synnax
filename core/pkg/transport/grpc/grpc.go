@@ -33,6 +33,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
+	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
@@ -92,6 +94,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
+	t.ChannelDispatch = noop.UnaryServer[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
@@ -103,6 +109,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
 	t.UserSetRole = noop.UnaryServer[user.SetRoleRequest, struct{}]{}
+	t.UserDispatch = noop.UnaryServer[user.DispatchRequest, struct{}]{}
 
 	// RESOURCE
 	t.ResourceSearch = noop.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]{}
@@ -112,6 +119,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, struct{}]{}
 	t.GroupRename = noop.UnaryServer[group.RenameRequest, struct{}]{}
+	t.GroupDispatch = noop.UnaryServer[group.DispatchRequest, struct{}]{}
 	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
 	t.GroupRetrieveAncestors = noop.UnaryServer[
 		group.RetrieveAncestorsRequest,
@@ -142,21 +150,27 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
+	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
 	// RENAME
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
+	t.RackDispatch = noop.UnaryServer[apirack.DispatchRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+	t.DeviceDispatch = noop.UnaryServer[apidevice.DispatchRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
+	t.ViewDispatch = noop.UnaryServer[view.DispatchRequest, struct{}]{}
 
 	// TASK
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
 
 	// RANGE
 	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
+	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
+	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
@@ -170,6 +184,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
 	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, struct{}]{}
 	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, struct{}]{}
+	t.SchematicSymbolDispatch = noop.UnaryServer[symbol.DispatchRequest, struct{}]{}
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
 	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, struct{}]{}
@@ -226,6 +241,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
 	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
+	t.AccessDispatchPolicy = noop.UnaryServer[policy.DispatchRequest, struct{}]{}
+	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
@@ -243,6 +260,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		apiarc.CreateDirectoryResponse,
 	]{}
 	t.ArcRenameDirectory = noop.UnaryServer[apiarc.RenameDirectoryRequest, struct{}]{}
+	t.ArcDispatchDirectory = noop.UnaryServer[apiarc.DispatchDirectoryRequest, struct{}]{}
 	t.ArcDeleteDirectory = noop.UnaryServer[apiarc.DeleteDirectoryRequest, struct{}]{}
 	t.ArcMove = noop.UnaryServer[apiarc.MoveRequest, struct{}]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
