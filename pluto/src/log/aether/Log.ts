@@ -542,6 +542,9 @@ export class Log
     this.seeking = null;
     this.scrollState.offset = Math.min(entries.length, i + 1 + half);
     this.scrollState.tail = 0;
+    // Only a scroll after the jump counts toward resuming.
+    this.scrollState.scrollRef = this.state.wheelPos;
+    this.scrollState.moved = 0;
     this.moveView(0, lineHeight);
     this.scrollState.awayFromEnd = this.scrollState.offset < entries.length;
     this.anchors.scroll = entries[this.scrollState.offset - 1];

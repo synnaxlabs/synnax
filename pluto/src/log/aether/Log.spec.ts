@@ -756,6 +756,24 @@ describe("log/aether/Log", () => {
       expect(log.state.jumpStatus).toBe("");
     });
 
+    it("should stay paused after a scroll down and a jump to the newest lines", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 998]), REGION_500, SEARCH);
+      const at = (wheelPos: number, request: number, direction = "previous") =>
+        updateState({
+          ...SEARCH,
+          wheelPos,
+          scrolling: true,
+          jump: { direction, request },
+        });
+      at(0, 1);
+      at(0, 2);
+      // A scroll down by a few rows leaves the view far above the newest line.
+      at(-60, 2);
+      at(-60, 3, "next");
+      at(-60, 4, "next");
+      expect(log.state.scrolling).toBe(true);
+    });
+
     it("should read older lines until it finds a match", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);
