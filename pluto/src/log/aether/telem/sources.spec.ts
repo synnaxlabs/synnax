@@ -499,6 +499,57 @@ describe("StreamMultiChannelLog", () => {
     });
   });
 
+  describe("setFilter", () => {
+    it("should hold no entries of a hidden channel", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, HISTORY);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      expect(valuesOf(entriesOf(log), b)).toEqual([]);
+    });
+
+    it("should read a channel again when it shows", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, HISTORY);
+      log.setFilter({ hiddenChannels: [] });
+      await settle(log, 2 * HISTORY);
+      expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
+      expect(sorted(entriesOf(log))).toBe(true);
+    });
+
+    it("should give the space of a hidden channel to the others", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] }, undefined, 200);
+      await expect.poll(() => valuesOf(entriesOf(log), a).length, POLL).toBe(90);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, 180);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 180));
+    });
+
+    it("should do nothing for an equal filter", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, HISTORY);
+      const handler = vi.fn();
+      log.onChange(handler);
+      log.setFilter({ hiddenChannels: [b] });
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
   describe("newline handling", () => {
     const cases: Array<[string, string, string[]]> = [
       ["\\n", "a\nb", ["a", "b"]],
@@ -685,6 +736,33 @@ describe("StreamMultiChannelLog", () => {
       expect(core.reads).toBe(reads);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
       expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, STORED));
+    });
+
+    it("should page back past the samples of a hidden channel", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
+      expect(valuesOf(entriesOf(log), b)).toEqual([]);
+    });
+
+    it("should read no older pages of a hidden channel", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(log.exhausted).toBe(true);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
     });
 
     it("should page every channel back together", async () => {

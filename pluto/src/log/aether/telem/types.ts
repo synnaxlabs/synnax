@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type TimeRange, type TimeStamp } from "@synnaxlabs/client";
+import { channel, type TimeRange, type TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { type Source, sourceSpecZ } from "@/telem/aether/telem";
@@ -22,8 +22,19 @@ export interface LogEntry {
   alignment?: bigint;
 }
 
+const filterZ = z.object({
+  hiddenChannels: z.array(channel.keyZ).default([]),
+});
+
+/** Which entries a log holds. An entry the filter rejects takes no space. */
+export interface Filter extends z.infer<typeof filterZ> {}
+
+export const ZERO_FILTER: Filter = filterZ.parse({});
+
 export interface LogSource extends Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
+  /** Reads the entries again with the filter, from the newest samples. */
+  setFilter?: (filter: Filter) => void;
   /** Reads entries older than the oldest one, if the channels store any. */
   loadOlder?: () => void;
   /** Reads entries newer than the newest one, when the source is not live. */

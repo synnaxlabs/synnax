@@ -145,6 +145,33 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setChannelVisible", () => {
+    it("should hide a channel", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setChannelVisible({ key: KEY, channel: 1, visible: false }));
+      });
+      expect(docOf()?.hiddenChannels).toEqual([1]);
+    });
+
+    it("should show a hidden channel", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hiddenChannels: [1, 2] }));
+        store.dispatch(Log.setChannelVisible({ key: KEY, channel: 1, visible: true }));
+      });
+      expect(docOf()?.hiddenChannels).toEqual([2]);
+    });
+
+    it("should hide a channel once", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setChannelVisible({ key: KEY, channel: 1, visible: false }));
+        store.dispatch(Log.setChannelVisible({ key: KEY, channel: 1, visible: false }));
+      });
+      expect(docOf()?.hiddenChannels).toEqual([1]);
+    });
+  });
+
   describe("remove", () => {
     it("should remove a log by key", () => {
       act(() => {

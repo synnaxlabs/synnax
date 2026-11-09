@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type log } from "@synnaxlabs/client";
+import { type channel, type log } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
@@ -50,3 +50,8 @@ const selectPosition = (params: KeyedSelectorParams): string =>
   selectState(params).position;
 
 export const useSelectPosition = createSelector(selectPosition);
+
+const selectHiddenChannels = (params: KeyedSelectorParams): channel.Key[] =>
+  selectState(params).hiddenChannels;
+
+export const useSelectHiddenChannels = createSelector(selectHiddenChannels);

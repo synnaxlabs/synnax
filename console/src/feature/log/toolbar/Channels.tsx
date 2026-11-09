@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -26,8 +27,11 @@ import {
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+// The first column of every row, so the channel selectors line up.
+const LEAD_CLASS = CSS.BE("log", "channel-lead");
 const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
@@ -50,6 +54,9 @@ const ChannelRow = ({
   disabled,
 }: ChannelRowProps): ReactElement | null => {
   const dispatch = Log.useSingleDispatch();
+  const sessionDispatch = Session.useDispatch();
+  const key = Log.useKey();
+  const hidden = Session.Log.useSelectHiddenChannels().includes(channel);
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
@@ -79,6 +86,8 @@ const ChannelRow = ({
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+  const handleVisibleChange = () =>
+    sessionDispatch(Session.Log.setChannelVisible({ key, channel, visible: hidden }));
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -103,6 +112,16 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
+        <Button.Button
+          onClick={handleVisibleChange}
+          size="small"
+          variant="text"
+          tooltip={hidden ? "Show channel" : "Hide channel"}
+          aria-label={hidden ? "Show channel" : "Hide channel"}
+          className={LEAD_CLASS}
+        >
+          {hidden ? <Icon.Hidden /> : <Icon.Visible />}
+        </Button.Button>
         <Channel.SelectSingle
           value={channel}
           onChange={handleChannelChange}
@@ -207,14 +226,19 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
   const handleAdd = (channel: channel.Key) => dispatch(log.addChannel({ channel }));
   return (
     <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
-      <Channel.SelectSingle
-        allowNone
-        onChange={handleAdd}
-        query={SELECT_CHANNEL_INITIAL_QUERY}
-        disabled={disabled}
-        triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
-        className={CSS.BE("log", "channel-select")}
-      />
+      <Flex.Box x align="center" grow>
+        <Flex.Box x align="center" justify="center" className={LEAD_CLASS}>
+          <Icon.Add aria-hidden />
+        </Flex.Box>
+        <Channel.SelectSingle
+          allowNone
+          onChange={handleAdd}
+          query={SELECT_CHANNEL_INITIAL_QUERY}
+          disabled={disabled}
+          triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
+          className={CSS.BE("log", "channel-select")}
+        />
+      </Flex.Box>
     </Flex.Box>
   );
 };
