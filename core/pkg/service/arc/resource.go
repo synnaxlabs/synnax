@@ -50,8 +50,3 @@ func KeysFromResourceIDs(ids []resource.ID) ([]Key, error) {
 		return resource.ParseUUIDKey(id)
 	})
 }
-
-// ResourceIDsFromArcs returns the resource IDs of the arcs.
-func ResourceIDsFromArcs(arcs []Arc) []resource.ID {
-	return lo.Map(arcs, func(a Arc, _ int) resource.ID { return a.ResourceID() })
-}

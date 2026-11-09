@@ -153,6 +153,14 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("should apply a change between its subscribe and its first fetch", async () => {
+      const { lists, table } = setup([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      table.set("2", rec("2", "b"));
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+    });
+
     it("should fetch again on every read of an unmaintained window", async () => {
       const { lists, fetch } = setup([rec("1", "a")]);
       const list = lists.list({ order: byName, limit: 1 });

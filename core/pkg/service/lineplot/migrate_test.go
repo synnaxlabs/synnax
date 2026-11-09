@@ -46,7 +46,7 @@ func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, count))
+	keys := MustSucceed(channeltestutil.CreateVirtual(ctx, node.DB, channelSvc, count))
 	return node.DB, keys
 }
 
@@ -102,7 +102,9 @@ var _ = Describe("Stored v7 line plots", func() {
 				DB: db,
 			}))
 			proj := project.Project{Name: "Project"}
-			Expect(projects.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projects.NewWriter(tx).Create(ctx, &proj)
+			})).To(Succeed())
 			owner := ontology.Relationship{
 				From: resource.ID{Type: resource.TypeProject, Key: proj.Key.String()},
 				Type: ontology.RelationshipTypeParentOf,

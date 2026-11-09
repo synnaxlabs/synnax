@@ -12,6 +12,7 @@ package kafka
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -48,6 +49,7 @@ type browseArgs struct {
 type scanner struct {
 	// timeout bounds one ping.
 	timeout telem.TimeSpan
+	db      *gorp.DB
 	device  *device.Service
 }
 
@@ -79,7 +81,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.device, args.Device)
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +101,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.device, args.Device)
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +144,7 @@ func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 		Instrumentation: f.cfg.Child("scan"),
 		Scanner: scanner{
 			timeout: f.cfg.PingTimeout,
+			db:      f.cfg.DB,
 			device:  f.cfg.Device,
 		},
 		DB:                 f.cfg.DB,

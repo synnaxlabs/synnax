@@ -30,12 +30,11 @@ func TestFramer(t *testing.T) {
 }
 
 var (
-	node          testutil.Node
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
-	channelGraph  *calcgraph.Graph
-	framerSvc     *framer.Service
-	validCfg      framer.ServiceConfig
+	node         testutil.Node
+	channelSvc   *channel.Service
+	channelGraph *calcgraph.Graph
+	framerSvc    *framer.Service
+	validCfg     framer.ServiceConfig
 )
 
 // newFramerConfig opens the label, status, and channel services backing a framer
@@ -75,7 +74,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node = testutil.NewNode(ctx)
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
-	channelWriter = channelSvc.NewWriter(nil)
 	channelGraph = validCfg.ChannelGraph
 	framerSvc = MustOpen(framer.OpenService(ctx, validCfg))
 })

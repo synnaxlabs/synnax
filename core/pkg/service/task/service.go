@@ -12,7 +12,6 @@ package task
 import (
 	"context"
 	"fmt"
-	"io"
 	"slices"
 	"uuid"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -32,11 +30,9 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -122,7 +118,6 @@ type Service struct {
 	indexes           indexes
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
-	actionChannelKey  channel.Key
 }
 
 // Observe returns an observable that notifies callers of changes to task entries.
@@ -198,126 +193,55 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	// A detach changes a config, so the task stores the new hash of the config in the
+	// transaction of the detach.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
-		ok(nil, xio.NoFailCloserFunc(store.ObserveDetaches().OnChange(s.syncConfig)))
+		store.OnDetach(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
+			return s.NewWriter(tx).syncConfig(ctx, key)
+		})
 	}
 	if cfg.Signals != nil {
-		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
-			t.Config, t.Status = nil, nil
-			return signals.MarshalJSON(t)
-		}
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Task]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+			MarshalSet: func(t Task) ([]byte, error) {
+				t.Config, t.Status = nil, nil
+				return signals.MarshalJSON(t)
+			},
+		}); !ok(err, nil) {
 			return nil, err
 		}
 		// The Driver reads sy_task_set as task metadata, so actions take their own
 		// channel.
-		if sig, err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionPublisherConfig[Key, Action]{
-				Observable: s.state,
-				Name:       "task_action",
-			},
-		); !ok(err, sig) {
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_task_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
-		var actionCh channel.Channel
-		if err = cfg.Channel.NewRetrieve().
-			Where(channel.MatchNames("sy_task_action_set")).
-			Entry(&actionCh).
-			Exec(ctx, nil); !ok(err, nil) {
-			return nil, err
-		}
-		s.actionChannelKey = actionCh.Key()
 	}
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
-// The handler runs synchronously after the transaction that applied the actions
-// commits. The returned Disconnect removes the handler.
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnChange(handler)
 }
 
-// Dispatch applies the actions atomically to the task with the given key. Dispatches
-// for the same task run one at a time, each in its own transaction. After the commit,
-// Dispatch broadcasts the actions, then a set of the stored config when storing changed
-// it, such as by filling a default, then a set of the new config hash. Dispatch returns
-// the sets it added. dispatchKey is carried onto the broadcast so the sender recognizes
-// its echo. Dispatch returns an error wrapping validate.ErrValidation when an action is
-// a create, an action other than a set of the name targets a snapshot, or the result
-// fails to decode or validate, and an error wrapping query.ErrNotFound when no task has
-// the key.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) ([]Action, error) {
-	var added []Action
-	if err := s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		acts,
-		func(tx gorp.Tx) (_ []Action, err error) {
-			added, err = s.NewWriter(tx).apply(ctx, key, acts)
-			return added, err
-		},
-	); err != nil {
-		return nil, err
-	}
-	return added, nil
-}
-
-// syncConfig stores the hash of a config that a delete detached and broadcasts the
-// config, so open clients and the Driver see the change.
-func (s *Service) syncConfig(ctx context.Context, key Key) {
-	err := s.state.Dispatch(ctx, key, "", nil, func(tx gorp.Tx) ([]Action, error) {
-		return s.NewWriter(tx).syncConfig(ctx, key)
-	})
-	// The delete that detached the config can delete its task too.
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error(
-			"failed to sync a detached task config",
-			zap.Stringer("task", key),
-			zap.Error(err),
-		)
-	}
-}
-
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
 
-// ActionChannelKey returns the key of the channel that broadcasts task actions. Its
-// samples carry task configs, so only subjects that can read a task may receive them.
-func (s *Service) ActionChannelKey() channel.Key {
-	return s.actionChannelKey
-}
-
 func (s *Service) Close() error { return s.closer.Close() }
 
-// ConfigTask returns the ID of the task whose config record target names, and false
-// when target names no config record.
-func (s *Service) ConfigTask(target gorp.Target) (resource.ID, bool) {
-	for _, typ := range s.cfg.Configs.Types() {
-		if config.TableName(typ) == target.Table {
-			return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
-		}
-	}
-	return resource.ID{}, false
-}
-
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		status:     s.cfg.Status.NewWriter(tx),
 		statuses:   s.cfg.Status,
@@ -332,7 +256,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes:   s.indexes,
-		baseTX:    s.cfg.DB,
 		gorp:      s.table.NewRetrieve(),
 		configs:   s.cfg.Configs,
 		matchArcs: s.cfg.MatchArcs,
@@ -342,7 +265,7 @@ func (s *Service) NewRetrieve() Retrieve {
 func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	exists, err := s.NewRetrieve().
 		Where(And(MatchRacks(r.Key), MatchInternal(false))).
-		Exists(ctx, ctx.Tx)
+		Exists(ctx, ctx.Snapshot)
 	if err != nil || !exists {
 		return err
 	}
@@ -358,19 +281,24 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	if err != nil {
 		return err
 	}
-	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
-		Entries(&tasks).
-		Exec(ctx, nil); err != nil {
-		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
-	}
-	reported, err := s.cfg.Status.Join[StatusDetails](
-		ctx,
-		nil,
-		ResourceIDsFromTasks(tasks),
+	var (
+		tasks    []Task
+		reported []*Status
 	)
-	if err != nil {
+	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.NewRetrieve().Where(MatchRacks(rackKey)).
+			Entries(&tasks).
+			Exec(ctx, snap); err != nil {
+			return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
+		}
+		reported, err = s.cfg.Status.Join[StatusDetails](
+			ctx,
+			snap,
+			ResourceIDsFromTasks(tasks),
+		)
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
+	}); err != nil {
+		return err
 	}
 	statuses := make([]Status, 0, len(tasks))
 	for i, tsk := range tasks {

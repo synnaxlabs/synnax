@@ -10,14 +10,11 @@
 package task_test
 
 import (
-	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -31,39 +28,7 @@ var _ = Describe("Actions", func() {
 			Name: "Alerts",
 			Type: "pagerduty_alert",
 			Rack: 1,
-			Config: msgpack.EncodedJSON{
-				"routing_key": "rk-1",
-				"alerts": []any{
-					map[string]any{"key": "a", "status": "st-a"},
-					map[string]any{"key": "b", "status": "st-b"},
-				},
-			},
 		}
-	})
-	alertKeys := func(t task.Task) []string {
-		GinkgoHelper()
-		var keys []string
-		for _, a := range t.Config["alerts"].([]any) {
-			keys = append(keys, a.(map[string]any)["key"].(string))
-		}
-		return keys
-	}
-
-	Describe("ActionRecord", func() {
-		It("Should return the task that a broadcast edits", func() {
-			sample := MustSucceed(json.Marshal(actions.Scoped[task.Key, task.Action]{
-				Key: base.Key,
-				Actions: []task.Action{task.NewSetAction(task.SetPayload{
-					Path: []string{"name"}, Value: "Alarms",
-				})},
-			}))
-			Expect(task.ActionRecord(sample)).To(Equal(task.ResourceID(base.Key)))
-		})
-
-		It("Should return an error for a sample that is not a broadcast", func() {
-			Expect(task.ActionRecord([]byte("not json"))).Error().
-				To(MatchError(ContainSubstring("invalid character")))
-		})
 	})
 
 	Describe("CreatePayload", func() {
@@ -79,24 +44,6 @@ var _ = Describe("Actions", func() {
 	})
 
 	Describe("SetPayload", func() {
-		It("Should set a field of the config", func() {
-			next := MustSucceed(task.Reduce(base, task.NewSetAction(task.SetPayload{
-				Path:  []string{"config", "routing_key"},
-				Value: "rk-2",
-			})))
-			Expect(next.Config["routing_key"]).To(Equal("rk-2"))
-		})
-
-		It("Should set a field of a list entry by its key", func() {
-			next := MustSucceed(task.Reduce(base, task.NewSetAction(task.SetPayload{
-				Path:  []string{"config", "alerts", "b", "status"},
-				Value: "st-c",
-			})))
-			Expect(next.Config["alerts"]).To(ContainElement(
-				map[string]any{"key": "b", "status": "st-c"},
-			))
-		})
-
 		It("Should set the name", func() {
 			next := MustSucceed(task.Reduce(base, task.NewSetAction(task.SetPayload{
 				Path:  []string{"name"},
@@ -113,20 +60,17 @@ var _ = Describe("Actions", func() {
 			Expect(next.Rack).To(BeEquivalentTo(7))
 		})
 
-		It("Should do nothing when a guard does not hold", func() {
+		It("Should reject a guard that names no union the path goes into", func() {
 			Expect(task.Reduce(base, task.NewSetAction(task.SetPayload{
-				Path:   []string{"config", "routing_key"},
-				Value:  "rk-2",
+				Path:   []string{"name"},
+				Value:  "Renamed",
 				Guards: []patch.Guard{{Path: []string{"name"}, Value: "Other"}},
-			}))).To(Equal(base))
-		})
-
-		It("Should not change the config of the given task", func() {
-			MustSucceed(task.Reduce(base, task.NewSetAction(task.SetPayload{
-				Path:  []string{"config", "routing_key"},
-				Value: "rk-2",
-			})))
-			Expect(base.Config["routing_key"]).To(Equal("rk-1"))
+			}))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"[name]: the guard names no union that the path goes into",
+				)),
+			))
 		})
 
 		DescribeTable("Should reject a path to a field that actions cannot edit",
@@ -136,13 +80,14 @@ var _ = Describe("Actions", func() {
 					Value: "x",
 				}))).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(`unknown object member name "`+field)),
+					MatchError(ContainSubstring("the path names no editable field")),
 				))
 			},
 			Entry("type", "type"),
 			Entry("key", "key"),
 			Entry("snapshot", "snapshot"),
 			Entry("config hash", "config_hash"),
+			Entry("config, which its store edits", "config"),
 		)
 
 		It("Should reject a value that the field cannot hold", func() {
@@ -154,39 +99,13 @@ var _ = Describe("Actions", func() {
 	})
 
 	Describe("RemovePayload", func() {
-		It("Should remove a list entry by its key", func() {
-			next := MustSucceed(task.Reduce(
-				base,
-				task.NewRemoveAction(task.RemovePayload{
-					Path: []string{"config", "alerts"},
-					Key:  "a",
-				}),
+		It("Should reject a removal of the name", func() {
+			Expect(task.Reduce(base, task.NewRemoveAction(task.RemovePayload{
+				Key: "name",
+			}))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the document requires a value")),
 			))
-			Expect(alertKeys(next)).To(Equal([]string{"b"}))
-		})
-	})
-
-	Describe("InsertPayload", func() {
-		It("Should insert a list entry after the given entry", func() {
-			next := MustSucceed(task.Reduce(
-				base,
-				task.NewInsertAction(task.InsertPayload{
-					Path:  []string{"config", "alerts"},
-					Value: map[string]any{"key": "c", "status": "st-c"},
-					After: new("a"),
-				}),
-			))
-			Expect(alertKeys(next)).To(Equal([]string{"a", "c", "b"}))
-		})
-	})
-
-	Describe("MovePayload", func() {
-		It("Should move a list entry to the front", func() {
-			next := MustSucceed(task.Reduce(base, task.NewMoveAction(task.MovePayload{
-				Path: []string{"config", "alerts"},
-				Key:  "b",
-			})))
-			Expect(alertKeys(next)).To(Equal([]string{"b", "a"}))
 		})
 	})
 })

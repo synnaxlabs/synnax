@@ -112,15 +112,19 @@ var _ = Describe("Status", Ordered, func() {
 					Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
 					To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, s.Key)
+					})).To(Succeed())
 				})
-				Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, s.Key, "After")
+				})).
 					To(Succeed())
 				var res status.Status[details]
 				Expect(svc.NewRetrieve[details]().
 					Where(status.MatchKeys[details](s.Key)).
 					Entry(&res).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				expected := s
 				expected.Name = "After"
 				Expect(res).To(Equal(expected))
@@ -1092,7 +1096,7 @@ var _ = Describe("Status", Ordered, func() {
 		)
 	})
 
-	Describe("Writer with no transaction", func() {
+	Describe("Writer in concurrent transactions", func() {
 		It(
 			"Should write one status for an owner that concurrent sets write",
 			func(ctx SpecContext) {
@@ -1106,7 +1110,9 @@ var _ = Describe("Status", Ordered, func() {
 						defer GinkgoRecover()
 						s := newStatus("")
 						s.Owner = &owner
-						Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).Set(ctx, &s)
+						})).To(Succeed())
 					})
 				}
 				wg.Wait()
@@ -1122,22 +1128,28 @@ var _ = Describe("Status", Ordered, func() {
 			"Should keep every label that concurrent adds write",
 			func(ctx SpecContext) {
 				s := newStatus("concurrent-labels-key")
-				Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Set(ctx, &s)
+				})).To(Succeed())
 				labels := make([]label.Key, 10)
 				for i := range labels {
 					l := &label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
-					Expect(labelSvc.NewWriter(nil).Create(ctx, l)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return labelSvc.NewWriter(tx).Create(ctx, l)
+					})).To(Succeed())
 					labels[i] = l.Key
 				}
 				var wg sync.WaitGroup
 				for _, l := range labels {
 					wg.Go(func() {
 						defer GinkgoRecover()
-						Expect(svc.NewWriter(nil).AddLabels(
-							ctx,
-							s.Key,
-							[]label.Key{l},
-						)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return svc.NewWriter(tx).AddLabels(
+								ctx,
+								s.Key,
+								[]label.Key{l},
+							)
+						})).To(Succeed())
 					})
 				}
 				wg.Wait()
@@ -1171,6 +1183,24 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It("Should return the status that a commit sets", func(ctx SpecContext) {
+			var keys []status.Key
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(ctx, c) {
+						keys = append(keys, ch.Key)
+					}
+				}),
+			)
+			s := newStatus("changes-test")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
+			Expect(keys).To(Equal([]status.Key{"changes-test"}))
+		})
+	})
+
 	Describe("Search", func() {
 		create := func(ctx SpecContext, key, name string) resource.ID {
 			GinkgoHelper()
@@ -1180,7 +1210,9 @@ var _ = Describe("Status", Ordered, func() {
 				Variant: "success",
 				Time:    telem.Now(),
 			}
-			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
 			return status.ResourceID(s.Key)
 		}
 
@@ -1200,7 +1232,9 @@ var _ = Describe("Status", Ordered, func() {
 
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
-			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(ctx, "c", "hydraulic")
+			})).To(Succeed())
 			q := search.Query[resource.ID]{Term: "hydraulic"}
 			Expect(MustSucceed(svc.Resources().Search(ctx, db, q)).Keys).
 				To(Equal([]resource.ID{id}))

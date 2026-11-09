@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -208,7 +209,9 @@ var _ = Describe("Write task", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
 			startTask(ctx, kafka.WriteConfig{

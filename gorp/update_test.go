@@ -94,7 +94,7 @@ var _ = Describe("update", func() {
 				Change(func(gCtx gorp.Context, e entry) entry {
 					e.Data = "new data"
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+					Expect(gCtx.Snapshot).To(BeIdenticalTo(tx))
 					count++
 					return e
 				}).Exec(ctx, tx)).To(Succeed())
