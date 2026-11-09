@@ -46,6 +46,15 @@ class WorkerStub
 
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
 
+// Holds entries, so the log shows its controls once the worker has its state.
+class FilledStub extends WorkerStub {
+  afterUpdate(): void {
+    if (this.state.empty !== false) this.setState((s) => ({ ...s, empty: false }));
+  }
+}
+
+const FILLED_REGISTRY = { [FilledStub.TYPE]: FilledStub };
+
 describe("log/Log", () => {
   it("asks for channels when the log has none", async () => {
     await renderLog(Log, { additionalRegistry: REGISTRY });
@@ -99,8 +108,10 @@ describe("log/Log", () => {
 
     const dropRange = async () => {
       seeks.mockClear();
-      const rendered = await renderLog(WithSource, { additionalRegistry: REGISTRY });
-      const target = await screen.findByText("No channels configured");
+      const rendered = await renderLog(WithSource, {
+        additionalRegistry: FILLED_REGISTRY,
+      });
+      const target = await screen.findByLabelText("Go to a time");
       fireEvent.dragStart(screen.getByText(DRAG_HANDLE));
       fireEvent.drop(target);
       return rendered;

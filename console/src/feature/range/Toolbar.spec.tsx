@@ -22,7 +22,7 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Analytics } from "@/platform/analytics";
@@ -174,6 +174,60 @@ describe("range/Toolbar", () => {
       }),
     );
     expect(await screen.findByText(rng.name)).toBeTruthy();
+  });
+
+  describe("drag source", () => {
+    const DROP_TARGET = "drop-a-range";
+
+    // A target that takes ranges, as a log does, and reports what each drop held.
+    const DropTarget = ({ onDrop }: { onDrop: (data: unknown) => void }) => {
+      const dropProps = Haul.useDrop({
+        type: "test-target",
+        canDrop: Ranger.canDropHaulItem,
+        onDrop: ({ items }) => {
+          const dropped = Ranger.filterHaulItems(items);
+          dropped.forEach(({ data }) => onDrop(data));
+          return dropped;
+        },
+      });
+      return <div {...dropProps}>{DROP_TARGET}</div>;
+    };
+
+    const drag = async (name: string): Promise<void> => {
+      fireEvent.dragStart(await screen.findByText(name));
+      fireEvent.drop(screen.getByText(DROP_TARGET));
+      await act(async () => {});
+    };
+
+    it("hauls an open-ended local range with its times", async () => {
+      const local: Session.Range.StaticState = {
+        ...createLocalRangeState(uniqueRangeName("local")),
+        timeRange: { start: 1_000, end: Number(TimeStamp.MAX.valueOf()) },
+      };
+      const onDrop = vi.fn();
+      await renderToolbar({ ranges: [local], extra: <DropTarget onDrop={onDrop} /> });
+      await drag(local.name);
+      expect(onDrop).toHaveBeenCalledWith({
+        key: local.key,
+        name: local.name,
+        timeRange: local.timeRange,
+      });
+    });
+
+    it("hauls a Core range with its times", async () => {
+      const rng = await createTestRange(client);
+      const onDrop = vi.fn();
+      await renderToolbar({
+        ranges: [{ variant: "persisted", key: rng.key }],
+        extra: <DropTarget onDrop={onDrop} />,
+      });
+      await drag(rng.name);
+      expect(onDrop).toHaveBeenCalledWith({
+        key: rng.key,
+        name: rng.name,
+        timeRange: rng.timeRange.numeric,
+      });
+    });
   });
 
   it("keeps a local range that is dragged onto its own list", async () => {

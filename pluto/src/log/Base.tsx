@@ -24,10 +24,7 @@ import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
-import {
-  canDropHaulItem as canDropRange,
-  filterHaulItems as filterRanges,
-} from "@/ranger/types";
+import { canDropHaulItem, filterHaulItems } from "@/ranger/types";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
@@ -171,9 +168,9 @@ export const Base = ({
 
   const dropProps = Haul.useDrop({
     type: "log",
-    canDrop: (hauled) => onDropRange != null && canDropRange(hauled),
+    canDrop: (hauled) => onDropRange != null && canDropHaulItem(hauled),
     onDrop: ({ items }) => {
-      const [dropped] = filterRanges(items);
+      const [dropped] = filterHaulItems(items);
       if (dropped == null || onDropRange == null) return [];
       const timeRange = new TimeRange(dropped.data.timeRange);
       seek(timeRange.start);
@@ -354,7 +351,7 @@ export const Base = ({
         tabIndex={-1}
         className={CSS.cls(
           CSS.B("log"),
-          onDropRange != null && CSS.dropRegion(canDropRange(dragging)),
+          onDropRange != null && CSS.dropRegion(canDropHaulItem(dragging)),
           className,
         )}
         {...dropProps}
