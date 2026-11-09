@@ -564,6 +564,25 @@ describe("log/aether/Log", () => {
       expect(off).toHaveLength(1);
     });
 
+    it("should highlight the number as the log draws it at its precision", () => {
+      const drawn = highlights(
+        "3.14159",
+        { text: "3.14$", mode: "regex" },
+        {
+          ...BARE,
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              precision: 2,
+            }),
+          ],
+          channelDataTypes: { "1": "float64" },
+        },
+      );
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([[0, 4]]);
+    });
+
     it("should highlight nothing for an invalid regex", () => {
       expect(highlights("a(b", { text: "(", mode: "regex" })).toEqual([]);
     });

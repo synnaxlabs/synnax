@@ -24,7 +24,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { type Format, formatsOf, textOf } from "@/log/aether/format";
-import { compile, searchZ } from "@/log/aether/search";
+import { compile, find, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type Filter,
@@ -934,9 +934,7 @@ export class Log
       let held = matches.get(row.entry);
       if (held == null) {
         const { value } = this.formatEntry(this.entries[row.entry]);
-        held = [...value.matchAll(pattern)]
-          .filter((m) => m[0].length > 0)
-          .map((m): [number, number] => [m.index, m.index + m[0].length]);
+        held = find(pattern, value);
         matches.set(row.entry, held);
       }
       const end = row.start + row.value.length;
