@@ -596,6 +596,36 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Expect(rec.Stored.Modules).To(Equal(map[string]string{"pt_m": hashOf(m)}))
 		})
 
+		It("Should rehash a module whose edit breaks the automation", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			edited := overwrite(ctx, m, "export func g() {t u8} i64 { return 1 }")
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			rec := record(ctx, a)
+			Expect(rec.Stored.Text).To(Equal(hashOf(a)))
+			Expect(
+				rec.Stored.Modules,
+			).To(Equal(map[string]string{"pt_m": hashOf(edited)}))
+		})
+
+		It("Should drop a module that left its path from a broken automation", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
+				arc.NewRenameAction(arc.RenamePayload{Name: "pt_gone"}),
+			})).To(Succeed())
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			Expect(record(ctx, a).Stored.Modules).To(BeEmpty())
+		})
+
 		It("Should name the automation first, then each module by path", func() {
 			Expect(arc.Changes(drift.Record{
 				Stored: drift.Hashes{

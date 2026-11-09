@@ -418,6 +418,32 @@ func (s *Service) moduleHashes(
 	return hashes, nil
 }
 
+// rehash returns the current text hash of the module at each path in previous. A
+// path that no longer holds a module is left out.
+func (s *Service) rehash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	previous map[string]string,
+) (map[string]string, error) {
+	hashes := make(map[string]string, len(previous))
+	for path := range previous {
+		a, err := s.retrieveArc(ctx, snap, path)
+		if errors.Is(err, symbol.ErrModuleNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if a.Type() != TypeModule {
+			continue
+		}
+		if hashes[path], err = Hash(a.Base()); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
+}
+
 // analyzeModule checks the module's source under the module rules against a root that
 // reads snap. A module links no code of its own, so analysis is its whole compile.
 func (s *Service) analyzeModule(
@@ -580,6 +606,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		editedModules:       s.editedModules,
 		compile:             s.compile,
 		analyze:             s.analyzeModule,
+		rehash:              s.rehash,
 		now:                 s.cfg.Now,
 		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}

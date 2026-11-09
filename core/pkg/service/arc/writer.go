@@ -59,8 +59,11 @@ type Writer struct {
 		context.Context, gorp.Snapshot, AutomationArc,
 	) (arc.Program, map[string]string, error)
 	analyze func(context.Context, gorp.Snapshot, ModuleArc) error
-	now     func() telem.TimeStamp
-	parser  parser.Config
+	rehash  func(
+		context.Context, gorp.Snapshot, map[string]string,
+	) (map[string]string, error)
+	now    func() telem.TimeStamp
+	parser parser.Config
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -305,7 +308,7 @@ func (w Writer) UpdateTask(
 
 // build returns the hash of a's compiled program and the hashes of its content. The
 // program holds the code of every module a imports. An automation that does not
-// compile hashes its source and keeps the module hashes of previous.
+// compile hashes its source and rehashes the modules in previous.
 func (w Writer) build(
 	ctx context.Context,
 	a Arc,
@@ -322,7 +325,8 @@ func (w Writer) build(
 	}
 	prog, modules, err := w.compile(ctx, w.tx, automation)
 	if err != nil {
-		return text, hashes, nil
+		hashes.Modules, err = w.rehash(ctx, w.tx, previous.Modules)
+		return text, hashes, err
 	}
 	hashes.Modules = modules
 	hash, err := HashProgram(prog)

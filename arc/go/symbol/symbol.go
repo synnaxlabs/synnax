@@ -122,7 +122,7 @@ const (
 	KindModule
 	// KindModuleAlias represents an import alias bound in a file's root. The
 	// Target field points at the underlying module symbol; member lookups on
-	// the alias indirect through Target.
+	// the alias indirect through Target. Target is nil when the import failed.
 	KindModuleAlias
 	// KindAmbient represents the prelude scope that sits as Parent of the
 	// program root. It holds STL bare globals (deprecated aliases,
@@ -648,7 +648,10 @@ func (s *Symbol) resolve(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	if s.Kind == KindModuleAlias && s.Target != nil {
+	if s.Kind == KindModuleAlias {
+		if s.Target == nil {
+			return nil, ErrImportFailed
+		}
 		return s.Target.resolveMember(ctx, name, opts)
 	}
 	if s.Kind == KindModule {

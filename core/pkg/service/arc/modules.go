@@ -79,6 +79,24 @@ func (s *Service) retrieveModule(
 	path string,
 	filters ...Filter,
 ) (Arc, error) {
+	a, err := s.retrieveArc(ctx, snap, path, filters...)
+	if err != nil {
+		return Arc{}, err
+	}
+	if a.Type() != TypeModule {
+		return Arc{}, errors.Newf("%q is an automation and cannot be imported", path)
+	}
+	return a, nil
+}
+
+// retrieveArc returns the Arc of either type at an import path that every filter
+// matches.
+func (s *Service) retrieveArc(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	path string,
+	filters ...Filter,
+) (Arc, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
 	parent := s.root
@@ -111,9 +129,6 @@ func (s *Service) retrieveModule(
 	}
 	if len(arcs) == 0 {
 		return Arc{}, notFound
-	}
-	if arcs[0].Type() != TypeModule {
-		return Arc{}, errors.Newf("%q is an automation and cannot be imported", path)
 	}
 	return arcs[0], nil
 }

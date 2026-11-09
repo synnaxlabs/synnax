@@ -50,6 +50,12 @@ var _ = Describe("Loader", func() {
 				Type: types.Chan(types.U8()),
 				ID:   102,
 			},
+			{
+				Name: "outs",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   103,
+			},
 		}
 	)
 	BeforeEach(func() {
@@ -211,6 +217,27 @@ var _ = Describe("Loader", func() {
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
 		})
+
+		It(
+			"Should report a module that does not compile once, at the import",
+			func(ctx SpecContext) {
+				sources["m"] = "export c := 1\n\nexport abc := \"a\"1."
+				diag := analyze(ctx, "import m\n\n"+
+					"f\"{m.c}\" -> outs\n\nm.abc -> outs\n\ntrig -> m.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(`module "m" does not compile`))
+				Expect((*diag)[0].Range.Start.Line).To(BeZero())
+			},
+		)
+
+		It(
+			"Should report an unknown module once, at the import",
+			func(ctx SpecContext) {
+				diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(`unknown module "nope"`))
+			},
+		)
 
 		Describe("Imported sequences", func() {
 			BeforeEach(func() {

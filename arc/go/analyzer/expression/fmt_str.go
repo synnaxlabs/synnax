@@ -115,6 +115,9 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	}
 	Analyze(ctx.Child(out.Expr))
 	t := types.InferFromExpression(ctx.Child(out.Expr)).UnwrapChan()
+	if t.Kind == basetypes.KindInvalid {
+		return
+	}
 	if !t.IsNumeric() && t.Kind != basetypes.KindString &&
 		t.Kind != basetypes.KindBool {
 		emit(diagnostics.Errorf(
