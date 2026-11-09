@@ -28,8 +28,8 @@ import (
 type Data struct {
 	// Record is the group record that the marked fields hold the key of.
 	Record resolution.Type
-	// Types is the enum of resource types, the type of the group record's scope field.
-	Types resolution.Type
+	// Enum is the enum of resource types, the type of the group record's scope field.
+	Enum resolution.Type
 	// Members holds the record types that can sit in a group, ordered by value.
 	Members []Member
 }
@@ -70,10 +70,17 @@ func Extract(table *resolution.Table) (*Data, error) {
 				}
 				data = &d
 			}
-			m, err := newMember(typ, f, domain, *data, table, marked)
+			m, err := newMember(typ, f, domain, *data, table)
+			if err == nil && marked.Contains(m.Type.StringValue()) {
+				err = errors.Newf(
+					"@group marks resource type %s a second time",
+					m.Type.StringValue(),
+				)
+			}
 			if err != nil {
 				return nil, errors.Wrapf(err, "%s.%s", typ.QualifiedName, f.Name)
 			}
+			marked.Add(m.Type.StringValue())
 			data.Members = append(data.Members, m)
 		}
 	}
@@ -103,26 +110,24 @@ func newData(f resolution.Field, table *resolution.Table) (Data, error) {
 				"@group needs %s to have a scope field", typ.QualifiedName,
 			)
 		}
-		types, _, ok := resolution.Dealias(fields[i].Type, table)
-		if _, isEnum := types.Form.(resolution.EnumForm); !ok || !isEnum {
+		enum, _, ok := resolution.Dealias(fields[i].Type, table)
+		if _, isEnum := enum.Form.(resolution.EnumForm); !ok || !isEnum {
 			return Data{}, errors.Newf(
 				"@group needs the scope of %s to be an enum", typ.QualifiedName,
 			)
 		}
-		return Data{Record: typ, Types: types}, nil
+		return Data{Record: typ, Enum: enum}, nil
 	}
 	return Data{}, errors.Newf("@group holds %s, which is no record's key", f.Type.Name)
 }
 
 // newMember returns the member that f, a field of typ marked with domain, declares.
-// marked holds the resource types that other fields already mark.
 func newMember(
 	typ resolution.Type,
 	f resolution.Field,
 	domain resolution.Domain,
 	data Data,
 	table *resolution.Table,
-	marked set.Set[string],
 ) (Member, error) {
 	if f.Type.Name != keyName(data.Record, table) {
 		return Member{}, errors.Newf(
@@ -140,12 +145,12 @@ func newMember(
 					"@group needs one value for scope, not %d", len(expr.Values),
 				)
 			}
-			scope, ok := enumMember(data.Types, valueOf(expr.Values[0]))
+			scope, ok := enumMember(data.Enum, valueOf(expr.Values[0]))
 			if !ok {
 				return Member{}, errors.Newf(
 					"@group has scope %s, which %s does not hold",
 					valueOf(expr.Values[0]),
-					data.Types.QualifiedName,
+					data.Enum.QualifiedName,
 				)
 			}
 			m.Scope = scope
@@ -161,27 +166,20 @@ func newMember(
 	if m.Scope.Name == "" {
 		return Member{}, errors.New("@group needs a scope")
 	}
-	resource, ok := typ.Domains["resource"]
 	var name string
-	if expr, found := resource.Expressions.Find("type"); ok && found &&
+	if expr, ok := typ.Domains["resource"].Expressions.Find("type"); ok &&
 		len(expr.Values) > 0 {
 		name = valueOf(expr.Values[0])
 	}
 	if name == "" {
 		return Member{}, errors.New("@group needs a type with a @resource type")
 	}
-	if marked.Contains(name) {
-		return Member{}, errors.Newf(
-			"@group marks resource type %s a second time",
-			name,
-		)
-	}
-	marked.Add(name)
-	if m.Type, ok = enumMember(data.Types, name); !ok {
+	var ok bool
+	if m.Type, ok = enumMember(data.Enum, name); !ok {
 		return Member{}, errors.Newf(
 			"@group has resource type %s, which %s does not hold",
 			name,
-			data.Types.QualifiedName,
+			data.Enum.QualifiedName,
 		)
 	}
 	return m, nil
@@ -197,9 +195,9 @@ func keyName(typ resolution.Type, table *resolution.Table) string {
 	return ""
 }
 
-// enumMember returns the member of the enum types whose value is value.
-func enumMember(types resolution.Type, value string) (resolution.EnumValue, bool) {
-	form := types.Form.(resolution.EnumForm)
+// enumMember returns the member of enum whose value is value.
+func enumMember(enum resolution.Type, value string) (resolution.EnumValue, bool) {
+	form := enum.Form.(resolution.EnumForm)
 	i := slices.IndexFunc(form.Values, func(v resolution.EnumValue) bool {
 		return v.StringValue() == value
 	})
