@@ -1700,7 +1700,7 @@ func (p *Plugin) processField(
 		Name:       field.Name,
 		TSName:     FieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
-		IsOptional: field.Optional,
+		IsOptional: optionalInTS(field),
 		IsArray:    isArray,
 		IsSelfRef:  needsGetter,
 	}
@@ -1804,7 +1804,7 @@ func (p *Plugin) processField(
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
-	isAnyOptional := field.Optional
+	isAnyOptional := optionalInTS(field)
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
@@ -1929,6 +1929,12 @@ func (p *Plugin) processField(
 		fd.ZodType = fmt.Sprintf("caseconv.preserveKeys(%s)", fd.ZodType)
 	}
 	return fd
+}
+
+// optionalInTS reports whether field is optional in TypeScript. A bare any field is, so
+// an absent key reads as undefined, as Go, Python, and C++ read it as null.
+func optionalInTS(field resolution.Field) bool {
+	return field.Optional || (field.Type.Name == "any" && field.Default == nil)
 }
 
 // aliasedCollectionEmpty returns the empty value of the array, map, or record that ref
@@ -3649,7 +3655,7 @@ export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
 {{ if .Doc -}}
 {{ formatDoc .TSName .Doc }}
 {{ end -}}
-export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
+export const {{ .SchemaName }}{{ if and .Annotated $.GenerateTypes }}: z.ZodType<{{ .TSName }}>{{ end }} = z.discriminatedUnion("{{ .Discriminator }}", [
 {{- $lazy := .LazyVariants }}
 {{- range .Variants }}
 {{- if $lazy }}

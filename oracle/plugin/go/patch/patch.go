@@ -284,15 +284,12 @@ func variantFields(
 	return fields
 }
 
-// document reports whether t declares path actions: an action that aliases or extends
-// patch.Set. A struct that only inherits @patch fields, such as a create request, is
-// not one.
+// document reports whether t is a struct marked @actions, which takes path actions. A
+// struct that only inherits @patch fields, such as a create request, is not one.
 func document(t resolution.Type) bool {
-	form, ok := t.Form.(resolution.StructForm)
-	isSet := func(r resolution.TypeRef) bool { return r.Name == "patch.Set" }
-	return ok && slices.ContainsFunc(form.Actions, func(a resolution.Action) bool {
-		return isSet(a.Alias) || slices.ContainsFunc(a.Extends, isSet)
-	})
+	_, isStruct := t.Form.(resolution.StructForm)
+	_, marked := t.Domains["actions"]
+	return isStruct && marked
 }
 
 // patchable returns the struct or union that ref holds when it gets a Patch method. Any

@@ -113,6 +113,9 @@ type Filter struct {
 	Request, Response string
 }
 
+// ActionUnion returns the qualified name of the union that holds the actions of t.
+func ActionUnion(t Type) string { return t.Namespace + ".Action" }
+
 // Actions returns the actions of a struct or union type, and nil for any other form.
 func (t Type) Actions() []Action {
 	switch form := t.Form.(type) {
@@ -193,8 +196,12 @@ type UnionForm struct {
 	// Included names the unions this union takes the variants of. The analyzer
 	// moves them out of Extends, which readers take as struct bases.
 	Included []TypeRef
-	// Actions are the wire mutations declared in the union body.
+	// Actions are the wire mutations of the union.
 	Actions []Action
+	// Adjacent reports that a variant's payload sits beside the discriminator under a
+	// member named by the tag, as {"type": t, t: payload}. Each variant then references
+	// a named payload type, and no variant inlines its fields.
+	Adjacent bool
 }
 
 func (UnionForm) typeForm() {}
@@ -249,27 +256,17 @@ type BuiltinGenericForm struct {
 
 func (BuiltinGenericForm) typeForm() {}
 
-// Action is a named typed mutation declared inside a struct body. The struct's
-// generated codec includes a discriminated-union envelope that dispatches by
-// Name; per-action handlers live in hand-written sibling files.
+// Action is one wire mutation of a struct or union. The analyzer registers its payload
+// as a type of the owner's namespace and lists it as a variant of the owner's Action
+// union.
 type Action struct {
-	AST     any
-	Domains map[string]Domain
-	Name    string
-	Fields  []Field
-	// Extends names struct types whose fields are flattened into the action's
-	// payload. The analyzer resolves these and prepends the inherited fields to
-	// Fields, so by code-generation time Fields already holds the unified list.
-	Extends []TypeRef
-	// Alias names the struct that an `action Name = Struct` declaration uses as its
-	// payload. Fields is then empty, and the analyzer copies the struct's doc into
-	// Domains when the action declares no doc of its own. The zero TypeRef means the
-	// action declares its own payload.
-	Alias TypeRef
+	AST  any
+	Name string
+	// Payload names the type the action carries.
+	Payload TypeRef
+	// CoreOnly reports that only the Core emits the action. Clients never dispatch it.
+	CoreOnly bool
 }
-
-// IsAlias reports whether the action uses an existing struct as its payload.
-func (a Action) IsAlias() bool { return a.Alias.Name != "" }
 
 type Field struct {
 	AST     any

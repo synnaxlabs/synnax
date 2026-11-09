@@ -303,6 +303,12 @@ func (d *templateData) missingIncludesErr() error {
 	)
 }
 
+func sortedJoin(names set.Set[string]) string {
+	s := names.Slice()
+	slices.Sort(s)
+	return strings.Join(s, ", ")
+}
+
 func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
@@ -633,8 +639,7 @@ func typeDefBaseToPython(
 		}
 		return resolved.Name
 	}
-	data.imports.addTyping("Any")
-	return "Any"
+	return typeToPython(typeRef, table, data)
 }
 
 // hashableKey reports whether field is a @key field that can serve as the basis
@@ -1058,11 +1063,10 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 	return !isCollection
 }
 
-// optionalInPython reports whether field is optional in Python. `@py optional` makes a
-// field optional in Python alone, such as an any field that the JSON codec drops when
-// it is None.
+// optionalInPython reports whether field is optional in Python. A bare any field is, so
+// an absent key reads as None, as Go, TypeScript, and C++ read it as null.
 func optionalInPython(field resolution.Field) bool {
-	return field.Optional || domain.HasExprFromField(field, "py", "optional")
+	return field.Optional || (field.Type.Name == "any" && field.Default == nil)
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend
@@ -1879,6 +1883,13 @@ func trimNilTypeArgs(args []resolution.TypeRef) []resolution.TypeRef {
 		args = args[:len(args)-1]
 	}
 	return args
+}
+
+// TypesModule returns the Python module that the plugin writes for the output package
+// at outputPath, such as synnax.rack.types_gen.
+func TypesModule(outputPath string) string {
+	return toPythonModulePath(outputPath) + "." +
+		strings.TrimSuffix(DefaultOptions().FileNamePattern, ".py")
 }
 
 func toPythonModulePath(repoPath string) string {

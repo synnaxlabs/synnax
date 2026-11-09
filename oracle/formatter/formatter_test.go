@@ -137,20 +137,10 @@ var _ = Describe("Format", func() {
 			Expect(format(once)).To(Equal(once))
 		})
 
-		It("should format an action that aliases a struct", func() {
-			source := "Node struct {\n  action Set  =  patch.Set\n  action B {}\n}\n"
+		It("should format the @actions mark after the actions of a body", func() {
+			source := "Node struct {\n  key uuid\n  action B {}\n  @actions\n}\n"
 			Expect(format(source)).To(Equal(
-				"Node struct {\n    action Set = patch.Set\n\n    action B {}\n}\n",
-			))
-		})
-
-		It("should format the doc body of an action alias", func() {
-			source := "Node struct {\n  action Set = patch.Set {\n" +
-				"  @doc value \"sets a cell.\"\n  }\n  action B {}\n}\n"
-			Expect(format(source)).To(Equal(
-				"Node struct {\n    action Set = patch.Set {\n" +
-					"        @doc value \"sets a cell.\"\n    }\n\n" +
-					"    action B {}\n}\n",
+				"Node struct {\n    key uuid\n\n    action B {}\n\n    @actions\n}\n",
 			))
 		})
 

@@ -179,7 +179,7 @@ var _ = Describe("IsField", func() {
 	})
 })
 
-var _ = Describe("Fields inheritance and actions", func() {
+var _ = Describe("Fields inheritance", func() {
 	tsOmit := map[string]resolution.Domain{
 		"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
 	}
@@ -197,13 +197,6 @@ var _ = Describe("Fields inheritance and actions", func() {
 			Form: resolution.StructForm{
 				Extends: []resolution.TypeRef{{Name: "auth.Parent"}},
 				Fields:  []resolution.Field{{Name: "secret", Optional: true}},
-				Actions: []resolution.Action{{
-					Name: "Apply",
-					Fields: []resolution.Field{
-						{Name: "name"},
-						{Name: "secret", Domains: tsOmit},
-					},
-				}},
 			},
 		},
 	}}
@@ -213,35 +206,6 @@ var _ = Describe("Fields inheritance and actions", func() {
 		child := stripped.MustGet("auth.Child")
 		Expect(resolution.UnifiedFields(child, stripped)).To(HaveLen(1))
 		Expect(resolution.UnifiedFields(child, stripped)[0].Name).To(Equal("name"))
-	})
-
-	It("Should drop omitted fields from action payloads", func() {
-		child := omit.Fields(table, "ts").MustGet("auth.Child")
-		form := child.Form.(resolution.StructForm)
-		Expect(form.Actions[0].Fields).To(HaveLen(1))
-		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
-	})
-
-	It("Should drop omitted fields from the action payloads of a union", func() {
-		unions := &resolution.Table{Types: []resolution.Type{{
-			Name:          "Shape",
-			QualifiedName: "auth.Shape",
-			Form: resolution.UnionForm{
-				Discriminator: "type",
-				Actions: []resolution.Action{{
-					Name: "Apply",
-					Fields: []resolution.Field{
-						{Name: "name"},
-						{Name: "secret", Domains: tsOmit},
-					},
-				}},
-			},
-		}}}
-		shape := omit.Fields(unions, "ts").MustGet("auth.Shape")
-		actions := shape.Actions()
-		Expect(actions[0].Fields).To(HaveLen(1))
-		Expect(actions[0].Fields[0].Name).To(Equal("name"))
-		Expect(unions.MustGet("auth.Shape").Actions()[0].Fields).To(HaveLen(2))
 	})
 })
 

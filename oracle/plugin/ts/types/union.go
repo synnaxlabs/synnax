@@ -52,6 +52,10 @@ type unionData struct {
 	Variants []unionVariantData
 	// LazyVariants wraps each variant in z.lazy. See lazyVariantThreshold.
 	LazyVariants bool
+	// Annotated types the union schema as z.ZodType of the union. An adjacent union
+	// has many large variants, and its inferred schema type is too long for a
+	// declaration file.
+	Annotated bool
 }
 
 // lazyVariantThreshold is the variant count at which a union wraps each variant in
@@ -83,7 +87,8 @@ type unionVariantData struct {
 // processUnion builds the template view for a discriminated union. Each variant
 // composes the union's shared base schema(s) and its own payload schema via
 // zod .extend, adding only the discriminator literal, so the shared fields are
-// not duplicated across variants.
+// not duplicated across variants. A variant of an adjacent union holds its payload
+// schema in one member named by its tag.
 func (p *Plugin) processUnion(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -119,12 +124,18 @@ func (p *Plugin) processUnion(
 		}
 	}
 	for _, v := range form.Variants {
-		typeName := casing.VariantTypeName(tsName, v.Name)
 		vd := unionVariantData{
 			Value:      v.Name,
-			TypeName:   typeName,
-			SchemaName: casing.CamelAcronym(typeName) + "Z",
+			TypeName:   casing.VariantTypeName(tsName, v.Name),
+			SchemaName: VariantSchemaName(tsName, v.Name),
 			Doc:        doc.Get(v.Domains),
+		}
+		if form.Adjacent {
+			ud.Annotated = true
+			payload := resolution.Field{Name: v.Name, Type: v.Type}
+			vd.Fields = []fieldData{p.processField(payload, entry, table, data, false)}
+			ud.Variants = append(ud.Variants, vd)
+			continue
 		}
 		omitted := variantOmissions(v, table)
 		bases := form.Extends
@@ -164,6 +175,11 @@ func (p *Plugin) processUnion(
 	}
 	ud.LazyVariants = len(ud.Variants) >= lazyVariantThreshold
 	return ud
+}
+
+// VariantSchemaName returns the zod schema const of a variant of the union named union.
+func VariantSchemaName(union, variant string) string {
+	return casing.CamelAcronym(casing.VariantTypeName(union, variant)) + "Z"
 }
 
 // variantOmissions returns the fields a variant drops from its inherited shape.

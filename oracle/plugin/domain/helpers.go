@@ -9,7 +9,24 @@
 
 package domain
 
-import "github.com/synnaxlabs/oracle/resolution"
+import (
+	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/resolution"
+)
+
+// ActionTargets returns the structs and unions of table that have actions and generate
+// in lang: lang neither omits nor hand-writes them, and they have an output path there.
+func ActionTargets(table *resolution.Table, lang string) []resolution.Type {
+	var out []resolution.Type
+	for _, t := range table.Types {
+		if len(t.Actions()) > 0 && !omit.IsSkipped(t, lang) &&
+			output.GetPath(t, lang) != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
 
 type holder interface {
 	GetDomains() map[string]resolution.Domain

@@ -195,12 +195,11 @@ func declaresFilter(ast parser.ISchemaContext) bool {
 	})
 }
 
-// importsFilterSchema reports whether the file imports a schema in the filter
-// namespace.
-func importsFilterSchema(ast parser.ISchemaContext) bool {
+// importsNamespace reports whether the file imports a schema in namespace.
+func importsNamespace(ast parser.ISchemaContext, namespace string) bool {
 	for _, imp := range ast.AllImportStmt() {
 		path := imp.STRING_LIT().GetText()
-		if paths.DeriveNamespace(path[1:len(path)-1]) == resolution.FilterNamespace {
+		if paths.DeriveNamespace(path[1:len(path)-1]) == namespace {
 			return true
 		}
 	}
@@ -242,7 +241,7 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	hasBare := lo.SomeBy(filter.Lines, func(l resolution.Field) bool {
 		return !l.HasType()
 	})
-	if hasBare && !importsFilterSchema(c.ast) {
+	if hasBare && !importsNamespace(c.ast, resolution.FilterNamespace) {
 		c.report(diagnostics.Errorf(
 			def,
 			"filter %s: bare lines need an import of the filter schema "+

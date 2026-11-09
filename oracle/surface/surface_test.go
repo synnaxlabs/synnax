@@ -21,9 +21,14 @@ import (
 
 func report(ctx context.Context, source string) string {
 	GinkgoHelper()
-	table, diag := testutil.Analyze(
-		ctx, source, "widget", testutil.NewMockFileLoader(),
-	)
+	loader := testutil.NewMockFileLoader()
+	loader.Add("schemas/x/patch", `
+Set struct { path string[] }
+Remove struct { path string[] }
+Insert struct { path string[] }
+Move struct { path string[] }
+`)
+	table, diag := testutil.Analyze(ctx, source, "widget", loader)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	var b strings.Builder
 	Expect(surface.Write(&b, table)).To(Succeed())
@@ -85,17 +90,20 @@ Valve struct {
 		name string
 	}
 }
-`)).To(Equal(`widget.ID = widget.Key
+`)).To(Equal(`widget.Action union on type adjacent
+widget.Action|rename widget.RenamePayload
+widget.ID = widget.Key
 widget.Key distinct uint32
 widget.Level enum
 widget.Level.low = 1
+widget.RenamePayload struct
+widget.RenamePayload.name string
 widget.Valve struct
 widget.Valve.key widget.Key
 widget.Valve.tags Array<string> = []
 widget.Valve.ratio float64 = 0
 widget.Valve.open bool = false
-widget.Valve action Rename
-widget.Valve!Rename.name string
+widget.Valve action Rename widget.RenamePayload
 `))
 		},
 	)
@@ -109,27 +117,21 @@ Valve union on type {
 		name string
 	}
 }
-`)).To(ContainSubstring(`widget.Valve action Rename
-widget.Valve!Rename.name string
+`)).To(ContainSubstring(`widget.Valve action Rename widget.RenamePayload
 `))
 	})
 
-	It("Should write an action that aliases a struct", func(ctx SpecContext) {
+	It("Should mark the action that only the Core emits", func(ctx SpecContext) {
 		Expect(report(ctx, `
-Set struct {
-	path string[]
-}
+import "schemas/x/patch"
 
 Valve struct {
 	key uuid
 
-	action Set = Set
+	@actions
 }
-`)).To(Equal(`widget.Set struct
-widget.Set.path Array<string>
-widget.Valve struct
-widget.Valve.key uuid
-widget.Valve action Set = widget.Set
+`)).To(ContainSubstring(`widget.Valve action Create widget.CreatePayload core_only
+widget.Valve action Set widget.SetPayload
 `))
 	})
 

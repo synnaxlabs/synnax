@@ -760,7 +760,7 @@ var _ = Describe("Python Types Plugin", func() {
 				},
 			)
 
-			It("Should require a bare any field", func(ctx SpecContext) {
+			It("Should read an absent bare any field as None", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -769,23 +769,8 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				ExpectContent(resp, "types_gen.py").ToContain("    value: JsonValue\n")
-			})
-
-			It("Should make an @py optional field optional", func(ctx SpecContext) {
-				source := `
-					@py output "out"
-
-					Test struct {
-						value    any    @py optional
-						required any
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				ExpectContent(resp, "types_gen.py").ToContain(
-					"    value: JsonValue | None = None\n",
-					"    required: JsonValue\n",
-				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain("    value: JsonValue | None = None\n")
 			})
 		})
 

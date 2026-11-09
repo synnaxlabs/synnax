@@ -221,21 +221,12 @@ func validateKeyTypes(c *analysisCtx, types []resolution.Type) {
 // validateDeadOutputs errors when a file declares a language output that nothing uses:
 // every type omits the language and none is hand-written.
 func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
-	var hasActions bool
-	for _, t := range types {
-		if len(t.Actions()) > 0 {
-			hasActions = true
-		}
-	}
 	for _, lang := range generatedLangs {
 		dom, ok := c.fileDomains[lang]
 		if !ok {
 			continue
 		}
 		if _, hasOutput := dom.Expressions.Find("output"); !hasOutput {
-			continue
-		}
-		if hasActions && (lang == "go" || lang == "ts") {
 			continue
 		}
 		var alive bool

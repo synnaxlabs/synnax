@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/internal/casing"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -31,10 +32,14 @@ type unionDispatchData struct {
 	DiscJSON string
 	// Variants holds the discriminator-value to variant-type mapping.
 	Variants []unionDispatchVariant
+	// Adjacent reports that each variant is a payload type that sits beside the
+	// discriminator in a member named by the discriminator value.
+	Adjacent bool
 }
 
 type unionDispatchVariant struct {
-	// TypeName is the variant struct name (e.g. "ScaleLinear").
+	// TypeName is the variant struct name (e.g. "ScaleLinear"), or the payload type of
+	// an adjacent union.
 	TypeName string
 	// Value is the discriminator string value (e.g. "linear").
 	Value string
@@ -57,6 +62,20 @@ func (p *Plugin) processUnion(
 		Name:      name,
 		SnakeName: lo.SnakeCase(name),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
+	}
+	if form.Adjacent {
+		dispatch.Adjacent = true
+		for _, v := range form.Variants {
+			payload, _ := v.Type.Resolve(data.table)
+			if distinct, ok := payload.Form.(resolution.DistinctForm); ok {
+				p.includeCodec(distinct.Base, data)
+			}
+			dispatch.Variants = append(dispatch.Variants, unionDispatchVariant{
+				TypeName: p.resolveExtendsType(v.Type, payload, data),
+				Value:    v.Name,
+			})
+		}
+		return nil, dispatch
 	}
 	discField := resolution.Field{
 		Name: form.Discriminator,
@@ -99,4 +118,16 @@ func (p *Plugin) processUnion(
 		})
 	}
 	return serializers, dispatch
+}
+
+// includeCodec includes the header that defines the JSON codec of the type ref names,
+// when another namespace declares it.
+func (p *Plugin) includeCodec(ref resolution.TypeRef, data *templateData) {
+	typ, ok := ref.Resolve(data.table)
+	if !ok || typ.Namespace == data.rawNs {
+		return
+	}
+	if path := output.GetPath(typ, "cpp"); path != "" {
+		data.AddInternal(data.jsonInclude(path))
+	}
 }

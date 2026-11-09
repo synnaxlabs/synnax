@@ -52,7 +52,8 @@ type unionData struct {
 
 // unionVariantData is the template view of one variant for the dispatch alias.
 type unionVariantData struct {
-	// TypeName is the variant struct name (e.g. "ScaleLinear").
+	// TypeName is the variant struct name (e.g. "ScaleLinear"), or the payload type of
+	// an adjacent union.
 	TypeName string
 	// Value is the discriminator string value (e.g. "linear").
 	Value string
@@ -62,7 +63,8 @@ type unionVariantData struct {
 // alias for a discriminated union. Each variant struct carries the
 // discriminator as a defaulted std::string field followed by the flattened
 // base and variant fields, so the existing struct template and JSON codec
-// handle it like any other struct.
+// handle it like any other struct. An adjacent union holds its payload types
+// directly and declares no variant structs.
 func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
@@ -99,6 +101,20 @@ func (p *Plugin) processUnion(
 		ud.Base = p.resolveExtendsType(base, parent, data)
 	}
 
+	if form.Adjacent {
+		data.AddInternal("x/cpp/json/json.h")
+		for _, v := range form.Variants {
+			payload, ok := v.Type.Resolve(data.table)
+			if !ok {
+				panic(fmt.Sprintf("union %s: unresolved payload %s", name, v.Type.Name))
+			}
+			ud.Variants = append(ud.Variants, unionVariantData{
+				TypeName: p.resolveExtendsType(v.Type, payload, data),
+				Value:    v.Name,
+			})
+		}
+		return nil, ud
+	}
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
 	if borrows && enumType.Namespace != data.rawNs {

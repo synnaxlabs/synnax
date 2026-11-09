@@ -37,7 +37,7 @@ func validateImportPlacement(c *analysisCtx) {
 	}
 }
 
-// validateNoVersionFileActions rejects action declarations in version files. Actions
+// validateNoVersionFileActions rejects actions and @actions in version files. Actions
 // are wire mutations, not persisted content, so they are live-owned: sync carries them
 // from the live schema and never projects them from the chain.
 func validateNoVersionFileActions(c *analysisCtx) {
@@ -51,6 +51,14 @@ func validateNoVersionFileActions(c *analysisCtx) {
 					"version file",
 				ad.IDENT().GetText(),
 			))
+		}
+		for _, d := range bodyDomains(def) {
+			if d.IDENT().GetText() == actionsDomain {
+				c.report(diagnostics.Errorf(d,
+					"actions are live-owned; mark @actions in the live schema, not "+
+						"a version file",
+				))
+			}
 		}
 	}
 }

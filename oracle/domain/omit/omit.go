@@ -62,9 +62,9 @@ func IsField(f resolution.Field, domainName string) bool {
 	return ok
 }
 
-// Fields returns a copy of table whose struct types, action payloads, and filter lines
-// drop every field that IsField reports for any of domainNames. A field inherits an
-// omit from the parent field it overrides. table is not modified.
+// Fields returns a copy of table whose struct types and filter lines drop every field
+// that IsField reports for any of domainNames. A field inherits an omit from the parent
+// field it overrides. table is not modified.
 func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 	omitted := func(f resolution.Field) bool {
 		return lo.ContainsBy(domainNames, func(d string) bool { return IsField(f, d) })
@@ -72,14 +72,6 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 	stripped := &resolution.Table{
 		Imports: table.Imports,
 		Types:   make([]resolution.Type, len(table.Types)),
-	}
-	stripActions := func(actions []resolution.Action) []resolution.Action {
-		return lo.Map(actions, func(a resolution.Action, _ int) resolution.Action {
-			a.Fields = lo.Reject(a.Fields, func(f resolution.Field, _ int) bool {
-				return omitted(f)
-			})
-			return a
-		})
 	}
 	for i, typ := range table.Types {
 		switch form := typ.Form.(type) {
@@ -93,7 +85,6 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 			form.Fields = lo.Reject(form.Fields, func(f resolution.Field, _ int) bool {
 				return dropped.Contains(f.Name)
 			})
-			form.Actions = stripActions(form.Actions)
 			typ.Form = form
 			if typ.Filter != nil {
 				filter := *typ.Filter
@@ -103,9 +94,6 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 				)
 				typ.Filter = &filter
 			}
-		case resolution.UnionForm:
-			form.Actions = stripActions(form.Actions)
-			typ.Form = form
 		}
 		stripped.Types[i] = typ
 	}

@@ -898,6 +898,10 @@ func (p *Plugin) parseExprForField(
 				jsonName,
 			)
 		}
+		// An absent any reads as null, as Go, TypeScript, and Python read it.
+		if typeRef.Name == "any" && !hasDefault {
+			return fmt.Sprintf(`parser.field<%s>("%s", nullptr)`, cppType, jsonName)
+		}
 		if hasDefault {
 			defaultVal := jsonDefaultLiteral(field, data.table)
 			if defaultVal == "" && field.Optional {

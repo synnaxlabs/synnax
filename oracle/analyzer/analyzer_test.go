@@ -343,6 +343,22 @@ Entry union on type {
 			))
 		})
 
+		It("Should reject @actions in a version file", func(ctx SpecContext) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+
+	@actions
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.String()).To(ContainSubstring(
+				"actions are live-owned; mark @actions in the live schema, not a " +
+					"version file",
+			))
+		})
+
 		It("Should accept an action declared in a live schema", func(
 			ctx SpecContext,
 		) {
@@ -912,7 +928,7 @@ Node union on variant {
 		)
 
 		It(
-			"Should keep an output alive through the actions of a union",
+			"Should report a dead output when the owner of actions omits the language",
 			func(ctx SpecContext) {
 				source := `
 				@ts output "ts/out"
@@ -927,7 +943,9 @@ Node union on variant {
 				}
 			`
 				_, diag := Analyze(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(diag).To(MatchError(ContainSubstring(
+					"every type in test omits ts; remove the @ts output declaration",
+				)))
 			},
 		)
 
@@ -2329,7 +2347,7 @@ Node union on variant {
 						value
 					}
 				}
-			`, "must declare a type"),
+			`, `field "value" in struct SetValuePayload declares no type`),
 		)
 
 		It("Should extend generic struct with type arguments", func(ctx SpecContext) {
@@ -2840,16 +2858,18 @@ Node union on variant {
 	})
 
 	Describe("Action Extension", func() {
-		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
+		payloadFields := func(
+			table *resolution.Table, qname, name string,
+		) []resolution.Field {
 			GinkgoHelper()
-			form := table.MustGet(qname).Form.(resolution.StructForm)
-			for _, a := range form.Actions {
+			for _, a := range table.MustGet(qname).Actions() {
 				if a.Name == name {
-					return a
+					payload := MustBeOk(a.Payload.Resolve(table))
+					return resolution.UnifiedFields(payload, table)
 				}
 			}
 			Fail("action not found: " + name)
-			return resolution.Action{}
+			return nil
 		}
 
 		It(
@@ -2870,10 +2890,10 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Schematic", "Rename")
-				Expect(action.Fields).To(HaveLen(1))
-				Expect(action.Fields[0].Name).To(Equal("name"))
-				Expect(action.Fields[0].Type.Name).To(Equal("string"))
+				fields := payloadFields(table, "test.Schematic", "Rename")
+				Expect(fields).To(HaveLen(1))
+				Expect(fields[0].Name).To(Equal("name"))
+				Expect(fields[0].Type.Name).To(Equal("string"))
 			},
 		)
 
@@ -2896,9 +2916,9 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Schematic", "SetNodePosition")
-				names := make([]string, len(action.Fields))
-				for i, f := range action.Fields {
+				fields := payloadFields(table, "test.Schematic", "SetNodePosition")
+				names := make([]string, len(fields))
+				for i, f := range fields {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"key", "position", "animate"}))
@@ -2923,9 +2943,9 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Container", "SetValue")
-				Expect(action.Fields).To(HaveLen(1))
-				Expect(findField(action.Fields, "value").Type.Name).To(Equal("string"))
+				fields := payloadFields(table, "test.Container", "SetValue")
+				Expect(fields).To(HaveLen(1))
+				Expect(findField(fields, "value").Type.Name).To(Equal("string"))
 			},
 		)
 
@@ -2948,9 +2968,9 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Container", "Combine")
-				names := make([]string, len(action.Fields))
-				for i, f := range action.Fields {
+				fields := payloadFields(table, "test.Container", "Combine")
+				names := make([]string, len(fields))
+				for i, f := range fields {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"a", "b"}))
@@ -2977,7 +2997,7 @@ Node union on variant {
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
-					`action Combine inherits field "a" from both A and B`,
+					`CombinePayload inherits field "a" from both A and B`,
 				))
 			},
 		)
@@ -2999,9 +3019,9 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Container", "Apply")
-				names := make([]string, len(action.Fields))
-				for i, f := range action.Fields {
+				fields := payloadFields(table, "test.Container", "Apply")
+				names := make([]string, len(fields))
+				for i, f := range fields {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"a", "b", "c"}))
@@ -3028,10 +3048,10 @@ Node union on variant {
 			`
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				action := findAction(table, "test.Container", "Load")
-				Expect(action.Fields).To(HaveLen(1))
-				Expect(action.Fields[0].Name).To(Equal("data"))
-				Expect(action.Fields[0].Type.Name).To(Equal("test.Details"))
+				fields := payloadFields(table, "test.Container", "Load")
+				Expect(fields).To(HaveLen(1))
+				Expect(fields[0].Name).To(Equal("data"))
+				Expect(fields[0].Type.Name).To(Equal("test.Details"))
 			},
 		)
 
@@ -3091,173 +3111,6 @@ Node union on variant {
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
 			},
 		)
-
-		Context("aliased payloads", func() {
-			It(
-				"Should resolve the aliased struct and take its doc",
-				func(ctx SpecContext) {
-					source := `
-					Set struct {
-						path string[]
-
-						@doc value "replaces the value at a path."
-					}
-
-					Container struct {
-						key uuid
-
-						action Set = Set
-					}
-				`
-					table, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeTrue(), diag.String())
-					action := findAction(table, "test.Container", "Set")
-					Expect(action.IsAlias()).To(BeTrue())
-					Expect(action.Alias.Name).To(Equal("test.Set"))
-					Expect(action.Fields).To(BeEmpty())
-					Expect(doc.Get(action.Domains)).
-						To(Equal("replaces the value at a path."))
-				},
-			)
-
-			It(
-				"Should keep an alias's own doc in place of its struct's doc",
-				func(ctx SpecContext) {
-					source := `
-					Set struct {
-						path string[]
-
-						@doc value "replaces the value at a path."
-					}
-
-					Container struct {
-						key uuid
-
-						action Set = Set {
-							@doc value "replaces the value at a path in the cells."
-						}
-					}
-				`
-					table, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeTrue(), diag.String())
-					action := findAction(table, "test.Container", "Set")
-					Expect(action.Alias.Name).To(Equal("test.Set"))
-					Expect(doc.Get(action.Domains)).
-						To(Equal("replaces the value at a path in the cells."))
-					set := MustBeOk(table.Get("test.Set"))
-					Expect(doc.Get(set.Domains)).
-						To(Equal("replaces the value at a path."))
-				},
-			)
-
-			It("Should reject an alias of a type that is not a struct", func(
-				ctx SpecContext,
-			) {
-				source := `
-					Color enum {
-						red = 0
-					}
-
-					Container struct {
-						key uuid
-
-						action Paint = Color
-					}
-				`
-				_, diag := Analyze(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.Error()).To(ContainSubstring(
-					"action Paint of Container must alias a struct, got test.Color",
-				))
-			})
-
-			It("Should reject an alias of a generic struct", func(ctx SpecContext) {
-				source := `
-					Box struct<T = string> {
-						data T
-					}
-
-					Container struct {
-						key uuid
-
-						action Load = Box
-					}
-				`
-				_, diag := Analyze(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.Error()).To(ContainSubstring(
-					"action Load of Container cannot alias generic struct test.Box, " +
-						"because an alias takes no type arguments",
-				))
-			})
-
-			It(
-				"Should reject an alias of a struct alias with bound type arguments",
-				func(ctx SpecContext) {
-					source := `
-					Box struct<T> {
-						data T
-					}
-
-					StringBox = Box<string>
-
-					Container struct {
-						key uuid
-
-						action Load = StringBox
-					}
-				`
-					_, diag := Analyze(ctx, source, "test", loader)
-					Expect(diag.Ok()).To(BeFalse())
-					Expect(diag.Error()).To(ContainSubstring(
-						"action Load of Container cannot alias generic struct test.Box",
-					))
-				},
-			)
-
-			It("Should reject an alias of an array", func(ctx SpecContext) {
-				source := `
-					Set struct {
-						path string[]
-					}
-
-					Container struct {
-						key uuid
-
-						action Set = Set[]
-					}
-				`
-				_, diag := Analyze(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.Error()).To(ContainSubstring(
-					`action Set: the alias target must be a plain struct reference, ` +
-						`got "Set[]"`,
-				))
-			})
-
-			It("Should reject two actions that alias the same struct", func(
-				ctx SpecContext,
-			) {
-				source := `
-					Set struct {
-						path string[]
-					}
-
-					Container struct {
-						key uuid
-
-						action Set = Set
-
-						action Replace = Set
-					}
-				`
-				_, diag := Analyze(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.Error()).To(ContainSubstring(
-					"actions Set and Replace of Container both alias test.Set",
-				))
-			})
-		})
 	})
 
 	Describe("Union Actions", func() {
@@ -3292,7 +3145,9 @@ Node union on variant {
 			Expect(actions).To(HaveLen(2))
 			Expect(actions[0].Name).To(Equal("Rename"))
 			Expect(actions[1].Name).To(Equal("Place"))
-			Expect(actions[1].Fields[0].Type.Name).To(Equal("test.Point"))
+			place := MustBeOk(actions[1].Payload.Resolve(table))
+			Expect(resolution.UnifiedFields(place, table)[0].Type.Name).
+				To(Equal("test.Point"))
 		})
 
 		It(
@@ -3314,8 +3169,10 @@ Node union on variant {
 				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				action := table.MustGet("test.Shape").Actions()[0]
-				names := make([]string, len(action.Fields))
-				for i, f := range action.Fields {
+				payload := MustBeOk(action.Payload.Resolve(table))
+				fields := resolution.UnifiedFields(payload, table)
+				names := make([]string, len(fields))
+				for i, f := range fields {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"name", "extra"}))
@@ -3360,6 +3217,161 @@ Node union on variant {
 					"declare actions in the union body",
 				))
 			},
+		)
+	})
+
+	Describe("@actions", func() {
+		BeforeEach(func() {
+			loader.Add("schemas/x/patch", `
+				Set struct {
+					path string[]
+					@doc value "replaces the value at a path."
+				}
+				Remove struct { path string[] }
+				Insert struct { path string[] }
+				Move struct { path string[] }
+			`)
+		})
+
+		It("Should synthesize the standard payloads and an adjacent Action union", func(
+			ctx SpecContext,
+		) {
+			source := `
+				import "schemas/x/patch"
+
+				LinePlot struct {
+					key uuid
+					name string
+
+					action SetTitle {
+						title string
+					}
+
+					@actions
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			actions := table.MustGet("test.LinePlot").Actions()
+			names := make([]string, len(actions))
+			for i, a := range actions {
+				names[i] = a.Name
+			}
+			Expect(names).To(Equal(
+				[]string{"Create", "Set", "Remove", "Insert", "Move", "SetTitle"},
+			))
+			Expect(actions[0].CoreOnly).To(BeTrue())
+			Expect(actions[1].CoreOnly).To(BeFalse())
+			Expect(actions[0].Payload.Name).To(Equal("test.CreatePayload"))
+			create := table.MustGet("test.CreatePayload").Form.(resolution.StructForm)
+			Expect(create.Fields).To(HaveLen(1))
+			Expect(create.Fields[0].Name).To(Equal("line_plot"))
+			Expect(create.Fields[0].Type.Name).To(Equal("test.LinePlot"))
+			set := table.MustGet("test.SetPayload")
+			Expect(set.Form).To(Equal(resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: "patch.Set"},
+			}))
+			Expect(doc.Get(set.Domains)).To(Equal("replaces the value at a path."))
+			action := table.MustGet("test.Action").Form.(resolution.UnionForm)
+			Expect(action.Adjacent).To(BeTrue())
+			Expect(action.Discriminator).To(Equal("type"))
+			Expect(action.Variants).To(HaveLen(6))
+			Expect(action.Variants[5].Name).To(Equal("set_title"))
+			Expect(action.Variants[5].Type.Name).To(Equal("test.SetTitlePayload"))
+		})
+
+		It("Should synthesize no union for a type with no actions", func(
+			ctx SpecContext,
+		) {
+			table, diag := Analyze(ctx, "Plain struct { key uuid }", "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			_, ok := table.Get("test.Action")
+			Expect(ok).To(BeFalse())
+		})
+
+		DescribeTable("Should reject", func(
+			ctx SpecContext, source, wantErr string,
+		) {
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag).To(MatchError(ContainSubstring(wantErr)))
+		},
+			Entry("an unknown option", `
+import "schemas/x/patch"
+Plot struct {
+    key uuid
+    @actions loud
+}`, `5:13 error: unknown @actions option "loud"`),
+			Entry("a missing patch import", `
+Plot struct {
+    key uuid
+    @actions
+}`, `4:4 error: @actions requires import "schemas/x/patch"`),
+			Entry("a type parameter with no default", `
+import "schemas/x/patch"
+Plot struct<T> {
+    key uuid
+    data T
+    @actions
+}`, "6:4 error: @actions needs a default for type parameter T of Plot"),
+			Entry("a body action that @actions declares", `
+import "schemas/x/patch"
+Plot struct {
+    key uuid
+    action Set {
+        path string[]
+    }
+    @actions
+}`, "5:4 error: action Set of Plot: @actions already declares Set"),
+			Entry("an action declared twice", `
+Plot struct {
+    key uuid
+    action Rename {
+        name string
+    }
+    action Rename {
+        name string
+    }
+}`, "7:4 error: action Rename of Plot is declared twice"),
+			Entry("a payload name the schema declares", `
+RenamePayload struct {
+    name string
+}
+Plot struct {
+    key uuid
+    action Rename {
+        name string
+    }
+}`, "7:4 error: action Rename of Plot needs the name RenamePayload, which the "+
+				"schema declares"),
+			Entry("an Action name the schema declares", `
+Action struct {
+    name string
+}
+Plot struct {
+    key uuid
+    action Rename {
+        name string
+    }
+}`, "7:4 error: the actions of Plot need the name Action, which the schema "+
+				"declares"),
+			Entry("a type that is not a struct or union", `
+import "schemas/x/patch"
+Kind enum {
+    a = "a"
+    @actions
+}`, "5:4 error: @actions marks a struct or union; Kind is neither"),
+			Entry("two types with actions", `
+Plot struct {
+    key uuid
+    action Rename {
+        name string
+    }
+}
+Log struct {
+    key uuid
+    action Clear {}
+}`, "10:4 error: Plot and Log both have actions; a namespace holds one Action "+
+				"union"),
 		)
 	})
 

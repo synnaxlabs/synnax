@@ -208,6 +208,9 @@ func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	if declaresFilter(c.ast) {
 		qualifiers.Add(resolution.FilterNamespace)
 	}
+	if declaresActions(c.ast) {
+		qualifiers.Add(patchNamespace)
+	}
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -323,6 +326,7 @@ func analyze(c *analysisCtx) {
 		imports = append(imports, iu)
 	}
 	reportUnusedImports(c, imports)
+	synthesizeActions(c)
 
 	types := c.table.TypesInNamespace(c.namespace)
 	for i := range types {
@@ -350,15 +354,12 @@ func analyze(c *analysisCtx) {
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
-		validateActionExtends(c, typ)
-		validateActionAliases(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
 	desugarPartialOverrides(c)
-	finalizeActions(c)
 	checkOptionalDefaultInvariant(c)
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
@@ -833,12 +834,6 @@ func collectStructDecl(
 				fo.IDENT().GetText(),
 			)
 		}
-		for _, a := range body.AllActionDef() {
-			decl.form.Actions = append(
-				decl.form.Actions,
-				collectAction(c, a, decl.form.TypeParams),
-			)
-		}
 		for _, d := range body.AllDomain() {
 			addDomain(decl.domains, collectDomain(c, d))
 		}
@@ -866,67 +861,6 @@ func mergeDomains(
 		addDomain(out, d)
 	}
 	return out
-}
-
-// collectAction translates a parsed action block into a resolution.Action, reusing
-// collectField for payload fields so action-field semantics match struct-field
-// semantics (optionality, validation, type refs).
-func collectAction(
-	c *analysisCtx,
-	def parser.IActionDefContext,
-	typeParams []resolution.TypeParam,
-) resolution.Action {
-	action := resolution.Action{
-		Name:    def.IDENT().GetText(),
-		Domains: make(map[string]resolution.Domain),
-		AST:     def,
-	}
-	if tr := def.TypeRef(); tr != nil {
-		if !plainTypeRef(tr) {
-			c.report(diagnostics.Errorf(
-				def,
-				"action %s: the alias target must be a plain struct reference, got %q",
-				action.Name,
-				tr.GetText(),
-			))
-			return action
-		}
-		action.Alias = collectTypeRef(tr, nil)
-		if body := def.AliasBody(); body != nil {
-			for _, d := range body.AllDomain() {
-				addDomain(action.Domains, collectDomain(c, d))
-			}
-		}
-		return action
-	}
-	if def.EXTENDS() != nil {
-		if typeRefList := def.TypeRefList(); typeRefList != nil {
-			for _, tr := range typeRefList.AllTypeRef() {
-				action.Extends = append(action.Extends, collectTypeRef(tr, typeParams))
-			}
-		}
-	}
-	body := def.ActionBody()
-	if body == nil {
-		return action
-	}
-	for _, f := range body.AllFieldDef() {
-		field := collectField(c, f, typeParams)
-		if !field.HasType() {
-			d := diagnostics.Errorf(
-				f,
-				"action %s field %q must declare a type",
-				action.Name,
-				field.Name,
-			)
-			c.report(d)
-		}
-		action.Fields = append(action.Fields, field)
-	}
-	for _, d := range body.AllDomain() {
-		addDomain(action.Domains, collectDomain(c, d))
-	}
-	return action
 }
 
 func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
@@ -1386,7 +1320,6 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		return
 	}
 	form.Extends = decl.extends
-	form.Actions = decl.actions
 	domains := mergeDomains(c.fileDomains, decl.domains)
 	for _, v := range decl.variants {
 		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
@@ -1408,7 +1341,6 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 type unionDecl struct {
 	extends  []resolution.TypeRef
 	variants []variantDecl
-	actions  []resolution.Action
 	domains  map[string]resolution.Domain
 }
 
@@ -1439,9 +1371,6 @@ func collectUnionDecl(
 		}
 		for _, v := range body.AllUnionVariant() {
 			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
-		}
-		for _, a := range body.AllActionDef() {
-			decl.actions = append(decl.actions, collectAction(c, a, nil))
 		}
 	}
 	return copyUnion(c, def, decl, below)
@@ -1725,32 +1654,12 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	}))
 }
 
-func resolveActionRefs(
-	c *analysisCtx,
-	typ *resolution.Type,
-	actions []resolution.Action,
-) {
-	for i := range actions {
-		for j := range actions[i].Fields {
-			resolveTypeRef(c, typ, &actions[i].Fields[j].Type)
-		}
-		for j := range actions[i].Extends {
-			resolveTypeRef(c, typ, &actions[i].Extends[j])
-		}
-		if actions[i].IsAlias() {
-			// No current type, so a type parameter name does not resolve.
-			resolveTypeRef(c, nil, &actions[i].Alias)
-		}
-	}
-}
-
 func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
 		for i := range form.Fields {
 			resolveTypeRef(c, typ, &form.Fields[i].Type)
 		}
-		resolveActionRefs(c, typ, form.Actions)
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Constraint)
@@ -1787,7 +1696,6 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		for i := range form.Variants {
 			resolveTypeRef(c, typ, &form.Variants[i].Type)
 		}
-		resolveActionRefs(c, typ, form.Actions)
 		typ.Form = form
 	case resolution.EnumForm:
 		if len(form.Extends) > 0 {
@@ -2066,168 +1974,6 @@ func reportInheritedFieldConflicts(
 	}
 }
 
-// validateActionExtends checks that every action's extends clause names a struct type,
-// mirroring validateExtends. A generic parent must be supplied with enough type
-// arguments to bind its required parameters.
-func validateActionExtends(c *analysisCtx, typ resolution.Type) {
-	for _, action := range typ.Actions() {
-		for i, declared := range action.Extends {
-			parent, ext, ok := resolution.Dealias(declared, c.table)
-			if !ok {
-				d := diagnostics.Errorf(nil,
-					"action %s extends unresolved type at position %d: %s",
-					action.Name, i+1, declared.Name)
-				c.report(d)
-				continue
-			}
-			parentForm, ok := parent.Form.(resolution.StructForm)
-			if !ok {
-				d := diagnostics.Errorf(nil,
-					"action %s extends non-struct type at position %d: %s",
-					action.Name, i+1, parent.Name)
-				c.report(d)
-				continue
-			}
-			requiredParams := 0
-			for _, tp := range parentForm.TypeParams {
-				if tp.Default == nil && !tp.Optional {
-					requiredParams++
-				}
-			}
-			if len(ext.TypeArgs) < requiredParams {
-				d := diagnostics.Errorf(
-					nil,
-					"action %s extends %s but provides %d type arguments (need at least %d)",
-					action.Name,
-					parent.Name,
-					len(ext.TypeArgs),
-					requiredParams,
-				)
-				c.report(d)
-			}
-		}
-		reportInheritedFieldConflicts(c, "action "+action.Name, action.Extends, nil)
-	}
-}
-
-// validateActionAliases checks that every action alias names a struct with no type
-// parameters, and that no two actions of typ alias the same struct, which a C++
-// std::variant cannot hold twice.
-func validateActionAliases(c *analysisCtx, typ resolution.Type) {
-	aliased := make(map[string]string)
-	for _, action := range typ.Actions() {
-		if !action.IsAlias() {
-			continue
-		}
-		target, _, ok := resolution.Dealias(action.Alias, c.table)
-		form, isStruct := target.Form.(resolution.StructForm)
-		if !ok || !isStruct {
-			c.report(diagnostics.Errorf(
-				nil,
-				"action %s of %s must alias a struct, got %s",
-				action.Name,
-				typ.Name,
-				action.Alias.Name,
-			))
-			continue
-		}
-		if len(form.TypeParams) > 0 {
-			c.report(diagnostics.Errorf(
-				nil,
-				"action %s of %s cannot alias generic struct %s, because an alias "+
-					"takes no type arguments",
-				action.Name,
-				typ.Name,
-				target.QualifiedName,
-			))
-			continue
-		}
-		key := target.QualifiedName
-		if first, dup := aliased[key]; dup {
-			c.report(diagnostics.Errorf(
-				nil,
-				"actions %s and %s of %s both alias %s; give each action its own "+
-					"struct",
-				first,
-				action.Name,
-				typ.Name,
-				key,
-			))
-			continue
-		}
-		aliased[key] = action.Name
-	}
-}
-
-// finalizeActions flattens each action's extends clause, prepending the inherited
-// struct fields to the action's own fields, and gives each action alias without a doc
-// the doc of its struct. After this pass code generators consume Action.Fields and
-// Domains unchanged.
-func finalizeActions(c *analysisCtx) {
-	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
-			continue
-		}
-		// The slice shares its array with the table, so each update lands in place.
-		actions := typ.Actions()
-		for ai := range actions {
-			if actions[ai].IsAlias() {
-				if _, own := actions[ai].Domains["doc"]; own {
-					continue
-				}
-				target, _, _ := resolution.Dealias(actions[ai].Alias, c.table)
-				if d, ok := target.Domains["doc"]; ok {
-					actions[ai].Domains["doc"] = d
-				}
-			} else if len(actions[ai].Extends) > 0 {
-				actions[ai].Fields = unifyActionFields(c, actions[ai])
-			}
-		}
-	}
-}
-
-// unifyActionFields returns the action's payload fields with inherited struct fields
-// prepended. Parents are walked left-to-right (first wins on a name conflict between
-// parents) and an action's own field overrides any inherited field of the same name,
-// keeping its declared position.
-func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Field {
-	own := make(set.Set[string])
-	for _, f := range action.Fields {
-		own.Add(f.Name)
-	}
-	seen := make(set.Set[string])
-	var inherited []resolution.Field
-	for _, declared := range action.Extends {
-		parent, ext, ok := resolution.Dealias(declared, c.table)
-		if !ok {
-			continue
-		}
-		parentForm, ok := parent.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		typeArgMap := make(map[string]resolution.TypeRef)
-		for j, tp := range parentForm.TypeParams {
-			if j < len(ext.TypeArgs) {
-				typeArgMap[tp.Name] = ext.TypeArgs[j]
-			}
-		}
-		for _, pf := range resolution.UnifiedFields(parent, c.table) {
-			if own.Contains(pf.Name) || seen.Contains(pf.Name) {
-				continue
-			}
-			seen.Add(pf.Name)
-			sub := pf
-			sub.Type = resolution.SubstituteTypeRef(pf.Type, typeArgMap)
-			inherited = append(inherited, sub)
-		}
-	}
-	if len(inherited) == 0 {
-		return action.Fields
-	}
-	return append(inherited, action.Fields...)
-}
-
 func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 	var omittable string
 	for _, tp := range resolution.TypeParams(typ.Form) {
@@ -2335,7 +2081,7 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 //   - Variant names (the JSON discriminator string values) are unique.
 //   - Each Extends target resolves to a struct type.
 //   - No two base structs contribute the same field name.
-//   - Each variant references a struct type.
+//   - Each variant of a union that is not adjacent references a struct type.
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.
 //
@@ -2437,6 +2183,10 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 				"union %s variant %q references unresolved type: %s",
 				typ.Name, variant.Name, variant.Type.Name)
 			c.report(d)
+			continue
+		}
+		// An adjacent payload sits in its own member, apart from the discriminator.
+		if form.Adjacent {
 			continue
 		}
 		if _, isStruct := variantType.Form.(resolution.StructForm); !isStruct {

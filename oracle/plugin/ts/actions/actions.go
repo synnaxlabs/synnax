@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package actions emits a TypeScript discriminated-union action codec for any Oracle
-// struct that declares one or more actions. Each action becomes a Zod payload schema,
-// an Action union dispatches by literal type, and the plugin emits a Handlers interface
-// plus a createReduceAll factory that binds a caller-provided Handlers object.
-// HandlerResult, ReduceAllResult, and the outer reduceAll loop live in the shared
-// actions package; this plugin emits type aliases and a thin wrapper that delegate to
-// them. The per-action handler functions are hand-written and supplied by the caller;
-// this plugin does not generate them.
+// Package actions emits the TypeScript action helpers of each struct or union that has
+// actions. The ts/types plugin emits the payload schemas and the Action union. This
+// plugin emits one builder per action that clients dispatch, a Handlers interface, a
+// createReduceAll factory that binds a caller-provided Handlers object, and the scoped
+// and dispatch schemas. HandlerResult, ReduceAllResult, and the outer reduceAll loop
+// live in the shared actions package.
 package actions
 
 import (
 	"bytes"
-	"strings"
 	"text/template"
 
-	"github.com/synnaxlabs/oracle/domain/doc"
-	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -32,7 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Options configures the actions plugin output.
@@ -46,7 +42,7 @@ func DefaultOptions() Options {
 	return Options{FileNamePattern: "actions.gen.ts"}
 }
 
-// Plugin emits the generated TS action codec.
+// Plugin emits the generated TS action helpers.
 type Plugin struct{ opts Options }
 
 // New constructs a Plugin with the given options.
@@ -56,23 +52,14 @@ func (*Plugin) Name() string       { return "ts/actions" }
 func (*Plugin) Domains() []string  { return []string{"ts"} }
 func (*Plugin) Requires() []string { return []string{"ts/types"} }
 
-// Generate emits one actions.gen.ts per output package containing a struct or union
-// that declares actions. It skips types without actions and types that TS hand-writes
-// or omits.
+// Generate emits one actions.gen.ts per output package that holds a struct or union
+// with actions. It errors when such a type has no key.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	req = req.OmitFields("ts")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
-	for _, typ := range types {
-		actions := typ.Actions()
-		if len(actions) == 0 || omit.IsSkipped(typ, "ts") {
-			continue
-		}
+	for _, typ := range domain.ActionTargets(req.Resolutions, "ts") {
 		outputPath := output.GetPath(typ, "ts")
-		if outputPath == "" {
-			continue
-		}
-		content, err := p.generateFile(typ, actions, outputPath, req)
+		content, err := p.generateFile(typ, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
@@ -86,10 +73,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	typ resolution.Type,
-	actions []resolution.Action,
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
+	table := req.Resolutions
 	mgr := imports.NewManager()
 	fp := &tstypes.FieldProcessor{
 		Imports:    mgr,
@@ -97,46 +84,74 @@ func (p *Plugin) generateFile(
 		OutputPath: outputPath,
 		Request:    req,
 	}
-
-	tsName := domain.GetName(typ, "ts")
-	data := &templateData{
-		Manager:         mgr,
-		TargetTypeName:  tsName,
-		TargetProseName: proseName(typ.Name),
+	union, ok := table.Get(resolution.ActionUnion(typ))
+	if !ok {
+		return nil, errors.Newf("%s: no Action union", typ.QualifiedName)
 	}
-
-	for _, action := range actions {
+	unionName := domain.GetName(union, "ts")
+	typesPath := paths.CalculateImport(outputPath, outputPath) + "/types.gen"
+	data := &templateData{
+		Manager:        mgr,
+		TargetTypeName: domain.GetName(typ, "ts"),
+		ActionType:     unionName,
+		ActionZ:        casing.CamelAcronym(unionName) + "Z",
+	}
+	mgr.AddImport(typesPath, data.TargetTypeName)
+	mgr.AddImport(typesPath, data.ActionType)
+	mgr.AddImport(typesPath, data.ActionZ)
+	var dispatched, dispatchedTypes []string
+	for _, action := range typ.Actions() {
+		payload, ok := action.Payload.Resolve(table)
+		if !ok {
+			return nil, errors.Newf(
+				"%s: unresolved payload %s", typ.QualifiedName, action.Payload.Name,
+			)
+		}
+		wire := casing.TypeSnake(action.Name)
+		payloadName := domain.GetName(payload, "ts")
 		a := actionData{
-			Name:     casing.TypePascal(action.Name),
-			TypeName: casing.TypeSnake(action.Name),
-			Doc:      doc.Get(action.Domains),
+			Builder:     casing.TypeCamel(action.Name),
+			Type:        wire,
+			Member:      tstypes.FieldName(wire),
+			PayloadType: payloadName,
+			PayloadZ:    casing.CamelAcronym(payloadName) + "Z",
+			Label:       payload.QualifiedName,
+			CoreOnly:    action.CoreOnly,
 		}
-		if action.IsAlias() {
-			target := fp.ProcessField(resolution.Field{Type: action.Alias}, typ)
-			a.Target = &target
-			fp.CollectTypeImports(&action.Alias)
-		}
-		for _, field := range action.Fields {
-			a.Fields = append(a.Fields, fp.ProcessField(field, typ))
-			fp.CollectTypeImports(&field.Type)
+		mgr.AddImport(typesPath, a.PayloadType)
+		if !action.CoreOnly {
+			mgr.AddImport(typesPath, a.PayloadZ)
+			variant := tstypes.VariantSchemaName(unionName, wire)
+			variantType := casing.VariantTypeName(unionName, wire)
+			mgr.AddImport(typesPath, variant)
+			mgr.AddImport(typesPath, variantType)
+			dispatched = append(dispatched, variant)
+			dispatchedTypes = append(dispatchedTypes, variantType)
 		}
 		data.Actions = append(data.Actions, a)
 	}
-
-	mgr.AddImport("zod", "z")
-	mgr.AddImport("immer", "Draft")
-	mgr.AddImport("@synnaxlabs/x", "zod")
-	sameDir := paths.CalculateImport(outputPath, outputPath)
-	mgr.AddImport(sameDir+"/types.gen", tsName)
-	if ref, ok := resolution.RetrieveKey(typ); ok {
-		data.KeyZ = fp.ProcessField(
-			resolution.Field{Name: "key", Type: ref},
-			typ,
-		).ZodType
-	} else {
-		data.KeyZ = "keyZ"
-		mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	if len(dispatched) < len(data.Actions) {
+		data.Dispatched = dispatched
+		data.DispatchedTypes = dispatchedTypes
 	}
+	keyRef, ok := resolution.RetrieveKey(typ)
+	if !ok {
+		f, found := key.Find(typ, table)
+		if !found {
+			return nil, errors.Newf("%s: actions need a @key field", typ.QualifiedName)
+		}
+		keyRef = f.Type
+	}
+	data.KeyZ = fp.ProcessField(
+		resolution.Field{Name: "key", Type: keyRef},
+		typ,
+	).ZodType
+	fp.CollectTypeImports(&keyRef)
+	if len(dispatched) > 0 {
+		mgr.AddImport("zod", "z")
+		mgr.AddImport("@synnaxlabs/x", "zod")
+	}
+	mgr.AddImport("immer", "Draft")
 	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
@@ -149,41 +164,31 @@ func (p *Plugin) generateFile(
 // templateData's fields are read by fileTemplate, so they must stay exported.
 type templateData struct {
 	*imports.Manager
-	TargetTypeName  string
-	TargetProseName string
+	TargetTypeName string
+	// ActionType and ActionZ are the type and schema of the Action union.
+	ActionType string
+	ActionZ    string
+	// Dispatched and DispatchedTypes hold the schemas and types of the variants that
+	// clients dispatch, set only when the Core alone emits some actions.
+	Dispatched      []string
+	DispatchedTypes []string
 	// KeyZ is the zod schema of the target type's key.
 	KeyZ    string
 	Actions []actionData
 }
 
-var properNouns = set.New("Arc")
-
-func proseName(name string) string {
-	if properNouns.Contains(name) {
-		return name
-	}
-	return strings.ReplaceAll(casing.TypeSnake(name), "_", " ")
-}
-
 type actionData struct {
-	Name     string
-	TypeName string
-	Doc      string
-	// Target holds the zod schema and type of the struct that an action alias uses as
-	// its payload. It is nil for an action with its own payload.
-	Target *tstypes.FieldData
-	Fields []tstypes.FieldData
-}
-
-var templateFuncs = template.FuncMap{
-	"camelCase":  casing.TypeCamel,
-	"pascalCase": casing.TypePascal,
-	"formatDoc":  doc.FormatTS,
+	Builder     string
+	Type        string
+	Member      string
+	PayloadType string
+	PayloadZ    string
+	Label       string
+	CoreOnly    bool
 }
 
 var fileTemplate = template.Must(
 	template.New("ts-actions").
-		Funcs(templateFuncs).
 		Parse(`// Code generated by Oracle. DO NOT EDIT.
 {{- range .SynnaxImports }}
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
@@ -194,66 +199,48 @@ import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end 
 {{- range .InternalNamedImports }}
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
-{{range .Actions}}
-{{- if .Doc}}
-{{formatDoc .Name .Doc}}
-{{- end}}
-{{- if .Target }}
-export const {{ camelCase .Name }}PayloadZ = {{ .Target.ZodType }};
+{{- range .Actions }}
+{{- if not .CoreOnly }}
 
-export type {{ .Name }}Payload = {{ .Target.TSType }};
-{{- else }}
-export const {{ camelCase .Name }}PayloadZ = z.object({
-{{- range .Fields}}
-  {{ .TSName }}: {{ .ZodType }},
-{{- end}}
+export const {{ .Builder }} = (payload: z.input<typeof {{ .PayloadZ }}>): {{ $.ActionType }} => ({
+  type: "{{ .Type }}",
+  {{ .Member }}: zod.parse({{ .PayloadZ }}, payload, { label: "{{ .Label }}" }),
 });
-
-export type {{ .Name }}Payload = z.infer<typeof {{ camelCase .Name }}PayloadZ>;
 {{- end }}
-{{end}}
-export type Action =
-{{- range .Actions}}
-  | { type: "{{ .TypeName }}"; {{ camelCase .Name }}: {{ .Name }}Payload }
-{{- end}};
+{{- end }}
 
-export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
-{{- range .Actions}}
-  z.object({ type: z.literal("{{ .TypeName }}"), {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ }),
-{{- end}}
-]);
-{{range .Actions}}
-export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
-  type: "{{ .TypeName }}",
-  {{ camelCase .Name }}: zod.parse({{ camelCase .Name }}PayloadZ, payload, {
-    label: "{{ $.TargetProseName }} {{ .TypeName }} action payload",
-  }),
-});
-{{end}}
-export type HandlerResult = actions.HandlerResult<Action>;
+export type HandlerResult = actions.HandlerResult<{{ .ActionType }}>;
 
-export type ReduceAllResult = actions.ReduceAllResult<{{ .TargetTypeName }}, Action>;
+export type ReduceAllResult = actions.ReduceAllResult<{{ .TargetTypeName }}, {{ .ActionType }}>;
 
 export interface Handlers {
-{{- range .Actions}}
-  {{ camelCase .Name }}: (state: Draft<{{ $.TargetTypeName }}>, payload: {{ .Name }}Payload) => HandlerResult;
-{{- end}}
+{{- range .Actions }}
+  {{ .Member }}: (state: Draft<{{ $.TargetTypeName }}>, payload: {{ .PayloadType }}) => HandlerResult;
+{{- end }}
 }
 
 export const createReduceAll = (handlers: Handlers) =>
-  actions.createReduceAll<{{ .TargetTypeName }}, Action>((state, action) => {
+  actions.createReduceAll<{{ .TargetTypeName }}, {{ .ActionType }}>((state, action) => {
     switch (action.type) {
-{{- range .Actions}}
-      case "{{ .TypeName }}":
-        return handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
-{{- end}}
+{{- range .Actions }}
+      case "{{ .Type }}":
+        return handlers.{{ .Member }}(state, action.{{ .Member }});
+{{- end }}
     }
   });
 
-export const scopedActionZ = actions.scopedZ({{ .KeyZ }}, actionZ);
+export const scopedActionZ = actions.scopedZ({{ .KeyZ }}, {{ .ActionZ }});
+{{- if .Dispatched }}
 
-export const dispatchReqZ = actions.dispatchReqZ({{ .KeyZ }}, actionZ);
+const dispatchedActionZ: z.ZodType<{{ range $i, $t := .DispatchedTypes }}{{ if $i }} | {{ end }}{{ $t }}{{ end }}> =
+  z.discriminatedUnion("type", [{{ range $i, $v := .Dispatched }}{{ if $i }}, {{ end }}{{ $v }}{{ end }}]);
 
-export const dispatchResZ = actions.dispatchResZ(actionZ);
+export const dispatchReqZ = actions.dispatchReqZ({{ .KeyZ }}, dispatchedActionZ);
+{{- else }}
+
+export const dispatchReqZ = actions.dispatchReqZ({{ .KeyZ }}, {{ .ActionZ }});
+{{- end }}
+
+export const dispatchResZ = actions.dispatchResZ({{ .ActionZ }});
 `),
 )

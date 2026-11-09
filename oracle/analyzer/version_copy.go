@@ -117,7 +117,6 @@ func patchStruct(parent, child structDecl) structDecl {
 		form: resolution.StructForm{
 			TypeParams: child.form.TypeParams,
 			Extends:    appendRefs(parent.form.Extends, child.form.Extends),
-			Actions:    child.form.Actions,
 		},
 		domains: mergeDomains(parent.domains, child.domains),
 	}
@@ -295,7 +294,6 @@ func copyUnion(
 	return unionDecl{
 		extends:  appendRefs(parent.extends, slices.Delete(decl.extends, i, i+1)),
 		variants: variants,
-		actions:  decl.actions,
 		domains:  mergeDomains(parent.domains, decl.domains),
 	}, true
 }

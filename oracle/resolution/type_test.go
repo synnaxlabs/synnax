@@ -598,24 +598,3 @@ var _ = Describe("Type.Actions", func() {
 		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
 	})
 })
-
-var _ = Describe("Action.IsAlias", func() {
-	DescribeTable(
-		"Should report whether the action uses an existing struct as its payload",
-		func(action resolution.Action, alias bool) {
-			Expect(action.IsAlias()).To(Equal(alias))
-		},
-		Entry("an alias of a struct", resolution.Action{
-			Name:  "Set",
-			Alias: resolution.TypeRef{Name: "patch.Set"},
-		}, true),
-		Entry("an action with its own payload", resolution.Action{
-			Name: "SetUsername",
-			Fields: []resolution.Field{{
-				Name: "username",
-				Type: resolution.TypeRef{Name: "string"},
-			}},
-		}, false),
-		Entry("an action with no payload", resolution.Action{Name: "Clear"}, false),
-	)
-})

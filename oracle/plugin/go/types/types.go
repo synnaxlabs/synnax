@@ -1525,6 +1525,9 @@ type {{.InterfaceName}} interface {
 	{{.Marker}}()
 }
 {{range .Variants}}
+{{- if $u.Adjacent}}
+func ({{.TypeName}}) {{$u.Marker}}() {}
+{{else}}
 {{- if .Doc}}
 {{formatDoc .TypeName .Doc}}
 {{- end}}
@@ -1640,6 +1643,7 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 }
 {{- end}}
 {{end -}}
+{{end -}}
 {{if .Doc}}{{formatDoc .Name .Doc}}
 {{end -}}
 type {{.Name}} struct {
@@ -1653,10 +1657,17 @@ func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 {{- range .Variants}}
 	case {{.TypeName}}:
+{{- if $u.Adjacent}}
+		return json.MarshalEncode(enc, struct {
+			Type    {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			Payload {{.TypeName}} ` + "`" + `json:"{{.Value}}"` + "`" + `
+		}{Type: {{.ConstName}}, Payload: v})
+{{- else}}
 		return json.MarshalEncode(enc, struct {
 			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
 			{{.TypeName}}
 		}{Type: {{.ConstName}}, {{.TypeName}}: v})
+{{- end}}
 {{- end}}
 	default:
 		return errors.Newf("{{.Name}}: unknown variant %T", v)
@@ -1685,6 +1696,19 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	switch disc.Type {
 {{- range .Variants}}
 	case {{.ConstName}}:
+{{- if $u.Adjacent}}
+		var v struct {
+			Type    {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			Payload *{{.TypeName}} ` + "`" + `json:"{{.Value}}"` + "`" + `
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+{{- else}}
 		var v struct {
 			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
 			{{.TypeName}}
@@ -1694,15 +1718,75 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.{{.TypeName}}
 {{- end}}
+{{- end}}
 	default:
+{{- if .Adjacent}}
+		return union.UnknownVariant(string(disc.Type))
+{{- else}}
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"{{.Name}}: unknown {{.DiscJSONName}} %q",
 			disc.Type,
 		)
+{{- end}}
 	}
 	return nil
 }
+{{- if .Adjacent}}
+
+// EncodeMsgpack encodes the active variant with its "{{.DiscJSONName}}" tag injected.
+func (u {{.Name}}) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return enc.Encode(struct {
+			Type    {{$u.DiscType}} ` + "`" + `msgpack:"{{$u.DiscJSONName}}"` + "`" + `
+			Payload {{.TypeName}} ` + "`" + `msgpack:"{{.Value}}"` + "`" + `
+		}{Type: {{.ConstName}}, Payload: v})
+{{- end}}
+	default:
+		return errors.Newf("{{.Name}}: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "{{.DiscJSONName}}" field.
+func (u *{{.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type {{.DiscType}} ` + "`" + `msgpack:"{{.DiscJSONName}}"` + "`" + `
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+{{- range .Variants}}
+	case {{.ConstName}}:
+		var v struct {
+			Payload *{{.TypeName}} ` + "`" + `msgpack:"{{.Value}}"` + "`" + `
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+{{- end}}
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+{{- end}}
 {{- if .TagMethod}}
 
 {{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}

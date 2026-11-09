@@ -30,6 +30,18 @@ const patchSchema = `
 Set struct {
 	path string[]
 }
+
+Remove struct {
+	path string[]
+}
+
+Insert struct {
+	path string[]
+}
+
+Move struct {
+	path string[]
+}
 `
 
 var _ = Describe("Go Patch Plugin", func() {
@@ -101,7 +113,7 @@ var _ = Describe("Go Patch Plugin", func() {
 				}
 				labels string[]
 
-				action Set extends patch.Set {}
+				@actions
 			}
 		`
 
@@ -131,29 +143,6 @@ var _ = Describe("Go Patch Plugin", func() {
 				).
 				ToNotContain(`case "key":`, `case "labels":`)
 		})
-
-		It(
-			"Should find a document whose Set action aliases patch.Set",
-			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
-					import "schemas/x/patch"
-
-					@go output "core/pkg/service/doc"
-
-					Doc struct {
-						name string {
-							@patch
-						}
-
-						action Set = patch.Set
-					}
-				`, "doc", loader, p)
-				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").ToContain(
-					"func (d *Doc) Patch(c patch.Cursor) error {",
-					`case "name":`,
-				)
-			},
-		)
 
 		It(
 			"Should switch on every field of a struct a document reaches",
@@ -189,7 +178,7 @@ var _ = Describe("Go Patch Plugin", func() {
 						@patch
 					}
 
-					action Set extends patch.Set {}
+					@actions
 				}
 			`, "cell", loader, p)
 				ExpectContent(resp, "patch.gen.go").
@@ -220,7 +209,7 @@ var _ = Describe("Go Patch Plugin", func() {
 						@patch
 					}
 
-					action Set extends patch.Set {}
+					@actions
 				}
 			`, "doc", loader, p)
 				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").
@@ -234,7 +223,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
-			"Should not generate for a struct without path actions",
+			"Should not generate for a struct without @actions",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `
 				@go output "core/pkg/service/doc"
@@ -276,7 +265,7 @@ var _ = Describe("Go Patch Plugin", func() {
 					Doc struct {
 						`+field+`
 
-						action Set extends patch.Set {}
+						@actions
 					}
 				`, "doc", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(msg)))
@@ -306,15 +295,13 @@ var _ = Describe("Go Patch Plugin", func() {
 						@patch
 					}
 
-					action Set extends patch.Set {}
+					@actions
 				}
 
 				Outer struct {
-					inner Inner {
-						@patch
-					}
+					inner Inner
 
-					action Set extends patch.Set {}
+					@patch
 				}
 			`, "doc", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
@@ -487,7 +474,7 @@ var _ = Describe("Go Patch Plugin", func() {
 						@patch
 					}
 
-					action Set extends patch.Set {}
+					@actions
 				}
 			`, "cell", loader, p)
 			ExpectContent(resp, "core/pkg/service/cell/patch.gen.go").
@@ -572,7 +559,7 @@ Doc struct {
 	}
 	note string
 
-	action Set extends patch.Set {}
+	@actions
 }
 `,
 					"schemas/synnax/doc.oracle", "doc",

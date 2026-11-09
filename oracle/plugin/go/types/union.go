@@ -67,11 +67,16 @@ type unionData struct {
 	// TagMethod is the method that returns the tag of the active variant, or empty
 	// when the union has none.
 	TagMethod string
+	// Adjacent reports that each variant is a named payload that sits beside the tag in
+	// a member named by the tag. The payloads then take the marker method, and the
+	// union declares no variant structs.
+	Adjacent bool
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
 type unionVariantData struct {
-	// TypeName is the concrete variant struct name (e.g. "ScaleLinear").
+	// TypeName is the concrete variant struct name (e.g. "ScaleLinear"), or the payload
+	// type of an adjacent union.
 	TypeName string
 	// ConstName is the discriminator constant (e.g. "ScaleTypeLinear").
 	ConstName string
@@ -145,7 +150,9 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("github.com/synnaxlabs/x/errors")
-	data.AddExternal(validateImportPath)
+	if !form.Adjacent {
+		data.AddExternal(validateImportPath)
+	}
 
 	discName := casing.FieldSnake(form.Discriminator)
 	ud := unionData{
@@ -225,6 +232,13 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		)
 	}
 
+	if form.Adjacent {
+		ud.Adjacent = true
+		data.AddExternal("github.com/synnaxlabs/x/union")
+		// The alias keeps the name msgpack free for x/encoding/msgpack.
+		data.AddInternal("vmsgpack", "github.com/vmihailenco/msgpack/v5")
+		data.AddExternal("github.com/vmihailenco/msgpack/v5/msgpcode")
+	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			TypeName:  casing.VariantTypeName(name, v.Name),
@@ -232,8 +246,24 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
+		if form.Adjacent {
+			vd.TypeName = data.resolver.ResolveTypeRef(v.Type, data.ctx)
+		}
 		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
 		vd.Receiver = receiverName(vd.TypeName)
+		if form.Adjacent {
+			embed := []embeddedType{{ref: v.Type, rendered: vd.TypeName}}
+			vd.NeedsApplyDefaults = len(
+				embedRecurseSteps(embed, nil, data, defaultsHasOwn, neverSkip),
+			) > 0
+			vd.NeedsValidate = len(
+				embedRecurseSteps(embed, nil, data, validateHasOwn, validateSkip),
+			) > 0
+			ud.NeedsApplyDefaults = ud.NeedsApplyDefaults || vd.NeedsApplyDefaults
+			ud.NeedsValidate = ud.NeedsValidate || vd.NeedsValidate
+			ud.Variants = append(ud.Variants, vd)
+			continue
+		}
 		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {

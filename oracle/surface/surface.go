@@ -64,6 +64,9 @@ func typeLines(t resolution.Type) []string {
 		if f.BorrowsEnum() {
 			header += " " + ref(f.Enum)
 		}
+		if f.Adjacent {
+			header += " adjacent"
+		}
 		lines := []string{
 			header + refs(" extends ", f.Extends) + refs(" of ", f.Included),
 		}
@@ -81,14 +84,13 @@ func typeLines(t resolution.Type) []string {
 }
 
 func actionLines(qn string, actions []resolution.Action) []string {
-	var lines []string
+	lines := make([]string, 0, len(actions))
 	for _, a := range actions {
-		if a.IsAlias() {
-			lines = append(lines, qn+" action "+a.Name+" = "+ref(a.Alias))
-			continue
+		line := qn + " action " + a.Name + " " + ref(a.Payload)
+		if a.CoreOnly {
+			line += " core_only"
 		}
-		lines = append(lines, qn+" action "+a.Name)
-		lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
+		lines = append(lines, line)
 	}
 	return lines
 }

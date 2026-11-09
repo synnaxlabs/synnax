@@ -123,18 +123,34 @@ inline x::json::json {{.Name}}::to_json() const {
 }
 {{- end}}
 {{- range .Unions}}
+{{- $u := .}}
 
 inline {{.Name}} parse_{{.SnakeName}}(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("{{.DiscJSON}}");
 {{- range .Variants}}
+{{- if $u.Adjacent}}
+    if (discriminator == "{{.Value}}") return {{.TypeName}}::parse(parser.child("{{.Value}}"));
+{{- else}}
     if (discriminator == "{{.Value}}") return {{.TypeName}}::parse(parser);
+{{- end}}
 {{- end}}
     parser.field_err("{{.DiscJSON}}", "unknown {{.Name}} {{.DiscJSON}}: " + discriminator);
     return {};
 }
 
 inline x::json::json to_json(const {{.Name}}& value) {
+{{- if .Adjacent}}
+    static constexpr const char *discriminators[] = {
+{{- range $i, $v := .Variants}}{{if $i}}, {{end}}"{{$v.Value}}"{{end -}}
+    };
+    const std::string discriminator = discriminators[value.index()];
+    x::json::json j = x::json::json::object();
+    j["{{.DiscJSON}}"] = discriminator;
+    j[discriminator] = std::visit([](const auto& v) { return v.to_json(); }, value);
+    return j;
+{{- else}}
     return std::visit([](const auto& v) { return v.to_json(); }, value);
+{{- end}}
 }
 {{- end}}
 

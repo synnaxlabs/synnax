@@ -54,6 +54,34 @@ func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []
 	return result
 }
 
+// Find returns the first @key field of a struct, or of the base structs of a union,
+// counting inherited fields. It returns false when typ has none.
+func Find(typ resolution.Type, table *resolution.Table) (Field, bool) {
+	var holders []resolution.Type
+	switch form := typ.Form.(type) {
+	case resolution.StructForm:
+		holders = []resolution.Type{typ}
+	case resolution.UnionForm:
+		for _, ext := range form.Extends {
+			if base, _, ok := resolution.Dealias(ext, table); ok {
+				holders = append(holders, base)
+			}
+		}
+	}
+	for _, h := range holders {
+		for _, f := range resolution.UnifiedFields(h, table) {
+			if HasKey(f) {
+				return Field{
+					Name:      f.Name,
+					Primitive: ResolvePrimitive(f.Type, table),
+					Type:      f.Type,
+				}, true
+			}
+		}
+	}
+	return Field{}, false
+}
+
 // HasKey checks if a field has the @key annotation.
 func HasKey(field resolution.Field) bool {
 	_, hasKey := field.Domains["key"]

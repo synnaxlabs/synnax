@@ -54,7 +54,8 @@ type unionVariantData struct {
 // processUnion builds the template view for a discriminated union. Each variant
 // inherits the union's shared base struct(s) and its own payload struct via
 // Pydantic multiple inheritance, declaring only the discriminator itself, so the
-// shared fields are not duplicated across variants.
+// shared fields are not duplicated across variants. A variant of an adjacent union
+// holds its payload in one field named by its tag.
 func processUnion(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -75,6 +76,14 @@ func processUnion(
 			ClassName: casing.VariantTypeName(ud.Name, v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
+		}
+		if form.Adjacent {
+			data.imports.addPydantic("BaseModel")
+			vd.Parents = []string{"BaseModel"}
+			payload := resolution.Field{Name: v.Name, Type: v.Type}
+			vd.Fields = []fieldData{processField(payload, table, data, keyFields, nil)}
+			ud.Variants = append(ud.Variants, vd)
+			continue
 		}
 		inherited, declared := resolver.VariantBases(form, v, "py", table)
 		for _, ext := range inherited {
