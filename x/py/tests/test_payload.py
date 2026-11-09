@@ -28,8 +28,8 @@ class TestFloat:
         """Should decode NaN from its text."""
         assert math.isnan(payload.Float("NaN"))
 
-    @pytest.mark.parametrize("value", ["inf", "1.5", True])
-    def test_decode_invalid(self, value: str | bool) -> None:
+    @pytest.mark.parametrize("value", ["inf", "1.5", True, None, [], 10**400])
+    def test_decode_invalid(self, value: object) -> None:
         """Should reject a value that is not a float."""
         with pytest.raises(ValueError, match="cannot parse a float"):
             payload.Float(value)
@@ -41,6 +41,11 @@ class TestFloat:
         dumped = read.model_dump_json()
         assert '"fill":"-Infinity"' in dumped
         assert payload.FloatRead.model_validate_json(dumped).fill == -math.inf
+
+    def test_model_rejects_none(self) -> None:
+        """Should raise a validation error for a value that is not a float."""
+        with pytest.raises(ValidationError):
+            payload.FloatEntry.model_validate({"label": "a", "value": None})
 
     def test_python_dump_keeps_float(self) -> None:
         """Should keep a float in a Python-mode dump."""

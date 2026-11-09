@@ -13,7 +13,7 @@
 #include <optional>
 #include <string>
 #include <system_error>
-#include <type_traits>
+#include <utility>
 
 #include "x/cpp/payload/number.h"
 
@@ -22,15 +22,14 @@ namespace {
 template<typename T>
 std::optional<T> parse_digits(const x::json::json &j) {
     if (j.is_number_integer()) {
-        if constexpr (std::is_unsigned_v<T>) {
-            if (!j.is_number_unsigned()) return std::nullopt;
-        } else {
-            if (j.is_number_unsigned() &&
-                j.get<std::uint64_t>() >
-                    static_cast<std::uint64_t>(std::numeric_limits<T>::max()))
-                return std::nullopt;
+        if (j.is_number_unsigned()) {
+            const auto u = j.get<std::uint64_t>();
+            if (!std::in_range<T>(u)) return std::nullopt;
+            return static_cast<T>(u);
         }
-        return j.get<T>();
+        const auto s = j.get<std::int64_t>();
+        if (!std::in_range<T>(s)) return std::nullopt;
+        return static_cast<T>(s);
     }
     if (!j.is_string()) return std::nullopt;
     const auto &s = j.get_ref<const std::string &>();

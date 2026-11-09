@@ -113,6 +113,15 @@ TEST(PayloadUnsigned, Parse) {
     EXPECT_EQ(read.fill.value().value, UINT64_MAX_VALUE);
 }
 
+/// @brief it should parse an unsigned integer from a positive signed JSON number.
+TEST(PayloadUnsigned, ParseSignedNumber) {
+    const x::json::Parser parser(x::json::json{{"fill", 5}});
+    const auto read = UnsignedRead::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_TRUE(read.fill.has_value());
+    EXPECT_EQ(read.fill.value().value, 5);
+}
+
 /// @brief it should reject a negative or out of range unsigned integer.
 TEST(PayloadUnsigned, ParseInvalid) {
     for (const auto &fill:

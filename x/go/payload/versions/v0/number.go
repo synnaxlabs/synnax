@@ -13,6 +13,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
+	"strconv"
 
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -99,7 +100,11 @@ func (i Integer) MarshalJSONTo(enc *jsontext.Encoder) error {
 // UnmarshalJSONFrom implements json.UnmarshalerFrom. It accepts a JSON number or a JSON
 // string of decimal digits.
 func (i *Integer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	n, err := xjson.UnmarshalStringInt64From(dec)
+	digits, err := readDigits(dec, "an integer")
+	if err != nil {
+		return err
+	}
+	n, err := strconv.ParseInt(digits, 10, 64)
 	if err != nil {
 		return errors.Wrapf(validate.ErrValidation, "cannot decode an integer: %v", err)
 	}
@@ -115,7 +120,11 @@ func (u Unsigned) MarshalJSONTo(enc *jsontext.Encoder) error {
 // UnmarshalJSONFrom implements json.UnmarshalerFrom. It accepts a JSON number or a JSON
 // string of decimal digits.
 func (u *Unsigned) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	n, err := xjson.UnmarshalStringUint64From(dec)
+	digits, err := readDigits(dec, "an unsigned integer")
+	if err != nil {
+		return err
+	}
+	n, err := strconv.ParseUint(digits, 10, 64)
 	if err != nil {
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -125,4 +134,20 @@ func (u *Unsigned) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	*u = Unsigned(n)
 	return nil
+}
+
+func readDigits(dec *jsontext.Decoder, name string) (string, error) {
+	tok, err := dec.ReadToken()
+	if err != nil {
+		return "", err
+	}
+	if k := tok.Kind(); k != '0' && k != '"' {
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"cannot decode %s from JSON %s",
+			name,
+			k.String(),
+		)
+	}
+	return tok.String(), nil
 }

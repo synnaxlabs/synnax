@@ -10,8 +10,11 @@
 package v0_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io"
 	"math"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,6 +85,12 @@ var _ = Describe("Number", func() {
 			Entry("out of range", `"9223372036854775808"`),
 			Entry("boolean", "true"),
 		)
+		It("Should return a decoder error as is", func() {
+			var i v0.Integer
+			err := i.UnmarshalJSONFrom(jsontext.NewDecoder(strings.NewReader("")))
+			Expect(err).To(MatchError(io.EOF))
+			Expect(err).ToNot(MatchError(validate.ErrValidation))
+		})
 	})
 
 	Describe("Unsigned", func() {

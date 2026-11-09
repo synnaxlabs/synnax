@@ -23,14 +23,17 @@ class Float(float):
     "Infinity", or "-Infinity" when not.
     """
 
-    def __new__(cls, value: float | int | str) -> Float:
+    def __new__(cls, value: object) -> Float:
         if isinstance(value, str):
             if value not in _NON_FINITE:
                 raise ValueError(f"cannot parse a float from {value!r}")
             return super().__new__(cls, _NON_FINITE[value])
-        if isinstance(value, bool):
-            raise ValueError("cannot parse a float from a bool")
-        return super().__new__(cls, value)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"cannot parse a float from {value!r}")
+        try:
+            return super().__new__(cls, value)
+        except OverflowError as e:
+            raise ValueError(f"cannot parse a float from {value!r}") from e
 
     def encode(self) -> float | str:
         """:returns: the float as a JSON number, or its text when it is not finite."""
