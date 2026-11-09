@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -76,6 +77,7 @@ type Service struct {
 	signals io.Closer
 	table   *gorp.Table[Key, Group]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -83,7 +85,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes()}
+	s := &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
 		Name:            tableName,
@@ -146,12 +152,16 @@ func (s *Service) Changes(
 	return s.table.Changes(ctx, c)
 }
 
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
 		table:      s.table,
 		onMove:     s.cfg.MoveMembers,
 		setMembers: s.cfg.SetMembers,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -231,12 +241,20 @@ type Writer struct {
 	table      *gorp.Table[Key, Group]
 	onMove     MoveMembers
 	setMembers map[resource.Type]SetMembers
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
 // the parent's scope, and a scope that differs from the parent's is a validation error.
-// An existing group with g.Key keeps its stored parent and scope; only SetParent moves
-// a group.
+// An existing group with g.Key keeps its stored parent and scope; only a set parent
+// action moves a group. The commit carries a create action that holds the stored group.
 func (w Writer) Create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
@@ -269,45 +287,74 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 	if err = w.table.NewCreate().Entry(g).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.Attach(w.tx, g.Key, NewCreateAction(CreatePayload{Group: *g}))
 	return nil
 }
 
-// SetParent moves the groups with keys under parent, or to the top level when parent is
-// nil. Each group's scope must match the scope of parent. A group that holds a rack,
-// device, or project cannot move under a new top parent. A move under a new top parent
-// runs the MoveMembers hook.
-func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
-	var scope resource.Type
-	if parent != nil {
-		var err error
-		if scope, err = w.parentScope(ctx, *parent); err != nil {
-			return err
-		}
-	}
+// Apply applies the actions to the group with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. A set
+// parent action follows the rules of SetParent. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create, the result fails to decode or
+// validate, or a move breaks a rule, and an error wrapping query.ErrNotFound when no
+// group has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var (
 		top   *resource.ID
-		moved []Key
+		moved bool
 	)
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Group](keys...)).
+		Where(gorp.MatchKeys[Key, Group](key)).
 		ChangeErr(func(ctx gorp.Context, g Group) (Group, error) {
-			after, changed, err := w.checkMove(ctx, g, parent)
+			next, err := Reduce(g, acts...)
 			if err != nil {
-				return g, err
+				return Group{}, err
 			}
-			if changed {
-				top, moved = after, append(moved, g.Key)
+			if err = next.Validate(); err != nil {
+				return Group{}, err
 			}
-			g.Parent = parent
-			if parent == nil {
-				return g, nil
+			if sameID(g.Parent, next.Parent) {
+				return next, nil
 			}
-			return g, checkScope(g, scope)
+			var scope resource.Type
+			if next.Parent != nil {
+				if scope, err = w.parentScope(ctx, *next.Parent); err != nil {
+					return Group{}, err
+				}
+			}
+			if top, moved, err = w.checkMove(ctx, g, next.Parent); err != nil {
+				return Group{}, err
+			}
+			if next.Parent != nil {
+				if err = checkScope(next, scope); err != nil {
+					return Group{}, err
+				}
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.moveMembers(ctx, moved, top)
+	if moved {
+		if err := w.moveMembers(ctx, []Key{key}, top); err != nil {
+			return err
+		}
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// SetParent moves the groups with keys under parent, or to the top level when parent is
+// nil, by applying a set parent action to each. Each group's scope must match the scope
+// of parent. A group that holds a rack, device, or project cannot move under a new top
+// parent. A move under a new top parent runs the MoveMembers hook.
+func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
+	act := NewSetParentAction(SetParentPayload{Parent: parent})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, act); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // parentScope returns the scope a group takes under parent: the scope of a parent
@@ -387,13 +434,11 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// Rename renames the Group with the given key.
+// Rename renames the group with the given key by applying a set of the name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Group](key)).
-		ChangeErr(func(_ gorp.Context, g Group) (Group, error) {
-			g.Name = name
-			return g, g.Validate()
-		}).
-		Exec(ctx, w.tx)
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }

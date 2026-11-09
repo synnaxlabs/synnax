@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -45,7 +47,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// RBAC checks the access of every request except set group.
+	// RBAC checks that the subject can read the inputs of each calculated channel that
+	// a create writes.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -169,6 +172,16 @@ type CreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+var _ bind.Returns = CreateResponse{}
+
+// Returned implements bind.Returns, so a create that returns an existing channel needs
+// retrieve on it.
+func (r CreateResponse) Returned() []resource.ID {
+	return lo.Map(r.Channels, func(ch Channel, _ int) resource.ID {
+		return channel.ResourceID(ch.Key)
+	})
+}
+
 // Create creates a Channel based on the parameters given in the request.
 func (s *Service) Create(
 	ctx context.Context,
@@ -182,32 +195,14 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeChannel}},
-	}); err != nil {
+	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
+	if err != nil {
 		return CreateResponse{}, err
 	}
-	var stored []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(lo.Map(
-			translated,
-			func(ch channel.Channel, _ int) channel.Key { return ch.Key() },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			translated,
-			stored,
-			func(ch channel.Channel) *group.Key { return ch.Group },
-		),
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -468,6 +463,8 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
+// Delete deletes the channels that the request names by key or by name. Deleting an
+// internal channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -475,32 +472,11 @@ func (s *Service) Delete(
 ) (struct{}, error) {
 	w := s.internal.NewWriter(tx)
 	if len(req.Keys) > 0 {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.ResourceIDsFromKeys(req.Keys),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
 			return struct{}{}, err
 		}
 	}
 	if len(req.Names) > 0 {
-		res := make([]channel.Channel, 0, len(req.Names))
-		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNames(req.Names...)).
-			Entries(&res).
-			Exec(ctx, tx); err != nil {
-			return struct{}{}, err
-		}
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.ResourceIDsFromChannels(res),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
@@ -511,21 +487,52 @@ type RenameRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
+// Rename applies a rename action to each channel in Keys, giving it the name at the
+// same index in Names. Renaming an internal channel is a validation error.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: channel.ResourceIDsFromKeys(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
+	if len(req.Keys) != len(req.Names) {
+		return struct{}{}, errors.Wrap(
+			validate.ErrValidation,
+			"keys and names must be the same length",
+		)
 	}
-	return struct{}{}, s.internal.NewWriter(tx).RenameMany(
-		ctx, req.Keys, req.Names, false,
-	)
+	w := s.internal.NewWriter(tx)
+	for i, k := range req.Keys {
+		rename := channel.NewRenameAction(channel.RenamePayload{Name: req.Names[i]})
+		if _, err := w.Apply(ctx, k, rename); err != nil {
+			return struct{}{}, err
+		}
+	}
+	return struct{}{}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
+
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the data type that an expression edit infers.
+type DispatchResponse = actions.DispatchResponse[channel.Action]
+
+// Dispatch applies the action sequence to the target channel atomically. Subscribers to
+// the channel action channel receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	computed, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: computed}, nil
 }
 
 // SetGroupRequest moves channels into Group, or out of their group when Group is nil.

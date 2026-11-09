@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -193,7 +194,7 @@ func buildCheckers(
 }
 
 func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
-	return format.Default(repoRoot)
+	return format.Default(repoRoot, time.Now().Year(), nil)
 }
 
 func loadCheckCache(repoRoot string) *format.Cache {

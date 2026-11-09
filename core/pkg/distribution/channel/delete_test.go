@@ -29,7 +29,7 @@ var _ = Describe("Delete", Ordered, func() {
 	})
 
 	It("Should delete the storage channel for a host key", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+		out := MustSucceed(n.CreateChannels(ctx, []channel.Channel{
 			{Name: "to-delete", DataType: telem.TimestampT, IsIndex: true},
 		}))
 		key := out[0].Key()
@@ -39,7 +39,7 @@ var _ = Describe("Delete", Ordered, func() {
 		)
 	})
 	It("Should skip storage deletes for a free channel", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+		out := MustSucceed(n.CreateChannels(ctx, []channel.Channel{
 			{
 				Name:        "free-delete",
 				DataType:    telem.Float32T,
