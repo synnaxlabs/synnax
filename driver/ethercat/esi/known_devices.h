@@ -10,8 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <string_view>
 
 #include "driver/ethercat/slave/slave.h"
 
@@ -27,5 +25,9 @@ bool lookup_device_pdos(
 /// @brief sets the name and data type of each of the slave's PDO entries that the
 /// registry lists at the same address and bit length. Leaves other entries unchanged.
 void fill_known_entries(slave::Properties &slave);
+
+/// @brief names the entries of a known device. Gives a known device whose discovery
+/// found no entries the layout the registry lists, and clears its discovery error.
+void fill(slave::DiscoveryResult &slave);
 
 }

@@ -146,9 +146,12 @@ public:
         engine(std::move(eng)) {}
 
     x::errors::Error start() override {
-        if (auto err = this->engine->ensure_initialized(); err) return err;
-        const auto slaves = slave::discovered_properties(this->engine->slaves());
-        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
+        const auto [slaves, discover_err] = this->engine->discover();
+        if (discover_err) return discover_err;
+        if (auto err = topology::validate(
+                slave::discovered_properties(slaves),
+                this->cfg.device_cache
+            ))
             return err;
 
         std::vector<engine::Engine::Writer::Entry> entries;

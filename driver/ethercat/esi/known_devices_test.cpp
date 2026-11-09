@@ -18,6 +18,7 @@ protected:
     slave::Properties slave;
 };
 
+/// @brief it should find no PDOs for a device that is not in the registry.
 TEST_F(KnownDevicesTest, LookupUnknownDeviceReturnsFalse) {
     bool found = lookup_device_pdos(0xDEADBEEF, 0x12345678, 0x00000001, slave);
     EXPECT_FALSE(found);

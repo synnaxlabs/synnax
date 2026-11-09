@@ -22,7 +22,7 @@
 namespace driver::ethercat::topology {
 
 /// @brief validates configured channels match current bus topology.
-/// @param actual_slaves Current slaves from engine->slaves().
+/// @param actual_slaves Current slaves from engine->discover().
 /// @param expected Map of device_key to SlaveProperties from config.
 /// @return x::errors::NIL if topology matches, errors::TOPOLOGY_MISMATCH otherwise.
 [[nodiscard]] inline x::errors::Error validate(

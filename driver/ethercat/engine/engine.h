@@ -68,7 +68,23 @@ struct Config {
 /// last one closes. Opening or closing one never interrupts the others.
 class Engine {
     Config config;
+    /// @brief the network interface of the bus.
+    std::string iface;
     std::shared_ptr<master::Master> master;
+    /// @brief the slaves of the latest discovery, with the layouts of the running bus.
+    std::vector<slave::DiscoveryResult> slaves;
+    /// @brief the process data of the running bus. Written only while the bus is
+    /// stopped, so the cycle thread reads it without a lock.
+    master::Image image;
+    /// @brief a slave that the running bus started without.
+    struct LeftOut {
+        std::string name;
+        slave::Refusal refusal;
+    };
+    /// @brief the slaves that the running bus started without, keyed by position.
+    /// Written only while the bus is stopped, so the supervisor reads it without a
+    /// lock.
+    std::map<uint16_t, LeftOut> left_out;
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
@@ -168,6 +184,16 @@ class Engine {
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
+    /// @brief returns err, the error of the last pass of a failed start, with a
+    /// sentence for each slave in left_out. The error ends with slave::DC_SYNC_ADVICE
+    /// once when a slave in refused or left_out needs it.
+    static x::errors::Error start_error(
+        x::errors::Error err,
+        const std::map<uint16_t, slave::Refusal> &refused,
+        const std::map<uint16_t, LeftOut> &left_out
+    );
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover_locked();
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
@@ -192,6 +218,11 @@ class Engine {
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
     [[nodiscard]] x::errors::Error cycle_error() const;
+    /// @brief returns the offset of each entry in a process image of image_size bytes.
+    /// @returns errors::STATE_CHANGE_REFUSED for an entry on a left-out slave, or
+    /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
+    [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
+    offsets_locked(const std::vector<pdo::Entry> &entries, size_t image_size) const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -270,8 +301,13 @@ public:
         [[nodiscard]] Transaction open_tx() const;
     };
 
-    /// @brief constructs an Engine that runs the bus of master.
-    explicit Engine(std::shared_ptr<master::Master> master, Config config = {});
+    /// @brief constructs an Engine that runs the bus of master on the network interface
+    /// iface.
+    Engine(
+        std::string iface,
+        std::shared_ptr<master::Master> master,
+        Config config = {}
+    );
 
     ~Engine();
 
@@ -310,22 +346,18 @@ public:
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
-    /// @brief initializes the master unless the bus is running. While the bus is
-    /// stopped, rediscovers the slaves when the number that answer has changed.
-    /// Thread-safe.
-    [[nodiscard]] x::errors::Error ensure_initialized();
+    /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
+    /// again when the number that answer has changed. Thread-safe.
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    discover();
 
-    /// @brief discovers the slaves again unless the bus is running. Thread-safe.
-    [[nodiscard]] x::errors::Error rediscover();
-
-    /// @brief returns discovered slaves.
-    [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
+    /// @brief returns the slaves on the bus, and discovers them again while the bus is
+    /// stopped. Thread-safe.
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover();
 
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
-
-    /// @brief returns the interface name.
-    [[nodiscard]] std::string interface_name() const;
 };
 }

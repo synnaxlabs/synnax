@@ -47,7 +47,7 @@ Pool::acquire(const std::string &key) {
     };
     cfg.start_timeout = this->start_timeout;
     cfg.rt_manager = this->rt_manager;
-    auto eng = std::make_shared<Engine>(std::move(m), cfg);
+    auto eng = std::make_shared<Engine>(key, std::move(m), cfg);
     this->engines[key] = eng;
     return {eng, x::errors::NIL};
 }
@@ -64,19 +64,17 @@ std::vector<slave::Health> Pool::health(const std::string &key) const {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Pool::discover_slaves(const std::string &key) {
+Pool::discover(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
-    if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
-    return {engine->slaves(), x::errors::NIL};
+    return engine->discover();
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Pool::rediscover_slaves(const std::string &key) {
+Pool::rediscover(const std::string &key) {
     auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
-    if (auto init_err = engine->rediscover()) return {{}, init_err};
-    return {engine->slaves(), x::errors::NIL};
+    return engine->rediscover();
 }
 
 }

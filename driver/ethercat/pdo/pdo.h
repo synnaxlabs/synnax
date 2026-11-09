@@ -170,16 +170,17 @@ find_offset(const Offsets &offsets, const Entry &entry) {
 }
 
 /// @brief computes bit-granularity offsets for a slave's PDO properties list,
-/// accumulating from a base byte offset. Padding counts toward later offsets and gets
-/// no offset of its own.
+/// accumulating from start_bit of the byte at base_byte_offset. Padding counts toward
+/// later offsets and gets no offset of its own.
 inline void compute_offsets(
     Offsets &offsets,
     const uint16_t slave_position,
     const std::vector<Properties> &pdos,
     const bool is_input,
-    const size_t base_byte_offset
+    const size_t base_byte_offset,
+    const uint8_t start_bit = 0
 ) {
-    size_t bit_offset = 0;
+    size_t bit_offset = start_bit;
     for (const auto &pdo: pdos) {
         if (!pdo.is_padding())
             offsets[Key{slave_position, pdo.index, pdo.sub_index, is_input}] = {
@@ -198,5 +199,80 @@ inline size_t total_bits(const std::vector<Properties> &pdos) {
     for (const auto &pdo: pdos)
         bits += pdo.bit_length;
     return bits;
+}
+
+/// @brief an object that a PDO maps.
+struct Object {
+    /// @brief the index of the object.
+    uint16_t index;
+    /// @brief the sub-index of the object.
+    uint8_t sub_index;
+    /// @brief the number of bits the PDO maps.
+    uint8_t bit_length;
+    /// @brief the name of the object, or empty when the slave gives none.
+    std::string name;
+    /// @brief the CoE data type of the object.
+    telem::DataType type = telem::DataType::EC_UNKNOWN;
+};
+
+/// @brief a PDO and the objects it maps, in order.
+struct PDO {
+    /// @brief the index of the PDO, such as 0x1A00.
+    uint16_t index;
+    /// @brief the objects the PDO maps.
+    std::vector<Object> entries;
+    /// @brief the name of the PDO, when the slave gives one.
+    std::optional<std::string> name;
+};
+
+/// @brief a process data sync manager and the PDOs it carries.
+struct Sync {
+    /// @brief the number of the sync manager.
+    uint8_t index;
+    /// @brief whether the sync manager carries inputs.
+    bool is_input;
+    /// @brief the PDOs the sync manager carries, in order.
+    std::vector<PDO> pdos;
+    /// @brief the slave has no PDO assign object for the sync manager, so its PDOs are
+    /// the ones its EEPROM lists.
+    bool fixed = false;
+};
+
+/// @brief appends the objects that pdo maps to pdos, as padding where the PDO maps no
+/// object. Infers a data type from the bit length when the CoE type is unknown.
+void append(std::vector<pdo::Properties> &pdos, bool is_input, const PDO &pdo);
+inline void
+append(std::vector<pdo::Properties> &pdos, const bool is_input, const PDO &pdo) {
+    for (const auto &entry: pdo.entries) {
+        if (entry.index == 0) {
+            if (entry.bit_length > 0)
+                pdos.push_back({
+                    .pdo_index = pdo.index,
+                    .bit_length = entry.bit_length,
+                    .is_input = is_input,
+                });
+            continue;
+        }
+        const auto data_type = telem::map_ethercat_to_synnax(
+            entry.type,
+            entry.bit_length
+        );
+        pdos.push_back({
+            .pdo_index = pdo.index,
+            .index = entry.index,
+            .sub_index = entry.sub_index,
+            .bit_length = entry.bit_length,
+            .is_input = is_input,
+            .name = telem::generate_pdo_entry_name(
+                entry.name,
+                entry.index,
+                entry.sub_index,
+                is_input,
+                data_type
+            ),
+            .data_type = data_type,
+            .pdo_name = pdo.name,
+        });
+    }
 }
 }

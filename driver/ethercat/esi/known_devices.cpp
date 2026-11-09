@@ -224,4 +224,16 @@ void fill_known_entries(slave::Properties &slave) {
     fill(slave.output_pdos, registry.output_pdos);
 }
 
+void fill(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        fill_known_entries(props);
+        return;
+    }
+    if (!lookup_device_pdos(props.vendor_id, props.product_code, props.revision, props))
+        return;
+    slave.status.pdos_discovered = true;
+    slave.status.pdo_discovery_error.clear();
+}
+
 }

@@ -274,6 +274,23 @@ TEST(ComputeOffsetsProperties, BaseOffsetPropagation) {
     EXPECT_EQ(offsets[k1].bit, 0);
 }
 
+/// @brief it should start at the given bit and carry later entries into the next byte.
+TEST(ComputeOffsetsProperties, StartBitCarriesIntoTheNextByte) {
+    Offsets offsets;
+    const std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 2},
+        {.index = 0x6000, .sub_index = 2, .bit_length = 2},
+    };
+    compute_offsets(offsets, 1, pdos, true, 3, 6);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{1, 0x6000, 2, true};
+    EXPECT_EQ(offsets[k1].byte, 3);
+    EXPECT_EQ(offsets[k1].bit, 6);
+    EXPECT_EQ(offsets[k2].byte, 4);
+    EXPECT_EQ(offsets[k2].bit, 0);
+}
+
 TEST(ComputeOffsetsProperties, EmptyPdoList) {
     Offsets offsets;
     std::vector<Properties> pdos;
@@ -387,5 +404,37 @@ TEST(TotalBits, CountsPadding) {
         {.index = 0x6000, .sub_index = 17, .bit_length = 16},
     };
     EXPECT_EQ(total_bits(pdos), 24);
+}
+
+/// @brief it should append each object with its name, its data type, and the name of
+/// its PDO, and keep padding.
+TEST(AppendTest, AppendsObjectsAndPadding) {
+    std::vector<pdo::Properties> pdos;
+    append(
+        pdos,
+        true,
+        {
+            .index = 0x1A00,
+            .entries =
+                {{.index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 16,
+                  .name = "Value",
+                  .type = telem::DataType::EC_INTEGER16},
+                 {.index = 0, .sub_index = 0, .bit_length = 8},
+                 {.index = 0, .sub_index = 0, .bit_length = 0},
+                 {.index = 0x6000, .sub_index = 2, .bit_length = 32}},
+            .name = "Channel 1",
+        }
+    );
+    ASSERT_EQ(pdos.size(), 3);
+    EXPECT_EQ(pdos[0].name, "Value");
+    EXPECT_EQ(pdos[0].data_type, x::telem::INT16_T);
+    EXPECT_EQ(pdos[0].pdo_index, 0x1A00);
+    EXPECT_EQ(pdos[0].pdo_name, "Channel 1");
+    EXPECT_TRUE(pdos[1].is_padding());
+    EXPECT_EQ(pdos[1].bit_length, 8);
+    EXPECT_EQ(pdos[2].name, "Input (uint32) 0x6000:02");
+    EXPECT_EQ(pdos[2].data_type, x::telem::UINT32_T);
 }
 }

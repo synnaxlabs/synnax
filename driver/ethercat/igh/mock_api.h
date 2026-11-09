@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <span>
 #include <tuple>
 #include <unordered_map>
@@ -103,6 +104,11 @@ public:
     };
     /// @brief sync managers reported for every slave during discovery.
     std::vector<FakeSync> fake_syncs;
+    /// @brief the position of a slave that master_get_slave fails to read.
+    std::optional<uint16_t> unreadable_slave;
+    /// @brief the index and sub-index of an entry that slave_config_reg_pdo_entry
+    /// rejects.
+    std::optional<std::pair<uint16_t, uint8_t>> rejected_entry;
     /// @brief (index, sub_index) pairs passed to slave_config_reg_pdo_entry.
     std::vector<std::pair<uint16_t, uint8_t>> registered_entries;
     /// @brief one SDO write: slave position, index, sub-index, and bytes.
@@ -328,7 +334,9 @@ public:
         uint16_t slave_position,
         ec_slave_info_t *slave_info
     ) const override {
-        if (slave_position >= this->mock_slaves.size()) return -1;
+        if (slave_position >= this->mock_slaves.size() ||
+            slave_position == this->unreadable_slave)
+            return -EIO;
         *slave_info = this->mock_slaves[slave_position];
         slave_info->sync_count = static_cast<uint8_t>(this->fake_syncs.size());
         return 0;
@@ -482,6 +490,7 @@ public:
         ec_domain_t *domain,
         unsigned int *bit_position
     ) const override {
+        if (std::pair{index, sub_index} == this->rejected_entry) return -ENOENT;
         auto *self = const_cast<MockAPI *>(this);
         self->registered_entries.emplace_back(index, sub_index);
         *bit_position = 0;

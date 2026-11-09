@@ -16,6 +16,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -227,10 +228,6 @@ struct Properties {
     uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
-    /// @brief total input size in bits.
-    uint32_t input_bits{};
-    /// @brief total output size in bits.
-    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
@@ -239,8 +236,6 @@ struct Properties {
     std::vector<dc::OpMode> op_modes;
     /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
     std::optional<dc::Choice> op_mode;
-    /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
     /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
@@ -305,9 +300,6 @@ struct Properties {
         props["name"] = this->name;
         props["network"] = network;
         props["position"] = this->position;
-        props["input_bits"] = this->input_bits;
-        props["output_bits"] = this->output_bits;
-        props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
         props["enabled"] = this->enabled;
 
         nlohmann::json op_modes = nlohmann::json::array();
@@ -339,13 +331,23 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
+/// message about one or more such slaves ends with it once.
+inline constexpr std::string_view DC_SYNC_ADVICE =
+    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
+    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
+    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
+    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "list the mode it expects, change its mode with the configuration tool of its "
+    "vendor.";
+
 /// @brief why the bus started without a slave that refused a state.
 struct Refusal {
     /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
     /// Inconsistent settings".
     std::string reason;
     /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
-    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    /// message about the refusal ends with DC_SYNC_ADVICE.
     bool dc_sync_invalid = false;
 
     bool operator==(const Refusal &) const = default;

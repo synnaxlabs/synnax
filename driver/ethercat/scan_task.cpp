@@ -57,7 +57,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              "The Driver tries it again the next time the network "
                              "starts.";
         if (health.refusal->dc_sync_invalid)
-            status.description.append(" ").append(master::DC_SYNC_ADVICE);
+            status.description.append(" ").append(slave::DC_SYNC_ADVICE);
         return;
     }
     if (health.lost) {
@@ -156,8 +156,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto due = this->next_rediscoveries.find(key);
         const bool scheduled = due != this->next_rediscoveries.end();
         const bool rediscover = scheduled && scan_ctx.count >= due->second;
-        auto [slaves, err] = rediscover ? this->pool->rediscover_slaves(key)
-                                        : this->pool->discover_slaves(key);
+        auto [slaves, err] = rediscover ? this->pool->rediscover(key)
+                                        : this->pool->discover(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
@@ -249,7 +249,16 @@ synnax::device::Device Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (!pdo_discovery_failed(slave)) {
+    else if (
+        pdo_discovery_failed(slave) && props.input_pdos.empty() &&
+        props.output_pdos.empty()
+    ) {
+        status.message = "Failed to discover PDOs";
+        status.description = pdo_error_description(
+            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
+        );
+        status.variant = synnax::status::VARIANT_WARNING;
+    } else {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
             return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
                 return !p.is_padding();
@@ -258,12 +267,11 @@ synnax::device::Device Scanner::create_slave_device(
         status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
                          objects(props.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
-    } else {
-        status.message = "Failed to discover PDOs";
-        status.description = pdo_error_description(
-            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
-        );
-        status.variant = synnax::status::VARIANT_WARNING;
+        // A fallback, such as the SII after a failed CoE read, gives PDOs and an error.
+        if (!sts.pdo_discovery_error.empty()) {
+            status.description = pdo_error_description(sts.pdo_discovery_error);
+            status.variant = synnax::status::VARIANT_WARNING;
+        }
     }
     dev.status = std::move(status);
     return dev;
@@ -344,7 +352,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->pool->discover_slaves(args.interface);
+    auto [slaves, err] = this->pool->discover(args.interface);
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();

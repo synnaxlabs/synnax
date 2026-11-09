@@ -55,8 +55,6 @@ class Master final : public master::Master {
     size_t input_sz;
     /// @brief output size in bytes (RxPDO, master→slave).
     size_t output_sz;
-    /// @brief cached PDO offsets computed during activation.
-    pdo::Offsets pdo_offsets;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
@@ -66,9 +64,6 @@ class Master final : public master::Master {
     /// @brief the mode the user chose for each slave that has a choice, keyed by
     /// position.
     std::map<uint16_t, dc::Choice> chosen_modes;
-    /// @brief why the bus starts without each slave that leave_out() names, keyed by
-    /// position.
-    std::map<uint16_t, slave::Refusal> left_out;
     /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
     std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
         startup_parameters;
@@ -92,42 +87,24 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
-    x::errors::Error initialize() override;
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
-
-    /// @brief does what master::Master::activate does, but ignores period and starts no
-    /// DC sync yet, so a slave that needs DC sync refuses SAFE-OP.
-    x::errors::Error activate(
-        x::telem::TimeSpan period,
-        const std::function<void()> &start_cycle
+    /// @brief does what master::Master::activate does, but ignores the period and
+    /// starts no DC sync yet, so a slave that needs DC sync refuses SAFE-OP. Returns no
+    /// refusals, since the IgH master moves the slaves to OP on its own after
+    /// activate() returns.
+    master::Activation activate(
+        const master::Plan &plan,
+        const std::function<void(const master::Image &)> &start_cycle
     ) override;
-
-    /// @brief returns no refusals, since the IgH master moves the slaves to OP on its
-    /// own after activate() returns.
-    std::map<uint16_t, slave::Refusal> refusals() const override { return {}; }
-
-    /// @brief returns false, since the IgH master reports no refusals.
-    bool dc_sync_refused() const override { return false; }
-
-    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override;
 
     void deactivate() override;
 
     x::errors::Error receive() override;
 
     x::errors::Error send() override;
-
-    std::span<const uint8_t> input_data() override;
-
-    std::span<uint8_t> output_data() override;
-
-    std::pair<pdo::Offset, x::errors::Error>
-    pdo_offset(const pdo::Entry &entry) const override;
-
-    std::vector<slave::DiscoveryResult> slaves() const override;
 
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step.
@@ -136,11 +113,10 @@ public:
     /// @brief returns nullopt, since this master does not read the distributed clock.
     std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
 
-    std::vector<dc::Registers> dc_sync() const override { return {}; }
-
-    std::string interface_name() const override;
-
 private:
+    /// @brief opens the master, reads each slave on the bus, and creates the domains.
+    x::errors::Error initialize();
+
     /// @brief returns or creates the configuration of the slave at a position.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
 
@@ -149,9 +125,13 @@ private:
     /// layout.
     x::errors::Error configure_assigned_pdos(uint16_t position, ec_slave_config_t *sc);
 
-    /// @brief registers every PDO entry the slave at a position maps, recording the
-    /// offset of each.
-    void register_pdo_entries(uint16_t position, ec_slave_config_t *sc);
+    /// @brief registers every PDO entry that a slave maps, recording in image the
+    /// offset of each entry or the reason the master rejected it.
+    void register_pdo_entries(
+        const slave::Properties &slave,
+        ec_slave_config_t *sc,
+        master::Image &image
+    );
 
     /// @brief writes a slave's startup parameters and adds them to its config, so the
     /// master writes them again at each move to SAFE-OP.
@@ -161,26 +141,12 @@ private:
         const std::vector<slave::StartupParameter> &parameters
     );
 
-    /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(slave::DiscoveryResult &slave);
-
-    /// @brief reads the PDO entries the slave's sync managers carry.
-    void read_slave_pdos(slave::DiscoveryResult &slave);
+    /// @brief discovers the PDO entries of a slave from the layout IgH scanned for its
+    /// sync_count sync managers.
+    void discover_slave_pdos(slave::DiscoveryResult &slave, uint8_t sync_count);
 
     /// @brief appends the PDO entries that IgH scanned for a sync manager of a slave.
     void append_scanned_pdos(slave::Properties &props, uint8_t sync_index);
-
-    /// @brief appends an entry that a PDO maps to the slave's inputs or outputs.
-    void append_pdo_entry(
-        slave::Properties &props,
-        bool is_input,
-        uint16_t pdo_index,
-        const ec_pdo_entry_info_t &entry_info
-    );
-
-    /// @brief reads the name of a PDO entry from the slave's object dictionary.
-    std::string
-    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
 };
 
 /// @brief sysfs path where IgH EtherCAT masters are exposed.
