@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -91,39 +91,36 @@ const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
-type SamplingMode = "scalar" | "array";
-
 const Properties = (): ReactElement => {
-  const arrayMode = PForm.useFieldValue(path.config.arrayMode);
+  const samplingType = PForm.useFieldValue(path.config.sampling.type);
   return (
     <>
       <Select />
       <Flex.Box x wrap>
-        <PForm.Field<boolean>
+        <PForm.Field<opcua.Sampling>
           label="Sampling mode"
-          path={path.config.arrayMode}
-          onChange={(value, { set }) => {
-            // always set the array size to 1 for either the default in array mode or an
-            // array size of 1 in stream mode.
-            set(path.config.arraySize, 1);
-            if (!value) set(path.config.streamRate, 25);
+          path={path.config.sampling}
+          onChange={({ type }, { set }) => {
+            if (type === "unary") set(path.config.streamRate, 25);
           }}
         >
           {({ value, onChange }) => (
-            <PSelect.Buttons<SamplingMode>
-              value={value ? "array" : "scalar"}
-              onChange={(mode: SamplingMode) => onChange(mode === "array")}
+            <PSelect.Buttons<opcua.SamplingType>
+              value={value.type}
+              onChange={(type: opcua.SamplingType) =>
+                onChange(type === "array" ? { type, size: 1 } : { type })
+              }
             >
-              <PSelect.Item itemKey="scalar">Scalar</PSelect.Item>
+              <PSelect.Item itemKey="unary">Scalar</PSelect.Item>
               <PSelect.Item itemKey="array">Array</PSelect.Item>
             </PSelect.Buttons>
           )}
         </PForm.Field>
         <Task.Fields.SampleRate />
-        {arrayMode ? (
+        {samplingType === "array" ? (
           <PForm.NumericField
             label="Array size"
-            path={path.config.arraySize}
+            path={deep.variant(path.config.sampling, "type", "array").size}
             className={CSS.B("opc-array-size-field")}
           />
         ) : (
