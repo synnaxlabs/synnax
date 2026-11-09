@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -47,6 +48,21 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a project whose key exists", func(ctx SpecContext) {
+			proj := project.Project{Name: "stored"}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			again := project.Project{Key: proj.Key, Name: "refused"}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("project %s already exists", proj.Key)),
+			))
+			var res project.Project
+			Expect(svc.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(proj))
+		})
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple projects", func(ctx SpecContext) {
@@ -240,21 +256,6 @@ var _ = Describe("Writer", func() {
 			))
 			Expect(retrieveGroup(ctx, proj.Key)).To(BeNil())
 		})
-
-		It(
-			"Should keep the stored group when a project is created again",
-			func(ctx SpecContext) {
-				g := createGroup(ctx, group.Group{
-					Name:  "Kept",
-					Scope: resource.TypeProject,
-				})
-				proj := project.Project{Name: "kept", Group: &g.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-				again := project.Project{Key: proj.Key, Name: "kept again"}
-				Expect(svc.NewWriter(tx).Create(ctx, &again)).To(Succeed())
-				Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
-			},
-		)
 	})
 })
 
@@ -295,7 +296,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -313,9 +314,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := project.Project{Key: proj.Key, Name: proj.Name}
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							return svc.NewWriter(tx).Rename(ctx, proj.Key, "renamed")
 						})).To(Succeed())
 					}
 				})

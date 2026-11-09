@@ -95,14 +95,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// USER
-		UserRename: unary[user.RenameRequest, struct{}](
-			router,
-			"/api/v1/user/rename",
-		),
-		UserChangeUsername: unary[user.ChangeUsernameRequest, struct{}](
-			router,
-			"/api/v1/user/change-username",
-		),
 		UserCreate: unary[user.CreateRequest, user.CreateResponse](
 			router,
 			"/api/v1/user/create",
@@ -114,10 +106,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		UserRetrieve: unary[user.RetrieveRequest, user.RetrieveResponse](
 			router,
 			"/api/v1/user/retrieve",
-		),
-		UserSetRole: unary[user.SetRoleRequest, struct{}](
-			router,
-			"/api/v1/user/set-role",
 		),
 		UserDispatch: unary[user.DispatchRequest, struct{}](
 			router,
@@ -136,10 +124,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelDelete: unary[channel.DeleteRequest, struct{}](
 			router,
 			"/api/v1/channel/delete",
-		),
-		ChannelRename: unary[channel.RenameRequest, struct{}](
-			router,
-			"/api/v1/channel/rename",
 		),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
@@ -225,10 +209,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathGroupDelete,
 		),
-		GroupRename: unary[group.RenameRequest, struct{}](
-			router,
-			"/api/v1"+api.PathGroupRename,
-		),
 		GroupDispatch: unary[group.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathGroupDispatch,
@@ -241,30 +221,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			group.RetrieveAncestorsRequest,
 			group.RetrieveAncestorsResponse,
 		](router, "/api/v1/group/retrieve-ancestors"),
-		GroupSetParent: unary[group.SetParentRequest, struct{}](
-			router,
-			"/api/v1"+api.PathGroupSetParent,
-		),
-		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathChannelSetGroup,
-		),
-		DeviceSetGroup: unary[device.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathDeviceSetGroup,
-		),
-		RackSetGroup: unary[rack.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathRackSetGroup,
-		),
-		ProjectSetGroup: unary[project.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathProjectSetGroup,
-		),
-		SchematicSymbolSetGroup: unary[symbol.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSymbolSetGroup,
-		),
 		Batch: unary[batch.ExecRequest, batch.ExecResponse](
 			router,
 			"/api/v1/batch",
@@ -282,14 +238,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		RangeDelete: unary[ranger.DeleteRequest, struct{}](
 			router,
 			"/api/v1/range/delete",
-		),
-		RangeRename: unary[ranger.RenameRequest, struct{}](
-			router,
-			"/api/v1/range/rename",
-		),
-		RangeSetEnd: unary[ranger.SetEndRequest, struct{}](
-			router,
-			"/api/v1/range/set-end",
 		),
 		RangeDispatch: unary[ranger.DispatchRequest, struct{}](
 			router,
@@ -344,10 +292,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/project/delete",
 		),
-		ProjectRename: unary[project.RenameRequest, struct{}](
-			router,
-			"/api/v1/project/rename",
-		),
 		ProjectDispatch: unary[project.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathProjectDispatch,
@@ -397,10 +341,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolDelete: unary[symbol.DeleteRequest, struct{}](
 			router,
 			"/api/v1/schematic/symbol/delete",
-		),
-		SchematicSymbolRename: unary[symbol.RenameRequest, struct{}](
-			router,
-			"/api/v1/schematic/symbol/rename",
 		),
 		SchematicSymbolDispatch: unary[symbol.DispatchRequest, struct{}](
 			router,
@@ -526,10 +466,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/delete",
 		),
-		RackRename: unary[rack.RenameRequest, struct{}](
-			router,
-			"/api/v1/rack/rename",
-		),
 		RackDispatch: unary[rack.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathRackDispatch,
@@ -552,10 +488,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/task/copy",
 		),
-		TaskRename: unary[task.RenameRequest, struct{}](
-			router,
-			"/api/v1/task/rename",
-		),
 		TaskDispatch: unary[task.DispatchRequest, task.DispatchResponse](
 			router,
 			"/api/v1"+api.PathTaskDispatch,
@@ -573,10 +505,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceDelete: unary[device.DeleteRequest, struct{}](
 			router,
 			"/api/v1/device/delete",
-		),
-		DeviceRename: unary[device.RenameRequest, struct{}](
-			router,
-			"/api/v1/device/rename",
 		),
 		DeviceDispatch: unary[device.DispatchRequest, struct{}](
 			router,
@@ -643,10 +571,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/directory/create",
 		),
-		ArcRenameDirectory: unary[arc.RenameDirectoryRequest, struct{}](
-			router,
-			"/api/v1/arc/directory/rename",
-		),
 		ArcDispatchDirectory: unary[arc.DispatchDirectoryRequest, struct{}](
 			router,
 			"/api/v1"+api.PathArcDirectoryDispatch,
@@ -655,7 +579,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/directory/delete",
 		),
-		ArcMove: unary[arc.MoveRequest, struct{}](router, "/api/v1/arc/move"),
 		ArcLSP: stream[arc.LSPMessage, arc.LSPMessage](
 			router,
 			"/api/v1/arc/lsp",
@@ -695,10 +618,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewDelete: unary[view.DeleteRequest, struct{}](
 			router,
 			"/api/v1/view/delete",
-		),
-		ViewRename: unary[view.RenameRequest, struct{}](
-			router,
-			"/api/v1/view/rename",
 		),
 		ViewDispatch: unary[view.DispatchRequest, struct{}](
 			router,

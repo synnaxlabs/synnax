@@ -98,8 +98,10 @@ var _ = Describe("Layer", func() {
 					"payload": {"key": %[1]q, "name": "Batched", "scope": "project"}
 				},
 				{
-					"endpoint": "/project/set-group",
-					"payload": {"keys": [%[2]q], "group": %[1]q}
+					"endpoint": "/project/dispatch",
+					"payload": {"key": %[2]q, "actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[1]q}}
+					]}
 				}
 			]}`, key, proj.Key)))
 			var stored project.Project
@@ -126,8 +128,10 @@ var _ = Describe("Layer", func() {
 					"payload": {"key": %[1]q, "name": "Denied", "scope": "project"}
 				},
 				{
-					"endpoint": "/project/set-group",
-					"payload": {"keys": [%[2]q], "group": %[1]q}
+					"endpoint": "/project/dispatch",
+					"payload": {"key": %[2]q, "actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[1]q}}
+					]}
 				}
 			]}`, key, proj.Key))).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
@@ -157,8 +161,10 @@ var _ = Describe("Layer", func() {
 				"payload": {"key": %[1]q, "name": "Discarded", "scope": "project"}
 			},
 			{
-				"endpoint": "/project/set-group",
-				"payload": {"keys": [%[2]q], "group": %[3]q}
+				"endpoint": "/project/dispatch",
+				"payload": {"key": %[2]q, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[3]q}}
+				]}
 			}
 		]}`, key, proj.Key, missing))).Error().To(MatchError(
 			"requests.1.group: group " + missing.String() + " does not exist: " +

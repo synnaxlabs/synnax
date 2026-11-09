@@ -55,6 +55,27 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a schematic whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := schematic.Schematic{
+				Key:      stored.Key,
+				Project:  &proj.Key,
+				Name:     "refused",
+				Snapshot: true,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("schematic %s already exists", stored.Key)),
+			))
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",

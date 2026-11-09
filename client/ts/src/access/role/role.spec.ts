@@ -192,7 +192,7 @@ describe("cached reads", () => {
       const first = await client.access.roles.retrieve(r.key);
       expect(first.name).toEqual(r.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.roles.create({ ...r, name: renamed });
+      await remote.access.roles.rename(r.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -225,7 +225,7 @@ describe("cached reads", () => {
       try {
         await client.access.roles.retrieve(r.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.roles.create({ ...r, name: renamed });
+        await remote.access.roles.rename(r.key, renamed);
         await expect
           .poll(() => {
             const cached = client.access.roles.watch(r.key).getCached();

@@ -54,7 +54,6 @@ var (
 		apisymbol.CreateRequest,
 		apisymbol.CreateResponse,
 	]
-	rename      freighter.UnaryHandler[apisymbol.RenameRequest, struct{}]
 	dispatch    freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
 	del         freighter.UnaryHandler[apisymbol.DeleteRequest, struct{}]
 	deleteGroup freighter.UnaryHandler[apisymbol.DeleteGroupRequest, struct{}]
@@ -62,7 +61,6 @@ var (
 		apisymbol.ImportGroupRequest,
 		apisymbol.ImportGroupResponse,
 	]
-	setGroup freighter.UnaryHandler[apisymbol.SetGroupRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apisymbol.RetrieveRequest,
 		apisymbol.RetrieveResponse,
@@ -112,12 +110,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	create = bind.Write(binder, apiSvc.Create)
-	rename = bind.Write(binder, apiSvc.Rename)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	del = bind.Write(binder, apiSvc.Delete)
 	deleteGroup = bind.Write(binder, apiSvc.DeleteGroup)
 	importGroup = bind.Write(binder, apiSvc.ImportGroup)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	exportGroup = bind.Read(binder, apiSvc.ExportGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{

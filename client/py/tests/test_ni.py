@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.ni
@@ -827,7 +828,7 @@ class TestNIDeviceHelpers:
     def test_device_with_explicit_key(self, client: sy.Synnax) -> None:
         """Test that Device class accepts an explicit key."""
         rack = client.racks.retrieve_embedded_rack()
-        explicit_key = "my-explicit-ni-key"
+        explicit_key = f"my-explicit-ni-key-{random_name()}"
 
         device = sy.ni.Device(
             identifier="dev_mod3",

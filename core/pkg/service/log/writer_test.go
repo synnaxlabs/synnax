@@ -134,23 +134,22 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It(
-			"Should update the existing log when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				key := uuid.New()
-				first := log.Log{Project: &proj.Key, Key: key, Name: "first"}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := log.Log{Project: &proj.Key, Key: key, Name: "second"}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				var res log.Log
-				Expect(svc.NewRetrieve().
-					Where(log.MatchKeys(key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res.Name).To(Equal("second"))
-			},
-		)
+		It("Should refuse a log whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := log.Log{Project: &proj.Key, Name: "first"}
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := log.Log{Project: &proj.Key, Key: stored.Key, Name: "second"}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("log %s already exists", stored.Key)),
+			))
+			var res log.Log
+			Expect(svc.NewRetrieve().
+				Where(log.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",

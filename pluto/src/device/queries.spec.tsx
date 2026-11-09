@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { id, type record } from "@synnaxlabs/x";
+import { caseconv, id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,10 +101,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
       await act(async () => {
-        await client.devices.create({
-          ...dev,
-          name: "test2",
-        });
+        await client.devices.rename(dev.key, "test2");
       });
       await waitFor(() => {
         expect(result.current?.name).toEqual("test2");
@@ -175,10 +172,7 @@ describe("queries", () => {
         expect(result.current?.status?.variant).toEqual("success");
       });
       await act(async () => {
-        await client.devices.create({
-          ...dev,
-          name: "updated-name",
-        });
+        await client.devices.rename(dev.key, "updated-name");
       });
       await waitFor(() => {
         expect(result.current?.name).toEqual("updated-name");
@@ -263,8 +257,11 @@ describe("queries", () => {
         const local = createTestClient();
         const stop = local.devices.watch(dev.key).onChange(() => {});
         await waitForStreamLive(local.connection);
-        // An update that keeps the name and the parent writes no status.
-        await client.devices.create({ ...dev, location: "updated" });
+        // An edit that keeps the name and the parent writes no status.
+        await client.devices.dispatch(
+          dev.key,
+          device.set({ path: ["location"], value: "updated" }),
+        );
         await waitFor(() => {
           const cached = local.devices.watch(dev.key).getCached();
           expect(query.isLive(cached) ? cached.location : undefined).toEqual("updated");
@@ -344,7 +341,10 @@ describe("queries", () => {
         });
         expect(result.current?.key).toEqual(dev.key);
         await act(async () => {
-          await client.devices.create({ ...dev, location: "updated" });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["location"], value: "updated" }),
+          );
         });
         await waitFor(() => expect(result.current?.location).toEqual("updated"));
       });
@@ -404,7 +404,7 @@ describe("queries", () => {
       await waitFor(() => expect(callback).toHaveBeenCalled());
       expect(result.current.getItem(dev.key)?.status?.variant).toEqual("success");
       await act(async () => {
-        await client.devices.create({ ...dev, name: "updated" });
+        await client.devices.rename(dev.key, "updated");
       });
       await waitFor(() =>
         expect(result.current.getItem(dev.key)?.name).toEqual("updated"),
@@ -537,7 +537,10 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(false));
-      await client.devices.create({ ...dev, configured: true });
+      await client.devices.dispatch(
+        dev.key,
+        device.set({ path: ["configured"], value: true }),
+      );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(true));
     });
   });
@@ -773,6 +776,31 @@ describe("queries", () => {
         });
       });
 
+      it("should create the device on a save after a failed create", async () => {
+        const rack = await client.racks.create({ name: "test form rack" });
+        const removed = await client.racks.create({ name: "removed form rack" });
+        await client.racks.delete(removed.key);
+        const useForm = Device.createForm();
+        const { result } = renderHook(() => useForm({ query: null }), { wrapper });
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+        act(() => {
+          result.current.form.set(path.rack, removed.key);
+          result.current.form.set(path.name, "Retried Device");
+          result.current.form.set(path.make, "TestMake");
+          result.current.form.set(path.model, "TestModel");
+          result.current.form.set(path.location, "Lab1");
+        });
+        await act(async () => expect(await result.current.saveAsync()).toBe(false));
+        expect(result.current.status.description).toEqual(
+          `rack: rack ${removed.key} does not exist: validation error`,
+        );
+        act(() => result.current.form.set(path.rack, rack.key));
+        await act(async () => expect(await result.current.saveAsync()).toBe(true));
+        const key = result.current.form.get(path.key).value;
+        const stored = await createTestClient().devices.retrieve(key);
+        expect(stored).toMatchObject({ key, name: "Retried Device", rack: rack.key });
+      });
+
       it("should validate required fields", async () => {
         const useForm = Device.createForm();
         const { result } = renderHook(() => useForm({ query: null }), {
@@ -921,9 +949,43 @@ describe("queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const updatedDevice = await client.devices.retrieve(testDevice.key);
-        expect(updatedDevice.name).toBe("Updated Device Name");
-        expect(updatedDevice.location).toBe("Lab4");
+        await waitFor(async () => {
+          const updatedDevice = await client.devices.retrieve(testDevice.key);
+          expect(updatedDevice.name).toBe("Updated Device Name");
+          expect(updatedDevice.location).toBe("Lab4");
+        });
+      });
+
+      it("should move an existing device to another rack", async () => {
+        const rack = await client.racks.create({ name: "test move rack" });
+        const target = await client.racks.create({ name: "test move target rack" });
+        const testDevice = await client.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Device to Move",
+          make: "make",
+          model: "model",
+          location: "Lab3",
+          properties: { port: 1 },
+        });
+        const { result } = await renderHookSuspended(
+          () => Device.useForm({ query: { key: testDevice.key } }),
+          { wrapper },
+        );
+        await waitFor(() =>
+          expect(result.current.form.value().name).toBe("Device to Move"),
+        );
+        act(() => result.current.form.set(path.rack, target.key));
+        await act(async () => {
+          await result.current.saveAsync();
+        });
+        expect(result.current.variant).toBe("success");
+        await waitFor(async () => {
+          const moved = await client.devices.retrieve(testDevice.key);
+          expect(moved.rack).toBe(target.key);
+          expect(moved.name).toBe("Device to Move");
+          expect(moved.properties).toEqual({ port: 1 });
+        });
       });
 
       it("should sync streamed status updates into the form", async () => {
@@ -998,19 +1060,24 @@ describe("queries", () => {
         return { result, testDevice };
       };
 
-      it("should not send back a status read from the Core", async () => {
-        const { result } = await renderLoadedForm();
-        const create = vi.spyOn(client.devices, "create");
+      it("should rename the stored status instead of writing back the one it read", async () => {
+        const { result, testDevice } = await renderLoadedForm();
         act(() => result.current.form.set(path.name, "Renamed Status Device"));
         await act(async () => {
           await result.current.saveAsync();
         });
         expect(result.current.variant).toBe("success");
-        const sent = create.mock.lastCall?.[0];
-        create.mockRestore();
-        expect(sent).toMatchObject({ name: "Renamed Status Device" });
-        expect(sent).not.toHaveProperty("status");
-        expect(sent).not.toHaveProperty("parent");
+        await waitFor(async () => {
+          const { name, status: stored } = await client.devices.retrieve({
+            key: testDevice.key,
+            includeStatus: true,
+          });
+          expect(name).toBe("Renamed Status Device");
+          expect(stored).toMatchObject({
+            name: "Renamed Status Device",
+            message: "Device online",
+          });
+        });
       });
 
       it("should write a status that a beforeSave hook reports", async () => {
@@ -1087,6 +1154,11 @@ describe("queries", () => {
       make: makeSchema,
       model: modelSchema,
     };
+    const setProperties = (properties: z.infer<typeof propertiesSchema>) =>
+      device.set({
+        path: ["properties"],
+        value: caseconv.camelToSnake(properties, { schema: propertiesSchema }),
+      });
 
     describe("createRetrieve", () => {
       it("should retrieve a device with typed properties", async () => {
@@ -1139,12 +1211,9 @@ describe("queries", () => {
         expect(result.current?.properties.sampleRate).toBe(100);
 
         await act(async () => {
-          await client.devices.create(
-            {
-              ...dev,
-              properties: { sampleRate: 500, channels: { ch1: 10 } },
-            },
-            schemas,
+          await client.devices.dispatch(
+            dev.key,
+            setProperties({ sampleRate: 500, channels: { ch1: 10 } }),
           );
         });
 
@@ -1199,7 +1268,10 @@ describe("queries", () => {
         });
         await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
         await act(async () => {
-          await client.devices.create({ ...dev, name: "renamed", properties: {} });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["name"], value: "renamed" }),
+          );
         });
         await waitFor(() => expect(result.current?.name).toBe("renamed"));
         expect(result.current?.properties.sampleRate).toBe(100);
@@ -1260,9 +1332,9 @@ describe("queries", () => {
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
         await act(async () => {
-          await client.devices.create(
-            { ...second, properties: { sampleRate: 500, channels: {} } },
-            schemas,
+          await client.devices.dispatch(
+            second.key,
+            setProperties({ sampleRate: 500, channels: {} }),
           );
         });
         await waitFor(() => {
@@ -1401,8 +1473,53 @@ describe("queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const retrieved = await client.devices.retrieve(dev.key);
-        expect(retrieved.name).toBe("updated-schema-device");
+        await waitFor(async () => {
+          const retrieved = await client.devices.retrieve(dev.key);
+          expect(retrieved.name).toBe("updated-schema-device");
+        });
+      });
+
+      it("should save edited typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-form-properties-device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 300, channels: { portA: 1 } },
+          },
+          schemas,
+        );
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
+        const { result } = await renderHookSuspended(
+          () => useForm({ query: { key: dev.key } }),
+          { wrapper },
+        );
+        await waitFor(() =>
+          expect(result.current.form.value().name).toBe(
+            "schema-form-properties-device",
+          ),
+        );
+        act(() =>
+          result.current.form.set(path.properties, {
+            sampleRate: 500,
+            channels: { portA: 1, portB: 2 },
+          }),
+        );
+        await act(async () => {
+          await result.current.saveAsync();
+        });
+        expect(result.current.variant).toBe("success");
+        await waitFor(async () => {
+          const retrieved = await client.devices.retrieve({ key: dev.key, schemas });
+          expect(retrieved.properties).toEqual({
+            sampleRate: 500,
+            channels: { portA: 1, portB: 2 },
+          });
+        });
       });
 
       it("should apply schema defaults to a generically cached device", async () => {
@@ -1562,7 +1679,10 @@ describe("queries", () => {
         });
 
         await act(async () => {
-          await client.devices.create({ ...dev, status: undefined, properties: {} });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["properties"], value: {} }),
+          );
         });
         await waitFor(() => {
           expect(latestProperties.current).toEqual({});
@@ -1602,15 +1722,10 @@ describe("queries", () => {
         });
 
         await act(async () => {
-          await client.devices.create(
-            {
-              ...dev,
-              status: undefined,
-              name: "renamed_device",
-              properties: { sampleRate: 500, channels: {} },
-            },
-            schemas,
-          );
+          await client.devices.dispatch(dev.key, [
+            device.set({ path: ["name"], value: "renamed_device" }),
+            setProperties({ sampleRate: 500, channels: {} }),
+          ]);
         });
 
         await waitFor(() => {

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -94,7 +93,8 @@ type (
 	}
 )
 
-// Create creates or updates the devices. The response holds the status of each device
+// Create creates the devices. It returns an error wrapping validate.ErrValidation when
+// a device with the key of one exists. The response holds the status of each device
 // that the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
@@ -207,23 +207,6 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// RenameRequest names the device to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the device to rename.
-	Key device.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the device and its status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
 type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
@@ -241,19 +224,4 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
-}
-
-// SetGroupRequest moves devices into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key   `json:"group" msgpack:"group"`
-	Keys  []device.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the devices with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

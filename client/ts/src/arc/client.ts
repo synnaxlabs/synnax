@@ -46,6 +46,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/where.gen";
+import { type batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
@@ -132,6 +133,7 @@ export interface ClientConfig {
   tasks: task.Client;
   cache: query.Cache;
   statuses: status.Client;
+  batch: batch.Client;
 }
 
 export class Client extends query.Retriever<
@@ -197,7 +199,12 @@ export class Client extends query.Retriever<
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
-    this.directories = new directory.Client({ unary: cfg.unary, cache, arcs: store });
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      cache,
+      arcs: store,
+      batch: cfg.batch,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({

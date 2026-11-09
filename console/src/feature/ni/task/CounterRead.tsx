@@ -253,7 +253,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev, SCHEMAS);
+      if (devModified) await PlatformDevice.setProperties(client, dev, SCHEMAS);
     }
   }
 

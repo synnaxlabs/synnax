@@ -12,6 +12,7 @@ import { array, type destructor, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
+import { type Action, dispatchReqZ, dispatchResZ, set } from "@/view/actions.gen";
 import {
   type Key,
   keyZ,
@@ -38,7 +39,6 @@ const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
@@ -103,9 +103,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send("/view/rename", { key, name }, renameReqZ, emptyResZ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the view in one transaction.
+   * @throws {ValidationError} if the view cannot hold an action.
+   * @throws {NotFoundError} if the view does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/view/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

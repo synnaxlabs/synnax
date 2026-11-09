@@ -18,11 +18,13 @@ namespace synnax::device {
 Client::Client(
     std::unique_ptr<CreateClient> device_create_client,
     std::unique_ptr<RetrieveClient> device_retrieve_client,
-    std::unique_ptr<DeleteClient> device_delete_client
+    std::unique_ptr<DeleteClient> device_delete_client,
+    std::unique_ptr<DispatchClient> device_dispatch_client
 ):
     device_create_client(std::move(device_create_client)),
     device_retrieve_client(std::move(device_retrieve_client)),
-    device_delete_client(std::move(device_delete_client)) {}
+    device_delete_client(std::move(device_delete_client)),
+    device_dispatch_client(std::move(device_dispatch_client)) {}
 
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
@@ -87,6 +89,15 @@ x::errors::Error Client::create(const std::vector<Device> &devs) const {
     }
     auto [res, err] = device_create_client->send("/device/create", req);
     return err;
+}
+
+x::errors::Error
+Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
+    grpc::device::DispatchRequest req;
+    req.set_key(key);
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->device_dispatch_client->send("/device/dispatch", req).second;
 }
 
 x::errors::Error Client::del(const std::string &key) const {

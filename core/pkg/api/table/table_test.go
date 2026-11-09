@@ -97,16 +97,17 @@ var _ = Describe("Create", func() {
 			Entry(&table.Table{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
-	It("Should refuse to overwrite a table without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a table whose key exists", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		stored := createTable(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apitable.CreateRequest{
 			Tables: []table.Table{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
 			},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("table %s already exists", stored.Key)),
+		))
 		Expect(retrieveTable(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 })

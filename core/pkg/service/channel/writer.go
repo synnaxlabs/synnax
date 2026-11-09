@@ -61,8 +61,8 @@ type createOptions struct {
 type CreateOption func(*createOptions)
 
 // RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
-// already exists, populates the provided channel from the existing record instead of
-// returning an error.
+// or key already exists, populates the provided channel from the existing record
+// instead of returning an error.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
 }
@@ -153,7 +153,9 @@ func dataTypeAction(dt telem.DataType) Action {
 	return NewSetAction(SetPayload{Path: []string{"data_type"}, Value: dt})
 }
 
-// Create creates a single channel, inferring the DataType if it is calculated.
+// Create creates a single channel, inferring the DataType if it is calculated. It
+// returns an error wrapping validate.ErrValidation when c is calculated and a channel
+// with its key exists.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
 	if err := w.CreateMany(ctx, &channels, opts...); err != nil {
@@ -167,7 +169,9 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 // calculated channels in the batch by analyzing their expressions. Channels within the
 // batch may reference each other by name. A calculated channel whose expression fails
 // to analyze (invalid syntax or unresolved dependencies) aborts the entire call with
-// the analysis error, so callers get fail-fast validation.
+// the analysis error, so callers get fail-fast validation. The Core assigns the key of
+// a channel that is not calculated. CreateMany returns an error wrapping
+// validate.ErrValidation when a calculated channel's key exists.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
@@ -333,39 +337,33 @@ func (w Writer) create(
 		}
 	}
 
-	// Update the stored records of channels passed in with a non-zero key, applying
-	// name and (for calculated channels) expression/operations/index/data-type changes.
-	// When RetrieveIfNameExists is set the in-memory channel is reset to the stored
-	// record so the caller does not mistake an update for a no-op create.
+	// Only a calculated channel keeps a key here. RetrieveIfNameExists resets one whose
+	// key exists to the stored record.
 	keys := KeysFromChannels(channels)
-	existingKeys := lo.Filter(keys, func(k Key, _ int) bool {
+	if keyed := lo.Filter(keys, func(k Key, _ int) bool {
 		return k.LocalKey() != 0
-	})
-	var written Keys
-	if len(existingKeys) != 0 {
-		if err := w.svc.table.NewUpdate().
-			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
-			ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-				idx := lo.IndexOf(keys, c.Key())
-				ic := channels[idx]
-				if opts.retrieveIfNameExists {
-					channels[idx] = c
-					return c, nil
-				}
-				written = append(written, c.Key())
-				c.Name = ic.Name
-				if c.IsCalculated() && ic.IsCalculated() {
-					c.Expression = ic.Expression
-					c.Operations = ic.Operations
-					c.LocalIndex = ic.LocalIndex
-					c.DataType = ic.DataType
-				}
-				return c, nil
-			}).
-			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+	}); len(keyed) != 0 {
+		var stored []Channel
+		if err := w.svc.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Channel](keyed...)).
+			SkipMissingKeys().
+			Entries(&stored).
+			Exec(ctx, w.tx); err != nil {
 			return err
 		}
+		for _, c := range stored {
+			if !opts.retrieveIfNameExists {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"%s %s already exists",
+					tableName,
+					c.Key(),
+				)
+			}
+			channels[lo.IndexOf(keys, c.Key())] = c
+		}
 	}
+	var written Keys
 
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index). Synthesis
@@ -647,7 +645,10 @@ func (w Writer) allocateAndWrite(
 			return 1
 		}
 	})
-	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
+	if err := w.svc.table.NewCreate().
+		Exclusive().
+		Entries(&toCreate).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {

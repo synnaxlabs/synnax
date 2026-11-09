@@ -36,11 +36,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates or overwrites a policy, and its commit carries a create action that
-// holds the stored policy. It returns a validation error when the policy's role does
-// not exist. A writer that does not allow internal writes also returns a validation
-// error for an internal policy, a policy of a built-in role, and a policy that would
-// overwrite one of a built-in role.
+// Create creates a policy, and its commit carries a create action that holds the stored
+// policy. It returns a validation error when a policy with the key exists or the
+// policy's role does not exist. A writer that does not allow internal writes also
+// returns a validation error for an internal policy and a policy of a built-in role.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
@@ -52,14 +51,11 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 		return err
 	}
 	if !w.allowInternal {
-		if err := w.checkStored(ctx, p.Key); err != nil {
-			return err
-		}
 		if err := w.checkRole(ctx, p.Role); err != nil {
 			return err
 		}
 	}
-	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, p.Key, NewCreateAction(CreatePayload{Policy: *p}))
@@ -102,8 +98,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
-// CreateMany creates the given policies. If policies with the same key already exist,
-// they will be overwritten.
+// CreateMany creates the given policies. It returns an error wrapping
+// validate.ErrValidation when a policy with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, policies *[]Policy) error {
 	for i := range *policies {
 		if err := w.Create(ctx, &(*policies)[i]); err != nil {
@@ -123,21 +119,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		})
 	}
 	return q.Exec(ctx, w.tx)
-}
-
-func (w Writer) checkStored(ctx context.Context, key Key) error {
-	var stored Policy
-	err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Policy](key)).
-		Entry(&stored).
-		Exec(ctx, w.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return w.checkRole(ctx, stored.Role)
 }
 
 // checkRole returns a validation error when the role with key r is built in. It leaves

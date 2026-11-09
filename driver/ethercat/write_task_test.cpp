@@ -106,7 +106,7 @@ protected:
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = std::to_string(serial),
             .make = "DEWESoft",

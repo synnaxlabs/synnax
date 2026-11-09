@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -35,31 +33,15 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
-// The panel must belong to exactly one of a project and a range. An existing panel
-// keeps its group, project, and range. A new panel in a group belongs to the project
-// that holds the group.
-func (w Writer) Create(
-	ctx context.Context,
-	p *Panel,
-) (err error) {
-	var exists bool
+// Create creates a new panel, assigning a new key when p.Key is uuid.Nil(). The panel
+// must belong to exactly one of a project and a range. A panel in a group belongs to
+// the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a panel with p.Key exists.
+func (w Writer) Create(ctx context.Context, p *Panel) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
-	} else {
-		var stored Panel
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Panel](p.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			p.Group, p.Project, p.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && p.Group != nil {
+	if p.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, p.Group, resource.TypePanel)
 		if err != nil {
 			return err
@@ -80,7 +62,7 @@ func (w Writer) Create(
 	if err := project.ValidateOwner(p.Project, p.Range); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -121,7 +103,8 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 }
 
 // CreateMany creates the given panels, applying the same key assignment, tree
-// defaulting, and validation as Create to each.
+// defaulting, and validation as Create to each. It returns an error wrapping
+// validate.ErrValidation when a panel with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
 	for i := range *ps {
 		if err := w.Create(ctx, &(*ps)[i]); err != nil {

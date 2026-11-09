@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query } from "@synnaxlabs/client";
+import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
@@ -843,13 +843,13 @@ describe("useForm", () => {
 
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -859,7 +859,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -868,13 +868,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.watch(label.key).onChange((result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -884,10 +884,10 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {
@@ -897,13 +897,13 @@ describe("useForm", () => {
     });
 
     it("should not mark form fields as touched when setting them view the listener", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -913,7 +913,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -922,13 +922,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.watch(label.key).onChange((result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -938,10 +938,10 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {

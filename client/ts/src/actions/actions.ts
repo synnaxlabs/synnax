@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch, type record } from "@synnaxlabs/x";
+import { caseconv, deep, patch, type record } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -114,6 +114,25 @@ export const changesField = (action: { type: string }, fields: readonly string[]
   fields.includes(patch.pathOf(action as patch.Action)[0]);
 
 /**
+ * Lists a set of each field that differs between base and next. Each set holds the
+ * whole field, with its path and value in the snake_case form that the Core stores.
+ * @param schema - The schema of base and next, which names the keys that keep their
+ * case.
+ * @param base - The stored values, or undefined to set each field that next holds.
+ */
+export const diffFields = <F extends string>(
+  schema: z.ZodType,
+  base: Partial<Record<F, unknown>> | undefined,
+  next: Partial<Record<F, unknown>>,
+  fields: F[],
+): Array<{ type: "set"; set: patch.Set }> =>
+  fields.flatMap((field) => {
+    if (deep.equal(base?.[field], next[field])) return [];
+    const { path, convert } = caseconv.camelToSnakePath([field], { schema });
+    return [{ type: "set", set: { path, value: convert(next[field]), guards: [] } }];
+  });
+
+/**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
  * action union from one function that applies a path action.
  */
@@ -179,6 +198,12 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     dispatchKey: z.string(),
     actions: actionZ.array(),
   });
+
+/** The payload of a dispatch entry in a batch. The entry carries no dispatch key. */
+export interface DispatchPayload<K, A> {
+  key: K;
+  actions: A[];
+}
 
 /**
  * dispatchResZ builds the response body schema for the per-service dispatch endpoint:

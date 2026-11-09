@@ -74,7 +74,8 @@ type (
 	}
 )
 
-// Create creates the schematics, and overwrites each one whose key exists.
+// Create creates the schematics. It returns an error wrapping validate.ErrValidation
+// when a schematic with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

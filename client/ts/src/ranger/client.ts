@@ -14,6 +14,7 @@ import {
   type CrudeTimeRange,
   deep,
   type destructor,
+  errors,
   filter,
   type Series,
   TimeRange,
@@ -31,6 +32,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
@@ -397,9 +399,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Creates the ranges. Creating a range that exists keeps the labels it holds and
-   * ignores the carried ones, and keeps its parent unless one is carried. Change labels
-   * with the label client.
+   * Creates the ranges. Change labels with the label client.
+   * @throws {ValidationError} if a range with a carried key exists.
    */
   async create(range: New): Promise<Range>;
   async create(ranges: New[]): Promise<Range[]>;
@@ -407,7 +408,7 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
-    // The Core keeps the stored labels on the create of an existing range.
+    // A label change streamed during the request is newer than the reply.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,
@@ -424,15 +425,26 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: Name, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
+    const setName = (next: string) =>
       this.store.set(key, (p) =>
-        p == null ? undefined : this.sugarOne({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.rename(key, name),
+        p == null ? undefined : this.sugarOne({ ...p.payload, name: next }),
+      );
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      setName(name);
+      return () => setName(prev);
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }

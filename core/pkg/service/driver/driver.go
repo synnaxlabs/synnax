@@ -92,10 +92,14 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %d", cfg.HostKey),
-		func(r *rack.Rack) {
-			r.Integrations = integrations
-			r.Version = new(version.Get())
-		},
+		rack.NewSetAction(rack.SetPayload{
+			Path:  []string{"integrations"},
+			Value: integrations,
+		}),
+		rack.NewSetAction(rack.SetPayload{
+			Path:  []string{"version"},
+			Value: version.Get(),
+		}),
 	); !ok(err, nil) {
 		return nil, err
 	}

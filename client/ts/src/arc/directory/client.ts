@@ -8,9 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import z from "zod";
 
+import { setDirectory } from "@/arc/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+} from "@/arc/directory/actions.gen";
 import {
   type Directory,
   directoryZ,
@@ -29,8 +36,9 @@ import {
   shortcutZ,
 } from "@/arc/directory/where.gen";
 import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
+import { type batch } from "@/batch";
 import { query } from "@/query";
-import { resource } from "@/resource";
+import { type resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_arc_directory_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_directory_delete";
@@ -40,9 +48,7 @@ const createReqZ = z.object({
   directory: z.object({ key: keyZ.optional(), name: z.string() }),
 });
 const createResZ = z.object({ directory: directoryZ });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(resource.idZ) });
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([
@@ -67,6 +73,7 @@ export interface ClientConfig {
   cache: query.Cache;
   /** arcs holds the cached Arcs, whose directory a move changes. */
   arcs: query.Table<ArcKey, Arc>;
+  batch: batch.Client;
 }
 
 /** Client retrieves, creates, renames, deletes, and moves the directories of Arcs. */
@@ -136,14 +143,23 @@ export class Client extends query.Retriever<
       rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/arc/directory/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the directory in one transaction.
+   * @throws {ValidationError} if the directory cannot hold an action.
+   * @throws {NotFoundError} if the directory does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/arc/directory/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /** Deletes the empty directories with keys. */
@@ -153,29 +169,27 @@ export class Client extends query.Retriever<
     this.store.delete(payload.keys);
   }
 
-  /** Moves Arcs and directories from the directory from into the directory to. */
-  async move(
-    from: resource.ID,
-    to: resource.ID,
-    ...children: resource.ID[]
-  ): Promise<void> {
-    const move = (): destructor.Destructor[] =>
+  /**
+   * Moves Arcs and directories into the directory to in one transaction.
+   * @throws {ValidationError} if the directory would hold two entries with one name.
+   */
+  async move(to: resource.ID, ...children: resource.ID[]): Promise<void> {
+    await this.cfg.batch.send(
       children.map(({ type, key }) =>
         type === "arc"
-          ? query.partialUpdate(this.cfg.arcs, key, { directory: to.key })
-          : query.partialUpdate(this.store, key, { parent: to.key }),
-      );
-    await query.optimistic({
-      rollbacks: move(),
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/arc/move",
-          { from: from.key, to: to.key, ids: children },
-          moveReqZ,
-          emptyResZ,
-        ),
-    });
-    move();
+          ? {
+              endpoint: "/arc/dispatch",
+              payload: { key, actions: [setDirectory({ directory: to.key })] },
+              apply: () =>
+                query.partialUpdate(this.cfg.arcs, key, { directory: to.key }),
+            }
+          : {
+              endpoint: "/arc/directory/dispatch",
+              payload: { key, actions: [set({ path: ["parent"], value: to.key })] },
+              apply: () => query.partialUpdate(this.store, key, { parent: to.key }),
+            },
+      ),
+    );
   }
 
   private async execRetrieve(

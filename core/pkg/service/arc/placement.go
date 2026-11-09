@@ -137,48 +137,6 @@ func directoryEntry(d directory.Directory) entry {
 	return entry{id: d.ResourceID(), name: d.Name, parent: d.Parent}
 }
 
-// validateName checks name for the entry id in the directory that holds it. An entry
-// in no directory is not checked.
-func (w Writer) validateName(
-	ctx context.Context,
-	id resource.ID,
-	name string,
-	identifier bool,
-) error {
-	parent, err := w.parentOf(ctx, id)
-	if err != nil || parent == nil {
-		return err
-	}
-	return w.validateEntry(ctx, *parent, id, name, identifier)
-}
-
-// parentOf returns the directory that holds the Arc or directory id, or nil when no
-// directory does.
-func (w Writer) parentOf(ctx context.Context, id resource.ID) (*directory.Key, error) {
-	key, err := resource.ParseUUIDKey(id)
-	if err != nil {
-		return nil, err
-	}
-	if id.Type == resource.TypeArc {
-		var a Arc
-		if err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](key)).
-			Entry(&a).
-			Exec(ctx, w.tx); err != nil {
-			return nil, err
-		}
-		return a.Base().Directory, nil
-	}
-	var d directory.Directory
-	if err = w.directories.NewRetrieve().
-		Where(directory.MatchKeys(key)).
-		Entry(&d).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	return d.Parent, nil
-}
-
 // validateEntry checks name for the entry id placed in the directory parent. The name
 // of an identifier entry must be an identifier.
 func (w Writer) validateEntry(

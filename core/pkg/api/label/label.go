@@ -98,7 +98,8 @@ type CreateResponse struct {
 	Labels []Label `json:"labels" msgpack:"labels"`
 }
 
-// Create creates the labels, and overwrites each one whose key exists.
+// Create creates the labels. It returns a validation error when a label with one of
+// their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

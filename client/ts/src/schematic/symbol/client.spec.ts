@@ -317,9 +317,9 @@ describe("Symbol Client", () => {
         data: SYMBOL_DATA,
         group: from.key,
       });
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, to.key),
-      ]);
+      );
       expect((await client.schematics.symbols.retrieve(symbol.key)).group).toEqual(
         to.key,
       );
@@ -328,9 +328,9 @@ describe("Symbol Client", () => {
           (s) => s.key,
         ),
       ).toEqual([symbol.key]);
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, null),
-      ]);
+      );
       expect(
         (await client.schematics.symbols.retrieve(symbol.key)).group,
       ).toBeUndefined();

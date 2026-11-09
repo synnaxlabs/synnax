@@ -40,6 +40,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
+import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -269,7 +270,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     changed = true;
   }
-  if (changed) await client.devices.create(dev, SCHEMAS);
+  if (changed) await Device.setProperties(client, dev, SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,

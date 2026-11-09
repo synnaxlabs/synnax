@@ -15,14 +15,7 @@ import "github.com/synnaxlabs/synnax/pkg/api/batch"
 // API root, and a batch request names one as its endpoint.
 const (
 	PathGroupCreate             = "/group/create"
-	PathGroupRename             = "/group/rename"
 	PathGroupDelete             = "/group/delete"
-	PathGroupSetParent          = "/group/set-parent"
-	PathChannelSetGroup         = "/channel/set-group"
-	PathDeviceSetGroup          = "/device/set-group"
-	PathRackSetGroup            = "/rack/set-group"
-	PathProjectSetGroup         = "/project/set-group"
-	PathSchematicSymbolSetGroup = "/schematic/symbol/set-group"
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
@@ -57,14 +50,7 @@ const (
 func (l *Layer) batchRoutes() batch.Routes {
 	return batch.Routes{
 		PathGroupCreate:             batch.Route(l.Group.Create),
-		PathGroupRename:             batch.Route(l.Group.Rename),
 		PathGroupDelete:             batch.Route(l.Group.Delete),
-		PathGroupSetParent:          batch.Route(l.Group.SetParent),
-		PathChannelSetGroup:         batch.Route(l.Channel.SetGroup),
-		PathDeviceSetGroup:          batch.Route(l.Device.SetGroup),
-		PathRackSetGroup:            batch.Route(l.Rack.SetGroup),
-		PathProjectSetGroup:         batch.Route(l.Project.SetGroup),
-		PathSchematicSymbolSetGroup: batch.Route(l.Symbol.SetGroup),
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),

@@ -30,6 +30,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
+from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -60,9 +61,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -435,11 +437,14 @@ class Client:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command. A task with no rack goes on the rack
         of the device that its config names, or on the embedded rack when it names no
-        device.
+        device. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
+        :raises ValidationError: If the task exists and the config has a field that
+            its type does not declare, or the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
@@ -447,9 +452,18 @@ class Client:
         if pld.rack == 0 and isinstance(device, str) and device:
             pld.rack = self._device_client.retrieve(key=device).rack
         pld = self.maybe_assign_def_rack(pld)
-        req = _CreateRequest(tasks=[pld])
-        tasks = self._exec_create(req)
-        task.set_internal(self.sugar(tasks)[0])
+        if not self.retrieve(keys=[pld.key]):
+            created = self._exec_create(_CreateRequest(tasks=[pld]))
+            task.set_internal(self.sugar(created)[0])
+            return task
+        actions: list[actions_gen.Action] = [
+            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        ]
+        req = _DispatchRequest(key=pld.key, actions=actions)
+        self._client.send("/task/dispatch", req, Empty)
+        task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
@@ -463,7 +477,9 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/task/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...

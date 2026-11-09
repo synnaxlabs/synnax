@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, query as clientQuery, type query, resource } from "@synnaxlabs/client";
+import {
+  actions,
+  device,
+  query as clientQuery,
+  type query,
+  resource,
+} from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -324,17 +330,33 @@ export const createForm: CreateForm = (
       const cached = client.devices.watch(query).getCached();
       return clientQuery.isLive(cached) ? parseRecord(cached) : undefined;
     },
-    update: async ({ value, client, set }) => {
+    update: async ({ value, client, set, stored }) => {
       const data = value();
-      if (primitive.isZero(data.key)) {
-        data.key = uuid.create();
-        set(formPath.key, data.key);
-      }
+      const { status } = data;
       // A status read from the Core names the device as its owner. A beforeSave hook
-      // that reports a new status leaves the owner out, and the Core sets it.
-      const reported = data.status != null && data.status.owner == null;
-      const sent = reported ? data : device.toUpdate(data);
-      await client.devices.create(sent as device.New, schemas);
+      // that reports a new status leaves the owner out.
+      const reported = status != null && status.owner == null;
+      // The key is set before the create, so a failed create leaves it set.
+      if (stored == null) {
+        if (primitive.isZero(data.key)) {
+          data.key = uuid.create();
+          set(formPath.key, data.key);
+        }
+        const sent = reported ? data : device.toUpdate(data);
+        await client.devices.create(sent as device.New, schemas);
+        return;
+      }
+      const edits: device.Action[] = actions.diffFields(schema, stored, data, [
+        "name",
+        "model",
+        "location",
+        "configured",
+        "properties",
+      ]);
+      if (stored.rack !== data.rack) edits.push(device.setRack({ rack: data.rack }));
+      if (edits.length > 0) await client.devices.dispatch(data.key, edits);
+      if (reported)
+        await client.statuses.set({ ...status, owner: device.resourceID(data.key) });
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
