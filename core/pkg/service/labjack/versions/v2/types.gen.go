@@ -135,7 +135,7 @@ func (a *AnalogReadChannel) SetDefaults() {
 	a.Port = "AIN0"
 	a.Range = 10
 	a.NegChan = 199
-	a.Scale.Variant = taskv2.NoneScale{}
+	a.Scale.Variant = task.NoneScale{}
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -207,7 +207,7 @@ func (t *ThermocoupleReadChannel) SetDefaults() {
 	t.CjcSource = "TEMPERATURE_DEVICE_K"
 	t.CjcSlope = 1
 	t.Units = TemperatureUnitsKelvin
-	t.Scale.Variant = taskv2.NoneScale{}
+	t.Scale.Variant = task.NoneScale{}
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
