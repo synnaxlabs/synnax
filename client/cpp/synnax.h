@@ -181,7 +181,12 @@ public:
                 this->t.range_kv_delete
             )
         ),
-        tasks(this->t.task_create, this->t.task_retrieve, this->t.task_delete),
+        tasks(
+            this->t.task_create,
+            this->t.task_retrieve,
+            this->t.task_delete,
+            this->t.task_dispatch
+        ),
         telem(
             std::move(this->t.frame_stream),
             std::move(this->t.frame_write),

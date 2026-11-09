@@ -141,9 +141,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
-	// TASK
-	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
-
 	// RANGE
 	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}

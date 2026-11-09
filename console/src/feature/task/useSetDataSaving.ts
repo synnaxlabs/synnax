@@ -41,7 +41,10 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
     });
     if (!(await client.tasks.dispatch(key, set)))
       throw new NotFoundError(`Task ${key} is not cached`);
-    if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
+    if (!wasRunning) return data;
+    // The start sends the cached config hash, which changes only on the Core's echo.
+    await client.tasks.settled(key);
+    await client.tasks.executeCommand({ task: key, type: "start" });
     return data;
   },
 });

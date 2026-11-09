@@ -1328,6 +1328,31 @@ describe("queries", () => {
         });
       });
 
+      it("should create the device on a save after a failed create", async () => {
+        const rack = await client.racks.create({ name: "test form rack" });
+        const removed = await client.racks.create({ name: "removed form rack" });
+        await client.racks.delete(removed.key);
+        const useForm = Device.createForm();
+        const { result } = renderHook(() => useForm({ query: null }), { wrapper });
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+        act(() => {
+          result.current.form.set(path.rack, removed.key);
+          result.current.form.set(path.name, "Retried Device");
+          result.current.form.set(path.make, "TestMake");
+          result.current.form.set(path.model, "TestModel");
+          result.current.form.set(path.location, "Lab1");
+        });
+        await act(async () => expect(await result.current.saveAsync()).toBe(false));
+        expect(result.current.status.description).toEqual(
+          `rack: rack ${removed.key} does not exist: validation error`,
+        );
+        act(() => result.current.form.set(path.rack, rack.key));
+        await act(async () => expect(await result.current.saveAsync()).toBe(true));
+        const key = result.current.form.get(path.key).value;
+        const stored = await createTestClient().devices.retrieve(key);
+        expect(stored).toMatchObject({ key, name: "Retried Device", rack: rack.key });
+      });
+
       it("should validate required fields", async () => {
         const useForm = Device.createForm();
         const { result } = renderHook(() => useForm({ query: null }), {

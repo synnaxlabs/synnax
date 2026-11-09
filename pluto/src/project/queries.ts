@@ -95,15 +95,14 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     const cached = client.projects.getCached(key);
     return query.isLive(cached) ? cached : undefined;
   },
-  update: async ({ client, value, set }) => {
+  update: async ({ client, value, set, stored }) => {
     const values = value();
     if (values.key == null) {
       const created = await client.projects.create(values);
       set(formPath.key, created.key);
       return;
     }
-    const prev = await client.projects.retrieve(values.key);
-    const edits = actions.diffFields(formSchema, prev, values, ["name"]);
+    const edits = actions.diffFields(formSchema, stored, values, ["name"]);
     if (edits.length > 0) await client.projects.dispatch(values.key, edits);
   },
 });

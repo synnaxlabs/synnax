@@ -98,15 +98,16 @@ export const applyEntryPath = <S extends object>(
  * whole field, with its path and value in the snake_case form that the Core stores.
  * @param schema - The schema of base and next, which names the keys that keep their
  * case.
+ * @param base - The stored values, or undefined to set each field that next holds.
  */
 export const diffFields = <F extends string>(
   schema: z.ZodType,
-  base: Partial<Record<F, unknown>>,
+  base: Partial<Record<F, unknown>> | undefined,
   next: Partial<Record<F, unknown>>,
   fields: F[],
 ): Array<{ type: "set"; set: patch.Set }> =>
   fields.flatMap((field) => {
-    if (deep.equal(base[field], next[field])) return [];
+    if (deep.equal(base?.[field], next[field])) return [];
     const { path, convert } = caseconv.camelToSnakePath([field], { schema });
     return [{ type: "set", set: { path, value: convert(next[field]), guards: [] } }];
   });
