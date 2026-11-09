@@ -106,10 +106,8 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
 				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-				s := schematic.Schematic{Name: "s", Project: &proj.Key}
+				s := schematic.Schematic{Name: "s", Group: &g.Key}
 				Expect(schematicSvc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-				Expect(schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)).
-					To(Succeed())
 				lp := lineplot.LinePlot{Name: "lp", Project: &proj.Key}
 				Expect(lineplotSvc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
 				l := log.Log{Name: "l", Project: &proj.Key}

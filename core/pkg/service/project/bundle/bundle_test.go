@@ -160,7 +160,10 @@ func createPanel(
 func moveToGroup(ctx SpecContext, l log.Log, g group.Group) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return logSvc.NewWriter(tx).SetGroup(ctx, &g.Key, l.Key)
+		_, err := logSvc.NewWriter(tx).Apply(ctx, l.Key, log.NewSetAction(
+			log.SetPayload{Path: []string{"group"}, Value: g.Key},
+		))
+		return err
 	})).To(Succeed())
 }
 

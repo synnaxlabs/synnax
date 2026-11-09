@@ -22,17 +22,7 @@ const (
 	PathDeviceSetGroup          = "/device/set-group"
 	PathRackSetGroup            = "/rack/set-group"
 	PathProjectSetGroup         = "/project/set-group"
-	PathSchematicSetGroup       = "/schematic/set-group"
 	PathSchematicSymbolSetGroup = "/schematic/symbol/set-group"
-	PathLinePlotSetGroup        = "/lineplot/set-group"
-	PathLogSetGroup             = "/log/set-group"
-	PathTableSetGroup           = "/table/set-group"
-	PathPanelSetGroup           = "/panel/set-group"
-	PathSchematicSetProject     = "/schematic/set-project"
-	PathLinePlotSetProject      = "/lineplot/set-project"
-	PathLogSetProject           = "/log/set-project"
-	PathTableSetProject         = "/table/set-project"
-	PathPanelSetProject         = "/panel/set-project"
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
@@ -74,17 +64,7 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathDeviceSetGroup:          batch.Route(l.Device.SetGroup),
 		PathRackSetGroup:            batch.Route(l.Rack.SetGroup),
 		PathProjectSetGroup:         batch.Route(l.Project.SetGroup),
-		PathSchematicSetGroup:       batch.Route(l.Schematic.SetGroup),
 		PathSchematicSymbolSetGroup: batch.Route(l.Symbol.SetGroup),
-		PathLinePlotSetGroup:        batch.Route(l.LinePlot.SetGroup),
-		PathLogSetGroup:             batch.Route(l.Log.SetGroup),
-		PathTableSetGroup:           batch.Route(l.Table.SetGroup),
-		PathPanelSetGroup:           batch.Route(l.Panel.SetGroup),
-		PathSchematicSetProject:     batch.Route(l.Schematic.SetProject),
-		PathLinePlotSetProject:      batch.Route(l.LinePlot.SetProject),
-		PathLogSetProject:           batch.Route(l.Log.SetProject),
-		PathTableSetProject:         batch.Route(l.Table.SetProject),
-		PathPanelSetProject:         batch.Route(l.Panel.SetProject),
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),

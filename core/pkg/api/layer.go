@@ -150,7 +150,7 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, struct{}]
-	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, struct{}]
+	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, schematic.DispatchResponse]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
 	SchematicSymbolCreate      freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
@@ -165,22 +165,22 @@ type Transport struct {
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
 	LogDelete   freighter.UnaryServer[log.DeleteRequest, struct{}]
-	LogDispatch freighter.UnaryServer[log.DispatchRequest, struct{}]
+	LogDispatch freighter.UnaryServer[log.DispatchRequest, log.DispatchResponse]
 	// TABLE
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
 	TableRetrieve freighter.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, struct{}]
-	TableDispatch freighter.UnaryServer[table.DispatchRequest, struct{}]
+	TableDispatch freighter.UnaryServer[table.DispatchRequest, table.DispatchResponse]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, struct{}]
-	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, struct{}]
+	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]
 	// PANEL
 	PanelCreate   freighter.UnaryServer[panel.CreateRequest, panel.CreateResponse]
 	PanelRetrieve freighter.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]
 	PanelDelete   freighter.UnaryServer[panel.DeleteRequest, struct{}]
-	PanelDispatch freighter.UnaryServer[panel.DispatchRequest, struct{}]
+	PanelDispatch freighter.UnaryServer[panel.DispatchRequest, panel.DispatchResponse]
 	// LABEL
 	LabelCreate   freighter.UnaryServer[label.CreateRequest, label.CreateResponse]
 	LabelRetrieve freighter.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]
@@ -262,18 +262,7 @@ type Transport struct {
 	DeviceSetGroup          freighter.UnaryServer[device.SetGroupRequest, struct{}]
 	RackSetGroup            freighter.UnaryServer[rack.SetGroupRequest, struct{}]
 	ProjectSetGroup         freighter.UnaryServer[project.SetGroupRequest, struct{}]
-	SchematicSetGroup       freighter.UnaryServer[schematic.SetGroupRequest, struct{}]
 	SchematicSymbolSetGroup freighter.UnaryServer[symbol.SetGroupRequest, struct{}]
-	LinePlotSetGroup        freighter.UnaryServer[lineplot.SetGroupRequest, struct{}]
-	LogSetGroup             freighter.UnaryServer[log.SetGroupRequest, struct{}]
-	TableSetGroup           freighter.UnaryServer[table.SetGroupRequest, struct{}]
-	PanelSetGroup           freighter.UnaryServer[panel.SetGroupRequest, struct{}]
-	// PROJECT MEMBERSHIP
-	SchematicSetProject freighter.UnaryServer[schematic.SetProjectRequest, struct{}]
-	LinePlotSetProject  freighter.UnaryServer[lineplot.SetProjectRequest, struct{}]
-	LogSetProject       freighter.UnaryServer[log.SetProjectRequest, struct{}]
-	TableSetProject     freighter.UnaryServer[table.SetProjectRequest, struct{}]
-	PanelSetProject     freighter.UnaryServer[panel.SetProjectRequest, struct{}]
 	// BATCH
 	Batch freighter.UnaryServer[batch.ExecRequest, batch.ExecResponse]
 }
@@ -556,19 +545,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceSetGroup,
 		t.RackSetGroup,
 		t.ProjectSetGroup,
-		t.SchematicSetGroup,
 		t.SchematicSymbolSetGroup,
-		t.LinePlotSetGroup,
-		t.LogSetGroup,
-		t.TableSetGroup,
-		t.PanelSetGroup,
-
-		// PROJECT MEMBERSHIP
-		t.SchematicSetProject,
-		t.LinePlotSetProject,
-		t.LogSetProject,
-		t.TableSetProject,
-		t.PanelSetProject,
 
 		// BATCH
 		t.Batch,
@@ -661,19 +638,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceSetGroup.BindHandler(bind.Write(l.binder, l.Device.SetGroup))
 	t.RackSetGroup.BindHandler(bind.Write(l.binder, l.Rack.SetGroup))
 	t.ProjectSetGroup.BindHandler(bind.Write(l.binder, l.Project.SetGroup))
-	t.SchematicSetGroup.BindHandler(bind.Write(l.binder, l.Schematic.SetGroup))
 	t.SchematicSymbolSetGroup.BindHandler(bind.Write(l.binder, l.Symbol.SetGroup))
-	t.LinePlotSetGroup.BindHandler(bind.Write(l.binder, l.LinePlot.SetGroup))
-	t.LogSetGroup.BindHandler(bind.Write(l.binder, l.Log.SetGroup))
-	t.TableSetGroup.BindHandler(bind.Write(l.binder, l.Table.SetGroup))
-	t.PanelSetGroup.BindHandler(bind.Write(l.binder, l.Panel.SetGroup))
-
-	// PROJECT MEMBERSHIP
-	t.SchematicSetProject.BindHandler(bind.Write(l.binder, l.Schematic.SetProject))
-	t.LinePlotSetProject.BindHandler(bind.Write(l.binder, l.LinePlot.SetProject))
-	t.LogSetProject.BindHandler(bind.Write(l.binder, l.Log.SetProject))
-	t.TableSetProject.BindHandler(bind.Write(l.binder, l.Table.SetProject))
-	t.PanelSetProject.BindHandler(bind.Write(l.binder, l.Panel.SetProject))
 
 	// BATCH
 	t.Batch.BindHandler(bind.Write(l.binder, l.Batch.Exec))
