@@ -64,7 +64,7 @@ var _ = Describe("Migration", func() {
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchOwners[v0.StatusDetails](t.ResourceID())).
 			Entry(&restoredStatus).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		key, _ := statusv2.MigrateKey(t.ResourceID().String())
 		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -93,7 +93,9 @@ var _ = Describe("Migration", func() {
 			}
 			// The task table is not open during its own migration, so the status skips
 			// reference checks.
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, existing.ToAny())).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, existing.ToAny())
+			})).
 				To(Succeed())
 
 			runMigration(ctx)
@@ -102,7 +104,7 @@ var _ = Describe("Migration", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](t.ResourceID())).
 				Entry(&taskStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(taskStatus.Key).To(Equal(existing.Key))
 			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Started"))
@@ -147,7 +149,9 @@ var _ = Describe("Status backfill", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewMigrationWriter(tx).Set(ctx, legacyStatus)
+			})).
 				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
@@ -164,7 +168,7 @@ var _ = Describe("Status backfill", func() {
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchOwners[v0.StatusDetails](taskKey.ResourceID())).
 				Entry(&restoredStatus).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(restoredStatus.Key).To(Equal("legacy-task-status"))
 			Expect(restoredStatus.Details.Task).To(Equal(taskKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())

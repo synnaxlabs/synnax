@@ -38,7 +38,7 @@ var _ = Describe("Resources", func() {
 	It("Should return a validation error for a malformed key", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(
 			ctx,
-			nil,
+			db,
 			[]resource.ID{{Type: resource.TypePolicy, Key: "pump"}},
 		)).Error().To(And(
 			MatchError(validate.ErrValidation),

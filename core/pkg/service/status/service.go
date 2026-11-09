@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -62,6 +63,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Status[any]]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -72,7 +74,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
@@ -84,6 +90,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
+			// A label delete detaches the label from each status that holds it, which
+			// no status write does, so the service sets the status that remains. The
+			// device, rack, and channel tables need no hook, as a group delete refuses
+			// a group that holds members.
+			OnDetach: func(_ context.Context, tx gorp.Tx, st Status[any]) error {
+				s.state.Dispatcher().
+					Attach(tx, st.Key, NewSetAction(SetPayload{Status: st}))
+				return nil
+			},
 		},
 	); !ok(err, s.table) {
 		return nil, err
@@ -101,21 +116,31 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 	return s.table.Observe()
 }
 
+// Changes returns the changes that c made to statuses.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Status[any]] {
+	return s.table.Changes(ctx, c)
+}
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keyOrName string,
 ) ([]Status[any], error) {
 	if keyOrName == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "key_or_name is required")
 	}
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var st Status[any]
 	err := s.NewRetrieve[any]().Where(MatchKeys[any](keyOrName)).
 		Entry(&st).
-		Exec(ctx, tx)
+		Exec(ctx, snap)
 	if err == nil {
 		return []Status[any]{st}, nil
 	}
@@ -126,7 +151,7 @@ func (s *Service) ResolveKeyOrName(
 	if err = s.NewRetrieve[any]().
 		Where(MatchNames[any](keyOrName)).
 		Entries(&matches).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	return matches, nil
@@ -212,21 +237,18 @@ func (s *Service) SetMissing[D any](
 
 // NewMigrationWriter returns a writer that skips reference checks, for the migrations
 // of the tables that status owners live in. Those migrations run before their tables
-// open, so no other caller may use it. Pass a nil tx to write directly against the
-// service's DB.
+// open, so no other caller may use it.
 func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
-	return s.table.NewUncheckedWriter(gorp.OverrideTx(s.cfg.DB, tx))
+	return s.table.NewUncheckedWriter(tx)
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to run each call in a
-// transaction of its own on the service's DB.
+// NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:     s,
-		tx:      tx,
-		table:   s.table,
-		indexes: s.indexes,
+		tx:         tx,
+		table:      s.table,
+		indexes:    s.indexes,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -234,7 +256,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
 		gorp:    gorp.NewRetrieve[Key, Status[D]](),
-		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
 }
@@ -243,14 +264,14 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 // that owns no status gets nil.
 func (s *Service) Join[D any](
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	ids []resource.ID,
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
 	if err := s.NewRetrieve[D]().
 		Where(MatchOwners[D](ids...)).
 		Entries(&statuses).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	byOwner := make(map[resource.ID]*Status[D], len(statuses))

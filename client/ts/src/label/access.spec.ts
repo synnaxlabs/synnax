@@ -78,7 +78,7 @@ describe("label", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [label.resourceID("")],
-        actions: ["delete"],
+        actions: ["delete", "retrieve"],
       });
       const randomLabel = await client.labels.create({
         name: "test",

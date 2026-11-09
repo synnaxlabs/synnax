@@ -11,13 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_
-from synnax import status as status_
+from synnax import group as group_, status as status_
 from synnax.access import role as role_
 from synnax.resource import ID
 from x import filter
@@ -39,8 +37,6 @@ class Where(BaseModel):
         name: Selects by name.
         embedded: Selects by embedded.
         integrations: Selects by integrations.
-        host_is_node: Matches racks on the Core that serves the request, or racks on
-            other Cores when false.
         groups: Matches the racks in any of the given groups.
         grouped: Matches the racks in a group, or in no group when false.
     """
@@ -54,7 +50,6 @@ class Where(BaseModel):
     name: filter.String | None = None
     embedded: filter.Bool | None = None
     integrations: filter.Contains[str] | None = None
-    host_is_node: bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -76,7 +71,6 @@ WhereInput = TypedDict(
         "name": filter.StringInput,
         "embedded": filter.BoolInput,
         "integrations": filter.ContainsInput[str],
-        "host_is_node": bool,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },

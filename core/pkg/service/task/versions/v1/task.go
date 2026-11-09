@@ -22,9 +22,6 @@ var _ gorp.Entry[Key] = Task{}
 // GorpKey implements gorp.Entry.
 func (t Task) GorpKey() Key { return t.Key }
 
-// SetOptions implements gorp.Entry, leasing the task to its rack's node.
-func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
-
 // ResourceID returns the unique resource identifier for the task.
 func (t Task) ResourceID() resource.ID { return t.Key.ResourceID() }
 

@@ -130,13 +130,6 @@ arc_go:
   - *arc_go_module
   - "**/*.arc"
 
-aspen: &aspen
-  - *alamos_go
-  - *freighter_go
-  - *go
-  - *x_go
-  - aspen/**
-
 freighter_integration: &freighter_integration
   - *alamos_go
   - *freighter_go
@@ -147,7 +140,6 @@ freighter_integration: &freighter_integration
 core: &core
   - *alamos_go
   - *arc_go_module
-  - *aspen
   - *cesium
   - *freighter_go
   - *go

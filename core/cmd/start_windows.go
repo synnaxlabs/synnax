@@ -16,6 +16,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/exit"
 	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
@@ -31,8 +32,6 @@ func RunMain() {
 		return
 	}
 	if err := Cmd.Execute(); err != nil {
-		os.Exit(1)
+		os.Exit(exit.Code(err))
 	}
 }
-
-func init() { Cmd.AddCommand(service.Cmd) }

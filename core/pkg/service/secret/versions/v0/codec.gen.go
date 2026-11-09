@@ -70,11 +70,11 @@ func (s Secret) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Secret) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "stored":
 		var v StoredSecret
 		if err := v.Base.DecodeOrc(r); err != nil {

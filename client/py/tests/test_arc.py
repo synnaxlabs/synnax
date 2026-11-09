@@ -126,6 +126,11 @@ class TestArc:
         retrieved = client.arcs.retrieve(where=where, keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
 
+    def test_retrieve_by_directory(self, client: sy.Synnax) -> None:
+        """Should keep no Arcs for a directory that holds none."""
+        created = client.arcs.create(name=f"test-arc-{uuid4()}", mode="text")
+        assert client.arcs.retrieve(key=[created.key], directories=uuid4()) == []
+
     def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
         """Should retrieve the Arcs whose name matches an operator."""
         prefix = f"test-arc-op-{uuid4()}"

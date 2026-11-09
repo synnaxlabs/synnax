@@ -191,7 +191,12 @@ func (s *Server) SetClient(client protocol.Client) {
 				if s.cancelRepublish != nil {
 					s.cancelRepublish()
 				}
-				ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
+				// The change can come from a commit whose context ends when the commit
+				// returns.
+				ctx, cancel := context.WithTimeout(
+					context.WithoutCancel(ctx),
+					s.cfg.RepublishTimeout,
+				)
 				s.cancelRepublish = cancel
 				s.republishMu.Unlock()
 				s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
