@@ -50,6 +50,17 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
+			"Should reject an explicit zero in a defaulted field and not fill it",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "zero"})
+				l.TimeZone = ""
+				Expect(svc.NewWriter(tx).Create(ctx, &l)).
+					To(MatchError(ContainSubstring("invalid time_zone: ")))
+			},
+		)
+
+		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())

@@ -75,6 +75,19 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil()))
 		})
+		It("Should keep an explicit zero in a defaulted field", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			plot := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "zero"})
+			plot.Legend.Position.X = 0
+			Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Legend.Position.X).To(BeZero())
+			Expect(res.Legend.Position.Y).To(Equal(50.0))
+		})
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
