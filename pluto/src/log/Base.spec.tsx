@@ -78,15 +78,9 @@ const LINES = [
 const setupAether = (overrides: Record<string, unknown> = {}, partial = false) => {
   const setState = vi.fn();
   const state = { ...DEFAULT_STATE, ...overrides };
-  const selectedLines = vi.fn(async () => LINES);
-  const selectionPartial = vi.fn(async () => partial);
-  mockAetherUse.mockReturnValue([
-    "test-key",
-    state,
-    setState,
-    { selectedLines, selectionPartial },
-  ]);
-  return { setState, state, selectedLines };
+  const selection = vi.fn(async () => ({ lines: LINES, partial }));
+  mockAetherUse.mockReturnValue(["test-key", state, setState, { selection }]);
+  return { setState, state, selection };
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
@@ -459,10 +453,10 @@ describe("log/Base", () => {
     };
 
     it("should leave the copy event alone when nothing is selected", () => {
-      const { selectedLines } = setupAether({ empty: false });
+      const { selection } = setupAether({ empty: false });
       const { container } = renderLog();
       expect(fireEvent.copy(getLogDiv(container))).toBe(true);
-      expect(selectedLines).not.toHaveBeenCalled();
+      expect(selection).not.toHaveBeenCalled();
     });
 
     it("should leave the copy event alone when the log has no rows", () => {
@@ -483,13 +477,13 @@ describe("log/Base", () => {
 
     it("should read the lines from the worker only on a copy", async () => {
       const write = stubClipboard();
-      const { selectedLines } = setupAether({ ...SELECTED, selectionEnd: 1 });
+      const { selection } = setupAether({ ...SELECTED, selectionEnd: 1 });
       const { container } = renderLog();
-      expect(selectedLines).not.toHaveBeenCalled();
+      expect(selection).not.toHaveBeenCalled();
       await act(async () => {
         fireEvent.copy(getLogDiv(container));
       });
-      expect(selectedLines).toHaveBeenCalledTimes(1);
+      expect(selection).toHaveBeenCalledTimes(1);
       const [item] = write.mock.calls[0][0];
       const text = await (await item.data["text/plain"]).text();
       expect(text).toBe("<one>\ntwo");
@@ -549,7 +543,7 @@ describe("log/Base", () => {
       expect(
         await screen.findByText("warning: Copied 2 lines to clipboard"),
       ).toBeDefined();
-      expect(screen.getByText(/export the log/)).toBeDefined();
+      expect(screen.getByText(/not every stored value/)).toBeDefined();
     });
   });
 

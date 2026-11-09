@@ -57,8 +57,7 @@ const toHTMLBlob = (lines: log.Line[]): Blob => {
 };
 
 const PARTIAL_DESCRIPTION =
-  "The copy holds only the lines the log keeps in memory, not every stored value. " +
-  "To save every stored value, export the log.";
+  "The copy holds only the lines the log keeps in memory, not every stored value.";
 
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
@@ -177,8 +176,8 @@ export const Base = ({
   // insecure context has no ClipboardItem, so it copies plain text once the lines
   // arrive, and a browser refuses that copy if the gesture has expired.
   const copyToClipboard = () => {
-    const lines = methods.selectedLines();
-    const partial = methods.selectionPartial();
+    const selection = methods.selection();
+    const lines = selection.then((s) => s.lines);
     handleError(async () => {
       if (typeof ClipboardItem === "undefined")
         await clipboard.writeText(toText(await lines));
@@ -191,7 +190,7 @@ export const Base = ({
         ]);
       const { length } = await lines;
       const message = `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`;
-      if (await partial)
+      if ((await selection).partial)
         addStatus({ variant: "warning", message, description: PARTIAL_DESCRIPTION });
       else addStatus({ variant: "success", message });
     }, "Failed to copy to clipboard");
