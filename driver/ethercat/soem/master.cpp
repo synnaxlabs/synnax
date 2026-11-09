@@ -747,14 +747,15 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
 constexpr uint16_t SII_DC_CATEGORY = 60;
 
 std::vector<dc::OpMode> Master::read_op_modes(const uint16_t pos) {
-    auto &modes = this->description(pos).op_modes;
-    if (modes) return *modes;
-    modes = sii::parse_op_modes(
+    auto &known = this->description(pos).op_modes;
+    if (!known.empty()) return known;
+    auto modes = sii::parse_op_modes(
         this->read_sii_category(pos, SII_DC_CATEGORY),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);
-    return *modes;
+    known = modes;
+    return modes;
 }
 
 std::optional<std::string>

@@ -79,8 +79,9 @@ class Master final : public master::Master {
         /// sub-index.
         std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, telem::DataType>>
             entries;
-        /// @brief the synchronization modes in the SII.
-        std::optional<std::vector<dc::OpMode>> op_modes;
+        /// @brief the synchronization modes in the SII, or none before a read finds
+        /// them.
+        std::vector<dc::OpMode> op_modes;
     };
     /// @brief the description of each slave model, keyed by vendor ID, product code,
     /// and revision, as ESI files key them.
@@ -230,15 +231,17 @@ private:
         const std::function<bool(uint8_t sync)> &keep
     );
 
-    /// @brief reads the synchronization modes the slave at the given position lists in
-    /// its SII. Returns an empty list when the SII has no DC category.
+    /// @brief returns the synchronization modes that the model of the slave at the
+    /// given position lists in its SII, read once for each model. Returns an empty list
+    /// when the SII has no DC category.
     std::vector<dc::OpMode> read_op_modes(uint16_t position);
 
-    /// @brief reads the name of a CoE object, or nullopt when the slave has none.
+    /// @brief returns the name of a CoE object, read once for each slave model, or
+    /// nullopt when the slave has none.
     std::optional<std::string> read_object_name(uint16_t slave_pos, uint16_t index);
 
-    /// @brief reads the name and CoE data type of a PDO entry from the object
-    /// dictionary.
+    /// @brief returns the name and CoE data type of a PDO entry from the object
+    /// dictionary, read once for each slave model.
     std::pair<std::string, telem::DataType>
     read_object_entry(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
 
