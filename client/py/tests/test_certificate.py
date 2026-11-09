@@ -122,6 +122,27 @@ class TestCertificate:
         c = client.certificates.create(certificate.NewStored(name="Listed", pem=PEM))
         assert client.certificates.retrieve(key=[c.key, uuid4()]) == [c]
 
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one certificate for a plain name."""
+        name = f"named-certificate-{uuid4()}"
+        c = client.certificates.create(certificate.NewStored(name=name, pem=PEM))
+        assert client.certificates.retrieve(name=name) == c
+
+    def test_order_and_after(self, client: sy.Synnax) -> None:
+        """Should page through the matching certificates in name order from a
+        cursor."""
+        prefix = uuid4()
+        created = client.certificates.create(
+            [certificate.NewStored(name=f"{prefix} {n}", pem=PEM) for n in "CAB"]
+        )
+        keys = [c.key for c in created]
+        order = certificate.Order(field="name")
+        first = client.certificates.retrieve(key=keys, order=order, limit=2)
+        assert [c.name for c in first] == [f"{prefix} A", f"{prefix} B"]
+        after = certificate.Cursor(key=first[-1].key, name=first[-1].name)
+        second = client.certificates.retrieve(key=keys, order=order, after=after)
+        assert [c.name for c in second] == [f"{prefix} C"]
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a certificate."""
         c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))

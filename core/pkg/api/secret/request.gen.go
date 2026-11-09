@@ -15,7 +15,9 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
+	"github.com/synnaxlabs/gorp"
 	servicesecret "github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -37,7 +39,31 @@ func ApplyRetrieve(r RetrieveRequest, q servicesecret.Retrieve) (servicesecret.R
 		q = q.Where(f)
 	}
 	if r.SearchTerm != "" {
+		if r.After != nil {
+			return servicesecret.Retrieve{}, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"a search cannot resume after a position",
+				),
+				"after",
+			)
+		}
+		if r.Order != nil {
+			return servicesecret.Retrieve{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+				"order",
+			)
+		}
 		q = q.Where(servicesecret.MatchSearch(r.SearchTerm))
+	}
+	if r.Order != nil {
+		o, err := r.order()
+		if err != nil {
+			return servicesecret.Retrieve{}, err
+		}
+		q = q.OrderBy(o)
+	} else if r.After != nil {
+		q = q.After(r.After.Key)
 	}
 	if r.Limit != nil {
 		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
@@ -46,7 +72,46 @@ func ApplyRetrieve(r RetrieveRequest, q servicesecret.Retrieve) (servicesecret.R
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
+	return q, nil
+}
+
+// order returns the walk that the request's order selects, starting past the request's
+// cursor when it has one.
+func (r RetrieveRequest) order() (servicesecret.Order, error) {
+	dir := gorp.DirectionAsc
+	if r.Order.Descending {
+		dir = gorp.DirectionDesc
+	}
+	switch r.Order.Field {
+	case OrderFieldName:
+		if r.After == nil {
+			return servicesecret.OrderByName(dir), nil
+		}
+		if r.After.Name == nil {
+			return nil, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by name",
+				),
+				"after",
+				"name",
+			)
+		}
+		return servicesecret.OrderByNameAfter(
+			dir,
+			*r.After.Name,
+			r.After.Key,
+		), nil
+	}
+	return nil, validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"%q is not a field to sort by",
+			r.Order.Field,
+		),
+		"order",
+		"field",
+	)
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,

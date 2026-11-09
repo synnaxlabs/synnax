@@ -139,8 +139,7 @@ const Picker = ({
   defaultName,
   preview,
 }: PickerProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = Secret.useList();
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Secret.useList();
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Dialog.Frame variant="connected" grow>
@@ -148,7 +147,7 @@ const Picker = ({
         data={data}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={fetchMore}
+        onFetchMore={more}
         value={value}
         onChange={onChange}
         closeDialogOnSelect

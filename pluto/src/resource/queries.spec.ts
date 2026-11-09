@@ -11,9 +11,8 @@ import { group, label, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { Flux } from "@/flux";
 import { Resource } from "@/resource";
 import { renderHookSuspended } from "@/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -35,16 +34,16 @@ describe("Resource Queries", () => {
       const token = randomToken();
       const g = await createGroup(token);
       const l = await createLabel(`${token} pump`);
-      const { result } = renderHook(() => Resource.useList(), { wrapper });
-      await waitFor(async () => {
-        await act(
-          async () => await result.current.retrieveAsync({ searchTerm: token }),
-        );
+      const { result } = renderHook(() => Resource.useList({ searchDebounce: 0 }), {
+        wrapper,
+      });
+      act(() => result.current.search(token));
+      await waitFor(() =>
         expect(result.current.data).toEqual([
           resource.idToString(g),
           resource.idToString(l),
-        ]);
-      });
+        ]),
+      );
       expect(result.current.getItem(resource.idToString(l))?.name).toEqual(
         `${token} pump`,
       );
@@ -54,23 +53,25 @@ describe("Resource Queries", () => {
       const token = randomToken();
       await createGroup(token);
       const l = await createLabel(token);
-      const { result } = renderHook(() => Resource.useList(), { wrapper });
-      await waitFor(async () => {
-        await act(
-          async () =>
-            await result.current.retrieveAsync({ searchTerm: token, types: ["label"] }),
-        );
-        expect(result.current.data).toEqual([resource.idToString(l)]);
-      });
+      const { result } = renderHook(
+        () => Resource.useList({ query: { types: ["label"] }, searchDebounce: 0 }),
+        { wrapper },
+      );
+      act(() => result.current.search(token));
+      await waitFor(() =>
+        expect(result.current.data).toEqual([resource.idToString(l)]),
+      );
     });
 
     it("should list the resources of the given types for an empty term", async () => {
       for (let i = 0; i < 3; i++) await createLabel(randomToken());
-      const { result } = renderHook(() => Resource.useList(), { wrapper });
-      await act(
-        async () => await result.current.retrieveAsync({ types: ["label"], limit: 3 }),
+      // An earlier reader of the query on a shared client would size the window.
+      const { result } = renderHook(
+        () => Resource.useList({ query: { types: ["label"] }, pageSize: 3 }),
+        { wrapper: createSynnaxWrapper({ client: createTestClient() }) },
       );
-      expect(result.current.data).toHaveLength(3);
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toHaveLength(3));
       expect(result.current.data.map((k) => resource.parseID(k).type)).toEqual([
         "label",
         "label",
@@ -79,60 +80,30 @@ describe("Resource Queries", () => {
     });
 
     it("should add a resource created while the list is mounted", async () => {
-      const { result } = renderHook(() => Resource.useList(), { wrapper });
       // The Core holds groups from other specs, so the list takes the most it can.
-      await act(
-        async () =>
-          await result.current.retrieveAsync({ types: ["group"], limit: 1000 }),
+      const { result } = renderHook(
+        () => Resource.useList({ query: { types: ["group"] }, pageSize: 1000 }),
+        { wrapper },
       );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.answered).toBe(true));
       const g = await createGroup(randomToken());
       await waitFor(() =>
         expect(result.current.data).toContain(resource.idToString(g)),
       );
     });
 
-    it("should look up a resource outside the page by its key", async () => {
-      const name = randomToken();
-      const l = await createLabel(name);
-      const { result } = renderHook(() => Resource.useList(), { wrapper });
-      act(() => {
-        result.current.getItem(resource.idToString(l));
-      });
-      await waitFor(() =>
-        expect(result.current.getItem(resource.idToString(l))?.name).toEqual(name),
-      );
-    });
-
-    it("should show the cached answer of a search before the round trip", async () => {
-      const token = randomToken();
-      const l = await createLabel(token);
-      const query: Resource.ListQuery = { searchTerm: token, types: ["label"] };
-      await expect
-        .poll(async () => (await client.resources.search(query)).length)
-        .toEqual(1);
-      const { result } = renderHook(() => Resource.useList({ query }), {
-        wrapper,
-      });
-      expect(result.current.data).toEqual([resource.idToString(l)]);
-    });
-
-    it("should update a resource read by key when it is renamed", async () => {
+    it("should read a resource outside the list by its key", async () => {
       const g = await client.groups.create({ scope: "channel", name: randomToken() });
       const key = resource.idToString(group.resourceID(g.key));
-      const { result } = renderHook(
-        () => {
-          const list = Resource.useList();
-          return Flux.useListItem({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key,
-          });
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current?.name).toEqual(g.name));
-      await act(async () => await client.groups.rename(g.key, "renamed"));
-      await waitFor(() => expect(result.current?.name).toEqual("renamed"));
+      const { result } = renderHook(() => Resource.useList(), { wrapper });
+      const callback = vi.fn();
+      const release = result.current.subscribe(callback, key);
+      await waitFor(() => expect(result.current.getItem(key)?.name).toEqual(g.name));
+      await client.groups.rename(g.key, "renamed");
+      await waitFor(() => expect(result.current.getItem(key)?.name).toEqual("renamed"));
+      expect(callback).toHaveBeenCalled();
+      release();
     });
   });
 

@@ -279,9 +279,9 @@ var _ = Describe("Service", func() {
 			var first, second []password.Password
 			Expect(svc.NewRetrieve().Where(both).Limit(1).Entries(&first).
 				Exec(ctx, db)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(both).Limit(1).Offset(1).Entries(&second).
-				Exec(ctx, db)).To(Succeed())
 			Expect(first).To(HaveLen(1))
+			Expect(svc.NewRetrieve().Where(both).Limit(1).After(first[0].Key).
+				Entries(&second).Exec(ctx, db)).To(Succeed())
 			Expect(second).To(HaveLen(1))
 			Expect(first[0].Key).ToNot(Equal(second[0].Key))
 		})
