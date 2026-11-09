@@ -107,7 +107,10 @@ export const methodsZ = {
   selection: z.function({ input: z.tuple([]), output: selectionZ }),
   /** Moves a paused view to a time, a decimal count of nanoseconds. */
   seek: z.function({ input: z.tuple([z.string()]), output: z.void() }),
-  /** Moves a paused view to the time at progress down the scrollbar track. */
+  /**
+   * Moves a paused view to where a thumb at progress down the scrollbar track puts it.
+   * A live view does not move.
+   */
   seekProgress: z.function({ input: z.tuple([z.number()]), output: z.void() }),
 };
 
@@ -328,6 +331,12 @@ export const timeAt = (range: TimeRange, progress: number): TimeStamp => {
   return new TimeStamp(start + (span * share) / BigInt(scale));
 };
 
+// The bottom of a view: its time, and its entry when the thumb places entries by count.
+interface Target {
+  time: TimeStamp;
+  entry?: LogEntry;
+}
+
 // Moves a wrap point off the second half of a surrogate pair, so a row never splits an
 // emoji.
 const wrapPoint = (value: string, at: number): number => {
@@ -353,6 +362,8 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
+  // Maps progress down the drawn thumb's track to the bottom of the view it stands for.
+  private track: ((progress: number) => Target) | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -769,11 +780,12 @@ export class Log
     return rowEntries.at(row) ?? -1;
   }
 
-  // Returns where the rows sit in the times the source stores, from 0 to 1, or null
-  // when the source does not know its oldest time.
-  private timeShare(rows: Row[]): { top: number; bottom: number } | null {
-    const range = this.internal.telem.wrapped.timeRange;
-    if (range == null || rows.length === 0) return null;
+  // Returns where the rows sit in the range, from 0 to 1.
+  private timeShare(
+    range: TimeRange,
+    rows: Row[],
+  ): { top: number; bottom: number } | null {
+    if (rows.length === 0) return null;
     const start = range.start.valueOf();
     const total = Number(range.end.valueOf() - start);
     if (total <= 0) return null;
@@ -799,17 +811,24 @@ export class Log
 
   // Draws the thumb of a paused view, and returns where it sits.
   private renderScrollbar(draw2d: Draw2D, rows: Row[]): Thumb | null {
+    this.track = null;
     if (!this.state.scrolling) return null;
     const reg = this.state.region;
     const regHeight = box.height(reg);
-    const shown = this.timeShare(rows);
+    const range = this.internal.telem.wrapped.timeRange;
+    const shown = range == null ? null : this.timeShare(range, rows);
     // A view that spans the stored times can still hide lines, which only line counts
     // can place.
-    if (shown != null && shown.bottom - shown.top < SCROLLBAR_RENDER_THRESHOLD) {
-      const proportional = (shown.bottom - shown.top) * regHeight;
+    if (
+      range != null &&
+      shown != null &&
+      shown.bottom - shown.top < SCROLLBAR_RENDER_THRESHOLD
+    ) {
+      const span = shown.bottom - shown.top;
+      const proportional = span * regHeight;
       const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
-      const outside = shown.top + 1 - shown.bottom;
-      const progress = outside <= 0 ? 0 : shown.top / outside;
+      const progress = span >= 1 ? 0 : shown.top / (1 - span);
+      this.track = (p) => ({ time: timeAt(range, p * (1 - span) + span) });
       return this.drawThumb(draw2d, progress, height);
     }
     const { totalHeight } = this;
@@ -833,6 +852,13 @@ export class Log
       scrollRange <= 0
         ? 0
         : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
+    const { entries } = this;
+    this.track = (p) => {
+      const end = entries.length - Math.round((1 - p) * scrollRange);
+      const entry =
+        entries[bounds.clamp({ lower: top.offset, upper: entries.length }, end) - 1];
+      return { time: entry.timestamp, entry };
+    };
     return this.drawThumb(draw2d, 1 - progress, height);
   }
 
@@ -856,8 +882,8 @@ export class Log
 
   // Shows the time under a dragged thumb, beside it.
   private drawDragTime(draw2d: Draw2D, top: number, height: number): void {
-    const time = this.timeAt(this.state.dragProgress);
-    if (time == null) return;
+    if (this.track == null) return;
+    const { time } = this.track(this.state.dragProgress);
     const text = time.toPreciseString(this.state.timeZone);
     const reg = this.state.region;
     const { charWidth, lineHeight } = this.internal;
@@ -882,13 +908,6 @@ export class Log
       position: { x: box.left(region) + CONTENT_PADDING, y: box.top(region) },
       variant: "code",
     });
-  }
-
-  // Returns the stored time at progress down the track, or null when the source does
-  // not know its oldest time.
-  private timeAt(progress: number): TimeStamp | null {
-    const range = this.internal.telem.wrapped.timeRange;
-    return range == null ? null : timeAt(range, progress);
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
@@ -987,8 +1006,20 @@ export class Log
   }
 
   seekProgress(progress: number): void {
-    const time = this.timeAt(progress);
-    if (time != null) this.seek(time.valueOf().toString());
+    if (!this.state.scrolling || this.track == null) return;
+    const { time, entry } = this.track(progress);
+    const offset = entry == null ? 0 : this.locate(entry) + 1;
+    // The time finds an entry evicted since the render again.
+    if (offset === 0) return this.seek(time.valueOf().toString());
+    this.seeking = null;
+    this.scrollState = {
+      ...ZERO_SCROLLBACK,
+      offset: Math.max(this.calcMinOffset(this.internal.lineHeight), offset),
+      scrollRef: this.state.wheelPos,
+    };
+    this.anchors.scroll = this.entries[this.scrollState.offset - 1];
+    this.loadNearEdges();
+    if (this.state.visible) this.requestRender();
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
