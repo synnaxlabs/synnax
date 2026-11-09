@@ -139,6 +139,18 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
+      # The module cache comes from an earlier run, and a download checks go.sum only
+      # for modules it fetches. Neither check depends on GOOS, so one leg runs them.
+      - name: Verify the Go module cache
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: go mod verify
+
+      - name: Check that go.mod and go.sum are tidy
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: go mod tidy -diff
+
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
