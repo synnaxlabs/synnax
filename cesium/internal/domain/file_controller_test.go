@@ -11,6 +11,9 @@ package domain_test
 
 import (
 	"context"
+	"encoding/binary"
+	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -80,6 +83,14 @@ func (f *handleFaultFile) Close() error {
 		return errHandleFault
 	}
 	return err
+}
+
+// createCounter stores value as the file counter of the domain DB in fs.
+func createCounter(fs xfs.FS, value int32) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open("counter.domain", os.O_CREATE|os.O_RDWR))
+	Expect(f.Write(binary.LittleEndian.AppendUint32(nil, uint32(value)))).To(Equal(4))
+	Expect(f.Close()).To(Succeed())
 }
 
 var _ = Describe("File Controller", Ordered, func() {
@@ -995,4 +1006,17 @@ var _ = Describe("File Controller", Ordered, func() {
 			})
 		})
 	}
+	Describe("File key limit", func() {
+		It("Should not create a file past the maximum file key", func(ctx SpecContext) {
+			fs := xfs.NewMem()
+			createCounter(fs, math.MaxUint16)
+			db := MustOpen(domain.Open(domain.Config{
+				FS:              fs,
+				Instrumentation: PanicLogger(),
+			}))
+			Expect(db.OpenWriter(ctx, domain.WriterConfig{
+				Start: 10 * telem.SecondTS,
+			})).Error().To(MatchError(domain.ErrFileLimit))
+		})
+	})
 })

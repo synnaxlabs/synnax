@@ -99,6 +99,13 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("domain")
 	v.Positive("file_size", c.FileSize)
+	// FileSize holds 80% of the configured size, and file offsets are 32-bit.
+	v.Ternaryf(
+		"file_size",
+		math.Round(1.25*float64(c.FileSize)) > math.MaxUint32,
+		"must be at most %d bytes",
+		uint32(math.MaxUint32),
+	)
 	v.Positive("max_descriptors", c.MaxDescriptors)
 	v.NotNil("fs", c.FS)
 	v.GreaterThanEq("gc_threshold", c.GCThreshold, 0)
