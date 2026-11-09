@@ -9,13 +9,14 @@
 
 import "@/dialog/Dialog.css";
 
-import { useRef } from "react";
+import { type KeyboardEvent, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
+import { useDropdownFocus } from "@/dialog/useDropdownFocus";
 import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
@@ -27,6 +28,7 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
 /**
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
  * to the document root. A modal holds the focus while open and gives it back on close.
+ * Any other dialog takes the place right after its trigger in the tab order.
  */
 export const Dialog = ({
   style,
@@ -35,6 +37,7 @@ export const Dialog = ({
   bordered = true,
   rounded = "small",
   children,
+  onKeyDown,
   ...rest
 }: DialogProps) => {
   const {
@@ -44,12 +47,18 @@ export const Dialog = ({
     dialogCorner,
     style: ctxStyle,
     modalPosition,
+    getTarget,
   } = useInternalContext("Dialog.Dialog");
-  const { visible, variant } = useContext();
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const combinedRef = useCombinedRefs(ref, surfaceRef);
+  const { visible, variant, close } = useContext();
   const modal = variant === "modal";
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const trap = useFocusTrap(surfaceRef, modal && visible);
+  const dropdown = useDropdownFocus(!modal, getTarget, close);
+  const combinedRef = useCombinedRefs(ref, surfaceRef, dropdown.ref);
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    onKeyDown?.(e);
+    dropdown.onKeyDown(e);
+  };
   const dialogStyle = { ...ctxStyle, ...style };
   if (!visible) return null;
   const actuallyVisible = modal || Object.keys(ctxStyle).length > 0;
@@ -72,11 +81,12 @@ export const Dialog = ({
       )}
       rounded={rounded}
       role="dialog"
-      tabIndex={modal ? -1 : undefined}
+      tabIndex={-1}
       empty
       bordered={bordered}
       align="stretch"
       style={dialogStyle}
+      onKeyDown={handleKeyDown}
       {...rest}
       {...{ [PORTAL_OWNER_ATTR]: id }}
     >

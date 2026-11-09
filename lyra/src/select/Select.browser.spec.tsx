@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -226,6 +226,28 @@ const renderDescribedOptions = async (
     });
 };
 
+/** Opens a select from the keyboard, inside a modal. */
+const openInModal = async (): Promise<HTMLElement> => {
+  await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame variant="modal" initialVisible>
+        <Dialog.Dialog>
+          <Select.Simple<string> resourceName="level" value="low" onChange={() => {}}>
+            <Select.Item itemKey="low">Low</Select.Item>
+            <Select.Item itemKey="high">High</Select.Item>
+          </Select.Simple>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  const trigger = page.getByRole("button", { name: /^Level/ }).element();
+  assert(trigger instanceof HTMLElement);
+  trigger.focus();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByPlaceholder("Search levels...")).toHaveFocus();
+  return trigger;
+};
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -313,6 +335,26 @@ describe("Select", () => {
       const onChange = await renderSearchless(true);
       expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
       await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+  });
+
+  describe("in a modal", () => {
+    it("should focus the trigger when Enter picks an option", async () => {
+      const trigger = await openInModal();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should focus the trigger when a click picks an option", async () => {
+      const trigger = await openInModal();
+      await userEvent.click(page.getByRole("option", { name: "High" }));
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
     });
   });
 

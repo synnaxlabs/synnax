@@ -110,6 +110,8 @@ interface InternalContextValue extends Pick<
   ref: RefCallback<HTMLDivElement>;
   /** Ties the portaled dialog back to this frame for click-outside checks. */
   id: string;
+  /** Returns the element the dialog opens from: the anchor, or else the frame's box. */
+  getTarget: () => HTMLElement | null;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -237,12 +239,13 @@ export const Frame = ({
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const prevAvailableHeight = useRef<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const getTarget = () => anchor ?? targetRef.current;
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = () => {
-    const targetEl = anchor ?? targetRef.current;
+    const targetEl = getTarget();
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
     const target = box.construct(targetEl);
     if (box.areaIsZero(target) && variant !== "modal") return close();
@@ -402,6 +405,7 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = {
     ref: combinedDialogRef,
     id,
+    getTarget,
     targetCorner,
     dialogCorner,
     style,
