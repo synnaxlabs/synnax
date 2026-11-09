@@ -114,6 +114,8 @@ export interface CreateWrapperParams {
   coreVersion?: string | null;
   /** The client that access checks use. */
   client?: Client | null;
+  /** The middleware that the Provider wraps each install in. */
+  installMiddleware?: Version.InstallMiddleware;
 }
 
 /**
@@ -123,6 +125,7 @@ export interface CreateWrapperParams {
 export const createWrapper = async ({
   coreVersion = "1.5.0",
   client = null,
+  installMiddleware,
 }: CreateWrapperParams = {}): Promise<FC<PropsWithChildren>> => {
   const core = createCore("Local");
   const { wrapper: Console } = await createStatusConsoleWrapper({
@@ -132,7 +135,7 @@ export const createWrapper = async ({
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Version.Provider>
+      <Version.Provider installMiddleware={installMiddleware}>
         {children}
         <Modals.Stack />
       </Version.Provider>

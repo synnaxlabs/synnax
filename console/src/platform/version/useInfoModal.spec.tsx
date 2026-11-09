@@ -10,7 +10,6 @@
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
@@ -37,23 +36,8 @@ import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
-interface OpenModalParams extends CreateWrapperParams {
-  middleware?: Version.InstallMiddleware;
-}
-
-const openModal = async ({
-  middleware,
-  ...params
-}: OpenModalParams = {}): Promise<void> => {
-  const Base = await createWrapper(params);
-  const wrapper =
-    middleware == null
-      ? Base
-      : ({ children }: PropsWithChildren): ReactElement => (
-          <Version.InstallProvider middleware={middleware}>
-            <Base>{children}</Base>
-          </Version.InstallProvider>
-        );
+const openModal = async (params: CreateWrapperParams = {}): Promise<void> => {
+  const wrapper = await createWrapper(params);
   const { result } = renderHook(Version.useInfoModal, { wrapper });
   act(() => {
     result.current();
@@ -137,7 +121,7 @@ describe("version useInfoModal", () => {
     const ipc = mockUpdater({ served: "1.4.2" });
     const order: string[] = [];
     await openModal({
-      middleware: async (run) => {
+      installMiddleware: async (run) => {
         order.push(`before, installed: ${installed(ipc)}`);
         await run();
         order.push(`after, installed: ${installed(ipc)}`);
@@ -151,7 +135,7 @@ describe("version useInfoModal", () => {
   it("should not relaunch when the middleware rejects", async () => {
     const ipc = mockUpdater({ served: "1.4.2" });
     await openModal({
-      middleware: async () => await Promise.reject(new Error("the app is busy")),
+      installMiddleware: async () => await Promise.reject(new Error("the app is busy")),
     });
     await clickUpdate();
     expect(await screen.findByText("Failed to update Console")).toBeTruthy();

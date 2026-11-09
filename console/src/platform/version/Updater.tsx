@@ -27,7 +27,6 @@ import {
   STATUS_KEY_PREFIX,
   useTarget,
 } from "@/platform/version/check";
-import { useInstallMiddleware } from "@/platform/version/Install";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -60,6 +59,19 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Version.Context";
 
+/**
+ * Runs the install of a downloaded update. It must call `install` exactly once and
+ * reject when `install` rejects.
+ */
+export type InstallMiddleware = (install: () => Promise<void>) => Promise<void>;
+
+const runInstall: InstallMiddleware = async (install) => await install();
+
+export interface ProviderProps extends PropsWithChildren {
+  /** Wraps the install of each update. */
+  installMiddleware?: InstallMiddleware;
+}
+
 interface Installing {
   update: Update;
   /** True when the checks started again and left the update to the install. */
@@ -72,9 +84,11 @@ interface Installing {
  * update stays open for {@link useCheck} until the checks start again or the Provider
  * unmounts, and while {@link useInstall} installs it.
  */
-export const Provider = ({ children }: PropsWithChildren): ReactElement => {
+export const Provider = ({
+  installMiddleware = runInstall,
+  children,
+}: ProviderProps): ReactElement => {
   const addStatus = Status.useAdder();
-  const installMiddleware = useInstallMiddleware();
   const target = useTarget();
   const [check, setCheck] = useState<Check>({ variant: "loading" });
   const held = useRef<Update | null>(null);
