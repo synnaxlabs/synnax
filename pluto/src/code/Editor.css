@@ -52,6 +52,8 @@
     height: 100%;
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
+    -webkit-user-select: text;
+    user-select: text;
 
     /* Monaco toggles .focused on .monaco-editor alone; its overlay divs keep the class
     after blur. Focus thickens the border to a full 1px, so the padding gives back the

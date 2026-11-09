@@ -30,6 +30,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
+from synnax.status import VARIANT_WARNING
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -221,8 +222,13 @@ class Task:
         :param args: The arguments to pass to the command.
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
+        :raises TimeoutError: If the timeout passes before the driver acknowledges the
+        command.
+        :raises RuntimeError: If the rack of the task reports that its driver is down
+        while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
+        rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
             timer = Timer()
@@ -243,6 +249,8 @@ class Task:
                 # A frame can carry several statuses, and only some of them answer
                 # this command.
                 for sample in frame[_TASK_STATE_CHANNEL]:
+                    if rack_id is not None:
+                        _raise_if_rack_down(sample, rack_id)
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
@@ -251,6 +259,24 @@ class Task:
                         continue
                     if status.details is not None and status.details.cmd == key:
                         return status
+
+
+def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
+    """Raises a status of the rack as an error when it reports that the Driver of the
+    rack is down. A down Driver never replies, so the status ends the wait.
+    """
+    try:
+        rack_status = rack_.Status.model_validate(sample)
+    except ValidationError:
+        return
+    # Only the Core writes warnings to rack statuses, when it stops hearing from the
+    # Driver.
+    if rack_status.owner != rack_id or rack_status.variant != VARIANT_WARNING:
+        return
+    message = rack_status.message
+    if rack_status.description:
+        message += f": {rack_status.description}"
+    raise RuntimeError(message)
 
 
 class Protocol(BaseProtocol):
