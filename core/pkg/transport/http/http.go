@@ -141,6 +141,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/rename",
 		),
+		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
+			router,
+			"/api/v1/channel/dispatch",
+		),
 
 		// CONNECTIVITY
 		ConnectivityCheck: unary[struct{}, connectivity.CheckResponse](
@@ -546,6 +550,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/rename",
 		),
+		RackDispatch: unary[rack.DispatchRequest, struct{}](
+			router,
+			"/api/v1/rack/dispatch",
+		),
 
 		// TASK
 		TaskCreate: unary[task.CreateRequest, task.CreateResponse](
@@ -589,6 +597,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceRename: unary[device.RenameRequest, struct{}](
 			router,
 			"/api/v1/device/rename",
+		),
+		DeviceDispatch: unary[device.DispatchRequest, struct{}](
+			router,
+			"/api/v1/device/dispatch",
 		),
 
 		// ACCESS

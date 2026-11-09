@@ -11,6 +11,7 @@ import "schemas/synnax/group"
 import "schemas/synnax/role"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
@@ -79,6 +80,33 @@ Rack struct {
         @pb omit
         @ref kind      use
         @ref on_delete restrict
+    }
+
+    action Create {
+        rack Rack
+
+        @doc value """
+            replaces the rack with the given created state. Emitted by the Core when a
+            rack is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the rack."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the rack.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the rack."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the rack."
     }
 
     @cpp includes    "client/cpp/task/task.h"

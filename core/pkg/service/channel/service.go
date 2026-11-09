@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -109,6 +110,7 @@ type Service struct {
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
+	state   *actions.State[Key, Action]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -126,7 +128,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), index: indexReference()}
+	s = &Service{
+		cfg:     cfg,
+		db:      cfg.DB,
+		indexes: newIndexes(),
+		index:   indexReference(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -329,8 +337,12 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 			AllowDashedNames: !s.ShouldValidateNames(),
 		}),
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // ShouldValidateNames reports whether channel-name validation is enabled.
 func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }

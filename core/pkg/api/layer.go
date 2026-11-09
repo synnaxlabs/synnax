@@ -90,6 +90,8 @@ type Transport struct {
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename   freighter.UnaryServer[channel.RenameRequest, struct{}]
+	// ChannelDispatch applies actions to a channel.
+	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
@@ -186,6 +188,8 @@ type Transport struct {
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackRename renames a rack.
 	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackDispatch applies actions to a rack.
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -201,6 +205,8 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
+	// DeviceDispatch applies actions to a device.
+	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -366,6 +372,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelDispatch,
 
 		// FRAME
 		t.FrameWriter,
@@ -469,6 +476,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackRetrieve,
 		t.RackDelete,
 		t.RackRename,
+		t.RackDispatch,
 
 		// TASK
 		t.TaskCreate,
@@ -483,6 +491,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
+		t.DeviceDispatch,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -604,6 +613,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
 	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
+	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -737,6 +747,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
 	t.RackDelete.BindHandler(bind.Write(l.binder, l.Rack.Delete))
 	t.RackRename.BindHandler(bind.Write(l.binder, l.Rack.Rename))
+	t.RackDispatch.BindHandler(bind.Write(l.binder, l.Rack.Dispatch))
 
 	// TASK
 	t.TaskCreate.BindHandler(bind.Write(l.binder, l.Task.Create))
@@ -753,6 +764,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceRename.BindHandler(bind.Write(l.binder, l.Device.Rename))
+	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
