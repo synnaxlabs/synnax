@@ -17,7 +17,7 @@ import { keyZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
 /**
  * Create replaces the range with the given created state. Emitted by the Core when a
- * range is created or overwritten whole; clients never dispatch it.
+ * range is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   range: payloadZ,

@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the rack with the given created state. Emitted by the Core when a rack
-    is created or overwritten whole; clients never dispatch it.
+    is created; clients never dispatch it.
     """
 
     rack: Base

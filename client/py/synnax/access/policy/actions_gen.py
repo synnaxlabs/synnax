@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the policy with the given created state. Emitted by the Core when a
-    policy is created or overwritten whole; clients never dispatch it.
+    policy is created; clients never dispatch it.
     """
 
     policy: Policy

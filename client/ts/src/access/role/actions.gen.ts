@@ -17,7 +17,7 @@ import { actions } from "@/actions";
 
 /**
  * Create replaces the role with the given created state. Emitted by the Core when a
- * role is created or overwritten whole; clients never dispatch it.
+ * role is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   role: roleZ,

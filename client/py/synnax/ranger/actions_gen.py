@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the range with the given created state. Emitted by the Core when a range
-    is created or overwritten whole; clients never dispatch it.
+    is created; clients never dispatch it.
     """
 
     range: Payload

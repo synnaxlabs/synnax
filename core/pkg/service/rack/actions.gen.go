@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the rack with the given created state. Emitted by the Core
-// when a rack is created or overwritten whole; clients never dispatch it.
+// when a rack is created; clients never dispatch it.
 type CreatePayload struct {
 	Rack Rack `json:"rack" msgpack:"rack"`
 }

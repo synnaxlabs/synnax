@@ -42,7 +42,7 @@ Directory struct {
 
         @doc value """
             replaces the directory with the given created state. Emitted by the Core
-            when a directory is created or overwritten whole; clients never dispatch it.
+            when a directory is created; clients never dispatch it.
         """
     }
 

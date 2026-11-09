@@ -22,7 +22,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the device with the given created state. Emitted by the Core when a
-    device is created or overwritten whole; clients never dispatch it.
+    device is created; clients never dispatch it.
     """
 
     device: Device

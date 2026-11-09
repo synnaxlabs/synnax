@@ -26,7 +26,7 @@
 namespace synnax::device {
 
 /// @brief CreatePayload replaces the device with the given created state. Emitted by
-/// the Core when a device is created or overwritten whole; clients never dispatch it.
+/// the Core when a device is created; clients never dispatch it.
 struct CreatePayload {
     /// @brief TYPE is the type of the Action that carries the payload.
     static constexpr auto TYPE = "create";
