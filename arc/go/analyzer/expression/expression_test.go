@@ -12,10 +12,12 @@ package expression_test
 import (
 	stdcontext "context"
 	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
@@ -23,6 +25,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -1982,6 +1985,88 @@ var _ = Describe("Expressions", func() {
 			),
 			Entry("a negated i64 cast", "a := i64(-math.inf)", "no integer value"),
 			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
+		)
+
+		DescribeTable(
+			"Should reject a comparison with math.nan",
+			func(ctx SpecContext, expr, message string) {
+				ast := MustSucceed(parser.Parse(body("a := " + expr)))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
+				analyzer.AnalyzeProgram(aCtx)
+				diags := aCtx.Diagnostics
+				if message == "" {
+					Expect(diags.Ok()).To(BeTrue(), diags.String())
+					return
+				}
+				Expect(*diags).To(HaveLen(1), diags.String())
+				d := (*diags)[0]
+				Expect(d.Code).To(Equal(codes.NaNComparison))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
+				Expect(d.Message).To(ContainSubstring(message))
+				Expect(d.Message).To(ContainSubstring("math.is_nan"))
+			},
+			Entry("==", "v == math.nan", "== with math.nan is always false"),
+			Entry(
+				"!=",
+				"v != math.nan",
+				"!= with math.nan is always true, use not math.is_nan instead",
+			),
+			Entry("<", "v < math.nan", "< with math.nan is always false"),
+			Entry(">", "math.nan > v", "> with math.nan is always false"),
+			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
+			Entry(">=", "w >= f32(math.nan)", ">= with math.nan is always false"),
+			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
+			Entry("left side", "math.nan == w", "always false"),
+			Entry("parentheses on the left", "(math.nan) == v", "always false"),
+			Entry("parentheses on the right", "v == (math.nan)", "always false"),
+			Entry("nested parentheses", "v != ((math.nan))", "always true"),
+			Entry("negated", "v == -math.nan", "always false"),
+			Entry("negated in parentheses", "(-(math.nan)) == v", "always false"),
+			Entry("an f32 cast", "w == f32(math.nan)", "always false"),
+			Entry("an f64 cast", "f64(-math.nan) != v", "always true"),
+			Entry("an f64 cast with a unit", "v == f64 psi(math.nan)", "always false"),
+			Entry("not on is_nan", "math.is_nan(v)", ""),
+			Entry(
+				"the operator the compiler runs",
+				"v != math.nan == v",
+				"always false",
+			),
+			Entry("not on an operand the compiler skips", "v == 1.0 == math.nan", ""),
+			Entry("not on math.inf", "v == math.inf", ""),
+			Entry("not on -math.inf", "(v) == -(math.inf)", ""),
+			Entry("not on a channel named nan", "v == nan", ""),
+			Entry("not on v != v", "v != v", ""),
+		)
+
+		DescribeTable("Should name the module the code wrote",
+			func(ctx SpecContext, source, message string) {
+				custom := symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
+				custom.AddChild(&symbol.Symbol{
+					Name:         "missing",
+					Kind:         symbol.KindConstant,
+					Type:         types.F64(),
+					DefaultValue: math.NaN(),
+				})
+				ast := MustSucceed(parser.Parse(source))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(
+					[]symbol.Symbol{custom},
+				))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				Expect((*aCtx.Diagnostics)[0].Code).To(Equal(codes.NaNComparison))
+				Expect((*aCtx.Diagnostics)[0].Message).To(Equal(message))
+			},
+			Entry(
+				"an import alias",
+				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
+				"== with m.nan is always false, use m.is_nan instead",
+			),
+			Entry(
+				"a module without is_nan",
+				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
+				"!= with custom.missing is always true, "+
+					"use not is_nan from the math module instead",
+			),
 		)
 	})
 

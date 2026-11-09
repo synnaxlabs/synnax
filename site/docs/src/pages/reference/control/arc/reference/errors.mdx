@@ -29,6 +29,27 @@ In the messages below, `<name>` stands for a value that changes.
 <Problem.List>
 
 <Problem.Item
+  code="ARC2004"
+  severity="error"
+  message={[
+    "<op> with <name> is always false, use <check> instead",
+    "!= with <name> is always true, use not <check> instead",
+  ]}
+>
+  <Problem.Cause>
+    The code compares a value to a NaN constant, such as `math.nan`, with `<op>`: `==`,
+    `<`, `>`, `<=`, or `>=`. NaN is not equal to, less than, or greater than any value.
+    `<name>` is the constant as the code writes it, and `<check>` is the `is_nan` of its
+    module, or `is_nan from the math module`.
+  </Problem.Cause>
+  <Problem.Fix>
+    Use `math.is_nan(x)` in place of `x == math.nan`, and `not math.is_nan(x)` in place
+    of `x != math.nan`. An ordered comparison with NaN never holds: test for NaN with
+    `math.is_nan(x)` first.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
   code="ARC3001"
   severity="error"
   message={[
