@@ -288,6 +288,31 @@ var _ = Describe("Layer", func() {
 			Expect(storedRack.Group).To(Equal(&rackGroup.Key))
 		})
 
+		It("Should reply to each request with the actions that it applied", func(
+			ctx SpecContext,
+		) {
+			u := newUser(
+				ctx,
+				resource.TypeGroup,
+				resource.TypeProject,
+				resource.TypeSchematicSymbol,
+				resource.TypeRack,
+			)
+			res := MustSucceed(execBatch(ctx, u, moveBody()))
+			groups := []group.Group{projGroup, symGroup, rackGroup}
+			Expect(res.Responses).To(HaveLen(len(groups)))
+			for i, g := range groups {
+				Expect(
+					json.Codec.Encode(ctx, res.Responses[i]),
+				).To(MatchJSON(fmt.Sprintf(
+					`{"actions": [{"type": "set", "set": {
+						"path": ["group"], "value": %q, "guards": []
+					}}]}`,
+					g.Key,
+				)))
+			}
+		})
+
 		It("Should commit nothing when the subject cannot update one record", func(
 			ctx SpecContext,
 		) {
