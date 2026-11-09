@@ -801,7 +801,8 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 		flow.AnalyzeComputedArgs(ctx, args)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		for _, arg := range args {
-			Expect(root.GetChildByParserRule(arg.Expr)).Error().To(HaveOccurred())
+			Expect(root.GetChildByParserRule(arg.Expr)).Error().
+				To(MatchError("could not find symbol matching parser rule"))
 		}
 	})
 })
