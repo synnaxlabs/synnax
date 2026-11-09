@@ -714,6 +714,20 @@ describe("log/aether/Log", () => {
       expect(reads).toBeLessThan(500);
     });
 
+    it("should find a match that a read inserts among the held lines", () => {
+      const held = lines(1_000, []);
+      const { log, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      // Another channel's older page lands between the oldest held line and the view.
+      const inserted = { ...makeEntry(500.5), value: "err inserted" };
+      source.setEntries([...held.slice(0, 501), inserted, ...held.slice(501)]);
+      source.notify();
+      expect(log.state.jumpStatus).toBe("");
+      log.render();
+      expect(log.state.rowEntries).toContain(501);
+    });
+
     it("should read older lines until it finds a match", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);
