@@ -589,11 +589,11 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserSetRole.BindHandler(bind.Write(l.binder, l.User.SetRole))
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Create))
+	t.ChannelCreate.BindHandler(bind.Write(l.binder, l.Channel.Create))
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
-	t.ChannelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Delete))
-	t.ChannelRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Channel.Rename))
+	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelRename.BindHandler(bind.Write(l.binder, l.Channel.Rename))
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)

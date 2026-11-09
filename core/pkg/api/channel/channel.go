@@ -46,7 +46,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// RBAC checks the access of every request except set group.
+	// RBAC checks that the subject can read the inputs of each calculated channel that
+	// a create writes.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -170,6 +171,16 @@ type CreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+var _ bind.Returns = CreateResponse{}
+
+// Returned implements bind.Returns, so a create that returns an existing channel needs
+// retrieve on it.
+func (r CreateResponse) Returned() []resource.ID {
+	return lo.Map(r.Channels, func(ch Channel, _ int) resource.ID {
+		return channel.ResourceID(ch.Key)
+	})
+}
+
 // Create creates a Channel based on the parameters given in the request.
 func (s *Service) Create(
 	ctx context.Context,
@@ -183,40 +194,11 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	enforcer := s.access.NewEnforcer(tx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeChannel}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	var stored []channel.Channel
-	if err := s.internal.NewRetrieve().
-		Where(channel.MatchKeys(lo.Map(
-			translated,
-			func(ch channel.Channel, _ int) channel.Key { return ch.Key() },
-		)...)).
-		Entries(&stored).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return CreateResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: group.CreateObjects(
-			translated,
-			stored,
-			func(ch channel.Channel) *group.Key { return ch.Group },
-		),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	if err := enforcer.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: framer.ResourceIDs(inputs),
@@ -480,6 +462,8 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
+// Delete deletes the channels that the request names by key or by name. Deleting an
+// internal channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -487,32 +471,11 @@ func (s *Service) Delete(
 ) (struct{}, error) {
 	w := s.internal.NewWriter(tx)
 	if len(req.Keys) > 0 {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.ResourceIDsFromKeys(req.Keys),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
 			return struct{}{}, err
 		}
 	}
 	if len(req.Names) > 0 {
-		res := make([]channel.Channel, 0, len(req.Names))
-		if err := s.internal.NewRetrieve().
-			Where(channel.MatchNames(req.Names...)).
-			Entries(&res).
-			Exec(ctx, tx); err != nil {
-			return struct{}{}, err
-		}
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: channel.ResourceIDsFromChannels(res),
-		}); err != nil {
-			return struct{}{}, err
-		}
 		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
@@ -523,18 +486,13 @@ type RenameRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
+// Rename renames each channel in Keys to the name at the same index in Names. Renaming
+// an internal channel is a validation error.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: channel.ResourceIDsFromKeys(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).RenameMany(
 		ctx, req.Keys, req.Names, false,
 	)
