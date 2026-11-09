@@ -258,6 +258,11 @@ describe("tour", () => {
     expect(shownStep()).toBeNull();
   });
 
+  it("should open the help step from the code button", () => {
+    const targets = hotspots(BASE).filter(({ step }) => step?.key === "help");
+    expect(targets).toHaveLength(2);
+  });
+
   it("should spotlight the regions of the active step", () => {
     const spotlight = get("[data-spotlight]");
     hotspot(BASE, "lineplot").click();

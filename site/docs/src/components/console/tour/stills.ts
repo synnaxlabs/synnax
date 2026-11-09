@@ -89,6 +89,6 @@ export const hotspots = (still: string): Hotspot[] =>
   Object.entries(regionsOf(still))
     .map(([name, rect]) => ({
       box: toBox([rect]),
-      step: STEPS.find((s) => s.key === name),
+      step: STEPS.find((s) => s.key === name || s.hotspots?.includes(name)),
     }))
     .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height);
