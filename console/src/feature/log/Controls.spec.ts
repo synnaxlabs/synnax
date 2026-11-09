@@ -11,7 +11,8 @@ import { RoleClients } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { aether } from "@synnaxlabs/pluto/ether";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { createElement, type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Log } from "@/feature/log/Log";
@@ -120,6 +121,16 @@ describe("log/Controls search", () => {
       }),
     });
     expect(await screen.findByDisplayValue("err")).toBeDefined();
+  });
+
+  it("should keep a copy in the search box from reaching the log", async () => {
+    const onCopy = vi.fn();
+    const InPage = (): ReactElement =>
+      createElement("div", { onCopy }, createElement(Log));
+    await renderLog(InPage, { additionalRegistry: REGISTRY });
+    await openSearch("err");
+    fireEvent.copy(screen.getByLabelText("Search text"));
+    expect(onCopy).not.toHaveBeenCalled();
   });
 
   it("should let a viewer search", async () => {

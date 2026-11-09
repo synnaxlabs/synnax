@@ -582,6 +582,10 @@ describe("log/aether/Log", () => {
       expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([[0, 4]]);
     });
 
+    it("should draw nothing for an empty match", () => {
+      expect(highlights("abc", { text: "^", mode: "regex" })).toEqual([]);
+    });
+
     it("should highlight nothing for an invalid regex", () => {
       expect(highlights("a(b", { text: "(", mode: "regex" })).toEqual([]);
     });

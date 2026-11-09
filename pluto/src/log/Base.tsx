@@ -33,6 +33,8 @@ interface Press {
   point: log.Point;
   // Whether the press cleared the selection, once its update applies.
   cleared?: boolean;
+  // Whether the selection holds a start from this press.
+  anchored?: boolean;
 }
 
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
@@ -200,7 +202,7 @@ export const Base = ({
           s.selectionStart === entry &&
           s.selectionEnd === entry &&
           s.selectionStartChar < 0;
-        if (press != null) press.cleared = alone;
+        if (press != null) [press.cleared, press.anchored] = [alone, !alone];
         if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
         return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
       });
@@ -218,10 +220,18 @@ export const Base = ({
       const { point: down, cleared } = press;
       setState((s) => {
         // The worker keeps the start on its entry as entries shift, so the drag keeps
-        // the start it holds.
-        const start = s.selectionStart < 0 ? down.entry : s.selectionStart;
+        // the start it holds. A start the worker cleared ends the drag.
+        const held = s.selectionStart >= 0;
+        if (!held && press.anchored === true) {
+          downRef.current = null;
+          return s;
+        }
+        const start = held ? s.selectionStart : down.entry;
+        const startChar =
+          held && s.selectionStartChar >= 0 ? s.selectionStartChar : down.char;
         // A drag back to its start returns to what the press selected.
-        if (point.entry === start && point.char === down.char) {
+        if (point.entry === start && point.char === startChar) {
+          press.anchored = cleared !== true;
           const line = cleared === true ? -1 : start;
           return {
             ...s,
@@ -231,10 +241,11 @@ export const Base = ({
             selectionEndChar: -1,
           };
         }
+        press.anchored = true;
         return {
           ...s,
           selectionStart: start,
-          selectionStartChar: down.char,
+          selectionStartChar: startChar,
           selectionEnd: point.entry,
           selectionEndChar: point.char,
         };

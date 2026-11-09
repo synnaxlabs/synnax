@@ -57,10 +57,10 @@ describe("log/aether/search", () => {
       ]);
     });
 
-    it("should not count an empty match", () => {
-      const pattern = compile({ text: "x*", mode: "regex" }, "g");
-      expect(find(pattern!, "abc")).toEqual([]);
-      expect(find(pattern!, "axxb")).toEqual([[1, 3]]);
+    it("should count an empty match", () => {
+      const pattern = compile({ text: "^(?!DEBUG)", mode: "regex" }, "g");
+      expect(find(pattern!, "INFO up")).toEqual([[0, 0]]);
+      expect(find(pattern!, "DEBUG up")).toEqual([]);
     });
   });
 });

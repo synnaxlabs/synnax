@@ -570,6 +570,17 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a)).toEqual(matches);
     });
 
+    it("should hold the lines that a lookahead regex matches with no text", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter({ ...ZERO_FILTER, search: { text: "^(?!ERROR)", mode: "regex" } });
+      const kept = textOf(core, a, HISTORY).filter((v) => !v.startsWith("ERROR"));
+      await settle(log, kept.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(kept);
+    });
+
     it("should match the number as the log draws it at its precision", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
