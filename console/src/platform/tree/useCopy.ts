@@ -12,7 +12,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { strings } from "@synnaxlabs/x";
 
 import { Link } from "@/platform/link";
-import { useItems } from "@/platform/tree/Provider";
+import { useItems } from "@/platform/tree/context";
 import { type Resource } from "@/platform/tree/types";
 import { Session } from "@/session";
 

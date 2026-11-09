@@ -33,11 +33,11 @@ import {
 
 import { CSS } from "@/platform/css";
 import { type Source } from "@/platform/tree/children";
+import { useContextMenus, useItems } from "@/platform/tree/context";
 import { LIMIT } from "@/platform/tree/createSearch";
 import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
-import { useContextMenus, useItems } from "@/platform/tree/Provider";
 import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
 import { isMoreKey, type Results, Store } from "@/platform/tree/store";
 import {
