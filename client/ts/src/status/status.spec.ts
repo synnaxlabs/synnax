@@ -597,6 +597,20 @@ describe("Status", () => {
         .poll(async () => (await client.statuses.retrieve({ key })).name)
         .toBe(name);
     });
+    it("should reject an empty name", async () => {
+      const key = `status-rename-empty-${id.create()}`;
+      await client.statuses.set({
+        name: "status-rename-empty",
+        key,
+        variant: "info",
+        message: "",
+        time: TimeStamp.now(),
+      });
+      await expect(client.statuses.rename(key, "")).rejects.toThrow();
+      expect((await createTestClient().statuses.retrieve({ key })).name).toBe(
+        "status-rename-empty",
+      );
+    });
   });
 
   describe("delete", () => {
