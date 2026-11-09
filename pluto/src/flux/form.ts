@@ -444,8 +444,10 @@ export const createForm = <
       // The form re-pointed at another record while this save ran.
       if (readQuery.current !== issuedFor) return saved;
       if (!saved) sent.forEach((path) => unsaved.current.add(path));
-      // A listener reset that landed during the save is newer than what it wrote.
       else if (stored.current === persisted.read) stored.current = persisted.written;
+      // A listener reset landed during the save. It can be older than the write, so
+      // keep the written values at the paths this save sent.
+      else stored.current = keepPending(persisted.written, "", stored.current, sent);
       sending.current = new Set();
       return saved;
     };
