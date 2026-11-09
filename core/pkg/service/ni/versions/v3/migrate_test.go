@@ -116,6 +116,79 @@ var _ = Describe("MigrateBaseAOChannel", func() {
 	})
 })
 
+var _ = Describe("MigrateAOChannel", func() {
+	oldBase := v2.BaseAOChannel{
+		Key:              "ch",
+		Port:             3,
+		CmdChannel:       11,
+		StateChannel:     12,
+		CmdChannelName:   "ch_cmd",
+		StateChannelName: "ch_state",
+	}
+	newBase := v3.BaseAOChannel{Key: "ch", Port: 3}
+	commanded := v3.CommandedAOChannel{
+		CmdChannel:       11,
+		StateChannel:     12,
+		CmdChannelName:   "ch_cmd",
+		StateChannelName: "ch_state",
+	}
+
+	It("Should drop the command and state channels of a function generator",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOFuncGenChannel{
+					BaseAOChannel: oldBase,
+					WaveType:      v2.WaveTypeTriangle,
+					Frequency:     50,
+					Amplitude:     2,
+					Offset:        0.5,
+				},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOFuncGenChannel{
+				BaseAOChannel: newBase,
+				WaveType:      v3.WaveTypeTriangle,
+				Frequency:     50,
+				Amplitude:     2,
+				Offset:        0.5,
+			}))
+		},
+	)
+
+	It("Should keep the command and state channels of a voltage output",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOVoltageChannel{BaseAOChannel: oldBase},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOVoltageChannel{
+				BaseAOChannel:      newBase,
+				CommandedAOChannel: commanded,
+			}))
+		},
+	)
+
+	It("Should keep the command and state channels of a current output",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOCurrentChannel{BaseAOChannel: oldBase},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOCurrentChannel{
+				BaseAOChannel:      newBase,
+				CommandedAOChannel: commanded,
+			}))
+		},
+	)
+
+	It("Should clamp a negative port and disable the channel", func(ctx SpecContext) {
+		base := oldBase
+		base.Port = -1
+		got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+			Variant: v2.AOVoltageChannel{BaseAOChannel: base},
+		}))
+		Expect(got.Base().Port).To(BeZero())
+		Expect(got.Base().Disabled).To(BeTrue())
+	})
+})
+
 var _ = Describe("MigrateBaseCIChannel", func() {
 	It("Should clamp a negative port and disable the channel", func(ctx SpecContext) {
 		got := MustSucceed(v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Port: -1}))
