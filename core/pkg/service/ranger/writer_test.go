@@ -92,7 +92,10 @@ var _ = Describe("Writer", func() {
 			Expect(r.Key).To(Equal(k))
 		})
 		It("Should refuse a range whose key exists", func(ctx SpecContext) {
-			r := &ranger.Range{Name: "Range", TimeRange: telem.SecondTS.SpanRange(telem.Second)}
+			r := &ranger.Range{
+				Name:      "Range",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			again := ranger.Range{Key: r.Key, Name: "Renamed", TimeRange: r.TimeRange}
 			Expect(w.Create(ctx, &again)).To(SatisfyAll(
