@@ -74,7 +74,8 @@ const Search = (): ReactElement => {
           status={invalid ? "error" : undefined}
           onKeyDown={(e) => {
             if (e.key === "Escape") close();
-            else if (e.key === "Enter") jump(e.shiftKey ? "previous" : "next");
+            else if (e.key === "Enter" && !e.nativeEvent.isComposing)
+              jump(e.shiftKey ? "previous" : "next");
           }}
         />
         <Button.Button

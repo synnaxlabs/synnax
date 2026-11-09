@@ -316,6 +316,8 @@ export class Log
   private cursor: LogEntry | null = null;
   // The direction of a jump that waits for reads.
   private jumping: Direction | null = null;
+  // The last line a jump that waits for reads scanned.
+  private scanned: LogEntry | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -488,6 +490,7 @@ export class Log
     if (!this.state.scrolling || searchChanged) this.endJump("");
     if (this.state.scrolling && jumped && this.state.jump.request > 0) {
       this.jumping = this.state.jump.direction;
+      this.scanned = null;
       this.jump();
     }
     this.loadNearEdges();
@@ -504,19 +507,23 @@ export class Log
     if (!this.state.scrolling) return this.endJump("");
     if (pattern == null) return this.endJump("");
     const { entries } = this;
+    const { formats } = this.internal;
+    // A jump that reads goes on from the last line it scanned.
+    const scanned = this.scanned == null ? -1 : this.locate(this.scanned);
     const located = this.cursor == null ? -1 : this.locate(this.cursor);
     const from =
-      located >= 0
-        ? located
-        : this.state.scrolling
-          ? this.scrollState.offset - (direction === "next" ? 1 : 0)
-          : entries.length;
-    const matches = (i: number): boolean =>
-      find(pattern, this.formatEntry(entries[i]).value).length > 0;
+      scanned >= 0
+        ? scanned
+        : located >= 0
+          ? located
+          : this.scrollState.offset - (direction === "next" ? 1 : 0);
+    const matches = ({ channelKey, value }: LogEntry): boolean =>
+      find(pattern, textOf(value, formats[channelKey])).length > 0;
     const step = direction === "next" ? 1 : -1;
     let i = from + step;
-    while (i >= 0 && i < entries.length && !matches(i)) i += step;
+    while (i >= 0 && i < entries.length && !matches(entries[i])) i += step;
     if (i < 0 || i >= entries.length) {
+      this.scanned = entries[i - step] ?? null;
       const { wrapped } = telem;
       const ended =
         direction === "next" ? wrapped.live !== false : wrapped.exhausted !== false;
@@ -541,6 +548,7 @@ export class Log
 
   private endJump(status: JumpStatus): void {
     this.jumping = null;
+    this.scanned = null;
     if (this.state.jumpStatus !== status)
       this.setState((s) => ({ ...s, jumpStatus: status }));
   }

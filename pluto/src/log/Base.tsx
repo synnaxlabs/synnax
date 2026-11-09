@@ -22,8 +22,7 @@ import { strings, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
-import { log } from "@/log/aether";
-import { compile } from "@/log/aether/search";
+import { log, search } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
@@ -98,7 +97,7 @@ export const Base = ({
   timeZone,
   channels,
   hiddenChannels,
-  search,
+  search: query,
   emptyContent = EMPTY_CONTENT,
   color,
   telem,
@@ -122,7 +121,7 @@ export const Base = ({
     timeZone,
     channels,
     hiddenChannels,
-    search,
+    search: query,
     color,
     telem,
     hold,
@@ -151,8 +150,11 @@ export const Base = ({
   // The pause and the request go in one update, so the worker pauses before it jumps.
   // A search with no pattern has no match to jump to, so the log stays as it is.
   const jump = (direction: log.Direction) => {
-    if (compile({ text: search?.text ?? "", mode: search?.mode ?? "text" }) == null)
-      return;
+    const pattern = search.compile({
+      text: query?.text ?? "",
+      mode: query?.mode ?? "text",
+    });
+    if (pattern == null) return;
     setState((s) => ({
       ...s,
       scrolling: true,

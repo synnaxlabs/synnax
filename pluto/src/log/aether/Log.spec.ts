@@ -693,6 +693,27 @@ describe("log/aether/Log", () => {
       expect(log.state.jumpStatus).toBe("");
     });
 
+    it("should scan each held line once while it reads", () => {
+      let reads = 0;
+      const counted = lines(1_000, []).map((entry) => {
+        const { value } = entry;
+        return Object.defineProperty({ ...entry }, "value", {
+          get: () => {
+            reads++;
+            return value;
+          },
+        });
+      });
+      const { log, source, updateState } = setup(counted, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      reads = 0;
+      source.notify();
+      source.notify();
+      // The view lays out a screen of lines, far fewer than a scan of all of them.
+      expect(reads).toBeLessThan(500);
+    });
+
     it("should read older lines until it finds a match", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);
