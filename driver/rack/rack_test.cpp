@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
-#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -17,8 +16,6 @@
 
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/defer/defer.h"
-#include "x/cpp/env/env.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
@@ -64,38 +61,5 @@ TEST(RackTest, FatalErrorStopsRack) {
     r.start(args, [&] { shut_down = true; });
     ASSERT_EVENTUALLY_TRUE(shut_down.load());
     ASSERT_OCCURRED_AS(r.stop(), synnax::auth::ERR_INVALID_CREDENTIALS);
-}
-
-/// @brief it should keep the state of a user in the folder of that user while the
-/// Driver service is not installed.
-TEST(RackTest, UserStateWithoutService) {
-#ifdef __linux__
-    GTEST_SKIP() << "Linux keeps the state of every process in the folder of the "
-                    "computer";
-#endif
-    const auto home = std::filesystem::temp_directory_path() / "rack-test-home";
-    std::filesystem::remove_all(home);
-#ifdef _WIN32
-    const std::string var = "LOCALAPPDATA";
-    const auto expected = home / "synnax-driver";
-#else
-    const std::string var = "HOME";
-    const auto expected = home / "Library" / "Application Support" / "synnax-driver";
-#endif
-    const char *previous = std::getenv(var.c_str());
-    const char *sudo_user = std::getenv("SUDO_USER");
-    x::defer::defer restore([&,
-                             previous = std::string(previous ? previous : ""),
-                             sudo_user = std::string(sudo_user ? sudo_user : "")] {
-        x::env::set(var, previous);
-        if (!sudo_user.empty()) x::env::set("SUDO_USER", sudo_user);
-        std::filesystem::remove_all(home);
-    });
-    x::env::set(var, home.string());
-    x::env::unset("SUDO_USER");
-    auto args = x::args::Parser(std::vector<std::string>{"program"});
-    Config cfg;
-    ASSERT_NIL(cfg.load_persisted_state(args));
-    ASSERT_EQ(cfg.state_dir, expected);
 }
 }

@@ -137,6 +137,21 @@ cc_test(
 )
 
 cc_test(
+    name = "state_test",
+    srcs = [
+        "state_test.cpp",
+        "//driver/version",
+    ],
+    deps = [
+        "//driver/rack",
+        "//x/cpp/defer",
+        "//x/cpp/env",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "rack_test",
     srcs = [
         "config_test.cpp",
