@@ -641,6 +641,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/status/set-by-key-or-name",
 		),
+		StatusRename: unary[status.RenameRequest, struct{}](
+			router,
+			"/api/v1/status/rename",
+		),
 
 		// VIEW
 		ViewCreate: unary[view.CreateRequest, view.CreateResponse](

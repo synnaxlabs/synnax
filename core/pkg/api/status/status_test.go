@@ -681,6 +681,83 @@ var _ = Describe("Service.Retrieve", func() {
 	})
 })
 
+var _ = Describe("Service.Rename", func() {
+	createStatus := func(ctx SpecContext) status.Status[any] {
+		GinkgoHelper()
+		s := status.Status[any]{
+			Key:     uuid.New().String(),
+			Name:    "Before",
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Time:    telem.Now(),
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &s)
+		})).To(Succeed())
+		return s
+	}
+	retrieveStatus := func(ctx SpecContext, key string) status.Status[any] {
+		GinkgoHelper()
+		var s status.Status[any]
+		Expect(statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
+
+	It("Should rename the status when update is granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		grantOn(ctx, u.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			status.ResourceID(s.Key))
+		Expect(rename(
+			AuthedCtx(ctx, u),
+			apistatus.RenameRequest{Key: s.Key, Name: "After"},
+		)).Error().ToNot(HaveOccurred())
+		renamed := retrieveStatus(ctx, s.Key)
+		Expect(renamed.Name).To(Equal("After"))
+		Expect(renamed.Message).To(Equal("hello"))
+		Expect(renamed.Variant).To(Equal(status.VariantInfo))
+	})
+
+	It("Should reject an empty name", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		grantOn(ctx, u.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			status.ResourceID(s.Key))
+		Expect(rename(
+			AuthedCtx(ctx, u),
+			apistatus.RenameRequest{Key: s.Key, Name: ""},
+		)).Error().To(MatchError(ContainSubstring("name: required")))
+		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+
+	It("Should return a not found error for a missing status", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		key := uuid.New().String()
+		grantOn(ctx, u.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			status.ResourceID(key))
+		Expect(rename(
+			AuthedCtx(ctx, u),
+			apistatus.RenameRequest{Key: key, Name: "After"},
+		)).Error().To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should reject the request when update is not granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		Expect(rename(
+			AuthedCtx(ctx, u),
+			apistatus.RenameRequest{Key: s.Key, Name: "After"},
+		)).Error().To(denied(u, access.ActionUpdate, s.ResourceID()))
+		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+})
+
 var _ = Describe("Service.Delete", func() {
 	lookup := func(ctx SpecContext, key status.Key) error {
 		return statusSvc.NewRetrieve[any]().

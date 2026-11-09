@@ -211,9 +211,11 @@ type Transport struct {
 	// AccessDispatchRole applies path actions to a role.
 	AccessDispatchRole freighter.UnaryServer[role.DispatchRequest, struct{}]
 	// STATUS
-	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete         freighter.UnaryServer[status.DeleteRequest, struct{}]
+	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete   freighter.UnaryServer[status.DeleteRequest, struct{}]
+	// StatusRename renames a status.
+	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate            freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
@@ -483,6 +485,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusRename,
 		t.StatusSetByKeyOrName,
 
 		// VIEW
@@ -735,6 +738,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(bind.Write(l.binder, l.Status.Set))
 	t.StatusRetrieve.BindHandler(bind.Read(l.binder, l.Status.Retrieve))
 	t.StatusDelete.BindHandler(bind.Write(l.binder, l.Status.Delete))
+	t.StatusRename.BindHandler(bind.Write(l.binder, l.Status.Rename))
 	t.StatusSetByKeyOrName.BindHandler(bind.Write(l.binder, l.Status.SetByKeyOrName))
 
 	// VIEW

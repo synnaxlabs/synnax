@@ -123,7 +123,7 @@ var _ = Describe("HTTP", func() {
 			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
 			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
 			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
-			Entry("unary status set", http.MethodPost, "/api/v1/status/set"),
+			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 		)
 
@@ -155,7 +155,6 @@ var _ = Describe("HTTP", func() {
 			Entry("view rename", "/view/rename"),
 			Entry("arc directory rename", "/arc/directory/rename"),
 			Entry("arc move", "/arc/move"),
-			Entry("status rename", "/status/rename"),
 		)
 
 		It("Should not register a route for an unknown path", func() {

@@ -34,6 +34,7 @@ import (
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
@@ -136,6 +137,9 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
+
+	// STATUS
+	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
 	// TASK
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
