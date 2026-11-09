@@ -802,8 +802,28 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		return w.svc.cfg.Channel.Rename(ctx, renameMap)
-	})
+	first := len(w.svc.renames.Pending(w.tx)) == 0
+	for i, key := range keys {
+		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
+	}
+	if first && len(keys) > 0 {
+		gorp.BeforeCommit(w.tx, w.renameStored)
+	}
 	return nil
+}
+
+// rename is a new name for a channel.
+type rename struct {
+	key  Key
+	name string
+}
+
+// renameStored sends every rename in the transaction of w to storage in one call.
+func (w Writer) renameStored(ctx context.Context) error {
+	renames := w.svc.renames.Pending(w.tx)
+	names := make(map[Key]string, len(renames))
+	for _, r := range renames {
+		names[r.key] = r.name
+	}
+	return w.svc.cfg.Channel.Rename(ctx, names)
 }

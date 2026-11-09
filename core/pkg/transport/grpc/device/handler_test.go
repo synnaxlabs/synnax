@@ -14,15 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
 	svcdevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	grpcdevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -133,5 +136,30 @@ var _ = Describe("Dispatch", func() {
 			Key:     "dev1",
 			Actions: [][]byte{[]byte(`{"type": 1}`)},
 		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+
+	It("Should encode each action as JSON that decodes to the same action", func(
+		ctx SpecContext,
+	) {
+		translator := transport.DeviceDispatch.(*fgrpc.UnaryServer[
+			device.DispatchRequest,
+			*grpcdevice.DispatchRequest,
+			struct{},
+			*emptypb.Empty,
+		]).RequestTranslator.(fgrpc.Translator[
+			device.DispatchRequest,
+			*grpcdevice.DispatchRequest,
+		])
+		req := device.DispatchRequest{
+			Key:         "dev1",
+			DispatchKey: "dk",
+			Actions: []svcdevice.Action{svcdevice.NewSetAction(svcdevice.SetPayload{
+				Path:   []string{"model"},
+				Value:  "USB-6000",
+				Guards: []patch.Guard{{Path: []string{"model"}, Value: "USB-6008"}},
+			})},
+		}
+		Expect(translator.Backward(ctx, MustSucceed(translator.Forward(ctx, req)))).
+			To(Equal(req))
 	})
 })
