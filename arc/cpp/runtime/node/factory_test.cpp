@@ -43,8 +43,12 @@ class MockFactory final : public Factory {
 public:
     std::vector<std::string> created;
 
-    MockFactory(std::string module, Types types, x::errors::Error err = x::errors::NIL):
-        module(std::move(module)), types(std::move(types)), err(std::move(err)) {}
+    MockFactory(
+        std::string module,
+        Types types,
+        const x::errors::Error &err = x::errors::NIL
+    ):
+        module(std::move(module)), types(std::move(types)), err(err) {}
 
     [[nodiscard]] std::string module_name() const override { return this->module; }
 
@@ -53,7 +57,8 @@ public:
     }
 
     std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) override {
-        this->created.push_back(cfg.node.type);
+        const Config owned = std::move(cfg);
+        this->created.push_back(owned.node.type);
         if (this->err) return {nullptr, this->err};
         return {std::make_unique<MockNode>(), x::errors::NIL};
     }
