@@ -834,7 +834,10 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		)
 	}
 	for _, field := range fields {
-		if err := checkHeldEmbedded(entry.Name, field, data); err != nil {
+		held := field
+		// A generic struct sets no defaults, so it holds each of its fields.
+		held.Optional = field.Optional || sd.IsGeneric
+		if err := checkHeldEmbedded(entry.Name, held, data); err != nil {
 			return structData{}, err
 		}
 		if !defaultOnly.Contains(field.Name) {
