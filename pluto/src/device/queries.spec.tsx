@@ -574,7 +574,10 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.data).toEqual("dev1"));
       await act(async () => {
-        await client.devices.create({ ...dev, location: "dev2" });
+        await client.devices.dispatch(
+          dev.key,
+          device.set({ path: ["location"], value: "dev2" }),
+        );
       });
       await waitFor(() => expect(result.current.data).toEqual("dev2"));
     });
