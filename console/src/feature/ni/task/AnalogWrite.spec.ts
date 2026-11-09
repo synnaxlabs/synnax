@@ -364,6 +364,17 @@ describe("AnalogWrite function generators", () => {
     );
   });
 
+  it("should not skip a disabled channel on the port of a function generator", async () => {
+    await renderAnalogWrite(
+      createConfig([
+        createChannel("ao_func_gen", 0),
+        createChannel("ao_voltage", 0, { cmdChannelName: "named_cmd", disabled: true }),
+      ]),
+    );
+    await findChannelListItem("named_cmd");
+    expect(screen.getAllByRole("img", { name: "New channel" })).not.toHaveLength(0);
+  });
+
   it("should name a function generator by its type in the ports", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },

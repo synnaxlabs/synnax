@@ -47,6 +47,8 @@ const root = deep.path<Task.Values<AnalogWriteSchemas>>();
 
 const portOf = (c: AOChannel): string => c.port.toString();
 
+const isCommanded = (c: AOChannel) => !isGenerated(c);
+
 const contextMenuItems = (props: Task.ContextMenuItemProps<AOChannel>) => {
   const channel = props.channels.find(({ key }) => key === props.keys[0]);
   if (channel == null || isGenerated(channel)) return null;
@@ -67,7 +69,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const entry = root.config.channels[itemKey];
   const item = PForm.useFieldValue(entry);
   const device = useFromConfig();
-  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
+  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf, isCommanded);
   if (item == null) return null;
   const Icon = AO_CHANNEL_TYPE_ICONS[item.type];
   const names = isGenerated(item)
@@ -105,7 +107,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
   const device = useFromConfig();
-  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf, isCommanded);
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
     <Title
@@ -189,7 +191,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  const commanded = config.channels.filter((c) => !isGenerated(c));
+  const commanded = config.channels.filter(isCommanded);
   if (commanded.length === 0) return [config, dev.rack];
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
