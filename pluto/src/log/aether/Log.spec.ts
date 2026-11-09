@@ -513,6 +513,118 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("search highlights", () => {
+    // The recorder measures each character 8 pixels wide.
+    const CHAR = 8;
+    const PADDING = 6;
+    const BARE = { timestampsHidden: true, channelNamesHidden: true };
+
+    // Returns the highlights drawn, in columns from the left edge of the text.
+    const highlights = (
+      value: string,
+      search: Record<string, unknown>,
+      overrides: Record<string, unknown> = BARE,
+      region: box.Box = REGION_500,
+    ): Array<{ column: number; columns: number }> => {
+      const { log, recorder } = setup([{ ...makeEntry(0), value }], region, {
+        ...overrides,
+        search,
+      });
+      recorder.clear();
+      log.render();
+      return recorder.lower2d.calls
+        .filter(({ op }) => op === "rect")
+        .map(({ args }) => {
+          const [x, , width] = args as number[];
+          return { column: (x - PADDING) / CHAR, columns: width / CHAR };
+        });
+    };
+
+    it("should highlight every match of plain text, in any case", () => {
+      const drawn = highlights("an Error, then an error", { text: "error" });
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([
+        [3, 5],
+        [18, 5],
+      ]);
+    });
+
+    it("should highlight regex matches", () => {
+      const drawn = highlights("a1 b22 c333", { text: "\\d+", mode: "regex" });
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([
+        [1, 1],
+        [4, 2],
+        [8, 3],
+      ]);
+    });
+
+    it("should highlight with the filter off or on", () => {
+      const off = highlights("abc", { text: "b" });
+      const on = highlights("abc", { text: "b", filtered: true });
+      expect(on).toEqual(off);
+      expect(off).toHaveLength(1);
+    });
+
+    it("should highlight the number as the log draws it at its precision", () => {
+      const drawn = highlights(
+        "3.14159",
+        { text: "3.14$", mode: "regex" },
+        {
+          ...BARE,
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              precision: 2,
+            }),
+          ],
+          channelDataTypes: { "1": "float64" },
+        },
+      );
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([[0, 4]]);
+    });
+
+    it("should draw nothing for an empty match", () => {
+      expect(highlights("abc", { text: "^", mode: "regex" })).toEqual([]);
+    });
+
+    it("should highlight nothing for an invalid regex", () => {
+      expect(highlights("a(b", { text: "(", mode: "regex" })).toEqual([]);
+    });
+
+    it("should start a highlight after the prefix", () => {
+      const [drawn] = highlights(
+        "abc",
+        { text: "b" },
+        { timestampsHidden: true, channelNamesHidden: false },
+      );
+      // The prefix is the channel's name and three spaces.
+      expect(drawn.column).toBe("1   ".length + 1);
+    });
+
+    it("should give a wide character two columns", () => {
+      const [drawn] = highlights("日本 err", { text: "err" });
+      expect(drawn).toMatchObject({ column: 5, columns: 3 });
+    });
+
+    it("should place a match after the sign of a negative number", () => {
+      const [drawn] = highlights("-123", { text: "2" });
+      expect(drawn).toMatchObject({ column: 1, columns: 1 });
+    });
+
+    it("should split a match across the rows of a wrapped value", () => {
+      // 10 columns of text fit in the region.
+      const region = box.construct(
+        { x: 0, y: 0 },
+        { width: PADDING * 2 + 6 + 10 * CHAR, height: 500 },
+      );
+      const drawn = highlights("aaaaaaaabbbbcc", { text: "bbbb" }, BARE, region);
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([
+        [8, 2],
+        [0, 2],
+      ]);
+    });
+  });
+
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { log } = setup([makeEntry(0)]);
