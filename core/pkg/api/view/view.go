@@ -132,23 +132,6 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// RenameRequest names the view to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the view to rename.
-	Key view.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the view. It returns query.ErrNotFound when no view has the key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
 type DeleteRequest struct {
 	Keys []view.Key `json:"keys" msgpack:"keys"`
 }

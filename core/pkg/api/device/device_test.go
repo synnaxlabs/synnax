@@ -258,7 +258,16 @@ var _ = Describe("Create", func() {
 	)
 })
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key device.Key, name string) apidevice.DispatchRequest {
+		return apidevice.DispatchRequest{
+			Key: key,
+			Actions: []device.Action{device.NewSetAction(device.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the device and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -271,9 +280,9 @@ var _ = Describe("Rename", func() {
 			d.ResourceID(),
 			statusOf(ctx, d),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: d.Key, Name: "After"},
+			renameTo(d.Key, "After"),
 		))
 		renamed := retrieveDevice(ctx, d.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -289,18 +298,18 @@ var _ = Describe("Rename", func() {
 			d.ResourceID(),
 			statusOf(ctx, d),
 		)
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: d.Key, Name: ""},
+			renameTo(d.Key, ""),
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
 	})
 	It("Should return a not found error for a missing device", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), device.ResourceID("missing"))
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: "missing", Name: "After"},
+			renameTo("missing", "After"),
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	deviceID := func(_ SpecContext, d device.Device) resource.ID {
@@ -317,9 +326,9 @@ var _ = Describe("Rename", func() {
 			u := createUser(ctx)
 			d := createDevice(ctx, key)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, d))
-			Expect(rename(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
-				apidevice.RenameRequest{Key: d.Key, Name: "After"},
+				renameTo(d.Key, "After"),
 			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, d)))
 			Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
 		},
@@ -519,7 +528,7 @@ func createRackGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-var _ = Describe("SetGroup", func() {
+var _ = Describe("Dispatch group move", func() {
 	// denied matches an error that denies the subject the action on object.
 	denied := func(
 		subject resource.ID,
@@ -537,10 +546,13 @@ var _ = Describe("SetGroup", func() {
 		g group.Group,
 		d device.Device,
 	) (struct{}, error) {
-		return setGroup(
-			AuthedCtx(ctx, u),
-			apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
-		)
+		return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
+			Key: d.Key,
+			Actions: []device.Action{device.NewSetAction(device.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
 	}
 	It(
 		"Should refuse the move without update on the destination group",

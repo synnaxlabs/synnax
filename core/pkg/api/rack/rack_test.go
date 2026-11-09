@@ -319,7 +319,16 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key rack.Key, name string) apirack.DispatchRequest {
+		return apirack.DispatchRequest{
+			Key: key,
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the rack and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -335,9 +344,9 @@ var _ = Describe("Rename", func() {
 			r.ResourceID(),
 			statusOf(ctx, r),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: r.Key, Name: "After"},
+			renameTo(r.Key, "After"),
 		))
 		renamed := retrieveRack(ctx, r.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -353,9 +362,9 @@ var _ = Describe("Rename", func() {
 			embedded.ResourceID(),
 			statusOf(ctx, embedded),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: embedded.Key, Name: "Renamed Embedded"},
+			renameTo(embedded.Key, "Renamed Embedded"),
 		))
 		renamed := retrieveRack(ctx, embedded.Key)
 		Expect(renamed.Name).To(Equal("Renamed Embedded"))
@@ -374,9 +383,9 @@ var _ = Describe("Rename", func() {
 			r.ResourceID(),
 			statusOf(ctx, r),
 		)
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: r.Key, Name: ""},
+			renameTo(r.Key, ""),
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Before"))
 	})
@@ -384,9 +393,9 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		key := rack.NewKey(1, 60000)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: key, Name: "After"},
+			renameTo(key, "After"),
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	rackID := func(_ SpecContext, r rack.Rack) resource.ID { return r.ResourceID() }
@@ -403,9 +412,9 @@ var _ = Describe("Rename", func() {
 				return svc.Rack.NewWriter(tx).Create(ctx, &r)
 			})).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, r))
-			Expect(rename(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
-				apirack.RenameRequest{Key: r.Key, Name: "After"},
+				renameTo(r.Key, "After"),
 			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, r)))
 			Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Before"))
 		},
@@ -708,7 +717,7 @@ func createDeviceGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-var _ = Describe("SetGroup", func() {
+var _ = Describe("Dispatch group move", func() {
 	// denied matches an error that denies the subject the action on object.
 	denied := func(
 		subject resource.ID,
@@ -726,10 +735,13 @@ var _ = Describe("SetGroup", func() {
 		g group.Group,
 		r rack.Rack,
 	) (struct{}, error) {
-		return setGroup(
-			AuthedCtx(ctx, u),
-			apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
-		)
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key: r.Key,
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
 	}
 	createRack := func(ctx SpecContext, name string) rack.Rack {
 		GinkgoHelper()

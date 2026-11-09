@@ -207,23 +207,6 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// RenameRequest names the status to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the status to rename.
-	Key status.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
 type DeleteRequest struct {
 	// Keys are the keys of the statuses to delete.
 	Keys []status.Key `json:"keys" msgpack:"keys"`

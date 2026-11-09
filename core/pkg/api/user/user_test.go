@@ -125,6 +125,26 @@ func beDeniedUpdateOn(r role.Key) types.GomegaMatcher {
 	)
 }
 
+// setUsername returns a dispatch that sets the username of the user with key.
+func setUsername(key user.Key, username string) apiuser.DispatchRequest {
+	return apiuser.DispatchRequest{
+		Key: key,
+		Actions: []user.Action{
+			user.NewSetUsernameAction(user.SetUsernamePayload{Username: username}),
+		},
+	}
+}
+
+// setRoleOf returns a dispatch that gives the role r to the user with key.
+func setRoleOf(key user.Key, r role.Key) apiuser.DispatchRequest {
+	return apiuser.DispatchRequest{
+		Key: key,
+		Actions: []user.Action{
+			user.NewSetAction(user.SetPayload{Path: []string{"role"}, Value: r}),
+		},
+	}
+}
+
 func roleOf(ctx SpecContext, key user.Key) role.Key {
 	GinkgoHelper()
 	var u user.User
@@ -376,62 +396,7 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Rename", func() {
-		It(
-			"Should update the name of the target user",
-			func(ctx SpecContext) {
-				u := MustSucceed(
-					rbactestutil.CreateUser(
-						ctx,
-						db,
-						rbacSvc,
-						userSvc,
-						user.User{Name: "rename"},
-					),
-				)
-				Expect(rename(rootCtx(ctx), apiuser.RenameRequest{
-					Key:  u.Key,
-					Name: "Renamed User",
-				})).Error().ToNot(HaveOccurred())
-				var updated user.User
-				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&updated).Exec(ctx, db)).To(Succeed())
-				Expect(updated.Name).To(Equal("Renamed User"))
-			},
-		)
-		It(
-			"Should deny access when the subject lacks update permission",
-			func(ctx SpecContext) {
-				u := MustSucceed(
-					rbactestutil.CreateUser(
-						ctx,
-						db,
-						rbacSvc,
-						userSvc,
-						user.User{Name: "rename-denied"},
-					),
-				)
-				fctx, subject := nonRootCtx(ctx)
-				Expect(rename(fctx, apiuser.RenameRequest{
-					Key:  u.Key,
-					Name: "Should Not Apply",
-				})).Error().To(SatisfyAll(
-					MatchError(access.ErrDenied),
-					MatchError(ContainSubstring(
-						"%s cannot update %s",
-						subject.ResourceID(),
-						u.ResourceID(),
-					)),
-				))
-				var stored user.User
-				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&stored).Exec(ctx, db)).To(Succeed())
-				Expect(stored.Name).To(Equal("rename-denied"))
-			},
-		)
-	})
-
-	Describe("ChangeUsername", func() {
+	Describe("Dispatch set username", func() {
 		It(
 			"Should rename the user's password",
 			func(ctx SpecContext) {
@@ -440,13 +405,7 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx, oldName)
 
 				Expect(
-					changeUsername(
-						rootCtx(ctx),
-						apiuser.ChangeUsernameRequest{
-							Key:      u.Key,
-							Username: newName,
-						},
-					),
+					dispatch(rootCtx(ctx), setUsername(u.Key, newName)),
 				).Error().
 					ToNot(HaveOccurred())
 
@@ -468,13 +427,7 @@ var _ = Describe("Service", func() {
 				username := "change-username-noop-" + uuid.New().String()
 				u := createUser(ctx, username)
 				Expect(
-					changeUsername(
-						rootCtx(ctx),
-						apiuser.ChangeUsernameRequest{
-							Key:      u.Key,
-							Username: username,
-						},
-					),
+					dispatch(rootCtx(ctx), setUsername(u.Key, username)),
 				).Error().
 					ToNot(HaveOccurred())
 			},
@@ -483,22 +436,20 @@ var _ = Describe("Service", func() {
 			"Should reject a self-rename through the user service",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
-				Expect(changeUsername(fctx, apiuser.ChangeUsernameRequest{
-					Key:      subject.Key,
-					Username: "anything",
-				})).Error().To(MatchError(ContainSubstring("change your own username")))
+				grantOnUsers(ctx, subject, access.ActionUpdate)
+				Expect(
+					dispatch(fctx, setUsername(subject.Key, "anything")),
+				).Error().
+					To(MatchError(ContainSubstring("change your own username")))
 			},
 		)
 		It(
 			"Should return an error when the target user does not exist",
 			func(ctx SpecContext) {
 				Expect(
-					changeUsername(
+					dispatch(
 						rootCtx(ctx),
-						apiuser.ChangeUsernameRequest{
-							Key:      uuid.New(),
-							Username: "does-not-matter-" + uuid.New().String(),
-						},
+						setUsername(uuid.New(), "does-not-matter-"+uuid.New().String()),
 					),
 				).Error().
 					To(MatchError(query.ErrNotFound))
@@ -509,10 +460,13 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx, "change-username-denied-"+uuid.New().String())
 				fctx, subject := nonRootCtx(ctx)
-				Expect(changeUsername(fctx, apiuser.ChangeUsernameRequest{
-					Key:      u.Key,
-					Username: "should-not-apply-" + uuid.New().String(),
-				})).Error().To(denied(subject, access.ActionUpdate, u.ResourceID()))
+				Expect(
+					dispatch(
+						fctx,
+						setUsername(u.Key, "should-not-apply-"+uuid.New().String()),
+					),
+				).Error().
+					To(denied(subject, access.ActionUpdate, u.ResourceID()))
 			},
 		)
 		It(
@@ -522,10 +476,7 @@ var _ = Describe("Service", func() {
 				fctx, subject := nonRootCtx(ctx)
 				grantOnUsers(ctx, subject, access.ActionUpdate)
 				newName := "change-username-granted-new-" + uuid.New().String()
-				MustSucceed(changeUsername(fctx, apiuser.ChangeUsernameRequest{
-					Key:      u.Key,
-					Username: newName,
-				}))
+				MustSucceed(dispatch(fctx, setUsername(u.Key, newName)))
 				MustSucceed(login(ctx, newName, "p"))
 			},
 		)
@@ -539,13 +490,7 @@ var _ = Describe("Service", func() {
 					"change-username-collide-"+uuid.New().String(),
 				)
 				Expect(
-					changeUsername(
-						rootCtx(ctx),
-						apiuser.ChangeUsernameRequest{
-							Key:      target.Key,
-							Username: taken,
-						},
-					),
+					dispatch(rootCtx(ctx), setUsername(target.Key, taken)),
 				).Error().
 					To(MatchError(auth.ErrRepeatedUsername))
 			},
@@ -637,26 +582,15 @@ var _ = Describe("Service", func() {
 				Expect(roleOf(ctx, res.Users[0].Key)).To(Equal(r))
 			},
 		)
-		It("Should give the role to every user in the request", func(ctx SpecContext) {
-			engineer := rbacSvc.Builtin.EngineerKey
-			a := createUser(ctx, "set-role-"+uuid.New().String())
-			b := createUser(ctx, "set-role-"+uuid.New().String())
-			Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
-				Keys: []user.Key{a.Key, b.Key},
-				Role: engineer,
-			})).Error().ToNot(HaveOccurred())
-			Expect(roleOf(ctx, a.Key)).To(Equal(engineer))
-			Expect(roleOf(ctx, b.Key)).To(Equal(engineer))
-		})
 		It(
 			"Should deny setting a role when the subject lacks update access",
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
 				before := roleOf(ctx, u.Key)
-				Expect(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{u.Key},
-					Role: rbacSvc.Builtin.OwnerKey,
-				})).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					dispatch(fctx, setRoleOf(u.Key, rbacSvc.Builtin.OwnerKey)),
+				).Error().
+					To(MatchError(access.ErrDenied))
 				Expect(roleOf(ctx, u.Key)).To(Equal(before))
 			},
 		)
@@ -668,10 +602,10 @@ var _ = Describe("Service", func() {
 				before := roleOf(ctx, target.Key)
 				grantRoleChange(ctx, u, before)
 				r := createRole(ctx)
-				Expect(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{target.Key},
-					Role: r,
-				})).Error().To(beDeniedUpdateOn(r))
+				Expect(
+					dispatch(fctx, setRoleOf(target.Key, r)),
+				).Error().
+					To(beDeniedUpdateOn(r))
 				Expect(roleOf(ctx, target.Key)).To(Equal(before))
 			},
 		)
@@ -683,10 +617,10 @@ var _ = Describe("Service", func() {
 				before := roleOf(ctx, target.Key)
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, r)
-				Expect(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{target.Key},
-					Role: r,
-				})).Error().To(beDeniedUpdateOn(before))
+				Expect(
+					dispatch(fctx, setRoleOf(target.Key, r)),
+				).Error().
+					To(beDeniedUpdateOn(before))
 				Expect(roleOf(ctx, target.Key)).To(Equal(before))
 			},
 		)
@@ -697,38 +631,38 @@ var _ = Describe("Service", func() {
 				target := createUser(ctx, "set-role-"+uuid.New().String())
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, roleOf(ctx, target.Key), r)
-				Expect(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{target.Key},
-					Role: r,
-				})).Error().ToNot(HaveOccurred())
+				Expect(
+					dispatch(fctx, setRoleOf(target.Key, r)),
+				).Error().
+					ToNot(HaveOccurred())
 				Expect(roleOf(ctx, target.Key)).To(Equal(r))
 			},
 		)
 		It("Should refuse to change the role of the root user", func(ctx SpecContext) {
 			fctx, u := nonRootCtx(ctx)
 			grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey, rbacSvc.Builtin.ViewerKey)
-			Expect(setRole(fctx, apiuser.SetRoleRequest{
-				Keys: []user.Key{root.Key},
-				Role: rbacSvc.Builtin.ViewerKey,
-			})).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					"cannot change the role of root user "+root.Name,
-				)),
-			))
+			Expect(
+				dispatch(fctx, setRoleOf(root.Key, rbacSvc.Builtin.ViewerKey)),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"cannot change the role of root user "+root.Name,
+					)),
+				))
 			Expect(roleOf(ctx, root.Key)).To(Equal(rbacSvc.Builtin.OwnerKey))
 		})
 		It(
 			"Should not reveal the root user to a subject that cannot update it",
 			func(ctx SpecContext) {
 				fctx, u := nonRootCtx(ctx)
-				Expect(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{root.Key},
-					Role: rbacSvc.Builtin.ViewerKey,
-				})).Error().To(SatisfyAll(
-					denied(u, access.ActionUpdate, root.ResourceID()),
-					Not(MatchError(ContainSubstring("root user"))),
-				))
+				Expect(
+					dispatch(fctx, setRoleOf(root.Key, rbacSvc.Builtin.ViewerKey)),
+				).Error().
+					To(SatisfyAll(
+						denied(u, access.ActionUpdate, root.ResourceID()),
+						Not(MatchError(ContainSubstring("root user"))),
+					))
 			},
 		)
 		It(
@@ -737,19 +671,21 @@ var _ = Describe("Service", func() {
 				fctx, u := nonRootCtx(ctx)
 				target := createUser(ctx, "set-role-"+uuid.New().String())
 				grantOnUsers(ctx, u, access.ActionUpdate)
-				MustSucceed(setRole(fctx, apiuser.SetRoleRequest{
-					Keys: []user.Key{target.Key},
-					Role: roleOf(ctx, target.Key),
-				}))
+				MustSucceed(
+					dispatch(fctx, setRoleOf(target.Key, roleOf(ctx, target.Key))),
+				)
 			},
 		)
 		It("Should return not found for a user that does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
-				Keys: []user.Key{uuid.New()},
-				Role: rbacSvc.Builtin.ViewerKey,
-			})).Error().To(MatchError(query.ErrNotFound))
+			Expect(
+				dispatch(
+					rootCtx(ctx),
+					setRoleOf(uuid.New(), rbacSvc.Builtin.ViewerKey),
+				),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 		It(
 			"Should move a user that is not the root user off the Owner role",
@@ -760,10 +696,13 @@ var _ = Describe("Service", func() {
 						SetRole(ctx, rbacSvc.Builtin.OwnerKey, owner.Key)
 				})).
 					To(Succeed())
-				Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
-					Keys: []user.Key{owner.Key},
-					Role: rbacSvc.Builtin.ViewerKey,
-				})).Error().ToNot(HaveOccurred())
+				Expect(
+					dispatch(
+						rootCtx(ctx),
+						setRoleOf(owner.Key, rbacSvc.Builtin.ViewerKey),
+					),
+				).Error().
+					ToNot(HaveOccurred())
 				Expect(roleOf(ctx, owner.Key)).To(Equal(rbacSvc.Builtin.ViewerKey))
 			},
 		)
@@ -799,51 +738,6 @@ var _ = Describe("Service", func() {
 				request(u.Key, set("name", "Dispatched"), set("role", engineer)),
 			))
 			Expect(roleOf(ctx, u.Key)).To(Equal(engineer))
-		})
-		It(
-			"Should deny giving a role the subject cannot update",
-			func(ctx SpecContext) {
-				fctx, u := nonRootCtx(ctx)
-				target := createUser(ctx, "dispatch-"+uuid.New().String())
-				grantRoleChange(ctx, u, roleOf(ctx, target.Key))
-				r := createRole(ctx)
-				Expect(dispatch(fctx, request(target.Key, set("role", r)))).Error().
-					To(beDeniedUpdateOn(r))
-			},
-		)
-		It("Should refuse to change the role of the root user", func(ctx SpecContext) {
-			fctx, u := nonRootCtx(ctx)
-			grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey, rbacSvc.Builtin.ViewerKey)
-			Expect(dispatch(
-				fctx,
-				request(root.Key, set("role", rbacSvc.Builtin.ViewerKey)),
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("cannot change the role of root user")),
-			))
-		})
-		It(
-			"Should not reveal the root user to a subject that cannot update it",
-			func(ctx SpecContext) {
-				fctx, u := nonRootCtx(ctx)
-				Expect(dispatch(
-					fctx,
-					request(root.Key, set("role", rbacSvc.Builtin.ViewerKey)),
-				)).Error().To(SatisfyAll(
-					denied(u, access.ActionUpdate, root.ResourceID()),
-					Not(MatchError(ContainSubstring("root user"))),
-				))
-			},
-		)
-		It("Should reject a change of the subject's own username", func(
-			ctx SpecContext,
-		) {
-			fctx, u := nonRootCtx(ctx)
-			grantOnUsers(ctx, u, access.ActionUpdate)
-			Expect(dispatch(fctx, request(
-				u.Key,
-				user.NewSetUsernameAction(user.SetUsernamePayload{Username: "self"}),
-			))).Error().To(MatchError(ContainSubstring("change your own username")))
 		})
 	})
 

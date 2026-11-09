@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -95,20 +94,6 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
-}
-
-type RenameRequest struct {
-	Name string      `json:"name" msgpack:"name"`
-	Key  project.Key `json:"key"  msgpack:"key"`
-}
-
-// Rename renames the project with the given key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DispatchRequest carries an action sequence to apply to a single project. DispatchKey
@@ -266,19 +251,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves projects into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key    `json:"group" msgpack:"group"`
-	Keys  []project.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the projects with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

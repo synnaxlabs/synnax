@@ -66,11 +66,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// RenameChannel is the bound channel rename route. The LSP renames channels
+	// DispatchChannel is the bound channel dispatch route. The LSP renames channels
 	// through it, so an editor rename is checked as any other rename is.
 	//
 	// [REQUIRED]
-	RenameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	DispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
 }
 
 var (
@@ -86,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.RenameChannel = override.Nil(c.RenameChannel, other.RenameChannel)
+	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
 	return c
 }
 
@@ -97,16 +100,19 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("rename_channel", c.RenameChannel)
+	v.NotNil("dispatch_channel", c.DispatchChannel)
 	return v.Error()
 }
 
 type Service struct {
-	db            *gorp.DB
-	internal      *arc.Service
-	status        *status.Service
-	rbac          *rbac.Service
-	renameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	db              *gorp.DB
+	internal        *arc.Service
+	status          *status.Service
+	rbac            *rbac.Service
+	dispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
 	alamos.Instrumentation
 }
 
@@ -121,7 +127,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal:        cfg.Arc,
 		status:          cfg.Status,
 		rbac:            cfg.RBAC,
-		renameChannel:   cfg.RenameChannel,
+		dispatchChannel: cfg.DispatchChannel,
 	}, nil
 }
 
@@ -275,7 +281,7 @@ type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP serves the Arc language server over stream. The server treats the channels and
 // modules that the subject of the stream cannot retrieve as unknown names, and renames
-// channels through the channel rename route as the subject.
+// channels through the channel dispatch route as the subject.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
@@ -296,9 +302,11 @@ func (s *Service) LSP(
 			// metadata.
 			req := md
 			req.Context = ctx
-			_, err := s.renameChannel(req, apichannel.RenameRequest{
-				Keys:  channel.Keys{key},
-				Names: []string{name},
+			_, err := s.dispatchChannel(req, apichannel.DispatchRequest{
+				Key: key,
+				Actions: []channel.Action{
+					channel.NewRenameAction(channel.RenamePayload{Name: name}),
+				},
 			})
 			return err
 		},

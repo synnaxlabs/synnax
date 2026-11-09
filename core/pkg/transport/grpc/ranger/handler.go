@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -48,18 +47,6 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
-	renameServer = grpc.UnaryServer[
-		ranger.RenameRequest,
-		*RenameRequest,
-		struct{},
-		*emptypb.Empty,
-	]
-	setEndServer = grpc.UnaryServer[
-		ranger.SetEndRequest,
-		*SetEndRequest,
-		struct{},
-		*emptypb.Empty,
-	]
 	dispatchServer = grpc.UnaryServer[
 		ranger.DispatchRequest,
 		*DispatchRequest,
@@ -74,8 +61,6 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	renameRequestTranslator    struct{}
-	setEndRequestTranslator    struct{}
 	dispatchRequestTranslator  struct{}
 )
 
@@ -93,12 +78,6 @@ var (
 		nil,
 	)
 	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
-		nil,
-	)
-	_ grpc.Translator[ranger.RenameRequest, *RenameRequest] = (*renameRequestTranslator)(
-		nil,
-	)
-	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest] = (*setEndRequestTranslator)(
 		nil,
 	)
 	_ grpc.Translator[ranger.DispatchRequest, *DispatchRequest] = (*dispatchRequestTranslator)(
@@ -208,42 +187,6 @@ func (deleteRequestTranslator) Backward(
 	return ranger.DeleteRequest{Keys: keys}, nil
 }
 
-func (renameRequestTranslator) Forward(
-	_ context.Context,
-	r ranger.RenameRequest,
-) (*RenameRequest, error) {
-	return &RenameRequest{Key: r.Key.String(), Name: r.Name}, nil
-}
-
-func (renameRequestTranslator) Backward(
-	_ context.Context,
-	r *RenameRequest,
-) (ranger.RenameRequest, error) {
-	key, err := uuid.Parse(r.Key)
-	if err != nil {
-		return ranger.RenameRequest{}, err
-	}
-	return ranger.RenameRequest{Key: key, Name: r.Name}, nil
-}
-
-func (setEndRequestTranslator) Forward(
-	_ context.Context,
-	r ranger.SetEndRequest,
-) (*SetEndRequest, error) {
-	return &SetEndRequest{Key: r.Key.String(), End: int64(r.End)}, nil
-}
-
-func (setEndRequestTranslator) Backward(
-	_ context.Context,
-	r *SetEndRequest,
-) (ranger.SetEndRequest, error) {
-	key, err := uuid.Parse(r.Key)
-	if err != nil {
-		return ranger.SetEndRequest{}, err
-	}
-	return ranger.SetEndRequest{Key: key, End: telem.TimeStamp(r.End)}, nil
-}
-
 func (dispatchRequestTranslator) Forward(
 	ctx context.Context,
 	r ranger.DispatchRequest,
@@ -306,18 +249,6 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &RangeDeleteService_ServiceDesc,
 	}
 	t.RangeDelete = rangeDelete
-	rename := &renameServer{
-		RequestTranslator:  renameRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &RangeRenameService_ServiceDesc,
-	}
-	t.RangeRename = rename
-	setEnd := &setEndServer{
-		RequestTranslator:  setEndRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &RangeSetEndService_ServiceDesc,
-	}
-	t.RangeSetEnd = setEnd
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
@@ -328,8 +259,6 @@ func New(t *api.Transport) grpc.BindableTransport {
 		create,
 		retrieve,
 		rangeDelete,
-		rename,
-		setEnd,
 		dispatch,
 	}
 }

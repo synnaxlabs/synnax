@@ -191,96 +191,6 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("SetGroup", func() {
-	move := func(
-		ctx SpecContext,
-		u user.User,
-		g group.Group,
-		sym symbol.Symbol,
-	) (struct{}, error) {
-		return setGroup(AuthedCtx(ctx, u), apisymbol.SetGroupRequest{
-			Group: &g.Key,
-			Keys:  []symbol.Key{sym.Key},
-		})
-	}
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			from := createGroup(ctx, "set-group-denied-from")
-			to := createGroup(ctx, "set-group-denied-to")
-			sym := createSymbol(ctx, from, "Inlet")
-			grantUpdateOn(
-				ctx,
-				u.ResourceID(),
-				symbol.ResourceID(sym.Key),
-				from.ResourceID(),
-			)
-			Expect(move(ctx, u, to, sym)).
-				Error().To(denied(u.ResourceID(), access.ActionUpdate, to.ResourceID()))
-			Expect(groupSymbols(ctx, from.Key)).To(
-				ConsistOf(symbol.ResourceID(sym.Key)),
-			)
-		},
-	)
-	It(
-		"Should refuse the move without update on the source group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			from := createGroup(ctx, "set-group-source-denied-from")
-			to := createGroup(ctx, "set-group-source-denied-to")
-			sym := createSymbol(ctx, from, "Inlet")
-			grantUpdateOn(
-				ctx,
-				u.ResourceID(),
-				symbol.ResourceID(sym.Key),
-				to.ResourceID(),
-			)
-			Expect(move(ctx, u, to, sym)).
-				Error().
-				To(denied(u.ResourceID(), access.ActionUpdate, from.ResourceID()))
-			Expect(groupSymbols(ctx, from.Key)).To(
-				ConsistOf(symbol.ResourceID(sym.Key)),
-			)
-		},
-	)
-	It("Should refuse the move without update on the symbol", func(ctx SpecContext) {
-		u := createUser(ctx)
-		from := createGroup(ctx, "set-group-symbol-denied-from")
-		to := createGroup(ctx, "set-group-symbol-denied-to")
-		sym := createSymbol(ctx, from, "Inlet")
-		grantUpdateOn(ctx, u.ResourceID(), from.ResourceID(), to.ResourceID())
-		Expect(move(ctx, u, to, sym)).Error().To(denied(
-			u.ResourceID(),
-			access.ActionUpdate,
-			symbol.ResourceID(sym.Key),
-		))
-		Expect(groupSymbols(ctx, from.Key)).To(
-			ConsistOf(symbol.ResourceID(sym.Key)),
-		)
-	})
-	It(
-		"Should move the symbol with update on the symbol and both groups",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			from := createGroup(ctx, "set-group-granted-from")
-			to := createGroup(ctx, "set-group-granted-to")
-			sym := createSymbol(ctx, from, "Inlet")
-			grantUpdateOn(
-				ctx,
-				u.ResourceID(),
-				symbol.ResourceID(sym.Key),
-				from.ResourceID(),
-				to.ResourceID(),
-			)
-			MustSucceed(move(ctx, u, to, sym))
-			Expect(groupSymbols(ctx, to.Key)).To(
-				ConsistOf(symbol.ResourceID(sym.Key)),
-			)
-		},
-	)
-})
-
 var _ = Describe("Retrieve", func() {
 	It("Should leave out the symbols that the subject cannot retrieve", func(
 		ctx SpecContext,
@@ -346,36 +256,6 @@ var _ = Describe("Retrieve", func() {
 		Expect(retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
-	})
-})
-
-var _ = Describe("Rename", func() {
-	It("Should rename the symbol when update is granted", func(ctx SpecContext) {
-		g := createGroup(ctx, "renamable")
-		sym := createSymbol(ctx, g, "Inlet")
-		grantUpdateOn(ctx, author.ResourceID(), symbol.ResourceID(sym.Key))
-		MustSucceed(rename(
-			AuthedCtx(ctx, author),
-			apisymbol.RenameRequest{Key: sym.Key, Name: "Outlet"},
-		))
-		var renamed symbol.Symbol
-		Expect(symbolSvc.NewRetrieve().
-			Where(symbol.MatchKeys(sym.Key)).
-			Entry(&renamed).
-			Exec(ctx, db)).To(Succeed())
-		Expect(renamed.Name).To(Equal("Outlet"))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		g := createGroup(ctx, "unrenamable")
-		sym := createSymbol(ctx, g, "Inlet")
-		Expect(rename(
-			AuthedCtx(ctx, author),
-			apisymbol.RenameRequest{Key: sym.Key, Name: "Outlet"},
-		)).Error().To(denied(
-			author.ResourceID(),
-			access.ActionUpdate,
-			symbol.ResourceID(sym.Key),
-		))
 	})
 })
 

@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -159,49 +158,6 @@ var _ = Describe("Dispatch", func() {
 			apiview.DispatchRequest{Key: v.GorpKey(), Actions: rename},
 		))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
-	})
-})
-
-var _ = Describe("Rename", func() {
-	It("Should rename the view when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		MustSucceed(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		))
-		renamed := retrieveView(ctx, v.GorpKey())
-		Expect(renamed.Base().Name).To(Equal("After"))
-		Expect(renamed.Type()).To(Equal(view.TypeRange))
-	})
-	It("Should reject an empty name", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
-		)).Error().To(MatchError(ContainSubstring("name: required")))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
-	})
-	It("Should return a not found error for a missing view", func(ctx SpecContext) {
-		u := createUser(ctx)
-		key := uuid.New()
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, view.ResourceID(key))
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: key, Name: "After"},
-		)).Error().To(MatchError(query.ErrNotFound))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		)).Error().To(denied(u, access.ActionUpdate, v.ResourceID()))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })
 
