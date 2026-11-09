@@ -121,8 +121,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/log/dispatch", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/log/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
     );
     this.setProjectRequest = project.createMoveRequest("/log/dispatch", (keys, to) =>
       project.moveCached(store, keys, to),

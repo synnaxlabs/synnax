@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { project } from "@/project";
 import { query } from "@/query";
@@ -66,5 +67,46 @@ describe("createMoveRequest", () => {
     ]);
     rollback?.();
     expect(table.get("a")).toEqual({ key: "a", project: P1, group: G1 });
+  });
+});
+
+describe("createGroupMoveRequest", () => {
+  const setZ = z.object({
+    type: z.literal("set"),
+    set: z.object({ path: z.tuple([z.literal("project")]), value: z.string() }),
+  });
+  const resZ = z.object({ actions: setZ.array() });
+  const reduce = (doc: Doc, actions: z.infer<typeof setZ>[]) => ({
+    next: actions.reduce((d, { set }) => ({ ...d, project: set.value }), doc),
+  });
+  const setGroupRequest = (table: query.Table<string, Doc>) =>
+    project.createGroupMoveRequest("/doc/dispatch", table, resZ, reduce);
+  const response = {
+    actions: [{ type: "set", set: { path: ["project"], value: P2 } }],
+  };
+
+  it("should move the visualization of its entry when its write applies", () => {
+    const table = createTable({ key: "a", project: P1 }, { key: "b", project: P1 });
+    const [first] = setGroupRequest(table)(["a", "b"], G1);
+    first.apply?.();
+    expect(table.get(["a", "b"])).toEqual([
+      { key: "a", project: P1, group: G1 },
+      { key: "b", project: P1 },
+    ]);
+  });
+
+  it("should apply the actions of the response to the visualization", () => {
+    const table = createTable({ key: "a", project: P1 });
+    const [entry] = setGroupRequest(table)("a", G1);
+    entry.apply?.();
+    entry.applyResponse?.(response);
+    expect(table.get("a")).toEqual({ key: "a", project: P2, group: G1 });
+  });
+
+  it("should skip a response for a visualization the table does not hold", () => {
+    const table = createTable();
+    const [entry] = setGroupRequest(table)("a", G1);
+    entry.applyResponse?.(response);
+    expect(table.has("a")).toBe(false);
   });
 });

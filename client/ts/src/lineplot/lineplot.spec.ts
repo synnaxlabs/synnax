@@ -169,6 +169,25 @@ describe("store", () => {
       .toBe(g.key);
   });
 
+  it("caches the project of a group move as soon as the batch resolves", async () => {
+    // A client with no change stream gets no echo of the move.
+    const unstreamed = createTestClient({ cache: false });
+    const proj = await unstreamed.projects.create({ name: "Line Plot" });
+    const dest = await unstreamed.projects.create({ name: "Line Plot" });
+    const g = await unstreamed.groups.create({
+      parent: project.resourceID(dest.key),
+      name: "Line Plot",
+    });
+    const plot = await unstreamed.lineplots.create({
+      project: proj.key,
+      name: "Line Plot",
+    });
+    await unstreamed.batch.send(unstreamed.lineplots.setGroupRequest(plot.key, g.key));
+    const cached = expectLive(unstreamed.lineplots.watch(plot.key).getCached());
+    expect(cached.group).toEqual(g.key);
+    expect(cached.project).toEqual(dest.key);
+  });
+
   it("tombstones deletes from live delete signals", async () => {
     await client.connect();
     const plot = await seedPlot();
