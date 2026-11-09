@@ -331,6 +331,9 @@ func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 				check = head + ".is_nan"
 			}
 		}
+		if op == "!=" {
+			check = "not " + check
+		}
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"%s with %s is always %t, use %s instead",
