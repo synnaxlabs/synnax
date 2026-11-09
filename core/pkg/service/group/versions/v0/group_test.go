@@ -32,11 +32,6 @@ var _ = Describe("Group", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Group{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the group resource identifier", func() {
 			k := uuid.New()

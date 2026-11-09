@@ -30,11 +30,9 @@
 namespace driver::ethercat::engine {
 /// @brief Configuration for the Engine.
 struct Config {
-    /// @brief real-time thread configuration for the cycle thread.
-    x::thread::rt::Config rt;
-    /// @brief optional RT handle from the Manager. When set, the engine calls
-    /// handle->apply() instead of apply_config(rt).
-    std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    /// @brief lends the cycle thread an RT core while the bus runs. Without it, the
+    /// cycle thread runs at normal priority.
+    std::shared_ptr<x::thread::rt::Manager> rt_manager;
     /// @brief how the engine retries starting the bus before open_reader or open_writer
     /// returns the error. A slave that refuses a state change fails the start at once.
     /// start_timeout can stop the retries before max_retries.
@@ -166,7 +164,6 @@ class Engine {
 
     void run();
     void supervise();
-    void apply_rt(x::telem::TimeSpan period) const;
     /// @param mhz the bus rate in millihertz.
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);

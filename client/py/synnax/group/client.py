@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -27,7 +26,7 @@ from x import filter
 
 
 class _CreateReq(BaseModel):
-    key: UUID | None = None
+    key: Key | None = None
     name: str
     scope: Type | None = None
     parent: ID | None = None
@@ -38,12 +37,12 @@ class _CreateRes(BaseModel):
 
 
 class _RenameReq(BaseModel):
-    key: UUID
+    key: Key
     name: str
 
 
 class _DeleteReq(BaseModel):
-    keys: list[UUID]
+    keys: list[Key]
 
 
 class _SetParentReq(BaseModel):
@@ -63,7 +62,7 @@ class Client:
         *,
         scope: Type | None = None,
         parent: CrudeID | None = None,
-        key: str | None = None,
+        key: Key | None = None,
     ) -> Group:
         """Creates a group, or updates the group with the given key.
 
@@ -79,7 +78,7 @@ class Client:
         return self._client.send(
             "/group/create",
             _CreateReq(
-                key=UUID(key) if key else None,
+                key=key or None,
                 name=name,
                 scope=scope,
                 parent=ID(parent) if parent is not None else None,
@@ -88,13 +87,15 @@ class Client:
         ).group
 
     @overload
-    def retrieve(self, key: UUID) -> Group: ...
+    def retrieve(self, key: Key) -> Group: ...
 
     @overload
     def retrieve(
         self,
         *,
         key: Key,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -108,11 +109,13 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         one: Literal[True],
     ) -> Group: ...
@@ -122,11 +125,13 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        parents: ID | list[ID] = ...,
+        nested: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[UUID] | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         offset: int = ...,
@@ -138,7 +143,7 @@ class Client:
         key: filter.SetInput[Key] | None = None,
         *,
         where: Where | None = None,
-        keys: list[UUID] | None = None,
+        keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -152,6 +157,9 @@ class Client:
         group.
 
         :param key: Keeps groups with this key.
+        :param parents: Keeps groups that sit in any of these resources.
+        :param nested: Keeps only groups that sit in a parent when True, and only top
+            groups when False.
         :param and_: Keeps groups that match every filter in the list.
         :param or_: Keeps groups that match any filter in the list.
         :param not_: Keeps groups that do not match the filter.
@@ -171,7 +179,7 @@ class Client:
         if key is not None:
             fields["key"] = key
         single = returns_one(fields, one, limit, offset)
-        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
@@ -181,10 +189,10 @@ class Client:
         res = self._client.send("/group/retrieve", req, RetrieveResponse)
         return sole("group", req, res.groups) if single else res.groups
 
-    def rename(self, key: UUID, name: str) -> Empty:
+    def rename(self, key: Key, name: str) -> Empty:
         return self._client.send("/group/rename", _RenameReq(key=key, name=name), Empty)
 
-    def delete(self, keys: list[UUID]) -> Empty:
+    def delete(self, keys: list[Key]) -> Empty:
         return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
 
     def set_parent(self, keys: list[Key], parent: CrudeID | None = None) -> Empty:

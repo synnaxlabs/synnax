@@ -13,8 +13,7 @@ import re
 import tempfile
 from typing import TypeVar
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 import synnax as sy

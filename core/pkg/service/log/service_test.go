@@ -12,10 +12,9 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -87,8 +86,10 @@ var _ = Describe("OpenService", func() {
 		"Should register itself with the configured ImEx registry on open",
 		func(ctx SpecContext) {
 			l := log.Log{Project: &proj.Key, Name: "auto-registered"}
-			Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
-			env := MustSucceed(imexSvc.Export(ctx, l.ResourceID()))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
+			env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 			Expect(env.Type).To(Equal("log"))
 		},
 	)
@@ -102,26 +103,15 @@ var _ = Describe("OpenService", func() {
 			DB: node.DB,
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       statusSvc,
-		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			Channel: node.Channel,
 			DB:      node.DB,
-			Channel: channelSvc,
+			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
-		}))
-		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:           node.DB,
-			Framer:       node.Framer,
-			Channel:      channelSvc,
-			ChannelGraph: channelGraph,
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      node.DB,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  node.Framer,
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:      node.DB,
@@ -131,7 +121,7 @@ var _ = Describe("OpenService", func() {
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
-				Entry(&ch).Exec(ctx, nil)).To(Succeed())
+				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}

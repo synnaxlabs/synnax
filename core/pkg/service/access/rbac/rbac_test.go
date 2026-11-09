@@ -28,11 +28,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// createUser creates a user to act as the subject of access requests.
+// createUser creates a user to act as the subject of access requests. The user holds a
+// role with no policies, so it can do nothing.
 func createUser(ctx context.Context, tx gorp.Tx) resource.ID {
 	GinkgoHelper()
+	r := role.Role{Name: "no-access"}
+	Expect(rbacSvc.Role.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())
 	u := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
 		Name: "subject-" + uuid.New().String(),
+		Role: r.Key,
 	}))
 	return u.ResourceID()
 }
@@ -42,9 +46,9 @@ func userKey(subject resource.ID) user.Key {
 	return MustSucceed(user.KeyFromResourceID(subject))
 }
 
-func assignRole(ctx context.Context, tx gorp.Tx, subject resource.ID, r role.Key) {
+func setRole(ctx context.Context, tx gorp.Tx, subject resource.ID, r role.Key) {
 	GinkgoHelper()
-	Expect(userSvc.NewWriter(tx).AssignRole(ctx, r, userKey(subject))).To(Succeed())
+	Expect(userSvc.NewWriter(tx).SetRole(ctx, r, userKey(subject))).To(Succeed())
 }
 
 var _ = Describe("ServiceConfig", func() {
@@ -177,7 +181,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				req := access.Request{
 					Subject: subject,
@@ -238,7 +242,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				req := access.Request{
 					Subject: subject,
@@ -263,7 +267,7 @@ var _ = Describe("Service", func() {
 					Actions: access.AllActions,
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				for _, action := range []access.Action{
 					access.ActionCreate,
@@ -292,7 +296,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				req := access.Request{
 					Subject: subject,
@@ -315,7 +319,7 @@ var _ = Describe("Service", func() {
 						Actions: []access.Action{access.ActionRetrieve},
 					}
 					Expect(policyWriter.Create(ctx, p)).To(Succeed())
-					assignRole(ctx, tx, subject, r.Key)
+					setRole(ctx, tx, subject, r.Key)
 
 					req := access.Request{
 						Subject: subject,
@@ -340,7 +344,7 @@ var _ = Describe("Service", func() {
 					Objects: objects,
 					Actions: []access.Action{access.ActionRetrieve},
 				})).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 			}
 
 			It(
@@ -405,8 +409,146 @@ var _ = Describe("Service", func() {
 			})
 		})
 
-		Describe("Enforce with multiple roles", func() {
-			It("Should allow access via role assignment", func(ctx SpecContext) {
+		Describe("Policies", func() {
+			It("Should return the policies of the subject's roles", func(
+				ctx SpecContext,
+			) {
+				r := &role.Role{Name: "held"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				p := &policy.Policy{
+					Role:    r.Key,
+					Name:    "held",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionRetrieve},
+				}
+				Expect(policyWriter.Create(ctx, p)).To(Succeed())
+				setRole(ctx, tx, subject, r.Key)
+				policies := MustSucceed(rbacSvc.NewEnforcer(tx).Policies(ctx, subject))
+				Expect(policies).To(HaveLen(1))
+				Expect(policies[0].Key).To(Equal(p.Key))
+			})
+			It("Should return no policies for a subject that does not exist", func(
+				ctx SpecContext,
+			) {
+				Expect(
+					rbacSvc.NewEnforcer(tx).Policies(ctx, user.ResourceID(uuid.New())),
+				).
+					To(BeEmpty())
+			})
+		})
+
+		Describe("Allows", func() {
+			p := policy.Policy{
+				Key:     uuid.New(),
+				Objects: []resource.ID{{Type: "channel"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			allows := func(action access.Action, obj resource.ID) bool {
+				return rbac.Allows(subject, []policy.Policy{p}, action)(obj)
+			}
+			It("Should allow every object of a type that a policy names", func() {
+				Expect(allows(access.ActionRetrieve, obj1)).To(BeTrue())
+			})
+			It("Should let the subject retrieve its own record", func() {
+				Expect(allows(access.ActionRetrieve, subject)).To(BeTrue())
+				Expect(allows(access.ActionUpdate, subject)).To(BeFalse())
+			})
+			It("Should let the subject retrieve a policy it holds", func() {
+				Expect(allows(access.ActionRetrieve, p.ResourceID())).To(BeTrue())
+				Expect(allows(access.ActionDelete, p.ResourceID())).To(BeFalse())
+			})
+			It("Should deny an object that no policy covers", func() {
+				Expect(
+					allows(access.ActionRetrieve, resource.ID{Type: "task", Key: "1"}),
+				).
+					To(BeFalse())
+				Expect(allows(access.ActionUpdate, obj1)).To(BeFalse())
+			})
+		})
+
+		Describe("Policies of the subject's roles", func() {
+			var held, other *policy.Policy
+			BeforeEach(func(ctx SpecContext) {
+				r := &role.Role{Name: "held"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+				held = &policy.Policy{
+					Role:    r.Key,
+					Name:    "held",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionUpdate},
+				}
+				Expect(policyWriter.Create(ctx, held)).To(Succeed())
+				setRole(ctx, tx, subject, r.Key)
+				otherRole := &role.Role{Name: "other"}
+				Expect(roleWriter.Create(ctx, otherRole)).To(Succeed())
+				other = &policy.Policy{
+					Role:    otherRole.Key,
+					Name:    "other",
+					Objects: []resource.ID{obj1},
+					Actions: []access.Action{access.ActionUpdate},
+				}
+				Expect(policyWriter.Create(ctx, other)).To(Succeed())
+			})
+			It("Should let the subject retrieve them alone", func(ctx SpecContext) {
+				allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				))
+				Expect(allowed(held.ResourceID())).To(BeTrue())
+				Expect(allowed(other.ResourceID())).To(BeFalse())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{held.ResourceID()},
+				})).To(Succeed())
+			})
+			It("Should not let the subject delete them", func(ctx SpecContext) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionDelete,
+					Objects: []resource.ID{held.ResourceID()},
+				})).To(MatchError(access.ErrDenied))
+			})
+		})
+
+		Describe("Own record", func() {
+			var other resource.ID
+			BeforeEach(func(ctx SpecContext) { other = createUser(ctx, tx) })
+			It("Should let the subject retrieve itself alone", func(ctx SpecContext) {
+				allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				))
+				Expect(allowed(subject)).To(BeTrue())
+				Expect(allowed(other)).To(BeFalse())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{subject},
+				})).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionRetrieve,
+					Objects: []resource.ID{subject, other},
+				})).To(MatchError(ContainSubstring(
+					"%s cannot retrieve %s",
+					subject,
+					other,
+				)))
+			})
+			It("Should not let the subject update itself", func(ctx SpecContext) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  access.ActionUpdate,
+					Objects: []resource.ID{subject},
+				})).To(MatchError(access.ErrDenied))
+			})
+		})
+
+		Describe("Enforce after a role change", func() {
+			It("Should allow access through the new role", func(ctx SpecContext) {
 				r := &role.Role{
 					Name:        "reader",
 					Description: "Read-only access",
@@ -420,7 +562,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				req := access.Request{
 					Subject: subject,
@@ -430,7 +572,9 @@ var _ = Describe("Service", func() {
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
-			It("Should deny access after role unassignment", func(ctx SpecContext) {
+			It("Should deny access after the user moves to another role", func(
+				ctx SpecContext,
+			) {
 				r := &role.Role{
 					Name:        "reader",
 					Description: "Read-only access",
@@ -444,7 +588,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				req := access.Request{
 					Subject: subject,
@@ -453,12 +597,9 @@ var _ = Describe("Service", func() {
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 
-				Expect(userSvc.NewWriter(tx).SetRoles(
-					ctx,
-					nil,
-					[]role.Key{r.Key},
-					userKey(subject),
-				)).To(Succeed())
+				empty := &role.Role{Name: "empty"}
+				Expect(roleWriter.Create(ctx, empty)).To(Succeed())
+				setRole(ctx, tx, subject, empty.Key)
 				Expect(
 					rbacSvc.NewEnforcer(tx).Enforce(ctx, req),
 				).To(MatchError(access.ErrDenied))
@@ -497,7 +638,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 					Subject: subject,
@@ -526,7 +667,7 @@ var _ = Describe("Service", func() {
 				}
 				Expect(policyWriter.Create(ctx, retrievePolicy)).To(Succeed())
 				Expect(policyWriter.Create(ctx, updatePolicy)).To(Succeed())
-				assignRole(ctx, tx, subject, r.Key)
+				setRole(ctx, tx, subject, r.Key)
 
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 					Subject: subject,
@@ -573,7 +714,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
 			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
-			assignRole(ctx, tx, subject, r.Key)
+			setRole(ctx, tx, subject, r.Key)
 
 			enforcer := rbacSvc.NewEnforcer(tx)
 			Expect(enforcer.Enforce(ctx, access.Request{
@@ -593,7 +734,7 @@ var _ = Describe("Service", func() {
 			})).To(MatchError(access.ErrDenied))
 		})
 
-		It("Should deny a subject with no assigned roles", func(ctx SpecContext) {
+		It("Should deny a subject whose role has no policies", func(ctx SpecContext) {
 			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 				Subject: subject,
 				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
@@ -604,14 +745,12 @@ var _ = Describe("Service", func() {
 
 	Describe("Role deletion", func() {
 		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-		It("Should delete the role's policies and remove it from its users", func(
+		It("Should delete the policies of a role that no one holds", func(
 			ctx SpecContext,
 		) {
 			roleWriter := rbacSvc.Role.NewWriter(tx, true)
 			r := &role.Role{Name: "doomed"}
-			kept := &role.Role{Name: "kept"}
 			Expect(roleWriter.Create(ctx, r)).To(Succeed())
-			Expect(roleWriter.Create(ctx, kept)).To(Succeed())
 			p := &policy.Policy{
 				Role:    r.Key,
 				Name:    "doomed-policy",
@@ -619,33 +758,38 @@ var _ = Describe("Service", func() {
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(rbacSvc.Policy.NewWriter(tx, true).Create(ctx, p)).To(Succeed())
-			subject := createUser(ctx, tx)
-			assignRole(ctx, tx, subject, r.Key)
-			assignRole(ctx, tx, subject, kept.Key)
 			Expect(roleWriter.Delete(ctx, r.Key)).To(Succeed())
 			Expect(rbacSvc.Policy.NewRetrieve().
 				Where(policy.MatchKeys(p.Key)).
 				Exists(ctx, tx)).To(BeFalse())
-			Expect(rbacSvc.RolesOf(ctx, tx, subject)).
-				To(Equal([]role.Key{kept.Key}))
-			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
-				Subject: subject,
-				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "ch1"}},
-				Action:  access.ActionRetrieve,
-			})).To(MatchError(access.ErrDenied))
 		})
 
-		It("Should remove a deleted role from its racks", func(ctx SpecContext) {
-			subject := rackSvc.EmbeddedKey.ResourceID()
-			Expect(rbacSvc.RolesOf(ctx, tx, subject)).
-				To(ContainElement(rbacSvc.Builtin.DriverKey))
+		It("Should refuse to delete a role that a user holds", func(ctx SpecContext) {
+			roleWriter := rbacSvc.Role.NewWriter(tx, true)
+			r := &role.Role{Name: "held"}
+			Expect(roleWriter.Create(ctx, r)).To(Succeed())
+			subject := createUser(ctx, tx)
+			setRole(ctx, tx, subject, r.Key)
+			Expect(roleWriter.Delete(ctx, r.Key)).To(MatchError(gorp.RestrictError{
+				Target:    gorp.NewTarget("role", r.Key),
+				Holder:    gorp.NewTarget("user", userKey(subject)),
+				Reference: "role",
+			}))
+			Expect(rbacSvc.RolesOf(ctx, tx, subject)).To(Equal([]role.Key{r.Key}))
+		})
+
+		It("Should refuse to delete a role that a rack holds", func(ctx SpecContext) {
 			Expect(rbacSvc.Role.NewWriter(tx, true).
-				Delete(ctx, rbacSvc.Builtin.DriverKey)).To(Succeed())
-			Expect(rbacSvc.RolesOf(ctx, tx, subject)).
-				ToNot(ContainElement(rbacSvc.Builtin.DriverKey))
+				Delete(ctx, rbacSvc.Builtin.DriverKey)).To(MatchError(
+				gorp.RestrictError{
+					Target:    gorp.NewTarget("role", rbacSvc.Builtin.DriverKey),
+					Holder:    gorp.NewTarget("rack", rackSvc.EmbeddedKey),
+					Reference: "role",
+				},
+			))
 			Expect(rbacSvc.Policy.NewRetrieve().
 				Where(policy.MatchRoles(rbacSvc.Builtin.DriverKey)).
-				Exists(ctx, tx)).To(BeFalse())
+				Exists(ctx, tx)).To(BeTrue())
 		})
 	})
 
@@ -678,7 +822,7 @@ var _ = Describe("Service", func() {
 			Expect(pw.Create(ctx, &heldPolicy)).To(Succeed())
 			Expect(pw.Create(ctx, &outside)).To(Succeed())
 			subject = createUser(ctx, tx)
-			assignRole(ctx, tx, subject, held.Key)
+			setRole(ctx, tx, subject, held.Key)
 		})
 
 		retrieve := func(ctx SpecContext, f policy.Filter) []policy.Policy {
@@ -715,7 +859,7 @@ var _ = Describe("Service", func() {
 
 		It("Should match the policies of several subjects", func(ctx SpecContext) {
 			second := createUser(ctx, tx)
-			assignRole(ctx, tx, second, other.Key)
+			setRole(ctx, tx, second, other.Key)
 			Expect(retrieve(ctx, policy.MatchSubjects(subject, second))).
 				To(ConsistOf(heldPolicy, outside))
 		})
@@ -729,10 +873,26 @@ var _ = Describe("Service", func() {
 			r := &role.Role{Name: "shared"}
 			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
 			first, second := createUser(ctx, tx), createUser(ctx, tx)
-			assignRole(ctx, tx, first, r.Key)
-			assignRole(ctx, tx, second, r.Key)
+			setRole(ctx, tx, first, r.Key)
+			setRole(ctx, tx, second, r.Key)
 			Expect(rbacSvc.RolesOf(ctx, tx, first, second)).
 				To(Equal([]role.Key{r.Key}))
+		})
+
+		It("Should return the roles of a subject through a snapshot", func(
+			ctx SpecContext,
+		) {
+			r := &role.Role{Name: "snapshot"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			subject := createUser(ctx, tx)
+			setRole(ctx, tx, subject, r.Key)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			var roles []role.Key
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+				roles, err = rbacSvc.RolesOf(ctx, snap, subject)
+				return err
+			})).To(Succeed())
+			Expect(roles).To(Equal([]role.Key{r.Key}))
 		})
 
 		It("Should return not found for a user that does not exist", func(
@@ -767,7 +927,7 @@ var _ = Describe("Service", func() {
 				Actions: []access.Action{access.ActionRetrieve},
 			})).To(Succeed())
 			subject := createUser(ctx, tx)
-			assignRole(ctx, tx, subject, r.Key)
+			setRole(ctx, tx, subject, r.Key)
 			req := access.Request{
 				Subject: subject,
 				Objects: []resource.ID{{Type: resource.TypeChannel, Key: "ch1"}},
@@ -803,11 +963,39 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewEnforcer", func() {
+		It("Should enforce through a snapshot", func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
+			subject := createUser(ctx, tx)
+			obj := resource.ID{Type: "channel", Key: "snapshot-channel"}
+			r := &role.Role{Name: "snapshot-enforcer"}
+			Expect(rbacSvc.Role.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+			Expect(rbacSvc.Policy.NewWriter(tx, true).Create(ctx, &policy.Policy{
+				Role:    r.Key,
+				Name:    "allow-read",
+				Objects: []resource.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			})).To(Succeed())
+			setRole(ctx, tx, subject, r.Key)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			req := access.Request{
+				Subject: subject,
+				Objects: []resource.ID{obj},
+				Action:  access.ActionRetrieve,
+			}
+			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+				return rbacSvc.NewEnforcer(snap).Enforce(ctx, req)
+			})).To(Succeed())
+		})
+
 		It("Should create a functional enforcer", func(ctx SpecContext) {
-			enforcer := rbacSvc.NewEnforcer(nil)
+			enforcer := rbacSvc.NewEnforcer(db)
 			Expect(enforcer).ToNot(BeNil())
 
-			subject := createUser(ctx, nil)
+			var subject resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				subject = createUser(ctx, tx)
+				return nil
+			})).To(Succeed())
 			obj := resource.ID{Type: "channel", Key: "ch1"}
 			req := access.Request{
 				Subject: subject,
@@ -837,7 +1025,7 @@ var _ = Describe("Service", func() {
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(policyWriter.Create(ctx, p)).To(Succeed())
-			assignRole(ctx, tx, subject, r.Key)
+			setRole(ctx, tx, subject, r.Key)
 
 			req := access.Request{
 				Subject: subject,

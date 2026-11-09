@@ -11,10 +11,10 @@ package project
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -54,6 +54,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Project]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 func OpenService(
@@ -64,7 +65,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
@@ -80,11 +85,20 @@ func OpenService(
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = cfg.Signals.PublishFromGorp(
+	if err = cfg.Signals.PublishTable(
 		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+		signals.TableConfig[Key, Project]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_project_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -92,28 +106,30 @@ func OpenService(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:   s,
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		table: s.table,
+		tx:         tx,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // Children returns the ID of every record that references the project with key, as seen
-// by tx: the groups directly under it and every visualization it owns.
+// by snap: the groups directly under it and every visualization it owns.
 func (s *Service) Children(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, gorp.OverrideTx(s.cfg.DB, tx), s.table, key)
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }
