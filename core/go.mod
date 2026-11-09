@@ -12,6 +12,7 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58

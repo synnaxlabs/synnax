@@ -288,9 +288,9 @@ and both are true in Desktop:
 - `Runtime.LINKS_DISABLED`: The app opens no `synnax://` links, so a copied link can
   open nothing. Every copy-link control hides itself.
 
-Behavior that only `app/` can reach is an input. `Version.InstallProvider` wraps the
-install of a downloaded update in a middleware. Desktop stops the Core before the
-install and starts it again if the install fails (§5.6).
+Behavior that only `app/` can reach is an input. `Version.Provider` takes a middleware
+that wraps the install of a downloaded update. Desktop stops the Core before the install
+and starts it again if the install fails (§5.6).
 
 The Tauri side uses the same split. `tauri build --config` merges
 `tauri.desktop.conf.json` over `tauri.conf.json`: product name, identifier,

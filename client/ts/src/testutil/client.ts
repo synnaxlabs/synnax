@@ -128,6 +128,21 @@ export const holdRequests = (
   return { release: () => released.resolve() };
 };
 
+/** Rejects with error each request for which matches is true. Sends the others on. */
+export const rejectRequests = (
+  client: Synnax,
+  matches: (target: string, req: unknown) => boolean,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  return vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (matches(args[0], args[1])) throw error;
+    return await send(...args);
+  });
+};
+
 /**
  * Holds each response to target until release is called. responded resolves when the
  * first held response arrives.
