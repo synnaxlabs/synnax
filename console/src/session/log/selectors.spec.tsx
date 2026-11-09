@@ -23,6 +23,7 @@ const customState: Log.State = {
   position: "",
   toolbar: { selectedTab: "properties" },
   hiddenChannels: [3],
+  search: { text: "err", mode: "regex", filtered: true },
 };
 
 const storeWith = (slice: Log.SliceState) =>
@@ -83,6 +84,13 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual([3]);
+  });
+
+  it("should read the search", () => {
+    const { result } = renderHook(() => Log.useSelectSearch(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toEqual({ text: "err", mode: "regex", filtered: true });
   });
 
   it("should track hold across dispatches", () => {

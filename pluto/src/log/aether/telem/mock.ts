@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type status } from "@synnaxlabs/client";
-import { deep, type destructor, observe, type TimeRange } from "@synnaxlabs/x";
+import {
+  deep,
+  type destructor,
+  observe,
+  type TimeRange,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import {
   type Filter,
@@ -39,7 +45,8 @@ export class MockLogSource implements LogSource {
     return { data, status };
   }
 
-  private filter: Filter = ZERO_FILTER;
+  /** The last filter the log set. */
+  filter: Filter = ZERO_FILTER;
 
   /** Notifies a change of filter, as a source that reloads its entries does. */
   setFilter(filter: Filter): void {
@@ -74,6 +81,8 @@ export class MockLogSource implements LogSource {
   resume(): void {
     this.resumeCalls++;
   }
+
+  reached: TimeStamp | null = null;
 
   setChannels(channels: channel.Key[]): void {
     this.activeChannels = new Set(channels);

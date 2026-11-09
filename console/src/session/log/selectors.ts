@@ -12,6 +12,7 @@ import { Log } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
 import {
+  type SearchState,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -55,3 +56,8 @@ const selectHiddenChannels = (params: KeyedSelectorParams): channel.Key[] =>
   selectState(params).hiddenChannels;
 
 export const useSelectHiddenChannels = createSelector(selectHiddenChannels);
+
+const selectSearch = (params: KeyedSelectorParams): SearchState =>
+  selectState(params).search;
+
+export const useSelectSearch = createSelector(selectSearch);

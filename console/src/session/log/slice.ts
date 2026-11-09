@@ -10,6 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { channel, type log, UnexpectedError } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
+import { Log } from "@synnaxlabs/pluto";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -21,12 +22,19 @@ const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("channels"),
 });
 
+const searchZ = Log.search.searchZ.extend({
+  /** Shows only the lines that match. */
+  filtered: z.boolean().default(false),
+});
+export interface SearchState extends z.infer<typeof searchZ> {}
+
 const stateZ = z.object({
   hold: z.boolean().default(false),
   /** Where the log stood when it last unmounted. A remount reads it while on hold. */
   position: z.string().default(""),
   toolbar: toolbarStateZ.prefault({}),
   hiddenChannels: z.array(channel.keyZ).default([]),
+  search: searchZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -73,6 +81,8 @@ export interface SetChannelVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
+export interface SetSearchPayload extends KeyedPayload, Partial<SearchState> {}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -115,6 +125,11 @@ export const { actions, reducer } = createSlice({
         state.hiddenChannels = Array.from(hidden);
       },
     ),
+    setSearch: withSelectedState<SetSearchPayload, SliceState>(
+      (state, { payload: { key: _key, windowKey: _windowKey, ...search } }) => {
+        state.search = { ...state.search, ...search };
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -128,6 +143,7 @@ export const {
   setHold,
   setPosition,
   setChannelVisible,
+  setSearch,
   remove,
 } = actions;
 
@@ -140,5 +156,6 @@ export const MIDDLEWARE = [
     setHold,
     setPosition,
     setChannelVisible,
+    setSearch,
   ]),
 ];

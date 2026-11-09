@@ -25,6 +25,7 @@ const Internal: Panel.Content = () => {
   const hold = Session.Log.useSelectHold();
   const position = Session.Log.useSelectPosition();
   const hiddenChannels = Session.Log.useSelectHiddenChannels();
+  const search = Session.Log.useSelectSearch();
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -46,11 +47,18 @@ const Internal: Panel.Content = () => {
       onHold={handleHold}
       position={position}
       hiddenChannels={hiddenChannels}
+      search={search}
       onLeave={handleLeave}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action
-          message={hasChannels ? "No data received yet" : "No channels configured"}
+          message={
+            !hasChannels
+              ? "No channels configured"
+              : search.filtered && Base.search.compile(search) != null
+                ? "No matching lines"
+                : "No data received yet"
+          }
           action={hasChannels ? undefined : "Configure channels"}
           onClick={hasChannels ? handleDoubleClick : handleConfigureChannels}
         />

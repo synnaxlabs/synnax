@@ -20,11 +20,12 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import { formatZ, textOf as drawnTextOf } from "@/log/aether/format";
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
-import { type LogEntry } from "@/log/aether/telem/types";
+import { type LogEntry, ZERO_FILTER } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
@@ -505,7 +506,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
       core.advance(TimeSpan.seconds(1));
@@ -518,9 +519,9 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
-      log.setFilter({ hiddenChannels: [] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [] });
       await settle(log, 2 * HISTORY);
       expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
       expect(sorted(entriesOf(log))).toBe(true);
@@ -531,9 +532,83 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] }, undefined, 200);
       await expect.poll(() => valuesOf(entriesOf(log), a).length, POLL).toBe(90);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, 180);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 180));
+    });
+
+    const searchable = (): SyntheticCore => {
+      const core = createCore({
+        text: (i) => (i % 10 === 0 ? `ERROR ${i}` : `ok ${i}`),
+      });
+      core.retype(core.data[0].key, DataType.STRING);
+      return core;
+    };
+
+    it("should hold only the lines that contain the text, in any case", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter({ ...ZERO_FILTER, search: { text: "error", mode: "text" } });
+      const errors = textOf(core, a, HISTORY).filter((v) => v.startsWith("ERROR"));
+      await settle(log, errors.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(errors);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, errors.length + 1);
+      expect(entriesOf(log).at(-1)?.value).toMatch(/^ERROR/);
+    });
+
+    it("should hold only the lines that match a regex", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter({ ...ZERO_FILTER, search: { text: "^ok \\d*5$", mode: "regex" } });
+      const matches = textOf(core, a, HISTORY).filter((v) => /^ok \d*5$/.test(v));
+      await settle(log, matches.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(matches);
+    });
+
+    it("should hold the lines that a lookahead regex matches with no text", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter({ ...ZERO_FILTER, search: { text: "^(?!ERROR)", mode: "regex" } });
+      const kept = textOf(core, a, HISTORY).filter((v) => !v.startsWith("ERROR"));
+      await settle(log, kept.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(kept);
+    });
+
+    it("should match the number as the log draws it at its precision", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      const format = formatZ.parse({ precision: 2, dataType: "float32" });
+      log.setFilter({
+        ...ZERO_FILTER,
+        search: { text: "\\.91$", mode: "regex" },
+        formats: { [a]: format },
+      });
+      const raw = textOf(core, a, HISTORY);
+      const matches = raw.filter((v) => /\.91$/.test(drawnTextOf(v, format)));
+      expect(matches.length).toBeGreaterThan(0);
+      expect(raw.some((v) => /\.91$/.test(v))).toBe(false);
+      await settle(log, matches.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(matches);
+    });
+
+    it("should hold a matched line of a sample as its first line", async () => {
+      const core = createCore({ text: (i) => `head ${i}\nmatch ${i}` });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter({ ...ZERO_FILTER, search: { text: "match", mode: "text" } });
+      await settle(log, HISTORY);
+      expect(entriesOf(log).every((e) => e.continuation !== true)).toBe(true);
     });
 
     it("should do nothing for an equal filter", async () => {
@@ -541,11 +616,11 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
       const handler = vi.fn();
       log.onChange(handler);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       expect(handler).not.toHaveBeenCalled();
     });
   });
@@ -743,11 +818,35 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * PAGE);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, PAGE);
       await page(log, STORED);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
       expect(valuesOf(entriesOf(log), b)).toEqual([]);
+    });
+
+    it("should page back past the lines that do not match", async () => {
+      const core = createCore({
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+        text: (i) => (i % 100 === 0 ? `ERROR ${i}` : `ok ${i}`),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] });
+      log.setFilter({ ...ZERO_FILTER, search: { text: "ERROR", mode: "text" } });
+      const errors = textOf(core, a, STORED).filter((v) => v.startsWith("ERROR"));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+      const reached = log.reached?.valueOf();
+      assert(reached != null);
+      log.loadOlder();
+      await expect.poll(() => log.reached?.valueOf() ?? 0n, POLL).toBeLessThan(reached);
+      await until(
+        () => log.loadOlder(),
+        () => log.exhausted,
+      );
+      expect(valuesOf(entriesOf(log), a)).toEqual(errors);
+      // A channel whose reads hold its oldest sample leaves nothing to search back to.
+      expect(log.reached).toBeNull();
     });
 
     it("should read no older pages of a hidden channel", async () => {
@@ -755,7 +854,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * PAGE);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, PAGE);
       await page(log, STORED);
       expect(log.exhausted).toBe(true);

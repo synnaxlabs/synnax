@@ -11,7 +11,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
+import { box, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,6 +68,7 @@ const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  searchedTo: "",
 };
 
 const LINES = [
@@ -118,6 +119,16 @@ describe("log/Base", () => {
       expect(screen.getByText("No log entries")).toBeDefined();
     });
 
+    it("should show how far back a filtered log has searched", () => {
+      setupAether({ empty: false, searchedTo: "86400000000000" });
+      const { rerender } = renderLog({ timeZone: "UTC" });
+      const time = new TimeStamp(86400000000000n).toString("dateTime", "UTC");
+      expect(screen.getByText(/Searched back to/).textContent).toContain(time);
+      setupAether({ empty: false, searchedTo: "" });
+      rerender(<Base />);
+      expect(screen.queryByText(/Searched back to/)).toBeNull();
+    });
+
     it("should expose the log role", () => {
       renderLog();
       expect(screen.getByRole("log")).toBeDefined();
@@ -149,10 +160,12 @@ describe("log/Base", () => {
       expect(screen.getByTestId("overlay")).toBeDefined();
     });
 
-    it("should not render children when empty", () => {
+    // A filter that matches nothing empties the log, and its controls must stay.
+    it("should render children beside the empty content", () => {
       setupAether({ empty: true });
       renderLog({ children: <div data-testid="overlay" /> });
-      expect(screen.queryByTestId("overlay")).toBeNull();
+      expect(screen.getByTestId("overlay")).toBeDefined();
+      expect(screen.getByText("No log entries")).toBeDefined();
     });
 
     it("should render custom empty content when provided", () => {
