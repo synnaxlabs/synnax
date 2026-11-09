@@ -129,6 +129,9 @@ jobs:
       core_tag: ${{ steps.core.outputs.tag }}
       core_previous_tag: ${{ steps.core.outputs.previous_tag }}
       core_latest: ${{ steps.core.outputs.latest }}
+      train:
+        ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
+        steps.driver.outputs.minor }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
@@ -504,15 +507,18 @@ jobs:
 
   deploy-docs:
     name: Deploy docs
-    needs: [publish-console, publish-driver, publish-core]
-    # The docs read stable versions at build time, so a stable release redeploys them.
+    needs: [resolve, publish-console, publish-driver, publish-core]
+    # The docs read stable versions at build time. A release changes the download links
+    # of its train, next, and the newest train, and a new train moves the previous one
+    # off the root.
     if: >-
-      !cancelled() && !inputs.prerelease && contains(needs.*.result, 'success')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger the docs deploy hook
-        env:
-          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
-        run: |
-          [ -n "$HOOK" ] || { echo "::error::DOCS_DEPLOY_HOOK is not set"; exit 1; }
-          curl --fail-with-body --silent --show-error --request POST "$HOOK"
+      !cancelled() && !inputs.prerelease && (needs.publish-console.result == 'success'
+      || needs.publish-driver.result == 'success' || needs.publish-core.result ==
+      'success')
+    uses: ./.github/workflows/deploy.docs.yaml
+    with:
+      versions: next latest previous ${{ needs.resolve.outputs.train }}
+    secrets:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

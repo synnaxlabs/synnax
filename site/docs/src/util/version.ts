@@ -97,6 +97,9 @@ export const resolve = (name: string, trains: string[]): Version => {
 export const rootOf = (version: Version | null): string =>
   version == null || version.status === "latest" ? "" : ROOT;
 
-/** Names the search index of a version. An unversioned build reads `docs_site`. */
+/**
+ * Names the search index of a version. An unversioned build, such as a dev server or a
+ * preview, reads the index of `next`.
+ */
 export const indexName = (name: string | null): string =>
-  name == null ? "docs_site" : `docs_site_${name.replace(".", "_")}`;
+  `docs_site_${(name ?? NEXT).replace(".", "_")}`;

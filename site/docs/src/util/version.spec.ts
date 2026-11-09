@@ -95,7 +95,7 @@ describe("version", () => {
 
   describe("indexName", () => {
     it("should give each version its own index", () => {
-      expect(indexName(null)).toEqual("docs_site");
+      expect(indexName(null)).toEqual("docs_site_next");
       expect(indexName("0.61")).toEqual("docs_site_0_61");
       expect(indexName("next")).toEqual("docs_site_next");
     });

@@ -33,9 +33,19 @@ for `main`. The newest train with a stable Core release is the latest and lives 
 at `next.docs.synnaxlabs.com`. Old and next builds show a banner, ask search engines not
 to index them, and send the blog, release notes, reliability, and legal pages to the
 root. Download links keep to the build's train. Each version has its own search index. A
-build without `DOCS_VERSION`, such as a dev server or a preview, shows no menu.
+build without `DOCS_VERSION`, such as a dev server or a preview, shows no menu and
+searches the index of `next`.
 
 To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
+
+To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
+`0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
+its `release/core-X.Y` branch if one exists, else from its newest stable Core tag. Set
+`ref` to build one version from another ref. A push to `main` deploys `next`. A stable
+release deploys `next`, `latest`, `previous`, and the train it released.
+
+To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
+train's release branch, and deploy the train.
 
 ## Feature flags
 
