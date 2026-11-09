@@ -23,7 +23,10 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -33,6 +36,10 @@ export type FlexAlignment = z.infer<typeof flexAlignmentZ>;
 export const PAGE_TYPES = ["schematic", "lineplot", "log", "table"] as const;
 export const pageTypeZ = z.enum(PAGE_TYPES);
 export type PageType = z.infer<typeof pageTypeZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 export const COMPONENT_SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
 export const componentSizeZ = z.enum(COMPONENT_SIZES);
@@ -181,6 +188,15 @@ export const scaledConfigZ = z.object({
 });
 export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
 
+/** Order is a sort of schematics. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -239,6 +255,11 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  snapshot?: filter.Bool;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -255,7 +276,29 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** snapshot selects by snapshot. */
+  snapshot: filter.boolZ.optional(),
+  /** groups matches the schematics in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the schematics in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the schematics owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the schematics owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of schematics: the sort value and the key of a
+ * schematic.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the schematic at the position. */
+  key: keyZ,
+  /** name is the name of the schematic at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -371,10 +414,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the schematics that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the schematics. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the schematics strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most schematics to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching schematics to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -3302,6 +3347,18 @@ export const schematicZ = z.object({
   configs: caseconv.preserveKeys(
     z.record(z.string(), elementConfigZ).default(() => ({})),
   ),
+  /** group is the group the schematic sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}
@@ -3313,5 +3370,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("schematic");
+export const TYPE_RESOURCE_ID = resourceID("");

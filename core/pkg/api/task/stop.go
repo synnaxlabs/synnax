@@ -15,9 +15,11 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -71,21 +73,23 @@ func (s *Service) retrieveRunning(
 	ctx context.Context,
 	keys []task.Key,
 ) ([]task.Key, error) {
-	// Status details are caller-provided, so a stop target must come from keys.
-	byStatus := lo.SliceToMap(keys, func(k task.Key) (string, task.Key) {
-		return task.OntologyID(k).String(), k
+	// Status details are caller-provided, so a stop target must come from owners.
+	byOwner := lo.SliceToMap(keys, func(k task.Key) (resource.ID, task.Key) {
+		return task.ResourceID(k), k
 	})
 	var statuses []task.Status
-	if err := s.status.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](lo.Keys(byStatus)...)).
-		Entries(&statuses).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchOwners[task.StatusDetails](lo.Keys(byOwner)...)).
+			Entries(&statuses).
+			Exec(ctx, snap)
+	}); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	running := make([]task.Key, 0, len(statuses))
 	for _, stat := range statuses {
-		if stat.Details.Running {
-			running = append(running, byStatus[stat.Key])
+		if stat.Details.Running && stat.Owner != nil {
+			running = append(running, byOwner[*stat.Owner])
 		}
 	}
 	return running, nil
@@ -119,8 +123,7 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 	)
 	sw.InFrom(requests)
 	sw.OutTo(responses)
-	// A routine never starts under a canceled context, and then never closes its
-	// outlets. The writer runs apart from ctx, and every wait on it selects on ctx.
+	// The writer runs apart from ctx, and every wait on it selects on ctx.
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
 	sw.Flow(

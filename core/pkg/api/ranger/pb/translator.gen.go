@@ -12,21 +12,152 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
+
+// CursorToPB converts Cursor to Cursor.
+func CursorToPB(r ranger.Cursor) (*Cursor, error) {
+	pb := &Cursor{
+		Key: r.Key.String(),
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
+	}
+	if r.TimeRangeStart != nil {
+		v := int64(*r.TimeRangeStart)
+		pb.TimeRangeStart = &v
+	}
+	return pb, nil
+}
+
+// CursorFromPB converts Cursor to Cursor.
+func CursorFromPB(pb *Cursor) (ranger.Cursor, error) {
+	var r ranger.Cursor
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return ranger.Cursor{}, err
+	}
+	if pb.Name != nil {
+		r.Name = pb.Name
+	}
+	if pb.TimeRangeStart != nil {
+		v := telem.TimeStamp(*pb.TimeRangeStart)
+		r.TimeRangeStart = &v
+	}
+	return r, nil
+}
+
+// CursorsToPB converts a slice of Cursor to Cursor.
+func CursorsToPB(rs []ranger.Cursor) ([]*Cursor, error) {
+	result := make([]*Cursor, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CursorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CursorsFromPB converts a slice of Cursor to Cursor.
+func CursorsFromPB(pbs []*Cursor) ([]ranger.Cursor, error) {
+	result := make([]ranger.Cursor, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CursorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrderToPB converts Order to Order.
+func OrderToPB(r ranger.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+func OrderFromPB(pb *Order) (ranger.Order, error) {
+	var r ranger.Order
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return ranger.Order{}, err
+	}
+	r.Descending = pb.Descending
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []ranger.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]ranger.Order, error) {
+	result := make([]ranger.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r ranger.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
-		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
-		IncludeLabels: r.IncludeLabels,
-		IncludeParent: r.IncludeParent,
+		SearchTerm: r.SearchTerm,
 	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = rangerpb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.After != nil {
+		var err error
+		pb.After, err = CursorToPB(*r.After)
 		if err != nil {
 			return nil, err
 		}
@@ -44,15 +175,26 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (ranger.RetrieveRequest, error) 
 		return r, nil
 	}
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
-	r.IncludeLabels = pb.IncludeLabels
-	r.IncludeParent = pb.IncludeParent
 	if pb.Where != nil {
 		val, err := rangerpb.WhereFromPB(pb.Where)
 		if err != nil {
 			return ranger.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return ranger.RetrieveRequest{}, err
+		}
+		r.Order = &val
+	}
+	if pb.After != nil {
+		val, err := CursorFromPB(pb.After)
+		if err != nil {
+			return ranger.RetrieveRequest{}, err
+		}
+		r.After = &val
 	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
@@ -136,4 +278,28 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]ranger.RetrieveResponse
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts ranger.OrderField to OrderField.
+func OrderFieldToPB(v ranger.OrderField) (OrderField, error) {
+	switch v {
+	case ranger.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	case ranger.OrderFieldTimeRangeStart:
+		return OrderField_ORDER_FIELD_TIME_RANGE_START, nil
+	default:
+		return 0, errors.Newf("unrecognized ranger.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to ranger.OrderField.
+func OrderFieldFromPB(v OrderField) (ranger.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return ranger.OrderFieldName, nil
+	case OrderField_ORDER_FIELD_TIME_RANGE_START:
+		return ranger.OrderFieldTimeRangeStart, nil
+	default:
+		return ranger.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }

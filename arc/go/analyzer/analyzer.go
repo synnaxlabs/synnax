@@ -15,6 +15,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -36,8 +37,10 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	markExports(ctx)
-	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
+	statement.PromoteChannelReadLocals(ctx)
+	statement.CheckStatefulInitializers(ctx)
+	liftReassignedVarReads(ctx)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {
@@ -48,6 +51,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 		substituteTypeMap(ctx)
 	}
+	constant.Check(ctx)
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions

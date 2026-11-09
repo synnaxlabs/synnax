@@ -79,12 +79,11 @@ func (p *Plugin) Requires() []string { return nil }
 // Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages resolve persisted references through the
-// dependency version their version file imports, as a frozen package does, so a freeze
-// never moves an import. Omitted fields and declarations outside the persisted
-// closure resolve to dependency roots and track the latest version, since they never
-// reach the stored wire format. Unversioned packages reference the root re-export
-// surface.
+// re-defined. Version packages resolve every dependency reference, omitted fields and
+// transient declarations included, at the dependency version their version file pins,
+// as a frozen package does, so a freeze never moves them. Transient declarations at a
+// versioned root path resolve to dependency roots. Unversioned packages reference the
+// root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
 		context.Background(), req.Resolutions, req.Versions,
@@ -93,6 +92,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 	preds, err := chainPredecessors(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	orders, err := chainOrders(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +115,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		FilePattern: p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
 			preds:    preds,
+			orders:   orders,
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
-			members:  members,
 			pins:     pins,
 		},
 		PathFilter:      currentPaths.Contains,
@@ -172,7 +175,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
-			members:  members,
 		},
 		PathFilter: pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
@@ -247,6 +249,10 @@ type predecessor struct {
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
+	// names maps an aliased type's qualified name to the Go name the predecessor
+	// package declares. A frozen package declares its version file's name, which a
+	// live @go name does not change.
+	names map[string]string
 }
 
 // AliasedTypes returns the qualified names of all types that alias their predecessor
@@ -271,17 +277,17 @@ type goFileGenerator struct {
 	// preds maps current version output paths to their predecessor alias split; types
 	// in the split alias the predecessor instead of defining.
 	preds map[string]predecessor
-	// original is the unrewritten table; set only for the versioned pass, where
-	// transient declarations resolve against it (self path rewritten) so their
-	// dependency references track the latest version.
+	// orders maps current version output paths to their version file's declaration
+	// order.
+	orders map[string]map[string]int
+	// original is the unrewritten table. Transient declarations at a versioned root
+	// path resolve against it, so their dependency references hit root re-exports.
 	original *resolution.Table
 	// pathMap maps each version-laid-out root path to its current versions/vN sub-path.
 	pathMap map[string]string
 	// closure is the persisted closure of the whole table; declarations outside it at
 	// marshal-rooted paths are transient.
 	closure set.Set[string]
-	// members holds the qualified names of every chain's current-surface members.
-	members set.Set[string]
 	// pins resolves a stored reference to the dependency version its version file
 	// imports.
 	pins versioning.Pins
@@ -300,7 +306,7 @@ func fileLivePath(ctx *framework.GenerateContext) string {
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	latest := latestTable(g.original, g.pathMap, g.members, ctx.OutputPath)
+	latest := latestTable(g.original, g.pathMap, ctx.OutputPath)
 	_, transient := g.pathMap[ctx.OutputPath]
 	// Every declaration a current package renders belongs to its schema's current
 	// version file, so that file's pins resolve the package's stored references.
@@ -311,7 +317,7 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil, pinned,
+		transient, g.orders[ctx.OutputPath], pinned,
 	)
 	if err != nil {
 		return "", err
@@ -319,30 +325,16 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	return string(content), nil
 }
 
-// latestTable returns the latest-resolution table for a current version path: the
-// original table with only this path rewritten to its version directory, so local
-// references stay in-package while dependency references resolve to the root re-export.
-// For a versioned root path (the transient pass) the original table already resolves
-// this way: versioned siblings stay local and dependencies hit their root re-exports.
-// Nil when original is nil or the path is not versioned.
+// latestTable returns the latest-resolution table for a versioned root path (the
+// transient pass): the original table, where versioned siblings stay local and
+// dependencies hit their root re-exports. A version package gets nil, so every
+// reference it renders resolves to the dependency version its version file pins, as a
+// frozen package does.
 func latestTable(
-	original *resolution.Table,
-	pathMap map[string]string,
-	members set.Set[string],
-	outputPath string,
+	original *resolution.Table, pathMap map[string]string, outputPath string,
 ) *resolution.Table {
-	if original == nil {
-		return nil
-	}
-	if _, ok := pathMap[outputPath]; ok {
+	if _, root := pathMap[outputPath]; root {
 		return original
-	}
-	for orig, current := range pathMap {
-		if current == outputPath {
-			return versioning.RewriteOutputPaths(
-				original, map[string]string{orig: outputPath}, members,
-			)
-		}
 	}
 	return nil
 }
@@ -587,7 +579,8 @@ func renderGoFile(
 				predAlias = naming.DerivePackageName(pred.path)
 				imports.AddInternal(predAlias, resolveGoImportPath(pred.path, repoRoot))
 			}
-			for _, a := range buildAliasDecls(d, predAlias, data) {
+			target := pred.names[d.typ.QualifiedName]
+			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
 			continue
@@ -829,23 +822,24 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		if !genMethods {
 			continue
 		}
+		fd := data.forField(field)
 		if defaultGroupName(field) == "" {
-			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, fd)...)
 		}
-		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
+		if step, ok := goRecurseStep(field, fd, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
-		if validateSkip(field, data) {
+		if validateSkip(field, fd) {
 			continue
 		}
-		if chk, ok := goEnumCheck(field, data); ok {
+		if chk, ok := goEnumCheck(field, fd); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, data)...,
+			goConstraintChecks(field, fd)...,
 		)
-		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
+		if step, ok := goRecurseStep(field, fd, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
@@ -972,11 +966,18 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	return data.resolver.ResolveTypeRef(constraint, data.ctx)
 }
 
-func processField(field resolution.Field, data *templateData) fieldData {
-	if data.latest != nil &&
-		domain.GetStringFromField(field, "go", "marshal") == "omit" {
-		data = data.latest
+// forField returns the data that resolves field. An omitted field resolves against the
+// latest table, so its type, defaults, and checks track its dependencies' current
+// versions together.
+func (d *templateData) forField(field resolution.Field) *templateData {
+	if d.latest != nil && domain.GetStringFromField(field, "go", "marshal") == "omit" {
+		return d.latest
 	}
+	return d
+}
+
+func processField(field resolution.Field, data *templateData) fieldData {
+	data = data.forField(field)
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
 	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType

@@ -60,7 +60,9 @@ export interface ExtensionProps
   /** Swallows the click without calling onClick. Use for a button that is momentarily
    * inapplicable but must not read as disabled. */
   preventClick?: boolean;
-  /** Lets the click reach an ancestor's handler. Clicks stop at the button otherwise. */
+  /**
+   * Lets the click reach an ancestor's handler. Clicks stop at the button otherwise.
+   */
   propagateClick?: boolean;
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */

@@ -107,7 +107,8 @@ const (
 	KindSequence
 	// KindStage represents a stage within a sequence.
 	KindStage
-	// KindConstant represents a pure literal value in a flow statement.
+	// KindConstant represents a pure literal value in a flow statement, or a module
+	// member whose DefaultValue is a fixed value, such as math.nan.
 	KindConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
@@ -153,6 +154,16 @@ func (s *Symbol) IsReactive() bool {
 // IsLiteral reports whether s is a value variable holding a literal, not a channel.
 func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
+// IsComputed reports whether s is a flow-level value variable whose initializer
+// is neither a literal nor a channel, so its value exists only at runtime.
+func (s *Symbol) IsComputed() bool {
+	if !s.IsLiteral() || s.SourceID != nil || s.DefaultValue != nil {
+		return false
+	}
+	_, err := s.ClosestAncestorOfKind(KindFunction)
+	return errors.Is(err, query.ErrNotFound)
 }
 
 // Symbol is a named entity in an Arc program and, when it has Children, a

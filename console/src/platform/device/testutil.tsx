@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
+import { device, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
@@ -23,6 +23,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
+import { type Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
@@ -40,12 +41,11 @@ export interface CreateTestDeviceOptions extends Partial<
 
 const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
   await client.statuses.set(
-    status.create<typeof rack.statusDetailsZ>({
-      key: rack.statusKey(r.key),
+    status.create({
+      owner: rack.resourceID(r.key),
       name: r.name,
       variant: "success",
       message: "Driver is running",
-      details: { rack: r.key },
     }),
   );
 };
@@ -124,25 +124,19 @@ export const setTestDeviceStatus = async (
 ): Promise<void> => {
   await client.statuses.set(
     status.create<typeof device.statusDetailsZ>({
-      key: device.statusKey(key),
+      owner: device.resourceID(key),
       name,
       variant: "success",
       message: TEST_DEVICE_STATUS_MESSAGE,
-      details: { rack, device: key },
+      details: { rack, connected: true },
     }),
   );
 };
 
-/**
- * Builds the ontology resource the tree hands to device context-menu items, carrying
- * the configured flag in its data payload.
- */
+/** Builds the tree resource that the tree hands to device context-menu items. */
 export const createDeviceResource = (
-  dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
-): ontology.Resource =>
-  createResource(device.ontologyID(dev.key), dev.name, {
-    configured: dev.configured ?? false,
-  });
+  dev: Pick<device.Device, "key" | "name">,
+): Tree.Resource => createResource(device.resourceID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for Core-free specs. */

@@ -9,8 +9,7 @@
 
 from typing import Required, TypedDict
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 import synnax as sy
 from console.base import ResourceClient

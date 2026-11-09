@@ -16,9 +16,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func disablePermissionBits() {
-	// Mask the permission bits so all files are readable and writable by the user and
-	// readable by the group.
+// DisablePermissionBits stops the process from giving other users any permission on the
+// files that it creates. It does nothing on Windows.
+func DisablePermissionBits() {
 	mask := unix.Umask(0)
 	mask |= int(fs.OtherRWX)
 	unix.Umask(mask)

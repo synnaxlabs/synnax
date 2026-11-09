@@ -40,7 +40,9 @@ CellConfig union on variant {
             @doc value "is the typography level of the cell text."
         }
         weight     float64 = 400 {
-            @doc value "is the font weight of the cell text."
+            @doc value    "is the font weight of the cell text."
+            @validate max 1000
+            @validate min 1
         }
         align      FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the cell text along the row axis."
@@ -64,7 +66,8 @@ CellConfig union on variant {
             @doc value "is the channel whose value the cell displays."
         }
         rolling_average   int32 = 1 {
-            @doc value "is the sample window for rolling-average smoothing."
+            @doc value    "is the sample window for rolling-average smoothing."
+            @validate min 1
         }
         precision         int32?            {
             @doc value """
@@ -97,9 +100,10 @@ CellConfig union on variant {
             @doc value "is the unit suffix displayed after the value."
         }
         staleness_timeout float64 = 5 {
-            @doc value """
+            @doc value    """
                 is the duration in seconds after which the value is considered stale.
             """
+            @validate min 1
         }
         staleness_color   color.Color?      {
             @doc value """

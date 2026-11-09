@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.mqtt.types_gen import (
     EdgeConfig,
     EdgeTag,
@@ -198,8 +198,8 @@ class Device(device.Device):
         host_id: str = "",
         groups: list[str] | None = None,
         name: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = True,
     ):
         if not key:

@@ -20,8 +20,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeSetNodePosition is the Type of an Action that carries
 	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
@@ -51,11 +49,6 @@ type CreatePayload struct {
 	Schematic Schematic `json:"schematic" msgpack:"schematic"`
 }
 
-// RenamePayload renames the schematic.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
-}
-
 // SetNodePositionPayload moves a node to a new position.
 type SetNodePositionPayload struct {
 	Key      string     `json:"key" msgpack:"key"`
@@ -70,29 +63,32 @@ type SetNodePayload struct {
 	Config *ElementConfig `json:"config,omitzero" msgpack:"config,omitempty"`
 }
 
-// RemoveNodePayload removes a node and any config stored under its key.
+// RemoveNodePayload removes the node, its config, and the edges that connect to it and
+// their configs. No-op when no node has the key.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
 // AddEdgePayload appends the edge to the schematic. No-op when an edge with the same
-// key already exists.
+// key already exists, or when the source or target node does not exist.
 type AddEdgePayload struct {
 	Edge Edge `json:"edge" msgpack:"edge"`
 }
 
-// RemoveEdgePayload removes the edge with the given key, if present.
+// RemoveEdgePayload removes the edge with the given key and its config, if present.
 type RemoveEdgePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
 // SetConfigPayload replaces the config entry stored under the given node or edge key.
+// No-op when no node or edge has the key.
 type SetConfigPayload struct {
 	Key    string        `json:"key" msgpack:"key"`
 	Config ElementConfig `json:"config" msgpack:"config"`
 }
 
-// SetPayload replaces the value at a path in the schematic's element configs.
+// SetPayload replaces the value at a path in the schematic's name or element configs.
+// No-op when no node or edge has the config's key.
 type SetPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
@@ -100,14 +96,15 @@ type SetPayload struct {
 }
 
 // RemovePayload removes an entry from a list or a field from an object in the
-// schematic's element configs.
+// schematic's element configs. No-op when no node or edge has the config's key.
 type RemovePayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Key    string        `json:"key" msgpack:"key"`
 	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
-// InsertPayload adds an entry to a list in the schematic's element configs.
+// InsertPayload adds an entry to a list in the schematic's element configs. No-op when
+// no node or edge has the config's key.
 type InsertPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
@@ -115,7 +112,8 @@ type InsertPayload struct {
 	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
-// MovePayload moves an entry in a list in the schematic's element configs.
+// MovePayload moves an entry in a list in the schematic's element configs. No-op when
+// no node or edge has the config's key.
 type MovePayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Key    string        `json:"key" msgpack:"key"`
@@ -128,7 +126,6 @@ type MovePayload struct {
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
@@ -154,11 +151,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
 				return state, union.MissingPayload(a.Type)
@@ -222,11 +214,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.

@@ -38,19 +38,17 @@ const (
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// task is the key of the task this status pertains to.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// running is true if the task is currently executing.
-	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
+	Running bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
 	// cmd is the last command executed on this task.
-	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
+	Cmd string `protobuf:"bytes,2,opt,name=cmd,proto3" json:"cmd,omitempty"`
 	// config_hash is the hash of the config the running task instance was built from.
 	// Empty when no instance exists.
-	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
+	ConfigHash string `protobuf:"bytes,3,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// rack is the key of the rack running the task instance.
-	Rack uint32 `protobuf:"varint,5,opt,name=rack,proto3" json:"rack,omitempty"`
+	Rack uint32 `protobuf:"varint,4,opt,name=rack,proto3" json:"rack,omitempty"`
 	// data contains task-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,6,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,5,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,13 +81,6 @@ func (x *StatusDetails) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
 func (*StatusDetails) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StatusDetails) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
 }
 
 func (x *StatusDetails) GetRunning() bool {
@@ -496,6 +487,50 @@ func (x *RackKeySet) GetIn() *RackKeyList {
 	return nil
 }
 
+type RangerKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RangerKeyList) Reset() {
+	*x = RangerKeyList{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RangerKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RangerKeyList) ProtoMessage() {}
+
+func (x *RangerKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RangerKeyList.ProtoReflect.Descriptor instead.
+func (*RangerKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RangerKeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 // Where is a filter that selects tasks.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -516,14 +551,18 @@ type Where struct {
 	// internal selects by internal.
 	Internal *pb1.Bool `protobuf:"bytes,8,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
 	// snapshot selects by snapshot.
-	Snapshot      *pb1.Bool `protobuf:"bytes,9,opt,name=snapshot,proto3,oneof" json:"snapshot,omitempty"`
+	Snapshot *pb1.Bool `protobuf:"bytes,9,opt,name=snapshot,proto3,oneof" json:"snapshot,omitempty"`
+	// ranges matches the tasks that are snapshots in any of the given ranges.
+	Ranges *RangerKeyList `protobuf:"bytes,10,opt,name=ranges,proto3" json:"ranges,omitempty"`
+	// arcs matches the tasks that run any of the Arcs with the given keys.
+	Arcs          *UuidList `protobuf:"bytes,11,opt,name=arcs,proto3" json:"arcs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Where) Reset() {
 	*x = Where{}
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +574,7 @@ func (x *Where) String() string {
 func (*Where) ProtoMessage() {}
 
 func (x *Where) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +587,7 @@ func (x *Where) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Where.ProtoReflect.Descriptor instead.
 func (*Where) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Where) GetAnd() *WhereList {
@@ -614,6 +653,20 @@ func (x *Where) GetSnapshot() *pb1.Bool {
 	return nil
 }
 
+func (x *Where) GetRanges() *RangerKeyList {
+	if x != nil {
+		return x.Ranges
+	}
+	return nil
+}
+
+func (x *Where) GetArcs() *UuidList {
+	if x != nil {
+		return x.Arcs
+	}
+	return nil
+}
+
 // Command is a command to execute on a task in the Driver system.
 type Command struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -638,7 +691,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -650,7 +703,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -663,7 +716,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{8}
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Command) GetTask() string {
@@ -712,16 +765,15 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xbf\x01\n" +
-	"\rStatusDetails\x12\x12\n" +
-	"\x04task\x18\x01 \x01(\tR\x04task\x12\x18\n" +
-	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
-	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x12\x1f\n" +
-	"\vconfig_hash\x18\x04 \x01(\tR\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xab\x01\n" +
+	"\rStatusDetails\x12\x18\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\x12\x10\n" +
+	"\x03cmd\x18\x02 \x01(\tR\x03cmd\x12\x1f\n" +
+	"\vconfig_hash\x18\x03 \x01(\tR\n" +
 	"configHash\x12\x12\n" +
-	"\x04rack\x18\x05 \x01(\rR\x04rack\x120\n" +
-	"\x04data\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xa1\x02\n" +
+	"\x04rack\x18\x04 \x01(\rR\x04rack\x120\n" +
+	"\x04data\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\xa7\x02\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x12\n" +
@@ -733,7 +785,8 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
 	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
 	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\";\n" +
+	"\a_statusJ\x04\b\n" +
+	"\x10\v\";\n" +
 	"\tWhereList\x12.\n" +
 	"\x06values\x18\x01 \x03(\v2\x16.service.task.pb.WhereR\x06values\"\"\n" +
 	"\bUuidList\x12\x16\n" +
@@ -748,7 +801,9 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12,\n" +
 	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02inB\x05\n" +
-	"\x03_eq\"\x80\x04\n" +
+	"\x03_eq\"'\n" +
+	"\rRangerKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xe7\x04\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.task.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.task.pb.WhereListR\x02or\x12-\n" +
@@ -758,7 +813,10 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x124\n" +
 	"\x04rack\x18\a \x01(\v2\x1b.service.task.pb.RackKeySetH\x04R\x04rack\x88\x01\x01\x122\n" +
 	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x122\n" +
-	"\bsnapshot\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\bsnapshot\x88\x01\x01B\x06\n" +
+	"\bsnapshot\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\bsnapshot\x88\x01\x01\x126\n" +
+	"\x06ranges\x18\n" +
+	" \x01(\v2\x1e.service.task.pb.RangerKeyListR\x06ranges\x12-\n" +
+	"\x04arcs\x18\v \x01(\v2\x19.service.task.pb.UuidListR\x04arcsB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\a\n" +
@@ -788,7 +846,7 @@ func file_core_pkg_service_task_pb_task_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_task_pb_task_proto_rawDescData
 }
 
-var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.task.pb.StatusDetails
 	(*Task)(nil),            // 1: service.task.pb.Task
@@ -797,35 +855,38 @@ var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 	(*UuidSet)(nil),         // 4: service.task.pb.UuidSet
 	(*RackKeyList)(nil),     // 5: service.task.pb.RackKeyList
 	(*RackKeySet)(nil),      // 6: service.task.pb.RackKeySet
-	(*Where)(nil),           // 7: service.task.pb.Where
-	(*Command)(nil),         // 8: service.task.pb.Command
-	(*structpb.Struct)(nil), // 9: google.protobuf.Struct
-	(*pb.Status)(nil),       // 10: service.status.pb.Status
-	(*pb1.String)(nil),      // 11: x.filter.pb.String
-	(*pb1.Bool)(nil),        // 12: x.filter.pb.Bool
+	(*RangerKeyList)(nil),   // 7: service.task.pb.RangerKeyList
+	(*Where)(nil),           // 8: service.task.pb.Where
+	(*Command)(nil),         // 9: service.task.pb.Command
+	(*structpb.Struct)(nil), // 10: google.protobuf.Struct
+	(*pb.Status)(nil),       // 11: service.status.pb.Status
+	(*pb1.String)(nil),      // 12: x.filter.pb.String
+	(*pb1.Bool)(nil),        // 13: x.filter.pb.Bool
 }
 var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
-	9,  // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	9,  // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
-	10, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
-	7,  // 3: service.task.pb.WhereList.values:type_name -> service.task.pb.Where
+	10, // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	10, // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
+	11, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
+	8,  // 3: service.task.pb.WhereList.values:type_name -> service.task.pb.Where
 	3,  // 4: service.task.pb.UuidSet.in:type_name -> service.task.pb.UuidList
 	5,  // 5: service.task.pb.RackKeySet.in:type_name -> service.task.pb.RackKeyList
 	2,  // 6: service.task.pb.Where.and:type_name -> service.task.pb.WhereList
 	2,  // 7: service.task.pb.Where.or:type_name -> service.task.pb.WhereList
-	7,  // 8: service.task.pb.Where.not:type_name -> service.task.pb.Where
+	8,  // 8: service.task.pb.Where.not:type_name -> service.task.pb.Where
 	4,  // 9: service.task.pb.Where.key:type_name -> service.task.pb.UuidSet
-	11, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
-	11, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
+	12, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
+	12, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
 	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
-	12, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
-	12, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
-	9,  // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	13, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
+	13, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
+	7,  // 15: service.task.pb.Where.ranges:type_name -> service.task.pb.RangerKeyList
+	3,  // 16: service.task.pb.Where.arcs:type_name -> service.task.pb.UuidList
+	10, // 17: service.task.pb.Command.args:type_name -> google.protobuf.Struct
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_task_pb_task_proto_init() }
@@ -837,14 +898,14 @@ func file_core_pkg_service_task_pb_task_proto_init() {
 	file_core_pkg_service_task_pb_task_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[6].OneofWrappers = []any{}
-	file_core_pkg_service_task_pb_task_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_task_pb_task_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_task_pb_task_proto_rawDesc), len(file_core_pkg_service_task_pb_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

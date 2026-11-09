@@ -12,7 +12,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Access, Flux } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { List } from "@/feature/range/list/List";
@@ -24,10 +24,11 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve, answered } = Ranger.useListChildren({
-    query: { key: rangeKey },
-  });
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const { data, getItem, subscribe, more, answered } = Flux.useList(
+    (client) => client.ranges,
+    { name: "ranges", query: { where: { parents: [rangeKey] } } },
+  );
   return (
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>
@@ -50,7 +51,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         data={data}
         getItem={getItem}
         subscribe={subscribe}
-        retrieve={retrieve}
+        more={more}
         answered={answered}
         showParent={false}
         emptyContent={null}

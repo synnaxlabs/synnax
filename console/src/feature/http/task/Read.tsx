@@ -16,6 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Channel } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -70,6 +71,62 @@ const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: strin
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
+
+const OPTIONAL_INPUT_PROPS = {
+  tooltip:
+    "Write the fill value with no warning when the value is missing. A float channel with no fill value writes NaN.",
+} as const;
+
+interface FillValueFieldProps {
+  path: deep.Path<ReadField>;
+  value: unknown;
+  channel: channel.Key;
+  dataType: string;
+}
+
+const formatFillValue = (value: unknown): string => {
+  if (value == null) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+// A numeric channel also takes text, such as an enum label, which the Driver validates.
+const parseNumericFillValue = (text: string): number | string => {
+  const parsed = Number(text);
+  return text.trim() === "" || !Number.isFinite(parsed) ? text : parsed;
+};
+
+// The stored value is any JSON and the key can be absent, so Form.Field cannot bind it.
+const FillValueField: FC<FillValueFieldProps> = ({
+  path,
+  value,
+  channel: key,
+  dataType,
+}) => {
+  const { data: channelDataType } = Channel.useResultDataType(
+    key === 0 ? null : { key },
+  );
+  const { set } = PForm.useContext();
+  const resolved = new DataType(channelDataType ?? dataType);
+  const isString = resolved.equals(DataType.STRING);
+  const text = formatFillValue(value);
+  const handleChange = (next: string) => {
+    // A blur reports unedited text too, which must not retype the stored value.
+    if (next === text) return;
+    if (next === "") set(path.fillValue, undefined);
+    else set(path.fillValue, isString ? next : parseNumericFillValue(next));
+  };
+  return (
+    <Input.Item label="Fill value" padHelpText={false}>
+      <Input.Text
+        value={text}
+        onChange={handleChange}
+        onlyChangeOnBlur
+        placeholder={resolved.isFloat ? "NaN" : "Required"}
+        className={CSS.B("fill-value")}
+      />
+    </Input.Item>
+  );
+};
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
@@ -202,11 +259,18 @@ interface FieldPaneProps {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
+  const {
+    channel: fieldChannel,
+    pointer,
+    disabled,
+    optional,
+    fillValue,
+    dataType,
+  } = PForm.useFieldValue(path);
   const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.B("endpoint-form")}>
+      <PForm.Sections className={CSS.cls(CSS.B("endpoint-form"), CSS.B("field-form"))}>
         <PForm.Section title="Field">
           <PForm.TextField
             path={path.pointer}
@@ -221,6 +285,24 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             defaultName={defaultName}
             skipped={disabled}
           />
+          <Flex.Box x grow wrap>
+            <PForm.CheckboxField
+              path={path.optional}
+              label="Optional"
+              inputProps={OPTIONAL_INPUT_PROPS}
+              onChange={(next, { set }) => {
+                if (!next) set(path.fillValue, undefined);
+              }}
+            />
+            {optional && (
+              <FillValueField
+                path={path}
+                value={fillValue}
+                channel={fieldChannel}
+                dataType={dataType}
+              />
+            )}
+          </Flex.Box>
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />
       </PForm.Sections>

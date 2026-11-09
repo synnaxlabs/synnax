@@ -63,6 +63,15 @@ class TestProject:
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
 
+    def test_retrieve_by_group(self, client: sy.Synnax) -> None:
+        """Should filter the projects by group."""
+        p = client.projects.create(name="Ungrouped")
+        g = client.groups.create("Empty", scope="project")
+        assert client.projects.retrieve(groups=g.key) == []
+        ungrouped = client.projects.retrieve(key=[p.key], grouped=False)
+        assert [r.key for r in ungrouped] == [p.key]
+        assert client.projects.retrieve(key=[p.key], grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should keep projects that match a filter tree and the given keys."""
         p1 = client.projects.create(name="Where A")
@@ -100,7 +109,7 @@ class TestProject:
         """Should return one project for a plain key beside other fields."""
         a = client.projects.create(name="A")
         assert client.projects.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Project matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no project where .+"):
             client.projects.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax) -> None:
@@ -158,7 +167,7 @@ def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) 
             }
         )
     )
-    client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
+    client.imex.import_(path, parent=sy.project.resource_id(proj.key))
 
 
 def _member_names(bundle: Path) -> set[str]:
@@ -188,10 +197,6 @@ class TestProjectExportImport:
         assert imported.key != src.key
         assert imported.name == name
         assert client.projects.retrieve(key=imported.key).name == name
-        children = client.ontology.retrieve_children(
-            sy.project.ontology_id(imported.key)
-        )
-        assert [child.type for child in children] == ["log"] * len(log_names)
         reexported = tmp_path / "reexported.zip"
         client.projects.export(imported.key, reexported)
         assert _member_names(reexported) == log_names

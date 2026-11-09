@@ -18,7 +18,7 @@ import (
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -41,6 +41,20 @@ func (r *RegisterValue) ApplyDefaults() {
 	if r.DataType == "" {
 		r.DataType = "uint16"
 	}
+}
+
+// RegisterBit addresses one bit of a 16-bit register.
+type RegisterBit struct {
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit uint8 `json:"bit" msgpack:"bit"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RegisterBit) Validate() error {
+	v := validate.New("RegisterBit")
+	v.LessThanEq("bit", r.Bit, 15)
+	return v.Error()
 }
 
 // BaseReadChannel carries the fields every Modbus read channel shares.
@@ -627,17 +641,3 @@ func (w WriteConfig) Validate() error {
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v1.ScanConfig
-
-// RegisterBit addresses one bit of a 16-bit register.
-type RegisterBit struct {
-	// Bit is the bit index, from 0 (least significant) to 15.
-	Bit uint8 `json:"bit" msgpack:"bit"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RegisterBit) Validate() error {
-	v := validate.New("RegisterBit")
-	v.LessThanEq("bit", r.Bit, 15)
-	return v.Error()
-}

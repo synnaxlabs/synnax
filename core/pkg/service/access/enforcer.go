@@ -9,10 +9,12 @@
 
 package access
 
-import "github.com/synnaxlabs/synnax/pkg/service/ontology"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
 
 type Request struct {
-	Subject ontology.ID
+	Subject resource.ID
 	Action  Action
-	Objects []ontology.ID
+	Objects []resource.ID
 }

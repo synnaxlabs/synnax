@@ -42,6 +42,7 @@ package context
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -96,6 +97,9 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
+	// FmtStrings holds the segments of each format string, so the compiler compiles
+	// the same placeholder nodes the analyzer typed.
+	FmtStrings parser.FmtStrings
 	// CallEdges tracks function call relationships for post-analysis channel
 	// propagation.
 	CallEdges *[]CallEdge
@@ -195,6 +199,29 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// FloatConstant returns the value of the float module constant that node reduces to,
+// such as math.nan, with parentheses, f32 and f64 casts, and negation applied.
+func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
+	primary, negated := parser.SoleOperand(node)
+	if primary == nil || primary.QualifiedIdentifier() == nil {
+		return 0, false
+	}
+	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
+	headSym, err := c.Scope.Resolve(c, head)
+	if err != nil {
+		return 0, false
+	}
+	sym, err := headSym.Resolve(c, tail)
+	if err != nil || sym.Kind != symbol.KindConstant {
+		return 0, false
+	}
+	value, ok := sym.DefaultValue.(float64)
+	if negated {
+		value = -value
+	}
+	return value, ok
+}
+
 func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
@@ -205,6 +232,23 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 		name,
 		sym.Deprecated.QualifiedName(),
 	).WithCode(codes.DeprecatedSymbol))
+}
+
+// ScopedKey returns a name for node that is unique across a program. A graph parses
+// each function body on its own, so a source position alone repeats between bodies.
+func (c Context[AST]) ScopedKey(prefix string, node antlr.ParserRuleContext) string {
+	var function string
+	if fn, err := c.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
+		function = fn.Name
+	}
+	start := node.GetStart()
+	return fmt.Sprintf(
+		"%s_%s_%d_%d",
+		prefix,
+		function,
+		start.GetLine(),
+		start.GetColumn(),
+	)
 }
 
 // NewRoot creates a new root context for program analysis. NewRoot
@@ -234,6 +278,7 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
+		FmtStrings:  make(parser.FmtStrings),
 		CallEdges:   &[]CallEdge{},
 		AST:         ast,
 	}
@@ -255,6 +300,7 @@ func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 		Diagnostics:         ctx.Diagnostics,
 		Constraints:         ctx.Constraints,
 		TypeMap:             ctx.TypeMap,
+		FmtStrings:          ctx.FmtStrings,
 		CallEdges:           ctx.CallEdges,
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,

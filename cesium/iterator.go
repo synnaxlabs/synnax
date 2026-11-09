@@ -56,44 +56,42 @@ func wrapStreamIterator(internal *streamIterator) *Iterator {
 // 00:02) while the iterator on channel 2 has view [00:03, 00:04), then they will read
 // [00:02, 00:07) and [00:04, 00:09), respectively, after a call to Next(5).
 func (i *Iterator) Next(span telem.TimeSpan) bool {
-	return i.exec(IteratorRequest{Command: IteratorCommandNext, Span: span})
+	return i.exec(IteratorRequest{Command: IteratorCommandNext, Span: span}).Ack
 }
 
 // Prev implements Iterator.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
-	return i.exec(IteratorRequest{Command: IteratorCommandPrev, Span: span})
+	return i.exec(IteratorRequest{Command: IteratorCommandPrev, Span: span}).Ack
 }
 
 // SeekFirst implements Iterator.
 func (i *Iterator) SeekFirst() bool {
-	return i.exec(IteratorRequest{Command: IteratorCommandSeekFirst})
+	return i.exec(IteratorRequest{Command: IteratorCommandSeekFirst}).Ack
 }
 
 // SeekLast implements Iterator.
 func (i *Iterator) SeekLast() bool {
-	return i.exec(IteratorRequest{Command: IteratorCommandSeekLast})
+	return i.exec(IteratorRequest{Command: IteratorCommandSeekLast}).Ack
 }
 
 // SeekLE implements Iterator.
 func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
-	return i.exec(IteratorRequest{Command: IterCommandSeekLE, Stamp: ts})
+	return i.exec(IteratorRequest{Command: IterCommandSeekLE, Stamp: ts}).Ack
 }
 
 // SeekGE implements Iterator.
 func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
-	return i.exec(IteratorRequest{Command: IteratorCommandSeekGE, Stamp: ts})
+	return i.exec(IteratorRequest{Command: IteratorCommandSeekGE, Stamp: ts}).Ack
 }
 
 // Error implements Iterator.
 func (i *Iterator) Error() error {
-	_, err := i.execErr(IteratorRequest{Command: IteratorCommandError})
-	return err
+	return i.exec(IteratorRequest{Command: IteratorCommandError}).Err
 }
 
 // Valid implements Iterator.
 func (i *Iterator) Valid() bool {
-	ok, _ := i.execErr(IteratorRequest{Command: IteratorCommandValid})
-	return ok
+	return i.exec(IteratorRequest{Command: IteratorCommandValid}).Ack
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -118,20 +116,19 @@ func (i *Iterator) Close() error {
 	return err
 }
 
-func (i *Iterator) exec(req IteratorRequest) bool {
-	ok, _ := i.execErr(req)
-	return ok
-}
-
-func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
+// exec sends req and returns its acknowledgement.
+func (i *Iterator) exec(req IteratorRequest) IteratorResponse {
 	if i.closed {
-		return false, ErrIteratorClosed
+		return IteratorResponse{
+			Variant: IteratorResponseVariantAck,
+			Err:     ErrIteratorClosed,
+		}
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {
 		if res.Variant == IteratorResponseVariantAck {
-			return res.Ack, res.Err
+			return res
 		}
 		i.frame = i.frame.Extend(res.Frame)
 	}
@@ -142,5 +139,5 @@ func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if err == nil {
 		err = errors.New("cesium.iterator: stopped before acknowledging the request")
 	}
-	return false, err
+	return IteratorResponse{Variant: IteratorResponseVariantAck, Err: err}
 }

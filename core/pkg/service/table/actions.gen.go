@@ -19,8 +19,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
 	ActionTypeAddRow = "add_row"
 	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
@@ -55,11 +53,6 @@ const (
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Table Table `json:"table" msgpack:"table"`
-}
-
-// RenamePayload renames the table.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
 }
 
 // AddRowPayload inserts a row with the given key at the given index. Three flows:
@@ -162,15 +155,14 @@ type EraseCellsPayload struct {
 	Template CellConfig `json:"template" msgpack:"template"`
 }
 
-// SetPayload replaces the value at a path in the table's cells.
+// SetPayload replaces the value at a path in the table.
 type SetPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
 	Guards []patch.Guard `json:"guards" msgpack:"guards"`
 }
 
-// RemovePayload removes an entry from a list or a field from an object in the table's
-// cells.
+// RemovePayload removes an entry from a list or a field from an object in the table.
 type RemovePayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Key    string        `json:"key" msgpack:"key"`
@@ -198,7 +190,6 @@ type MovePayload struct {
 type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
 	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
 	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
@@ -228,11 +219,6 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeAddRow:
 			if a.AddRow == nil {
 				return state, union.MissingPayload(a.Type)
@@ -316,11 +302,6 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewAddRowAction wraps a AddRowPayload in an Action envelope.
