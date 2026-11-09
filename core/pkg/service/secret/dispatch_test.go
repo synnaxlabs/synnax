@@ -82,6 +82,24 @@ var _ = Describe("Dispatch", func() {
 			secret.NewCreateAction(secret.CreatePayload{}),
 			"a secret create",
 		),
+		Entry(
+			"that removes the name",
+			secret.NewRemoveAction(secret.RemovePayload{Key: "name"}),
+			"[name]: the document requires a value",
+		),
+		Entry(
+			"that inserts into the name",
+			secret.NewInsertAction(secret.InsertPayload{
+				Path:  []string{"name"},
+				Value: map[string]any{"key": "a"},
+			}),
+			"[name]: the value is not a list",
+		),
+		Entry(
+			"that moves within the name",
+			secret.NewMoveAction(secret.MovePayload{Path: []string{"name"}, Key: "a"}),
+			"[name]: the value is not a list",
+		),
 	)
 
 	It("Should refuse an empty name", func(ctx SpecContext) {

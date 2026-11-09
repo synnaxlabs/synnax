@@ -263,6 +263,48 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It(
+			"Should return the create, rename, and delete that a commit makes",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				pemText := newCertificate(newKey(), "a", time.Hour)
+				renamed := e.create(ctx, stored("Before", pemText), nil)
+				deleted := e.create(ctx, stored("Deleted", pemText), nil)
+				var changes []gorp.EntryChange[certificate.Key, certificate.Certificate]
+				DeferCleanup(
+					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+						for ch := range e.svc.Changes(ctx, c) {
+							changes = append(changes, ch)
+						}
+					}),
+				)
+				created := stored("Created", pemText)
+				Expect(e.write(ctx, func(w certificate.Writer) error {
+					if err := w.Create(ctx, &created, nil); err != nil {
+						return err
+					}
+					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {
+						return err
+					}
+					return w.Delete(ctx, deleted.Base().Key)
+				})).To(Succeed())
+				kinds := make(map[certificate.Key]gorp.ChangeKind, len(changes))
+				names := make(map[certificate.Key]string, len(changes))
+				for _, ch := range changes {
+					kinds[ch.Key], names[ch.Key] = ch.Kind, ch.Value.Base().Name
+				}
+				Expect(kinds).To(Equal(map[certificate.Key]gorp.ChangeKind{
+					created.Base().Key: gorp.ChangeCreate,
+					renamed.Base().Key: gorp.ChangeUpdate,
+					deleted.Base().Key: gorp.ChangeDelete,
+				}))
+				Expect(names[created.Base().Key]).To(Equal("Created"))
+				Expect(names[renamed.Base().Key]).To(Equal("After"))
+			},
+		)
+	})
+
 	Describe("Expiry", func() {
 		DescribeTable("Should write the expiry status when a certificate is created",
 			func(
