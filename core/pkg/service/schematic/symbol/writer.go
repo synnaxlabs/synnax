@@ -13,7 +13,9 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -25,12 +27,21 @@ import (
 // executes all operations within the transaction provided to the Service.NewWriter
 // method.
 type Writer struct {
-	tx    gorp.Tx
-	table *gorp.Table[Key, Symbol]
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Symbol]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates the given symbol. If the symbol does not have a key, a new key will be
-// generated. An existing symbol keeps its group, and a new symbol takes s.Group.
+// generated. An existing symbol keeps its group, and a new symbol takes s.Group. The
+// commit carries a create action that holds the stored symbol.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -53,14 +64,12 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 			s.Group = stored.Group
 		}
 	}
-	// A zero scale draws the symbol at size zero. A stored scale that the write keeps
-	// passes, so a stored zero does not block a rename or another edit.
-	if s.Data.Scale <= 0 && (!exists || s.Data.Scale != stored.Data.Scale) {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"data.scale: must be positive, got %v",
-			s.Data.Scale,
-		)
+	var prev *Symbol
+	if exists {
+		prev = &stored
+	}
+	if err := validateScale(prev, *s); err != nil {
+		return err
 	}
 	if !exists {
 		if err := group.CheckMember(
@@ -73,7 +82,66 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 			return err
 		}
 	}
-	return w.table.NewCreate().Entry(s).Exec(ctx, w.tx)
+	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Symbol: *s}))
+	return nil
+}
+
+// Apply applies the actions to the symbol with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create, the
+// result fails to decode or validate, or the new group cannot hold a symbol, and an
+// error wrapping query.ErrNotFound when no symbol has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](key)).
+		ChangeErr(func(_ gorp.Context, s Symbol) (Symbol, error) {
+			next, err := Reduce(s, acts...)
+			if err != nil {
+				return Symbol{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Symbol{}, err
+			}
+			if err = validateScale(&s, next); err != nil {
+				return Symbol{}, err
+			}
+			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
+				return next, nil
+			}
+			if err = group.CheckMember(
+				ctx,
+				w.tx,
+				next.Group,
+				resource.TypeSchematicSymbol,
+				nil,
+			); err != nil {
+				return Symbol{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// validateScale returns an error wrapping validate.ErrValidation when next has a scale
+// that is not positive and differs from the scale of prev. A zero scale draws the
+// symbol at size zero. A stored scale that the write keeps passes, so a stored zero
+// does not block a rename or another edit. prev is nil for a new symbol.
+func validateScale(prev *Symbol, next Symbol) error {
+	if next.Data.Scale > 0 || (prev != nil && next.Data.Scale == prev.Data.Scale) {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"data.scale: must be positive, got %v",
+		next.Data.Scale,
+	)
 }
 
 // CreateMany creates the given symbols. If symbols with the same key already exist,
@@ -88,28 +156,24 @@ func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 }
 
 // SetGroup moves the symbols with keys into g, or out of their group when g is nil.
+// Each move applies a set of the group.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(
-		ctx,
-		w.tx,
-		g,
-		resource.TypeSchematicSymbol,
-		nil,
-	); err != nil {
-		return err
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, set); err != nil {
+			return err
+		}
 	}
-	return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
+	return nil
 }
 
-// Rename renames the symbol with the given key to the provided name.
+// Rename renames the symbol with the given key by applying a set of the name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Symbol](key)).
-		Change(func(_ gorp.Context, s Symbol) Symbol {
-			s.Name = name
-			return s
-		}).
-		Exec(ctx, w.tx)
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 }
 
 // Delete deletes the symbols with the given keys.

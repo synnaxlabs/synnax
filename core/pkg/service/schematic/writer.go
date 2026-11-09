@@ -11,8 +11,8 @@ package schematic
 
 import (
 	"context"
-	"encoding/json/v2"
 	"maps"
+	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -46,7 +46,12 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // schematic must belong to exactly one of a project and a range. An existing schematic
 // keeps its group, project, and range. A new schematic in a group belongs to the
 // project that holds the group.
-func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
+func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	return w.create(ctx, s, nil)
+}
+
+// create creates s. A copy passes its source, whose scales s may keep.
+func (w Writer) create(ctx context.Context, s, source *Schematic) (err error) {
 	var (
 		exists bool
 		stored Schematic
@@ -74,6 +79,9 @@ func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 	}
 	if err = s.Validate(); err != nil {
 		return err
+	}
+	if source != nil {
+		stored = *source
 	}
 	if err = validateScales(stored, *s); err != nil {
 		return err
@@ -186,6 +194,7 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	source := *result
 	result.Key = uuid.New()
 	result.Name = name
 	result.Snapshot = snapshot
@@ -193,7 +202,7 @@ func (w Writer) Copy(
 	if rng != nil {
 		result.Project, result.Range = nil, rng
 	}
-	return w.Create(ctx, result)
+	return w.create(ctx, result, &source)
 }
 
 // Delete deletes the schematics with the given keys.
@@ -253,19 +262,12 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 // a stored zero does not block an edit to another field.
 func validateScales(prev, next Schematic) error {
 	for key, cfg := range next.Configs {
-		scale, ok, err := scaleOf(cfg)
-		if err != nil {
-			return err
-		}
+		scale, ok := scaleOf(cfg)
 		if !ok || scale > 0 {
 			continue
 		}
 		if old, stored := prev.Configs[key]; stored {
-			oldScale, hadScale, err := scaleOf(old)
-			if err != nil {
-				return err
-			}
-			if hadScale && oldScale == scale {
+			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
 				continue
 			}
 		}
@@ -280,19 +282,17 @@ func validateScales(prev, next Schematic) error {
 }
 
 // scaleOf returns the scale that cfg carries, and false when its variant has none.
-func scaleOf(cfg ElementConfig) (float64, bool, error) {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return 0, false, err
+func scaleOf(cfg ElementConfig) (float64, bool) {
+	v := reflect.ValueOf(cfg.Variant)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
-	var scaled struct {
-		Scale *float64 `json:"scale"`
+	if v.Kind() != reflect.Struct {
+		return 0, false
 	}
-	if err = json.Unmarshal(b, &scaled); err != nil {
-		return 0, false, err
+	f := v.FieldByName("Scale")
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return 0, false
 	}
-	if scaled.Scale == nil {
-		return 0, false, nil
-	}
-	return *scaled.Scale, true, nil
+	return f.Float(), true
 }

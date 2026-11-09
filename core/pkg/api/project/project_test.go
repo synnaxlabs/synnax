@@ -229,6 +229,60 @@ var _ = Describe("Rename", func() {
 	})
 })
 
+var _ = Describe("Dispatch", func() {
+	setGroup := func(g group.Key) []project.Action {
+		return []project.Action{project.NewSetAction(project.SetPayload{
+			Path:  []string{"group"},
+			Value: g,
+		})}
+	}
+	It("Should refuse the dispatch without update on the project", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Dispatch denied")
+		g := createProjectGroup(ctx, "Dispatch denied")
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
+		Expect(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
+		})).Error().To(denied(u, access.ActionUpdate, p.ResourceID()))
+		Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
+	})
+	It("Should refuse a group change without update on the group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Dispatch group denied")
+		g := createProjectGroup(ctx, "Dispatch group denied")
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
+		Expect(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
+		})).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
+	})
+	It("Should apply the actions with update on the project and the group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Dispatch granted")
+		g := createProjectGroup(ctx, "Dispatch granted")
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionUpdate,
+			p.ResourceID(),
+			g.ResourceID(),
+		)
+		MustSucceed(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
+		}))
+		Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
+	})
+})
+
 var _ = Describe("Delete", func() {
 	var (
 		u user.User

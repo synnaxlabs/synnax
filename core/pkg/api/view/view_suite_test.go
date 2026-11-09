@@ -44,6 +44,7 @@ var (
 	create   freighter.UnaryHandler[apiview.CreateRequest, apiview.CreateResponse]
 	del      freighter.UnaryHandler[apiview.DeleteRequest, struct{}]
 	rename   freighter.UnaryHandler[apiview.RenameRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiview.DispatchRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -57,6 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 })
 
 // createUser creates a user that can do nothing.

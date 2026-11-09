@@ -383,7 +383,7 @@ var _ = Describe("Change channels", func() {
 		})).To(Succeed())
 		open(ctx, u)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return userSvc.NewWriter(tx).SetRole(ctx, other.Key, nil, u.Key)
+			return userSvc.NewWriter(tx).SetRole(ctx, other.Key, u.Key)
 		})).To(Succeed())
 		// The check of this delete no longer finds held among the policies of u.
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -424,6 +424,42 @@ var _ = Describe("Service", func() {
 				Expect(stored(ctx).Name).To(Equal(name))
 			},
 		)
+		Describe("Dispatch", func() {
+			renameTo := func(name string) apichannel.DispatchRequest {
+				return apichannel.DispatchRequest{
+					Key: ch.Key(),
+					Actions: []channel.Action{
+						channel.NewRenameAction(channel.RenamePayload{Name: name}),
+					},
+				}
+			}
+			It("Should refuse the actions without update on the channel", func(
+				ctx SpecContext,
+			) {
+				Expect(
+					dispatch(AuthedCtx(ctx, outsider), renameTo(UniqueChannelName())),
+				).
+					Error().
+					To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
+			})
+			It("Should rename the channel in both stores with update on it", func(
+				ctx SpecContext,
+			) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				name := UniqueChannelName()
+				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
+					To(Equal(apichannel.DispatchResponse{}))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(name))
+			})
+		})
 	})
 	Describe("SetGroup", func() {
 		// denied matches an error that denies the subject the action on object.
