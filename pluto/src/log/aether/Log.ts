@@ -24,6 +24,7 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { compile, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type LogEntry,
@@ -57,6 +58,11 @@ export const logStateZ = log.logZ
     channelNames: z.record(z.string(), z.string()).default({}),
     channelDataTypes: z.record(z.string(), z.string()).default({}),
     hiddenChannels: z.array(channel.keyZ).default([]),
+    // filtered keeps only the lines that match the search.
+    search: searchZ.extend({ filtered: z.boolean().default(false) }).prefault({}),
+    // The oldest time a filtered log has read back to, as position holds a time. Empty
+    // when no filter runs or the reads hold every stored sample.
+    searchedTo: z.string().default(""),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -345,7 +351,12 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    i.telem.wrapped.setFilter?.({ hiddenChannels: this.state.hiddenChannels });
+    const { text, mode, filtered } = this.state.search;
+    const search = { text, mode };
+    i.telem.wrapped.setFilter?.({
+      hiddenChannels: this.state.hiddenChannels,
+      search: filtered && compile(search) != null ? search : null,
+    });
     const { data } = i.telem.value();
     this.entries = data;
 
@@ -439,13 +450,22 @@ export class Log
     const loading = s.variant === "loading";
     const empty = this.entries.length === 0 && !loading;
     const blank = this.entries.length === 0 && loading;
+    const searchedTo = this.searchedTo();
     if (
       empty === this.state.empty &&
       loading === this.state.loading &&
-      blank === this.state.blank
+      blank === this.state.blank &&
+      searchedTo === this.state.searchedTo
     )
       return;
-    this.setState((p) => ({ ...p, empty, loading, blank }));
+    this.setState((p) => ({ ...p, empty, loading, blank, searchedTo }));
+  }
+
+  private searchedTo(): string {
+    const { text, mode, filtered } = this.state.search;
+    const { reached, exhausted } = this.internal.telem.wrapped;
+    if (!filtered || compile({ text, mode }) == null || exhausted !== false) return "";
+    return reached?.valueOf().toString() ?? "";
   }
 
   afterDelete(): void {

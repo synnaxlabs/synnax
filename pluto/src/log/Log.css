@@ -40,6 +40,14 @@
     animation: pluto-log-loading-in 150ms ease-in 300ms both;
 }
 
+.pluto-log__searched {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
 @keyframes pluto-log-loading-in {
     from {
         opacity: 0;

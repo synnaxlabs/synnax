@@ -27,6 +27,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { compile } from "@/log/aether/search";
 import {
   type Filter,
   type LogEntry,
@@ -177,6 +178,7 @@ export class StreamMultiChannelLog
   private _channels: channel.Key[] = [];
   private filter: Filter = ZERO_FILTER;
   private hidden = new Set<channel.Key>();
+  private pattern: RegExp | null = null;
 
   constructor(
     client: telem.Client | null,
@@ -243,6 +245,7 @@ export class StreamMultiChannelLog
     if (deep.equal(this.filter, filter)) return;
     this.filter = filter;
     this.hidden = new Set(filter.hiddenChannels);
+    this.pattern = filter.search == null ? null : compile(filter.search);
     this.cancelPage();
     this.reload();
   }
@@ -262,6 +265,15 @@ export class StreamMultiChannelLog
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
     );
+  }
+
+  /** The oldest time the reads reached, or null before any read. */
+  get reached(): TimeStamp | null {
+    let oldest: bigint | null = null;
+    for (const m of this.metas.values())
+      if (m.oldest != null && (oldest == null || m.oldest.time < oldest))
+        oldest = m.oldest.time;
+    return oldest == null ? null : new TimeStamp(oldest);
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
@@ -832,8 +844,23 @@ export class StreamMultiChannelLog
   // Returns the groups the filter keeps. The reads count every sample, so a filter
   // changes only what the entries hold.
   private filtered(groups: LogEntry[][]): LogEntry[][] {
-    if (this.hidden.size === 0) return groups;
-    return groups.filter(([{ channelKey }]) => !this.hidden.has(channelKey));
+    const { hidden, pattern } = this;
+    if (hidden.size === 0 && pattern == null) return groups;
+    const kept: LogEntry[][] = [];
+    for (const group of groups) {
+      if (hidden.has(group[0].channelKey)) continue;
+      if (pattern == null) {
+        kept.push(group);
+        continue;
+      }
+      const matched = group.filter(({ value }) => pattern.test(value));
+      if (matched.length === 0) continue;
+      // A matched line that continues a sample leads the sample's kept lines.
+      if (matched[0].continuation === true)
+        matched[0] = { ...matched[0], continuation: false };
+      kept.push(matched);
+    }
+    return kept;
   }
 
   // Evicts the newest entries past maxEntries, which a later read finds again. The cut

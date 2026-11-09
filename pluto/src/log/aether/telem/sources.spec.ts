@@ -24,7 +24,7 @@ import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
-import { type LogEntry } from "@/log/aether/telem/types";
+import { filterZ, type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
@@ -505,7 +505,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       await settle(log, HISTORY);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
       core.advance(TimeSpan.seconds(1));
@@ -518,9 +518,9 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       await settle(log, HISTORY);
-      log.setFilter({ hiddenChannels: [] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [] }));
       await settle(log, 2 * HISTORY);
       expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
       expect(sorted(entriesOf(log))).toBe(true);
@@ -531,9 +531,53 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] }, undefined, 200);
       await expect.poll(() => valuesOf(entriesOf(log), a).length, POLL).toBe(90);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       await settle(log, 180);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 180));
+    });
+
+    const searchable = (): SyntheticCore => {
+      const core = createCore({
+        text: (i) => (i % 10 === 0 ? `ERROR ${i}` : `ok ${i}`),
+      });
+      core.retype(core.data[0].key, DataType.STRING);
+      return core;
+    };
+
+    it("should hold only the lines that contain the text, in any case", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter(filterZ.parse({ search: { text: "error" } }));
+      const errors = textOf(core, a, HISTORY).filter((v) => v.startsWith("ERROR"));
+      await settle(log, errors.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(errors);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, errors.length + 1);
+      expect(entriesOf(log).at(-1)?.value).toMatch(/^ERROR/);
+    });
+
+    it("should hold only the lines that match a regex", async () => {
+      const core = searchable();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setFilter(filterZ.parse({ search: { text: "^ok \\d*5$", mode: "regex" } }));
+      const matches = textOf(core, a, HISTORY).filter((v) => /^ok \d*5$/.test(v));
+      await settle(log, matches.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(matches);
+    });
+
+    it("should hold a matched line of a sample as its first line", async () => {
+      const core = createCore({ text: (i) => `head ${i}\nmatch ${i}` });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, 2 * HISTORY);
+      log.setFilter(filterZ.parse({ search: { text: "match" } }));
+      await settle(log, HISTORY);
+      expect(entriesOf(log).every((e) => e.continuation !== true)).toBe(true);
     });
 
     it("should do nothing for an equal filter", async () => {
@@ -541,11 +585,11 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       await settle(log, HISTORY);
       const handler = vi.fn();
       log.onChange(handler);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       expect(handler).not.toHaveBeenCalled();
     });
   });
@@ -743,11 +787,31 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * PAGE);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
       await settle(log, PAGE);
       await page(log, STORED);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
       expect(valuesOf(entriesOf(log), b)).toEqual([]);
+    });
+
+    it("should page back past the lines that do not match", async () => {
+      const core = createCore({
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+        text: (i) => (i % 100 === 0 ? `ERROR ${i}` : `ok ${i}`),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] });
+      log.setFilter(filterZ.parse({ search: { text: "ERROR" } }));
+      const errors = textOf(core, a, STORED).filter((v) => v.startsWith("ERROR"));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+      const reached = log.reached?.valueOf();
+      await until(
+        () => log.loadOlder(),
+        () => log.exhausted,
+      );
+      expect(valuesOf(entriesOf(log), a)).toEqual(errors);
+      expect(log.reached?.valueOf()).toBeLessThan(reached ?? 0n);
     });
 
     it("should page every channel back together", async () => {
