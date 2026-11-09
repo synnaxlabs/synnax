@@ -1441,6 +1441,8 @@ var _ = Describe("Decode-time default generation", func() {
 			Bases = Base[]
 			BaseMap = map<string, Base>
 			DistinctBases Base[]
+			Page struct<T> { items T[] }
+			Box struct<T> { item T }
 			Outer struct { ` + field + ` }
 		`
 			table, diag := Analyze(ctx, source, "x", loader)
@@ -1448,7 +1450,8 @@ var _ = Describe("Decode-time default generation", func() {
 			req := &plugin.Request{Resolutions: table}
 			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
 				"Outer.items: Base has defaults and another struct embeds it, so it " +
-					"cannot be held in a slice, a map, or an optional field",
+					"cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
 			)))
 		},
 		Entry("in a slice", "items Base[]"),
@@ -1457,6 +1460,9 @@ var _ = Describe("Decode-time default generation", func() {
 		Entry("in a named slice", "items Bases"),
 		Entry("in a named map", "items BaseMap"),
 		Entry("in a distinct slice", "items DistinctBases"),
+		Entry("in a slice of a generic struct", "items Page<Base>"),
+		Entry("in a type parameter field of a generic struct", "items Box<Base>"),
+		Entry("in a generic struct inside a slice", "items Box<Base>[]"),
 	)
 
 	DescribeTable(
@@ -1478,7 +1484,8 @@ var _ = Describe("Decode-time default generation", func() {
 			req := &plugin.Request{Resolutions: table}
 			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
 				"BoxShape.items: Base has defaults and another struct embeds it, so " +
-					"it cannot be held in a slice, a map, or an optional field",
+					"it cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
 			)))
 		},
 		Entry("in a slice", "items Base[]"),
