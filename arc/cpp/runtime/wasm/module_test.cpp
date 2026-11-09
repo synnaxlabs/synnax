@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "wasmtime.hh"
@@ -19,6 +26,7 @@
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/stl.h"
 
 namespace arc::runtime::wasm {
 
@@ -63,6 +71,96 @@ func double() {val f32} f32 {
     const ModuleConfig cfg{.program = mod};
     const auto module = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NE(module, nullptr);
+}
+
+#if defined(__linux__)
+namespace {
+/// @brief returns the address range of each of the process's memory mappings.
+std::vector<std::pair<std::uintptr_t, std::uintptr_t>> mappings() {
+    std::ifstream maps("/proc/self/maps");
+    std::vector<std::pair<std::uintptr_t, std::uintptr_t>> ranges;
+    std::string line;
+    while (std::getline(maps, line)) {
+        std::uintptr_t start = 0;
+        std::uintptr_t end = 0;
+        char dash = 0;
+        std::istringstream(line) >> std::hex >> start >> dash >> end;
+        ranges.emplace_back(start, end);
+    }
+    return ranges;
+}
+}
+
+/// @brief it should set aside no large address range for a module, since a Driver that
+/// locks its memory counts every reserved byte against RLIMIT_MEMLOCK.
+TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    constexpr std::uintptr_t LARGE = std::uintptr_t{256} * 1024 * 1024;
+    const auto before = mappings();
+    const auto module = ASSERT_NIL_P(Module::open({.program = mod}));
+    for (const auto &now: mappings()) {
+        // ASan's allocator carves its reservations, so old mappings can shrink.
+        const auto is_new = std::ranges::none_of(before, [&now](const auto &earlier) {
+            return earlier.first <= now.first && now.second <= earlier.second;
+        });
+        if (is_new) { EXPECT_LT(now.second - now.first, LARGE); }
+    }
+}
+#endif
+
+namespace {
+/// @brief captures the store and memory that Module::open hands to host modules.
+class MemoryCapture final : public stl::Module {
+public:
+    wasmtime::Store *store = nullptr;
+    wasmtime::Memory *memory = nullptr;
+
+    void set_wasm_context(wasmtime::Store *store, wasmtime::Memory *memory) override {
+        this->store = store;
+        this->memory = memory;
+    }
+};
+}
+
+/// @brief it should keep a module's memory contents when the memory grows past its
+/// reservation and moves.
+TEST(ModuleOpenTest, GrowsMemoryPastReservation) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    const auto capture = std::make_shared<MemoryCapture>();
+    const auto module = ASSERT_NIL_P(
+        Module::open({.program = mod, .modules = {capture}})
+    );
+    auto &store = *capture->store;
+    const auto &memory = *capture->memory;
+    const auto *base = memory.data(store).data();
+    memory.data(store)[100] = 42;
+    ASSERT_TRUE(memory.grow(store, 2 * MEMORY_RESERVATION / memory.page_size(store)));
+    const auto data = memory.data(store);
+    ASSERT_NE(data.data(), base);
+    ASSERT_GT(data.size(), 2 * MEMORY_RESERVATION);
+    ASSERT_EQ(data[100], 42);
+    data[data.size() - 1] = 7;
+    ASSERT_EQ(memory.data(store)[data.size() - 1], 7);
 }
 
 /// @brief Module::func returns NOT_FOUND for non-existent export.

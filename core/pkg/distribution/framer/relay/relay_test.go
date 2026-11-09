@@ -121,13 +121,13 @@ var _ = Describe("Relay", func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				idx = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				idx = MustSucceed(node.CreateChannels(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
 					Name:       "stamp_data",
 					DataType:   telem.Float32T,
 					LocalIndex: idx.LocalKey,
 				}
-				data = MustSucceed(node.Channel.Create(ctx, []channel.Channel{data}))[0]
+				data = MustSucceed(node.CreateChannels(ctx, []channel.Channel{data}))[0]
 				keys := channel.KeysFromChannels([]channel.Channel{idx, data})
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -169,7 +169,7 @@ var _ = Describe("Relay", func() {
 	Describe("Slow streamers", func() {
 		It("Should not delay other streamers", func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
-			channels := MustSucceed(node.Channel.Create(ctx, newChannelSet()))
+			channels := MustSucceed(node.CreateChannels(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(channels)
 			openStreamer := func() confluence.Outlet[relay.Response] {
 				GinkgoHelper()
@@ -226,7 +226,7 @@ var _ = Describe("Relay", func() {
 			func(ctx SpecContext) {
 				channels := newChannelSet()
 				node := testutil.NewNode(ctx)
-				channels = MustSucceed(node.Channel.Create(ctx, channels))
+				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -272,7 +272,7 @@ var _ = Describe("Relay", func() {
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
 			node := testutil.NewNode(ctx)
-			channels = MustSucceed(node.Channel.Create(ctx, channels))
+			channels = MustSucceed(node.CreateChannels(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -319,7 +319,7 @@ var _ = Describe("Relay", func() {
 			func(ctx SpecContext) {
 				channels := newChannelSet()
 				node := testutil.NewNode(ctx)
-				channels = MustSucceed(node.Channel.Create(ctx, channels))
+				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -366,7 +366,7 @@ var _ = Describe("Relay", func() {
 					ch.Virtual = true
 					channels[i] = ch
 				}
-				channels = MustSucceed(svc.Channel.Create(ctx, channels))
+				channels = MustSucceed(svc.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
@@ -439,7 +439,7 @@ var _ = Describe("Relay", func() {
 					Leaseholder: leaseholder,
 				}
 			}
-			return MustSucceed(svc.Channel.Create(ctx, chs))
+			return MustSucceed(svc.CreateChannels(ctx, chs))
 		}
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
 			GinkgoHelper()
@@ -508,7 +508,7 @@ var _ = Describe("Relay", func() {
 				// Channels with no explicit leaseholder are assigned to the host node
 				// and are served by the storage tap. This exercises the ack path for a
 				// demand whose keys are all stored.
-				chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
+				chs := MustSucceed(svc.CreateChannels(ctx, newChannelSet()))
 				keys := channel.KeysFromChannels(chs)
 
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
@@ -545,6 +545,23 @@ var _ = Describe("Relay", func() {
 				cancel()
 
 				req.Close()
+				Eventually(res.Outlet()).Should(BeClosed())
+			},
+		)
+
+		It(
+			"Should exit at once when the streamer flows in a canceled context",
+			func(ctx SpecContext) {
+				chs := newFreeChannels(ctx, 1)
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					Keys:        channel.KeysFromChannels(chs),
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				cancel()
+				_, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 				Eventually(res.Outlet()).Should(BeClosed())
 			},
 		)
@@ -750,7 +767,7 @@ var _ = Describe("Relay", func() {
 					DataType: telem.Int64T,
 				}
 			}
-			return MustSucceed(svc.Channel.Create(ctx, chs))
+			return MustSucceed(svc.CreateChannels(ctx, chs))
 		}
 
 		It(
@@ -870,7 +887,7 @@ func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	node := testutil.OpenNode(ctx)
-	channels = MustSucceed(node.Channel.Create(ctx, channels))
+	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	return scenario{
 		name:     "Storage",
 		channels: channels,
@@ -888,7 +905,7 @@ func freeScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	return scenario{
 		name:     "Free Channel",
 		channels: channels,

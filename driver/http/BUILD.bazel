@@ -66,6 +66,8 @@ cc_test(
         ":http",
         "//client/cpp/testutil",
         "//driver/http/testutil",
+        "//driver/pipeline/testutil",
+        "//x/cpp/breaker",
         "//x/cpp/defer",
         "//x/cpp/testutil",
         "//x/cpp/uuid",

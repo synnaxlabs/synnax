@@ -12,9 +12,8 @@ import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Flux } from "@/flux";
 import { Rack } from "@/rack";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -122,300 +121,42 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should update an item read by key when it changes", async () => {
-      const item = await client.racks.create({ name: "original" });
+    const setStatus = async (key: rack.Key) =>
+      await client.statuses.set(
+        status.create({
+          owner: rack.resourceID(key),
+          variant: "warning",
+          message: "Rack needs attention",
+        }),
+      );
+
+    it("should update the status of a rack in the list", async () => {
+      const r = await client.racks.create({ name: id.create() });
       const { result } = renderHook(
-        () => {
-          const list = Rack.useList({ useCachedList: false });
-          return Flux.useListItem({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key: item.key,
-          });
-        },
+        () => Rack.useList({ query: { where: { name: { eq: r.name } } } }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current?.name).toEqual("original"));
-      await act(async () => {
-        await client.racks.create({ ...item, name: "updated" });
-      });
-      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([r.key]));
+      await setStatus(r.key);
+      await waitFor(() =>
+        expect(result.current.getItem(r.key)?.status?.variant).toEqual("warning"),
+      );
     });
 
-    it("should return a list of rack keys", async () => {
-      const rack1 = await client.racks.create({
-        name: "rack1",
-      });
-      const rack2 = await client.racks.create({
-        name: "rack2",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(rack1.key);
-      expect(result.current.data).toContain(rack2.key);
-    });
-
-    it("should get individual racks using getItem", async () => {
-      const testRack = await client.racks.create({
-        name: "testRack",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedRack = result.current.getItem(testRack.key);
-      expect(retrievedRack?.key).toEqual(testRack.key);
-      expect(retrievedRack?.name).toEqual("testRack");
-    });
-
-    it("should filter racks by search term", async () => {
-      await client.racks.create({
-        name: "ordinary",
-      });
-      await client.racks.create({
-        name: "special",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ searchTerm: "special" });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-        expect(
-          result.current.data
-            .map((key: rack.Key) => result.current.getItem(key)?.name)
-            .includes("special"),
-        ).toBe(true);
-      });
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      for (let i = 0; i < 5; i++)
-        await client.racks.create({
-          name: `paginationRack${i}`,
-        });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it("should include status when requested", async () => {
-      const testRack = await client.racks.create({
-        name: "statusRack",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ includeStatus: true });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const retrievedRack = result.current.getItem(testRack.key);
-      expect(retrievedRack?.key).toEqual(testRack.key);
-    });
-
-    it("should update the list when a rack is created", async () => {
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      const initialLength = result.current.data.length;
-
-      const newRack = await client.racks.create({
-        name: "newRack",
-      });
-
-      await waitFor(() => {
-        expect(result.current.data.length).toBeGreaterThan(initialLength);
-        expect(result.current.data).toContain(newRack.key);
-      });
-    });
-
-    it("should update the list when a rack is updated", async () => {
-      const testRack = await client.racks.create({
-        name: "original",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.getItem(testRack.key)?.name).toEqual("original");
-
-      await client.racks.create({
-        ...testRack,
-        name: "updated",
-      });
-
-      await waitFor(() => {
-        expect(result.current.getItem(testRack.key)?.name).toEqual("updated");
-      });
-    });
-
-    it("should remove rack from list when deleted", async () => {
-      const testRack = await client.racks.create({
-        name: "toDelete",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data).toContain(testRack.key);
-
-      await client.racks.delete(testRack.key);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testRack.key);
-      });
-    });
-
-    it("should filter racks by integration", async () => {
-      const niRack = await client.racks.create({
-        name: "ni-rack",
-        integrations: ["ni", "opc"],
-      });
-      const modbusRack = await client.racks.create({
-        name: "modbus-rack",
-        integrations: ["modbus"],
-      });
-
-      const { result } = renderHook(() => Rack.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(niRack.key);
-      expect(result.current.data).not.toContain(modbusRack.key);
-    });
-
-    it("should not include racks with no integrations when filtering", async () => {
-      const emptyRack = await client.racks.create({ name: "empty-integrations" });
-
-      const { result } = renderHook(() => Rack.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).not.toContain(emptyRack.key);
-    });
-
-    it("should return all racks when no integration filter is set", async () => {
-      const rack1 = await client.racks.create({
-        name: "any-rack-1",
-        integrations: ["ni"],
-      });
-      const rack2 = await client.racks.create({
-        name: "any-rack-2",
-        integrations: ["modbus"],
-      });
-
-      const { result } = renderHook(() => Rack.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(rack1.key);
-      expect(result.current.data).toContain(rack2.key);
-    });
-
-    it("should remove a rack from the filtered list when its integrations change", async () => {
-      const testRack = await client.racks.create({
-        name: "changing-rack",
-        integrations: ["ni", "opc"],
-      });
-
-      const { result } = renderHook(() => Rack.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({ where: { integrations: { any: ["ni"] } } });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toContain(testRack.key);
-      });
-
-      await client.racks.create({
-        key: testRack.key,
-        name: "changing-rack",
-        integrations: ["modbus"],
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testRack.key);
-      });
-    });
-
-    it("should update rack status in the list", async () => {
-      const testRack = await client.racks.create({
-        name: "statusRack",
-      });
-
-      const { result } = renderHook(() => Rack.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const rackStatus: rack.Status = status.create({
-        owner: rack.resourceID(testRack.key),
-        variant: "warning",
-        message: "Rack needs attention",
-      });
-
-      await act(async () => {
-        await client.statuses.set(rackStatus);
-      });
-
-      await waitFor(() => {
-        const rackInList = result.current.getItem(testRack.key);
-        expect(rackInList?.status?.variant).toEqual("warning");
-        expect(rackInList?.status?.message).toEqual("Rack needs attention");
-      });
+    it("should read the status of a rack outside the list", async () => {
+      const r = await client.racks.create({ name: id.create() });
+      await setStatus(r.key);
+      const missing = id.create();
+      const { result } = renderHook(
+        () => Rack.useList({ query: { where: { name: { eq: missing } } } }),
+        { wrapper },
+      );
+      const callback = vi.fn();
+      const release = result.current.subscribe(callback, r.key);
+      await waitFor(() => expect(callback).toHaveBeenCalled());
+      expect(result.current.getItem(r.key)?.status?.variant).toEqual("warning");
+      release();
     });
   });
 
@@ -466,17 +207,16 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => {
-          const list = Rack.useList();
+          const list = Rack.useList({
+            query: { where: { key: { in: [testRack.key] } } },
+          });
           const del = Rack.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
-      expect(result.current.list.data).toContain(testRack.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toEqual([testRack.key]));
 
       await act(async () => {
         await result.current.del.updateAsync(testRack.key);
@@ -495,18 +235,16 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => {
-          const list = Rack.useList();
+          const list = Rack.useList({
+            query: { where: { key: { in: [rack1.key, rack2.key] } } },
+          });
           const del = Rack.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
-      expect(result.current.list.data).toContain(rack1.key);
-      expect(result.current.list.data).toContain(rack2.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toHaveLength(2));
 
       await act(async () => {
         await result.current.del.updateAsync([rack1.key, rack2.key]);
@@ -551,17 +289,20 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => {
-          const list = Rack.useList();
+          const list = Rack.useList({
+            query: { where: { key: { in: [testRack.key] } } },
+          });
           const rename = Rack.useRename();
           return { list, rename };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
-      expect(result.current.list.getItem(testRack.key)?.name).toEqual("list_original");
+      act(() => result.current.list.more());
+      await waitFor(() =>
+        expect(result.current.list.getItem(testRack.key)?.name).toEqual(
+          "list_original",
+        ),
+      );
 
       await act(async () => {
         await result.current.rename.updateAsync({

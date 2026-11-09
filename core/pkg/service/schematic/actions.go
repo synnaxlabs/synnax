@@ -30,24 +30,6 @@ func (CreatePayload) Handle(Schematic) (Schematic, error) {
 	return Schematic{}, actions.CoreOnlyError("a schematic create")
 }
 
-// Handle rejects a client dispatch. The Core moves a schematic into a group through its
-// writer and emits this action itself.
-func (SetGroupPayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, actions.CoreOnlyError("a schematic group change")
-}
-
-// Handle rejects a client dispatch. The Core moves a schematic into a project through
-// its writer and emits this action itself.
-func (SetProjectPayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, actions.CoreOnlyError("a schematic project change")
-}
-
-// Handle replaces the schematic's name.
-func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
-	state.Name = p.Name
-	return state, nil
-}
-
 // Handle moves the named node to the given position. No-op if no node matches.
 func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
@@ -264,31 +246,52 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 	return nil
 }
 
-// Handle applies the set to the schematic's element configs.
+// Handle applies the set to the schematic's name or element configs.
 func (p SetPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Set(p))
 }
 
-// Handle applies the remove to the schematic's element configs.
+// Handle applies the remove to the schematic's name or element configs.
 func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, append(slices.Clone(p.Path), p.Key), patch.Remove(p))
 }
 
-// Handle applies the insert to the schematic's element configs.
+// Handle applies the insert to the schematic's name or element configs.
 func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Insert(p))
 }
 
-// Handle applies the move to the schematic's element configs.
+// Handle applies the move to the schematic's name or element configs.
 func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Move(p))
 }
 
-// edit applies a path action to the element config that path names. An action on the
-// config of a node or edge that does not exist does nothing. A config that names no
-// variant or fails its schema is rejected.
+// document is the part of a schematic, outside its element configs, that path actions
+// edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// setsName reports whether the action is a set of the schematic's name.
+func setsName(a Action) bool {
+	return a.Type == ActionTypeSet && a.Set != nil &&
+		patch.Field(patch.Set(*a.Set)) == "name"
+}
+
+// edit applies a path action to the schematic's name or to the element config that its
+// path names. An action on the config of a node or edge that does not exist does
+// nothing. A config that names no variant or fails its schema is rejected, as is a path
+// to another field, such as the group.
 func edit(state Schematic, path []string, a patch.Action) (Schematic, error) {
-	if len(path) > 1 && path[0] == configsField && !hasElement(state, path[1]) {
+	if patch.Field(a) != configsField {
+		d, err := patch.Edit(document{Name: state.Name}, a.Apply)
+		if err != nil {
+			return Schematic{}, err
+		}
+		state.Name = d.Name
+		return state, nil
+	}
+	if len(path) > 1 && !hasElement(state, path[1]) {
 		return state, nil
 	}
 	configs, err := patch.EditMap(state.Configs, []string{configsField}, a, checkConfig)

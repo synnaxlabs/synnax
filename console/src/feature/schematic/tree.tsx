@@ -16,7 +16,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
@@ -37,7 +36,7 @@ const useDelete = Tree.createUseDelete({
   },
 });
 
-const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
+const useDuplicate = (props: Tree.ContextMenuProps): (() => void) => {
   const {
     selection: { ids },
     state: { getResource },
@@ -105,17 +104,20 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.schematics.retrieve(key);
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
     state,
   } = props;
   const activeRange = Range.useResolve();
+  const schematics = Base.useMultiple({ keys: ids.map(({ key }) => key) });
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const handleCopy = useCopy(props);
+  const handleDuplicate = useDuplicate(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Export.useResource();
   const handleLink = Core.useCopyLinkToClipboard();
@@ -140,23 +142,24 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
+      {schematics.every((s) => !s.snapshot) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
-          <Menu.Item itemKey="copy" onClick={handleCopy}>
+          <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
             <Icon.Copy />
-            Copy
+            Duplicate
           </Menu.Item>
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -179,14 +182,11 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
-  type: "schematic",
+  linkable: true,
   icon: <Icon.Schematic />,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS = {
-  schematic: TreeItem,
-  ...Symbol.TREE_ITEMS,
-} satisfies Tree.Items;
+export const TREE_ITEMS = { schematic: TreeItem } satisfies Tree.Items;

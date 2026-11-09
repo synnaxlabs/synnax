@@ -17,7 +17,7 @@ import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-TimestampConfig = v2.TimestampConfig
+TimestampConfig = v3.TimestampConfig
 
 ChannelEntry struct extends v3.ChannelEntry {}
 

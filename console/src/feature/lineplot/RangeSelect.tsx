@@ -296,8 +296,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const states = Session.Range.useSelectMultiple();
   const dispatch = LinePlot.useSingleDispatch();
   const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
-  const { data, retrieve } = List.useStaticData<string>({ data: favorites });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, search } = List.useStaticData<string>({ data: favorites });
   const [term, setTerm] = useState("");
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
@@ -368,7 +367,6 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           value={entries.map(({ key }) => key)}
           onChange={handleChange}
           data={data}
-          onFetchMore={fetchMore}
           initialHover={0}
           virtual
         >

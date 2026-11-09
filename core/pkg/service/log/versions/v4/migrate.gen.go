@@ -46,11 +46,11 @@ func autoMigrateChannelEntry(ctx context.Context, old v3.ChannelEntry) (ChannelE
 		return ChannelEntry{}, err
 	}
 	return ChannelEntry{
-		Channel:   old.Channel,
-		Color:     colorVal,
-		Notation:  old.Notation,
-		Precision: old.Precision,
-		Alias:     old.Alias,
-		Timestamp: old.Timestamp,
+		Channel:         old.Channel,
+		Color:           colorVal,
+		Notation:        old.Notation,
+		Precision:       old.Precision,
+		Alias:           old.Alias,
+		TimestampConfig: old.TimestampConfig,
 	}, nil
 }

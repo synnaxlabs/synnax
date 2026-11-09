@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = v4.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
+// TimestampConfig is how a timestamp channel shows its values.
 type TimestampConfig = v4.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.

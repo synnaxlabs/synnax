@@ -41,8 +41,8 @@ SYNNAX_PORT=9190 bazel test //client/cpp/channel:all
   `license active` in its log.
 - A Core older than your branch fails specs in ways that look like regressions. Rebuild
   it after a merge.
-- `//driver/rack:config_test`, `cluster/login_forms`, and `channel/calc_type_cascade`
-  need a Core on 9090. They ignore `SYNNAX_PORT`.
+- `//driver/rack:config_test` and `channel/calc_type_cascade` need a Core on 9090. They
+  ignore `SYNNAX_PORT`.
 
 ### Dev Console on a free port
 
