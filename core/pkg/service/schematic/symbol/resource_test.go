@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -66,10 +67,10 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		s := symbol.Symbol{
+		s := defaults.Fill(symbol.Symbol{
 			Name: name,
 			Data: symbol.Spec{SVG: "<svg></svg>", Variant: "valve"},
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		return symbol.ResourceID(s.Key)
 	}
