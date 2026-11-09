@@ -209,6 +209,17 @@ describe("arc/Toolbar search", () => {
     expect(await findTreeRow(itemName(name))).toBeTruthy();
   });
 
+  it("never finds the Arcs directory itself", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const name = `${root.name}_${uniqueToken()}`;
+    await client.arcs.directories.create({ parent: root.key, name });
+    await renderToolbar();
+    searchTree(root.name);
+    await findTreeRow(itemName(name));
+    const rows = [...document.querySelectorAll(".lyra-tree__item")];
+    expect(rows.map((r) => r.textContent)).not.toContain(root.name);
+  });
+
   it("opens the arc editor from a search result on double click", async () => {
     const tok = uniqueToken();
     const name = `${tok}_arc`;

@@ -8,15 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type arc,
+  access,
+  arc,
+  channel,
+  device,
   NotFoundError,
-  type panel,
+  panel,
+  project,
   query,
+  rack,
+  ranger,
   type Synnax as Client,
   task,
+  user,
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -342,6 +350,63 @@ describe("task/Toolbar Arc rows", () => {
           NotFoundError.matches(e),
         );
       });
+    });
+
+    it("hides Delete when the Arc cannot be deleted", async () => {
+      const { arc: a } = await createBoundArc();
+      const t = await createTask();
+      const taskDeleter = await createTestClientWithPolicy(client, [
+        {
+          name: uniqueName("retrieve"),
+          objects: [
+            task.TYPE_RESOURCE_ID,
+            arc.TYPE_RESOURCE_ID,
+            arc.directory.TYPE_RESOURCE_ID,
+            rack.TYPE_RESOURCE_ID,
+            device.TYPE_RESOURCE_ID,
+            channel.TYPE_RESOURCE_ID,
+            ranger.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+            project.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
+          actions: ["retrieve"],
+        },
+        {
+          name: uniqueName("delete"),
+          objects: [task.TYPE_RESOURCE_ID],
+          actions: ["delete"],
+        },
+      ]);
+      await renderToolbar(taskDeleter);
+      await selectRows(t.name, a.name);
+      await openContextMenuUntil(a.name, "Reload Console");
+      expect(screen.queryByText("Delete")).toBeNull();
+    });
+
+    it("leaves the Arc out of a snapshot to the active range", async () => {
+      const { arc: a } = await createBoundArc();
+      const t = await createTask();
+      const start = TimeStamp.now();
+      const rng = await client.ranges.create({
+        name: uniqueName("range"),
+        timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
+      });
+      const { store } = await renderToolbar();
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      store.dispatch(Session.Range.select(rng.key));
+      await selectRows(t.name, a.name);
+      await openContextMenuUntil(a.name, `Snapshot to ${rng.name}`);
+      fireEvent.click(screen.getByText(`Snapshot to ${rng.name}`));
+      const snapshots = await waitFor(async () => {
+        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+        expect(tasks).not.toHaveLength(0);
+        return tasks;
+      });
+      createdTasks.push(...snapshots.map((s) => s.key));
+      expect(snapshots.map(({ type }) => type)).toEqual([NI.Task.ANALOG_READ_TYPE]);
     });
   });
 });
