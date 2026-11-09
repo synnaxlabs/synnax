@@ -660,6 +660,31 @@ describe("log/aether/Log", () => {
       expect(log.state.rowEntries.at(-1)).toBe(89);
     });
 
+    it("should keep a row end following the view until the drag ends", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      const drag = {
+        scrolling: true,
+        empty: false,
+        selecting: true,
+        selectionStart: 90,
+        selectionEnd: selectRow(0),
+      };
+      updateState({ ...drag, wheelPos: 5 * log.lineHeight });
+      log.render();
+      const firstTop = log.state.rowEntries[0];
+      expect(log.state.selectionEnd).toBe(selectRow(0));
+      updateState({ ...drag, wheelPos: 10 * log.lineHeight });
+      log.render();
+      const top = log.state.rowEntries[0];
+      expect(top).toBeLessThan(firstTop);
+      expect(log.selectedLines()).toHaveLength(90 - top + 1);
+      updateState({ ...drag, wheelPos: 10 * log.lineHeight, selecting: false });
+      log.render();
+      expect(log.state.selectionEnd).toBe(top);
+    });
+
     it("should end a selection at the last row for a row past it", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);

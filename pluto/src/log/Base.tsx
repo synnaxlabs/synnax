@@ -128,8 +128,8 @@ export const Base = ({
   const stateRef = useSyncedRef(state);
   const pointerYRef = useRef(0);
   const frameRef = useRef<number | null>(null);
-  const stopDragRef = useRef<(() => void) | null>(null);
-  useEffect(() => () => stopDragRef.current?.(), []);
+  const detachDragRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => detachDragRef.current?.(), []);
 
   // The row of the view at the pointer, counted from the top.
   const rowAt = (clientY: number): number => {
@@ -176,16 +176,21 @@ export const Base = ({
       if (frameRef.current == null)
         frameRef.current = requestAnimationFrame(scrollPastEdge);
     };
-    const stop = () => {
+    const detach = () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", stop);
       window.removeEventListener("blur", stop);
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
-      stopDragRef.current = null;
+      detachDragRef.current = null;
     };
-    stopDragRef.current?.();
-    stopDragRef.current = stop;
+    const stop = () => {
+      detach();
+      setState((s) => ({ ...s, selecting: false }));
+    };
+    detachDragRef.current?.();
+    detachDragRef.current = detach;
+    setState((s) => ({ ...s, selecting: true }));
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", stop);
     window.addEventListener("blur", stop);

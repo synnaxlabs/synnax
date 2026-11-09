@@ -480,6 +480,15 @@ describe("log/Base", () => {
       expect(state.selectionEnd).toBe(log.selectRow(5));
     });
 
+    it("should mark the log as selecting until mouse up", () => {
+      const { setState, state } = setupAether(ROWS);
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      expect(applyCalls(setState, 0, state).selecting).toBe(true);
+      fireEvent.mouseUp(window);
+      expect(applyCalls(setState, 0, state).selecting).toBe(false);
+    });
+
     it("should stop scrolling on mouse up", () => {
       const { setState } = setupAether(ROWS);
       const { container } = renderLog();

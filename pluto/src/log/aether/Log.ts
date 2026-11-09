@@ -65,6 +65,9 @@ export const logStateZ = log.logZ
     position: z.string().default(""),
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
+    // While a drag selects, a selection end at a row of the view keeps following the
+    // view. It turns into an entry once the drag ends.
+    selecting: z.boolean().default(false),
     visibleStart: z.number().default(0),
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
@@ -647,8 +650,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
-    const selectionEnd = this.resolveRow(this.state.selectionEnd, rowEntries);
-    const resolved = selectionEnd !== this.state.selectionEnd;
+    const selectionEnd = this.resolveRow(rowEntries);
+    const resolved = !this.state.selecting && selectionEnd !== this.state.selectionEnd;
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -665,7 +668,7 @@ export class Log
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
-        selectionEnd,
+        selectionEnd: resolved ? selectionEnd : s.selectionEnd,
       }));
     if (resolved) this.setAnchors(this.state.selectionStart, selectionEnd);
 
@@ -680,7 +683,9 @@ export class Log
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private resolveRow(selectionEnd: number, rowEntries: number[]): number {
+  // Returns the selection end, with a row of the view turned into its entry.
+  private resolveRow(rowEntries: number[] = this.state.rowEntries): number {
+    const { selectionEnd } = this.state;
     if (selectionEnd < SELECT_ROW || selectionEnd === SELECT_ALL_END)
       return selectionEnd;
     const row = Math.min(selectionEnd - SELECT_ROW, rowEntries.length - 1);
@@ -843,7 +848,8 @@ export class Log
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart } = this.state;
+    const selectionEnd = this.resolveRow(rowEntries);
     if (selectionStart < 0 || selectionEnd < 0) return;
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
@@ -920,7 +926,8 @@ export class Log
   }
 
   selectedLines(): Line[] {
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart } = this.state;
+    const selectionEnd = this.resolveRow();
     if (selectionStart < 0 || selectionEnd < 0) return [];
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
