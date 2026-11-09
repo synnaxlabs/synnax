@@ -23,8 +23,6 @@ namespace synnax::status {
 /// @brief SetPayload replaces the status with the given state. Emitted by the Core on
 /// every write to the status; clients never dispatch it.
 struct SetPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set";
     Status<x::json::json> status;
 
     static SetPayload parse(x::json::Parser parser);
@@ -32,7 +30,7 @@ struct SetPayload {
 };
 
 /// @brief Action is a discriminated union for all Status mutations. Its JSON form is
-/// {"type": t, t: payload}, where t is the TYPE of the payload.
+/// {"type": t, t: payload}, where t is the type of the action.
 using Action = std::variant<SetPayload>;
 
 /// @brief parses an Action from its JSON form.
@@ -59,8 +57,7 @@ inline x::json::json SetPayload::to_json() const {
 
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
-    if (type == SetPayload::TYPE)
-        return SetPayload::parse(parser.child(SetPayload::TYPE));
+    if (type == "set") return SetPayload::parse(parser.child("set"));
     parser.field_err("type", "unknown Action type: " + type);
     return {};
 }
@@ -69,9 +66,11 @@ inline x::json::json to_json(const Action &value) {
     return std::visit(
         [](const auto &payload) {
             using Payload = std::decay_t<decltype(payload)>;
+            std::string type;
+            if constexpr (std::is_same_v<Payload, SetPayload>) type = "set";
             x::json::json j = x::json::json::object();
-            j["type"] = Payload::TYPE;
-            j[Payload::TYPE] = payload.to_json();
+            j["type"] = type;
+            j[type] = payload.to_json();
             return j;
         },
         value
