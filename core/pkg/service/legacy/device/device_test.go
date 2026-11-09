@@ -1095,7 +1095,9 @@ var _ = Describe("Device", func() {
 					To(MatchError(query.ErrNotFound))
 			},
 		)
-		It("Should succeed when the device has no status row", func(ctx SpecContext) {
+		It("Should write the default status when the device has none", func(
+			ctx SpecContext,
+		) {
 			d := device.Device{
 				Key:      "rename-device-no-status",
 				Rack:     rackSvc.EmbeddedKey,
@@ -1109,6 +1111,15 @@ var _ = Describe("Device", func() {
 			Expect(sw.DeleteOwned(ctx, d.ResourceID())).
 				To(Succeed())
 			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
+			var s device.Status
+			Expect(stat.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+				Entry(&s).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(s.Name).To(Equal("After"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Device status unknown"))
+			Expect(s.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
 		})
 	})
 	Describe("Group", func() {

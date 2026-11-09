@@ -32,7 +32,7 @@ import (
 
 // ServiceConfig is the configuration for the task API service.
 type ServiceConfig struct {
-	// DB runs the snapshot and the transaction of a delete.
+	// DB runs the reads of a delete and of a dispatch response.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -246,11 +246,14 @@ type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete stops the running tasks in req, then deletes every task in req in one
-// transaction. The stops take at most StopTimeout in total. A task that does not stop
-// in time is still deleted, and it can hold its channels open until its Driver removes
-// it. Delete holds no transaction while it waits for the stops.
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (struct{}, error) {
+// PrepareDelete stops the running tasks in req and waits for them to stop, for at most
+// StopTimeout in total. A task that does not stop in time can hold its channels open
+// until its Driver removes it. PrepareDelete returns access.ErrDenied, and stops
+// nothing, when the subject cannot delete a task in req.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
@@ -260,18 +263,23 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (struct{}, erro
 	}); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.stopRunning(ctx, req.Keys); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.task.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k, false); err != nil {
-				return err
-			}
+	return struct{}{}, s.stopRunning(ctx, req.Keys)
+}
+
+// Delete deletes the tasks in req. Run PrepareDelete first to stop them.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+	_ struct{},
+) (struct{}, error) {
+	w := s.task.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.Delete(ctx, k, false); err != nil {
+			return struct{}{}, err
 		}
-		return nil
-	})
+	}
+	return struct{}{}, nil
 }
 
 type (

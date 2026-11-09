@@ -9,9 +9,14 @@
 
 import { type group, resource } from "@synnaxlabs/client";
 
-/** Returns where a new group goes when created under the node of a tree. */
+/**
+ * Returns where a new group goes when created under the node of a tree. The tree root
+ * names the scope by type.
+ */
 export const placement = (
   node: resource.ID,
   root: resource.ID,
-): Pick<group.CreateParams, "parent" | "scope"> =>
-  resource.idsEqual(node, root) ? { scope: root.type } : { parent: node };
+): Pick<group.CreateParams, "parent" | "scope"> => ({
+  scope: root.type,
+  ...(!resource.idsEqual(node, root) && { parent: node }),
+});

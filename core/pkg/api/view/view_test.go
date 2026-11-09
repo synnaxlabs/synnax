@@ -97,7 +97,7 @@ var _ = Describe("Create", func() {
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, resource.ID{
 			Type: resource.TypeView,
 		})
-		v = v.WithName("After")
+		v.SetBase(view.Base{Key: v.GorpKey(), Name: "After"})
 		req := apiview.CreateRequest{Views: []view.View{v}}
 		Expect(create(AuthedCtx(ctx, u), req)).Error().
 			To(denied(u, access.ActionUpdate, v.ResourceID()))
@@ -133,6 +133,32 @@ var _ = Describe("Delete", func() {
 		MustSucceed(del(AuthedCtx(ctx, u), apiview.DeleteRequest{
 			Keys: []view.Key{uuid.New()},
 		}))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	rename := []view.Action{view.NewSetAction(view.SetPayload{
+		Path:  []string{"name"},
+		Value: "After",
+	})}
+	It("Should reject the request without update on the view", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		Expect(dispatch(
+			AuthedCtx(ctx, u),
+			apiview.DispatchRequest{Key: v.GorpKey(), Actions: rename},
+		)).Error().To(denied(u, access.ActionUpdate, v.ResourceID()))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
+	})
+	It("Should apply the actions with update on the view", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
+		MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apiview.DispatchRequest{Key: v.GorpKey(), Actions: rename},
+		))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
 	})
 })
 

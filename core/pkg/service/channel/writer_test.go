@@ -165,6 +165,68 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 			},
 		)
+		Describe("Rolled back transaction", func() {
+			var (
+				oneSvc   *channel.Service
+				oneDB    *gorp.DB
+				rollback = errors.New("rollback")
+				create   = func(ctx SpecContext, ch *channel.Channel) error {
+					return oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+						return oneSvc.NewWriter(tx).Create(ctx, ch)
+					})
+				}
+			)
+			BeforeEach(func(ctx SpecContext) {
+				one := testutil.NewNode(ctx)
+				oneDB = one.DB
+				oneSvc = openService(
+					ctx,
+					one,
+					channel.ServiceConfig{Limit: fixedLimit(1)},
+				)
+			})
+			It("Should not count a create that rolls back", func(ctx SpecContext) {
+				Expect(oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+					ch := channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					}
+					if err := oneSvc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				Expect(create(ctx, &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				})).To(Succeed())
+			})
+			It(
+				"Should keep counting a channel whose delete rolls back",
+				func(ctx SpecContext) {
+					ch := channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					}
+					Expect(create(ctx, &ch)).To(Succeed())
+					Expect(oneDB.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := oneSvc.NewWriter(tx).
+							Delete(ctx, ch.Key(), false); err != nil {
+							return err
+						}
+						return rollback
+					})).To(MatchError(rollback))
+					Expect(create(ctx, &channel.Channel{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(MatchError(ContainSubstring("channel limit exceeded")))
+				},
+			)
+		})
 	})
 
 	// Name validation is enforced internally on the create/rename path, so these specs
@@ -1845,6 +1907,146 @@ var _ = Describe("Writer", func() {
 					return limitSvc.NewWriter(tx).Create(ctx, &newCh)
 				})).
 					To(MatchError(ContainSubstring("channel limit exceeded")))
+			},
+		)
+	})
+
+	Describe("Storage", Ordered, func() {
+		var (
+			dist     testutil.Node
+			db       *gorp.DB
+			svc      *channel.Service
+			rollback = errors.New("rollback")
+			create   = func(ctx SpecContext) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				return ch
+			}
+			stored = func(ctx SpecContext, ch channel.Channel) ts.Channel {
+				GinkgoHelper()
+				return MustSucceed(
+					dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				)
+			}
+			expectNotStored = func(ctx SpecContext, ch channel.Channel) {
+				GinkgoHelper()
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
+					Error().To(MatchError(ts.ErrChannelNotFound))
+			}
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			dist = testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
+		})
+		It(
+			"Should create the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					expectNotStored(ctx, ch)
+					return nil
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+			},
+		)
+		It(
+			"Should create no storage channel when the transaction rolls back",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).Create(ctx, &ch); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				Expect(ch.LocalKey).ToNot(BeZero())
+				expectNotStored(ctx, ch)
+			},
+		)
+		It(
+			"Should delete the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Delete(ctx, ch.Key(), false); err != nil {
+						return err
+					}
+					stored(ctx, ch)
+					return nil
+				})).To(Succeed())
+				expectNotStored(ctx, ch)
+			},
+		)
+		It(
+			"Should keep the storage channel when a delete rolls back",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Delete(ctx, ch.Key(), false); err != nil {
+						return err
+					}
+					return rollback
+				})).To(MatchError(rollback))
+				stored(ctx, ch)
+			},
+		)
+		It(
+			"Should keep the channel when its storage channel cannot be deleted",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Keys: []channel.Key{ch.Key()},
+				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+				})).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeTrue())
+			},
+		)
+		It(
+			"Should rename the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				name := UniqueChannelName()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).
+						Rename(ctx, ch.Key(), name, false); err != nil {
+						return err
+					}
+					Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+					return nil
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(name))
+				var res channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal(name))
 			},
 		)
 	})

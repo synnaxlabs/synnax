@@ -9,16 +9,15 @@
 
 import "@/access/role/Select.css";
 
-import { type access } from "@synnaxlabs/client";
+import { type access, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type ListQuery, useList } from "@/access/role/queries";
 import { CSS } from "@/css";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 
 const ListItem = ({
   itemKey,
@@ -54,21 +53,23 @@ export interface SelectProps
       Base.SingleProps<access.role.Key, access.role.Role | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, access.role.Key, access.role.Role> {}
+    Omit<
+      Flux.UseListParams<access.role.RetrieveMultipleParams, access.role.Role>,
+      "name"
+    > {}
 
 export const Select = ({ query, filter, ...props }: SelectProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    query,
-    filter,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.access.roles,
+    { name: "roles", query, filter },
+  );
   return (
     <Base.Single<access.role.Key, access.role.Role | undefined>
       {...props}
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       resourceName="role"

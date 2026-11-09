@@ -116,7 +116,7 @@ const renderToolbar = async (
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
   // The panel's create broadcast may not have reached `as`, and opening a tab reads it.
-  onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+  onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
   await as.panels.retrieve(created.panelKey);
   render(
     <Analytics.Provider sink={analytics}>

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/arc/directory"
 @ts output "client/ts/src/arc/directory"
@@ -25,6 +26,7 @@ Directory struct {
         @doc value         """
             is the name of the directory, one segment of an import path.
         """
+        @index sorted
         @search
         @validate required
     }
@@ -33,6 +35,33 @@ Directory struct {
         @ref acyclic
         @ref kind      place
         @ref on_delete restrict
+    }
+
+    action Create {
+        directory Directory
+
+        @doc value """
+            replaces the directory with the given created state. Emitted by the Core
+            when a directory is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the directory."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the directory.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the directory."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the directory."
     }
 
     @doc value     "holds Arcs and other directories below the Arcs root."

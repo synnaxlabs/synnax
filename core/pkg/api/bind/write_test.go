@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -118,6 +119,30 @@ func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) er
 			return struct{}{}, f(ctx, tx)
 		},
 	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
+	return err
+}
+
+// returned is a response that returns records.
+type returned struct{ records []resource.ID }
+
+func (r returned) Returned() []resource.ID { return r.records }
+
+// writeReturning runs f through bind.Write as u, with a response that returns records.
+func writeReturning(
+	ctx context.Context,
+	u user.User,
+	f apply,
+	records ...resource.ID,
+) error {
+	_, err := bind.Write(
+		binder,
+		func(ctx context.Context, tx gorp.Tx, _ struct{}) (returned, error) {
+			if err := f(ctx, tx); err != nil {
+				return returned{}, err
+			}
+			return returned{records: records}, nil
+		},
+	)(AuthedCtx(ctx, u), struct{}{})
 	return err
 }
 
@@ -275,11 +300,8 @@ var _ = Describe("Write", func() {
 				write: func(ctx context.Context, tx gorp.Tx) error {
 					return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
 				},
-				granted: []need{
-					{access.ActionDelete, parent.ResourceID()},
-					{access.ActionUpdate, parent.ResourceID()},
-				},
-				needed: need{access.ActionDelete, child.ResourceID()},
+				granted: []need{{access.ActionDelete, parent.ResourceID()}},
+				needed:  need{access.ActionDelete, child.ResourceID()},
 			}
 		}),
 		Entry(
@@ -293,23 +315,6 @@ var _ = Describe("Write", func() {
 					},
 					granted: []need{{access.ActionDelete, child.ResourceID()}},
 					needed:  need{access.ActionUpdate, parent.ResourceID()},
-				}
-			},
-		),
-		Entry(
-			"update on the place target of a cascaded record",
-			func(ctx context.Context) rule {
-				parent := createRange(ctx, nil)
-				child := createRange(ctx, &parent.Key)
-				return rule{
-					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
-					},
-					granted: []need{
-						{access.ActionDelete, parent.ResourceID()},
-						{access.ActionDelete, child.ResourceID()},
-					},
-					needed: need{access.ActionUpdate, parent.ResourceID()},
 				}
 			},
 		),
@@ -501,8 +506,11 @@ var _ = Describe("Write", func() {
 				changed := MustSucceed(svc.Password.Hash("changed"))
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Password.NewWriter(tx).
-							ChangePassword(ctx, other.ResourceID(), changed)
+						return svc.Password.NewWriter(tx).Apply(
+							ctx,
+							other.ResourceID(),
+							password.NewSetHashAction(changed),
+						)
 					},
 					needed: need{access.ActionUpdate, other.ResourceID()},
 				}
@@ -552,6 +560,53 @@ var _ = Describe("Write", func() {
 					RemoveLabels(ctx, r.Key, []label.Key{l.Key})
 			})).To(Succeed())
 		},
+	)
+
+	DescribeTable(
+		"Should not require access on the target of a link when the write creates or "+
+			"deletes the target",
+		func(ctx SpecContext, setup func(ctx context.Context) (apply, []need)) {
+			u := newUser(ctx)
+			f, granted := setup(ctx)
+			for _, g := range granted {
+				grant(ctx, u, g.action, g.object)
+			}
+			Expect(write(ctx, u, f)).To(Succeed())
+		},
+		Entry("a place target created", func(context.Context) (apply, []need) {
+			parent := newRange(nil)
+			child := newRange(&parent.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).
+					CreateMany(ctx, &[]ranger.Range{parent, child})
+			}, []need{
+				{access.ActionCreate, parent.ResourceID()},
+				{access.ActionCreate, child.ResourceID()},
+			}
+		}),
+		Entry("a place target deleted", func(ctx context.Context) (apply, []need) {
+			parent := createRange(ctx, nil)
+			child := createRange(ctx, &parent.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Ranger.NewWriter(tx).Delete(ctx, parent.Key)
+			}, []need{
+				{access.ActionDelete, parent.ResourceID()},
+				{access.ActionDelete, child.ResourceID()},
+			}
+		}),
+		Entry("a use target created", func(context.Context) (apply, []need) {
+			l := label.Label{Key: uuid.New(), Name: "new"}
+			r := newRange(nil, l.Key)
+			return func(ctx context.Context, tx gorp.Tx) error {
+				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
+					return err
+				}
+				return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+			}, []need{
+				{access.ActionCreate, l.ResourceID()},
+				{access.ActionCreate, r.ResourceID()},
+			}
+		}),
 	)
 
 	It("Should let a user write its own API keys", func(ctx SpecContext) {
@@ -654,9 +709,34 @@ var _ = Describe("Write", func() {
 			"a role",
 			func(ctx context.Context, tx gorp.Tx, u user.User) error {
 				return svc.User.NewWriter(tx).
-					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, nil, u.Key)
+					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, u.Key)
 			},
 		),
+	)
+
+	It(
+		"Should require retrieve on a returned record that the write did not change",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := createLabel(ctx)
+			unchanged := func(context.Context, gorp.Tx) error { return nil }
+			Expect(writeReturning(ctx, u, unchanged, l.ResourceID())).
+				To(denied(u, access.ActionRetrieve, l.ResourceID()))
+			grant(ctx, u, access.ActionRetrieve, l.ResourceID())
+			Expect(writeReturning(ctx, u, unchanged, l.ResourceID())).To(Succeed())
+		},
+	)
+
+	It(
+		"Should require only create on a returned record that the write created",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := label.Label{Key: uuid.New(), Name: "returned"}
+			grant(ctx, u, access.ActionCreate, l.ResourceID())
+			Expect(writeReturning(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Create(ctx, &l)
+			}, l.ResourceID())).To(Succeed())
+		},
 	)
 
 	It("Should return the response of apply", func(ctx SpecContext) {

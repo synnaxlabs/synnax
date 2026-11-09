@@ -82,7 +82,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 			for _, u := range users {
 				policies := policyByUser[u.ResourceID().String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = userWriter.SetRole(ctx, roleKey, nil, u.Key); err != nil {
+				if err = userWriter.SetRole(ctx, roleKey, u.Key); err != nil {
 					return err
 				}
 			}
