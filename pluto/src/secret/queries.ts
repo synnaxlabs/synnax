@@ -22,22 +22,28 @@ export type ListQuery = secret.RetrieveMultipleParams extends infer P
     : never
   : never;
 
-export const useList = Flux.createList<ListQuery, secret.Key, secret.Secret>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.secrets.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.secrets.retrieve(key),
-  onChange: ({ client, query }, handler) => client.secrets.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.secrets.onChange(key, handler),
-  getCached: ({ client, query }) => client.secrets.getCached(query),
-});
+/** Lists secrets by name, unless the query sets an order. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<Flux.UseListParams<ListQuery, secret.Secret>, "name"> = {}): Flux.UseListReturn<
+  secret.Key,
+  secret.Secret
+> =>
+  Flux.useList((client) => client.secrets, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { order: { field: "name" }, ...query },
+  });
 
 export type RetrieveQuery = secret.RetrieveSingleParams;
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.secrets.retrieve(query),
-  onChange: ({ client, query }, handler) => client.secrets.onChange(query, handler),
-  getCached: ({ client, query }) => client.secrets.getCached(query),
+  onChange: ({ client, query }, handler) =>
+    client.secrets.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.secrets.watch(query).getCached(),
 });
 
 /** Creates a secret, or replaces the secret whose key exists. */

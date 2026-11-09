@@ -54,6 +54,26 @@ var _ = Describe("AST Utilities", func() {
 		)
 	})
 
+	Describe("BareIdentifier", func() {
+		It("returns the identifier of a lone name", func() {
+			Expect(parser.BareIdentifier(parseExpr("x")).GetText()).To(Equal("x"))
+		})
+
+		DescribeTable(
+			"nil cases",
+			func(code string) { Expect(parser.BareIdentifier(parseExpr(code))).To(BeNil()) },
+			Entry("function call", "foo()"),
+			Entry("call with arguments", `len("abc")`),
+			Entry("index", "arr[0]"),
+			Entry("qualified name", "time.now"),
+			Entry("qualified call", "time.now()"),
+			Entry("parenthesized", "(x)"),
+			Entry("literal", "42"),
+			Entry("negation", "-x"),
+			Entry("addition", "x + 1"),
+		)
+	})
+
 	Describe("IsNegatedLiteral", func() {
 		DescribeTable(
 			"true cases",

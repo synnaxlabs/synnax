@@ -29,7 +29,7 @@ const TAB: Panel.Tab = {
     <Icon.Range />,
   ),
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.ranges.getCached(resource.key));
+    const corpse = query.requireCorpse(client.ranges.watch(resource.key).getCached());
     await client.ranges.create(corpse.payload);
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.

@@ -695,22 +695,23 @@ describe("cached reads", () => {
     });
   });
 
-  describe("getCached", () => {
-    it("serves a key query straight from the record written by create", async () => {
+  describe("records written by create", () => {
+    it("serves a key query straight from the record", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(client.channels.getCached(ch.key));
+      const cached = expectLive(client.channels.watch(ch.key).getCached());
       expect(cached.name).toEqual(ch.name);
     });
 
-    it("composes a keys query from records written by create", async () => {
+    it("answers a keys query without a fetch", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(client.channels.getCached({ key: [ch.key] }));
-      expect(cached.map(({ key }) => key)).toEqual([ch.key]);
-    });
-
-    it("returns undefined for a keys query with an uncached key", async () => {
-      const ch = await createVirtual();
-      expect(client.channels.getCached({ key: [ch.key, 999999999] })).toBeUndefined();
+      const send = spyOnSend(client);
+      try {
+        const res = await client.channels.retrieve({ key: [ch.key] });
+        expect(res.map(({ key }) => key)).toEqual([ch.key]);
+        expect(send).not.toHaveBeenCalled();
+      } finally {
+        send.mockRestore();
+      }
     });
   });
 
@@ -830,14 +831,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const ch = await createVirtual();
       const handler = vi.fn();
-      const off = client.channels.onChange(ch.key, handler);
+      const off = client.channels.watch(ch.key).onChange(handler);
       try {
         await client.channels.retrieve(ch.key);
         const renamed = `qry_renamed_${id.create()}`;
         await remote.channels.rename(ch.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached(ch.key);
+            const cached = client.channels.watch(ch.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -850,12 +851,12 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const ch = await createVirtual();
       const results: Array<query.Cached<channel.Channel> | undefined> = [];
-      const off = client.channels.onChange(ch.key, (c) => results.push(c));
+      const off = client.channels.watch(ch.key).onChange((c) => results.push(c));
       try {
         await client.channels.retrieve(ch.key);
         await remote.channels.delete(ch.key);
         await expect
-          .poll(() => query.Deleted.matches(client.channels.getCached(ch.key)))
+          .poll(() => query.Deleted.matches(client.channels.watch(ch.key).getCached()))
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(ch.name);
@@ -868,16 +869,14 @@ describe("cached reads", () => {
     it("should admit a renamed channel to a name query locally", async () => {
       const ch = await createVirtual();
       const name = `qry_wanted_${id.create()}`;
-      const params = { where: { name: { in: [name] } } };
-      const off = client.channels.onChange(params, vi.fn());
+      const list = client.channels.watch({ where: { name: { in: [name] } } });
+      const off = list.onChange(vi.fn());
       const send = spyOnSend(client);
       try {
-        expect(await client.channels.retrieve(params)).toEqual([]);
+        expect((await list.retrieve()).records).toEqual([]);
         send.mockClear();
         await client.channels.rename(ch.key, name);
-        expect(expectLive(client.channels.getCached(params)).map((c) => c.key)).toEqual(
-          [ch.key],
-        );
+        expect(list.getCached()?.records.map((c) => c.key)).toEqual([ch.key]);
         await sleep.sleep(TimeSpan.milliseconds(250));
         expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
       } finally {
@@ -934,12 +933,12 @@ describe("cached reads", () => {
       const calc = await createCalculatedWithStatus();
       const local = createTestClient();
       await local.channels.retrieve([calc.key]);
-      expect(local.channels.getCached(calc.key)).toBeUndefined();
+      expect(local.channels.watch(calc.key).getCached()).toBeUndefined();
       const retrieved = await local.channels.retrieve(calc.key);
       expect(retrieved.status?.message).toBe("invalid expression");
-      expect(expectLive(local.channels.getCached(calc.key)).status?.message).toBe(
-        "invalid expression",
-      );
+      expect(
+        expectLive(local.channels.watch(calc.key).getCached()).status?.message,
+      ).toBe("invalid expression");
     });
 
     it("should fetch the status after a channel arrives on the stream", async () => {
@@ -948,7 +947,7 @@ describe("cached reads", () => {
       await local.connect();
       await waitForStreamLive(local.connection);
       const seen: (channel.Status | undefined)[] = [];
-      const stop = local.channels.onChange(calc.key, (cached) => {
+      const stop = local.channels.watch(calc.key).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached.status);
       });
       try {
@@ -965,7 +964,7 @@ describe("cached reads", () => {
       const local = createTestClient();
       await local.channels.retrieve([calc.key]);
       const seen: (channel.Status | undefined)[] = [];
-      const stop = local.channels.onChange(calc.key, (cached) => {
+      const stop = local.channels.watch(calc.key).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached.status);
       });
       try {
@@ -980,7 +979,7 @@ describe("cached reads", () => {
       const calc = await createCalculatedWithStatus();
       const local = createTestClient();
       await local.channels.retrieve([calc.key]);
-      const stop = local.channels.onChange(calc.key, () => {});
+      const stop = local.channels.watch(calc.key).onChange(() => {});
       stop();
       const retrieved = await local.channels.retrieve(calc.key);
       expect(retrieved.status?.message).toBe("invalid expression");
@@ -992,7 +991,7 @@ describe("cached reads", () => {
       const local = createTestClient();
       await local.channels.retrieve([calc.key]);
       const params = { key: calc.key, rangeKey: rng.key };
-      expect(local.channels.getCached(params)).toBeUndefined();
+      expect(local.channels.watch(params).getCached()).toBeUndefined();
       const retrieved = await local.channels.retrieve(params);
       expect(retrieved.status?.message).toBe("invalid expression");
     });
@@ -1003,12 +1002,12 @@ describe("cached reads", () => {
       await local.channels.retrieve([calc.key]);
       await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
-      const stop = local.channels.onChange(calc.key, () => {});
+      const stop = local.channels.watch(calc.key).onChange(() => {});
       try {
         const retrieved = await local.channels.retrieve(calc.key);
         expect(retrieved.status).toBeUndefined();
         await local.channels.retrieve(calc.key);
-        const cached = expectLive(local.channels.getCached(calc.key));
+        const cached = expectLive(local.channels.watch(calc.key).getCached());
         expect(cached.key).toBe(calc.key);
         expect(cached.status).toBeUndefined();
         await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
@@ -1030,7 +1029,7 @@ describe("cached reads", () => {
       await local.channels.retrieve(keys);
       await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
-      const stops = keys.map((key) => local.channels.onChange(key, () => {}));
+      const stops = keys.map((key) => local.channels.watch(key).onChange(() => {}));
       try {
         await Promise.all(keys.map(async (key) => await local.channels.retrieve(key)));
         await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
@@ -1045,7 +1044,7 @@ describe("cached reads", () => {
       const local = createTestClient();
       await local.channels.retrieve([calc.key]);
       const seen: (channel.Status | undefined)[] = [];
-      const stop = local.channels.onChange(calc.key, (cached) => {
+      const stop = local.channels.watch(calc.key).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached.status);
       });
       await waitForStreamLive(local.connection);
@@ -1066,10 +1065,10 @@ describe("cached reads", () => {
       await local.channels.retrieve(keys);
       await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
-      const stops = keys.map((key) => local.channels.onChange(key, () => {}));
+      const stops = keys.map((key) => local.channels.watch(key).onChange(() => {}));
       try {
         for (const key of keys) {
-          expect(expectLive(local.channels.getCached(key)).key).toBe(key);
+          expect(expectLive(local.channels.watch(key).getCached()).key).toBe(key);
           await local.channels.retrieve(key);
         }
         await sleep.sleep(TimeSpan.milliseconds(REFETCH_WINDOW));
@@ -1120,18 +1119,16 @@ describe("cached reads", () => {
 
     it("delivers a remote status change to a request that includes them", async () => {
       const ch = await createCalculated();
-      const req = { where: { key: { in: [ch.key] } }, includeStatus: true };
-      const results: Array<query.Cached<channel.Channel[]> | undefined> = [];
-      const off = client.channels.onChange(req, (c) => results.push(c));
+      const list = client.channels.watch({
+        where: { key: { in: [ch.key] } },
+        includeStatus: true,
+      });
+      const results: Array<channel.Channel[] | undefined> = [];
+      const off = list.onChange((w) => results.push(w?.records));
       try {
-        await client.channels.retrieve(req);
+        await list.retrieve();
         await setStatus(ch.key, "done");
-        await expect
-          .poll(() => {
-            const last = results.at(-1);
-            return query.isLive(last) ? last[0].status?.message : undefined;
-          })
-          .toEqual("done");
+        await expect.poll(() => results.at(-1)?.[0]?.status?.message).toEqual("done");
       } finally {
         off();
       }
@@ -1189,21 +1186,21 @@ describe("cached reads", () => {
       const ch = await createVirtual();
       const rng = await createRange();
       const params = { key: ch.key, rangeKey: rng.key };
-      const off = client.channels.onChange(params, () => {});
+      const off = client.channels.watch(params).onChange(() => {});
       try {
         await client.channels.retrieve(ch.key, { rangeKey: rng.key });
         const alias = `qry_alias_${id.create()}`;
         await remote.ranges.setAlias(rng.key, ch.key, alias);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached(params);
+            const cached = client.channels.watch(params).getCached();
             return query.isLive(cached) ? cached.alias : undefined;
           })
           .toBe(alias);
         await remote.ranges.deleteAlias(rng.key, ch.key);
         await expect
           .poll(() => {
-            const cached = client.channels.getCached(params);
+            const cached = client.channels.watch(params).getCached();
             return query.isLive(cached) ? cached.alias : undefined;
           })
           .toBeUndefined();
@@ -1262,7 +1259,7 @@ describe("cached reads", () => {
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
       expect(
-        client.channels.getCached({ key: [ch.key], rangeKey: rng.key }),
+        client.channels.watch({ key: [ch.key], rangeKey: rng.key }).getCached(),
       ).toBeUndefined();
     });
 
@@ -1279,14 +1276,14 @@ describe("cached reads", () => {
 
       it("should not answer getCached from the row", async () => {
         const { local, params, alias } = await createAliased();
-        expect(local.channels.getCached(params)).toBeUndefined();
+        expect(local.channels.watch(params).getCached()).toBeUndefined();
         await local.channels.retrieve(params);
-        expect(expectLive(local.channels.getCached(params)).alias).toBe(alias);
+        expect(expectLive(local.channels.watch(params).getCached()).alias).toBe(alias);
       });
 
       it("should fetch the alias for a subscribed query", async () => {
         const { local, params, alias } = await createAliased();
-        const stop = local.channels.onChange(params, () => {});
+        const stop = local.channels.watch(params).onChange(() => {});
         try {
           const res = await local.channels.retrieve(params);
           expect(res.alias).toBe(alias);
@@ -1303,11 +1300,13 @@ describe("cached reads", () => {
         await waitForStreamLive(local.connection);
         const send = spyOnSend(local);
         const params = { key: ch.key, rangeKey: rng.key };
-        const stop = local.channels.onChange(params, () => {});
+        const stop = local.channels.watch(params).onChange(() => {});
         try {
           expect((await local.channels.retrieve(params)).alias).toBeUndefined();
           await local.channels.retrieve(params);
-          expect(expectLive(local.channels.getCached(params)).alias).toBeUndefined();
+          expect(
+            expectLive(local.channels.watch(params).getCached()).alias,
+          ).toBeUndefined();
           expect(
             send.mock.calls.filter(([target]) => target === "/range/alias/retrieve"),
           ).toHaveLength(1);
