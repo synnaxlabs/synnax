@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.util import request_where, returns_one, sole
+from synnax.view import actions_gen
 from synnax.view.types_gen import (
     Key,
     RetrieveRequest,
@@ -34,9 +35,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -80,7 +82,9 @@ class Client:
         :param name: The new name for the view.
         :raises NotFoundError: If no view has the given key.
         """
-        self._client.send("/view/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/view/dispatch", req, Empty)
 
     @overload
     def retrieve(
