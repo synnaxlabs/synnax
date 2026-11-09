@@ -110,10 +110,12 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.deployments) }}
-    # Two versions can plan the same host, such as the root during a release.
+    # Runs that deploy one host, such as a push and a release that both deploy next,
+    # take turns in arrival order. The default queue cancels a waiting deploy.
     concurrency:
       group: deploy-docs-${{ matrix.host }}
       cancel-in-progress: false
+      queue: max
     env:
       DOCS_VERSION: ${{ matrix.version }}
       HOST: ${{ matrix.host }}
