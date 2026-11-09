@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,10 +63,10 @@ var _ = Describe("Properties", func() {
 		Expect(props.Sasl.Variant).To(Equal(kafka.NoneSASL{}))
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should default the SASL mechanism to none", func() {
 			props := kafka.Properties{Brokers: []string{"localhost:9092"}}
-			props.ApplyDefaults()
+			props = defaults.Fill(props)
 			Expect(props.Sasl.Variant).To(Equal(kafka.NoneSASL{}))
 		})
 	})

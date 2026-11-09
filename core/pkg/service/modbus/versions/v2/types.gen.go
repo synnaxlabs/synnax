@@ -38,13 +38,6 @@ type RegisterValue struct {
 	WordsSwapped *bool `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegisterValue) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "uint16"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *RegisterValue) SetDefaults() {
 	r.DataType = "uint16"
@@ -121,11 +114,6 @@ func (h *HoldingRegisterReadChannel) SetDefaults() {
 	h.RegisterValue.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HoldingRegisterReadChannel) ApplyDefaults() {
-	h.RegisterValue.ApplyDefaults()
-}
-
 // InputRegisterReadChannel reads a typed value from one or more input registers.
 type InputRegisterReadChannel struct {
 	BaseReadChannel
@@ -139,11 +127,6 @@ func (InputRegisterReadChannel) isReadChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (i *InputRegisterReadChannel) SetDefaults() {
 	i.RegisterValue.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputRegisterReadChannel) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
 }
 
 // HoldingRegisterBitReadChannel reads one bit of a holding register.
@@ -329,19 +312,6 @@ func (u ReadChannel) Type() ReadChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case InputRegisterReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u ReadChannel) Validate() error {
@@ -438,11 +408,6 @@ func (HoldingRegisterWriteChannel) isWriteChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (h *HoldingRegisterWriteChannel) SetDefaults() {
 	h.RegisterValue.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HoldingRegisterWriteChannel) ApplyDefaults() {
-	h.RegisterValue.ApplyDefaults()
 }
 
 // HoldingRegisterBitWriteChannel writes one bit of a holding register.
@@ -563,16 +528,6 @@ func (u WriteChannel) Type() WriteChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterWriteChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u WriteChannel) Validate() error {
@@ -622,14 +577,6 @@ type ReadConfig struct {
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -669,13 +616,6 @@ type WriteConfig struct {
 	task.WriteConfig
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

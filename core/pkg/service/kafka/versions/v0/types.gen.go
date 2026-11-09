@@ -76,11 +76,6 @@ type ScanConfig struct {
 	task.ScanConfig
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()
@@ -126,13 +121,6 @@ type ReadField struct {
 	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
@@ -171,13 +159,6 @@ type ReadRecord struct {
 	Fields []ReadField `json:"fields" msgpack:"fields"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadRecord) ApplyDefaults() {
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
-}
-
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
 type ReadConfig struct {
@@ -193,16 +174,6 @@ type ReadConfig struct {
 	StartOffset StartOffset `json:"start_offset" msgpack:"start_offset"`
 	// Records contains the records the task reads, one per record key.
 	Records []ReadRecord `json:"records" msgpack:"records"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.StartOffset == "" {
-		r.StartOffset = StartOffsetLatest
-	}
-	for i := range r.Records {
-		r.Records[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -255,13 +226,6 @@ type WriteChannel struct {
 	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteChannel) ApplyDefaults() {
-	if w.JSONType == "" {
-		w.JSONType = http.JSONTypeNumber
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteChannel) SetDefaults() {
 	w.JSONType = http.JSONTypeNumber
@@ -308,19 +272,6 @@ type Record struct {
 	TimeFormat http.TimeFormat `json:"time_format" msgpack:"time_format"`
 	// Fields contains additional static or generated record fields.
 	Fields []http.WriteField `json:"fields" msgpack:"fields"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Record) ApplyDefaults() {
-	if r.ValuePointer == "" {
-		r.ValuePointer = "/value"
-	}
-	if r.TimeFormat == "" {
-		r.TimeFormat = http.TimeFormatUnixNs
-	}
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -373,17 +324,6 @@ type WriteConfig struct {
 	Record Record `json:"record" msgpack:"record"`
 	// Channels contains the channels whose samples are produced.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.RecordKey == "" {
-		w.RecordKey = RecordKeyChannelName
-	}
-	w.Record.ApplyDefaults()
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

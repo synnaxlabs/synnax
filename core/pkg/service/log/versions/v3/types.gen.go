@@ -52,19 +52,6 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelEntry) ApplyDefaults() {
-	if c.Notation == "" {
-		c.Notation = "standard"
-	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
-	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelEntry) SetDefaults() {
 	c.Notation = "standard"
@@ -130,16 +117,6 @@ type Log struct {
 	// Range is the range that owns the log, if any. Exactly one of project and range is
 	// set.
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Log) ApplyDefaults() {
-	if l.TimeZone == "" {
-		l.TimeZone = "local"
-	}
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

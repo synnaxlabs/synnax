@@ -19,6 +19,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -41,10 +42,10 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults on every channel", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("standard")))
 			Expect(l.Channels[0].Timestamp.Format).To(
 				Equal(telem.TimestampFormat("preciseDate")),
@@ -58,7 +59,7 @@ var _ = Describe("Log", func() {
 				Notation:  "scientific",
 				Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
 			}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("scientific")))
 			Expect(
 				l.Channels[0].Timestamp.Format,
@@ -70,13 +71,13 @@ var _ = Describe("Log", func() {
 	Describe("Validate", func() {
 		It("Should reject a channel of 0", func() {
 			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.channel")))
 		})
 
 		It("Should accept a defaulted log with an absent precision", func() {
 			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Channel: 1}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(Succeed())
 		})
 
@@ -88,7 +89,7 @@ var _ = Describe("Log", func() {
 						{Channel: 1, Precision: new(precision)},
 					},
 				}
-				l.ApplyDefaults()
+				l = defaults.Fill(l)
 				Expect(l.Validate()).To(Succeed())
 			},
 			Entry("lower bound", uint8(0)),
@@ -103,7 +104,7 @@ var _ = Describe("Log", func() {
 						{Channel: 1, Precision: new(precision)},
 					},
 				}
-				l.ApplyDefaults()
+				l = defaults.Fill(l)
 				Expect(
 					l.Validate(),
 				).To(MatchError(ContainSubstring("channels.0.precision")))
@@ -118,7 +119,7 @@ var _ = Describe("Log", func() {
 					{Channel: 1, Alias: strings.Repeat("a", 64)},
 				},
 			}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(Succeed())
 		})
 
@@ -129,13 +130,13 @@ var _ = Describe("Log", func() {
 					{Channel: 1, Alias: strings.Repeat("a", 65)},
 				},
 			}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
 		})
 
 		It("Should reject an empty name and an invalid timestamp precision", func() {
 			l := v3.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(SatisfyAll(
 				MatchError(ContainSubstring("name")),
 				MatchError(ContainSubstring("timestamp_precision")),
@@ -147,7 +148,7 @@ var _ = Describe("Log", func() {
 				Name:     "valid",
 				Channels: []v3.ChannelEntry{{Channel: 1, Notation: "bogus"}},
 			}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
 		})
 	})

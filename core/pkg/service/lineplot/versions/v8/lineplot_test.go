@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -36,10 +37,10 @@ var _ = Describe("LinePlot", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults", func() {
 			lp := v8.LinePlot{Lines: []v8.Line{{}}, Rules: []v8.Rule{{}}}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Title.Level).To(Equal(text.LevelH4))
 			Expect(lp.Axes.X1.Key).To(Equal(v8.AxisKeyX1))
 			Expect(lp.Axes.X1.TickSpacing).To(Equal(75.0))
@@ -57,13 +58,13 @@ var _ = Describe("LinePlot", func() {
 				Lines: []v8.Line{{YAxis: v8.YAxisKeyY1}},
 				Rules: []v8.Rule{{Axis: v8.AxisKeyY1}},
 			}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).To(Succeed())
 		})
 
 		It("Should reject a line without a y-axis", func() {
 			lp := v8.LinePlot{Name: "valid", Lines: []v8.Line{{}}}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).
 				To(MatchError(ContainSubstring("lines.0.y_axis: invalid y_axis")))
 		})
@@ -73,14 +74,14 @@ var _ = Describe("LinePlot", func() {
 				Name:  "valid",
 				Lines: []v8.Line{{YAxis: v8.YAxisKeyY1, StrokeWidth: 0.5}},
 			}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).
 				To(MatchError(ContainSubstring("lines.0.stroke_width")))
 		})
 
 		It("Should reject an empty name", func() {
 			lp := v8.LinePlot{}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
 		})
 
@@ -90,7 +91,7 @@ var _ = Describe("LinePlot", func() {
 				Lines: []v8.Line{{YAxis: v8.YAxisKeyY1, Detail: "bogus"}},
 				Rules: []v8.Rule{{Axis: "bogus"}},
 			}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).To(SatisfyAll(
 				MatchError(ContainSubstring("lines.0")),
 				MatchError(ContainSubstring("rules.0")),

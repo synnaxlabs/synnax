@@ -38,11 +38,6 @@ type ReadChannel struct {
 	Field string `json:"field" msgpack:"field"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadChannel) ApplyDefaults() {
-	r.BaseChannel.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadChannel) SetDefaults() {
 	r.BaseChannel.SetDefaults()
@@ -84,23 +79,6 @@ type ReadConfig struct {
 	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
 	// When false, a bad value skips the read for every channel that shares its index.
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.SampleRate == 0 {
-		r.SampleRate = 50
-	}
-	if r.StreamRate == 0 {
-		r.StreamRate = 25
-	}
-	if r.ArraySize == 0 {
-		r.ArraySize = 1
-	}
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

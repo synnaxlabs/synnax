@@ -563,7 +563,7 @@ var _ = Describe("Writer", func() {
 					return svc.NewWriter(tx).Create(ctx, &plot)
 				})).To(Succeed())
 				pos := spatial.StickyXY{X: 10, Y: 20}
-				pos.ApplyDefaults()
+				pos = defaults.Fill(pos)
 				Expect(
 					dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetLegendPositionAction(

@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
-var _ = Describe("ApplyDefaults and Validate generation", func() {
+var _ = Describe("SetDefaults and Validate generation", func() {
 	var (
 		loader   *MockFileLoader
 		goPlugin *types.Plugin
@@ -30,7 +30,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	})
 
 	It(
-		"Should generate ApplyDefaults filling non-zero static defaults",
+		"Should generate SetDefaults setting non-zero static defaults",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -49,7 +49,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c *Cfg) ApplyDefaults() {",
+				"func (c *Cfg) SetDefaults() {",
 				"c.Rolling = 1",
 				"c.Scale = 1.5",
 				`c.Name = "untitled"`,
@@ -81,7 +81,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	})
 
 	It(
-		"Should not generate ApplyDefaults when every default equals the zero value",
+		"Should not generate SetDefaults when every default equals the zero value",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -92,7 +92,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			}
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+			ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
 		},
 	)
 
@@ -145,7 +145,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
-		"Should generate ApplyDefaults on a struct that extends a base",
+		"Should generate SetDefaults on a struct that extends a base",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -160,10 +160,10 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (b *Base) ApplyDefaults() {",
+				"func (b *Base) SetDefaults() {",
 				"b.Rate = 0.2",
-				"func (c *Cfg) ApplyDefaults() {",
-				"c.Base.ApplyDefaults()",
+				"func (c *Cfg) SetDefaults() {",
+				"c.Base.SetDefaults()",
 				`c.Mode = "auto"`,
 			)
 		},
@@ -215,7 +215,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c *Cfg) ApplyDefaults() {",
+				"func (c *Cfg) SetDefaults() {",
 				"c.Rate = 0.2",
 				`c.Mode = "auto"`,
 			)
@@ -223,7 +223,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
-		"Should recurse ApplyDefaults into a channel list on an extends struct",
+		"Should leave a channel list on an extends struct to the element decode",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -241,11 +241,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			}
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c *Cfg) ApplyDefaults() {",
-				"for i := range c.Channels {",
-				"c.Channels[i].ApplyDefaults()",
-			)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (c *Cfg) SetDefaults() {\n\tc.Base.SetDefaults()\n}",
+					"func (c *Channel) UnmarshalJSONFrom(",
+				).
+				ToNotContain("c.Channels")
 		},
 	)
 
@@ -287,7 +288,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 
 	Describe("Struct-literal field defaults", func() {
 		It(
-			"Should fill a nested component from a struct default before recursing",
+			"Should set a nested component from a struct default after recursing",
 			func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/x"
@@ -305,10 +306,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (a *Axes) ApplyDefaults() {",
-					"if a.X1.Key == \"\" {",
-					"a.X1.Key = AxisKeyX1",
-					"a.X1.ApplyDefaults()",
+					"func (a *Axes) SetDefaults() {\n\ta.X1.SetDefaults()\n" +
+						"\ta.X1.Key = AxisKeyX1\n}",
 				)
 			},
 		)
@@ -327,7 +326,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				}
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+			ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
 		})
 	})
 
@@ -344,8 +343,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c *Cfg) ApplyDefaults() {",
-				"if c.Patterns == nil {",
+				"func (c *Cfg) SetDefaults() {",
 				`c.Patterns = []string{"^cRIO.*", "^nown.*"}`,
 				"c.Limits = []float64{0, 1.5}",
 				"c.Flags = []bool{false, true}",
@@ -381,7 +379,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"if c.Tabs == nil {",
 				"v0 := Tab{}",
 				`v0.Name = "a"`,
 				"v1 := Tab{}",
@@ -437,7 +434,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				}
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+			ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
 		})
 
 		It("Should fill an array component of a struct default", func(ctx SpecContext) {
@@ -454,7 +451,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"if c.Filter.Patterns == nil {",
 				`c.Filter.Patterns = []string{"^a.*"}`,
 			)
 		})
@@ -462,7 +458,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 
 	Describe("Recursion into nested types", func() {
 		It(
-			"Should recurse ApplyDefaults into a nested struct field",
+			"Should recurse SetDefaults into a nested struct field",
 			func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/x"
@@ -472,14 +468,14 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (o *Outer) ApplyDefaults() {",
-					"o.Inner.ApplyDefaults()",
+					"func (o *Outer) SetDefaults() {",
+					"o.Inner.SetDefaults()",
 				)
 			},
 		)
 
 		It(
-			"Should emit ApplyDefaults on a container with no own default that nests a defaulted type",
+			"Should emit SetDefaults on a container that only nests a defaulted type",
 			func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/x"
@@ -494,55 +490,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				ExpectContent(
 					resp,
 					"types.gen.go",
-				).ToContain("func (o *Outer) ApplyDefaults() {")
+				).ToContain("func (o *Outer) SetDefaults() {")
 			},
 		)
-
-		It("Should iterate a slice of structs in ApplyDefaults", func(ctx SpecContext) {
-			source := `
-				@go output "core/pkg/service/x"
-
-				Inner struct { rolling int32 = 1 }
-				Outer struct { inners Inner[] }
-			`
-			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"for i := range o.Inners {",
-				"o.Inners[i].ApplyDefaults()",
-			)
-		})
-
-		It(
-			"Should nil-guard an optional struct field in ApplyDefaults",
-			func(ctx SpecContext) {
-				source := `
-				@go output "core/pkg/service/x"
-
-				Inner struct { rolling int32 = 1 }
-				Outer struct { inner Inner? }
-			`
-				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"if o.Inner != nil {",
-					"o.Inner.ApplyDefaults()",
-				)
-			},
-		)
-
-		It("Should iterate map values in ApplyDefaults", func(ctx SpecContext) {
-			source := `
-				@go output "core/pkg/service/x"
-
-				Inner struct { rolling int32 = 1 }
-				Outer struct { inners map<string, Inner> }
-			`
-			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"for key, value := range o.Inners {",
-				"value.ApplyDefaults()",
-				"o.Inners[key] = value",
-			)
-		})
 
 		It(
 			"Should recurse Validate into a nested struct with a wire-name path segment",
@@ -590,7 +540,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				Outer struct { inner Inner }
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+				ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
 			},
 		)
 
@@ -606,11 +556,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				}
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (n *Node) ApplyDefaults() {",
-					"if n.Child != nil {",
-					"n.Child.ApplyDefaults()",
-				)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						"func (n *Node) SetDefaults() {\n\tn.Weight = 1\n}",
+						"func (n *Node) UnmarshalJSONFrom(",
+					).
+					ToNotContain("n.Child.SetDefaults()")
 			},
 		)
 	})
@@ -727,7 +678,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"if c.Level != nil {",
 					`v.GreaterThanEq("level", *c.Level, 0)`,
 					`v.LessThanEq("level", *c.Level, 17)`,
 				)
@@ -838,12 +788,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 
 		It(
-			"Should emit ApplyDefaults on the variant carrying a defaulted payload",
+			"Should emit SetDefaults on the variant carrying a defaulted payload",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (l *LinearScale) ApplyDefaults() {",
-					"l.LinearParams.ApplyDefaults()",
+					"func (l *LinearScale) SetDefaults() {",
+					"l.LinearParams.SetDefaults()",
 				)
 			},
 		)
@@ -860,16 +810,11 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should dispatch the wrapper ApplyDefaults on the active variant",
+			"Should give the union wrapper no SetDefaults",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (u *Scale) ApplyDefaults() {",
-					"switch variant := u.Variant.(type) {",
-					"case LinearScale:",
-					"variant.ApplyDefaults()",
-					"u.Variant = variant",
-				)
+				ExpectContent(resp, "types.gen.go").
+					ToNotContain("func (u *Scale) SetDefaults()")
 			},
 		)
 
@@ -885,13 +830,11 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should recurse a struct field whose type is a method-bearing union",
+			"Should leave a union field to the union decode",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (c *Container) ApplyDefaults() {",
-					"c.Scale.ApplyDefaults()",
-				)
+				ExpectContent(resp, "types.gen.go").
+					ToNotContain("func (c *Container) SetDefaults()")
 			},
 		)
 	})
@@ -920,7 +863,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (s *StaticField) ApplyDefaults() {",
+					"func (s *StaticField) SetDefaults() {",
 					"s.Kind = KindNumber",
 					"func (s StaticField) Validate() error {",
 					"!s.Kind.IsValid()",
@@ -939,15 +882,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should dispatch the wrapper methods the container recurses into",
+			"Should dispatch the wrapper Validate the container recurses into",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (u *Field) ApplyDefaults() {",
-					"func (u Field) Validate() error {",
-					"func (c *Container) ApplyDefaults() {",
-					"c.Fields[i].ApplyDefaults()",
-				)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("func (u Field) Validate() error {").
+					ToNotContain("func (c *Container) SetDefaults()")
 			},
 		)
 	})
@@ -971,8 +911,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (i *Item) ApplyDefaults() {",
-					"if i.Cjc.Variant == nil {",
+					"func (i *Item) SetDefaults() {",
 					"i.Cjc.Variant = ConstValCJC{}",
 				)
 			},
@@ -994,16 +933,10 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					Item struct { cjc CJC = const_val }
 				`
 				resp := MustGenerate(ctx, withVariantDefault, "x", loader, goPlugin)
-				content := MustContentOf(resp, "types.gen.go")
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (c *ConstValCJC) ApplyDefaults() {",
-					"c.Val = 25",
-					"i.Cjc.ApplyDefaults()",
+					"func (c *ConstValCJC) SetDefaults() {\n\tc.Val = 25\n}",
+					"v0 := ConstValCJC{}\n\t\tv0.SetDefaults()\n\t\ti.Cjc.Variant = v0",
 				)
-				// The fill must precede the recursion: a nil variant has no
-				// ApplyDefaults to dispatch to.
-				Expect(strings.Index(content, "i.Cjc.Variant = ConstValCJC{}")).
-					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
 			},
 		)
 
@@ -1022,7 +955,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, literal, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"if i.Cjc.Variant == nil {",
 				"v0 := ConstValCJC{}",
 				"v0.Val = 5",
 				"i.Cjc.Variant = v0",
@@ -1063,7 +995,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			resp := MustGenerate(ctx, nested, "x", loader, goPlugin)
 			content := MustContentOf(resp, "types.gen.go")
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"if l.Range.Variant == nil {",
 				"v0 := WindowRef{}",
 				`v0.Key = "r7"`,
 				"v1 := DynamicWindow{}",
@@ -1139,7 +1070,6 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				resp := MustGenerate(ctx, objects, "x", loader, goPlugin)
 				content := MustContentOf(resp, "types.gen.go")
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"if p.Root.Variant == nil {",
 					"v0 := LeafNode{}",
 					"v1 := Tab{}",
 					`v1.Name = "first"`,
@@ -1170,8 +1100,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, inStruct, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (c *Cfg) ApplyDefaults() {",
-					"if c.Item.Cjc.Variant == nil {",
+					"func (c *Cfg) SetDefaults() {",
 					"v0 := ConstValCJC{}",
 					"v0.Val = 5",
 					"c.Item.Cjc.Variant = v0",
@@ -1191,25 +1120,10 @@ var _ = Describe("Default group generation", func() {
 		goPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should guard a group's fill on every member being zero", func(ctx SpecContext) {
-		source := `
-			@go output "core/pkg/service/x"
-
-			MinMaxVal struct {
-				min_val float64 = 0 { @default group "range" }
-				max_val float64 = 1 { @default group "range" }
-			}
-		`
-		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-		ExpectContent(resp, "types.gen.go").ToContain(
-			"func (m *MinMaxVal) ApplyDefaults() {",
-			"if m.MinVal == 0 && m.MaxVal == 0 {",
-			"m.MaxVal = 1",
-		)
-	})
-
-	It("Should emit one guard per group", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should guard each group apart and set ungrouped fields without a guard",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/service/x"
 
 			TwoPointLin struct {
@@ -1217,38 +1131,25 @@ var _ = Describe("Default group generation", func() {
 				second_electrical float64 = 1 { @default group "electrical" }
 				first_physical    float64 = 0 { @default group "physical" }
 				second_physical   float64 = 2 { @default group "physical" }
-			}
-		`
-		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-		ExpectContent(resp, "types.gen.go").ToContain(
-			"if t.FirstElectrical == 0 && t.SecondElectrical == 0 {",
-			"t.SecondElectrical = 1",
-			"if t.FirstPhysical == 0 && t.SecondPhysical == 0 {",
-			"t.SecondPhysical = 2",
-		)
-	})
-
-	It(
-		"Should leave an ungrouped field on the struct filling independently",
-		func(ctx SpecContext) {
-			source := `
-			@go output "core/pkg/service/x"
-
-			Cfg struct {
-				min_val float64 = 0 { @default group "range" }
-				max_val float64 = 1 { @default group "range" }
-				label   string  = "signal"
+				label             string  = "signal"
 			}
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				`if c.Label == "" {`,
-				"if c.MinVal == 0 && c.MaxVal == 0 {",
+				"func (t *TwoPointLin) SetDefaults() {\n"+
+					"\tt.SetUngroupedDefaults()\n\tt.DefaultGroups()\n}",
+				"func (t *TwoPointLin) SetUngroupedDefaults() {\n"+
+					"\tt.Label = \"signal\"\n}",
+				"func (t *TwoPointLin) DefaultGroups() {\n"+
+					"\tif t.FirstElectrical == 0 && t.SecondElectrical == 0 {\n"+
+					"\t\tt.SecondElectrical = 1\n\t}\n"+
+					"\tif t.FirstPhysical == 0 && t.SecondPhysical == 0 {\n"+
+					"\t\tt.SecondPhysical = 2\n\t}\n}",
 			)
 		},
 	)
 
-	It("Should group inline union variant fields", func(ctx SpecContext) {
+	It("Should set grouped inline union variant fields", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/service/x"
 
@@ -1261,25 +1162,21 @@ var _ = Describe("Default group generation", func() {
 				map {
 					pre_scaled_min float64 = 0 { @default group "pre_scaled" }
 					pre_scaled_max float64 = 1 { @default group "pre_scaled" }
-					scaled_min     float64 = 0 { @default group "scaled" }
-					scaled_max     float64 = 1 { @default group "scaled" }
 					units          Units   = volts
 				}
 			}
 		`
 		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").ToContain(
-			"func (m *MapScale) ApplyDefaults() {",
-			"m.Units = UnitsVolts",
-			"if m.PreScaledMin == 0 && m.PreScaledMax == 0 {",
-			"m.PreScaledMax = 1",
-			"if m.ScaledMin == 0 && m.ScaledMax == 0 {",
-			"m.ScaledMax = 1",
+			"func (m *MapScale) SetUngroupedDefaults() {\n\tm.Units = UnitsVolts\n}",
+			"func (m *MapScale) DefaultGroups() {\n"+
+				"\tif m.PreScaledMin == 0 && m.PreScaledMax == 0 {\n"+
+				"\t\tm.PreScaledMax = 1\n\t}\n}",
 		)
 	})
 
 	It(
-		"Should omit a group whose members all default to zero",
+		"Should emit no SetDefaults for a group whose members all default to zero",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -1290,7 +1187,7 @@ var _ = Describe("Default group generation", func() {
 			}
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+			ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
 		},
 	)
 })
@@ -1683,49 +1580,6 @@ var _ = Describe("Decode-time default generation", func() {
 					"members are all zero, in\n// this type and in the types it "+
 					"embeds or holds. A group with a non-zero member keeps\n// its "+
 					"values.\nfunc (c *Cfg) DefaultGroups() {",
-			)
-		})
-
-		It("Should document the group rule on a union of grouped variants", func(
-			ctx SpecContext,
-		) {
-			source := `
-				@go output "core/pkg/service/x"
-
-				Scale union on type {
-					map {
-						pre_scaled_min float64 = 0 { @default group "pre_scaled" }
-						pre_scaled_max float64 = 1 { @default group "pre_scaled" }
-					}
-					none {}
-				}
-			`
-			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"// ApplyDefaults fills the active variant's zero-valued fields with " +
-					"their\n// schema-declared defaults. A default group takes its " +
-					"defaults only when all of its\n// members are zero.\nfunc (u " +
-					"*Scale) ApplyDefaults() {",
-			)
-		})
-
-		It("Should document the group rule on a grouped ApplyDefaults", func(
-			ctx SpecContext,
-		) {
-			source := `
-				@go output "core/pkg/service/x"
-
-				Cfg struct {
-					lower float64 = 0 { @default group "range" }
-					upper float64 = 1 { @default group "range" }
-				}
-			`
-			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"// ApplyDefaults fills zero-valued fields with their " +
-					"schema-declared " +
-					"defaults. A default\n// group takes its defaults only when all " +
-					"of its members are zero.\nfunc (c *Cfg) ApplyDefaults() {",
 			)
 		})
 

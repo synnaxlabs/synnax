@@ -65,14 +65,6 @@ func (e *EntryReadChannel) SetDefaults() {
 	e.Scale.Variant = taskv2.NoneScale{}
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EntryReadChannel) ApplyDefaults() {
-	if e.Scale.Variant == nil {
-		e.Scale.Variant = taskv2.NoneScale{}
-	}
-	e.Scale.ApplyDefaults()
-}
-
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
 type UnresolvedReadChannel struct {
@@ -167,16 +159,6 @@ func (u ReadChannel) Type() ReadChannelType {
 		return UnresolvedReadChannelType
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case EntryReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -367,14 +349,6 @@ type ReadConfig struct {
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -409,16 +383,6 @@ type WriteConfig struct {
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 25
-	}
-	if w.ExecutionRate == 0 {
-		w.ExecutionRate = 1000
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
