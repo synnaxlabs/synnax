@@ -305,6 +305,31 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should bind scopedActionZ and dispatchReqZ to a retrieve key override",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						name string
+
+						action Tick {
+						}
+
+						@retrieve key "string"
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { Counter } from "@/counter/types.gen";`,
+							"export const scopedActionZ = actions.scopedZ(z.string(), actionZ);",
+							"export const dispatchReqZ = actions.dispatchReqZ(z.string(), actionZ);",
+						)
+				},
+			)
+
+			It(
 				"Should lowercase a multi-word type name in parse-error labels",
 				func(ctx SpecContext) {
 					source := `

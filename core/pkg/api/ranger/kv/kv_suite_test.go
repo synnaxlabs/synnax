@@ -40,10 +40,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *service.Layer
-	// set, del, and get run their routes as the API layer binds them.
-	set freighter.UnaryHandler[apikv.SetRequest, struct{}]
-	del freighter.UnaryHandler[apikv.DeleteRequest, struct{}]
-	get freighter.UnaryHandler[apikv.GetRequest, apikv.GetResponse]
+	// set, dispatch, del, and get run their routes as the API layer binds them.
+	set      freighter.UnaryHandler[apikv.SetRequest, struct{}]
+	dispatch freighter.UnaryHandler[apikv.DispatchRequest, struct{}]
+	del      freighter.UnaryHandler[apikv.DeleteRequest, struct{}]
+	get      freighter.UnaryHandler[apikv.GetRequest, apikv.GetResponse]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -59,6 +60,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 	}))
 	set = bind.Write(binder, apiSvc.Set)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	del = bind.Write(binder, apiSvc.Delete)
 	get = bind.Read(binder, apiSvc.Get)
 })

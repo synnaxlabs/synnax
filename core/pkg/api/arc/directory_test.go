@@ -196,6 +196,71 @@ var _ = Describe("Directories", func() {
 		})
 	})
 
+	Describe("DispatchDirectory", func() {
+		set := func(path string, value any) directory.Action {
+			return directory.NewSetAction(
+				directory.SetPayload{Path: []string{path}, Value: value},
+			)
+		}
+		apply := func(
+			ctx SpecContext,
+			d directory.Directory,
+			acts ...directory.Action,
+		) error {
+			_, err := dispatchDirectory(
+				AuthedCtx(ctx, author),
+				apiarc.DispatchDirectoryRequest{Key: d.Key, Actions: acts},
+			)
+			return err
+		}
+		It("Should rename a directory with update access to it", func(ctx SpecContext) {
+			d := newDirectory(ctx)
+			grantUpdateOn(ctx, author.ResourceID(), d.ResourceID())
+			name := uniqueName()
+			Expect(apply(ctx, d, set("name", name))).To(Succeed())
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(name))
+		})
+		It("Should deny a caller without update access", func(ctx SpecContext) {
+			d := newDirectory(ctx)
+			Expect(apply(ctx, d, set("name", uniqueName()))).
+				To(denied(author, access.ActionUpdate, d.ResourceID()))
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(d.Name))
+		})
+		It(
+			"Should move a directory with update access to it and both parents",
+			func(ctx SpecContext) {
+				dst := newDirectory(ctx)
+				d := newDirectory(ctx)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					d.ResourceID(),
+					directory.ResourceID(root),
+					dst.ResourceID(),
+				)
+				Expect(apply(ctx, d, set("parent", dst.Key))).To(Succeed())
+				Expect(parentsOf(ctx, d.ResourceID())).To(ConsistOf(dst.ResourceID()))
+			},
+		)
+		It(
+			"Should deny a move without update access to the new parent",
+			func(ctx SpecContext) {
+				dst := newDirectory(ctx)
+				d := newDirectory(ctx)
+				grantUpdateOn(
+					ctx,
+					author.ResourceID(),
+					d.ResourceID(),
+					directory.ResourceID(root),
+				)
+				Expect(apply(ctx, d, set("parent", dst.Key))).
+					To(denied(author, access.ActionUpdate, dst.ResourceID()))
+				Expect(parentsOf(ctx, d.ResourceID())).
+					To(ConsistOf(directory.ResourceID(root)))
+			},
+		)
+	})
+
 	Describe("DeleteDirectory", func() {
 		deleteDir := func(ctx SpecContext, d directory.Directory) error {
 			_, err := deleteDirectory(

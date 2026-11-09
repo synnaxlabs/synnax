@@ -76,7 +76,11 @@ var (
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
 	]
-	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	renameDirectory   freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	dispatchDirectory freighter.UnaryHandler[
+		apiarc.DispatchDirectoryRequest,
+		struct{},
+	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
 	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
 	retrieve        freighter.UnaryHandler[
@@ -190,6 +194,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	updateTask = bind.Write(binder, apiSvc.UpdateTask)
 	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
 	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
+	dispatchDirectory = bind.Write(binder, apiSvc.DispatchDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	move = bind.Write(binder, apiSvc.Move)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))

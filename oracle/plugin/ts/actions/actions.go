@@ -123,7 +123,15 @@ func (p *Plugin) generateFile(
 	mgr.AddImport("@synnaxlabs/x", "zod")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", tsName)
-	mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	if ref, ok := resolution.RetrieveKey(typ); ok {
+		data.KeyZ = fp.ProcessField(
+			resolution.Field{Name: "key", Type: ref},
+			typ,
+		).ZodType
+	} else {
+		data.KeyZ = "keyZ"
+		mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	}
 	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
@@ -138,7 +146,9 @@ type templateData struct {
 	*imports.Manager
 	TargetTypeName  string
 	TargetProseName string
-	Actions         []actionData
+	// KeyZ is the zod schema of the target type's key.
+	KeyZ    string
+	Actions []actionData
 }
 
 var properNouns = set.New("Arc")
@@ -226,9 +236,9 @@ export const createReduceAll = (handlers: Handlers) =>
     }
   });
 
-export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+export const scopedActionZ = actions.scopedZ({{ .KeyZ }}, actionZ);
 
-export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
+export const dispatchReqZ = actions.dispatchReqZ({{ .KeyZ }}, actionZ);
 
 export const dispatchResZ = actions.dispatchResZ(actionZ);
 `),
