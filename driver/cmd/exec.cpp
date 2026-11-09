@@ -84,7 +84,7 @@ int exec(const int argc, char *argv[]) {
     }
     // The service manager gives the service the environment file. login reads it
     // itself, so its connection check sees the same variables as the service.
-    if (command == "login" && installed)
+    if (command == "login")
         if (const auto err = daemon::load_env()) {
             LOG(ERROR) << err << ". Run login with sudo.";
             return 1;
