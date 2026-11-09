@@ -14,13 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -365,15 +363,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "type mismatch: cannot rebind 'p'"),
-			Entry("rebinding a top-level channel read/write in a stage", `
-				p := pressure
-				sequence main {
-					stage s1 {
-						p = valve_cmd
-					}
-				}
-			`, "cannot reassign top-level variable 'p'"),
+			`, "cannot rebind channel read/write variable p"),
 			Entry("reassigning a variable that was never declared", `
 				sequence main {
 					stage s1 {
@@ -421,7 +411,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						pressure = 1.0
 					}
 				}
-			`, "use '<value> -> pressure' to write to 'pressure'"),
+			`, "cannot use '='"),
 			Entry("rebinding a channel read/write to a literal", `
 				sequence main {
 					p := pressure
@@ -429,7 +419,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "use '<value> -> p' to write to 'p'"),
+			`, "the right-hand side must be a channel"),
 			Entry("rebinding a channel read/write to a value variable", `
 				sequence main {
 					p := pressure
@@ -438,7 +428,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "use '<value> -> p' to write to 'p'"),
+			`, "the right-hand side must be a channel"),
 			Entry("rebinding a channel read/write to an undefined name", `
 				sequence main {
 					p := pressure
@@ -446,7 +436,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "use '<value> -> p' to write to 'p'"),
+			`, "the right-hand side must be a channel"),
 		)
 	})
 
@@ -778,17 +768,6 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
 		)
-	})
-
-	Describe("RejectReactiveAssignment", func() {
-		It("Should point the assignment at a flow write", func() {
-			stmt := MustSucceed(parser.ParseStatement("valve = 1"))
-			var diag diagnostics.Diagnostics
-			sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
-			Expect(diag).To(HaveLen(1))
-			Expect(diag[0].Message).
-				To(Equal("use '<value> -> valve' to write to 'valve'"))
-		})
 	})
 })
 

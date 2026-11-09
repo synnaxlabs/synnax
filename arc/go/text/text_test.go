@@ -317,7 +317,7 @@ var _ = Describe("Text", func() {
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(
-				ContainSubstring("cannot reassign top-level variable"),
+				ContainSubstring("cannot write to top-level variable"),
 			)
 		})
 
@@ -2396,7 +2396,7 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"use '<value> -> a' to write to 'a'",
+					"cannot rebind channel read/write variable a; the right-hand side must be a channel",
 				))
 			},
 		)
@@ -2418,7 +2418,7 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"use '<value> -> a' to write to 'a'",
+					"cannot rebind channel read/write variable a; the right-hand side must be a channel",
 				))
 			},
 		)
@@ -2440,7 +2440,7 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(
 					diagnostics.String(),
-				).To(ContainSubstring("type mismatch: cannot rebind 'a'"))
+				).To(ContainSubstring("cannot rebind channel read/write variable a of type"))
 			},
 		)
 
@@ -2458,46 +2458,11 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot reassign top-level variable 'a'",
+					"cannot reassign a top-level variable; assignment is only valid " +
+						"inside a sequence, stage, or function",
 				))
 			},
 		)
-
-		It(
-			"Should write through a top-level alias from a function",
-			func(ctx SpecContext) {
-				source := `
-			a := out_ch
-			func f() i64 {
-				a = 1
-				a = count_ch
-				return 1
-			}
-			count_ch -> f()`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(
-					ctx,
-					parsedText,
-					NewRoot(nil, varResolver...),
-				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				f := MustBeOk(inter.Functions.Find("f"))
-				Expect(f.Channels.Write).To(HaveKey(uint32(902)))
-				Expect(f.Channels.Read).To(HaveKey(uint32(901)))
-			},
-		)
-
-		It("Should reject assigning a channel at the top level", func(ctx SpecContext) {
-			parsedText := MustSucceed(text.Parse(text.Text{Raw: "count_ch = 1"}))
-			_, diagnostics := text.Analyze(
-				ctx,
-				parsedText,
-				NewRoot(nil, varResolver...),
-			)
-			Expect(diagnostics.String()).To(ContainSubstring(
-				"use '<value> -> count_ch' to write to 'count_ch'",
-			))
-		})
 
 		It("Should reject compound reassignment of a variable", func(ctx SpecContext) {
 			source := `

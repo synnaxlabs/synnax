@@ -39,17 +39,10 @@ import (
 type keyGenerator struct {
 	occurrences map[string]int
 	synthFuncs  *ir.Functions
-	// prefix is the import path of the module being lowered, empty for an
-	// automation. It keeps a module's keys apart from its importer's.
-	prefix string
 }
 
-func newKeyGenerator(synthFuncs *ir.Functions, prefix string) *keyGenerator {
-	return &keyGenerator{
-		occurrences: make(map[string]int),
-		synthFuncs:  synthFuncs,
-		prefix:      prefix,
-	}
+func newKeyGenerator(synthFuncs *ir.Functions) *keyGenerator {
+	return &keyGenerator{occurrences: make(map[string]int), synthFuncs: synthFuncs}
 }
 
 func (kg *keyGenerator) generate(role, name string) string {
@@ -59,11 +52,7 @@ func (kg *keyGenerator) generate(role, name string) string {
 	}
 	count := kg.occurrences[base]
 	kg.occurrences[base]++
-	key := fmt.Sprintf("%s_%d", base, count)
-	if kg.prefix != "" {
-		return kg.prefix + "." + key
-	}
-	return key
+	return fmt.Sprintf("%s_%d", base, count)
 }
 
 // seqFrame tracks state for a single sequential Scope that is currently being
@@ -513,11 +502,6 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-				"cannot write to '%s': it belongs to an imported module", name))
-			return flowNodeResult{}, false
-		}
 		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 			if isSink && isExprReadVar(sym) {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
@@ -588,10 +572,6 @@ func isExprReadVar(sym *symbol.Symbol) bool {
 // holds its value in its register, an alias its key, an exprRead an index.
 func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	for _, c := range s.Children() {
-		// An alias lists its module's members. Their nodes come with the module.
-		if c.Kind == symbol.KindModuleAlias {
-			continue
-		}
 		if c.Reassigned && isConstVar(c) {
 			shell.registerVar(c, varEntry{
 				register: buildVariableNode(c, kg, "f0", c.DefaultValue),
@@ -986,11 +966,11 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, nil, true
 	}
-	rhs, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	rhs, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
@@ -1155,8 +1135,9 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
 //
-// An imported X is keyed by its module path, so no local scope binds it. The jump
-// or activation lands on the linked module scope.
+// An imported X is keyed by its qualified name, so no local scope binds it. Inside
+// a top-level scope the jump survives as a transition. At the top level it is
+// rejected until Phase 3 compiles module scopes into the importer.
 //
 // This rule makes sequences behave as black boxes from the outside: you can
 // jump around inside your own nesting, you can call a top-level neighbor at
@@ -1168,7 +1149,20 @@ func analyzeNamedRef(
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
 	if sym.Root() != ctx.Scope.Root() {
-		return transitionIntent{activateKey: sym.QualifiedName()}, true
+		key := parser.IdentifierName(ctx.AST)
+		if shell.jumps == nil {
+			// Phase 3 compiles module scopes into the importer. Until then a
+			// top-level activation has no scope to bind to, so it is rejected
+			// instead of dropped.
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"'%s' belongs to an imported module and cannot be activated from "+
+					"the top level yet",
+				key,
+			))
+			return transitionIntent{}, false
+		}
+		return transitionIntent{activateKey: key}, true
 	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
@@ -1182,7 +1176,7 @@ func analyzeNamedRef(
 				return transitionIntent{}, false
 			}
 		}
-		return transitionIntent{activateKey: sym.QualifiedName()}, true
+		return transitionIntent{activateKey: sym.Name}, true
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(
 		ctx.AST,
@@ -1379,13 +1373,14 @@ func tryAnalyzeFmtStrLiteral(
 	body, _, _ := literal.StripQuotes(strTerm.GetText())
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
+	// Renamed so the compiler resolves the synthetic's scope by function key.
+	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body, AST: literalCtx},
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
-		Symbol:   sym,
 	})
 	n := ir.Node{
 		Key:      key,
@@ -1462,7 +1457,7 @@ func lowerSynthNode[T antlr.ParserRuleContext](
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
-		Type:     sym.QualifiedName(),
+		Type:     sym.Name,
 		Channels: sym.Channels.Copy(),
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
@@ -1482,9 +1477,7 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	triggered bool,
 ) {
 	for i, p := range n.Inputs {
-		// A lifted input carries the name its expression reads, such as m.doubled.
-		head, tail, _ := strings.Cut(p.Name, ".")
-		vsym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		vsym, err := ctx.Scope.Resolve(ctx, p.Name)
 		if err != nil {
 			continue
 		}
@@ -1558,19 +1551,6 @@ func analyze(
 	module bool,
 	cfgs []parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	u, diag := analyzeUnit(ctx, t, root, module, cfgs)
-	return u.ir, diag
-}
-
-// analyzeUnit lowers t into a unit. An automation links the modules its root
-// loaded. A module lowers alone, so each module enters a program once.
-func analyzeUnit(
-	ctx context.Context,
-	t Text,
-	root *symbol.Symbol,
-	module bool,
-	cfgs []parser.Config,
-) (unit, *diagnostics.Diagnostics) {
 	var (
 		aCtx = acontext.NewRoot(ctx, t.AST, root).
 			WithConfig(parser.ConfigOf(cfgs...)).
@@ -1585,7 +1565,7 @@ func analyzeUnit(
 	analyzer.AnalyzeProgram(aCtx)
 	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return unit{ir: i}, aCtx.Diagnostics
+		return i, aCtx.Diagnostics
 	}
 
 	for _, c := range i.Symbols.Children() {
@@ -1601,29 +1581,16 @@ func analyzeUnit(
 			bodyAst = fnDecl.Block()
 		}
 		i.Functions = append(i.Functions, ir.Function{
-			Key:      c.QualifiedName(),
+			Key:      c.Name,
 			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
 			Inputs:   c.Type.Inputs,
 			Outputs:  c.Type.Outputs,
 			Channels: c.Channels,
-			Symbol:   c,
 		})
 	}
-	kg := newKeyGenerator(&i.Functions, root.Name)
+	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
 	collectVarNodes(aCtx.Scope.Root(), kg, shell)
-	// Every unit reads the variable nodes of the modules loaded before it. Only an
-	// automation links their code.
-	var deps, units []*unit
-	if l := loaderOf(root); l != nil {
-		deps = l.loaded()
-	}
-	for _, u := range deps {
-		maps.Copy(shell.varNodes, u.varNodes)
-	}
-	if !module {
-		units = deps
-	}
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -1639,7 +1606,7 @@ func analyzeUnit(
 		if decl := item.VariableDeclaration(); decl != nil {
 			e, ok := lowerVarDecl(aCtx.Child(decl), kg, shell)
 			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			// The init node and register precede the flows that read them.
 			if e.init != nil {
@@ -1656,7 +1623,7 @@ func analyzeUnit(
 				shell,
 			)
 			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			for _, n := range nodes {
 				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
@@ -1671,7 +1638,7 @@ func analyzeUnit(
 				shell,
 			)
 			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
 			i.Nodes = append(i.Nodes, nodes...)
@@ -1683,7 +1650,7 @@ func analyzeUnit(
 				shell,
 			)
 			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
 			i.Nodes = append(i.Nodes, nodes...)
@@ -1695,11 +1662,10 @@ func analyzeUnit(
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 
-	// A reassigned variable's dispatcher gains its union channel triggers. A
-	// loaded module's dispatchers already carry theirs.
+	// A reassigned variable's dispatcher gains its union channel triggers.
 	disps := make([]*dispatcher, 0, len(shell.varNodes))
-	for sym, e := range shell.varNodes {
-		if e.disp != nil && sym.Root() == root {
+	for _, e := range shell.varNodes {
+		if e.disp != nil {
 			disps = append(disps, e.disp)
 		}
 	}
@@ -1757,7 +1723,6 @@ func analyzeUnit(
 	if len(shell.activations) > 0 {
 		bindActivations(&i.Root)
 	}
-	link(&i, units, shell, bound)
 	// Safety net: analyzeNamedRef should reject any `=> X` whose X is
 	// neither an enclosing-sequence member nor a top-level scope, so every
 	// registered activation should bind. If one does not, something upstream
@@ -1774,34 +1739,19 @@ func analyzeUnit(
 	}
 
 	if len(i.Nodes) > 0 {
-		// A module's edges reach the variable nodes of the modules it imports,
-		// so it is checked beside them and keeps only its own nodes after.
-		own, ownEdges := len(i.Nodes), len(i.Edges)
-		if module {
-			for _, u := range deps {
-				i.Nodes = append(i.Nodes, u.ir.Nodes...)
-				i.Edges = append(i.Edges, u.ir.Edges...)
-			}
-		}
-		ok := analyzer.ResolveNodeTypes(
+		if !analyzer.ResolveNodeTypes(
 			i.Nodes,
 			i.Edges,
 			aCtx.Constraints,
 			aCtx.Diagnostics,
-		)
-		var d *diagnostics.Diagnostics
-		if ok {
-			d = stratifier.Stratify(ctx, &i, aCtx.Diagnostics)
+		) {
+			return i, aCtx.Diagnostics
 		}
-		i.Nodes, i.Edges = i.Nodes[:own:own], i.Edges[:ownEdges:ownEdges]
-		if !ok {
-			return unit{ir: i}, aCtx.Diagnostics
-		}
-		if d != nil && !d.Ok() {
-			return unit{ir: i}, d
+		if d := stratifier.Stratify(ctx, &i, aCtx.Diagnostics); d != nil && !d.Ok() {
+			return i, d
 		}
 	}
-	return unit{ir: i, varNodes: shell.varNodes}, aCtx.Diagnostics
+	return i, aCtx.Diagnostics
 }
 
 type flowChainProcessor struct {
@@ -1916,9 +1866,8 @@ func headVarReads[T antlr.ParserRuleContext](
 	}
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
-		for _, pe := range parser.CollectNamedPrimaries(arg.Expr) {
-			head, tail := parser.PrimaryNameParts(pe)
-			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		for _, name := range parser.CollectIdentifiers(arg.Expr) {
+			sym, err := ctx.Scope.Resolve(ctx, name)
 			if err != nil || !isExprReadVar(sym) {
 				continue
 			}
@@ -2230,8 +2179,8 @@ func extractInputValues(
 		// Top-level literal variables cannot be reassigned, so they inline; so
 		// does any literal variable with no write sites in the source. Any
 		// other value variable stamps a var ref to its node instead.
-		if head, tail := parser.ExpressionNameParts(expr); head != "" {
-			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		if id := parser.BareIdentifier(expr); id != nil {
+			sym, err := ctx.Scope.Resolve(ctx, id.GetText())
 			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
 				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 					t := sym.Type.UnwrapChan()
@@ -2599,7 +2548,7 @@ func analyzeSequence(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	seqName := seqScope.QualifiedName()
+	seqName := seqScope.Name
 	liveness := ir.LivenessAlways
 	if ctx.AST.IDENTIFIER() != nil {
 		liveness = ir.LivenessGated
@@ -2776,7 +2725,7 @@ func analyzeTopLevelStage(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	scope.Key = stageSym.QualifiedName()
+	scope.Key = stageSym.Name
 	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }
