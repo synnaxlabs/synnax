@@ -105,10 +105,11 @@ The downgrade check still runs.
 
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
 one it names, writes its version to `VERSION`, and prints the Core version to run. With
-no name, it refuses when `VERSION` already holds the newest backup's version: the last
-update is already undone. Data with no `VERSION` file gives a backup named
-`<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the Core to run,
-and a second undo sees the missing file as `unknown` and refuses.
+no name, when `VERSION` already holds the newest backup's version, the last update is
+already undone and the undo restores no data. It puts back `<binary>.old` when that
+binary is the backup's version (§3.2), and refuses if not. Data with no `VERSION` file
+gives a backup named `<unix seconds>-unknown`. Its undo removes `VERSION` and cannot
+name the Core to run, and a second undo sees the missing file as `unknown` and refuses.
 `synnax update history` lists the backups. An undo writes a marker first and removes it
 last. While the marker exists, the Core does not start and tells the user to run the
 undo again. It moves aside the Cesium directory of each channel that has no `meta.json`
