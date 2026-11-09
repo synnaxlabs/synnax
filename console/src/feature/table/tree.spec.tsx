@@ -25,7 +25,7 @@ import { Table } from "@/feature/table";
 import { client, createPreloadedState, project } from "@/feature/table/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createResource,
@@ -78,11 +78,11 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const itemID = List.itemNameID(resource.idToString(ids[0]));
   render(
-    <>
+    <Tree.Provider items={Table.TREE_ITEMS}>
       <Menu {...props} />
       <Text.MaybeEditable id={itemID} value={tables[0].name} onChange={() => {}} />
       <Modals.Stack />
-    </>,
+    </Tree.Provider>,
     { wrapper },
   );
   return { store, props, itemID };
@@ -186,7 +186,7 @@ describe("table/tree", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientTable.resourceID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Table"));
+      const items = Item.haulItems(createResource(id, "My Table"), client);
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");
     });

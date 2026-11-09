@@ -54,16 +54,11 @@ const apply = (
 ): schematic.Schematic => schematic.reduceAll(state, actions).next;
 
 describe("schematic reducer", () => {
-  describe("rename", () => {
-    it("should set the schematic name to the payload name", () => {
+  describe("set of the name", () => {
+    it("should set the schematic name to the value", () => {
       const state = empty({ name: "old" });
-      const out = apply(state, schematic.rename({ name: "new" }));
+      const out = apply(state, schematic.set({ path: ["name"], value: "new" }));
       expect(out.name).toEqual("new");
-    });
-    it("should accept an empty name", () => {
-      const state = empty({ name: "old" });
-      const out = apply(state, schematic.rename({ name: "" }));
-      expect(out.name).toEqual("");
     });
     it("should leave nodes, edges, and configs untouched", () => {
       const state = empty({
@@ -72,7 +67,7 @@ describe("schematic reducer", () => {
         edges: [edge("e1", "a", "o", "b", "i")],
         configs: { n1: tank("Pump") },
       });
-      const out = apply(state, schematic.rename({ name: "new" }));
+      const out = apply(state, schematic.set({ path: ["name"], value: "new" }));
       expect(out.nodes).toEqual(state.nodes);
       expect(out.edges).toEqual(state.edges);
       expect(out.configs).toEqual(state.configs);
@@ -622,10 +617,16 @@ describe("schematic reducer", () => {
       },
     );
 
-    it("should throw for a path outside the element configs", () => {
-      expect(() => apply(empty(), set(["name"], "Other"))).toThrow(
-        "name is not inside an entry of configs",
+    it("should throw for a path to the element configs map", () => {
+      expect(() => apply(empty(), set(["configs"], {}))).toThrow(
+        "configs is not inside an entry of configs",
       );
+    });
+
+    it("should not classify a set of the name as a config edit", () => {
+      expect(
+        schematic.kindOf([set(["name"], "Other"), set(["configs", "n1", "label"], {})]),
+      ).toEqual("transaction");
     });
   });
 
@@ -702,8 +703,17 @@ describe("schematic reducer", () => {
       expect(schematic.kindOf([move, ...single])).toEqual("move");
     });
 
-    it("should classify a rename by its own type", () => {
-      expect(schematic.kindOf([schematic.rename({ name: "New" })])).toEqual("rename");
+    it("should classify a set of the name by its own type", () => {
+      expect(
+        schematic.kindOf([schematic.set({ path: ["name"], value: "New" })]),
+      ).toEqual("set");
+    });
+
+    it("should not classify a set of the name that rides on a move as a move", () => {
+      const move = schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } });
+      expect(
+        schematic.kindOf([move, schematic.set({ path: ["name"], value: "New" })]),
+      ).toEqual("transaction");
     });
   });
 
@@ -869,19 +879,21 @@ describe("schematic reducer inverses", () => {
     expect(restored).toEqual(state);
   };
 
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should invert to restore the prior name", () => {
       const state = empty({ name: "old" });
-      expectRoundTrip(state, [schematic.rename({ name: "new" })]);
+      expectRoundTrip(state, [schematic.set({ path: ["name"], value: "new" })]);
     });
-    it("should round-trip when renaming to the same name", () => {
+    it("should round-trip when setting the same name", () => {
       const state = empty({ name: "same" });
-      expectRoundTrip(state, [schematic.rename({ name: "same" })]);
+      expectRoundTrip(state, [schematic.set({ path: ["name"], value: "same" })]);
     });
-    it("should report the schematic key as a target so concurrent renames invalidate each other", () => {
+    it("should target the name so concurrent sets of it invalidate each other", () => {
       const state = empty({ name: "a" });
-      const { targets } = schematic.reduceAll(state, [schematic.rename({ name: "b" })]);
-      expect(targets).toEqual([state.key]);
+      const { targets } = schematic.reduceAll(state, [
+        schematic.set({ path: ["name"], value: "b" }),
+      ]);
+      expect(targets).toEqual(["name"]);
     });
   });
 
@@ -1205,56 +1217,34 @@ describe("schematic reducer inverses", () => {
   });
 });
 
-describe("setGroup", () => {
+describe("group and project patches", () => {
   const G1 = "11111111-1111-4111-8111-111111111111";
   const G2 = "22222222-2222-4222-8222-222222222222";
   it("should move the document into the group", () => {
     const doc = empty();
     expect(
-      schematic.reduceAll(doc, [schematic.setGroup({ group: G1 })]).next.group,
+      schematic.reduceAll(doc, [schematic.set({ path: ["group"], value: G1 })]).next
+        .group,
     ).toEqual(G1);
   });
   it("should move the document out of its group", () => {
     const doc = empty({ group: G1 });
     expect(
-      schematic.reduceAll(doc, [schematic.setGroup({})]).next.group,
+      schematic.reduceAll(doc, [schematic.remove({ key: "group" })]).next.group,
     ).toBeUndefined();
   });
   it("should restore the previous group through its inverse", () => {
     const doc = empty({ group: G1 });
     const { next, inverse } = schematic.reduceAll(doc, [
-      schematic.setGroup({ group: G2 }),
+      schematic.set({ path: ["group"], value: G2 }),
     ]);
     expect(schematic.reduceAll(next, inverse).next.group).toEqual(G1);
   });
-  it("should target nothing, so it never enters the undo stack", () => {
-    const doc = empty();
-    expect(
-      schematic.reduceAll(doc, [schematic.setGroup({ group: G1 })]).targets,
-    ).toEqual([]);
-  });
-});
-
-describe("setProject", () => {
-  const P1 = "11111111-1111-4111-8111-111111111111";
-  const P2 = "22222222-2222-4222-8222-222222222222";
   it("should move the document into the project", () => {
-    const doc = empty({ project: P1 });
+    const doc = empty({ project: G1 });
     expect(
-      schematic.reduceAll(doc, [schematic.setProject({ project: P2 })]).next.project,
-    ).toEqual(P2);
-  });
-  it("should restore the previous project through its inverse", () => {
-    const doc = empty({ project: P1 });
-    const { next, inverse } = schematic.reduceAll(doc, [
-      schematic.setProject({ project: P2 }),
-    ]);
-    expect(schematic.reduceAll(next, inverse).next.project).toEqual(P1);
-  });
-  it("should target nothing, so it never enters the undo stack", () => {
-    const doc = empty();
-    expect(
-      schematic.reduceAll(doc, [schematic.setProject({ project: P1 })]).targets,
-    ).toEqual([]);
+      schematic.reduceAll(doc, [schematic.set({ path: ["project"], value: G2 })]).next
+        .project,
+    ).toEqual(G2);
   });
 });

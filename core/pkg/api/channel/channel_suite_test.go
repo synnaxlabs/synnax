@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -85,7 +86,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(
-		bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}),
+		bind.NewService(bind.ServiceConfig{
+			DB:   db,
+			RBAC: rbacSvc,
+			Held: apiauth.HeldTables(),
+		}),
 	)
 	createChannels = bind.Write(binder, apiSvc.Create)
 	deleteChannels = bind.Write(binder, apiSvc.Delete)

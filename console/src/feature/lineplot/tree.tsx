@@ -39,6 +39,8 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.lineplots.retrieve(key);
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
@@ -68,6 +70,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
@@ -76,7 +79,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               handleLink({ name: getResource(firstID).name, resourceID: firstID })
             }
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -95,7 +98,7 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
-  type: "lineplot",
+  linkable: true,
   icon: <Icon.LinePlot />,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],

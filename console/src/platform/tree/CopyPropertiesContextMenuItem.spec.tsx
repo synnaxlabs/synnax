@@ -29,6 +29,7 @@ const client = createTestClient();
 const renderCopyItem = async (
   ids: resource.ID[],
   resources: Tree.Resource[],
+  properties: unknown = {},
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
@@ -38,7 +39,10 @@ const renderCopyItem = async (
   };
   await renderWithConsole(
     <PMenu.Menu>
-      <Tree.CopyPropertiesContextMenuItem {...props} />
+      <Tree.CopyPropertiesContextMenuItem
+        {...props}
+        retrieve={async () => await Promise.resolve(properties)}
+      />
     </PMenu.Menu>,
     { store },
   );
@@ -47,15 +51,15 @@ const renderCopyItem = async (
 describe("CopyPropertiesContextMenuItem", () => {
   const chID = resource.idZ.parse("channel:1");
   const properties = { rate: 25, virtual: false };
-  const ch = createResource(chID, "my_channel", properties);
+  const ch = createResource(chID, "my_channel");
   let writeText: Mock;
 
   beforeEach(() => {
     writeText = stubClipboardWriteText();
   });
 
-  it("should copy the resource's properties as JSON when clicked", async () => {
-    await renderCopyItem([chID], [ch]);
+  it("should copy the retrieved properties as JSON when clicked", async () => {
+    await renderCopyItem([chID], [ch], properties);
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
@@ -64,11 +68,11 @@ describe("CopyPropertiesContextMenuItem", () => {
 
   it("should copy properties that hold a timestamp", async () => {
     const rackID = resource.idZ.parse("rack:65537");
-    const rack = createResource(rackID, "my_rack", {
+    const rack = createResource(rackID, "my_rack");
+    await renderCopyItem([rackID], [rack], {
       key: 65537,
       status: { time: new TimeStamp(1000n) },
     });
-    await renderCopyItem([rackID], [rack]);
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith('{"key":65537,"status":{"time":"1000"}}'),
@@ -77,7 +81,7 @@ describe("CopyPropertiesContextMenuItem", () => {
 
   it("should render nothing when more than one resource is selected", async () => {
     const otherID = resource.idZ.parse("channel:2");
-    const other = createResource(otherID, "other_channel", {});
+    const other = createResource(otherID, "other_channel");
     await renderCopyItem([chID, otherID], [ch, other]);
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
