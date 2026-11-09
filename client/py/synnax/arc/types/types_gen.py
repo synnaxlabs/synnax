@@ -145,7 +145,7 @@ class Param(BaseModel):
 
     name: str
     type: Type
-    value: JsonValue
+    value: JsonValue = None
 
 
 Params: TypeAlias = list[Param]

@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1563,12 +1564,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Rename", Ordered, func() {
 		var (
-			db  *gorp.DB
-			svc *channel.Service
+			dist testutil.Node
+			db   *gorp.DB
+			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist := testutil.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
@@ -1670,6 +1672,30 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[1].Name).To(Equal(names[1]))
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
+			It(
+				"Should send the renames of several writers to storage in one call",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
+					first, second := UniqueChannelName(), UniqueChannelName()
+					var stored ts.Channel
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := svc.NewWriter(tx).
+							Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						// This hook runs before any hook that the second writer adds.
+						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
+							stored, err = dist.Storage.TS.RetrieveChannel(
+								ctx,
+								keys[1].StorageKey(),
+							)
+							return err
+						})
+						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
+					})).To(Succeed())
+					Expect(stored.Name).To(Equal(second))
+				},
+			)
 		})
 	})
 

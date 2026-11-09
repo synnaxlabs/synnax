@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -167,6 +168,28 @@ var _ = Describe("Layer", func() {
 			Where(group.MatchKeys(key)).
 			Entry(&group.Group{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should rename several channels in storage in one batch", func(ctx SpecContext) {
+		u := newUser(ctx, resource.TypeChannel)
+		keys := MustSucceed(CreateVirtual(ctx, db, svc.Channel, 2))
+		names := []string{UniqueChannelName(), UniqueChannelName()}
+		MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+			{"endpoint": "/channel/dispatch", "payload": {"key": %d, "actions": [
+				{"type": "rename", "rename": {"name": %q}}
+			]}},
+			{"endpoint": "/channel/dispatch", "payload": {"key": %d, "actions": [
+				{"type": "rename", "rename": {"name": %q}}
+			]}}
+		]}`, keys[0], names[0], keys[1], names[1])))
+		stored := MustSucceed(node.Storage.TS.RetrieveChannels(
+			ctx,
+			keys[0].StorageKey(),
+			keys[1].StorageKey(),
+		))
+		Expect(stored).To(HaveLen(2))
+		Expect(stored[0].Name).To(Equal(names[0]))
+		Expect(stored[1].Name).To(Equal(names[1]))
 	})
 
 	Describe("Dispatch entries", func() {
