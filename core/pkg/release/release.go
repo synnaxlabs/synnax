@@ -30,7 +30,7 @@ import (
 // Config sets where Download gets release files and the key that checks them.
 type Config struct {
 	// URL is the base URL of the release files: <URL>/<product>/v<version>/<name> holds
-	// a file, and the same URL plus .sig holds its signature.
+	// a File, and the same URL plus .sig holds its signature.
 	URL string
 	// PublicKey is the minisign public key that checks each signature.
 	PublicKey string
@@ -61,6 +61,47 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Product is a Synnax product that has release files.
+type Product string
+
+const (
+	// Core is the Synnax Core.
+	Core Product = "core"
+	// Driver is the Synnax Driver.
+	Driver Product = "driver"
+)
+
+// Platform is an operating system that release files run on.
+type Platform string
+
+const (
+	Linux     Platform = "linux"
+	MacOS     Platform = "macos"
+	Windows   Platform = "windows"
+	NILinuxRT Platform = "nilinuxrt"
+)
+
+// File is the binary of a product release for one platform.
+type File struct {
+	Product  Product
+	Version  string
+	Platform Platform
+}
+
+// Name returns the name of the file in its release, such as synnax-v0.61.0-linux or
+// synnax-driver-v0.61.0-windows.exe.
+func (f File) Name() string {
+	prefix := "synnax"
+	if f.Product == Driver {
+		prefix = "synnax-driver"
+	}
+	name := fmt.Sprintf("%s-v%s-%s", prefix, f.Version, f.Platform)
+	if f.Platform == Windows {
+		name += ".exe"
+	}
+	return name
+}
+
 var (
 	// ErrNotFound is returned when a release has no file of the given name.
 	ErrNotFound = errors.Wrap(query.ErrNotFound, "release file not found")
@@ -71,16 +112,11 @@ var (
 // maxSignatureSize is far above the size of a signature file, about 500 bytes.
 const maxSignatureSize = 4096
 
-// Download downloads the file name of the release of product at version to dst, with
-// mode 0600, and checks the file against its signature. A signature file holds the
-// base64 text of a minisign signature, as the Tauri signer writes it, and its trusted
-// comment must name the file. Download returns the error of cfg.Validate first. On any
-// error, Download removes dst.
-func Download(
-	ctx context.Context,
-	cfg Config,
-	product, version, name, dst string,
-) (err error) {
+// Download downloads file to dst, with mode 0600, and checks it against its signature.
+// A signature file holds the base64 text of a minisign signature, as the Tauri signer
+// writes it, and its trusted comment must name the file. Download returns the error of
+// cfg.Validate first. On any error, Download removes dst.
+func Download(ctx context.Context, cfg Config, file File, dst string) (err error) {
 	if err = cfg.Validate(); err != nil {
 		return err
 	}
@@ -88,7 +124,8 @@ func Download(
 	if err = key.UnmarshalText([]byte(cfg.PublicKey)); err != nil {
 		return err
 	}
-	url := fmt.Sprintf("%s/%s/v%s/%s", cfg.URL, product, version, name)
+	name := file.Name()
+	url := fmt.Sprintf("%s/%s/v%s/%s", cfg.URL, file.Product, file.Version, name)
 	sigBody, err := fetch(ctx, url+".sig", cfg.StallTimeout)
 	if err != nil {
 		return err

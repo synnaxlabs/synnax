@@ -42,13 +42,14 @@ func fromRelease(
 	if !ok || err != nil {
 		return err
 	}
-	name := releaseName(to)
+	file := release.File{Product: release.Core, Version: to, Platform: hostPlatform()}
+	name := file.Name()
 	if err = printLines(w, fmt.Sprintf("Downloading Core %s.", to)); err != nil {
 		return err
 	}
 	staged := inst.Binary + stagedSuffix
 	defer func() { err = errors.Combine(err, removeStaged(staged)) }()
-	if err = release.Download(ctx, cfg, "core", to, name, staged); err != nil {
+	if err = release.Download(ctx, cfg, file, staged); err != nil {
 		if errors.Is(err, release.ErrNotFound) {
 			return errors.Newf(
 				"Core %s has no signed release file %s. Check the version.",
@@ -75,15 +76,10 @@ func fromRelease(
 	return cur.apply(ctx, w, staged, to, timeout)
 }
 
-// releaseName returns the name of the release file of Core v for this computer.
-func releaseName(v string) string {
-	platform := runtime.GOOS
-	if platform == "darwin" {
-		platform = "macos"
+// hostPlatform returns the platform of this computer.
+func hostPlatform() release.Platform {
+	if runtime.GOOS == "darwin" {
+		return release.MacOS
 	}
-	name := fmt.Sprintf("synnax-v%s-%s", v, platform)
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	return name
+	return release.Platform(runtime.GOOS)
 }

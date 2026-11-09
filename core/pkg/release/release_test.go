@@ -26,8 +26,52 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// tauriPublicKey is a test key. The Tauri signer wrote testdata/file.sig with it.
-const tauriPublicKey = "RWTHN9nA4VXGAgEjq/Lfm/g1xdDH9Z14A87x+XPsx++zKtO/IxXxRDh7"
+// tauriPublicKey checks the signature that the Tauri signer wrote in testdata.
+const tauriPublicKey = "RWRRsY/BPpfX8HpNVFnDOkch4FDlN5KF049Ajgsjg6NbCfFUaOgiGuxK"
+
+var file = release.File{
+	Product:  release.Core,
+	Version:  "0.61.0",
+	Platform: release.Linux,
+}
+
+var _ = DescribeTable(
+	"File.Name",
+	func(f release.File, name string) { Expect(f.Name()).To(Equal(name)) },
+	Entry("Core on Linux", file, "synnax-v0.61.0-linux"),
+	Entry(
+		"Core on macOS",
+		release.File{Product: release.Core, Version: "0.61.0", Platform: release.MacOS},
+		"synnax-v0.61.0-macos",
+	),
+	Entry(
+		"Core on Windows",
+		release.File{
+			Product:  release.Core,
+			Version:  "0.61.0",
+			Platform: release.Windows,
+		},
+		"synnax-v0.61.0-windows.exe",
+	),
+	Entry(
+		"Driver on NI Linux RT",
+		release.File{
+			Product:  release.Driver,
+			Version:  "0.61.0",
+			Platform: release.NILinuxRT,
+		},
+		"synnax-driver-v0.61.0-nilinuxrt",
+	),
+	Entry(
+		"Driver on Windows",
+		release.File{
+			Product:  release.Driver,
+			Version:  "0.61.0",
+			Platform: release.Windows,
+		},
+		"synnax-driver-v0.61.0-windows.exe",
+	),
+)
 
 var _ = Describe("Config", func() {
 	It("Should accept the default config", func() {
@@ -79,48 +123,55 @@ var _ = Describe("Download", func() {
 		Expect(os.WriteFile(path, data, 0o644)).To(Succeed())
 	}
 
+	name := file.Name()
+
 	download := func(ctx context.Context) error {
-		return release.Download(ctx, cfg, "core", "0.61.0", "synnax", dst)
+		return release.Download(ctx, cfg, file, dst)
 	}
 
 	It("Should download a file that matches its signature", func(ctx SpecContext) {
-		write("synnax", []byte("core"))
-		write("synnax.sig", signer.Sign("synnax", []byte("core")))
+		write(name, []byte("core"))
+		write(name+".sig", signer.Sign(name, []byte("core")))
 		Expect(download(ctx)).To(Succeed())
 		Expect(os.ReadFile(dst)).To(Equal([]byte("core")))
 		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(os.FileMode(0o600)))
 	})
 
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {
-		write("file", MustSucceed(os.ReadFile("testdata/file")))
-		write("file.sig", MustSucceed(os.ReadFile("testdata/file.sig")))
+		write(name, MustSucceed(os.ReadFile(filepath.Join("testdata", name))))
+		write(
+			name+".sig",
+			MustSucceed(os.ReadFile(filepath.Join("testdata", name+".sig"))),
+		)
 		cfg.PublicKey = tauriPublicKey
-		Expect(release.Download(ctx, cfg, "core", "0.61.0", "file", dst)).To(Succeed())
+		Expect(download(ctx)).To(Succeed())
 	})
 
 	DescribeTable(
 		"Should reject a file that its signature does not check",
 		func(ctx SpecContext, data, signature func() []byte) {
-			write("synnax", data())
-			write("synnax.sig", signature())
+			write(name, data())
+			write(name+".sig", signature())
 			Expect(download(ctx)).To(MatchError(release.ErrSignature))
 			Expect(dst).ToNot(BeAnExistingFile())
 		},
 		Entry(
 			"signed under another name",
 			func() []byte { return []byte("core") },
-			func() []byte { return signer.Sign("synnax-driver", []byte("core")) },
+			func() []byte {
+				return signer.Sign("synnax-driver-v0.61.0-linux", []byte("core"))
+			},
 		),
 		Entry(
 			"changed after signing",
 			func() []byte { return []byte("changed core") },
-			func() []byte { return signer.Sign("synnax", []byte("core")) },
+			func() []byte { return signer.Sign(name, []byte("core")) },
 		),
 		Entry(
 			"signed with another key",
 			func() []byte { return []byte("core") },
 			func() []byte {
-				return testutil.NewSigner().Sign("synnax", []byte("core"))
+				return testutil.NewSigner().Sign(name, []byte("core"))
 			},
 		),
 		Entry(
@@ -133,7 +184,7 @@ var _ = Describe("Download", func() {
 	It(
 		"Should return ErrNotFound when the release has no file of the name",
 		func(ctx SpecContext) {
-			write("synnax.sig", signer.Sign("synnax", []byte("core")))
+			write(name+".sig", signer.Sign(name, []byte("core")))
 			Expect(download(ctx)).To(SatisfyAll(
 				MatchError(release.ErrNotFound),
 				MatchError(query.ErrNotFound),
@@ -145,7 +196,7 @@ var _ = Describe("Download", func() {
 	It(
 		"Should return ErrNotFound when the file has no signature",
 		func(ctx SpecContext) {
-			write("synnax", []byte("core"))
+			write(name, []byte("core"))
 			Expect(download(ctx)).To(MatchError(release.ErrNotFound))
 			Expect(dst).ToNot(BeAnExistingFile())
 		},
@@ -166,7 +217,7 @@ var _ = Describe("Download", func() {
 				func(w http.ResponseWriter, r *http.Request) {
 					defer GinkgoRecover()
 					if strings.HasSuffix(r.URL.Path, ".sig") {
-						MustSucceed(w.Write(signer.Sign("synnax", data)))
+						MustSucceed(w.Write(signer.Sign(name, data)))
 						return
 					}
 					file(w, r)
