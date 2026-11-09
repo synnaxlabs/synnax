@@ -258,6 +258,15 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 				Observable: s.table.Observe(),
 				Translate:  moduleChanged,
 			},
+			observe.Translator[gorp.TxReader[directory.Key, directory.Directory], struct{}]{
+				Observable: s.directories.Observe(),
+				Translate: func(
+					context.Context,
+					gorp.TxReader[directory.Key, directory.Directory],
+				) (struct{}, bool) {
+					return struct{}{}, true
+				},
+			},
 		),
 	})
 }

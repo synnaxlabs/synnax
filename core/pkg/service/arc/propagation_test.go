@@ -761,5 +761,28 @@ var _ = Describe("Change propagation", Ordered, func() {
 			overwrite(ctx, m, "export func g() i64 { return 1 }")
 			Eventually(client.Diagnostics).ShouldNot(BeEmpty())
 		})
+
+		It("Should republish an importer's diagnostics on a directory rename", func(
+			ctx SpecContext,
+		) {
+			d := createDirectory(ctx, "pt_lib", root)
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			move(ctx, m, d.Key)
+			server := MustSucceed(svc.NewLSP(lspConfig))
+			DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
+			client := &MockClient{}
+			server.SetClient(client)
+			OpenArcDocument(
+				server,
+				ctx,
+				uri.URI("file:///pt_a.arc"),
+				"import pt_lib.pt_m\n\npt_trig -> pt_m.f() -> pt_out",
+			)
+			Expect(client.Diagnostics()).To(BeEmpty())
+			Expect(write(ctx, func(w arc.Writer) error {
+				return w.RenameDirectory(ctx, d.Key, "pt_core")
+			})).To(Succeed())
+			Eventually(client.Diagnostics).ShouldNot(BeEmpty())
+		})
 	})
 })
