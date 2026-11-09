@@ -172,6 +172,40 @@ describe("Secret", () => {
       }
     });
 
+    it("should read fresh uses in a list for a secret created again", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      const usesOf = (key: secret.Key) =>
+        list.getCached()?.records.find((r) => r.key === key)?.uses;
+      try {
+        const c = await client.certificates.create({
+          name: "Recreated key",
+          source: "stored",
+          pem: PEM,
+          privateKeyPem: PRIVATE_KEY,
+        });
+        assert(c.source === "stored" && c.privateKey != null);
+        const { privateKey } = c;
+        await expect
+          .poll(() => usesOf(privateKey))
+          .toEqual([{ type: "certificate", key: c.key }]);
+        await client.certificates.delete(c.key);
+        await expect.poll(() => usesOf(privateKey)).toBeUndefined();
+        await client.secrets.create({
+          key: privateKey,
+          name: "Recreated key",
+          source: "stored",
+          value: "abc",
+        });
+        await expect.poll(() => usesOf(privateKey)).toEqual([]);
+      } finally {
+        off();
+      }
+    });
+
     it("should page a list that reads uses with a cursor", async () => {
       const client = createTestClient();
       const prefix = id.create();
