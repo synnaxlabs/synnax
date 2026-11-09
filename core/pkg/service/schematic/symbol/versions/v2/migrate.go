@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -42,8 +43,8 @@ func migrateSymbol(ctx context.Context, old v0.Symbol) (Symbol, error) {
 			return Symbol{}, errors.Wrap(err, "decode v0 symbol data")
 		}
 	}
-	out.ApplyDefaults()
-	return out, nil
+	// A v0 blob cannot tell an absent field from a zero one.
+	return defaults.Fill(out), nil
 }
 
 // SpecFromConsole lifts the frozen Console export's specification into the current
