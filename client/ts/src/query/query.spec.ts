@@ -999,6 +999,7 @@ describe("Answers", () => {
       const space = coveringSpace(
         table,
         async () => {
+          table.ingestDeletes(["a"], table.stamp());
           throw new NotFoundError("thing not found");
         },
         { onError },
@@ -1006,6 +1007,23 @@ describe("Answers", () => {
       const stop = space.onChange(qA, () => {});
       await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
       expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("reports a subscriber fetch that finds no record the table holds", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () => {
+          throw new NotFoundError("thing not found");
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).toHaveBeenCalledTimes(1);
       stop();
     });
 

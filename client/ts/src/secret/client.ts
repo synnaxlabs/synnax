@@ -262,8 +262,10 @@ export class Client extends query.Retriever<
         where: { key: { eq: key } },
         includeUses,
       });
-      if (secrets.length === 0)
+      if (secrets.length === 0) {
+        this.store.ingestDeletes([key], since);
         throw new NotFoundError(`secret with key ${key} not found`);
+      }
       this.store.ingest(secrets, { since });
       return key;
     }
