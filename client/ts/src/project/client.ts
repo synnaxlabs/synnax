@@ -27,7 +27,13 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/project/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/project/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
@@ -87,6 +93,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       name: "project",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (project, req) => matches(group.MEMBER_LINES, project, req.where),

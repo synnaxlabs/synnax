@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -222,7 +223,48 @@ var _ = Describe("Service", func() {
 				granted.ResourceID(),
 			))
 			res := MustSucceed(retrieve(fctx, apiuser.RetrieveRequest{}))
-			Expect(res.Users).To(HaveExactElements(HaveField("Key", granted.Key)))
+			Expect(res.Users).To(ConsistOf(
+				HaveField("Key", granted.Key),
+				HaveField("Key", u.Key),
+			))
+		})
+
+		Context("With no retrieve on users", func() {
+			var (
+				username, otherUsername string
+				u, other                user.User
+			)
+			BeforeEach(func(ctx SpecContext) {
+				username = "own-" + uuid.New().String()
+				otherUsername = "other-" + uuid.New().String()
+				u = createUser(ctx, username)
+				other = createUser(ctx, otherUsername)
+			})
+			It("Should retrieve the subject's own user by key", func(ctx SpecContext) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
+			It("Should retrieve the subject's own user by filter", func(
+				ctx SpecContext,
+			) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Usernames: []string{username}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
+			It("Should deny another user by key", func(ctx SpecContext) {
+				Expect(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &other.Key}},
+				})).Error().To(denied(u, access.ActionRetrieve, other.ResourceID()))
+			})
+			It("Should leave out another user by filter", func(ctx SpecContext) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Usernames: []string{username, otherUsername}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
 		})
 
 		It(
@@ -715,7 +757,7 @@ var _ = Describe("Service", func() {
 				owner := createUser(ctx, "owner-"+uuid.New().String())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return userSvc.NewWriter(tx).
-						SetRole(ctx, rbacSvc.Builtin.OwnerKey, nil, owner.Key)
+						SetRole(ctx, rbacSvc.Builtin.OwnerKey, owner.Key)
 				})).
 					To(Succeed())
 				Expect(setRole(rootCtx(ctx), apiuser.SetRoleRequest{
@@ -731,12 +773,77 @@ var _ = Describe("Service", func() {
 			r := createRole(ctx)
 			u := createUser(ctx, "by-role-"+uuid.New().String())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return userSvc.NewWriter(tx).SetRole(ctx, r, nil, u.Key)
+				return userSvc.NewWriter(tx).SetRole(ctx, r, u.Key)
 			})).To(Succeed())
 			res := MustSucceed(retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Where: &user.Where{Roles: []role.Key{r, uuid.New()}},
 			}))
 			Expect(res.Users).To(HaveExactElements(HaveField("Key", u.Key)))
+		})
+	})
+
+	Describe("Dispatch", func() {
+		set := func(path string, value any) user.Action {
+			return user.NewSetAction(
+				user.SetPayload{Path: []string{path}, Value: value},
+			)
+		}
+		request := func(key user.Key, acts ...user.Action) apiuser.DispatchRequest {
+			return apiuser.DispatchRequest{Key: key, Actions: acts}
+		}
+		It("Should apply the actions to the user", func(ctx SpecContext) {
+			u := createUser(ctx, "dispatch-"+uuid.New().String())
+			engineer := rbacSvc.Builtin.EngineerKey
+			MustSucceed(dispatch(
+				rootCtx(ctx),
+				request(u.Key, set("name", "Dispatched"), set("role", engineer)),
+			))
+			Expect(roleOf(ctx, u.Key)).To(Equal(engineer))
+		})
+		It(
+			"Should deny giving a role the subject cannot update",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				target := createUser(ctx, "dispatch-"+uuid.New().String())
+				grantRoleChange(ctx, u, roleOf(ctx, target.Key))
+				r := createRole(ctx)
+				Expect(dispatch(fctx, request(target.Key, set("role", r)))).Error().
+					To(beDeniedUpdateOn(r))
+			},
+		)
+		It("Should refuse to change the role of the root user", func(ctx SpecContext) {
+			fctx, u := nonRootCtx(ctx)
+			grantRoleChange(ctx, u, rbacSvc.Builtin.OwnerKey, rbacSvc.Builtin.ViewerKey)
+			Expect(dispatch(
+				fctx,
+				request(root.Key, set("role", rbacSvc.Builtin.ViewerKey)),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot change the role of root user")),
+			))
+		})
+		It(
+			"Should not reveal the root user to a subject that cannot update it",
+			func(ctx SpecContext) {
+				fctx, u := nonRootCtx(ctx)
+				Expect(dispatch(
+					fctx,
+					request(root.Key, set("role", rbacSvc.Builtin.ViewerKey)),
+				)).Error().To(SatisfyAll(
+					denied(u, access.ActionUpdate, root.ResourceID()),
+					Not(MatchError(ContainSubstring("root user"))),
+				))
+			},
+		)
+		It("Should reject a change of the subject's own username", func(
+			ctx SpecContext,
+		) {
+			fctx, u := nonRootCtx(ctx)
+			grantOnUsers(ctx, u, access.ActionUpdate)
+			Expect(dispatch(fctx, request(
+				u.Key,
+				user.NewSetUsernameAction(user.SetUsernamePayload{Username: "self"}),
+			))).Error().To(MatchError(ContainSubstring("change your own username")))
 		})
 	})
 

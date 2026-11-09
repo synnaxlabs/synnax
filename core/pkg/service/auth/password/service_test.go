@@ -279,9 +279,9 @@ var _ = Describe("Service", func() {
 			var first, second []password.Password
 			Expect(svc.NewRetrieve().Where(both).Limit(1).Entries(&first).
 				Exec(ctx, db)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(both).Limit(1).Offset(1).Entries(&second).
-				Exec(ctx, db)).To(Succeed())
 			Expect(first).To(HaveLen(1))
+			Expect(svc.NewRetrieve().Where(both).Limit(1).After(first[0].Key).
+				Entries(&second).Exec(ctx, db)).To(Succeed())
 			Expect(second).To(HaveLen(1))
 			Expect(first[0].Key).ToNot(Equal(second[0].Key))
 		})
@@ -291,7 +291,7 @@ var _ = Describe("Service", func() {
 			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
-					ChangePassword(ctx, alice, hash(svc, "changed"))
+					Apply(ctx, alice, password.NewSetHashAction(hash(svc, "changed")))
 			})).To(Succeed())
 			changed := MustSucceed(svc.Version(ctx, db, identity.Credential))
 			Expect(changed).To(BeNumerically(">", identity.Version))

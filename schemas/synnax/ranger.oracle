@@ -31,16 +31,18 @@ Range struct {
     name       string          {
         @doc value           "is a human-readable name for the range."
         @filter
+        @index sorted
         @patch
         @search
         @validate min_length 1
     }
     time_range telem.TimeRange {
-        @doc value """
+        @doc value    """
             is the temporal extent of the range, defining its start and end timestamps.
         """
+        @index sorted start
         @patch
-        @ts type   telem.TimeRangeBounded
+        @ts type      telem.TimeRangeBounded
     }
     color      color.Color?    {
         @doc value """

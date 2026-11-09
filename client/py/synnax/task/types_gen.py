@@ -28,6 +28,11 @@ from synnax.resource import ID
 from x import filter, telem
 from x.filter import shorthand
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
 
 
@@ -62,6 +67,18 @@ class KeyedConfig(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Order(BaseModel):
+    """Is a sort of tasks.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class LinearScale(BaseModel):
@@ -195,6 +212,18 @@ class Command(BaseModel):
     pinned: bool = False
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of tasks: the sort value and the key of a task.
+
+    Attributes:
+        key: Is the key of the task at the position.
+        name: Is the name of the task at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -234,8 +263,9 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the tasks to retrieve. An absent where selects all of them.
         search_term: Keeps the tasks that match the term, closest match first.
+        order: Sorts the tasks. An absent order sorts them by key.
+        after: Starts the tasks strictly past this position in their order.
         limit: Is the most tasks to return.
-        offset: Is the number of matching tasks to skip.
         include_status: Includes the status of each record.
     """
 
@@ -243,8 +273,9 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
 
 

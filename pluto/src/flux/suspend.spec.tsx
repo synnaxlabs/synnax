@@ -283,3 +283,69 @@ describe("invalidate", () => {
     await expectValue("second", 2);
   });
 });
+
+describe.each(["use", "useResult"] as const)("refresh with %s", (reader) => {
+  const mountRefreshed = async () => {
+    const answers: Answer[] = [];
+    const { use, useResult, useRefresh } = Flux.createRetrieve<{ key: string }, number>(
+      {
+        name: "Number",
+        retrieve: async () =>
+          await new Promise<number>((resolve, reject) =>
+            answers.push({ resolve, reject }),
+          ),
+      },
+    );
+    let refresh: (q: { key: string }) => void = () => {};
+    const Suspended = (): ReactElement => <div data-testid="value">{use(QUERY)}</div>;
+    const Result = (): ReactElement => (
+      <div data-testid="value">{useResult(QUERY).data ?? "loading"}</div>
+    );
+    const Refresh = (): null => {
+      refresh = useRefresh();
+      return null;
+    };
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Refresh />
+          <Errors.SuspenseBoundary loading={<div data-testid="value">loading</div>}>
+            {reader === "use" ? <Suspended /> : <Result />}
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+    const expectValue = async (value: string): Promise<void> => {
+      await waitFor(() => expect(utils.getByTestId("value").textContent).toBe(value));
+    };
+    await vi.waitFor(() => expect(answers).toHaveLength(1));
+    await act(async () => answers[0].resolve(1));
+    await expectValue("1");
+    return {
+      answers,
+      expectValue,
+      refresh: async () => await act(async () => refresh(QUERY)),
+    };
+  };
+
+  it("should keep the settled answer until the new one replaces it", async () => {
+    const { answers, expectValue, refresh } = await mountRefreshed();
+    await refresh();
+    expect(answers).toHaveLength(2);
+    await expectValue("1");
+    await act(async () => answers[1].resolve(2));
+    await expectValue("2");
+  });
+
+  it("should drop the answer of a fetch that a later refresh replaced", async () => {
+    const { answers, expectValue, refresh } = await mountRefreshed();
+    await refresh();
+    await refresh();
+    expect(answers).toHaveLength(3);
+    await act(async () => answers[2].resolve(3));
+    await expectValue("3");
+    await act(async () => answers[1].resolve(2));
+    await expectValue("3");
+  });
+});
