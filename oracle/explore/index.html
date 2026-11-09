@@ -1,0 +1,3499 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Oracle schema map</title>
+        <style>
+            :root {
+                --bg: #f6f7f9;
+                --panel: #ffffff;
+                --raised: #ffffff;
+                --sunken: #eef0f3;
+                --border: #e2e5ea;
+                --border-strong: #cdd2d9;
+                --text: #12161b;
+                --muted: #5a636f;
+                --faint: #8a929d;
+                --accent: #2f6fe4;
+                --accent-soft: rgba(47, 111, 228, 0.1);
+                --k-struct: #2f6fe4;
+                --k-union: #8a54e8;
+                --k-enum: #c98a12;
+                --k-alias: #11998a;
+                --k-distinct: #1b8fc2;
+                --k-filter: #6b7480;
+                --d-synnax: #2f6fe4;
+                --d-arc: #e0682b;
+                --d-x: #11998a;
+                --od-cascade: #e5484d;
+                --od-restrict: #d08a0b;
+                --od-detach: #8a929d;
+                --wire: #b9c0ca;
+                --shadow:
+                    0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.06);
+                --sans:
+                    "Inter", "Inter var", system-ui, -apple-system, "Segoe UI",
+                    sans-serif;
+                --mono:
+                    "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas,
+                    monospace;
+                color-scheme: light;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) {
+                    --bg: #0b0d10;
+                    --panel: #101317;
+                    --raised: #151920;
+                    --sunken: #0d1014;
+                    --border: #222831;
+                    --border-strong: #2f3742;
+                    --text: #e7e9ec;
+                    --muted: #98a1ad;
+                    --faint: #66707c;
+                    --accent: #5b93ff;
+                    --accent-soft: rgba(91, 147, 255, 0.14);
+                    --k-struct: #5b93ff;
+                    --k-union: #ac86ff;
+                    --k-enum: #f0b43c;
+                    --k-alias: #33c9b4;
+                    --k-distinct: #4cc0f0;
+                    --k-filter: #8b939e;
+                    --d-synnax: #5b93ff;
+                    --d-arc: #ff8a4c;
+                    --d-x: #33c9b4;
+                    --od-cascade: #ff6b6f;
+                    --od-restrict: #f0b43c;
+                    --od-detach: #7d8692;
+                    --wire: #3a4350;
+                    --shadow:
+                        0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+                    color-scheme: dark;
+                }
+            }
+            :root[data-theme="dark"] {
+                --bg: #0b0d10;
+                --panel: #101317;
+                --raised: #151920;
+                --sunken: #0d1014;
+                --border: #222831;
+                --border-strong: #2f3742;
+                --text: #e7e9ec;
+                --muted: #98a1ad;
+                --faint: #66707c;
+                --accent: #5b93ff;
+                --accent-soft: rgba(91, 147, 255, 0.14);
+                --k-struct: #5b93ff;
+                --k-union: #ac86ff;
+                --k-enum: #f0b43c;
+                --k-alias: #33c9b4;
+                --k-distinct: #4cc0f0;
+                --k-filter: #8b939e;
+                --d-synnax: #5b93ff;
+                --d-arc: #ff8a4c;
+                --d-x: #33c9b4;
+                --od-cascade: #ff6b6f;
+                --od-restrict: #f0b43c;
+                --od-detach: #7d8692;
+                --wire: #3a4350;
+                --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+                color-scheme: dark;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font: 14px/1.5 var(--sans);
+                -webkit-font-smoothing: antialiased;
+                display: grid;
+                grid-template-rows: 52px minmax(0, 1fr);
+                overflow: hidden;
+            }
+            a {
+                color: inherit;
+                text-decoration: none;
+            }
+            button {
+                font: inherit;
+                color: inherit;
+            }
+            code,
+            .mono {
+                font-family: var(--mono);
+                font-size: 0.92em;
+            }
+            svg.i {
+                width: 16px;
+                height: 16px;
+                flex: none;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 1.6;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+            /* Top bar */
+            .top {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 0 16px;
+                border-bottom: 1px solid var(--border);
+                background: var(--panel);
+                min-width: 0;
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 650;
+                letter-spacing: -0.01em;
+                white-space: nowrap;
+            }
+            .brand-mark {
+                width: 26px;
+                height: 26px;
+            }
+            .brand-sub {
+                color: var(--faint);
+                font-weight: 500;
+            }
+            .search-trigger {
+                flex: 0 1 420px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                height: 34px;
+                padding: 0 8px 0 12px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--sunken);
+                color: var(--faint);
+                cursor: pointer;
+                min-width: 0;
+            }
+            .search-trigger:hover {
+                border-color: var(--border-strong);
+                color: var(--muted);
+            }
+            .search-trigger span {
+                flex: 1;
+                text-align: left;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+            kbd {
+                font: 500 11px var(--sans);
+                padding: 2px 6px;
+                border: 1px solid var(--border);
+                border-bottom-width: 2px;
+                border-radius: 5px;
+                color: var(--muted);
+                background: var(--panel);
+            }
+            .top-actions {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .stats {
+                color: var(--faint);
+                font-size: 12px;
+                margin-right: 8px;
+                white-space: nowrap;
+            }
+            .icon-btn {
+                display: grid;
+                place-items: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 7px;
+                border: 1px solid transparent;
+                background: none;
+                color: var(--muted);
+                cursor: pointer;
+            }
+            .icon-btn:hover {
+                background: var(--sunken);
+                border-color: var(--border);
+                color: var(--text);
+            }
+            .icon-btn.spin svg {
+                animation: spin 0.8s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .menu {
+                display: none;
+            }
+
+            /* Shell */
+            .shell {
+                display: grid;
+                grid-template-columns: 272px minmax(0, 1fr);
+                min-height: 0;
+            }
+            .side {
+                border-right: 1px solid var(--border);
+                background: var(--panel);
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            .views {
+                padding: 10px 8px 6px;
+                display: grid;
+                gap: 2px;
+            }
+            .views a {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 7px 10px;
+                border-radius: 7px;
+                color: var(--muted);
+                font-weight: 500;
+            }
+            .views a:hover {
+                background: var(--sunken);
+                color: var(--text);
+            }
+            .views a.on {
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+            .side-filter {
+                padding: 6px 12px 4px;
+            }
+            .side-filter input {
+                width: 100%;
+                height: 32px;
+                padding: 0 10px;
+                border-radius: 7px;
+                border: 1px solid var(--border);
+                background: var(--sunken);
+                color: var(--text);
+                font: inherit;
+                font-size: 13px;
+                outline: none;
+            }
+            .side-filter input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
+            }
+            .kind-filter {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                padding: 6px 12px 10px;
+                border-bottom: 1px solid var(--border);
+            }
+            .kchip {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 2px 8px 2px 4px;
+                border-radius: 99px;
+                border: 1px solid var(--border);
+                background: none;
+                font-size: 11.5px;
+                color: var(--muted);
+                cursor: pointer;
+            }
+            .kchip.off {
+                opacity: 0.4;
+            }
+            .kchip:hover {
+                border-color: var(--border-strong);
+            }
+            .tree {
+                overflow: auto;
+                padding: 6px 6px 24px;
+                flex: 1;
+                min-height: 0;
+            }
+            .tree-domain {
+                margin: 12px 8px 4px;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--faint);
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .tree-domain i {
+                width: 6px;
+                height: 6px;
+                border-radius: 2px;
+            }
+            .tree details > summary {
+                list-style: none;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                color: var(--text);
+                font-weight: 500;
+                font-size: 13px;
+            }
+            .tree details > summary::-webkit-details-marker {
+                display: none;
+            }
+            .tree details > summary:hover {
+                background: var(--sunken);
+            }
+            .tree details > summary .chev {
+                width: 12px;
+                height: 12px;
+                color: var(--faint);
+                transition: transform 0.12s;
+            }
+            .tree details[open] > summary .chev {
+                transform: rotate(90deg);
+            }
+            .tree summary .count {
+                margin-left: auto;
+                color: var(--faint);
+                font-size: 11px;
+                font-weight: 500;
+            }
+            .tree summary a:hover {
+                color: var(--accent);
+            }
+            .tree-type {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 3px 8px 3px 26px;
+                border-radius: 6px;
+                font-family: var(--mono);
+                font-size: 12.5px;
+                color: var(--muted);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .tree-type:hover {
+                background: var(--sunken);
+                color: var(--text);
+            }
+            .tree-type.active {
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+            .tree-type .dot {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: var(--accent);
+                margin-left: auto;
+                flex: none;
+            }
+            .tree-empty {
+                padding: 16px;
+                color: var(--faint);
+                font-size: 13px;
+            }
+
+            .glyph {
+                display: inline-grid;
+                place-items: center;
+                width: 18px;
+                height: 18px;
+                border-radius: 5px;
+                font: 700 10px var(--sans);
+                color: #fff;
+                flex: none;
+                background: var(--kc);
+            }
+            .k-struct {
+                --kc: var(--k-struct);
+            }
+            .k-union {
+                --kc: var(--k-union);
+            }
+            .k-enum {
+                --kc: var(--k-enum);
+            }
+            .k-alias {
+                --kc: var(--k-alias);
+            }
+            .k-distinct {
+                --kc: var(--k-distinct);
+            }
+            .k-filter {
+                --kc: var(--k-filter);
+            }
+
+            main {
+                overflow: auto;
+                position: relative;
+                container-type: inline-size;
+                min-width: 0;
+            }
+
+            /* Pages */
+            .page {
+                max-width: 1240px;
+                margin: 0 auto;
+                padding: 28px 32px 80px;
+            }
+            .crumbs {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--faint);
+                font-size: 13px;
+                flex-wrap: wrap;
+            }
+            .crumbs a:hover {
+                color: var(--accent);
+            }
+            .crumbs svg {
+                width: 12px;
+                height: 12px;
+            }
+            .title-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin: 10px 0 8px;
+                flex-wrap: wrap;
+            }
+            h1 {
+                margin: 0;
+                font: 650 28px/1.2 var(--mono);
+                letter-spacing: -0.02em;
+                word-break: break-word;
+            }
+            h1 .params {
+                color: var(--faint);
+                font-weight: 450;
+                font-size: 16px;
+                letter-spacing: 0;
+            }
+            .kind-badge {
+                padding: 3px 9px;
+                border-radius: 6px;
+                font: 600 11.5px var(--sans);
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--kc);
+                background: color-mix(in srgb, var(--kc) 14%, transparent);
+                border: 1px solid color-mix(in srgb, var(--kc) 28%, transparent);
+            }
+            .chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin: 10px 0 0;
+            }
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 9px;
+                border-radius: 99px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                color: var(--muted);
+                font-size: 12px;
+                white-space: nowrap;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .chip svg {
+                width: 13px;
+                height: 13px;
+            }
+            .chip b {
+                color: var(--text);
+                font-weight: 550;
+            }
+            a.chip:hover,
+            button.chip:hover {
+                border-color: var(--border-strong);
+                color: var(--text);
+                cursor: pointer;
+            }
+            .chip.accent {
+                color: var(--accent);
+                border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+                background: var(--accent-soft);
+            }
+            .doc {
+                color: var(--muted);
+                max-width: 78ch;
+            }
+            .doc p {
+                margin: 0 0 8px;
+            }
+            .doc.lead {
+                font-size: 15.5px;
+                line-height: 1.6;
+                margin-top: 16px;
+                color: var(--text);
+                opacity: 0.88;
+            }
+            .doc code {
+                padding: 1px 5px;
+                border-radius: 4px;
+                background: var(--sunken);
+                border: 1px solid var(--border);
+                font-size: 0.86em;
+            }
+            .doc code.docname {
+                background: none;
+                border: none;
+                padding: 0;
+                font-weight: 650;
+                color: var(--text);
+            }
+            section {
+                margin-top: 36px;
+            }
+            h2 {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 0 0 14px;
+                font-size: 13px;
+                font-weight: 650;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: var(--muted);
+            }
+            h2 .count,
+            .col-title .count {
+                font-weight: 600;
+                color: var(--faint);
+                background: var(--sunken);
+                border: 1px solid var(--border);
+                padding: 0 7px;
+                border-radius: 99px;
+                font-size: 11px;
+                letter-spacing: 0;
+            }
+            h3 {
+                margin: 22px 0 10px;
+                font: 600 13px var(--mono);
+                color: var(--muted);
+            }
+            h3 a:hover {
+                color: var(--accent);
+            }
+
+            /* Type references */
+            .t-ref {
+                color: var(--kc, var(--text));
+            }
+            a.t-ref:hover {
+                text-decoration: underline;
+                text-underline-offset: 3px;
+            }
+            .t-prim {
+                color: var(--muted);
+            }
+            .t-param {
+                color: var(--k-union);
+                font-style: italic;
+            }
+            .t-punc {
+                color: var(--faint);
+            }
+
+            /* Relationship diagram */
+            .diagram {
+                position: relative;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(300px, 1.25fr) minmax(
+                        0,
+                        1fr
+                    );
+                gap: 0 88px;
+                align-items: start;
+                padding: 20px;
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                background:
+                    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)
+                        0 0 / 20px 20px,
+                    var(--sunken);
+            }
+            .wires {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                overflow: visible;
+                z-index: 0;
+            }
+            .col {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                gap: 10px;
+                min-width: 0;
+            }
+            .col-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 11px;
+                font-weight: 650;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--faint);
+                margin-bottom: 2px;
+            }
+            .col-empty {
+                padding: 14px;
+                border: 1px dashed var(--border-strong);
+                border-radius: 10px;
+                color: var(--faint);
+                font-size: 12.5px;
+                text-align: center;
+            }
+            .center-card {
+                background: var(--raised);
+                border: 1px solid var(--border-strong);
+                border-radius: 12px;
+                box-shadow: var(--shadow);
+                overflow: hidden;
+            }
+            .cc-head {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--border);
+                background: linear-gradient(
+                    to right,
+                    color-mix(in srgb, var(--kc) 12%, transparent),
+                    transparent
+                );
+            }
+            .cc-head .name {
+                font: 650 15px var(--mono);
+            }
+            .cc-head .ns {
+                margin-left: auto;
+                font-size: 12px;
+                color: var(--faint);
+                font-family: var(--mono);
+            }
+            .cc-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 6px 14px;
+                font: 12.5px var(--mono);
+                border-bottom: 1px solid var(--border);
+                cursor: pointer;
+                min-width: 0;
+            }
+            .cc-row:last-child {
+                border-bottom: none;
+            }
+            .cc-row:hover,
+            .cc-row.hl {
+                background: var(--accent-soft);
+            }
+            .cc-row .r-name {
+                color: var(--text);
+                white-space: nowrap;
+            }
+            .cc-row .r-name .opt {
+                color: var(--accent);
+            }
+            .cc-row .r-type {
+                margin-left: auto;
+                text-align: right;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                min-width: 0;
+            }
+            .cc-row svg.i {
+                width: 13px;
+                height: 13px;
+                color: var(--k-enum);
+            }
+            .cc-row.meta {
+                color: var(--faint);
+                background: color-mix(in srgb, var(--sunken) 60%, transparent);
+            }
+            .cc-more {
+                padding: 6px 14px;
+                font-size: 12px;
+                color: var(--faint);
+            }
+            .mini {
+                display: block;
+                background: var(--raised);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 8px 11px;
+                box-shadow: var(--shadow);
+                transition:
+                    border-color 0.1s,
+                    transform 0.1s;
+                min-width: 0;
+            }
+            .mini:hover,
+            .mini.hl {
+                border-color: var(--kc);
+            }
+            .mini-head {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                height: 20px;
+                min-width: 0;
+            }
+            .mini-name {
+                font: 600 13px var(--mono);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .mini-ns {
+                margin-left: auto;
+                font: 11.5px var(--mono);
+                color: var(--faint);
+                white-space: nowrap;
+            }
+            .mini-doc {
+                margin-top: 4px;
+                font-size: 12px;
+                color: var(--muted);
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .mini-via {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                margin-top: 6px;
+            }
+            .via {
+                font: 11px var(--mono);
+                padding: 1px 6px;
+                border-radius: 4px;
+                background: var(--sunken);
+                border: 1px solid var(--border);
+                color: var(--muted);
+            }
+            .via.od-cascade {
+                color: var(--od-cascade);
+                border-color: color-mix(in srgb, var(--od-cascade) 35%, transparent);
+            }
+            .via.od-restrict {
+                color: var(--od-restrict);
+                border-color: color-mix(in srgb, var(--od-restrict) 35%, transparent);
+            }
+            .via.od-detach {
+                color: var(--muted);
+                border-style: dashed;
+            }
+            .show-more {
+                border: 1px dashed var(--border-strong);
+                background: none;
+                border-radius: 10px;
+                padding: 8px;
+                color: var(--muted);
+                font-size: 12.5px;
+                cursor: pointer;
+            }
+            .show-more:hover {
+                color: var(--text);
+                border-color: var(--accent);
+            }
+            .wire {
+                fill: none;
+                stroke: var(--wire);
+                stroke-width: 1.5;
+                transition:
+                    opacity 0.12s,
+                    stroke-width 0.12s;
+            }
+            .wire.w-key {
+                stroke: var(--accent);
+                stroke-dasharray: 5 4;
+                opacity: 0.7;
+            }
+            .wire.w-extends {
+                stroke: var(--k-union);
+                stroke-dasharray: 2 4;
+            }
+            .wire.w-link {
+                stroke-width: 1.8;
+            }
+            .wire.od-cascade {
+                stroke: var(--od-cascade);
+            }
+            .wire.od-restrict {
+                stroke: var(--od-restrict);
+            }
+            .wire.od-detach {
+                stroke: var(--od-detach);
+                stroke-dasharray: 6 4;
+            }
+            .port {
+                fill: var(--raised);
+                stroke: var(--wire);
+                stroke-width: 1.5;
+            }
+            .diagram.dim .wire:not(.hl),
+            .diagram.dim .port:not(.hl) {
+                opacity: 0.12;
+            }
+            .diagram.dim .wire.hl {
+                stroke-width: 2.4;
+                opacity: 1;
+            }
+            .legend-inline {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 14px;
+                margin-top: 10px;
+                font-size: 12px;
+                color: var(--faint);
+            }
+            .legend-inline span {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .legend-inline svg {
+                width: 26px;
+                height: 8px;
+            }
+
+            /* Field list */
+            .fields {
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: var(--panel);
+                overflow: hidden;
+            }
+            .field {
+                display: grid;
+                grid-template-columns: minmax(220px, 36%) minmax(0, 1fr);
+                gap: 6px 24px;
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--border);
+                scroll-margin-top: 80px;
+            }
+            .field:last-child {
+                border-bottom: none;
+            }
+            .field.flash {
+                animation: flash 1.6s ease-out;
+            }
+            @keyframes flash {
+                0%,
+                30% {
+                    background: var(--accent-soft);
+                }
+                100% {
+                    background: transparent;
+                }
+            }
+            .f-sig {
+                font: 13px/1.6 var(--mono);
+                min-width: 0;
+                word-break: break-word;
+            }
+            .f-name {
+                font-weight: 650;
+                color: var(--text);
+            }
+            .f-opt {
+                color: var(--accent);
+                font-weight: 650;
+            }
+            .f-default {
+                color: var(--faint);
+            }
+            .f-sig .anchor {
+                opacity: 0;
+                color: var(--faint);
+                margin-left: 4px;
+            }
+            .field:hover .anchor {
+                opacity: 1;
+            }
+            .f-body {
+                min-width: 0;
+            }
+            .f-body .doc {
+                color: var(--muted);
+                font-size: 13.5px;
+            }
+            .f-annos {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-top: 6px;
+            }
+            .anno {
+                font: 11px var(--mono);
+                padding: 1px 7px;
+                border-radius: 5px;
+                border: 1px solid var(--border);
+                color: var(--muted);
+                background: var(--sunken);
+            }
+            .anno.key {
+                color: var(--k-enum);
+                border-color: color-mix(in srgb, var(--k-enum) 35%, transparent);
+            }
+            .anno.validate {
+                color: var(--k-alias);
+                border-color: color-mix(in srgb, var(--k-alias) 35%, transparent);
+            }
+            .anno.patch {
+                color: var(--k-union);
+                border-color: color-mix(in srgb, var(--k-union) 35%, transparent);
+            }
+            .anno.search {
+                color: var(--k-distinct);
+                border-color: color-mix(in srgb, var(--k-distinct) 35%, transparent);
+            }
+            .link-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 6px;
+                padding: 3px 9px;
+                border-radius: 7px;
+                font-size: 12px;
+                border: 1px solid var(--lc);
+                color: var(--lc);
+                background: color-mix(in srgb, var(--lc) 8%, transparent);
+                --lc: var(--accent);
+            }
+            .link-chip.od-cascade {
+                --lc: var(--od-cascade);
+            }
+            .link-chip.od-restrict {
+                --lc: var(--od-restrict);
+            }
+            .link-chip.od-detach {
+                --lc: var(--od-detach);
+            }
+            .link-chip a {
+                font-family: var(--mono);
+                font-weight: 600;
+            }
+            .link-chip a:hover {
+                text-decoration: underline;
+            }
+            .link-chip svg {
+                width: 13px;
+                height: 13px;
+            }
+            .inherited .field {
+                opacity: 0.78;
+            }
+            .table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: var(--panel);
+                overflow: hidden;
+                font-size: 13px;
+            }
+            .table th {
+                text-align: left;
+                font-size: 11px;
+                font-weight: 650;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: var(--faint);
+                padding: 9px 16px;
+                border-bottom: 1px solid var(--border);
+                background: var(--sunken);
+            }
+            .table td {
+                padding: 10px 16px;
+                border-bottom: 1px solid var(--border);
+                vertical-align: top;
+            }
+            .table tr:last-child td {
+                border-bottom: none;
+            }
+            .table td.mono {
+                white-space: nowrap;
+            }
+            .table td .doc {
+                font-size: 13px;
+            }
+            .actions {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                gap: 8px;
+            }
+            .table-wrap {
+                overflow-x: auto;
+            }
+            .action {
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--panel);
+            }
+            .action > summary {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
+                cursor: pointer;
+                list-style: none;
+            }
+            .action > summary::-webkit-details-marker {
+                display: none;
+            }
+            .action > summary b {
+                font: 600 13px var(--mono);
+            }
+            .action > summary .doc {
+                font-size: 13px;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                min-width: 0;
+            }
+            .action[open] > summary .doc {
+                white-space: normal;
+            }
+            .action .fields {
+                border: none;
+                border-top: 1px solid var(--border);
+                border-radius: 0 0 10px 10px;
+            }
+            .gen {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 10px;
+            }
+            .gen-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--panel);
+                min-width: 0;
+            }
+            .gen-item.omitted {
+                opacity: 0.45;
+            }
+            .lang {
+                display: grid;
+                place-items: center;
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                font: 700 11px var(--mono);
+                color: #fff;
+                flex: none;
+            }
+            .lang-go {
+                background: #00a7d0;
+            }
+            .lang-ts {
+                background: #3178c6;
+            }
+            .lang-py {
+                background: #3b77a8;
+            }
+            .lang-cpp {
+                background: #a8417a;
+            }
+            .lang-pb {
+                background: #5b6675;
+            }
+            .gen-item .meta {
+                min-width: 0;
+            }
+            .gen-item .meta div:first-child {
+                font-weight: 600;
+                font-size: 13px;
+            }
+            .gen-item .meta div:last-child {
+                font: 12px var(--mono);
+                color: var(--muted);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Namespace page */
+            .card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 12px;
+            }
+            .tcard {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 14px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: var(--panel);
+                transition:
+                    border-color 0.1s,
+                    box-shadow 0.1s;
+                min-width: 0;
+            }
+            .tcard:hover {
+                border-color: var(--kc);
+                box-shadow: var(--shadow);
+            }
+            .tcard-head {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                min-width: 0;
+            }
+            .tcard-head b {
+                font: 650 14px var(--mono);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .tcard-head .tags {
+                margin-left: auto;
+                display: flex;
+                gap: 4px;
+            }
+            .tag {
+                font-size: 10.5px;
+                font-weight: 600;
+                padding: 1px 6px;
+                border-radius: 4px;
+                letter-spacing: 0.02em;
+                color: var(--accent);
+                background: var(--accent-soft);
+            }
+            .tag.stored {
+                color: var(--k-alias);
+                background: color-mix(in srgb, var(--k-alias) 14%, transparent);
+            }
+            .tcard .doc {
+                font-size: 12.5px;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .tcard-fields {
+                font: 12px/1.7 var(--mono);
+                border-top: 1px solid var(--border);
+                padding-top: 8px;
+                color: var(--muted);
+            }
+            .tcard-fields div {
+                display: flex;
+                gap: 12px;
+                min-width: 0;
+            }
+            .tcard-fields div span:first-child {
+                color: var(--text);
+                white-space: nowrap;
+            }
+            .tcard-fields div span:last-child {
+                margin-left: auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                min-width: 0;
+            }
+            .tcard-fields .more {
+                color: var(--faint);
+            }
+
+            /* Map */
+            .map {
+                position: absolute;
+                inset: 0;
+                overflow: hidden;
+                background:
+                    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)
+                        0 0 / 24px 24px,
+                    var(--bg);
+            }
+            .graph {
+                width: 100%;
+                height: 100%;
+                display: block;
+                cursor: grab;
+                touch-action: none;
+                user-select: none;
+            }
+            .graph.panning {
+                cursor: grabbing;
+            }
+            .node {
+                cursor: pointer;
+                transition: opacity 0.15s;
+            }
+            .node rect.box {
+                fill: var(--raised);
+                stroke: var(--border-strong);
+                stroke-width: 1.2;
+            }
+            .node.res rect.box {
+                stroke: color-mix(in srgb, var(--dc) 60%, var(--border-strong));
+                stroke-width: 1.5;
+            }
+            .node.group rect.box,
+            .node.holder rect.box {
+                stroke-dasharray: 5 4;
+                fill: var(--panel);
+            }
+            .node rect.bar {
+                fill: var(--dc);
+            }
+            .node:hover rect.box {
+                stroke: var(--accent);
+                stroke-width: 2;
+            }
+            .node text {
+                fill: var(--text);
+                font: 650 13px var(--mono);
+            }
+            .node text.sub {
+                fill: var(--faint);
+                font: 500 11px var(--sans);
+            }
+            .d-synnax {
+                --dc: var(--d-synnax);
+            }
+            .d-arc {
+                --dc: var(--d-arc);
+            }
+            .d-x {
+                --dc: var(--d-x);
+            }
+            .edge {
+                fill: none;
+                stroke: var(--wire);
+                stroke-width: 1.6;
+                transition: opacity 0.15s;
+            }
+            .edge.k-use {
+                stroke-dasharray: 6 5;
+            }
+            .edge.od-cascade {
+                stroke: var(--od-cascade);
+            }
+            .edge.od-restrict {
+                stroke: var(--od-restrict);
+            }
+            .edge.od-detach {
+                stroke: var(--od-detach);
+            }
+            .edge.nsedge {
+                stroke: var(--faint);
+                opacity: 0.45;
+            }
+            .edge-hit {
+                fill: none;
+                stroke: transparent;
+                stroke-width: 12;
+                cursor: help;
+            }
+            .edge-count {
+                font: 600 10.5px var(--sans);
+                fill: var(--muted);
+                paint-order: stroke;
+                stroke: var(--bg);
+                stroke-width: 4px;
+                pointer-events: none;
+            }
+            .m-plain {
+                fill: var(--wire);
+            }
+            .m-cascade {
+                fill: var(--od-cascade);
+            }
+            .m-restrict {
+                fill: var(--od-restrict);
+            }
+            .m-detach {
+                fill: var(--od-detach);
+            }
+            .m-ns {
+                fill: var(--faint);
+            }
+            .graph.focus .node:not(.on) {
+                opacity: 0.2;
+            }
+            .graph.focus .edge:not(.on),
+            .graph.focus .edge-count:not(.on) {
+                opacity: 0.06;
+            }
+            .graph.focus .edge.nsedge.on {
+                opacity: 1;
+                stroke: var(--accent);
+            }
+            .graph.focus .edge.on {
+                stroke-width: 2.4;
+            }
+            .map-bar {
+                position: absolute;
+                top: 16px;
+                left: 16px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .seg {
+                display: inline-flex;
+                padding: 3px;
+                border-radius: 9px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+            }
+            .seg a {
+                padding: 5px 12px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 550;
+                color: var(--muted);
+            }
+            .seg a.on {
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+            .toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 12px;
+                border-radius: 9px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+                font-size: 13px;
+                color: var(--muted);
+                cursor: pointer;
+            }
+            .toggle input {
+                accent-color: var(--accent);
+                margin: 0;
+            }
+            .map-title {
+                position: absolute;
+                top: 64px;
+                left: 18px;
+                max-width: 420px;
+                pointer-events: none;
+            }
+            .map-title h1 {
+                font: 650 20px/1.3 var(--sans);
+                letter-spacing: -0.01em;
+            }
+            .map-title p {
+                margin: 4px 0 0;
+                color: var(--muted);
+                font-size: 13px;
+            }
+            .map-legend {
+                position: absolute;
+                left: 16px;
+                bottom: 16px;
+                display: grid;
+                gap: 6px;
+                padding: 12px 14px;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: color-mix(in srgb, var(--panel) 92%, transparent);
+                backdrop-filter: blur(6px);
+                box-shadow: var(--shadow);
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .map-legend .lg-title {
+                font-size: 10.5px;
+                font-weight: 650;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--faint);
+                margin-top: 4px;
+            }
+            .map-legend .lg-title:first-child {
+                margin-top: 0;
+            }
+            .map-legend span {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .map-legend svg {
+                width: 30px;
+                height: 12px;
+                flex: none;
+            }
+            .map-zoom {
+                position: absolute;
+                right: 16px;
+                bottom: 16px;
+                display: grid;
+                border-radius: 9px;
+                border: 1px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+                overflow: hidden;
+            }
+            .map-zoom button {
+                width: 34px;
+                height: 32px;
+                border: none;
+                background: none;
+                color: var(--muted);
+                cursor: pointer;
+                display: grid;
+                place-items: center;
+            }
+            .map-zoom button + button {
+                border-top: 1px solid var(--border);
+            }
+            .map-zoom button:hover {
+                background: var(--sunken);
+                color: var(--text);
+            }
+            .map-hint {
+                position: absolute;
+                right: 64px;
+                bottom: 22px;
+                font-size: 12px;
+                color: var(--faint);
+                pointer-events: none;
+            }
+
+            /* Palette */
+            .palette {
+                position: fixed;
+                inset: 0;
+                z-index: 50;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                padding: 12vh 16px 16px;
+                background: rgba(8, 10, 14, 0.45);
+                backdrop-filter: blur(2px);
+            }
+            .palette[hidden] {
+                display: none;
+            }
+            .palette-box {
+                width: min(680px, 100%);
+                border-radius: 14px;
+                border: 1px solid var(--border-strong);
+                background: var(--panel);
+                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+                overflow: hidden;
+            }
+            .palette-input {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 0 16px;
+                border-bottom: 1px solid var(--border);
+                color: var(--faint);
+            }
+            .palette-input input {
+                flex: 1;
+                height: 52px;
+                border: none;
+                outline: none;
+                background: none;
+                color: var(--text);
+                font: 16px var(--sans);
+            }
+            .results {
+                max-height: min(60vh, 520px);
+                overflow: auto;
+                padding: 6px;
+            }
+            .result {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                min-width: 0;
+            }
+            .result.sel {
+                background: var(--accent-soft);
+            }
+            .result .r-main {
+                min-width: 0;
+                flex: 1;
+            }
+            .result .r-label {
+                font: 600 13.5px var(--mono);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .result .r-label mark {
+                background: none;
+                color: var(--accent);
+            }
+            .result .r-doc {
+                font-size: 12px;
+                color: var(--muted);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .result .r-ns {
+                font: 12px var(--mono);
+                color: var(--faint);
+                white-space: nowrap;
+            }
+            .result .r-kind {
+                font-size: 11px;
+                color: var(--faint);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                width: 44px;
+                text-align: right;
+            }
+            .palette-foot {
+                display: flex;
+                gap: 16px;
+                padding: 8px 16px;
+                border-top: 1px solid var(--border);
+                font-size: 12px;
+                color: var(--faint);
+            }
+            .palette-empty {
+                padding: 28px;
+                text-align: center;
+                color: var(--faint);
+            }
+
+            .tooltip {
+                position: fixed;
+                z-index: 60;
+                max-width: 360px;
+                padding: 9px 11px;
+                border-radius: 9px;
+                border: 1px solid var(--border-strong);
+                background: var(--raised);
+                box-shadow: var(--shadow);
+                font-size: 12.5px;
+                color: var(--muted);
+                pointer-events: none;
+            }
+            .tooltip[hidden] {
+                display: none;
+            }
+            .tooltip b {
+                color: var(--text);
+                font-family: var(--mono);
+            }
+            .tooltip .tt-list {
+                margin-top: 6px;
+                font: 11.5px/1.6 var(--mono);
+                color: var(--text);
+            }
+            .loading,
+            .error {
+                display: grid;
+                place-items: center;
+                height: 100%;
+                color: var(--muted);
+                gap: 12px;
+                text-align: center;
+                padding: 24px;
+            }
+            .error pre {
+                max-width: 900px;
+                overflow: auto;
+                text-align: left;
+                padding: 16px;
+                border-radius: 10px;
+                background: var(--panel);
+                border: 1px solid var(--border);
+                color: var(--od-cascade);
+                font: 12px/1.5 var(--mono);
+            }
+
+            @container (max-width: 980px) {
+                .diagram {
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 18px;
+                }
+                .wires {
+                    display: none;
+                }
+                .col-center {
+                    order: -1;
+                }
+                .field {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
+            @media (max-width: 760px) {
+                .shell {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+                .side {
+                    position: fixed;
+                    top: 52px;
+                    bottom: 0;
+                    left: 0;
+                    width: 280px;
+                    z-index: 40;
+                    transform: translateX(-100%);
+                    transition: transform 0.15s;
+                    box-shadow: var(--shadow);
+                }
+                body.side-open .side {
+                    transform: none;
+                }
+                .menu {
+                    display: grid;
+                }
+                .stats,
+                .brand-sub,
+                .search-trigger kbd,
+                .map-hint {
+                    display: none;
+                }
+                .page {
+                    padding: 20px 16px 60px;
+                }
+                .map-title {
+                    display: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header class="top">
+            <button class="icon-btn menu" id="menu" aria-label="Show the type list">
+                <svg class="i" viewBox="0 0 16 16">
+                    <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
+                </svg>
+            </button>
+            <a class="brand" href="#/map/resources">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#5b93ff" />
+                            <stop offset="1" stop-color="#ac86ff" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="32" height="32" rx="8" fill="url(#bm)" />
+                    <circle
+                        cx="16"
+                        cy="16"
+                        r="8.5"
+                        fill="none"
+                        stroke="#fff"
+                        stroke-width="2"
+                    />
+                    <circle cx="16" cy="16" r="3" fill="#fff" />
+                    <path
+                        d="M16 3.5v4M16 24.5v4M3.5 16h4M24.5 16h4"
+                        stroke="#fff"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        opacity=".7"
+                    />
+                </svg>
+                <span>Oracle</span><span class="brand-sub">schema map</span>
+            </a>
+            <button class="search-trigger" id="search-open">
+                <svg class="i" viewBox="0 0 16 16">
+                    <circle cx="7" cy="7" r="4.5" />
+                    <path d="m10.5 10.5 3 3" />
+                </svg>
+                <span>Search types and fields</span><kbd>⌘K</kbd>
+            </button>
+            <div class="top-actions">
+                <span class="stats" id="stats"></span>
+                <button class="icon-btn" id="reload" title="Analyze the schemas again">
+                    <svg class="i" viewBox="0 0 16 16">
+                        <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+                        <path d="M13.5 2.5v3h-3" />
+                    </svg>
+                </button>
+                <button class="icon-btn" id="theme" title="Change the theme">
+                    <svg class="i" viewBox="0 0 16 16">
+                        <circle cx="8" cy="8" r="5.5" />
+                        <path d="M8 2.5v11" />
+                        <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+        <div class="shell">
+            <aside class="side" id="side">
+                <nav class="views">
+                    <a href="#/map/resources" data-view="resources">
+                        <svg class="i" viewBox="0 0 16 16">
+                            <circle cx="4" cy="4" r="2" />
+                            <circle cx="12" cy="5" r="2" />
+                            <circle cx="7" cy="12" r="2" />
+                            <path d="M5.8 4.3 10 4.8M5 5.7l1.4 4.5M10.8 6.6 8.3 10.6" />
+                        </svg>
+                        Resource map
+                    </a>
+                    <a href="#/map/namespaces" data-view="namespaces">
+                        <svg class="i" viewBox="0 0 16 16">
+                            <rect x="2" y="2" width="5" height="5" rx="1.2" />
+                            <rect x="9" y="9" width="5" height="5" rx="1.2" />
+                            <rect x="9" y="2" width="5" height="5" rx="1.2" />
+                            <path d="M7 4.5h2M11.5 7v2" />
+                        </svg>
+                        Namespace map
+                    </a>
+                </nav>
+                <div class="side-filter">
+                    <input
+                        id="filter"
+                        placeholder="Filter types"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                </div>
+                <div class="kind-filter" id="kinds"></div>
+                <div class="tree" id="tree"></div>
+            </aside>
+            <main id="main"><div class="loading">Analyzing schemas…</div></main>
+        </div>
+        <div class="palette" id="palette" hidden>
+            <div class="palette-box" role="dialog" aria-label="Search">
+                <div class="palette-input">
+                    <svg class="i" viewBox="0 0 16 16">
+                        <circle cx="7" cy="7" r="4.5" />
+                        <path d="m10.5 10.5 3 3" />
+                    </svg>
+                    <input
+                        id="q"
+                        placeholder="Search types, fields, and namespaces"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                    <kbd>esc</kbd>
+                </div>
+                <div class="results" id="results"></div>
+                <div class="palette-foot">
+                    <span><kbd>↑</kbd> <kbd>↓</kbd> to move</span
+                    ><span><kbd>↵</kbd> to open</span>
+                </div>
+            </div>
+        </div>
+        <div class="tooltip" id="tip" hidden></div>
+
+        <script>
+            "use strict";
+
+            const PRIMS = new Set([
+                "uuid",
+                "string",
+                "bool",
+                "int8",
+                "int16",
+                "int32",
+                "int64",
+                "uint8",
+                "uint12",
+                "uint16",
+                "uint20",
+                "uint32",
+                "uint64",
+                "float32",
+                "float64",
+                "record",
+                "bytes",
+                "any",
+                "nil",
+                "color",
+                "Array",
+                "Map",
+            ]);
+            const KINDS = ["struct", "union", "enum", "alias", "distinct", "filter"];
+            const LETTER = {
+                struct: "S",
+                union: "U",
+                enum: "E",
+                alias: "A",
+                distinct: "D",
+                filter: "F",
+            };
+            const DOMAINS = ["synnax", "arc", "x"];
+            const LANGS = [
+                ["go", "Go", "GO"],
+                ["ts", "TypeScript", "TS"],
+                ["py", "Python", "PY"],
+                ["cpp", "C++", "C++"],
+            ];
+            const MAX_COL = 12;
+
+            const S = {
+                types: new Map(),
+                ns: new Map(),
+                out: new Map(),
+                inc: new Map(),
+                hidden: new Set(),
+                filter: "",
+                expanded: false,
+                showAllIn: false,
+                layouts: new Map(),
+                search: [],
+            };
+            const $ = (sel, el = document) => el.querySelector(sel);
+            const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+            const main = $("#main");
+            const tip = $("#tip");
+
+            const esc = (s) =>
+                String(s ?? "").replace(
+                    /[&<>"']/g,
+                    (c) =>
+                        ({
+                            "&": "&amp;",
+                            "<": "&lt;",
+                            ">": "&gt;",
+                            '"': "&quot;",
+                            "'": "&#39;",
+                        })[c],
+                );
+            const typeHref = (id, field) =>
+                "#/type/" +
+                encodeURIComponent(id) +
+                (field ? "/" + encodeURIComponent(field) : "");
+            const glyph = (kind) =>
+                `<span class="glyph k-${kind}">${LETTER[kind]}</span>`;
+            const icon = {
+                chev: '<svg class="i chev" viewBox="0 0 16 16"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>',
+                key: '<svg class="i" viewBox="0 0 16 16"><circle cx="5" cy="11" r="3"/><path d="M7.2 8.8 13.5 2.5M11 5l2 2M12.3 3.7l1.4 1.4"/></svg>',
+                db: '<svg class="i" viewBox="0 0 16 16"><ellipse cx="8" cy="3.8" rx="5" ry="2"/><path d="M3 3.8v8.4c0 1.1 2.2 2 5 2s5-.9 5-2V3.8M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></svg>',
+                link: '<svg class="i" viewBox="0 0 16 16"><path d="M6.5 9.5 9.5 6.5M7 4.5l1-1a2.8 2.8 0 0 1 4 4l-1 1M9 11.5l-1 1a2.8 2.8 0 0 1-4-4l1-1"/></svg>',
+                file: '<svg class="i" viewBox="0 0 16 16"><path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M9 2v4h4"/></svg>',
+                layers: '<svg class="i" viewBox="0 0 16 16"><path d="M8 2 2 5l6 3 6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>',
+                hash: '<svg class="i" viewBox="0 0 16 16"><path d="M6 2.5 5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/></svg>',
+                arrow: '<svg class="i" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg>',
+                self: '<svg class="i" viewBox="0 0 16 16"><path d="M11.5 5.5A4.5 4.5 0 1 0 12.5 9"/><path d="M12 2.5v3h-3"/></svg>',
+                plus: '<svg class="i" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>',
+                minus: '<svg class="i" viewBox="0 0 16 16"><path d="M3 8h10"/></svg>',
+                fit: '<svg class="i" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+            };
+
+            /* ---------- Model indexing ---------- */
+
+            function refNames(ref, out = []) {
+                if (!ref || ref.param) return out;
+                if (!PRIMS.has(ref.name) && S.types.has(ref.name)) out.push(ref.name);
+                (ref.args || []).forEach((a) => refNames(a, out));
+                return out;
+            }
+
+            function allFields(t) {
+                const fs = (t.fields || []).map((f) => ({ f, row: "f:" + f.name }));
+                (t.variants || []).forEach((v) =>
+                    (v.fields || []).forEach((f) =>
+                        fs.push({ f, row: "v:" + v.name, variant: v.name }),
+                    ),
+                );
+                return fs;
+            }
+
+            // outgoing lists every reference a type makes. A reference to a key type points
+            // at the struct that owns the key, since that is the entity being referenced.
+            function outgoing(t) {
+                const out = [];
+                const add = (row, raw, via, link, field, own, explicit) => {
+                    const owner =
+                        T(raw)?.owner && via !== "extends" && !own ? T(raw).owner : raw;
+                    const target = explicit || owner;
+                    const viaKey = target !== raw;
+                    out.push({
+                        row,
+                        raw,
+                        target,
+                        link,
+                        field,
+                        via: link ? "link" : viaKey ? "key" : via,
+                        self: target === t.id,
+                    });
+                };
+                (t.extends || []).forEach((r) =>
+                    refNames(r).forEach((n) => add("extends:" + r.name, n, "extends")),
+                );
+                if (t.target)
+                    refNames(t.target).forEach((n) => add("target", n, "target"));
+                allFields(t).forEach(({ f, row }) => {
+                    if (f.link?.targets?.length) {
+                        const raw = refNames(f.type)[0];
+                        f.link.targets.forEach((target) =>
+                            add(row, raw, "link", f.link, f.name, false, target),
+                        );
+                    } else
+                        refNames(f.type).forEach((n) =>
+                            add(row, n, "field", null, f.name, f.key),
+                        );
+                });
+                (t.variants || []).forEach((v) => {
+                    if (!v.fields)
+                        refNames(v.type).forEach((n) =>
+                            add("v:" + v.name, n, "variant"),
+                        );
+                });
+                return out;
+            }
+
+            function index(model) {
+                S.model = model;
+                S.types = new Map(model.types.map((t) => [t.id, t]));
+                S.ns = new Map(model.namespaces.map((n) => [n.name, n]));
+                S.out = new Map();
+                S.inc = new Map();
+                for (const t of model.types) {
+                    const out = outgoing(t);
+                    S.out.set(t.id, out);
+                    for (const o of out) {
+                        if (o.self) continue;
+                        const push = (id) => {
+                            if (!S.inc.has(id)) S.inc.set(id, []);
+                            S.inc.get(id).push({ ...o, from: t.id });
+                        };
+                        push(o.target);
+                        if (o.raw !== o.target) push(o.raw);
+                    }
+                }
+                S.search = [];
+                for (const t of model.types) {
+                    S.search.push({
+                        type: "type",
+                        id: t.id,
+                        label: t.name,
+                        ns: t.namespace,
+                        kind: t.kind,
+                        doc: t.doc || "",
+                    });
+                    for (const { f } of allFields(t))
+                        S.search.push({
+                            type: "field",
+                            id: t.id,
+                            field: f.name,
+                            label: t.name + "." + f.name,
+                            ns: t.namespace,
+                            kind: t.kind,
+                            doc: f.doc || "",
+                        });
+                }
+                for (const n of model.namespaces)
+                    S.search.push({
+                        type: "ns",
+                        id: n.name,
+                        label: n.name,
+                        ns: n.domain,
+                        doc: n.file,
+                    });
+                const refs = model.types.reduce(
+                    (a, t) => a + allFields(t).filter(({ f }) => f.link).length,
+                    0,
+                );
+                $("#stats").textContent =
+                    `${model.types.length} types · ${model.namespaces.length} namespaces · ${refs} stored references`;
+            }
+            const T = (id) => S.types.get(id);
+
+            /* ---------- Rendering helpers ---------- */
+
+            function refHTML(ref, ctx, plain) {
+                if (!ref) return '<span class="t-punc">inherited</span>';
+                if (ref.param) return `<span class="t-param">${esc(ref.name)}</span>`;
+                if (ref.name === "Array" && ref.args?.length === 1)
+                    return (
+                        refHTML(ref.args[0], ctx, plain) +
+                        `<span class="t-punc">[${ref.size ?? ""}]</span>`
+                    );
+                const t = T(ref.name);
+                const label = t ? (t.namespace === ctx ? t.name : t.id) : ref.name;
+                let s;
+                if (t && !plain)
+                    s = `<a class="t-ref k-${t.kind}" href="${typeHref(t.id)}">${esc(label)}</a>`;
+                else if (t) s = `<span class="t-ref k-${t.kind}">${esc(label)}</span>`;
+                else s = `<span class="t-prim">${esc(label)}</span>`;
+                if (ref.args?.length)
+                    s +=
+                        '<span class="t-punc">&lt;</span>' +
+                        ref.args
+                            .map((a) => refHTML(a, ctx, plain))
+                            .join('<span class="t-punc">, </span>') +
+                        '<span class="t-punc">&gt;</span>';
+                if (ref.size != null) s += `<span class="t-punc">[${ref.size}]</span>`;
+                return s;
+            }
+
+            function inline(s) {
+                return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+            }
+
+            // Oracle docs are predicates that follow the name: "is a unique identifier".
+            function docHTML(name, doc, lead) {
+                if (!doc) return lead ? '<p class="t-punc">No documentation.</p>' : "";
+                return doc
+                    .split("\n\n")
+                    .map((p, i) => {
+                        const prefix =
+                            i === 0 && name && /^[a-z]/.test(p)
+                                ? `<code class="docname">${esc(name)}</code> `
+                                : "";
+                        return `<p>${prefix}${inline(p)}</p>`;
+                    })
+                    .join("");
+            }
+            const firstSentence = (doc) => {
+                if (!doc) return "";
+                const m = doc.match(/^.*?[.!?](\s|$)/);
+                return (m ? m[0] : doc).trim();
+            };
+
+            function annoClass(a) {
+                if (a.startsWith("@key")) return "key";
+                if (a.startsWith("@validate")) return "validate";
+                if (a.startsWith("@patch")) return "patch";
+                if (a.startsWith("@search") || a.startsWith("@filter")) return "search";
+                return "";
+            }
+            const annoHTML = (list) =>
+                (list || [])
+                    .filter((a) => !a.startsWith("@ref ") && a !== "@ref")
+                    .map((a) => `<span class="anno ${annoClass(a)}">${esc(a)}</span>`)
+                    .join("");
+
+            function linkHTML(link) {
+                if (!link) return "";
+                const od = link.on_delete || "none";
+                const target =
+                    (link.targets || [])
+                        .map((id) => `<a href="${typeHref(id)}">${esc(id)}</a>`)
+                        .join(", ") || "an unresolved type";
+                const parts = [
+                    link.kind,
+                    od !== "none" ? "on delete " + od : "",
+                    link.acyclic ? "acyclic" : "",
+                ].filter(Boolean);
+                return `<span class="link-chip od-${od}">${icon.link} references ${target}<span>· ${esc(parts.join(" · "))}</span></span>`;
+            }
+
+            /* ---------- Sidebar ---------- */
+
+            function renderKinds() {
+                $("#kinds").innerHTML = KINDS.map(
+                    (k) =>
+                        `<button class="kchip ${S.hidden.has(k) ? "off" : ""}" data-kind="${k}">${glyph(k)}${k}</button>`,
+                ).join("");
+            }
+
+            function renderTree() {
+                const q = S.filter.trim().toLowerCase();
+                const active = currentType();
+                const activeNs = active ? T(active)?.namespace : currentNs();
+                let html = "";
+                for (const d of DOMAINS) {
+                    const nss = S.model.namespaces.filter((n) => n.domain === d);
+                    let section = "";
+                    for (const n of nss) {
+                        const types = S.model.types.filter(
+                            (t) =>
+                                t.namespace === n.name &&
+                                !S.hidden.has(t.kind) &&
+                                (!q || t.id.toLowerCase().includes(q)),
+                        );
+                        if (!types.length && (q || S.hidden.size)) continue;
+                        const open = q || n.name === activeNs;
+                        section += `<details ${open ? "open" : ""} data-ns="${esc(n.name)}"><summary>${icon.chev}<a href="#/ns/${encodeURIComponent(n.name)}">${esc(n.name)}</a><span class="count">${types.length}</span></summary>`;
+                        for (const t of types)
+                            section += `<a class="tree-type ${t.id === active ? "active" : ""}" href="${typeHref(t.id)}" data-id="${esc(t.id)}">${glyph(t.kind)}<span>${esc(t.name)}</span>${t.resource ? '<span class="dot" title="Resource"></span>' : ""}</a>`;
+                        section += "</details>";
+                    }
+                    if (section)
+                        html += `<div class="tree-domain"><i style="background:var(--d-${d})"></i>${d}</div>${section}`;
+                }
+                $("#tree").innerHTML =
+                    html || '<div class="tree-empty">No types match.</div>';
+            }
+
+            function syncSidebar() {
+                const active = currentType();
+                $$(".tree-type.active").forEach((a) => a.classList.remove("active"));
+                if (active) {
+                    const el = $(`.tree-type[data-id="${CSS.escape(active)}"]`);
+                    if (el) {
+                        el.classList.add("active");
+                        el.closest("details").open = true;
+                        const r = el.getBoundingClientRect(),
+                            tr = $("#tree").getBoundingClientRect();
+                        if (r.top < tr.top || r.bottom > tr.bottom)
+                            el.scrollIntoView({ block: "center" });
+                    }
+                }
+                const view =
+                    location.hash.match(/^#\/map\/(\w+)/)?.[1] ||
+                    (location.hash.length < 3 ? "resources" : "");
+                $$(".views a").forEach((a) =>
+                    a.classList.toggle("on", a.dataset.view === view),
+                );
+            }
+
+            /* ---------- Routing ---------- */
+
+            const parts = () =>
+                location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+            const currentType = () => (parts()[0] === "type" ? parts()[1] : null);
+            const currentNs = () => (parts()[0] === "ns" ? parts()[1] : null);
+
+            function route() {
+                hideTip();
+                document.body.classList.remove("side-open");
+                const [view, a, b] = parts();
+                if (view === "type" && T(a)) renderType(a, b);
+                else if (view === "ns" && S.ns.has(a)) renderNamespace(a);
+                else
+                    renderMap(
+                        view === "map" && a === "namespaces"
+                            ? "namespaces"
+                            : "resources",
+                    );
+                syncSidebar();
+            }
+
+            /* ---------- Type page ---------- */
+
+            function renderType(id, focus) {
+                const t = T(id);
+                const ns = S.ns.get(t.namespace);
+                document.title = `${t.id} · Oracle`;
+                const chips = [];
+                if (t.resource)
+                    chips.push(
+                        `<span class="chip accent">${icon.layers}resource <b>${esc(t.resource)}</b></span>`,
+                    );
+                if (t.persisted)
+                    chips.push(
+                        `<span class="chip">${icon.db}stored${ns.versions?.length ? ` · <b>v${ns.versions.at(-1)}</b>` : ""}</span>`,
+                    );
+                if (t.key && T(t.key))
+                    chips.push(
+                        `<a class="chip" href="${typeHref(t.key)}">${icon.key}key <b>${esc(t.key)}</b></a>`,
+                    );
+                else if (t.key)
+                    chips.push(
+                        `<span class="chip">${icon.key}key <b>${esc(t.key)}</b></span>`,
+                    );
+                if (t.owner && t.owner !== t.id)
+                    chips.push(
+                        `<a class="chip accent" href="${typeHref(t.owner)}">${icon.key}key of <b>${esc(t.owner)}</b></a>`,
+                    );
+                if (t.discriminator)
+                    chips.push(
+                        `<span class="chip">${icon.hash}discriminator <b>${esc(t.discriminator)}</b></span>`,
+                    );
+                chips.push(
+                    `<button class="chip" data-copy="${esc(ns.file)}" title="Copy the path">${icon.file}${esc(ns.file)}</button>`,
+                );
+                const params = t.params?.length
+                    ? `<span class="params">&lt;${t.params.map(esc).join(", ")}&gt;</span>`
+                    : "";
+
+                const diagram = diagramHTML(t);
+                S.wires = diagram.wires;
+                main.innerHTML = `<div class="page">
+          <div class="crumbs"><span>${esc(ns.domain)}</span>${icon.chev}<a href="#/ns/${encodeURIComponent(ns.name)}">${esc(ns.name)}</a>${icon.chev}<span>${esc(t.name)}</span></div>
+          <div class="title-row"><h1>${esc(t.name)}${params}</h1><span class="kind-badge k-${t.kind}">${t.kind}</span></div>
+          <div class="chips">${chips.join("")}</div>
+          <div class="doc lead">${docHTML(t.name, t.doc, true)}</div>
+          <section><h2>Relationships</h2>${diagram.html}
+            <div class="legend-inline">
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--wire)" stroke-width="2"/></svg>uses the type</span>
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/></svg>holds the key</span>
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--od-cascade)" stroke-width="2"/></svg>stored reference, cascade</span>
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--od-restrict)" stroke-width="2"/></svg>restrict</span>
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--od-detach)" stroke-width="2" stroke-dasharray="6 4"/></svg>detach</span>
+              <span><svg viewBox="0 0 26 8"><path d="M1 4h24" stroke="var(--k-union)" stroke-width="2" stroke-dasharray="2 4"/></svg>extends</span>
+            </div>
+          </section>
+          ${bodySections(t)}
+        </div>`;
+                main.scrollTop = 0;
+                requestAnimationFrame(() => {
+                    drawWires();
+                    if (focus) {
+                        const el = document.getElementById("field-" + focus);
+                        if (el) {
+                            el.scrollIntoView({ block: "center" });
+                            el.classList.add("flash");
+                        }
+                    }
+                });
+            }
+
+            function centerRows(t) {
+                const rows = [];
+                const keyRows = new Set(
+                    (t.fields || []).filter((f) => f.key).map((f) => "f:" + f.name),
+                );
+                const selfRows = new Set(
+                    S.out
+                        .get(t.id)
+                        .filter((o) => o.self && !keyRows.has(o.row))
+                        .map((o) => o.row),
+                );
+                for (const r of t.extends || [])
+                    rows.push(
+                        `<div class="cc-row meta" data-row="extends:${esc(r.name)}"><span class="r-name">extends</span><span class="r-type">${refHTML(r, t.namespace)}</span></div>`,
+                    );
+                if (t.target)
+                    rows.push(
+                        `<div class="cc-row meta" data-row="target"><span class="r-name">${t.kind === "filter" ? "filters" : t.kind === "distinct" ? "distinct" : "="}</span><span class="r-type">${refHTML(t.target, t.namespace)}</span></div>`,
+                    );
+                for (const f of t.fields || [])
+                    rows.push(
+                        `<a class="cc-row" data-row="f:${esc(f.name)}" ${f.key ? "data-key" : ""} href="${typeHref(t.id, f.name)}"><span class="r-name">${esc(f.name)}${f.optional ? '<span class="opt">?</span>' : ""}</span>${f.key ? icon.key : ""}${selfRows.has("f:" + f.name) ? `<span title="References its own type" style="color:var(--faint)">${icon.self}</span>` : ""}<span class="r-type">${f.type ? refHTML(f.type, t.namespace, true) : '<span class="t-punc">inherited</span>'}</span></a>`,
+                    );
+                for (const v of t.variants || [])
+                    rows.push(
+                        `<div class="cc-row" data-row="v:${esc(v.name)}"><span class="r-name">${esc(v.name)}</span><span class="r-type">${v.fields ? `<span class="t-punc">{ ${v.fields.length} field${v.fields.length === 1 ? "" : "s"} }</span>` : refHTML(v.type, t.namespace, true)}</span></div>`,
+                    );
+                for (const v of t.values || [])
+                    rows.push(
+                        `<div class="cc-row"><span class="r-name">${esc(v.name)}</span><span class="r-type t-punc">${esc(v.value)}</span></div>`,
+                    );
+                return rows.join("");
+            }
+
+            function diagramHTML(t) {
+                const out = S.out.get(t.id).filter((o) => !o.self);
+                const targets = [];
+                const seen = new Map();
+                for (const o of out) {
+                    if (!seen.has(o.target)) {
+                        seen.set(o.target, { id: o.target, via: [] });
+                        targets.push(seen.get(o.target));
+                    }
+                    seen.get(o.target).via.push(o);
+                }
+                const inc = new Map();
+                for (const i of S.inc.get(t.id) || []) {
+                    if (!inc.has(i.from)) inc.set(i.from, { id: i.from, via: [] });
+                    inc.get(i.from).via.push(i);
+                }
+                const rank = (g) =>
+                    g.via.some((v) => v.via === "link")
+                        ? 0
+                        : g.via.some((v) => v.via === "key")
+                          ? 1
+                          : 2;
+                const incoming = [...inc.values()].sort(
+                    (a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id),
+                );
+                const shownIn = S.showAllIn ? incoming : incoming.slice(0, MAX_COL);
+
+                const mini = (g, side) => {
+                    const m = T(g.id);
+                    const vias = g.via
+                        .filter((v) =>
+                            side === "in"
+                                ? v.field || v.via === "extends" || v.via === "variant"
+                                : false,
+                        )
+                        .map((v) => {
+                            const label =
+                                v.via === "extends"
+                                    ? "extends"
+                                    : v.via === "variant"
+                                      ? v.row.slice(2)
+                                      : v.field;
+                            return `<span class="via ${v.link ? "od-" + (v.link.on_delete || "none") : ""}">${esc(label)}</span>`;
+                        });
+                    const uniq = [...new Set(vias)];
+                    return `<a class="mini k-${m.kind}" href="${typeHref(m.id)}" data-node="${esc(m.id)}" data-side="${side}">
+            <div class="mini-head">${glyph(m.kind)}<span class="mini-name">${esc(m.name)}</span><span class="mini-ns">${esc(m.namespace)}</span></div>
+            ${side === "out" && m.doc ? `<div class="mini-doc">${inline(firstSentence(m.doc))}</div>` : ""}
+            ${uniq.length ? `<div class="mini-via">${uniq.slice(0, 6).join("")}${uniq.length > 6 ? `<span class="via">+${uniq.length - 6}</span>` : ""}</div>` : ""}
+          </a>`;
+                };
+                const html = `<div class="diagram" id="diagram">
+          <svg class="wires" id="wires"></svg>
+          <div class="col col-in">
+            <div class="col-title">Referenced by <span class="count">${incoming.length}</span></div>
+            ${shownIn.map((g) => mini(g, "in")).join("") || '<div class="col-empty">Nothing references this type.</div>'}
+            ${incoming.length > MAX_COL ? `<button class="show-more" data-action="toggle-in">${S.showAllIn ? "Show fewer" : `Show all ${incoming.length}`}</button>` : ""}
+          </div>
+          <div class="col col-center">
+            <div class="center-card k-${t.kind}" id="center">
+              <div class="cc-head" data-row="head">${glyph(t.kind)}<span class="name">${esc(t.name)}</span><span class="ns">${esc(t.namespace)}</span></div>
+              ${centerRows(t) || '<div class="cc-more">No fields.</div>'}
+            </div>
+          </div>
+          <div class="col col-out">
+            <div class="col-title">References <span class="count">${targets.length}</span></div>
+            ${targets.map((g) => mini(g, "out")).join("") || '<div class="col-empty">Only primitive types.</div>'}
+          </div>
+        </div>`;
+                return { html, wires: { out, incoming: shownIn } };
+            }
+
+            function wireClass(o) {
+                if (o.via === "link")
+                    return "w-link od-" + (o.link.on_delete || "none");
+                if (o.via === "key") return "w-key";
+                if (o.via === "extends") return "w-extends";
+                return "w-field";
+            }
+
+            function drawWires() {
+                const d = $("#diagram");
+                const svg = $("#wires");
+                if (!d || !svg || getComputedStyle(svg).display === "none") return;
+                const box = d.getBoundingClientRect();
+                svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+                svg.setAttribute("width", box.width);
+                svg.setAttribute("height", box.height);
+                const rel = (el) => {
+                    const r = el.getBoundingClientRect();
+                    return {
+                        l: r.left - box.left,
+                        r: r.right - box.left,
+                        t: r.top - box.top,
+                        m: r.top - box.top + r.height / 2,
+                        h: r.height,
+                    };
+                };
+                const center = $("#center", d);
+                const head = $('[data-row="head"]', d);
+                const key = $(".cc-row[data-key]", center);
+                const paths = [];
+                const curve = (x1, y1, x2, y2) => {
+                    const dx = Math.max(30, (x2 - x1) / 2);
+                    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+                };
+                for (const o of S.wires.out) {
+                    const row = $(`[data-row="${CSS.escape(o.row)}"]`, center) || head;
+                    const card = $(`.col-out [data-node="${CSS.escape(o.target)}"]`, d);
+                    if (!card) continue;
+                    const a = rel(row),
+                        b = rel(card);
+                    const y2 = b.t + 18;
+                    paths.push({
+                        d: curve(a.r, a.m, b.l, y2),
+                        cls: wireClass(o),
+                        row: o.row,
+                        node: o.target,
+                        p1: [a.r, a.m],
+                        p2: [b.l, y2],
+                    });
+                }
+                const arrivals = S.wires.incoming.map((g) => {
+                    const v =
+                        g.via.find((x) => x.via === "link") ||
+                        g.via.find((x) => x.via === "key") ||
+                        g.via[0];
+                    return {
+                        g,
+                        v,
+                        anchor:
+                            (v.via === "link" || v.via === "key") && key ? key : head,
+                    };
+                });
+                const perAnchor = new Map();
+                arrivals.forEach((w) =>
+                    perAnchor.set(w.anchor, (perAnchor.get(w.anchor) || 0) + 1),
+                );
+                const seenAnchor = new Map();
+                for (const { g, v, anchor } of arrivals) {
+                    const card = $(`.col-in [data-node="${CSS.escape(g.id)}"]`, d);
+                    if (!card) continue;
+                    const a = rel(card),
+                        b = rel(anchor);
+                    const n = perAnchor.get(anchor),
+                        i = seenAnchor.get(anchor) || 0;
+                    seenAnchor.set(anchor, i + 1);
+                    const y2 =
+                        b.m +
+                        (n > 1 ? (i - (n - 1) / 2) * Math.min(4, (b.h * 0.7) / n) : 0);
+                    const y1 = a.t + 18;
+                    paths.push({
+                        d: curve(a.r, y1, b.l, y2),
+                        cls: wireClass(v),
+                        row: anchor.dataset.row,
+                        node: g.id,
+                        p1: [a.r, y1],
+                        p2: [b.l, y2],
+                    });
+                }
+                svg.innerHTML = paths
+                    .map(
+                        (p) =>
+                            `<path class="wire ${p.cls}" data-row="${esc(p.row)}" data-node="${esc(p.node)}" d="${p.d}"/>` +
+                            `<circle class="port" data-row="${esc(p.row)}" data-node="${esc(p.node)}" cx="${p.p1[0]}" cy="${p.p1[1]}" r="3"/>` +
+                            `<circle class="port" data-row="${esc(p.row)}" data-node="${esc(p.node)}" cx="${p.p2[0]}" cy="${p.p2[1]}" r="3"/>`,
+                    )
+                    .join("");
+            }
+
+            function highlightDiagram(target) {
+                const d = $("#diagram");
+                if (!d) return;
+                $$(".hl", d).forEach((e) => e.classList.remove("hl"));
+                if (!target) return d.classList.remove("dim");
+                const row = target.closest("[data-row]")?.dataset.row;
+                const node = target.closest("[data-node]")?.dataset.node;
+                let sel;
+                if (node)
+                    sel = `.wire[data-node="${CSS.escape(node)}"], .port[data-node="${CSS.escape(node)}"]`;
+                else if (row)
+                    sel = `.wire[data-row="${CSS.escape(row)}"], .port[data-row="${CSS.escape(row)}"]`;
+                if (!sel) return d.classList.remove("dim");
+                const wires = $$(sel, d);
+                if (!wires.length) return d.classList.remove("dim");
+                d.classList.add("dim");
+                wires.forEach((w) => {
+                    w.classList.add("hl");
+                    if (w.tagName !== "path") return;
+                    $(
+                        `.col [data-node="${CSS.escape(w.dataset.node)}"]`,
+                        d,
+                    )?.classList.add("hl");
+                    $(
+                        `#center [data-row="${CSS.escape(w.dataset.row)}"]`,
+                        d,
+                    )?.classList.add("hl");
+                });
+            }
+
+            function fieldHTML(t, f, inherited) {
+                const anchor = inherited ? "" : `id="field-${esc(f.name)}"`;
+                return `<div class="field" ${anchor}>
+          <div class="f-sig"><span class="f-name">${esc(f.name)}</span>${f.optional ? '<span class="f-opt">?</span>' : ""} ${f.type ? refHTML(f.type, t.namespace) : '<span class="t-punc">inherited type</span>'}${f.default ? ` <span class="f-default">= ${esc(f.default)}</span>` : ""}${inherited ? "" : `<a class="anchor" href="${typeHref(t.id, f.name)}">#</a>`}</div>
+          <div class="f-body"><div class="doc">${docHTML(f.name, f.doc) || '<span class="t-punc">No documentation.</span>'}</div>
+            ${linkHTML(f.link)}
+            ${f.annotations?.some((a) => !a.startsWith("@ref")) ? `<div class="f-annos">${annoHTML(f.annotations)}</div>` : ""}
+          </div>
+        </div>`;
+            }
+
+            function inheritedFields(t) {
+                const own = new Set((t.fields || []).map((f) => f.name));
+                const omitted = new Set(t.omits || []);
+                const groups = [];
+                const visit = (ref, seen) => {
+                    const p = T(ref.name);
+                    if (!p || seen.has(p.id) || p.kind !== "struct") return;
+                    seen.add(p.id);
+                    const fs = (p.fields || []).filter(
+                        (f) => !own.has(f.name) && !omitted.has(f.name),
+                    );
+                    fs.forEach((f) => own.add(f.name));
+                    if (fs.length) groups.push({ from: p, fields: fs });
+                    (p.extends || []).forEach((r) => visit(r, seen));
+                };
+                (t.extends || []).forEach((r) => visit(r, new Set([t.id])));
+                return groups;
+            }
+
+            function bodySections(t) {
+                let html = "";
+                if (t.fields?.length)
+                    html += `<section><h2>${t.kind === "filter" ? "Lines" : "Fields"} <span class="count">${t.fields.length}</span></h2><div class="fields">${t.fields.map((f) => fieldHTML(t, f)).join("")}</div></section>`;
+                const inh = inheritedFields(t);
+                if (inh.length)
+                    html += `<section class="inherited"><h2>Inherited fields</h2>${inh
+                        .map(
+                            (g) =>
+                                `<h3>from <a href="${typeHref(g.from.id)}">${esc(g.from.id)}</a></h3><div class="fields">${g.fields.map((f) => fieldHTML(g.from, f, true)).join("")}</div>`,
+                        )
+                        .join("")}</section>`;
+                if (t.variants?.length)
+                    html += `<section><h2>Variants <span class="count">${t.variants.length}</span></h2>
+            <div class="table-wrap"><table class="table"><thead><tr><th>${esc(t.discriminator)}</th><th>Payload</th><th>Description</th></tr></thead><tbody>
+            ${t.variants
+                .map(
+                    (v) =>
+                        `<tr><td class="mono">"${esc(v.name)}"</td><td class="mono">${v.fields ? v.fields.map((f) => `<div>${esc(f.name)}${f.optional ? "?" : ""} ${refHTML(f.type, t.namespace)}</div>`).join("") || '<span class="t-punc">{}</span>' : refHTML(v.type, t.namespace)}</td><td><div class="doc">${docHTML(v.name, v.doc || T(v.type.name)?.doc)}</div></td></tr>`,
+                )
+                .join("")}</tbody></table></div></section>`;
+                if (t.values?.length)
+                    html += `<section><h2>Members <span class="count">${t.values.length}</span></h2>
+            <div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Value</th><th>Description</th></tr></thead><tbody>
+            ${t.values.map((v) => `<tr><td class="mono">${esc(v.name)}</td><td class="mono t-punc">${esc(v.value)}</td><td><div class="doc">${docHTML(v.name, v.doc)}</div></td></tr>`).join("")}
+            </tbody></table></div></section>`;
+                if (t.actions?.length)
+                    html += `<section><h2>Actions <span class="count">${t.actions.length}</span></h2><div class="actions">${t.actions
+                        .map(
+                            (
+                                a,
+                            ) => `<details class="action"><summary>${icon.chev}<b>${esc(a.name)}</b><span class="doc">${inline(a.doc || "")}</span></summary>
+                ${a.fields?.length ? `<div class="fields">${a.fields.map((f) => fieldHTML(t, f, true)).join("")}</div>` : ""}</details>`,
+                        )
+                        .join("")}</div></section>`;
+                const ns = S.ns.get(t.namespace);
+                const omits = new Set(
+                    (t.annotations || [])
+                        .filter((a) => / omit$/.test(a))
+                        .map((a) => a.split(" ")[0].slice(1)),
+                );
+                const gens = LANGS.filter(([k]) => ns.outputs?.[k]).map(
+                    ([k, name, short]) =>
+                        `<div class="gen-item ${omits.has(k) ? "omitted" : ""}"><span class="lang lang-${k}">${short}</span><div class="meta"><div>${name}${omits.has(k) ? " · omitted" : ""}</div><div title="${esc(ns.outputs[k].join("\n"))}">${esc(ns.outputs[k].join(", "))}</div></div></div>`,
+                );
+                if (
+                    ns.annotations?.includes("@pb") ||
+                    (t.annotations || []).includes("@pb")
+                )
+                    gens.push(
+                        `<div class="gen-item"><span class="lang lang-pb">PB</span><div class="meta"><div>Protobuf</div><div>generated from @pb</div></div></div>`,
+                    );
+                if (gens.length)
+                    html += `<section><h2>Generated bindings</h2><div class="gen">${gens.join("")}</div></section>`;
+                const annos = (t.annotations || []).filter((a) => !/^@doc/.test(a));
+                if (annos.length)
+                    html += `<section><h2>Annotations</h2><div class="f-annos">${annoHTML(annos)}</div></section>`;
+                return html;
+            }
+
+            /* ---------- Namespace page ---------- */
+
+            function renderNamespace(name) {
+                const ns = S.ns.get(name);
+                document.title = `${name} · Oracle`;
+                const types = S.model.types.filter((t) => t.namespace === name);
+                const groups = [
+                    ["Resources", (t) => t.resource],
+                    [
+                        "Stored structs",
+                        (t) => !t.resource && t.persisted && t.kind === "struct",
+                    ],
+                    [
+                        "Structs",
+                        (t) => !t.resource && !t.persisted && t.kind === "struct",
+                    ],
+                    ["Unions", (t) => t.kind === "union"],
+                    ["Enums", (t) => t.kind === "enum"],
+                    [
+                        "Aliases and distinct types",
+                        (t) => t.kind === "alias" || t.kind === "distinct",
+                    ],
+                    ["Filters", (t) => t.kind === "filter"],
+                ];
+                const card = (t) => {
+                    const rows = (t.fields || [])
+                        .slice(0, 5)
+                        .map(
+                            (f) =>
+                                `<div><span>${esc(f.name)}${f.optional ? "?" : ""}</span><span>${refHTML(f.type, name, true)}</span></div>`,
+                        );
+                    (t.variants || [])
+                        .slice(0, 5)
+                        .forEach((v) =>
+                            rows.push(
+                                `<div><span>${esc(v.name)}</span><span>${v.fields ? "{…}" : refHTML(v.type, name, true)}</span></div>`,
+                            ),
+                        );
+                    (t.values || [])
+                        .slice(0, 5)
+                        .forEach((v) =>
+                            rows.push(
+                                `<div><span>${esc(v.name)}</span><span class="t-punc">${esc(v.value)}</span></div>`,
+                            ),
+                        );
+                    if (t.target)
+                        rows.push(
+                            `<div><span>${t.kind === "filter" ? "filters" : "="}</span><span>${refHTML(t.target, name, true)}</span></div>`,
+                        );
+                    const total = (t.fields || t.variants || t.values || []).length;
+                    if (total > 5)
+                        rows.push(`<div class="more">+ ${total - 5} more</div>`);
+                    return `<a class="tcard k-${t.kind}" href="${typeHref(t.id)}">
+            <div class="tcard-head">${glyph(t.kind)}<b>${esc(t.name)}</b><span class="tags">${t.resource ? '<span class="tag">resource</span>' : ""}${t.persisted ? '<span class="tag stored">stored</span>' : ""}</span></div>
+            ${t.doc ? `<div class="doc">${docHTML(t.name, firstSentence(t.doc))}</div>` : ""}
+            ${rows.length ? `<div class="tcard-fields">${rows.join("")}</div>` : ""}
+          </a>`;
+                };
+                const gens = LANGS.filter(([k]) => ns.outputs?.[k]).map(
+                    ([k, lname, short]) =>
+                        `<div class="gen-item"><span class="lang lang-${k}">${short}</span><div class="meta"><div>${lname}</div><div title="${esc(ns.outputs[k].join("\n"))}">${esc(ns.outputs[k].join(", "))}</div></div></div>`,
+                );
+                if (ns.annotations?.includes("@pb"))
+                    gens.push(
+                        `<div class="gen-item"><span class="lang lang-pb">PB</span><div class="meta"><div>Protobuf</div><div>generated from @pb</div></div></div>`,
+                    );
+                main.innerHTML = `<div class="page">
+          <div class="crumbs"><span>${esc(ns.domain)}</span>${icon.chev}<span>${esc(name)}</span></div>
+          <div class="title-row"><h1>${esc(name)}</h1></div>
+          <div class="chips">
+            <span class="chip">${types.length} types</span>
+            ${ns.versions?.length ? `<span class="chip">${icon.db}versions <b>${ns.versions.map((v) => "v" + v).join(" → ")}</b></span>` : ""}
+            <button class="chip" data-copy="${esc(ns.file)}" title="Copy the path">${icon.file}${esc(ns.file)}</button>
+          </div>
+          ${gens.length ? `<section><h2>Generated bindings</h2><div class="gen">${gens.join("")}</div></section>` : ""}
+          ${groups
+              .map(([title, pred]) => {
+                  const ts = types.filter(pred);
+                  return ts.length
+                      ? `<section><h2>${title} <span class="count">${ts.length}</span></h2><div class="card-grid">${ts.map(card).join("")}</div></section>`
+                      : "";
+              })
+              .join("")}
+        </div>`;
+                main.scrollTop = 0;
+            }
+
+            /* ---------- Graphs ---------- */
+
+            function resourceGraph() {
+                const nodes = new Map();
+                const edges = new Map();
+                const targets = new Set();
+                for (const t of S.model.types)
+                    for (const { f } of allFields(t))
+                        (f.link?.targets || []).forEach((id) => targets.add(id));
+                const typeNode = (t, cls) => {
+                    if (nodes.has(t.id)) return;
+                    const ns = S.ns.get(t.namespace);
+                    const v = ns.versions?.length ? ` · v${ns.versions.at(-1)}` : "";
+                    const sub =
+                        cls === "res"
+                            ? `${t.namespace} · resource${v}`
+                            : cls === "stored"
+                              ? `${t.namespace} · stored${v}`
+                              : `${t.namespace} · struct`;
+                    nodes.set(t.id, {
+                        id: t.id,
+                        label: t.name,
+                        sub,
+                        cls,
+                        domain: ns.domain,
+                        href: typeHref(t.id),
+                        doc: t.doc,
+                    });
+                };
+                const resources = S.model.types.filter(
+                    (t) =>
+                        (t.kind === "struct" || t.kind === "union") &&
+                        t.resource &&
+                        (t.persisted || targets.has(t.id)),
+                );
+                const nsResource = new Map();
+                resources.forEach((t) => {
+                    typeNode(t, "res");
+                    if (!nsResource.has(t.namespace)) nsResource.set(t.namespace, t.id);
+                });
+                const nodeFor = (t) => {
+                    if (nodes.has(t.id)) return t.id;
+                    const keyed = t.persisted && t.key && T(t.key);
+                    if (S.expanded || keyed) {
+                        typeNode(t, keyed ? "stored" : "holder");
+                        return t.id;
+                    }
+                    if (nsResource.has(t.namespace)) return nsResource.get(t.namespace);
+                    const gid = "ns:" + t.namespace;
+                    if (!nodes.has(gid))
+                        nodes.set(gid, {
+                            id: gid,
+                            label: t.namespace,
+                            cls: "group",
+                            domain: S.ns.get(t.namespace).domain,
+                            href: "#/ns/" + encodeURIComponent(t.namespace),
+                            members: new Set(),
+                        });
+                    nodes.get(gid).members.add(t.id);
+                    return gid;
+                };
+                for (const t of S.model.types) {
+                    for (const { f } of allFields(t)) {
+                        if (!f.link?.targets?.length) continue;
+                        const src = nodeFor(t);
+                        const kind = f.link.kind || "place";
+                        const od = f.link.on_delete || "none";
+                        for (const dst of f.link.targets) {
+                            if (!nodes.has(dst))
+                                typeNode(
+                                    T(dst),
+                                    T(dst).persisted ? "stored" : "holder",
+                                );
+                            const k = `${src}>${dst}|${kind}|${od}`;
+                            if (!edges.has(k))
+                                edges.set(k, {
+                                    s: src,
+                                    t: dst,
+                                    cls: `k-${kind} od-${od}`,
+                                    marker:
+                                        od === "cascade" ||
+                                        od === "restrict" ||
+                                        od === "detach"
+                                            ? od
+                                            : "plain",
+                                    kind,
+                                    od,
+                                    fields: [],
+                                });
+                            edges.get(k).fields.push(`${t.id}.${f.name}`);
+                        }
+                    }
+                }
+                for (const n of nodes.values())
+                    if (n.members)
+                        n.sub = `${n.members.size} config struct${n.members.size > 1 ? "s" : ""}`;
+                return {
+                    key: "resources" + (S.expanded ? "+" : ""),
+                    nodes: [...nodes.values()],
+                    edges: [...edges.values()],
+                    charge: 700,
+                    dist: 150,
+                    gravity: 0.12,
+                };
+            }
+
+            function namespaceGraph() {
+                const counts = new Map();
+                for (const t of S.model.types)
+                    for (const o of S.out.get(t.id)) {
+                        const to = T(o.raw)?.namespace;
+                        if (!to || to === t.namespace) continue;
+                        const k = t.namespace + ">" + to;
+                        if (!counts.has(k))
+                            counts.set(k, { s: t.namespace, t: to, fields: [] });
+                        counts
+                            .get(k)
+                            .fields.push(
+                                `${t.id}${o.field ? "." + o.field : ""} → ${o.raw}`,
+                            );
+                    }
+                const sizes = new Map();
+                S.model.types.forEach((t) =>
+                    sizes.set(t.namespace, (sizes.get(t.namespace) || 0) + 1),
+                );
+                const nodes = S.model.namespaces.map((n) => ({
+                    id: n.name,
+                    label: n.name,
+                    sub: `${sizes.get(n.name) || 0} types${n.versions?.length ? " · v" + n.versions.at(-1) : ""}`,
+                    cls: "res",
+                    domain: n.domain,
+                    href: "#/ns/" + encodeURIComponent(n.name),
+                }));
+                const edges = [...counts.values()].map((e) => ({
+                    ...e,
+                    cls: "nsedge",
+                    marker: "ns",
+                    width: 1 + Math.log2(e.fields.length) * 0.7,
+                }));
+                return {
+                    key: "namespaces",
+                    nodes,
+                    edges,
+                    charge: 520,
+                    dist: 120,
+                    gravity: 0.14,
+                };
+            }
+
+            let measureCtx;
+            function textWidth(s, font) {
+                measureCtx ??= document.createElement("canvas").getContext("2d");
+                measureCtx.font = font;
+                return measureCtx.measureText(s).width;
+            }
+
+            function simulate(g) {
+                const nodes = g.nodes;
+                const idx = new Map(nodes.map((n, i) => [n.id, i]));
+                const deg = new Array(nodes.length).fill(0);
+                const links = g.edges
+                    .filter((e) => e.s !== e.t)
+                    .map((e) => [idx.get(e.s), idx.get(e.t)]);
+                links.forEach(([a, b]) => (deg[a]++, deg[b]++));
+                const order = nodes
+                    .map((_, i) => i)
+                    .sort(
+                        (a, b) =>
+                            deg[b] - deg[a] || nodes[a].id.localeCompare(nodes[b].id),
+                    );
+                order.forEach((i, r) => {
+                    const a = r * 2.399963;
+                    const rad = 40 * Math.sqrt(r + 1) * 2.2;
+                    nodes[i].x = Math.cos(a) * rad;
+                    nodes[i].y = Math.sin(a) * rad;
+                    nodes[i].vx = 0;
+                    nodes[i].vy = 0;
+                });
+                let alpha = 1;
+                const n = nodes.length;
+                for (let it = 0; it < 420; it++) {
+                    alpha *= 0.986;
+                    for (let i = 0; i < n; i++)
+                        for (let j = i + 1; j < n; j++) {
+                            const a = nodes[i],
+                                b = nodes[j];
+                            let dx = b.x - a.x,
+                                dy = b.y - a.y;
+                            let d2 = dx * dx + dy * dy;
+                            if (d2 < 1)
+                                ((dx = Math.random() - 0.5),
+                                    (dy = Math.random() - 0.5),
+                                    (d2 = 1));
+                            const f = (g.charge * alpha) / d2;
+                            a.vx -= dx * f;
+                            a.vy -= dy * f;
+                            b.vx += dx * f;
+                            b.vy += dy * f;
+                        }
+                    for (const [si, ti] of links) {
+                        const a = nodes[si],
+                            b = nodes[ti];
+                        const dx = b.x - a.x,
+                            dy = b.y - a.y;
+                        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const k =
+                            ((d - g.dist) / d) *
+                            alpha *
+                            (0.5 / Math.min(deg[si], deg[ti]));
+                        a.vx += dx * k;
+                        a.vy += dy * k;
+                        b.vx -= dx * k;
+                        b.vy -= dy * k;
+                    }
+                    for (const p of nodes) {
+                        p.vx -= p.x * g.gravity * 0.8 * alpha;
+                        p.vy -= p.y * g.gravity * 1.2 * alpha;
+                        p.vx *= 0.6;
+                        p.vy *= 0.6;
+                        const v = Math.hypot(p.vx, p.vy);
+                        if (v > 40) ((p.vx *= 40 / v), (p.vy *= 40 / v));
+                        p.x += p.vx;
+                        p.y += p.vy;
+                    }
+                    for (let i = 0; i < n; i++)
+                        for (let j = i + 1; j < n; j++) {
+                            const a = nodes[i],
+                                b = nodes[j];
+                            const dx = b.x - a.x,
+                                dy = b.y - a.y;
+                            const ox = (a.w + b.w) / 2 + 28 - Math.abs(dx);
+                            const oy = (a.h + b.h) / 2 + 22 - Math.abs(dy);
+                            if (ox > 0 && oy > 0) {
+                                if (ox / (a.w + b.w) < oy / (a.h + b.h)) {
+                                    const s = (dx < 0 ? -1 : 1) * ox * 0.5;
+                                    a.x -= s;
+                                    b.x += s;
+                                } else {
+                                    const s = (dy < 0 ? -1 : 1) * oy * 0.5;
+                                    a.y -= s;
+                                    b.y += s;
+                                }
+                            }
+                        }
+                }
+            }
+
+            function clipToRect(n, px, py, pad) {
+                const dx = px - n.x,
+                    dy = py - n.y;
+                if (!dx && !dy) return [n.x, n.y];
+                const sx = dx ? (n.w / 2 + pad) / Math.abs(dx) : Infinity;
+                const sy = dy ? (n.h / 2 + pad) / Math.abs(dy) : Infinity;
+                const s = Math.min(sx, sy);
+                return [n.x + dx * s, n.y + dy * s];
+            }
+
+            function edgeGeom(e, byId) {
+                const a = byId.get(e.s),
+                    b = byId.get(e.t);
+                if (a === b) {
+                    const x = a.x + a.w / 2 - 18,
+                        y = a.y - a.h / 2;
+                    return {
+                        d: `M${x},${y} C${x + 10},${y - 54} ${x + 70},${y - 20} ${a.x + a.w / 2},${a.y - 6}`,
+                        lx: x + 46,
+                        ly: y - 26,
+                    };
+                }
+                const mx = (a.x + b.x) / 2,
+                    my = (a.y + b.y) / 2;
+                const dx = b.x - a.x,
+                    dy = b.y - a.y;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                const off = e.bend * Math.min(len * 0.18, 70);
+                const cx = mx - (dy / len) * off,
+                    cy = my + (dx / len) * off;
+                const [x1, y1] = clipToRect(a, cx, cy, 2);
+                const [x2, y2] = clipToRect(b, cx, cy, 5);
+                return {
+                    d: `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`,
+                    lx: (x1 + 2 * cx + x2) / 4,
+                    ly: (y1 + 2 * cy + y2) / 4,
+                };
+            }
+
+            function drawGraph(svg, g) {
+                const titleFont = `650 13px ${getComputedStyle(document.body).getPropertyValue("--mono")}`;
+                const subFont = `500 11px ${getComputedStyle(document.body).getPropertyValue("--sans")}`;
+                for (const n of g.nodes) {
+                    n.w = Math.max(
+                        116,
+                        Math.max(
+                            textWidth(n.label, titleFont),
+                            textWidth(n.sub || "", subFont),
+                        ) + 34,
+                    );
+                    n.h = 46;
+                }
+                const pairs = new Map();
+                for (const e of g.edges) {
+                    const k = [e.s, e.t].sort().join("|");
+                    const c = pairs.get(k) || 0;
+                    pairs.set(k, c + 1);
+                    e.bend = (c % 2 ? -1 : 1) * (0.5 + Math.floor(c / 2));
+                }
+                const cached = S.layouts.get(g.key);
+                if (cached && g.nodes.every((n) => cached.has(n.id)))
+                    g.nodes.forEach((n) => Object.assign(n, cached.get(n.id)));
+                else simulate(g);
+                const save = () =>
+                    S.layouts.set(
+                        g.key,
+                        new Map(g.nodes.map((n) => [n.id, { x: n.x, y: n.y }])),
+                    );
+                save();
+                const byId = new Map(g.nodes.map((n) => [n.id, n]));
+                const adj = new Map(g.nodes.map((n) => [n.id, new Set([n.id])]));
+                g.edges.forEach((e) => (adj.get(e.s).add(e.t), adj.get(e.t).add(e.s)));
+
+                const markers = ["plain", "cascade", "restrict", "detach", "ns"]
+                    .map(
+                        (m) =>
+                            `<marker id="m-${m}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="m-${m}" d="M0,1 L9,5 L0,9 z"/></marker>`,
+                    )
+                    .join("");
+                const edgeHTML = g.edges
+                    .map((e, i) => {
+                        const geo = edgeGeom(e, byId);
+                        const w = e.width
+                            ? `style="stroke-width:${e.width.toFixed(2)}px"`
+                            : "";
+                        const count =
+                            e.fields.length > 1 && g.key !== "namespaces"
+                                ? `<text class="edge-count" data-e="${i}" x="${geo.lx}" y="${geo.ly}" text-anchor="middle" dy="4">×${e.fields.length}</text>`
+                                : "";
+                        return `<path class="edge ${e.cls}" data-e="${i}" d="${geo.d}" marker-end="url(#m-${e.marker})" ${w}/><path class="edge-hit" data-e="${i}" d="${geo.d}"/>${count}`;
+                    })
+                    .join("");
+                const nodeHTML = g.nodes
+                    .map(
+                        (
+                            n,
+                        ) => `<g class="node ${n.cls} d-${n.domain}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})">
+              <rect class="box" x="${-n.w / 2}" y="${-n.h / 2}" width="${n.w}" height="${n.h}" rx="9"/>
+              ${n.cls === "res" ? `<rect class="bar" x="${-n.w / 2}" y="${-n.h / 2 + 9}" width="3" height="${n.h - 18}" rx="1.5"/>` : ""}
+              <text x="${-n.w / 2 + 15}" y="-2">${esc(n.label)}</text>
+              <text class="sub" x="${-n.w / 2 + 15}" y="14">${esc(n.sub || "")}</text>
+            </g>`,
+                    )
+                    .join("");
+                svg.innerHTML = `<defs>${markers}</defs><g class="vp"><g class="edges">${edgeHTML}</g><g class="nodes">${nodeHTML}</g></g>`;
+                const vp = $(".vp", svg);
+                const view = { k: 1, x: 0, y: 0 };
+                const apply = () =>
+                    vp.setAttribute(
+                        "transform",
+                        `translate(${view.x},${view.y}) scale(${view.k})`,
+                    );
+                const fit = () => {
+                    const r = svg.getBoundingClientRect();
+                    const xs = g.nodes.flatMap((n) => [n.x - n.w / 2, n.x + n.w / 2]);
+                    const ys = g.nodes.flatMap((n) => [
+                        n.y - n.h / 2 - 50,
+                        n.y + n.h / 2,
+                    ]);
+                    const [x0, x1, y0, y1] = [
+                        Math.min(...xs),
+                        Math.max(...xs),
+                        Math.min(...ys),
+                        Math.max(...ys),
+                    ];
+                    const padTop = 110,
+                        pad = 60,
+                        padLeft = r.width > 900 ? 200 : pad;
+                    view.k = Math.min(
+                        (r.width - padLeft - pad) / (x1 - x0),
+                        (r.height - padTop - pad) / (y1 - y0),
+                        1.25,
+                    );
+                    view.x =
+                        padLeft +
+                        (r.width - padLeft - pad) / 2 -
+                        ((x0 + x1) / 2) * view.k;
+                    view.y =
+                        padTop +
+                        (r.height - padTop - pad) / 2 -
+                        ((y0 + y1) / 2) * view.k;
+                    apply();
+                };
+                fit();
+                const zoomAt = (mx, my, f) => {
+                    const k = Math.min(3, Math.max(0.12, view.k * f));
+                    view.x = mx - ((mx - view.x) * k) / view.k;
+                    view.y = my - ((my - view.y) * k) / view.k;
+                    view.k = k;
+                    apply();
+                };
+                svg.addEventListener(
+                    "wheel",
+                    (e) => {
+                        e.preventDefault();
+                        const r = svg.getBoundingClientRect();
+                        zoomAt(
+                            e.clientX - r.left,
+                            e.clientY - r.top,
+                            Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0018)),
+                        );
+                    },
+                    { passive: false },
+                );
+                const redrawEdges = () => {
+                    g.edges.forEach((e, i) => {
+                        if (!adj.has(e.s)) return;
+                        const geo = edgeGeom(e, byId);
+                        $$(`[data-e="${i}"]`, svg).forEach((el) => {
+                            if (el.tagName === "text")
+                                (el.setAttribute("x", geo.lx),
+                                    el.setAttribute("y", geo.ly));
+                            else el.setAttribute("d", geo.d);
+                        });
+                    });
+                };
+                let drag = null;
+                svg.addEventListener("pointerdown", (e) => {
+                    const nodeEl = e.target.closest(".node");
+                    drag = {
+                        x: e.clientX,
+                        y: e.clientY,
+                        moved: false,
+                        node: nodeEl ? byId.get(nodeEl.dataset.id) : null,
+                        el: nodeEl,
+                        vx: view.x,
+                        vy: view.y,
+                    };
+                    if (drag.node) ((drag.nx = drag.node.x), (drag.ny = drag.node.y));
+                    svg.setPointerCapture(e.pointerId);
+                });
+                svg.addEventListener("pointermove", (e) => {
+                    if (!drag) return hoverGraph(e);
+                    const dx = e.clientX - drag.x,
+                        dy = e.clientY - drag.y;
+                    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+                    drag.moved = true;
+                    hideTip();
+                    if (drag.node) {
+                        drag.node.x = drag.nx + dx / view.k;
+                        drag.node.y = drag.ny + dy / view.k;
+                        drag.el.setAttribute(
+                            "transform",
+                            `translate(${drag.node.x},${drag.node.y})`,
+                        );
+                        redrawEdges();
+                    } else {
+                        svg.classList.add("panning");
+                        view.x = drag.vx + dx;
+                        view.y = drag.vy + dy;
+                        apply();
+                    }
+                });
+                svg.addEventListener("pointerup", () => {
+                    svg.classList.remove("panning");
+                    if (drag?.node && !drag.moved) location.hash = drag.node.href;
+                    if (drag?.node && drag.moved) save();
+                    drag = null;
+                });
+                const hoverGraph = (e) => {
+                    const nodeEl = e.target.closest(".node");
+                    const edgeEl = e.target.closest(".edge-hit");
+                    svg.classList.toggle("focus", !!(nodeEl || edgeEl));
+                    $$(".on", svg).forEach((el) => el.classList.remove("on"));
+                    if (nodeEl) {
+                        const id = nodeEl.dataset.id;
+                        const near = adj.get(id);
+                        $$(".node", svg).forEach((el) =>
+                            el.classList.toggle("on", near.has(el.dataset.id)),
+                        );
+                        g.edges.forEach((ed, i) => {
+                            if (ed.s === id || ed.t === id)
+                                $$(`[data-e="${i}"]`, svg).forEach((el) =>
+                                    el.classList.add("on"),
+                                );
+                        });
+                        const n = byId.get(id);
+                        const inc = g.edges.filter((ed) => ed.t === id).length,
+                            out = g.edges.filter((ed) => ed.s === id).length;
+                        const desc = n.members
+                            ? `${n.members.size} config structs in ${esc(n.label)}`
+                            : n.doc
+                              ? inline(firstSentence(n.doc))
+                              : esc(n.sub || "");
+                        showTip(
+                            e,
+                            `<b>${esc(n.id)}</b><div style="margin-top:4px">${desc}</div><div style="margin-top:6px;color:var(--faint)">${out} outgoing · ${inc} incoming · click to open</div>`,
+                        );
+                    } else if (edgeEl) {
+                        const ed = g.edges[+edgeEl.dataset.e];
+                        $$(`[data-e="${edgeEl.dataset.e}"]`, svg).forEach((el) =>
+                            el.classList.add("on"),
+                        );
+                        [ed.s, ed.t].forEach((id) =>
+                            $(`.node[data-id="${CSS.escape(id)}"]`, svg)?.classList.add(
+                                "on",
+                            ),
+                        );
+                        const head =
+                            g.key === "namespaces"
+                                ? `<b>${esc(ed.s)}</b> uses <b>${esc(ed.t)}</b> · ${ed.fields.length} reference${ed.fields.length > 1 ? "s" : ""}`
+                                : `<b>${esc(byId.get(ed.s).label)}</b> → <b>${esc(byId.get(ed.t).label)}</b><div style="margin-top:4px">${esc(ed.kind)}${ed.od !== "none" ? " · on delete " + esc(ed.od) : ""}</div>`;
+                        const list =
+                            ed.fields.slice(0, 10).map(esc).join("<br>") +
+                            (ed.fields.length > 10
+                                ? `<br>+ ${ed.fields.length - 10} more`
+                                : "");
+                        showTip(e, `${head}<div class="tt-list">${list}</div>`);
+                    } else hideTip();
+                };
+                svg.addEventListener("pointerleave", () => {
+                    svg.classList.remove("focus");
+                    hideTip();
+                });
+                $(".map-zoom").addEventListener("click", (e) => {
+                    const z = e.target.closest("button")?.dataset.z;
+                    const r = svg.getBoundingClientRect();
+                    if (z === "in") zoomAt(r.width / 2, r.height / 2, 1.25);
+                    if (z === "out") zoomAt(r.width / 2, r.height / 2, 0.8);
+                    if (z === "fit") fit();
+                });
+            }
+
+            function renderMap(kind) {
+                document.title = "Oracle schema map";
+                const res = kind === "resources";
+                const legend = res
+                    ? `<div class="lg-title">Nodes</div>
+             <span><svg viewBox="0 0 30 12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--raised)" stroke="var(--d-synnax)"/></svg>resource</span>
+             <span><svg viewBox="0 0 30 12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--raised)" stroke="var(--border-strong)"/></svg>stored struct</span>
+             <span><svg viewBox="0 0 30 12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-dasharray="4 3"/></svg>config structs</span>
+             <div class="lg-title">Stored references</div>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--muted)" stroke-width="2"/></svg>place</span>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"/></svg>use</span>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--od-cascade)" stroke-width="2"/></svg>on delete cascade</span>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--od-restrict)" stroke-width="2"/></svg>on delete restrict</span>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--od-detach)" stroke-width="2"/></svg>on delete detach</span>`
+                    : `<div class="lg-title">Domains</div>
+             ${DOMAINS.map((d) => `<span><svg viewBox="0 0 30 12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--raised)" stroke="var(--d-${d})"/></svg>${d}</span>`).join("")}
+             <div class="lg-title">Edges</div>
+             <span><svg viewBox="0 0 30 12"><path d="M1 6h28" stroke="var(--faint)" stroke-width="3"/></svg>width shows reference count</span>`;
+                main.innerHTML = `<div class="map">
+          <svg class="graph" id="graph"></svg>
+          <div class="map-bar">
+            <div class="seg"><a href="#/map/resources" class="${res ? "on" : ""}">Resources</a><a href="#/map/namespaces" class="${res ? "" : "on"}">Namespaces</a></div>
+            ${res ? `<label class="toggle"><input type="checkbox" id="expand" ${S.expanded ? "checked" : ""}/>Show each config struct</label>` : ""}
+          </div>
+          <div class="map-title">
+            <h1>${res ? "How stored data references other data" : "How schema namespaces depend on each other"}</h1>
+            <p>${res ? "Every arrow is a field marked <code>@ref</code>. The color shows what happens to the field when the target is deleted." : "An arrow means a type in one namespace uses a type in the other."}</p>
+          </div>
+          <div class="map-legend">${legend}</div>
+          <div class="map-hint">Scroll to zoom · drag to pan · click a node to open it</div>
+          <div class="map-zoom"><button data-z="in" title="Zoom in">${icon.plus}</button><button data-z="out" title="Zoom out">${icon.minus}</button><button data-z="fit" title="Fit to view">${icon.fit}</button></div>
+        </div>`;
+                drawGraph($("#graph"), res ? resourceGraph() : namespaceGraph());
+            }
+
+            /* ---------- Search ---------- */
+
+            let results = [];
+            let sel = 0;
+            function score(e, q) {
+                const l = e.label.toLowerCase();
+                const name = e.type === "field" ? e.field.toLowerCase() : l;
+                let s = 0;
+                if (name === q || l === q) s = 100;
+                else if (name.startsWith(q)) s = 80;
+                else if (l.startsWith(q)) s = 70;
+                else if (l.includes(q) || (e.ns + "." + l).includes(q)) s = 55;
+                else {
+                    let i = 0;
+                    for (const c of l) if (c === q[i]) i++;
+                    if (i === q.length) s = 25;
+                    else if (q.length > 3 && e.doc.toLowerCase().includes(q)) s = 10;
+                }
+                if (!s) return 0;
+                if (e.type === "field") s -= 6;
+                if (e.type === "ns") s += 4;
+                if (T(e.id)?.resource) s += 3;
+                return s - l.length * 0.01;
+            }
+            function highlight(label, q) {
+                const i = label.toLowerCase().indexOf(q);
+                if (i < 0 || !q) return esc(label);
+                return (
+                    esc(label.slice(0, i)) +
+                    "<mark>" +
+                    esc(label.slice(i, i + q.length)) +
+                    "</mark>" +
+                    esc(label.slice(i + q.length))
+                );
+            }
+            function runSearch() {
+                const q = $("#q").value.trim().toLowerCase();
+                if (!q) {
+                    results = S.model.types
+                        .filter((t) => t.resource && t.persisted)
+                        .map((t) => ({
+                            type: "type",
+                            id: t.id,
+                            label: t.name,
+                            ns: t.namespace,
+                            kind: t.kind,
+                            doc: t.doc || "",
+                        }));
+                } else {
+                    results = S.search
+                        .map((e) => [score(e, q), e])
+                        .filter(([s]) => s > 0)
+                        .sort((a, b) => b[0] - a[0])
+                        .slice(0, 60)
+                        .map(([, e]) => e);
+                }
+                sel = 0;
+                $("#results").innerHTML = results.length
+                    ? (q
+                          ? ""
+                          : '<div class="col-title" style="padding:6px 10px">Resources</div>') +
+                      results
+                          .map(
+                              (
+                                  r,
+                                  i,
+                              ) => `<div class="result ${i === sel ? "sel" : ""}" data-i="${i}">
+                  ${r.type === "ns" ? `<span class="glyph" style="background:var(--d-${r.ns})">N</span>` : glyph(r.kind)}
+                  <div class="r-main"><div class="r-label">${highlight(r.label, q)}</div>${r.doc ? `<div class="r-doc">${esc(firstSentence(r.doc))}</div>` : ""}</div>
+                  <span class="r-ns">${esc(r.type === "ns" ? r.ns : r.ns)}</span><span class="r-kind">${r.type === "field" ? "field" : r.type === "ns" ? "file" : r.kind}</span>
+                </div>`,
+                          )
+                          .join("")
+                    : '<div class="palette-empty">No matches.</div>';
+            }
+            function moveSel(d) {
+                if (!results.length) return;
+                sel = (sel + d + results.length) % results.length;
+                $$(".result").forEach((el) =>
+                    el.classList.toggle("sel", +el.dataset.i === sel),
+                );
+                $(`.result[data-i="${sel}"]`)?.scrollIntoView({ block: "nearest" });
+            }
+            function openResult(i) {
+                const r = results[i];
+                if (!r) return;
+                closePalette();
+                location.hash =
+                    r.type === "ns"
+                        ? "#/ns/" + encodeURIComponent(r.id)
+                        : typeHref(r.id, r.field);
+            }
+            function openPalette() {
+                $("#palette").hidden = false;
+                $("#q").value = "";
+                runSearch();
+                $("#q").focus();
+            }
+            function closePalette() {
+                $("#palette").hidden = true;
+            }
+
+            /* ---------- Tooltip ---------- */
+
+            function showTip(e, html) {
+                tip.innerHTML = html;
+                tip.hidden = false;
+                const w = tip.offsetWidth,
+                    h = tip.offsetHeight;
+                let x = e.clientX + 14,
+                    y = e.clientY + 14;
+                if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+                if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+                tip.style.left = x + "px";
+                tip.style.top = y + "px";
+            }
+            function hideTip() {
+                tip.hidden = true;
+            }
+
+            /* ---------- Theme ---------- */
+
+            function storage(key, value) {
+                try {
+                    if (value === undefined) return localStorage.getItem(key);
+                    if (value === null) localStorage.removeItem(key);
+                    else localStorage.setItem(key, value);
+                } catch {
+                    return null;
+                }
+            }
+            function applyTheme(t) {
+                if (t) document.documentElement.dataset.theme = t;
+                else delete document.documentElement.dataset.theme;
+            }
+            applyTheme(storage("oracle-theme"));
+
+            /* ---------- Events ---------- */
+
+            document.addEventListener("click", (e) => {
+                const copy = e.target.closest("[data-copy]");
+                if (copy) {
+                    navigator.clipboard?.writeText(copy.dataset.copy);
+                    const old = copy.innerHTML;
+                    copy.innerHTML = "Copied";
+                    setTimeout(() => (copy.innerHTML = old), 900);
+                }
+                const kind = e.target.closest("[data-kind]");
+                if (kind) {
+                    const k = kind.dataset.kind;
+                    S.hidden.has(k) ? S.hidden.delete(k) : S.hidden.add(k);
+                    renderKinds();
+                    renderTree();
+                }
+                if (e.target.closest('[data-action="toggle-in"]')) {
+                    S.showAllIn = !S.showAllIn;
+                    route();
+                }
+                const result = e.target.closest(".result");
+                if (result) openResult(+result.dataset.i);
+                if (e.target === $("#palette")) closePalette();
+            });
+            main.addEventListener("change", (e) => {
+                if (e.target.id === "expand") {
+                    S.expanded = e.target.checked;
+                    route();
+                }
+            });
+            main.addEventListener("mouseover", (e) => {
+                if (e.target.closest("#diagram")) highlightDiagram(e.target);
+            });
+            main.addEventListener("mouseout", (e) => {
+                if (!e.relatedTarget?.closest?.("#diagram")) highlightDiagram(null);
+            });
+            $("#filter").addEventListener("input", (e) => {
+                S.filter = e.target.value;
+                renderTree();
+            });
+            $("#search-open").addEventListener("click", openPalette);
+            $("#menu").addEventListener("click", () =>
+                document.body.classList.toggle("side-open"),
+            );
+            $("#q").addEventListener("input", runSearch);
+            $("#q").addEventListener("keydown", (e) => {
+                if (e.key === "ArrowDown") (e.preventDefault(), moveSel(1));
+                if (e.key === "ArrowUp") (e.preventDefault(), moveSel(-1));
+                if (e.key === "Enter") openResult(sel);
+            });
+            document.addEventListener("keydown", (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+                    e.preventDefault();
+                    $("#palette").hidden ? openPalette() : closePalette();
+                } else if (e.key === "Escape") closePalette();
+                else if (
+                    e.key === "/" &&
+                    !/INPUT|TEXTAREA/.test(document.activeElement.tagName)
+                ) {
+                    e.preventDefault();
+                    openPalette();
+                }
+            });
+            $("#theme").addEventListener("click", () => {
+                const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+                const cur =
+                    document.documentElement.dataset.theme || (dark ? "dark" : "light");
+                const next = cur === "dark" ? "light" : "dark";
+                applyTheme(next);
+                storage("oracle-theme", next);
+            });
+            $("#reload").addEventListener("click", () => load(true));
+            window.addEventListener("hashchange", () => {
+                S.showAllIn = false;
+                route();
+            });
+            let resizeTimer;
+            window.addEventListener("resize", () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(drawWires, 60);
+            });
+            new ResizeObserver(() => drawWires()).observe(main);
+
+            async function load(again) {
+                const btn = $("#reload");
+                btn.classList.add("spin");
+                try {
+                    const res = await fetch("model.json", { cache: "no-store" });
+                    if (!res.ok) throw new Error(await res.text());
+                    index(await res.json());
+                    S.layouts.clear();
+                    renderKinds();
+                    renderTree();
+                    route();
+                } catch (err) {
+                    main.innerHTML = `<div class="error"><div><h2>Oracle could not analyze the schemas</h2><pre>${esc(err.message)}</pre><p>Fix the schemas, then select reload.</p></div></div>`;
+                } finally {
+                    btn.classList.remove("spin");
+                }
+            }
+            load();
+        </script>
+    </body>
+</html>
