@@ -94,9 +94,9 @@ const MAX_ROWS = 1_000_000;
 const SELECT_ROW = SELECT_ALL_END - MAX_ROWS;
 
 /**
- * Returns a selection end at a row of the view, counted from the top. The next render
- * turns it into the entry that row shows, so a selection keeps up with a scroll still
- * on its way to the worker. A row past the last row is the last row.
+ * Returns a selection end at a row of the view, counted from the top. While the state
+ * is selecting, the end follows the view. The first render after that turns it into
+ * the entry the row shows. A row past the last row is the last row.
  */
 export const selectRow = (row: number): number =>
   SELECT_ROW + Math.min(Math.max(0, row), MAX_ROWS - 1);
