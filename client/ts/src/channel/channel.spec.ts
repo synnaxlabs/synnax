@@ -498,6 +498,41 @@ describe("Channel", () => {
         group: g.key,
       });
     });
+
+    it("should cache the channel as the Core holds it before it resolves", async () => {
+      // A client with no change stream gets no echo of the dispatch.
+      const unstreamed = createTestClient({ cache: false });
+      const ch = await unstreamed.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      await unstreamed.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 1.5" }),
+      );
+      const cached = unstreamed.channels.store.get(ch.key);
+      expect(cached?.expression).toEqual("return 1.5");
+      expect(cached?.dataType).toEqual(DataType.FLOAT64);
+    });
+
+    it("should keep the cached channel when the Core rejects the actions", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      const before = client.channels.store.get(ch.key);
+      await expect(
+        client.channels.dispatch(
+          ch.key,
+          channel.set({ path: ["expression"], value: "" }),
+        ),
+      ).rejects.toThrow("its expression cannot be empty");
+      expect(client.channels.store.get(ch.key)).toBe(before);
+    });
   });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {

@@ -630,21 +630,28 @@ export class Client extends query.Retriever<
       // A batch prefixes its errors with the request index, so one rename skips it.
       commit: async () =>
         requests.length === 1
-          ? await this.dispatch(keysArr[0], requests[0].payload.actions)
+          ? await this.send(keysArr[0], requests[0].payload.actions)
           : await this.cfg.batch.send(requests),
     });
     apply();
   }
 
   /**
-   * Applies the actions to the channel in one transaction.
+   * Applies the actions to the channel in one transaction, then fetches the channel
+   * into the cache before it resolves. The fetch catches the fields that the Core sets
+   * itself, such as the data type of a calculated channel.
    * @throws {ValidationError} if the channel cannot hold an action.
    * @throws {NotFoundError} if the channel does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.send(key, array.toArray(actions));
+    await this.store.retrieve([key], { refresh: true });
+  }
+
+  private async send(key: Key, actions: Action[]): Promise<void> {
     await this.cfg.unary.send(
       "/channel/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
+      { key, dispatchKey: "", actions },
       dispatchReqZ,
       dispatchResZ,
     );
