@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -55,7 +56,9 @@ var _ = Describe("CompileProgram", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
 		})
 
 		result := MustSucceed(svc.CompileProgram(ctx, a.Base().Key))
@@ -74,7 +77,9 @@ var _ = Describe("CompileProgram", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, m.Base().Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, m.Base().Key)
+			})).To(Succeed())
 		})
 		Expect(svc.CompileProgram(ctx, m.Base().Key)).Error().
 			To(MatchError(validate.ErrValidation))
@@ -116,7 +121,9 @@ var _ = Describe("CompileProgram", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
 		})
 
 		Expect(svc.CompileProgram(ctx, a.Base().Key)).Error().
@@ -154,7 +161,9 @@ var _ = Describe("NewLSP", func() {
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 
 		Eventually(func() int {
 			return len(client.Diagnostics())
@@ -170,25 +179,35 @@ var _ = Describe("NewRoot", func() {
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).
 				To(Succeed())
 		})
 	})
 
 	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
-		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_2", false)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).
+				Rename(ctx, ch.Key(), "new_root_ch_2", false)
+		})).
 			To(Succeed())
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
 	})
 
 	It("Should resolve a renamed channel by its new name", func(ctx SpecContext) {
-		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_3", false)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).
+				Rename(ctx, ch.Key(), "new_root_ch_3", false)
+		})).
 			To(Succeed())
-		root := svc.NewRoot(nil)
+		root := svc.NewRoot(db)
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		Expect(root.Resolve(ctx, "new_root_ch")).Error().
 			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))

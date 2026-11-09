@@ -29,7 +29,7 @@ describe("user toolbar", () => {
   it("should list a registered user under its assigned role", async () => {
     const role = await client.access.roles.create({ name: uniqueName("role") });
     const username = uniqueName("user");
-    await client.users.create({ username, password: "pwd12345", roles: [role.key] });
+    await client.users.create({ username, password: "pwd12345", role: role.key });
     await renderToolbar(User.TOOLBAR.content, { client, items });
     await findTreeRow(role.name);
     expandTreeRow(role.name);

@@ -43,35 +43,69 @@ type PasswordSetResponse struct {
 	Session *auth.Session `json:"session,omitempty" msgpack:"session,omitempty"`
 }
 
-// SetPassword sets the password of the caller, or of another user when the caller may
-// update that user, and ends every session the old password opened. A caller setting
-// its own password must send the current one. When the change ends the caller's
-// session, SetPassword opens a new one on the new password and returns it. It returns
-// [auth.ErrInvalidCredentials] for a wrong current password, a validation error when
-// the subject is not a user, and an error wrapping query.ErrNotFound when the user has
-// no password.
-func (s *Service) SetPassword(
+// PrepareSetPassword hashes the new password of req. It first checks the current
+// password that req carries when the caller sets its own, and update on the user when
+// the caller sets another's. It returns [auth.ErrInvalidCredentials] for a wrong
+// current password, access.ErrDenied when the caller cannot update the user, a
+// validation error when the subject is not a user, and an error wrapping
+// query.ErrNotFound when the caller has no password.
+func (s *Service) PrepareSetPassword(
 	ctx context.Context,
-	tx gorp.Tx,
 	req PasswordSetRequest,
-) (PasswordSetResponse, error) {
+) (password.Hash, error) {
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != resource.TypeUser {
-		return PasswordSetResponse{}, errors.Wrapf(
+		return password.Hash{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %s has no password",
 			subject.Type,
 		)
 	}
-	if err := s.enforceOthers(
-		ctx,
-		caller,
-		access.ActionUpdate,
-		[]resource.ID{subject},
-	); err != nil {
-		return PasswordSetResponse{}, err
+	if subject != caller {
+		// Each hash is slow, so a caller that cannot update the user costs none. The
+		// binder checks delete on the user when SetPassword ends its sessions.
+		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+				Subject: caller,
+				Action:  access.ActionUpdate,
+				Objects: []resource.ID{subject},
+			})
+		}); err != nil {
+			return password.Hash{}, err
+		}
+		return s.password.Hash(req.Password)
 	}
+	var current password.Password
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&current).
+			Exec(ctx, snap)
+	}); err != nil {
+		return password.Hash{}, err
+	}
+	proof := auth.PasswordProof{
+		Username: current.Username,
+		Password: req.CurrentPassword,
+	}
+	return s.password.HashProven(ctx, proof, req.Password)
+}
+
+// SetPassword stores the password that PrepareSetPassword hashed for the caller or
+// another user, and ends every session the old password opened. When the change ends
+// the caller's session, SetPassword opens a new one on the new password and returns
+// it. Setting another user's password needs update on that user, and delete on it when
+// the change ends its sessions. It returns [auth.ErrInvalidCredentials] when the
+// caller's password changed after its proof, and an error wrapping query.ErrNotFound
+// when the user has no password.
+func (s *Service) SetPassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordSetRequest,
+	hash password.Hash,
+) (PasswordSetResponse, error) {
+	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
 	var current password.Password
 	if err := s.password.NewRetrieve().
 		Where(password.MatchSubjects(subject)).
@@ -79,16 +113,7 @@ func (s *Service) SetPassword(
 		Exec(ctx, tx); err != nil {
 		return PasswordSetResponse{}, err
 	}
-	if subject == caller {
-		if _, err := s.password.Verify(ctx, tx, auth.PasswordProof{
-			Username: current.Username,
-			Password: req.CurrentPassword,
-		}); err != nil {
-			return PasswordSetResponse{}, err
-		}
-	}
-	if err := s.password.NewWriter(tx).
-		ChangePassword(ctx, subject, req.Password); err != nil {
+	if err := s.password.NewWriter(tx).ChangePassword(ctx, subject, hash); err != nil {
 		return PasswordSetResponse{}, err
 	}
 	w := s.auth.NewWriter(tx)

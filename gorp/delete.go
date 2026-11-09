@@ -82,7 +82,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 
 func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	var (
-		queryCtx = Context{Context: ctx, Tx: tx}
+		queryCtx = newContext(ctx, tx)
 		entries  []E
 		q        = d.retrieve.Entries(&entries)
 	)
@@ -96,7 +96,7 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	if d.table != nil {
 		return d.table.delete(ctx, tx, keys)
 	}
-	w := wrapWriter[K, E](tx, d.retrieve.keyPrefix, nil)
+	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
 }
 

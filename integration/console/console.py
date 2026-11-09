@@ -9,8 +9,7 @@
 
 from pathlib import Path
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.access import AccessClient
@@ -130,11 +129,8 @@ class Console:
     def close_all_tabs(self, *, except_tabs: list[str] | None = None) -> None:
         """Close all tabs except specified ones.
 
-        Args:
-            except_tabs: Tab names to keep open. Defaults to ["Get Started"].
-
-        Raises:
-            RuntimeError: If tabs remain open after max iterations.
+        :param except_tabs: Tab names to keep open. Defaults to ["Get Started"].
+        :raises RuntimeError: If tabs remain open after max iterations.
         """
         if except_tabs is None:
             except_tabs = ["Get Started"]

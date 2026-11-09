@@ -28,8 +28,9 @@ var _ = Describe("Errors", func() {
 	Describe("NewErrorWrapper", func() {
 		It("Should return an error with the correct message", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}
-			err := channel.NewErrorWrapper(ch)(errors.Newf("bad error"))
-			Expect(err).To(MatchError(ContainSubstring("channel [foo]<1>: bad error")))
+			Expect(
+				channel.NewErrorWrapper(ch)(errors.Newf("bad error")),
+			).To(MatchError(ContainSubstring("channel [foo]<1>: bad error")))
 		})
 		It("Should return nil if the error is nil", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}

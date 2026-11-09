@@ -79,6 +79,8 @@ type mockEventSender struct {
 	mu     sync.Mutex
 	events []pagerduty.V2Event
 	err    error
+	// held makes each send wait until it closes.
+	held chan struct{}
 }
 
 var _ pd.EventSender = (*mockEventSender)(nil)
@@ -86,9 +88,19 @@ var _ pd.EventSender = (*mockEventSender)(nil)
 func newMockSender() *mockEventSender { return &mockEventSender{} }
 
 func (m *mockEventSender) SendEvent(
-	_ context.Context,
+	ctx context.Context,
 	event pagerduty.V2Event,
 ) (*pagerduty.V2EventResponse, error) {
+	m.mu.Lock()
+	held := m.held
+	m.mu.Unlock()
+	if held != nil {
+		select {
+		case <-held:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
@@ -108,6 +120,14 @@ func (m *mockEventSender) getEvents() []pagerduty.V2Event {
 	cp := make([]pagerduty.V2Event, len(m.events))
 	copy(cp, m.events)
 	return cp
+}
+
+// hold makes sends wait until release runs.
+func (m *mockEventSender) hold() (release func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.held = make(chan struct{})
+	return func() { close(m.held) }
 }
 
 func (m *mockEventSender) setError(err error) {

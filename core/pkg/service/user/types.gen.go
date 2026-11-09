@@ -20,8 +20,8 @@ import (
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = versions.Key
 
-// User is an account entity representing a person accessing the Synnax system. Users
-// can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Each
+// user holds one role, which grants its permissions.
 type User = versions.User
 
 // Where is a filter that selects users.

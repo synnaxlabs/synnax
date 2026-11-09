@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
 import {
+  createProxiedTestClient,
   createTestClient,
   createTestClientWithRole,
+  FAST_RETRY,
+  waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, type RenderOptions, screen } from "@testing-library/react";
+import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/platform/access";
@@ -21,10 +24,9 @@ import { createConsoleWrapper, renderSuspended } from "@/testutil";
 const root = createTestClient();
 
 const renderBoundary = async (
-  client: Synnax,
+  wrapper: FC<PropsWithChildren>,
   onCaughtError?: RenderOptions["onCaughtError"],
 ): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
   await renderSuspended(
     <Access.PermissionsBoundary loading={<span>loading permissions</span>}>
       <span>workspace</span>
@@ -35,23 +37,26 @@ const renderBoundary = async (
 
 describe("Access.PermissionsBoundary", () => {
   it("should replace the loading content with the children", async () => {
-    await renderBoundary(await createTestClientWithRole(root, "Operator"));
+    const { wrapper } = await createConsoleWrapper({
+      client: await createTestClientWithRole(root, "Operator"),
+    });
+    await renderBoundary(wrapper);
     expect(await screen.findByText("workspace")).toBeTruthy();
     expect(screen.queryByText("loading permissions")).toBeNull();
   });
 
   it("should load the permissions again on Retry after a failure", async () => {
-    // The Driver role cannot retrieve policies, so the permissions fail to load.
-    const client = await createTestClientWithRole(root, "Driver");
-    await renderBoundary(client, () => {});
+    const { proxy, client } = await createProxiedTestClient({
+      retry: FAST_RETRY,
+      onRetry: () => {},
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    await proxy.sever();
+    await renderBoundary(wrapper, () => {});
     const retry = await screen.findByRole("button", { name: "Retry" });
     expect(screen.queryByText("workspace")).toBeNull();
-    const user = await client.users.current.retrieve();
-    const roles = await root.access.roles.retrieve({});
-    const operator = roles.find(({ name }) => name === "Operator");
-    const driver = roles.find(({ name }) => name === "Driver");
-    if (operator == null || driver == null) throw new Error("no built-in role");
-    await root.users.setRoles(user.key, { add: [operator.key], remove: [driver.key] });
+    await proxy.restore();
+    await waitForStreamLive(client.connection);
     await act(async () => {
       fireEvent.click(retry);
     });

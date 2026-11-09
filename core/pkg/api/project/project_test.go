@@ -10,9 +10,13 @@
 package project_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -28,12 +32,23 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
+	It("Should leave out the projects that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		granted := createProject(ctx, "leave-out-granted")
+		createProject(ctx, "leave-out-denied")
+		grantRetrieveOn(ctx, u.ResourceID(), granted.ResourceID())
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{}))
+		Expect(res.Projects).To(HaveExactElements(HaveField("Key", granted.Key)))
+	})
+
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		p := createProject(ctx, "unretrievable")
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
+		Expect(retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
 			Where: &project.Where{Key: &filter.Set[project.Key]{Eq: &p.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -51,7 +66,7 @@ var _ = Describe("Export", func() {
 				project.ResourceID(proj.Key),
 				log.ResourceID(l.Key),
 			)
-			Expect(MustSucceed(apiSvc.Export(
+			Expect(MustSucceed(export(
 				AuthedCtx(ctx, author),
 				apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Metrics.json")))
@@ -60,7 +75,7 @@ var _ = Describe("Export", func() {
 	It("Should reject an unsupported encoding", func(ctx SpecContext) {
 		proj := createProject(ctx, "bad-encoding")
 		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: "YAML"},
 		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
@@ -69,7 +84,7 @@ var _ = Describe("Export", func() {
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "ungranted-project")
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -80,7 +95,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "ungranted-member")
 		createLog(ctx, proj.Key, "Metrics")
 		grantRetrieveOn(ctx, author.ResourceID(), project.ResourceID(proj.Key))
-		Expect(apiSvc.Export(
+		Expect(export(
 			AuthedCtx(ctx, author),
 			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
@@ -110,12 +125,12 @@ func importCtx(ctx SpecContext, u user.User) freighter.Context {
 }
 
 var _ = Describe("Import", func() {
-	It("Should import the bundle when create is granted on every kind", func(
+	It("Should import the bundle with create on every kind alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-		res := MustSucceed(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported")))
+		res := MustSucceed(importBundle(importCtx(ctx, u), newBundle("Imported")))
 		Expect(res.Project.Name).To(Equal("Imported"))
 	})
 	It("Should reject the request when create is not granted on the project", func(
@@ -123,21 +138,40 @@ var _ = Describe("Import", func() {
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, logType)
-		Expect(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported"))).Error().
-			To(MatchError(access.ErrDenied))
+		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
+			To(deniedOnType(u, access.ActionCreate, resource.TypeProject))
 	})
 	It("Should reject the request when create is granted on the project alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
-		Expect(apiSvc.Import(importCtx(ctx, u), nil, newBundle("Imported"))).Error().
-			To(MatchError(access.ErrDenied))
+		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
+			To(deniedOnType(u, access.ActionCreate, resource.TypeLog))
+	})
+	It("Should import a member into a new folder with create on every kind", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		groupType := resource.ID{Type: resource.TypeGroup}
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionCreate,
+			projectType,
+			logType,
+			groupType,
+		)
+		files := newBundle("Foldered")
+		files["Folder/Metrics.json"] = files["Metrics.json"]
+		delete(files, "Metrics.json")
+		res := MustSucceed(importBundle(importCtx(ctx, u), files))
+		Expect(res.Project.Name).To(Equal("Foldered"))
 	})
 	It("Should reject a request with no params", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-		Expect(apiSvc.Import(AuthedCtx(ctx, u), nil, newBundle("Imported"))).Error().
+		Expect(importBundle(AuthedCtx(ctx, u), newBundle("Imported"))).Error().
 			To(MatchError(ContainSubstring("params")))
 	})
 	It("Should reject an invalid bundle before any access check", func(
@@ -145,16 +179,146 @@ var _ = Describe("Import", func() {
 	) {
 		u := createUser(ctx)
 		files := zip.Files{"Metrics.json": []byte("{}")}
-		Expect(apiSvc.Import(importCtx(ctx, u), nil, files)).Error().
+		Expect(importBundle(importCtx(ctx, u), files)).Error().
 			To(MatchError(ContainSubstring("bundle holds no manifest.json")))
 	})
 })
+
+var _ = Describe("Create", func() {
+	It("Should refuse the create without create on the project", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := project.Project{Key: uuid.New(), Name: "Denied"}
+		Expect(create(AuthedCtx(ctx, u), apiproject.CreateRequest{
+			Projects: []project.Project{p},
+		})).Error().To(denied(u, access.ActionCreate, p.ResourceID()))
+		Expect(projectExists(ctx, p.Key)).To(BeFalse())
+	})
+	It("Should create the project with create on it", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
+		res := MustSucceed(create(AuthedCtx(ctx, u), apiproject.CreateRequest{
+			Projects: []project.Project{{Name: "Granted"}},
+		}))
+		Expect(retrieveProject(ctx, res.Projects[0].Key).Name).To(Equal("Granted"))
+	})
+})
+
+var _ = Describe("Rename", func() {
+	It("Should refuse the rename without update on the project", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Rename denied")
+		Expect(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
+			Key:  p.Key,
+			Name: "Renamed",
+		})).Error().To(denied(u, access.ActionUpdate, p.ResourceID()))
+		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Rename denied"))
+	})
+	It("Should rename the project with update on it", func(ctx SpecContext) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Rename granted")
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
+		MustSucceed(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
+			Key:  p.Key,
+			Name: "Renamed",
+		}))
+		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Renamed"))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	var (
+		u user.User
+		p project.Project
+		l log.Log
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		p = createProject(ctx, "Deleted")
+		l = createLog(ctx, p.Key, "Cascaded")
+	})
+	deleteAs := func(ctx SpecContext) (struct{}, error) {
+		return del(AuthedCtx(ctx, u), apiproject.DeleteRequest{
+			Keys: []project.Key{p.Key},
+		})
+	}
+	It("Should refuse the delete without delete on the project", func(
+		ctx SpecContext,
+	) {
+		grantOn(ctx, u.ResourceID(), access.ActionDelete, l.ResourceID())
+		Expect(deleteAs(ctx)).Error().
+			To(denied(u, access.ActionDelete, p.ResourceID()))
+		Expect(projectExists(ctx, p.Key)).To(BeTrue())
+	})
+	It("Should refuse the delete without delete on a log it cascades to", func(
+		ctx SpecContext,
+	) {
+		grantOn(ctx, u.ResourceID(), access.ActionDelete, p.ResourceID())
+		Expect(deleteAs(ctx)).Error().
+			To(denied(u, access.ActionDelete, l.ResourceID()))
+		Expect(projectExists(ctx, p.Key)).To(BeTrue())
+	})
+	It(
+		"Should delete the project and its log with delete on both alone",
+		func(ctx SpecContext) {
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				access.ActionDelete,
+				p.ResourceID(),
+				l.ResourceID(),
+			)
+			MustSucceed(deleteAs(ctx))
+			Expect(projectExists(ctx, p.Key)).To(BeFalse())
+			Expect(logSvc.NewRetrieve().
+				Where(log.MatchKeys(l.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		},
+	)
+})
+
+// denied matches an error that denies u the action on object.
+func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring(
+			"%s cannot %s %s",
+			u.ResourceID(),
+			action,
+			object,
+		)),
+	)
+}
+
+// deniedOnType matches an error that denies u the action on a record of type t.
+func deniedOnType(
+	u user.User,
+	action access.Action,
+	t resource.Type,
+) types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(access.ErrDenied),
+		MatchError(ContainSubstring("%s cannot %s %s:", u.ResourceID(), action, t)),
+	)
+}
+
+func projectExists(ctx SpecContext, key project.Key) bool {
+	GinkgoHelper()
+	return MustSucceed(projectSvc.NewRetrieve().
+		Where(project.MatchKeys(key)).
+		Exists(ctx, db))
+}
 
 // createProjectGroup creates a project group with no top parent.
 func createProjectGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeProject}
-	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return groupSvc.NewWriter(tx).Create(ctx, &g)
+	})).To(Succeed())
 	return g
 }
 
@@ -164,7 +328,7 @@ func retrieveProject(ctx SpecContext, key project.Key) project.Project {
 	Expect(projectSvc.NewRetrieve().
 		Where(project.MatchKeys(key)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p
 }
 
@@ -176,8 +340,8 @@ var _ = Describe("SetGroup", func() {
 			p := createProject(ctx, "Set group denied")
 			g := createProjectGroup(ctx, "Set group denied")
 			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
@@ -196,8 +360,8 @@ var _ = Describe("SetGroup", func() {
 				p.ResourceID(),
 				g.ResourceID(),
 			)
-			Expect(apiSvc.SetGroup(
-				AuthedCtx(ctx, u), nil,
+			Expect(setGroup(
+				AuthedCtx(ctx, u),
 				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
@@ -213,8 +377,8 @@ var _ = Describe("Create in a group", func() {
 			u := createUser(ctx)
 			g := createProjectGroup(ctx, "Create denied")
 			grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
-			Expect(apiSvc.Create(
-				AuthedCtx(ctx, u), nil,
+			Expect(create(
+				AuthedCtx(ctx, u),
 				apiproject.CreateRequest{
 					Projects: []project.Project{{Name: "Denied", Group: &g.Key}},
 				},
@@ -226,8 +390,8 @@ var _ = Describe("Create in a group", func() {
 		g := createProjectGroup(ctx, "Create granted")
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
-		res := MustSucceed(apiSvc.Create(
-			AuthedCtx(ctx, u), nil,
+		res := MustSucceed(create(
+			AuthedCtx(ctx, u),
 			apiproject.CreateRequest{
 				Projects: []project.Project{{Name: "Granted", Group: &g.Key}},
 			},

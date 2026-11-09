@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -37,9 +38,13 @@ var _ = Describe("Resource", func() {
 	BeforeEach(func(ctx SpecContext) {
 		term = "probe" + uuid.New().String()[:8]
 		lbl = label.Label{Name: term}
-		Expect(svc.Label.NewWriter(nil).Create(ctx, &lbl)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Create(ctx, &lbl)
+		})).To(Succeed())
 		rck = rack.Rack{Name: term + " rack"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &rck)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &rck)
+		})).To(Succeed())
 	})
 
 	Describe("Search", func() {
@@ -47,7 +52,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					SearchTerm: term,
 					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
@@ -61,7 +66,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					SearchTerm: term,
 					Types:      []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
@@ -78,7 +83,9 @@ var _ = Describe("Resource", func() {
 					Name:     term,
 					Snapshot: true,
 				}
-				Expect(svc.Task.NewWriter(nil).Create(ctx, &tsk)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Task.NewWriter(tx).Create(ctx, &tsk)
+				})).To(Succeed())
 				channels := make([]channel.Channel, 3)
 				for i := range channels {
 					channels[i] = channel.Channel{
@@ -86,12 +93,14 @@ var _ = Describe("Resource", func() {
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
-					Expect(svc.Channel.NewWriter(nil).Create(ctx, &channels[i])).
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Channel.NewWriter(tx).Create(ctx, &channels[i])
+					})).
 						To(Succeed())
 				}
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), resource.ID{Type: resource.TypeChannel})
-				res := MustSucceed(apiSvc.Search(
+				res := MustSucceed(search(
 					AuthedCtx(ctx, u),
 					apiresource.SearchRequest{
 						SearchTerm: term,
@@ -113,7 +122,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Search(AuthedCtx(ctx, u), apiresource.SearchRequest{
+				Expect(search(AuthedCtx(ctx, u), apiresource.SearchRequest{
 					Types: []resource.Type{resource.TypeLabel, resource.TypeRack},
 				})).To(Equal(apiresource.SearchResponse{Resources: []resource.Resource{
 					{ID: rck.ResourceID(), Name: rck.Name},
@@ -123,7 +132,7 @@ var _ = Describe("Resource", func() {
 
 		It("Should refuse an unknown type", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(apiSvc.Search(
+			Expect(search(
 				AuthedCtx(ctx, u),
 				apiresource.SearchRequest{
 					SearchTerm: term,
@@ -138,7 +147,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID(), rck.ResourceID())
-				Expect(apiSvc.Retrieve(
+				Expect(retrieve(
 					AuthedCtx(ctx, u),
 					apiresource.RetrieveRequest{
 						IDs: []resource.ID{rck.ResourceID(), lbl.ResourceID()},
@@ -152,11 +161,12 @@ var _ = Describe("Resource", func() {
 
 		It("Should leave out an ID that names no resource", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, u.ResourceID(), lbl.ResourceID())
-			Expect(apiSvc.Retrieve(
+			missing := label.ResourceID(uuid.New())
+			grant(ctx, u.ResourceID(), lbl.ResourceID(), missing)
+			Expect(retrieve(
 				AuthedCtx(ctx, u),
 				apiresource.RetrieveRequest{IDs: []resource.ID{
-					label.ResourceID(uuid.New()),
+					missing,
 					lbl.ResourceID(),
 				}},
 			)).To(Equal(apiresource.RetrieveResponse{Resources: []resource.Resource{
@@ -168,7 +178,7 @@ var _ = Describe("Resource", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), lbl.ResourceID())
-				Expect(apiSvc.Retrieve(
+				Expect(retrieve(
 					AuthedCtx(ctx, u),
 					apiresource.RetrieveRequest{
 						IDs: []resource.ID{lbl.ResourceID(), rck.ResourceID()},
@@ -179,12 +189,28 @@ var _ = Describe("Resource", func() {
 
 		It("Should refuse an ID of an unknown type", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(apiSvc.Retrieve(
+			grant(ctx, u.ResourceID(), resource.ID{Type: resource.TypeFramer, Key: "1"})
+			Expect(retrieve(
 				AuthedCtx(ctx, u),
 				apiresource.RetrieveRequest{
 					IDs: []resource.ID{{Type: resource.TypeFramer, Key: "1"}},
 				},
 			)).Error().To(MatchError(`ids: unknown resource type "framer"`))
 		})
+
+		It("Should deny an ID of an unknown type that is not granted",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				id := resource.ID{Type: resource.TypeFramer, Key: "1"}
+				Expect(retrieve(
+					AuthedCtx(ctx, u),
+					apiresource.RetrieveRequest{IDs: []resource.ID{id}},
+				)).Error().To(MatchError(access.Denied(
+					u.ResourceID(),
+					access.ActionRetrieve,
+					id,
+				).Error()))
+			},
+		)
 	})
 })

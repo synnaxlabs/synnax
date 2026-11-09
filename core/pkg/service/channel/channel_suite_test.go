@@ -25,9 +25,8 @@ import (
 )
 
 var (
-	db            *gorp.DB
-	svc           *channel.Service
-	channelWriter channel.Writer
+	db  *gorp.DB
+	svc *channel.Service
 )
 
 func TestChannel(t *testing.T) {
@@ -56,10 +55,10 @@ func serviceConfig(
 		DB: db,
 	}))
 	return channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}, groupSvc
 }
 
@@ -85,5 +84,4 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = openService(ctx, node)
-	channelWriter = svc.NewWriter(nil)
 })

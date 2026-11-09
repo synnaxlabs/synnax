@@ -106,7 +106,7 @@ var _ = Describe("Delete", func() {
 				Expect(gorp.NewDelete[int32, entry]().
 					Where(gorp.MatchKeys[int32, entry](22)).
 					Guard(func(gCtx gorp.Context, _ entry) error {
-						Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+						Expect(gCtx.Snapshot).To(BeIdenticalTo(tx))
 						Expect(gCtx.Context).To(BeIdenticalTo(ctx))
 						return validate.ErrValidation
 					}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))

@@ -96,15 +96,15 @@ class _StatusWaitDiag:
 
     frames_received: int = 0
     frames_with_status: int = 0
-    all_keys: list[str] = field(default_factory=list)
+    owners: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
-        unique = sorted(set(self.all_keys))
+        unique = sorted(set(self.owners))
         return (
             f"frames={self.frames_received}, "
             f"frames_with_status={self.frames_with_status}, "
-            f"total_statuses={len(self.all_keys)}, "
-            f"unique_keys={unique}"
+            f"total_statuses={len(self.owners)}, "
+            f"unique_owners={unique}"
         )
 
 
@@ -118,7 +118,7 @@ def _wait_for_device_status(
 ) -> list[sy.status.Status]:
     """Wait until a device emits a status with the given message.
 
-    Filter by ``device_key`` (exact match on ``device:<key>``) or
+    Filter by ``device_key`` (match on the status owner) or
     ``device_name`` (match on status ``name`` field). At least one must
     be provided.
 
@@ -139,12 +139,12 @@ def _wait_for_device_status(
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
             s = sy.status.Status.model_validate(raw)
-            diag.all_keys.append(s.key)
-            if device_key and s.key != f"device:{device_key}":
+            diag.owners.append(str(s.owner))
+            if s.owner is None or s.owner.type != "device":
+                continue
+            if device_key and s.owner != sy.device.resource_id(device_key):
                 continue
             if device_name and s.name != device_name:
-                continue
-            if not s.key.startswith("device:"):
                 continue
             matched.append(s)
             if s.message == message:
@@ -234,6 +234,16 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     """
 
     disconnect_device: str
+    _original: sy.Device | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete a device that a task uses, so this runs after the
+        # parent deletes the task.
+        super().teardown()
+        if self._original is not None:
+            _delete_replaced_device(
+                self.client, self.disconnect_device, self._original.key
+            )
 
     def run(self) -> None:
         assert self.tsk is not None
@@ -241,7 +251,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = retrieve_present_device(self.client, dev)
+        device = self._original = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Assert samples ({dev})")
@@ -273,17 +283,14 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
             os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
-        try:
-            self.log("Test 4 - Reconfigure and assert samples resume")
-            self.client.tasks.configure(tsk)
-            self.assert_sample_count(task=tsk, strict=False)
-        finally:
-            _delete_replaced_device(self.client, dev, device.key)
+        self.log("Test 4 - Reconfigure and assert samples resume")
+        self.client.tasks.configure(tsk)
+        self.assert_sample_count(task=tsk, strict=False)
 
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
-        sy.sleep(0.5)
+        sy.sleep(0.5)  # noqa: TID251 hold: checks that no sample arrives
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
         for key in self._channel_keys(tsk):
@@ -331,6 +338,16 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
     """
 
     disconnect_device: str
+    _original: sy.Device | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete a device that a task uses, so this runs after the
+        # parent deletes the task.
+        super().teardown()
+        if self._original is not None:
+            _delete_replaced_device(
+                self.client, self.disconnect_device, self._original.key
+            )
 
     def run(self) -> None:
         assert self.tsk is not None
@@ -338,7 +355,7 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
 
         tsk = self.tsk
         dev = self.disconnect_device
-        device = retrieve_present_device(self.client, dev)
+        device = self._original = retrieve_present_device(self.client, dev)
 
         # Phase 1: Verify normal operation and reset recovery
         self.log(f"Test 1 - Send commands ({dev})")
@@ -385,20 +402,17 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
             os.unlink(saved_config)
 
         # Phase 3: Verify task recovers after re-add
-        try:
-            self.log("Test 4 - Reconfigure and send commands after re-add")
-            self.client.tasks.configure(tsk)
-            with tsk.run():
-                send_and_verify_commands(
-                    self.client,
-                    cmd_keys=self._channel_keys(tsk),
-                    writer_name=f"{self.task_name}_post_readd",
-                    task_name=tsk.name,
-                    task_key=tsk.key,
-                    command_values=self.command_values,
-                )
-        finally:
-            _delete_replaced_device(self.client, dev, device.key)
+        self.log("Test 4 - Reconfigure and send commands after re-add")
+        self.client.tasks.configure(tsk)
+        with tsk.run():
+            send_and_verify_commands(
+                self.client,
+                cmd_keys=self._channel_keys(tsk),
+                writer_name=f"{self.task_name}_post_readd",
+                task_name=tsk.name,
+                task_key=tsk.key,
+                command_values=self.command_values,
+            )
 
 
 class NIDigitalWriteDisconnect(

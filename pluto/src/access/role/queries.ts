@@ -24,28 +24,22 @@ export type RetrieveQuery = {
 const retrieveForUser = async (
   client: Synnax,
   key: user.Key,
-): Promise<access.role.Role[]> => {
-  const { roles } = await client.users.retrieve(key);
-  if (roles.length === 0) return [];
-  return await client.access.roles.retrieve(roles);
+): Promise<access.role.Role> => {
+  const { role } = await client.users.retrieve(key);
+  return await client.access.roles.retrieve(role);
 };
 
-const cachedRoleKeys = (
-  client: Synnax,
-  key: user.Key,
-): access.role.Key[] | undefined => {
+const cachedRoleKey = (client: Synnax, key: user.Key): access.role.Key | undefined => {
   const u = client.users.getCached(key);
-  return query.isLive(u) ? u.roles : undefined;
+  return query.isLive(u) ? u.role : undefined;
 };
 
 const getCachedForUser = (
   client: Synnax,
   key: user.Key,
-): query.Cached<access.role.Role[]> | undefined => {
-  const keys = cachedRoleKeys(client, key);
-  if (keys == null) return undefined;
-  if (keys.length === 0) return [];
-  return client.access.roles.getCached(keys);
+): query.Cached<access.role.Role> | undefined => {
+  const role = cachedRoleKey(client, key);
+  return role == null ? undefined : client.access.roles.getCached(role);
 };
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
@@ -60,37 +54,37 @@ export type ForUserQuery = {
   user: user.Key;
 };
 
-/** Retrieves the roles a user holds. */
+/** Retrieves the role a user holds. */
 export const { useResult: useResultForUser } = Flux.createRetrieve<
   ForUserQuery,
-  access.role.Role[]
+  access.role.Role
 >({
-  name: PLURAL_RESOURCE_NAME,
+  name: RESOURCE_NAME,
   retrieve: async ({ client, query: { user: key } }) =>
     await retrieveForUser(client, key),
   onChange: ({ client, query: { user: key } }, handler) => {
-    // The answer reads the assigned roles too, so an edit to one must notify.
-    let detachRoles: destructor.Destructor = () => {};
-    const watchRoles = (): void => {
-      detachRoles();
-      const keys = cachedRoleKeys(client, key) ?? [];
-      detachRoles =
-        keys.length === 0
+    // The answer reads the held role too, so an edit to it must notify.
+    let detachRole: destructor.Destructor = () => {};
+    const watchRole = (): void => {
+      detachRole();
+      const role = cachedRoleKey(client, key);
+      detachRole =
+        role == null
           ? () => {}
-          : client.access.roles.onChange(keys, () =>
+          : client.access.roles.onChange(role, () =>
               handler(getCachedForUser(client, key)),
             );
     };
-    watchRoles();
+    watchRole();
     const detachUser = client.users.onChange(key, () => {
-      watchRoles();
+      watchRole();
       retrieveForUser(client, key).then(handler, (error: unknown) =>
-        console.error(`failed to retrieve the roles of user ${key}`, error),
+        console.error(`failed to retrieve the role of user ${key}`, error),
       );
     });
     return () => {
       detachUser();
-      detachRoles();
+      detachRole();
     };
   },
   getCached: ({ client, query: { user: key } }) => getCachedForUser(client, key),
@@ -150,12 +144,6 @@ export const changeRoleFormSchema = z.object({
 
 export const changeRoleFormPath = deep.path<z.infer<typeof changeRoleFormSchema>>();
 
-const retrieveUserRole = async (
-  client: Synnax,
-  userKey: user.Key,
-): Promise<access.role.Key | undefined> =>
-  (await client.users.retrieve(userKey)).roles.at(0);
-
 export const useChangeRoleForm = Flux.createForm<
   ChangeRoleFormQuery,
   typeof changeRoleFormSchema
@@ -163,17 +151,12 @@ export const useChangeRoleForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: changeRoleFormSchema,
   initialValues: { key: "", role: "" },
-  retrieve: async ({ client, query: { key: userKey } }) => ({
-    key: userKey,
-    role: (await retrieveUserRole(client, userKey)) ?? "",
+  retrieve: async ({ client, query: { key } }) => ({
+    key,
+    role: (await client.users.retrieve(key)).role,
   }),
   update: async ({ client, value }) => {
-    const { key: userKey, role: newRoleKey } = value();
-    const oldRoleKey = await retrieveUserRole(client, userKey);
-    if (oldRoleKey === newRoleKey) return;
-    await client.users.setRoles(userKey, {
-      add: [newRoleKey],
-      remove: oldRoleKey == null ? [] : [oldRoleKey],
-    });
+    const { key, role } = value();
+    await client.users.setRole(key, role);
   },
 });
