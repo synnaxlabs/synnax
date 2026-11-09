@@ -67,34 +67,6 @@ export const createMoveRequest =
       apply: () => move([key], to ?? undefined),
     }));
 
-/** Payload of a set-group request. A missing group moves records out of their group. */
-export interface SetGroupPayload<K extends record.Key> {
-  keys: K[];
-  group?: Key;
-}
-
-/**
- * Builds a request that moves the records into the group, or out of their group when it
- * is null or undefined. Its cache write moves the cached records.
- */
-export interface SetGroupRequest<K extends record.Key> {
-  (keys: K | K[], to?: Key | null): batch.Request<SetGroupPayload<K>>;
-}
-
-/**
- * Returns a builder of set-group requests to the endpoint. A request's cache write
- * calls move with its keys and group, and move returns the rollback.
- */
-export const createSetGroupRequest =
-  <K extends record.Key>(
-    endpoint: string,
-    move: (keys: K[], group?: Key) => destructor.Destructor,
-  ): SetGroupRequest<K> =>
-  (keys, to) => {
-    const payload = { keys: array.toArray(keys), group: to ?? undefined };
-    return { endpoint, payload, apply: () => move(payload.keys, payload.group) };
-  };
-
 /**
  * Sets the group of each cached record under keys, skipping keys the table does not
  * hold. Returns a rollback that restores only the group field.
