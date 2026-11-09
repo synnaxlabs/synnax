@@ -128,7 +128,7 @@ export const holdRequests = (
   return { release: () => released.resolve() };
 };
 
-/** Rejects with error each request that matches accepts, and sends the others. */
+/** Rejects with error each request for which matches is true. Sends the others on. */
 export const rejectRequests = (
   client: Synnax,
   matches: (target: string, req: unknown) => boolean,
