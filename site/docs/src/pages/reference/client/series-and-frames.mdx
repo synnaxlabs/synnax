@@ -50,9 +50,11 @@ series = sy.Series([b"\x01\x02", b"\x03"])
 ```
 
 A list of numbers gets one data type that holds every value exactly.
-`sy.Series([20, 20.5])` is a `float64` series that holds `[20.0, 20.5]`. A list that
-mixes numbers and strings raises a `TypeError`. A NumPy array of strings makes a
-`string` series, and an array of `datetime64` values makes a `timestamp` series.
+`sy.Series([20, 20.5])` is a `float64` series that holds `[20.0, 20.5]`. When no data
+type holds every value exactly, such as for `[2**53 + 1, 0.5]`, or when a list mixes
+booleans or strings with numbers, the client raises a `TypeError`: set `data_type`. A
+NumPy array of strings makes a `string` series, and an array of `datetime64` values
+makes a `timestamp` series.
 
   </Fragment>
 

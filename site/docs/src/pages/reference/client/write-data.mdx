@@ -240,8 +240,9 @@ writes. For more about frames, see
 `write`, `commit`, or `close` raises the error. After an error, the writer accepts no
 more writes: close it, and open a new writer.
 
-After you close the writer, or the Core closes it, `write` and `commit` raise
-`sy.WriterClosed` in Python and `framer.WriterClosedError` in TypeScript.
+After you close the writer, `write` and `commit` raise `sy.WriterClosed` in Python and
+`framer.WriterClosedError` in TypeScript. When the Core ends the stream first, Python
+raises `EOF`, and in TypeScript the next `write` returns with no error.
 
 <Divider.Divider x />
 
@@ -412,9 +413,9 @@ read each sample.
 
 <Field.Item name="start" id="python-start" type="TimeStamp">
   The time from which the writer controls its channels. Defaults to the time the writer
-  opens on the Core. The writer fails to open when stored data holds it. A writer on
-  data channels without their index needs a start, and it must be a sample of that
-  index.
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
@@ -495,7 +496,8 @@ read each sample.
   default="True"
 >
   Raise a `ValidationError` when a write holds a channel that the writer is not open on.
-  When false, the writer leaves out that channel.
+  When false, a write of a `Frame` or a DataFrame leaves out a channel name that the
+  writer is not open on. Other writes still raise.
 </Field.Item>
 
 </Field.List>
@@ -508,9 +510,9 @@ read each sample.
 
 <Field.Item name="start" id="typescript-start" type="TimeStamp">
   The time from which the writer controls its channels. Defaults to the time the writer
-  opens on the Core. The writer fails to open when stored data holds it. A writer on
-  data channels without their index needs a start, and it must be a sample of that
-  index.
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
