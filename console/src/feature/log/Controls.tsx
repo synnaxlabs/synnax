@@ -55,7 +55,10 @@ const Search = (): ReactElement => {
     <Flex.Box
       y
       gap="tiny"
-      className={CSS.BE("log", "search")}
+      className={CSS.cls(
+        CSS.BE("log", "search"),
+        search.text !== "" && Vis.CONTROLS_PINNED_CLASS,
+      )}
       onMouseDown={stopPropagation}
       onCopy={stopPropagation}
     >
@@ -94,7 +97,12 @@ const Search = (): ReactElement => {
           size="small"
           variant="text"
           onClick={close}
-          tooltip="Close search"
+          tooltip={
+            <Text.Text level="small" color={11}>
+              Close
+              <Triggers.Text trigger={Triggers.ESCAPE} level="small" />
+            </Text.Text>
+          }
           aria-label="Close search"
         >
           <Icon.Close />
