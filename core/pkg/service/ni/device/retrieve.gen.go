@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 )
 
@@ -35,9 +36,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial *gorp.LookupIndex[Key, Device, string]
-	rack   *gorp.KeyReference[Key, Device, rack.Key]
-	search *gorp.SearchIndex[Key, Device]
+	serial  *gorp.LookupIndex[Key, Device, string]
+	rack    *gorp.KeyReference[Key, Device, rack.Key]
+	chassis *gorp.KeyReference[Key, Device, chassis.Key]
+	search  *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -56,6 +58,18 @@ func newIndexes() indexes {
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
+			},
+		}),
+		chassis: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, chassis.Key]{
+			Name:     "chassis",
+			Table:    "ni_chassis",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Device) []chassis.Key {
+				if e.Chassis == nil {
+					return nil
+				}
+				return []chassis.Key{*e.Chassis}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](
@@ -81,6 +95,7 @@ func (i indexes) all() []gorp.Index[Key, Device] {
 func (i indexes) references() []gorp.Reference[Key, Device] {
 	return []gorp.Reference[Key, Device]{
 		i.rack,
+		i.chassis,
 	}
 }
 
@@ -181,6 +196,23 @@ func MatchModels(vals ...string) Filter {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return slices.Contains(vals, e.Model), nil
 		})
+	}
+}
+
+// MatchChassises returns a filter for devices
+// whose Chassis matches any of the provided
+// values.
+func MatchChassises(vals ...chassis.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.chassis.Filter(vals...)
+	}
+}
+
+// MatchHasChassis returns a filter for devices whose
+// Chassis holds a target when has is true, and holds none when has is false.
+func MatchHasChassis(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.chassis.FilterHolding(has)
 	}
 }
 

@@ -52,9 +52,11 @@ Device struct {
         @doc value "is true when the device is simulated in NI-MAX."
     }
     chassis        ni_chassis.Key? {
-        @doc value """
+        @doc value     """
             is the chassis that holds the device. Absent for a standalone device.
         """
+        @ref kind      place
+        @ref on_delete cascade
     }
     identifier     string = "" {
         @doc value """
