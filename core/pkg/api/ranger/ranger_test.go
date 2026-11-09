@@ -599,7 +599,7 @@ var _ = Describe("Delete", func() {
 		},
 	)
 	It(
-		"Should need update on the range to delete its key-value pairs with it",
+		"Should not need update on the range to delete its key-value pairs with it",
 		func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
@@ -608,9 +608,8 @@ var _ = Describe("Delete", func() {
 			})).To(Succeed())
 			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
-			Expect(deleteChild(ctx)).Error().
-				To(denied(u, access.ActionUpdate, childID()))
-			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
+			MustSucceed(deleteChild(ctx))
+			Expect(rangeExists(ctx, child.Key)).To(BeFalse())
 		},
 	)
 })
