@@ -824,8 +824,7 @@ var _ = Describe("BindOutput", func() {
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		Expect(ctx.Constraints.Unify()).To(Succeed())
 		synth := MustSucceed(root.GetChildByParserRule(expr))
-		out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
-		Expect(ok).To(BeTrue())
+		out := MustBeOk(synth.Type.Outputs.Get(ir.DefaultOutputParam))
 		Expect(ctx.Constraints.ApplySubstitutions(out.Type)).To(Equal(types.F32()))
 	})
 
