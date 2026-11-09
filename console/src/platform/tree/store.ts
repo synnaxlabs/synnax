@@ -19,6 +19,15 @@ export const FOLDER_TYPES = new Set<resource.Type>(["group", "arc_directory"]);
 
 const isFolder = ({ id }: Resource): boolean => FOLDER_TYPES.has(id.type);
 
+const MORE_PREFIX = "more/";
+
+const moreKey = (folder: string): string => `${MORE_PREFIX}${folder}`;
+
+/** Returns whether the key names the node that loads the next page of a folder. */
+export const isMoreKey = (key: string): boolean => key.startsWith(MORE_PREFIX);
+
+const folderOf = (key: string): string => key.slice(MORE_PREFIX.length);
+
 const byName = (a: Resource, b: Resource): number => compare.text(a.name, b.name);
 
 /** A record the user names before the tree creates it. It shows first in its parent. */
@@ -52,12 +61,14 @@ interface Folder {
   sources: Source[];
   windows: Array<Window | undefined>;
   /** The merge of the windows it was built from, reused until a window changes. */
-  merged?: { windows: Array<Window | undefined>; keys: string[] | undefined };
+  merged?: { windows: Array<Window | undefined>; value: Merged | undefined };
   /** Ends the subscriptions. Absent while the folder is hidden. */
   release?: destructor.Destructor;
   loading: boolean;
   /** Whether the last fetch failed. The folder then shows what it holds. */
   failed: boolean;
+  /** Whether the next page of its lists is on the way. */
+  fetchingMore: boolean;
 }
 
 interface HeldDraft {
@@ -90,14 +101,31 @@ const segment = (windows: Window[]): Segment => {
   return { keys, more: cut != null };
 };
 
+interface Merged {
+  keys: string[];
+  /** The indices of the lists whose next page shows more of the folder. */
+  pending: number[];
+}
+
 // Folders show first, so a folder list with more hides the other records.
-const merge = (windows: Array<Window | undefined>): string[] | undefined => {
+const merge = (windows: Array<Window | undefined>): Merged | undefined => {
   if (!windows.every((w): w is Window => w != null)) return undefined;
-  const folders = windows.filter(({ resources }) => resources.some(isFolder));
-  const head = segment(folders);
-  if (head.more) return head.keys;
-  const rest = windows.filter((w) => !folders.includes(w));
-  return [...head.keys, ...segment(rest).keys];
+  const indices = windows.map((_, i) => i);
+  // Deletes can empty a window with more, and its next page can sort first.
+  const emptied = indices.filter(
+    (i) => windows[i].more && windows[i].resources.length === 0,
+  );
+  if (emptied.length > 0) return { keys: [], pending: emptied };
+  const folders = indices.filter((i) => windows[i].resources.some(isFolder));
+  const rest = indices.filter((i) => !folders.includes(i));
+  const withMore = (of: number[]) => of.filter((i) => windows[i].more);
+  const head = segment(folders.map((i) => windows[i]));
+  if (head.more) return { keys: head.keys, pending: withMore(folders) };
+  const tail = segment(rest.map((i) => windows[i]));
+  return {
+    keys: [...head.keys, ...tail.keys],
+    pending: tail.more ? withMore(rest) : [],
+  };
 };
 
 const mapsEqual = (a: Map<string, string[]>, b: Map<string, string[]>): boolean =>
@@ -198,9 +226,32 @@ export class Store {
 
   readonly isDraft = (key: string): boolean => this.drafts.has(key);
 
-  /** Returns whether the node waits for its first lists. */
+  /** Returns whether the node waits for its first lists, or for the next page. */
   isLoading(key: string): boolean {
+    if (isMoreKey(key)) return this.folders.get(folderOf(key))?.fetchingMore === true;
     return this.folders.get(key)?.loading === true;
+  }
+
+  /**
+   * Fetches the next page of the folder that the "Show more" node ends. Does nothing
+   * while a page is on the way.
+   */
+  more(key: string): void {
+    const folder = this.folders.get(folderOf(key));
+    if (folder == null || folder.fetchingMore) return;
+    const pending = this.mergedOf(folder)?.pending ?? [];
+    if (pending.length === 0) return;
+    folder.fetchingMore = true;
+    this.notifyKey(key);
+    void (async () => {
+      try {
+        await Promise.all(pending.map(async (i) => await folder.sources[i].more()));
+      } catch (error) {
+        this.config.onError(error);
+      }
+      folder.fetchingMore = false;
+      this.notifyKey(key);
+    })();
   }
 
   /** Calls the handler each time the nodes or the expanded keys change. */
@@ -246,6 +297,7 @@ export class Store {
       windows: sources.map((source) => source.getCached()),
       loading: false,
       failed: false,
+      fetchingMore: false,
     };
   }
 
@@ -287,10 +339,10 @@ export class Store {
     else if (this.showsResults(key)) listed = this.resultChildren.get(key) ?? [];
     else {
       const folder = this.folders.get(key);
-      listed =
-        (folder == null ? undefined : this.mergedOf(folder)) ??
-        this.resultChildren.get(key) ??
-        held?.draft.children;
+      const merged = folder == null ? undefined : this.mergedOf(folder);
+      if (merged == null) listed = this.resultChildren.get(key) ?? held?.draft.children;
+      else if (merged.pending.length === 0) listed = merged.keys;
+      else listed = [...merged.keys, moreKey(key)];
     }
     const drafted = [...this.drafts.values()]
       .filter(({ draft }) => draft.parent === key)
@@ -304,13 +356,13 @@ export class Store {
     return [...drafted, ...kept];
   }
 
-  private mergedOf(folder: Folder): string[] | undefined {
+  private mergedOf(folder: Folder): Merged | undefined {
     const { merged, windows } = folder;
     if (merged != null && compare.arraysEqual(merged.windows, windows))
-      return merged.keys;
-    const keys = merge(windows);
-    folder.merged = { windows: [...windows], keys };
-    return keys;
+      return merged.value;
+    const value = merge(windows);
+    folder.merged = { windows: [...windows], value };
+    return value;
   }
 
   private recompute(): void {
@@ -398,7 +450,8 @@ export class Store {
 
   private build(key: string): Base.Node<string>[] {
     return (this.children.get(key) ?? []).map((child) => {
-      if (!this.config.hasChildren(resource.parseID(child).type)) return { key: child };
+      if (isMoreKey(child) || !this.config.hasChildren(resource.parseID(child).type))
+        return { key: child };
       return {
         key: child,
         children: this.children.has(child) ? this.build(child) : [],

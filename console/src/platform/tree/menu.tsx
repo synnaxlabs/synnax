@@ -23,7 +23,7 @@ import { type DefaultContextMenuProps } from "@/platform/tree/DefaultContextMenu
 import { type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { type ResultNodes } from "@/platform/tree/search";
-import { type Store } from "@/platform/tree/store";
+import { isMoreKey, type Store } from "@/platform/tree/store";
 import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
@@ -74,14 +74,17 @@ export const useMenu = ({
   const openTab = Panel.useOpenTab();
   const session = useStore<State, Action>();
 
-  const render = ({ keys: clicked }: Menu.ContextMenuMenuProps): ReactElement => {
+  const render = ({ keys: targets }: Menu.ContextMenuMenuProps): ReactElement => {
+    // The node that loads more names no resource, so it opens the root menu.
+    const clicked = targets.filter((key) => !isMoreKey(key));
+    const chosen = selected.filter((key) => !isMoreKey(key));
     if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    const rightClickedButNotSelected = clicked.find((v) => !chosen.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise
     // the selection state gives the keys, since the virtual tree can lack the DOM
     // elements.
     const keys =
-      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : chosen;
     const ids = keys.map((key) => resource.parseID(key));
     // A selected node's own children do not count, since an action on the node carries
     // them along. Flat search results show both at the same depth.
