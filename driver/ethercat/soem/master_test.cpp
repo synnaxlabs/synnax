@@ -487,6 +487,33 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReadsEachSlaveFromItsOwnDictionary) {
     EXPECT_EQ(slaves[1].properties.input_pdos[0].bit_length, 32);
 }
 
+/// @brief it should read the PDO layout of a slave that supports complete access with
+/// one read of each whole object.
+TEST_F(SOEMMasterTest, CoEDiscoveryReadsWholeObjectsWithCompleteAccess) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.complete_access = true;
+    slave.complete_objects = {
+        {0x1C00, {4, 0, 1, 2, 3, 4}},
+        {ECT_SDO_RXPDOASSIGN, {0, 0}},
+        {ECT_SDO_TXPDOASSIGN, {1, 0, 0x00, 0x1A}},
+        {0x1A00, {2, 0, 0x10, 0x01, 0x00, 0x60, 0x20, 0x02, 0x00, 0x60}},
+    };
+    this->add_slave(slave);
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 1);
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].index, 0x6000);
+    EXPECT_EQ(inputs[0].sub_index, 1);
+    EXPECT_EQ(inputs[0].bit_length, 16);
+    EXPECT_EQ(inputs[1].sub_index, 2);
+    EXPECT_EQ(inputs[1].bit_length, 32);
+}
+
 namespace {
 /// @brief returns a slave of model 0x1234:0x5678 at revision rev with one TxPDO,
 /// 0x1A00, that maps 0x6000:01.

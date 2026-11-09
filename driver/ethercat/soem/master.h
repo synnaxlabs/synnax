@@ -209,6 +209,11 @@ private:
     std::pair<uint32_t, x::errors::Error>
     read_sdo(uint16_t pos, uint16_t index, uint8_t sub_index);
 
+    /// @brief reads a whole object from the object dictionary of the slave at pos with
+    /// complete access. Returns its bytes from sub-index 0, or nullopt when the read
+    /// fails.
+    std::optional<std::vector<uint8_t>> read_object(uint16_t pos, uint16_t index);
+
     /// @brief returns the model of the slave at pos, or nullopt when the slave does not
     /// give the modules it detects.
     std::optional<Model> read_model(uint16_t pos);

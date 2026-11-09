@@ -63,6 +63,9 @@ const int RECOVERY_TIMEOUT = static_cast<int>(
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
 constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
+/// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
+/// entries of four bytes.
+constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
 
 /// Time from the read of a slave's DC system time to its first SYNC0 event, so the
 /// slave takes the start time before the event passes.
@@ -612,6 +615,19 @@ Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_ind
     };
 }
 
+std::optional<std::vector<uint8_t>>
+Master::read_object(const uint16_t pos, const uint16_t index) {
+    std::vector<uint8_t> bytes(MAX_OBJECT_SIZE);
+    int size = static_cast<int>(bytes.size());
+    if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
+        0) {
+        pop_sdo_abort(*this->api, pos, index, 0);
+        return std::nullopt;
+    }
+    bytes.resize(static_cast<size_t>(size));
+    return bytes;
+}
+
 std::optional<Master::Model> Master::read_model(const uint16_t pos) {
     const auto &rec = this->record(pos);
     Model model{rec.eep_man, rec.eep_id, rec.eep_rev, {}};
@@ -640,13 +656,17 @@ void Master::discover_slave_pdos(
     const auto pos = props.position;
     x::errors::Error layout_err;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
-        auto [syncs, err] = coe::read_layout(
-            [this, pos](const uint16_t index, const uint8_t sub_index) {
-                return this->read_sdo(pos, index, sub_index);
-            },
-            EC_MAXSM,
-            coe::OnError::SKIP
-        );
+        coe::Read read = [this, pos](const uint16_t index, const uint8_t sub_index) {
+            return this->read_sdo(pos, index, sub_index);
+        };
+        if ((this->record(pos).CoEdetails & ECT_COEDET_SDOCA) != 0)
+            read = coe::with_complete_access(
+                std::move(read),
+                [this, pos](const uint16_t index) {
+                    return this->read_object(pos, index);
+                }
+            );
+        auto [syncs, err] = coe::read_layout(read, EC_MAXSM, coe::OnError::SKIP);
         layout_err = err;
         for (auto &sync: syncs)
             for (auto &pdo: sync.pdos) {
