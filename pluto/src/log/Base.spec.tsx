@@ -68,6 +68,8 @@ const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  thumb: null,
+  dragProgress: -1,
 };
 
 const LINES = [
@@ -80,8 +82,14 @@ const setupAether = (overrides: Record<string, unknown> = {}) => {
   const state = { ...DEFAULT_STATE, ...overrides };
   const selectedLines = vi.fn(async () => LINES);
   const seek = vi.fn();
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selectedLines, seek }]);
-  return { setState, state, selectedLines, seek };
+  const seekProgress = vi.fn();
+  mockAetherUse.mockReturnValue([
+    "test-key",
+    state,
+    setState,
+    { selectedLines, seek, seekProgress },
+  ]);
+  return { setState, state, selectedLines, seek, seekProgress };
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
@@ -379,6 +387,114 @@ describe("log/Base", () => {
       fireEvent.click(screen.getByText("Seek"));
       expect(onHold).not.toHaveBeenCalled();
       expect(seek).toHaveBeenCalledWith(TIME.valueOf().toString());
+    });
+  });
+
+  describe("scrollbar", () => {
+    // The thumb travels 400 pixels.
+    const REGION = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
+    const THUMB = { top: 400, height: 100 };
+
+    const dragProgresses = (
+      setState: ReturnType<typeof vi.fn>,
+      state: Record<string, unknown>,
+    ): unknown[] =>
+      setState.mock.calls
+        .map(([updater]) => (typeof updater === "function" ? updater(state) : updater))
+        .map((r) => (r as Record<string, unknown>).dragProgress)
+        .slice(-3);
+
+    const press = (container: HTMLElement, clientX: number, clientY: number): void => {
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientX, clientY });
+    };
+
+    it("should drag the thumb, then seek to where it lands", () => {
+      const { setState, state, seekProgress } = setupAether({
+        empty: false,
+        scrolling: true,
+        region: REGION,
+        thumb: THUMB,
+      });
+      const { container } = renderLog();
+      press(container, 396, 450);
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      expect(seekProgress).not.toHaveBeenCalled();
+      fireEvent.mouseUp(window);
+      expect(dragProgresses(setState, state)).toEqual([1, 0.5, -1]);
+      expect(seekProgress).toHaveBeenCalledWith(0.5);
+    });
+
+    it("should center the thumb where the track is pressed", () => {
+      const { seekProgress } = setupAether({
+        empty: false,
+        scrolling: true,
+        region: REGION,
+        thumb: THUMB,
+      });
+      const { container } = renderLog();
+      press(container, 396, 100);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).toHaveBeenCalledWith(0.125);
+    });
+
+    it("should select lines when pressed away from the scrollbar", () => {
+      const { seekProgress } = setupAether({
+        empty: false,
+        scrolling: true,
+        region: REGION,
+        thumb: THUMB,
+      });
+      const { container } = renderLog();
+      press(container, 100, 450);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    const dragging = () => {
+      const aether = setupAether({
+        empty: false,
+        scrolling: true,
+        region: REGION,
+        thumb: THUMB,
+      });
+      const rendered = renderLog();
+      press(rendered.container, 396, 450);
+      return { ...aether, ...rendered };
+    };
+
+    it("should not seek when the thumb is released where it was pressed", () => {
+      const { setState, state, seekProgress } = dragging();
+      fireEvent.mouseUp(window);
+      expect(dragProgresses(setState, state).at(-1)).toBe(-1);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the drag when the window loses focus", () => {
+      const { setState, state, seekProgress } = dragging();
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.blur(window);
+      expect(dragProgresses(setState, state).at(-1)).toBe(-1);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).not.toHaveBeenCalled();
+    });
+
+    it("should end the drag on a move with no button held", () => {
+      const { seekProgress } = dragging();
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 50, buttons: 0 });
+      expect(seekProgress).toHaveBeenCalledWith(0.5);
+      fireEvent.mouseUp(window);
+      expect(seekProgress).toHaveBeenCalledTimes(1);
+    });
+
+    it("should stop following the pointer after the log unmounts", () => {
+      const { setState, seekProgress, unmount } = dragging();
+      unmount();
+      const calls = setState.mock.calls.length;
+      fireEvent.mouseMove(window, { clientX: 396, clientY: 250, buttons: 1 });
+      fireEvent.mouseUp(window);
+      expect(setState.mock.calls).toHaveLength(calls);
+      expect(seekProgress).not.toHaveBeenCalled();
     });
   });
 
