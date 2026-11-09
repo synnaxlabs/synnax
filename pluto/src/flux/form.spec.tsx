@@ -1090,10 +1090,14 @@ describe("useForm", () => {
     });
 
     it("should keep the sent edit when a listener writes the pre-edit value", async () => {
-      const { result, release, listenerReset } = await renderInFlightForm();
-      act(() => listenerReset(INITIAL));
+      const { result, stored, release, listenerReset } = await renderInFlightForm();
+      // A listener gets a new object from the Core, never the one the form read.
+      act(() => listenerReset({ ...INITIAL }));
       expect(result.current.form.value().name).toEqual("First Edit");
       await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(stored[1]?.name).toEqual("First Edit");
     });
 
     it("should store a listener reset that lands while a save runs", async () => {
