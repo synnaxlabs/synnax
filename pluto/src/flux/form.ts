@@ -25,6 +25,7 @@ import {
 } from "@synnaxlabs/x";
 import {
   type Dispatch,
+  type RefObject,
   type SetStateAction,
   use,
   useEffect,
@@ -61,7 +62,13 @@ export interface FormUpdateParams<
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
     Omit<Form.UseReturn<Schema>, "setStatus">,
-    Pick<FormClientParams<Query>, "query"> {}
+    Pick<FormClientParams<Query>, "query"> {
+  /**
+   * The record as the Core stores it, as far as the form knows: the values it read,
+   * then those of each save and each listener reset. Undefined until it reads or saves.
+   */
+  stored: z.infer<Schema> | undefined;
+}
 
 /** Client and query handles for a form operation. */
 interface FormClientParams<Query extends query.Params> {
@@ -225,18 +232,23 @@ interface PersistParams<
     Pick<UseFormParams<Query, Schema>, "beforeValidate" | "beforeSave" | "afterSave">,
     Pick<CreateFormParams<Query, Schema>, "name" | "update"> {
   params: FormBeforeSaveParams<Query, Schema>;
+  stored: RefObject<z.infer<Schema> | undefined>;
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
   signal?: AbortSignal;
 }
 
-/** Validates and writes the form, reporting progress through `setResult`. */
+/**
+ * Validates and writes the form, reporting progress through `setResult`.
+ * @returns the values the update wrote, or undefined when it wrote nothing.
+ */
 const persist = async <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >({
   name,
   params,
+  stored,
   update,
   beforeValidate,
   beforeSave,
@@ -244,18 +256,18 @@ const persist = async <
   setResult,
   addStatus,
   signal,
-}: PersistParams<Query, Schema>): Promise<boolean> => {
+}: PersistParams<Query, Schema>): Promise<z.infer<Schema> | undefined> => {
   try {
-    if (beforeValidate?.(params) === false) return false;
-    if (!(await params.validateAsync())) return false;
+    if (beforeValidate?.(params) === false) return undefined;
+    if (!(await params.validateAsync())) return undefined;
     setResult(loadingResult(`updating ${name}`, undefined));
     if ((await beforeSave?.(params)) === false) {
       setResult(successResult(`updated ${name}`, undefined));
-      return false;
+      return undefined;
     }
     if (signal?.aborted === true) {
       setResult(successResult(`updated ${name}`, undefined));
-      return false;
+      return undefined;
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
       setResult((p) => {
@@ -266,16 +278,17 @@ const persist = async <
           variant: nextStatus.variant,
         } as Result<undefined>;
       });
-    await update({ ...params, setStatus });
+    const written = params.value();
+    await update({ ...params, setStatus, stored: stored.current });
     setResult(successResult(`updated ${name}`, undefined));
     if (afterSave != null) afterSave(params);
-    return true;
+    return written;
   } catch (error) {
-    if (signal?.aborted === true) return false;
+    if (signal?.aborted === true) return undefined;
     const res = errorResult(`update ${name}`, error);
     addStatus(res.status);
     setResult(res);
-    return false;
+    return undefined;
   }
 };
 
@@ -349,6 +362,8 @@ export const createForm = <
     // sent would revert them, and the next save would store the reverted value.
     const unsaved = useRef(new Set<string>());
     const sending = useRef(new Set<string>());
+    // The client cache can lag a save: it changes only on the Core's signal.
+    const stored = useRef(retrieved);
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
@@ -373,11 +388,16 @@ export const createForm = <
     };
     const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
       form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
+    const listenerReset = (next?: z.infer<Schema>) => {
+      if (next != null) stored.current = next;
+      resetKeeping(pendingPaths)(next);
+    };
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
     const readQuery = useRef(memoQuery);
     const valuesRef = useSyncedRef(values);
+    const retrievedRef = useSyncedRef(retrieved);
     useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
@@ -385,6 +405,7 @@ export const createForm = <
       abortRef.current = new AbortController();
       unsaved.current = new Set();
       sending.current = new Set();
+      stored.current = retrievedRef.current;
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
@@ -398,7 +419,7 @@ export const createForm = <
       const sent = unsaved.current;
       sending.current = sent;
       unsaved.current = new Set();
-      const saved = await persist({
+      const written = await persist({
         name,
         params: {
           client,
@@ -407,6 +428,7 @@ export const createForm = <
           set: noNotifySet,
           reset: resetKeeping(() => unsaved.current),
         },
+        stored,
         update,
         beforeValidate,
         beforeSave,
@@ -415,9 +437,11 @@ export const createForm = <
         addStatus,
         signal,
       });
+      const saved = written != null;
       // The form re-pointed at another record while this save ran.
       if (readQuery.current !== issuedFor) return saved;
-      if (!saved) sent.forEach((path) => unsaved.current.add(path));
+      if (saved) stored.current = written;
+      else sent.forEach((path) => unsaved.current.add(path));
       sending.current = new Set();
       return saved;
     };
@@ -474,12 +498,12 @@ export const createForm = <
           query: memoQuery,
           ...form,
           set: listenerSet,
-          reset: resetKeeping(pendingPaths),
+          reset: listenerReset,
           abandon,
         }),
       );
       return () => listeners.cleanup();
-    }, [client, memoQuery, form, listenerSet, resetKeeping, pendingPaths, abandon]);
+    }, [client, memoQuery, form, listenerSet, listenerReset, abandon]);
 
     return { form, save, saveAsync, ...result };
   };

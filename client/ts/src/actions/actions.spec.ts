@@ -226,6 +226,13 @@ describe("diffFields", () => {
     ).toEqual([{ type: "set", set: { path: ["name"], value: "renamed", guards: [] } }]);
   });
 
+  it("should set each listed field that next holds when there is no base", () => {
+    const next = { name: "dev", sampleRate: 10 };
+    expect(actions.diffFields(schema, undefined, next, ["name", "props"])).toEqual([
+      { type: "set", set: { path: ["name"], value: "dev", guards: [] } },
+    ]);
+  });
+
   it("should skip a field that differs but is not listed", () => {
     const next = { ...BASE, name: "renamed" };
     expect(actions.diffFields(schema, BASE, next, ["props"])).toEqual([]);
