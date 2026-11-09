@@ -342,6 +342,8 @@ export class Log
       this.cursor = null;
       this.endJump("");
     }
+    // A new pause starts its jumps from the view, past the matches that arrived live.
+    if (!this.prevState.scrolling) this.cursor = null;
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {

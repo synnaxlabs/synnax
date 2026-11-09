@@ -771,6 +771,21 @@ describe("log/aether/Log", () => {
       expect(log.state.jumpStatus).toBe("");
     });
 
+    it("should start again from the view after the log resumes", () => {
+      const entries = lines(1_000, [20]);
+      const { log, source, updateState } = setup(entries, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      const live = { ...SEARCH, jump: { direction: "previous", request: 1 } };
+      updateState({ ...live, scrolling: false });
+      // The same entries, with a newer match that arrived live.
+      source.setEntries([...entries, { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      jumpTo(updateState, "previous", 2);
+      expect(log.state.jumpStatus).toBe("");
+      log.render();
+      expect(log.state.rowEntries).toContain(1_000);
+    });
+
     it("should clear the jump status when the search changes", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       source.exhausted = true;
