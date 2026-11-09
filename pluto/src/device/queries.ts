@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, query as clientQuery, type query, resource } from "@synnaxlabs/client";
+import {
+  actions,
+  device,
+  query as clientQuery,
+  type query,
+  resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -302,30 +309,45 @@ export const createForm: CreateForm = (
     const parsed = schema.safeParse(record);
     return parsed.success ? parsed.data : undefined;
   };
+  const retrieve = async (client: Client, query: FormQuery) =>
+    schemas != null
+      ? await client.devices.retrieve({ ...query, schemas })
+      : await client.devices.retrieve(query);
   return Flux.createForm<FormQuery, typeof schema>({
     name: RESOURCE_NAME,
     schema,
     initialValues,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-    retrieve: async ({ query, client }) =>
-      schemas != null
-        ? await client.devices.retrieve({ ...query, schemas })
-        : await client.devices.retrieve(query),
+    retrieve: async ({ query, client }) => await retrieve(client, query),
     getCached: ({ client, query }) => {
       const cached = client.devices.getCached(query);
       return clientQuery.isLive(cached) ? parseRecord(cached) : undefined;
     },
     update: async ({ value, client, set }) => {
       const data = value();
+      const { status } = data;
+      // A status read from the Core names the device as its owner. A beforeSave hook
+      // that reports a new status leaves the owner out.
+      const reported = status != null && status.owner == null;
       if (primitive.isZero(data.key)) {
         data.key = uuid.create();
         set(formPath.key, data.key);
+        const sent = reported ? data : device.toUpdate(data);
+        await client.devices.create(sent as device.New, schemas);
+        return;
       }
-      // A status read from the Core names the device as its owner. A beforeSave hook
-      // that reports a new status leaves the owner out, and the Core sets it.
-      const reported = data.status != null && data.status.owner == null;
-      const sent = reported ? data : device.toUpdate(data);
-      await client.devices.create(sent as device.New, schemas);
+      const prev = await retrieve(client, { key: data.key });
+      const edits: device.Action[] = actions.diffFields(schema, prev, data, [
+        "name",
+        "model",
+        "location",
+        "configured",
+        "properties",
+      ]);
+      if (prev.rack !== data.rack) edits.push(device.setRack({ rack: data.rack }));
+      if (edits.length > 0) await client.devices.dispatch(data.key, edits);
+      if (reported)
+        await client.statuses.set({ ...status, owner: device.resourceID(data.key) });
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];

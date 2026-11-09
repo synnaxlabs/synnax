@@ -165,8 +165,13 @@ describe("View queries", () => {
         );
         result.current.save({ signal: controller.signal });
       });
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(result.current.form.value()).toMatchObject({
+          name: "edited-view",
+          where: { variant: { in: ["warning"] } },
+        });
+        expect(await client.views.retrieve(view.key)).toEqual({
+          ...view,
           name: "edited-view",
           where: { variant: { in: ["warning"] } },
         });

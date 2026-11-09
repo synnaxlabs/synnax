@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, query, type ranger } from "@synnaxlabs/client";
+import { actions, channel, DataType, query, type ranger } from "@synnaxlabs/client";
 import {
   array,
   control,
@@ -158,8 +158,18 @@ const updateForm = async ({
 }: Flux.FormUpdateParams<typeof formSchema | typeof calculatedFormSchema>) => {
   const values = value();
   if (values.requires != null) delete values.requires;
-  const ch = await client.channels.create(values);
-  set(formPath.key, ch.key);
+  if (primitive.isZero(values.key)) {
+    const ch = await client.channels.create(values);
+    set(formPath.key, ch.key);
+    return;
+  }
+  const prev = channelToFormValues(await client.channels.retrieve(values.key));
+  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, prev, values, [
+    "expression",
+    "operations",
+  ]);
+  if (prev.name !== values.name) edits.unshift(channel.rename({ name: values.name }));
+  if (edits.length > 0) await client.channels.dispatch(values.key, edits);
 };
 
 export type FormQuery = RetrieveQuery;
