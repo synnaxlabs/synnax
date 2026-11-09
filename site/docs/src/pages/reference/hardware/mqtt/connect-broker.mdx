@@ -10,6 +10,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Note } from "@/components/note";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -52,6 +53,8 @@ and it runs MQTT tasks wherever the Core runs, Docker included.
 
 The Console tests the connection before it saves the broker. The test waits up to 10
 seconds. If the test fails, the dialog shows the error and keeps your entries.
+
+<Video id="hardware/mqtt/connect-broker" />
 
   </Fragment>
   <Fragment slot="python">

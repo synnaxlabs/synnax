@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -767,5 +768,65 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
 		)
+	})
+})
+
+var _ = Describe("Stage reassignment types", func() {
+	DescribeTable("Should give a reassigned expression the variable's type",
+		func(bCtx SpecContext, decl, value string, expected types.Type) {
+			ast := MustSucceed(parser.Parse("sequence main {\n" + decl +
+				"\nstage a {\nv = " + value + "\n}\n}\ngo => main"))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, symbol.Symbol{
+				Name: "go",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   1,
+			}))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var outputs []types.Type
+			for _, sym := range ctx.Scope.Root().Children() {
+				if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+					sym.Kind == symbol.KindFunction {
+					outputs = append(
+						outputs,
+						ctx.Constraints.ApplySubstitutions(out.Type),
+					)
+				}
+			}
+			Expect(outputs).To(Equal([]types.Type{expected}))
+		},
+		Entry("an i32 variable", "v i32 := 0", "1 + 2", types.I32()),
+		Entry("an f32 variable", "v f32 := 0.0", "1.5 * 2.0", types.F32()),
+		Entry("an f32 stateful variable", "v f32 $= 0.0", "1.5 * 2.0", types.F32()),
+	)
+
+	It("Should give a reassigned reactive variable's expression its value type", func(
+		bCtx SpecContext,
+	) {
+		ast := MustSucceed(
+			parser.Parse("sequence main {\nv := sensor + 1.0\nstage a {\n" +
+				"v = 1.0 + 2.0\n}\n}\ngo => main"),
+		)
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, symbol.Symbol{
+			Name: "go", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 1,
+		}, symbol.Symbol{
+			Name: "sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   2,
+		}))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect(
+			(*ctx.Diagnostics)[0].Message,
+		).To(ContainSubstring("from a constant value"))
+		for _, sym := range ctx.Scope.Root().Children() {
+			if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+				sym.Kind == symbol.KindFunction {
+				Expect(ctx.Constraints.ApplySubstitutions(out.Type).Kind).
+					ToNot(Equal(types.KindChan))
+			}
+		}
 	})
 })
