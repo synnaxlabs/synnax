@@ -1085,6 +1085,41 @@ var _ = Describe("Index", func() {
 			)
 
 			It(
+				"Should sort an entry that moved ahead inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 25}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{0, 2, 1}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved back inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 2, Score: 5}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Offset(1).
+						Limit(2).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{2, 1}))
+				},
+			)
+
+			It(
 				"Should sort an entry that moved after the walk found it into a full result",
 				func(ctx SpecContext) {
 					tx := idxDB.OpenTx()

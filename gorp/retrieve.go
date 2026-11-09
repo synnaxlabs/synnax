@@ -13,6 +13,7 @@ package gorp
 import (
 	"bytes"
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -575,10 +576,10 @@ const minWalkBatch = 128
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	var (
 		reader  = wrapReader[K, E](tx, r.keyPrefix)
-		matched = make([]E, 0, min(r.limit, minWalkBatch))
+		matched = make([]E, 0, min(r.offset+r.limit, minWalkBatch))
 		counted = set.New[K]()
+		moved   = make(map[K]E)
 		gorpCtx = Context{Context: ctx, Tx: tx}
-		skipped int
 		batch   int
 		bounded []K
 	)
@@ -615,26 +616,25 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 			matched = append(matched, e)
 			continue
 		}
-		// A commit between the walk and the read can move the entry. Skipping it keeps
-		// the page in walk order.
+		// A commit between the walk and the read can move the entry, so it is sorted
+		// into place at the end by the value it holds now.
 		if !holds(&e) {
+			moved[k] = e
 			continue
 		}
 		counted.Add(k)
-		if skipped < r.offset {
-			skipped++
-			continue
-		}
-		if matched = append(matched, e); r.limit > 0 && len(matched) == r.limit {
+		delete(moved, k)
+		matched = append(matched, e)
+		if r.limit > 0 && len(matched) == r.offset+r.limit {
 			break
 		}
 	}
-	if snapshot {
-		matched = r.orderBy.sort(matched)
-		matched = matched[min(r.offset, len(matched)):]
-		if r.limit > 0 {
-			matched = matched[:min(r.limit, len(matched))]
-		}
+	if snapshot || len(moved) > 0 {
+		matched = r.orderBy.sort(append(matched, slices.Collect(maps.Values(moved))...))
+	}
+	matched = matched[min(r.offset, len(matched)):]
+	if r.limit > 0 {
+		matched = matched[:min(r.limit, len(matched))]
 	}
 	r.entries.replace(matched)
 	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
