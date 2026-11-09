@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -786,4 +787,70 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 			BeIdenticalTo(synths[1]),
 		)
 	})
+
+	It("Should register no synth for a float constant", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		var args []symbol.Argument
+		for _, src := range []string{"math.inf", "f32(-math.inf)", "-math.nan"} {
+			args = append(args, symbol.Argument{
+				Expr: MustSucceed(parser.ParseExpression(src)),
+			})
+		}
+		ctx := context.NewRoot(bCtx, args[0].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		for _, arg := range args {
+			Expect(root.GetChildByParserRule(arg.Expr)).Error().
+				To(MatchError("could not find symbol matching parser rule"))
+		}
+	})
+})
+
+var _ = Describe("BindOutput", func() {
+	var root *symbol.Symbol
+	BeforeEach(func(bCtx SpecContext) {
+		root = NewRoot(nil)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+	})
+
+	It("Should bind the untyped output of a node to the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.F32())
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		synth := MustSucceed(root.GetChildByParserRule(expr))
+		out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+		Expect(ok).To(BeTrue())
+		Expect(ctx.Constraints.ApplySubstitutions(out.Type)).To(Equal(types.F32()))
+	})
+
+	It("Should report an output that does not fit the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.Bool())
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("assignment"))
+	})
+
+	DescribeTable("Should do nothing",
+		func(bCtx SpecContext, source string, registered bool) {
+			expr := MustSucceed(parser.ParseExpression(source))
+			ctx := context.NewRoot(bCtx, expr, root)
+			if registered {
+				flow.AnalyzeSingleExpression(ctx)
+			}
+			before := len(ctx.Constraints.Constraints)
+			flow.BindOutput(ctx, expr, types.F32())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(ctx.Constraints.Constraints).To(HaveLen(before))
+		},
+		Entry("with no registered node", "1.5 * 2.0", false),
+		Entry("with a concrete output", "x + x", true),
+	)
 })

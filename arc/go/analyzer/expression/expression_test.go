@@ -2057,7 +2057,11 @@ var _ = Describe("Expressions", func() {
 				Expect(d.Message).To(ContainSubstring("math.is_nan"))
 			},
 			Entry("==", "v == math.nan", "== with math.nan is always false"),
-			Entry("!=", "v != math.nan", "!= with math.nan is always true"),
+			Entry(
+				"!=",
+				"v != math.nan",
+				"!= with math.nan is always true, use not math.is_nan instead",
+			),
 			Entry("<", "v < math.nan", "< with math.nan is always false"),
 			Entry(">", "math.nan > v", "> with math.nan is always false"),
 			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
@@ -2112,7 +2116,7 @@ var _ = Describe("Expressions", func() {
 				"a module without is_nan",
 				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
 				"!= with custom.missing is always true, "+
-					"use is_nan from the math module instead",
+					"use not is_nan from the math module instead",
 			),
 		)
 	})
