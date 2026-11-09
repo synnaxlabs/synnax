@@ -8,6 +8,7 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -158,3 +159,30 @@ scroll to zoom, and **Shift**+drag or middle-drag to pan. Press **Ctrl+Enter**
 
 Use one SVG file with an `<svg>` root element. Give parts that change color together the
 same stroke and fill colors, so Synnax puts them in one region.
+
+Draw with vector shapes. The Console removes scripts, event handlers, `foreignObject`
+elements, and links to anything outside the file, so embedded and linked images do not
+import.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The Console shows "Failed to load symbol"
+
+<Problem.Body>
+<Problem.Cause>
+
+The Console cannot read the file as an SVG drawing. The description of the message says
+why.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **"The file is not an SVG."** -> select a file with the `.svg` extension.
+- **"The file is empty."** -> export the drawing again from your drawing program.
+- **"The file does not contain a valid SVG image."** -> open the file in a text editor
+  and check that it starts with an `<svg>` element and has no errors.
+
+</Problem.Fix>
+</Problem.Body>
