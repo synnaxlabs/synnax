@@ -169,7 +169,6 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           onChange={canUpdate ? (name) => rename({ key: itemKey, name }) : undefined}
           allowDoubleClick={false}
           overflow="fade"
-          weight={450}
         />
         <Text.Text level="tiny" color={9} overflow="fade">
           {Validity.describeSecret(s)}
@@ -210,7 +209,6 @@ const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
           onChange={canUpdate ? (name) => rename({ key: itemKey, name }) : undefined}
           allowDoubleClick={false}
           overflow="fade"
-          weight={450}
         />
         <Text.Text level="tiny" color={9} status={status} overflow="fade">
           {text}
