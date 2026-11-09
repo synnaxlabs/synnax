@@ -1397,9 +1397,13 @@ describe("Task", async () => {
         vi.useRealTimers();
       });
       await setReply(t, cmd, "loading", "Starting task");
-      // Steps shorter than the 1 minute acknowledgment limit let the reply land first.
+      await expect
+        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
+        .toBe("Starting task");
+      // The wait gets the reply at about the time the store does. Steps shorter than
+      // the 1 minute acknowledgment limit cover the gap.
       await vi.waitFor(async () => {
-        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(20).milliseconds);
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
         expect(settled).toBe(true);
       });
       await expect(wait).rejects.toThrow(
@@ -2016,6 +2020,60 @@ describe("Task", async () => {
         await expect
           .poll(() => client.statuses.store.get(key)?.message)
           .toBe("no Driver here");
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("stops standing the rack's problem in two minutes after a loading reply", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `lost-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          owner: task.resourceID(t.key),
+          labels: [],
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(TimeSpan.minutes(2).milliseconds);
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.ownedBy(rack.resourceID(dying.key))?.message)
+          .toBe("no Driver here");
+        expect(client.statuses.store.get(key)?.message).toBe("Starting task");
       } finally {
         vi.useRealTimers();
         off();

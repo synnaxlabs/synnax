@@ -485,9 +485,16 @@ export class Client extends query.Retriever<
       if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
+      if (event.value.variant !== "loading") {
+        this.commandDeadlines.delete(task);
+        return;
+      }
       // A loading reply acknowledges the command, and a down rack still stands in
-      // until the final reply.
-      if (event.value.variant !== "loading") this.commandDeadlines.delete(task);
+      // until the final reply or until the command is taken as lost.
+      pending.timer = setTimeout(
+        () => this.commandDeadlines.delete(task),
+        FINAL_STATUS_TIMEOUT.milliseconds,
+      );
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",
