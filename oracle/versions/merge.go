@@ -270,15 +270,6 @@ func referencedNamespaces(
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
 		walkFields(f.Fields)
-		for _, a := range f.Actions {
-			walkFields(a.Fields)
-			for _, e := range a.Extends {
-				walkRef(e)
-			}
-			if a.IsAlias() {
-				walkRef(a.Alias)
-			}
-		}
 		for _, e := range f.Extends {
 			walkRef(e)
 		}
