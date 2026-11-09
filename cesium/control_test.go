@@ -371,13 +371,13 @@ var _ = Describe("Control", func() {
 						Expect(low.Write(frame(11))).To(BeFalse())
 						end, authorized := MustSucceed2(low.Commit())
 						Expect(authorized).To(BeFalse())
-						Expect(end).To(BeZero())
+						Expect(end).To(Equal(10*telem.SecondTS + 1))
 						Expect(high.Close()).To(Succeed())
 						Expect(low.Close()).To(Succeed())
 					},
 				)
 				DescribeTable(
-					"Should report a refused write at the next commit after control returns",
+					"Should report a refused write once and keep the end of a commit with control",
 					func(ctx SpecContext, sync bool) {
 						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							ControlSubject:   xcontrol.Subject{Key: "low"},
@@ -400,11 +400,12 @@ var _ = Describe("Control", func() {
 						Expect(low.Write(frame(12))).To(BeTrue())
 						end, authorized := MustSucceed2(low.Commit())
 						Expect(authorized).To(BeFalse())
-						Expect(end).To(BeZero())
-						Expect(MustCommit(low)).To(Equal(12*telem.SecondTS + 1))
+						Expect(end).To(Equal(12*telem.SecondTS + 1))
+						Expect(low.Write(frame(13))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(13*telem.SecondTS + 1))
 						Expect(low.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						Expect(f.Get(idx).Len()).To(Equal(int64(2)))
+						Expect(f.Get(idx).Len()).To(Equal(int64(3)))
 					},
 					Entry("sync", true),
 					Entry("async", false),
@@ -574,8 +575,7 @@ var _ = Describe("Control", func() {
 							By("Reporting the refused write at the next commit")
 							end, authorized := MustSucceed2(w2.Commit())
 							Expect(authorized).To(BeFalse())
-							Expect(end).To(BeZero())
-							Expect(MustCommit(w2)).To(Equal(telem.SecondTS*14 + 1))
+							Expect(end).To(Equal(telem.SecondTS*14 + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())

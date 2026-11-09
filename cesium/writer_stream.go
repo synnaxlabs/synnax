@@ -75,7 +75,7 @@ type WriterResponse struct {
 	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
-	// to WriterCommit, and it is zero if the commit fails or is not authorized.
+	// to WriterCommit, and it is zero if the commit fails or lacks control.
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
@@ -434,15 +434,17 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 			maxTS = ts
 		}
 	}
-	if unauthorized == nil && w.writeRefused {
-		unauthorized = errors.Wrap(
+	if unauthorized != nil {
+		w.writeRefused = false
+		return 0, unauthorized
+	}
+	if w.writeRefused {
+		w.writeRefused = false
+		// The commit applied, so it keeps its end.
+		return maxTS, errors.Wrap(
 			xcontrol.ErrUnauthorized,
 			"a write since the last commit had no control",
 		)
-	}
-	w.writeRefused = false
-	if unauthorized != nil {
-		return 0, unauthorized
 	}
 	return maxTS, nil
 }

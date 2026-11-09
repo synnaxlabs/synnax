@@ -62,8 +62,9 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 
 // Commit makes the written samples available to reads and returns the end of the
 // commit. authorized is false if the writer lacks control of a channel with samples to
-// commit, or if a write since the last commit was refused for no control. The end is
-// then zero, and the writer stays open so that it can regain control.
+// commit, and the end is then zero. authorized is also false if a write since the last
+// commit was refused for no control, but the commit applies and returns its end. The
+// writer stays open so that it can regain control.
 func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
 	if err != nil {

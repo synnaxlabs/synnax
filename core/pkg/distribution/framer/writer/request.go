@@ -68,7 +68,7 @@ type Response struct {
 	// to the Request.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. This value is only valid during
-	// calls to WriterCommit, and it is zero if the commit fails or is refused.
+	// calls to WriterCommit, and it is zero if the commit fails or lacks control.
 	End telem.TimeStamp
 	// Command is the command that was executed on the writer.
 	Command Command
