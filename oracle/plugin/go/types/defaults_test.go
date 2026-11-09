@@ -1922,7 +1922,7 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
-		"Should set a restated literal's groups after its members",
+		"Should set a restated literal's groups after the decode",
 		func(ctx SpecContext) {
 			source := `
 			@go output "core/pkg/service/x"
@@ -1936,10 +1936,14 @@ var _ = Describe("Decode-time default generation", func() {
 			Child struct extends Parent { range MinMax = { min_val = -10 } }
 		`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain(
-				"\t\tv0 := MinMax{}\n\t\tv0.SetUngroupedDefaults()\n" +
-					"\t\tv0.MinVal = -10\n\t\tv0.DefaultGroups()\n\t\tc.Range = v0\n",
-			)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"\t\tv0 := MinMax{}\n\t\tv0.SetUngroupedDefaults()\n"+
+						"\t\tv0.MinVal = -10\n\t\tc.Range = v0\n",
+					"func (c *Child) DefaultGroups() {\n\tc.Parent.DefaultGroups()\n"+
+						"\tc.Range.DefaultGroups()\n}",
+				).
+				ToNotContain("v0.DefaultGroups()")
 		},
 	)
 
