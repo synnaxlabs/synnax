@@ -2266,6 +2266,16 @@ describe("log/aether/Log", () => {
       expect(copied(["abcdef", "ghij"], selection)).toEqual(["cdef"]);
     });
 
+    it("should leave out a first line the selection starts past the end of", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 3,
+        selectionEnd: 1,
+        selectionEndChar: 2,
+      };
+      expect(copied(["abc", "defg"], selection)).toEqual(["de"]);
+    });
+
     it("should copy nothing for an empty cut", () => {
       const selection = {
         selectionStart: 0,

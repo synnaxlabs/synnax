@@ -29,14 +29,6 @@ import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
-interface Press {
-  point: log.Point;
-  // Whether the press cleared the selection, once its update applies.
-  cleared?: boolean;
-  // Whether the selection holds a start from this press.
-  anchored?: boolean;
-}
-
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
@@ -173,8 +165,8 @@ export const Base = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
-  // The press the pointer is held down from, while it drags.
-  const downRef = useRef<Press | null>(null);
+  // The character the pointer went down on, while it drags.
+  const downRef = useRef<log.Point | null>(null);
   // Counts presses and releases, so a hit that resolves after its release starts no
   // drag.
   const gestureRef = useRef(0);
@@ -183,7 +175,8 @@ export const Base = ({
   const handleError = Status.useErrorHandler();
 
   // A click selects its whole line, or clears it when it alone is selected. A
-  // shift-click extends the selection by whole lines and starts no drag.
+  // shift-click extends the selection by whole lines. Neither a shift-click nor a click
+  // that clears starts a drag.
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const { clientX: x, clientY: y, shiftKey } = e;
@@ -191,8 +184,7 @@ export const Base = ({
     const gesture = ++gestureRef.current;
     handleError(async () => {
       const point = await methods.hit({ x, y });
-      const press: Press | null =
-        !shiftKey && gesture === gestureRef.current ? { point } : null;
+      const press = !shiftKey && gesture === gestureRef.current ? point : null;
       if (press != null) downRef.current = press;
       const { entry } = point;
       setState((s) => {
@@ -202,7 +194,7 @@ export const Base = ({
           s.selectionStart === entry &&
           s.selectionEnd === entry &&
           s.selectionStartChar < 0;
-        if (press != null) [press.cleared, press.anchored] = [alone, !alone];
+        if (alone && press != null && downRef.current === press) downRef.current = null;
         if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
         return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
       });
@@ -215,33 +207,26 @@ export const Base = ({
     const { clientX: x, clientY: y } = e;
     handleError(async () => {
       const point = await methods.hit({ x, y });
-      const press = downRef.current;
-      if (press == null) return;
-      const { point: down, cleared } = press;
+      const down = downRef.current;
+      if (down == null) return;
       setState((s) => {
-        // The worker keeps the start on its entry as entries shift, so the drag keeps
-        // the start it holds. A start the worker cleared ends the drag.
-        const held = s.selectionStart >= 0;
-        if (!held && press.anchored === true) {
-          downRef.current = null;
+        // The press selected its line, and the worker keeps that start on its entry as
+        // entries shift, so the drag reads the start from the state. A start the worker
+        // cleared ends the drag.
+        const start = s.selectionStart;
+        if (start < 0) {
+          if (downRef.current === down) downRef.current = null;
           return s;
         }
-        const start = held ? s.selectionStart : down.entry;
-        const startChar =
-          held && s.selectionStartChar >= 0 ? s.selectionStartChar : down.char;
-        // A drag back to its start returns to what the press selected.
-        if (point.entry === start && point.char === startChar) {
-          press.anchored = cleared !== true;
-          const line = cleared === true ? -1 : start;
+        const startChar = s.selectionStartChar >= 0 ? s.selectionStartChar : down.char;
+        // A drag back to its start returns to the line the press selected.
+        if (point.entry === start && point.char === startChar)
           return {
             ...s,
-            selectionStart: line,
-            selectionEnd: line,
+            selectionEnd: start,
             selectionStartChar: -1,
             selectionEndChar: -1,
           };
-        }
-        press.anchored = true;
         return {
           ...s,
           selectionStart: start,
