@@ -30,8 +30,8 @@ export interface Lists {
 }
 
 /**
- * Lists the secrets and certificates the user can read, by name, and keeps them current.
- * A list reads nothing until its first call to `more`.
+ * Lists the secrets and certificates the user can read, by name, and keeps them
+ * current. A list reads nothing until its first call to `more`.
  */
 export const useLists = (): Lists => {
   const retrievable = useRetrievable();
