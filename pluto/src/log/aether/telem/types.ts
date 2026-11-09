@@ -50,7 +50,10 @@ export interface LogSource extends Source<LogEntry[]> {
   /** Whether the entries hold the oldest stored sample of each channel. A source
    * without it holds all it has. */
   readonly exhausted?: boolean;
-  /** The oldest time the reads of every channel reached, or null before any read. */
+  /**
+   * The oldest time the reads of every shown channel reached. Null before any read, or
+   * once the reads hold the oldest stored sample of each shown channel.
+   */
   readonly reached?: TimeStamp | null;
   /** Whether the entries end at the newest samples. A source without it is live. */
   readonly live?: boolean;
