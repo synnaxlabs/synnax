@@ -28,12 +28,12 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_certificate_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";
 
-const newStoredZ = storedCertificateZ.omit({ details: true }).extend({
+const newStoredZ = storedCertificateZ.omit({ details: true, privateKey: true }).extend({
   /**
-   * privateKey is the private key as PEM. The Core checks that it matches the
+   * privateKeyPem is the private key as PEM. The Core checks that it matches the
    * certificate and saves it as a secret.
    */
-  privateKey: z.string().optional(),
+  privateKeyPem: z.string().optional(),
 });
 
 /**

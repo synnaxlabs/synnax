@@ -47,9 +47,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // For a stored certificate, Create reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
 // value of the certificate's key secret. Without one, a replacement keeps the old key
-// only when the public key is unchanged. A file certificate takes no privateKey, and
-// replacing a stored certificate with one deletes the old key secret. The commit
-// carries a create action that holds the certificate.
+// only when the public key is unchanged, and renames its secret after a new name. A
+// file certificate takes no privateKey, and replacing a stored certificate with one
+// deletes the old key secret. The commit carries a create action that holds the
+// certificate.
 func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
@@ -89,7 +90,7 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 		v := validate.New("certificate")
 		v.NotEmptyString("certificate_path", variant.CertificatePath)
 		v.Ternary(
-			"private_key",
+			"private_key_pem",
 			len(privateKey) != 0,
 			"must be empty for a file certificate",
 		)
@@ -136,7 +137,7 @@ func (w Writer) prepareStored(
 		}
 		key := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{
 			Key:  lo.FromPtr(c.PrivateKey),
-			Name: c.Name + " private key",
+			Name: keyName(c.Name),
 		}}}
 		if err = w.secrets.Create(ctx, &key, privateKey); err != nil {
 			return StoredCertificate{}, err
@@ -154,26 +155,42 @@ func (w Writer) prepareStored(
 	if !samePublicKey(prevLeaf.PublicKey, leaf.PublicKey) {
 		v := validate.New("certificate")
 		v.Ternary(
-			"private_key",
+			"private_key_pem",
 			true,
 			"required, because the new certificate does not match the saved key",
 		)
 		return StoredCertificate{}, v.Error()
 	}
+	if err = w.renameKey(ctx, c, prev.Name); err != nil {
+		return StoredCertificate{}, err
+	}
 	return c, nil
 }
 
-// Apply applies the actions to the certificate with the given key, rewrites its expiry
-// status, and attaches the actions to the transaction of w, so its commit broadcasts
-// them with the dispatch key of w. Apply returns an error wrapping
-// validate.ErrValidation when an action is a create or the result fails to validate,
-// and an error wrapping query.ErrNotFound when no certificate has the key.
+// keyName is the name of the secret that holds the private key of the certificate with
+// the given name.
+func keyName(certificate string) string { return certificate + " private key" }
+
+func (w Writer) renameKey(ctx context.Context, c StoredCertificate, prev string) error {
+	if c.PrivateKey == nil || c.Name == prev {
+		return nil
+	}
+	return w.secrets.Rename(ctx, *c.PrivateKey, keyName(c.Name))
+}
+
+// Apply applies the actions to the certificate with the given key, renames its key
+// secret after a new name, rewrites its expiry status, and attaches the actions to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to validate, and an error wrapping query.ErrNotFound when no certificate
+// has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	var next Certificate
+	var prev, next Certificate
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Certificate](key)).
 		ChangeErr(func(_ gorp.Context, c Certificate) (Certificate, error) {
 			var err error
+			prev = c
 			if next, err = Reduce(c, acts...); err != nil {
 				return Certificate{}, err
 			}
@@ -185,12 +202,17 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	if stored, ok := next.Variant.(StoredCertificate); ok {
+		if err := w.renameKey(ctx, stored, prev.Base().Name); err != nil {
+			return err
+		}
+	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return w.writeStatus(ctx, next)
 }
 
-// Rename renames the certificate with the given key and its expiry status by applying
-// a set of the name.
+// Rename renames the certificate with the given key, its key secret, and its expiry
+// status by applying a set of the name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.Apply(
 		ctx,
