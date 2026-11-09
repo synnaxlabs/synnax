@@ -328,6 +328,7 @@ class TestTaskClient:
                         variant=sy.status.VARIANT_WARNING,
                         message="Driver not running",
                         description="The Core has not heard from the Driver.",
+                        details={},
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
@@ -345,10 +346,14 @@ class TestTaskClient:
         assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
         t.join()
 
-    def test_execute_command_sync_waits_through_a_healthy_rack(
-        self, client: sy.Synnax
+    @pytest.mark.parametrize(
+        "variant", [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_ERROR]
+    )
+    def test_execute_command_sync_waits_through_a_live_rack(
+        self, client: sy.Synnax, variant: sy.status.Variant
     ) -> None:
-        """A rack status that says the Driver is alive does not end the wait."""
+        """A rack status from a live Driver, an error included, does not end the
+        wait."""
         rack = client.racks.create(name=f"alive-{uuid4()}")
         tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
@@ -360,8 +365,9 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
                     sy.rack.Status(
-                        variant=sy.status.VARIANT_SUCCESS,
+                        variant=variant,
                         message="Driver is running",
+                        details={},
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
