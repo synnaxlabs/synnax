@@ -724,6 +724,8 @@ public:
     /// @brief constructs a series of size 1 from the given SampleValue that keeps the
     /// given data type. A JSON or bytes sample is a string, and a UUID sample is a
     /// string of the 16 bytes of the UUID.
+    /// @param v the sample to hold.
+    /// @param dt the data type of the series.
     /// @throws std::runtime_error if the sample cannot be held by the data type.
     explicit Series(const SampleValue &v, const DataType &dt):
         Series(dt, dt.is_variable() ? 0 : 1) {

@@ -27,7 +27,9 @@ std::string decode(const std::string &input);
 
 /// @brief base64-decodes the input string. The input must be padded, and only the
 /// canonical text of its bytes is valid.
-/// @returns INVALID if the input is not canonical base64.
+/// @param input the base64 text.
+/// @returns the decoded bytes and nil, or INVALID if the input is not canonical
+/// base64.
 std::pair<std::string, errors::Error> decode_strict(const std::string &input);
 
 }

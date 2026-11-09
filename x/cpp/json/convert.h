@@ -108,6 +108,7 @@ errors::Error check_from_sample_value(const telem::DataType &type, Type target);
 /// @brief converts the sample at index of a JSON, UUID, or bytes series to JSON. A JSON
 /// sample becomes the value that its text holds, a UUID its text, and bytes padded
 /// base64 text.
+/// @param series the series that holds the sample.
 /// @param index the index of the sample. A negative index counts from the end.
 /// @returns the JSON value and nil, or CONVERSION_ERROR if the series has another
 /// data type or a JSON sample is not valid JSON.
