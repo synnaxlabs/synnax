@@ -364,7 +364,7 @@ func redecode[E any](
 		return next, err
 	}
 	if err = json.Unmarshal(b, &next); err != nil {
-		return *new(E), errors.Wrapf(validate.ErrValidation, "decoding config: %s", err)
+		return *new(E), err
 	}
 	return next, nil
 }
