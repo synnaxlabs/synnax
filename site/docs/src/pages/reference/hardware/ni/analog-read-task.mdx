@@ -932,12 +932,11 @@ Stop the other task, or move its channels into this task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Another channel uses ai3"}>
+<Problem.Item message={["Another channel uses ai3", "Another channel uses ai11, its negative input", "ai3 is the negative input of another channel"]}>
 <Problem.Cause>
 
 Two enabled channels use the same port of one device. A differential channel also uses
-the port of its negative input, so the message can also be "Another channel uses ai11,
-its negative input" or "ai3 is the negative input of another channel".
+the port of its negative input.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -1002,12 +1001,12 @@ Lower the **Sample rate** to the rate in the message.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... may not sample ... channels faster than ... Hz"}>
+<Problem.Item message={"... may not sample ... channels faster than ... Hz"} severity="warning">
 <Problem.Cause>
 
-A warning. The device shares its maximum rate between its channels. A device with
-thermocouple channels also scans two more channels. The task can start, but the device
-can fail to keep up.
+The device shares its maximum rate between its channels. A device with thermocouple
+channels also scans two more channels. The task can start, but the device can fail to
+keep up.
 
 </Problem.Cause>
 <Problem.Fix>
