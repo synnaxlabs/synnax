@@ -42,6 +42,15 @@ Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
 outlined button) has fill l2 and border l4, and its caret has the disabled text color.
 
+### Status colors
+
+Success is primary blue, warning is yellow (amber in light), and error is red. Every
+status color is a step of the palette ramps in `lyra/src/theme/theme.ts`, never a hex
+from another system. Text on a 15% tint of its status (badges, notes) uses
+`--pluto-primary-text`, `--pluto-warning-text`, or `--pluto-error-text`. Each is the
+step nearest the status color that reads on the tint: a darker step in light mode, and a
+lighter step or the base step in dark mode.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
