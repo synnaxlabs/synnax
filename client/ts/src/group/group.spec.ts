@@ -280,6 +280,15 @@ describe("Group", () => {
       expect((await client.groups.retrieve({ key: g.key })).name).toEqual(newName);
     });
   });
+  describe("dispatch", () => {
+    it("should apply the action to the group", async () => {
+      const g = await createTopLevel();
+      const name = `group-${id.create()}`;
+      await client.groups.dispatch(g.key, group.set({ path: ["name"], value: name }));
+      const stored = await createTestClient().groups.retrieve({ key: g.key });
+      expect(stored.name).toEqual(name);
+    });
+  });
   describe("setParent", () => {
     it("should move a group under a group and back to the top level", async () => {
       const parent = await createTopLevel();

@@ -303,6 +303,26 @@ describe("Device", async () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should apply the action to the device", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.devices.dispatch(
+        d.key,
+        device.set({ path: ["location"], value: "Dev2" }),
+      );
+      const stored = await createTestClient().devices.retrieve(d.key);
+      expect(stored.location).toBe("Dev2");
+    });
+  });
+
   describe("retrieve", () => {
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = await Promise.all(
