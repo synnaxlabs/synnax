@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
@@ -85,7 +86,7 @@ var _ = Describe("Actions", func() {
 				label.NewCreateAction(label.CreatePayload{Label: base}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches a label create")),
+				MatchError(actions.ErrCoreOnly),
 			))
 		})
 	})

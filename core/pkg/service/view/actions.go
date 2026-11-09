@@ -10,18 +10,11 @@
 package view
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// view.
-func (CreatePayload) Handle(View) (View, error) {
-	return View{}, actions.CoreOnlyError("a view create")
-}
 
 // Handle applies the set to the view's name or where.
 func (p SetPayload) Handle(v View) (View, error) {

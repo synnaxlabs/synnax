@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -24,12 +23,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates an
-// Arc.
-func (CreatePayload) Handle(Arc) (Arc, error) {
-	return Arc{}, actions.CoreOnlyError("an Arc create")
-}
 
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place.
@@ -342,7 +335,8 @@ func (s textSweeper) forgettable(doc text.Document) []crdt.ID {
 // the edits that restart an Arc's quiescence window.
 func containsTextEdit(actions []Action) bool {
 	for _, a := range actions {
-		if a.Type == ActionTypeInsertChar || a.Type == ActionTypeDeleteChar {
+		switch a.Variant.(type) {
+		case InsertCharPayload, DeleteCharPayload:
 			return true
 		}
 	}

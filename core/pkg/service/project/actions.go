@@ -10,16 +10,9 @@
 package project
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// project.
-func (CreatePayload) Handle(Project) (Project, error) {
-	return Project{}, actions.CoreOnlyError("a project create")
-}
 
 // Handle applies the set to the project's name or group.
 func (p SetPayload) Handle(proj Project) (Project, error) {

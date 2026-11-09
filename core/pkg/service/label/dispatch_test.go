@@ -125,7 +125,7 @@ var _ = Describe("Dispatch", func() {
 			label.NewCreateAction(label.CreatePayload{Label: overwritten}),
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("only the Core dispatches a label create")),
+			MatchError(actions.ErrCoreOnly),
 		))
 		Expect(retrieve(ctx)).To(Equal(nominal))
 	})

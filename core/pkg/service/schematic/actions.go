@@ -14,7 +14,6 @@ import (
 	"encoding/json/v2"
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
@@ -25,12 +24,6 @@ import (
 )
 
 const configsField = "configs"
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// schematic.
-func (CreatePayload) Handle(Schematic) (Schematic, error) {
-	return Schematic{}, actions.CoreOnlyError("a schematic create")
-}
 
 // Handle moves the named node to the given position. No-op if no node matches.
 func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
@@ -281,16 +274,16 @@ type document struct {
 // editsSnapshot reports whether the action can edit a snapshot: a set of the name, or a
 // set or remove of the group or project.
 func editsSnapshot(a Action) bool {
-	switch {
-	case a.Type == ActionTypeSet && a.Set != nil:
+	switch v := a.Variant.(type) {
+	case SetPayload:
 		return slices.Contains(
 			[]string{"name", "group", "project"},
-			patch.Field(patch.Set(*a.Set)),
+			patch.Field(patch.Set(v)),
 		)
-	case a.Type == ActionTypeRemove && a.Remove != nil:
+	case RemovePayload:
 		return slices.Contains(
 			[]string{"group", "project"},
-			patch.Field(patch.Remove(*a.Remove)),
+			patch.Field(patch.Remove(v)),
 		)
 	}
 	return false

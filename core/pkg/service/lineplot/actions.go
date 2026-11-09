@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
@@ -23,12 +22,6 @@ import (
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// line plot.
-func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
-	return LinePlot{}, actions.CoreOnlyError("a line plot create")
-}
 
 // Handle applies the set to the line plot's name, group, or project.
 func (p SetPayload) Handle(state LinePlot) (LinePlot, error) {

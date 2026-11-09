@@ -10,19 +10,12 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// panel.
-func (CreatePayload) Handle(Panel) (Panel, error) {
-	return Panel{}, actions.CoreOnlyError("a panel create")
-}
 
 // Handle applies the set to the panel's name, group, or project.
 func (p SetPayload) Handle(state Panel) (Panel, error) {

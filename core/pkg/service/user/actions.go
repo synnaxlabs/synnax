@@ -11,15 +11,8 @@ package user
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// user.
-func (CreatePayload) Handle(User) (User, error) {
-	return User{}, actions.CoreOnlyError("a user create")
-}
 
 // Handle applies the set to the user's name or role.
 func (p SetPayload) Handle(u User) (User, error) {

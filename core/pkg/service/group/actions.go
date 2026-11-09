@@ -10,15 +10,8 @@
 package group
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// group.
-func (CreatePayload) Handle(Group) (Group, error) {
-	return Group{}, actions.CoreOnlyError("a group create")
-}
 
 // Handle applies the set to the group's name.
 func (p SetPayload) Handle(g Group) (Group, error) {

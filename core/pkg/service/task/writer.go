@@ -292,9 +292,8 @@ func (w Writer) syncConfig(ctx context.Context, key Key) error {
 
 func renamesOnly(acts []Action) bool {
 	return lo.EveryBy(acts, func(a Action) bool {
-		return a.Type == ActionTypeSet &&
-			a.Set != nil &&
-			slices.Equal(a.Set.Path, []string{"name"})
+		set, ok := a.Variant.(SetPayload)
+		return ok && slices.Equal(set.Path, []string{"name"})
 	})
 }
 

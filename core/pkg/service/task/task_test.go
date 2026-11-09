@@ -867,7 +867,7 @@ var _ = Describe("Task", Ordered, func() {
 				task.NewCreateAction(task.CreatePayload{Task: overwritten}),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches a task create")),
+				MatchError(actions.ErrCoreOnly),
 			))
 			expectUnchanged(ctx)
 		})

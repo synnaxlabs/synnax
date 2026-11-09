@@ -106,7 +106,7 @@ var _ = Describe("Dispatch", func() {
 		Entry(
 			"a create",
 			role.NewCreateAction(role.CreatePayload{}),
-			MatchError(ContainSubstring("only the Core dispatches a role create")),
+			MatchError(actions.ErrCoreOnly),
 		),
 	)
 

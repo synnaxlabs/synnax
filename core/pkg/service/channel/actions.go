@@ -10,16 +10,9 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// channel.
-func (CreatePayload) Handle(Channel) (Channel, error) {
-	return Channel{}, actions.CoreOnlyError("a channel create")
-}
 
 // Handle applies the set to the channel's expression, operations, or group.
 func (p SetPayload) Handle(c Channel) (Channel, error) {

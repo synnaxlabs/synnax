@@ -10,17 +10,10 @@
 package device
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// device.
-func (CreatePayload) Handle(Device) (Device, error) {
-	return Device{}, actions.CoreOnlyError("a device create")
-}
 
 // Handle applies the set to the device's document.
 func (p SetPayload) Handle(d Device) (Device, error) {

@@ -208,7 +208,7 @@ func (s *Service) Dispatch(
 		return struct{}{}, err
 	}
 	if slices.ContainsFunc(req.Actions, func(a user.Action) bool {
-		return a.Type == user.ActionTypeSetUsername
+		return a.Type() == user.SetUsernameActionType
 	}) {
 		if err := checkOtherUser(ctx, req.Key); err != nil {
 			return struct{}{}, err

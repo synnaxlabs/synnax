@@ -10,15 +10,8 @@
 package ranger
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// range.
-func (CreatePayload) Handle(Range) (Range, error) {
-	return Range{}, actions.CoreOnlyError("a range create")
-}
 
 // Handle applies the set to the range.
 func (p SetPayload) Handle(r Range) (Range, error) {

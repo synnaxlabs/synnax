@@ -149,7 +149,7 @@ var _ = Describe("Dispatch", func() {
 		Entry(
 			"a create",
 			policy.NewCreateAction(policy.CreatePayload{}),
-			MatchError(ContainSubstring("only the Core dispatches a policy create")),
+			MatchError(actions.ErrCoreOnly),
 		),
 		Entry(
 			"a set inside the objects",

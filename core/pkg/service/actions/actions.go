@@ -27,11 +27,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// CoreOnlyError returns the validation error that rejects a client dispatch of an
-// action only the Core emits. what names the action, such as "a log create".
-func CoreOnlyError(what string) error {
-	return errors.Wrapf(validate.ErrValidation, "only the Core dispatches %s", what)
-}
+// ErrCoreOnly rejects a client dispatch of an action that only the Core emits.
+var ErrCoreOnly = errors.Wrap(
+	validate.ErrValidation,
+	"only the Core dispatches the action",
+)
 
 // Scoped wraps an action sequence with the targeted entry key, the dispatch-batch
 // identifier supplied by the originating client, and the number of the batch.

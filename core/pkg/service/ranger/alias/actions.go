@@ -10,15 +10,8 @@
 package alias
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates an
-// alias.
-func (CreatePayload) Handle(Alias) (Alias, error) {
-	return Alias{}, actions.CoreOnlyError("an alias create")
-}
 
 // Handle applies the set to the alias text.
 func (p SetPayload) Handle(

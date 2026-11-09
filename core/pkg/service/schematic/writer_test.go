@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -94,7 +95,7 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].Key).To(Equal(v.Key))
 				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
 				Expect(seen[0].Actions).To(HaveLen(1))
-				Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Type()).To(Equal(schematic.CreateActionType))
 			},
 		)
 
@@ -212,7 +213,7 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(
 				dispatch(ctx, s.Key, "session-1", []schematic.Action{
-					{Type: schematic.ActionTypeSet},
+					{},
 				}),
 			).To(MatchError(union.ErrMissingPayload))
 		})
@@ -237,9 +238,7 @@ var _ = Describe("Writer", func() {
 					}),
 				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("only the Core dispatches a schematic create"),
-					),
+					MatchError(actions.ErrCoreOnly),
 				))
 				var res schematic.Schematic
 				Expect(svc.NewRetrieve().
@@ -586,10 +585,10 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 				Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
 				Expect(seen[0].Actions).To(HaveLen(2))
-				Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeSetNode))
+				Expect(seen[0].Actions[0].Type()).To(Equal(schematic.SetNodeActionType))
 				Expect(
-					seen[0].Actions[1].Type,
-				).To(Equal(schematic.ActionTypeSetNodePosition))
+					seen[0].Actions[1].Type(),
+				).To(Equal(schematic.SetNodePositionActionType))
 			},
 		)
 

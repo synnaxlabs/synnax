@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -163,7 +164,7 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].Key).To(Equal(v.Key))
 				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
 				Expect(seen[0].Actions).To(HaveLen(1))
-				Expect(seen[0].Actions[0].Type).To(Equal(lineplot.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Type()).To(Equal(lineplot.CreateActionType))
 			},
 		)
 
@@ -378,9 +379,7 @@ var _ = Describe("Writer", func() {
 					}),
 				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("only the Core dispatches a line plot create"),
-					),
+					MatchError(actions.ErrCoreOnly),
 				))
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().
@@ -1046,7 +1045,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should reject a RemoveRange action with no payload",
+				"Should reject an action with no payload",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Project: &proj.Key, Name: "test"}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1054,7 +1053,7 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							{Type: lineplot.ActionTypeRemoveRange},
+							{},
 						}),
 					).To(MatchError(union.ErrMissingPayload))
 				},
@@ -1439,10 +1438,10 @@ var _ = Describe("Writer", func() {
 					Expect(seen[0].Key).To(Equal(plot.Key))
 					Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 					Expect(seen[0].Actions).To(HaveLen(2))
-					Expect(seen[0].Actions[0].Type).To(Equal(lineplot.ActionTypeSet))
+					Expect(seen[0].Actions[0].Type()).To(Equal(lineplot.SetActionType))
 					Expect(
-						seen[0].Actions[1].Type,
-					).To(Equal(lineplot.ActionTypeSetXChannel))
+						seen[0].Actions[1].Type(),
+					).To(Equal(lineplot.SetXChannelActionType))
 				},
 			)
 

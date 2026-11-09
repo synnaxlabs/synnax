@@ -12,18 +12,11 @@ package log
 import (
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// log.
-func (CreatePayload) Handle(Log) (Log, error) {
-	return Log{}, actions.CoreOnlyError("a log create")
-}
 
 // Handle applies the set to the log's name, group, or project.
 func (p SetPayload) Handle(state Log) (Log, error) {

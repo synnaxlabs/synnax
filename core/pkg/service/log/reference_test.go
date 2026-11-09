@@ -74,8 +74,9 @@ var _ = Describe("Channel references", func() {
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(l.Key))
 			Expect(seen[0].Actions).To(HaveLen(1))
-			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
-			Expect(channelsOf(seen[0].Actions[0].Create.Log)).
+			created, ok := seen[0].Actions[0].Variant.(log.CreatePayload)
+			Expect(ok).To(BeTrue())
+			Expect(channelsOf(created.Log)).
 				To(Equal([]channel.Key{kept}))
 		},
 	)

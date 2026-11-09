@@ -21,19 +21,20 @@ import (
 type Action interface {
 	// Apply applies the action to doc in place.
 	Apply(doc map[string]any) error
-	// target returns the path that the action writes.
-	target() []string
+	// Target returns the path that the action writes. The path of a remove ends with
+	// the key of the removed entry.
+	Target() []string
 	guards() []Guard
 	cursor() Cursor
 }
 
-func (s Set) target() []string { return s.Path }
+func (s Set) Target() []string { return s.Path }
 
-func (r Remove) target() []string { return append(slices.Clone(r.Path), r.Key) }
+func (r Remove) Target() []string { return append(slices.Clone(r.Path), r.Key) }
 
-func (ins Insert) target() []string { return ins.Path }
+func (ins Insert) Target() []string { return ins.Path }
 
-func (m Move) target() []string { return m.Path }
+func (m Move) Target() []string { return m.Path }
 
 func (s Set) guards() []Guard { return s.Guards }
 
@@ -46,7 +47,7 @@ func (m Move) guards() []Guard { return m.Guards }
 // Field returns the top-level field of the document that the action writes, or the
 // empty string when the action's path is empty.
 func Field(a Action) string {
-	if path := a.target(); len(path) > 0 {
+	if path := a.Target(); len(path) > 0 {
 		return path[0]
 	}
 	return ""
@@ -64,7 +65,7 @@ func EditMap[V any](
 	a Action,
 	check func(key string, entry V) error,
 ) (map[string]V, error) {
-	path := a.target()
+	path := a.Target()
 	if !within(path, root) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,

@@ -149,7 +149,7 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].Key).To(Equal(v.Base().Key))
 				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
 				Expect(seen[0].Actions).To(HaveLen(1))
-				Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Type()).To(Equal(arc.CreateActionType))
 			},
 		)
 

@@ -869,52 +869,30 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
-			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+	Describe("Action", func() {
+		It("Should reject an unknown type", func() {
+			var a schematic.Action
+			Expect(json.Unmarshal([]byte(`{"type":"made_up"}`), &a)).To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
-		DescribeTable(
-			"Should error when Type names a variant whose payload pointer is nil",
-			func(actionType string) {
-				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
-			},
-			Entry("set", schematic.ActionTypeSet),
-			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
-			Entry("set_node", schematic.ActionTypeSetNode),
-			Entry("remove_node", schematic.ActionTypeRemoveNode),
-			Entry("add_edge", schematic.ActionTypeAddEdge),
-			Entry("remove_edge", schematic.ActionTypeRemoveEdge),
-			Entry("set_config", schematic.ActionTypeSetConfig),
-		)
+		It("Should reject a type with no payload", func() {
+			var a schematic.Action
+			Expect(json.Unmarshal([]byte(`{"type":"set_node"}`), &a)).To(SatisfyAll(
+				MatchError(union.ErrMissingPayload),
+				MatchError(ContainSubstring("set_node")),
+			))
+		})
 
 		It(
-			"Should dispatch on Type and ignore extra payload pointers when more than one is set",
+			"Should error and leave state unchanged on an Action with no variant",
 			func() {
 				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				pos := schematic.SetNodePositionPayload{
-					Key:      "n1",
-					Position: spatial.XY{X: 50, Y: 60},
-				}
-				edge := schematic.AddEdgePayload{
-					Edge: edge("e_extra", "n1", "o", "n2", "i"),
-				}
-				out := MustSucceed(schematic.Reduce(state, schematic.Action{
-					Type:            schematic.ActionTypeSetNodePosition,
-					SetNodePosition: &pos,
-					AddEdge:         &edge,
-				}))
-				Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
-				Expect(out.Edges).To(BeEmpty())
+				out, err := schematic.Reduce(state, schematic.Action{})
+				Expect(err).To(MatchError(union.ErrMissingPayload))
+				Expect(out).To(Equal(state))
 			},
 		)
 	})
@@ -923,47 +901,55 @@ var _ = Describe("Reducer", func() {
 // An older Console dispatches configs without the fields it never knew, so a decoded
 // payload fills the schema defaults for those and keeps every value it did carry.
 var _ = Describe("Payload decoding", func() {
-	decode := func(body string) schematic.Action {
+	decode := func(body string) schematic.ActionVariant {
 		GinkgoHelper()
 		var a schematic.Action
 		Expect(json.Unmarshal([]byte(body), &a)).To(Succeed())
-		return a
+		return a.Variant
+	}
+	setConfig := func(body string) schematic.SetConfigPayload {
+		GinkgoHelper()
+		return decode(body).(schematic.SetConfigPayload)
+	}
+	setNode := func(body string) schematic.SetNodePayload {
+		GinkgoHelper()
+		return decode(body).(schematic.SetNodePayload)
 	}
 
 	It("Should fill the defaults a set_config payload omits", func() {
-		a := decode(`{"type": "set_config", "set_config": {"key": "n1",
+		a := setConfig(`{"type": "set_config", "set_config": {"key": "n1",
 			"config": {"variant": "switch"}}}`)
-		cfg := a.SetConfig.Config.Variant.(schematic.SwitchElementConfig)
+		cfg := a.Config.Variant.(schematic.SwitchElementConfig)
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
 		Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 
 	It("Should fill the defaults a set_node payload omits", func() {
-		a := decode(`{"type": "set_node", "set_node": {"node": {"key": "n1",
+		a := setNode(`{"type": "set_node", "set_node": {"node": {"key": "n1",
 			"position": {"x": 1, "y": 2}}, "config": {"variant": "switch"}}}`)
-		Expect(a.SetNode.Node.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
-		cfg := a.SetNode.Config.Variant.(schematic.SwitchElementConfig)
+		Expect(a.Node.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
+		cfg := a.Config.Variant.(schematic.SwitchElementConfig)
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
 	})
 
 	It("Should leave a set_node payload without a config nil", func() {
-		a := decode(`{"type": "set_node", "set_node": {"node": {"key": "n1"}}}`)
-		Expect(a.SetNode.Config).To(BeNil())
+		a := setNode(`{"type": "set_node", "set_node": {"node": {"key": "n1"}}}`)
+		Expect(a.Config).To(BeNil())
 	})
 
 	It("Should keep a zero the payload carries", func() {
-		a := decode(`{"type": "set_config", "set_config": {"key": "l1",
+		a := setConfig(`{"type": "set_config", "set_config": {"key": "l1",
 			"config": {"variant": "line", "end": {"x": 0, "y": 40}}}}`)
-		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
+		cfg := a.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
 	It("Should keep an empty string the payload carries", func() {
-		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+		a := setConfig(`{"type": "set_config", "set_config": {"key": "v1",
 			"config": {"variant": "value", "units": ""}}}`)
-		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		cfg := a.Config.Variant.(schematic.ValueElementConfig)
 		Expect(cfg.Units).To(Equal(""))
 	})
 
@@ -986,7 +972,8 @@ var _ = Describe("Payload decoding", func() {
 		}))
 		var a schematic.Action
 		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
-		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
+		set := a.Variant.(schematic.SetConfigPayload)
+		cfg := set.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})

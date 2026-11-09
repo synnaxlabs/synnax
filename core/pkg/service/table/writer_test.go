@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -151,7 +152,7 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].Key).To(Equal(v.Key))
 				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
 				Expect(seen[0].Actions).To(HaveLen(1))
-				Expect(seen[0].Actions[0].Type).To(Equal(table.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Type()).To(Equal(table.CreateActionType))
 			},
 		)
 
@@ -235,7 +236,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-				{Type: table.ActionTypeSet},
+				{},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
 		})
@@ -270,9 +271,7 @@ var _ = Describe("Writer", func() {
 					}),
 				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("only the Core dispatches a table create"),
-					),
+					MatchError(actions.ErrCoreOnly),
 				))
 				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
 			},

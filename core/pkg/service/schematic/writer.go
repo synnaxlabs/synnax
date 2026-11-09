@@ -167,7 +167,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 						return prev, errors.Wrapf(
 							validate.ErrValidation,
 							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-							a.Type,
+							a.Type(),
 							key,
 							prev.Name,
 						)

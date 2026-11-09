@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
@@ -42,7 +43,7 @@ var _ = Describe("Actions", func() {
 				ranger.NewCreateAction(ranger.CreatePayload{Range: base}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches a range create")),
+				MatchError(actions.ErrCoreOnly),
 			))
 		})
 	})

@@ -10,15 +10,8 @@
 package task
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// task.
-func (CreatePayload) Handle(Task) (Task, error) {
-	return Task{}, actions.CoreOnlyError("a task create")
-}
 
 // Handle applies the set to the task's name or rack.
 func (p SetPayload) Handle(t Task) (Task, error) { return apply(t, patch.Set(p)) }
@@ -51,15 +44,15 @@ func (a Action) cursor() (patch.Cursor, bool, error) {
 		c   patch.Cursor
 		err error
 	)
-	switch {
-	case a.Set != nil:
-		c, err = patch.Begin(patch.Set(*a.Set))
-	case a.Remove != nil:
-		c, err = patch.Begin(patch.Remove(*a.Remove))
-	case a.Insert != nil:
-		c, err = patch.Begin(patch.Insert(*a.Insert))
-	case a.Move != nil:
-		c, err = patch.Begin(patch.Move(*a.Move))
+	switch v := a.Variant.(type) {
+	case SetPayload:
+		c, err = patch.Begin(patch.Set(v))
+	case RemovePayload:
+		c, err = patch.Begin(patch.Remove(v))
+	case InsertPayload:
+		c, err = patch.Begin(patch.Insert(v))
+	case MovePayload:
+		c, err = patch.Begin(patch.Move(v))
 	default:
 		return patch.Cursor{}, false, nil
 	}

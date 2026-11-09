@@ -10,15 +10,8 @@
 package label
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// label.
-func (CreatePayload) Handle(Label) (Label, error) {
-	return Label{}, actions.CoreOnlyError("a label create")
-}
 
 // Handle applies the set to the label.
 func (p SetPayload) Handle(l Label) (Label, error) {

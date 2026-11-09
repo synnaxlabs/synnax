@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/crdt"
@@ -64,7 +65,7 @@ var _ = Describe("Dispatch", func() {
 				}),
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches an Arc create")),
+				MatchError(actions.ErrCoreOnly),
 			))
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
@@ -180,8 +181,8 @@ var _ = Describe("Dispatch", func() {
 			Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 			Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
 			Expect(seen[0].Actions).To(HaveLen(2))
-			Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeSetNode))
-			Expect(seen[0].Actions[1].Type).To(Equal(arc.ActionTypeSet))
+			Expect(seen[0].Actions[0].Type()).To(Equal(arc.SetNodeActionType))
+			Expect(seen[0].Actions[1].Type()).To(Equal(arc.SetActionType))
 		},
 	)
 
@@ -343,8 +344,8 @@ var _ = Describe("Collaborative text", func() {
 				n := 0
 				for _, s := range rec.Snapshot() {
 					for _, op := range s.Actions {
-						if op.Type == arc.ActionTypeForgetChars {
-							n += len(op.ForgetChars.IDs)
+						if forget, ok := op.Variant.(arc.ForgetCharsPayload); ok {
+							n += len(forget.IDs)
 						}
 					}
 				}
@@ -543,7 +544,7 @@ var _ = Describe("Collaborative text", func() {
 			Expect(seen[0].Actions).To(Equal(edit))
 			Expect(seen[1].DispatchKey).To(BeEmpty())
 			Expect(seen[1].Actions).To(HaveExactElements(
-				HaveField("Type", arc.ActionTypeForgetChars),
+				HaveField("Type()", arc.ForgetCharsActionType),
 			))
 			Expect(seen[1].Seq).To(Equal(seen[0].Seq + 1))
 		},

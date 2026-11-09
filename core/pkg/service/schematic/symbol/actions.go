@@ -10,16 +10,9 @@
 package symbol
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// symbol.
-func (CreatePayload) Handle(Symbol) (Symbol, error) {
-	return Symbol{}, actions.CoreOnlyError("a symbol create")
-}
 
 // Handle applies the set to the symbol's name, data, or group.
 func (p SetPayload) Handle(s Symbol) (Symbol, error) {

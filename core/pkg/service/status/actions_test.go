@@ -55,9 +55,10 @@ var _ = Describe("Actions", func() {
 		var out []status.Status[any]
 		for _, f := range rec.Snapshot() {
 			for _, a := range f.Actions {
-				Expect(a.Type).To(Equal(status.ActionTypeSet))
+				set, ok := a.Variant.(status.SetPayload)
+				Expect(ok).To(BeTrue())
 				var s status.Status[any]
-				Expect(json.Unmarshal(MustSucceed(json.Marshal(a.Set.Status)), &s)).
+				Expect(json.Unmarshal(MustSucceed(json.Marshal(set.Status)), &s)).
 					To(Succeed())
 				out = append(out, s)
 			}

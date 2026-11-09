@@ -10,15 +10,8 @@
 package directory
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// directory.
-func (CreatePayload) Handle(Directory) (Directory, error) {
-	return Directory{}, actions.CoreOnlyError("a directory create")
-}
 
 // Handle applies the set to the directory's name or parent.
 func (p SetPayload) Handle(d Directory) (Directory, error) {

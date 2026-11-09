@@ -97,13 +97,14 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	passwords := w.svc.cfg.Password.NewWriter(w.tx)
 	for _, a := range acts {
-		if a.Type != ActionTypeSetUsername {
+		p, ok := a.Variant.(SetUsernamePayload)
+		if !ok {
 			continue
 		}
 		if err := passwords.Apply(
 			ctx,
 			ResourceID(key),
-			password.NewSetUsernameAction(a.SetUsername.Username),
+			password.NewSetUsernameAction(p.Username),
 		); err != nil {
 			return err
 		}

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,7 +39,7 @@ var _ = Describe("Actions", func() {
 				task.NewCreateAction(task.CreatePayload{Task: base}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("only the Core dispatches a task create")),
+				MatchError(actions.ErrCoreOnly),
 			))
 		})
 	})

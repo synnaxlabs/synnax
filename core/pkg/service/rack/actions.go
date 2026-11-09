@@ -10,16 +10,9 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// rack.
-func (CreatePayload) Handle(Rack) (Rack, error) {
-	return Rack{}, actions.CoreOnlyError("a rack create")
-}
 
 // Handle applies the set to the rack's document.
 func (p SetPayload) Handle(r Rack) (Rack, error) {

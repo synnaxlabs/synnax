@@ -10,6 +10,7 @@
 package panel_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
 )
 
 // Reduce drives an action through its generated constructor and the generated
@@ -133,24 +135,32 @@ var _ = Describe("Reduce", func() {
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
 
+	It("Should leave state unchanged on an action with no variant", func() {
+		p := panel.Panel{Root: leafNode()}
+		res, err := panel.Reduce(p, panel.Action{})
+		Expect(err).To(MatchError(union.ErrMissingPayload))
+		Expect(res).To(Equal(p))
+	})
+
 	DescribeTable(
-		"Should return a missing-payload error and leave state unchanged when an action carries no payload",
-		func(actionType string) {
-			p := panel.Panel{Root: leafNode()}
-			res, err := panel.Reduce(p, panel.Action{Type: actionType})
-			Expect(err).To(MatchError(SatisfyAll(
+		"Should reject an action that carries no payload",
+		func(actionType panel.ActionType) {
+			var a panel.Action
+			Expect(json.Unmarshal(
+				[]byte(`{"type":"`+string(actionType)+`"}`),
+				&a,
+			)).To(MatchError(SatisfyAll(
 				ContainSubstring("missing payload for declared variant"),
-				ContainSubstring(actionType),
+				ContainSubstring(string(actionType)),
 			)))
-			Expect(res).To(Equal(p))
 		},
-		Entry("Set", panel.ActionTypeSet),
-		Entry("InsertTabs", panel.ActionTypeInsertTabs),
-		Entry("RemoveTab", panel.ActionTypeRemoveTab),
-		Entry("MoveTab", panel.ActionTypeMoveTab),
-		Entry("SplitTab", panel.ActionTypeSplitTab),
-		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetResourceTab", panel.ActionTypeSetTabResource),
-		Entry("SetViewTab", panel.ActionTypeSetTabView),
+		Entry("Set", panel.SetActionType),
+		Entry("InsertTabs", panel.InsertTabsActionType),
+		Entry("RemoveTab", panel.RemoveTabActionType),
+		Entry("MoveTab", panel.MoveTabActionType),
+		Entry("SplitTab", panel.SplitTabActionType),
+		Entry("ResizeSplit", panel.ResizeSplitActionType),
+		Entry("SetResourceTab", panel.SetTabResourceActionType),
+		Entry("SetViewTab", panel.SetTabViewActionType),
 	)
 })

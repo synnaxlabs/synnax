@@ -10,23 +10,15 @@
 package policy
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// policy.
-func (CreatePayload) Handle(Policy) (Policy, error) {
-	return Policy{}, actions.CoreOnlyError("a policy create")
-}
 
 // Handle applies the set to the policy's whole name, objects, actions, or role.
 func (p SetPayload) Handle(pol Policy) (Policy, error) {
@@ -62,11 +54,11 @@ type document struct {
 // a is not a set of one whole member, or when the document gains a member it does not
 // declare, such as a path to the policy's key.
 func edit(p Policy, a patch.Action) (Policy, error) {
-	if path, whole := target(a); !whole {
+	if set, ok := a.(patch.Set); !ok || len(set.Path) != 1 {
 		return Policy{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[%s]: a policy takes only a set of its whole name, objects, actions, or role",
-			strings.Join(path, ", "),
+			strings.Join(a.Target(), ", "),
 		)
 	}
 	d, err := patch.Edit(
@@ -78,17 +70,4 @@ func edit(p Policy, a patch.Action) (Policy, error) {
 	}
 	p.Name, p.Objects, p.Actions, p.Role = d.Name, d.Objects, d.Actions, d.Role
 	return p, nil
-}
-
-// target returns the path that a writes, and whether a sets one whole member.
-func target(a patch.Action) ([]string, bool) {
-	switch a := a.(type) {
-	case patch.Set:
-		return a.Path, len(a.Path) == 1
-	case patch.Remove:
-		return slices.Concat(a.Path, []string{a.Key}), false
-	case patch.Insert:
-		return a.Path, false
-	}
-	return a.(patch.Move).Path, false
 }

@@ -474,7 +474,9 @@ var _ = Describe("Writer broadcasts", func() {
 		frames := framesOf(rec, r.Key)
 		Expect(frames).To(HaveLen(2))
 		Expect(frames[1].Actions).To(HaveLen(1))
-		Expect(frames[1].Actions[0].Set.Path).To(Equal([]string{"labels"}))
+		set, ok := frames[1].Actions[0].Variant.(ranger.SetPayload)
+		Expect(ok).To(BeTrue())
+		Expect(set.Path).To(Equal([]string{"labels"}))
 	})
 
 	It(

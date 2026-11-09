@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
@@ -69,12 +68,6 @@ func rowIndex(rows []Row, key string) int {
 // it.
 func colIndex(cols []Column, key string) int {
 	return slices.IndexFunc(cols, func(c Column) bool { return c.Key == key })
-}
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// table.
-func (CreatePayload) Handle(Table) (Table, error) {
-	return Table{}, actions.CoreOnlyError("a table create")
 }
 
 // Handle inserts a row with the given key at the given index. When CellTemplate is

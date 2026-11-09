@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -155,6 +156,6 @@ var _ = Describe("Actions", func() {
 				r.Key,
 				rack.NewCreateAction(rack.CreatePayload{Rack: r}),
 			)
-		})).To(MatchError(ContainSubstring("only the Core dispatches a rack create")))
+		})).To(MatchError(actions.ErrCoreOnly))
 	})
 })

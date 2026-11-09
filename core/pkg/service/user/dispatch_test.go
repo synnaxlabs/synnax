@@ -97,7 +97,7 @@ var _ = Describe("Dispatch", func() {
 		}, MatchError(MatchRegexp(`role: role \S+ does not exist`))),
 		Entry("a create", func() user.Action {
 			return user.NewCreateAction(user.CreatePayload{User: u})
-		}, MatchError(ContainSubstring("only the Core dispatches a user create"))),
+		}, MatchError(actions.ErrCoreOnly)),
 		Entry("a username another user holds", func() user.Action {
 			return setUsername(taken)
 		}, MatchError(auth.ErrRepeatedUsername)),

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -190,9 +191,7 @@ var _ = Describe("Actions", Ordered, func() {
 			ctx,
 			ch.Key(),
 			channel.NewCreateAction(channel.CreatePayload{Channel: ch}),
-		)).Error().To(MatchError(ContainSubstring(
-			"only the Core dispatches a channel create",
-		)))
+		)).Error().To(MatchError(actions.ErrCoreOnly))
 	})
 
 	It("Should attach a set of a data type that the Core changes", func(

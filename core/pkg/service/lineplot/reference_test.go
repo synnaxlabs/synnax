@@ -64,8 +64,9 @@ var _ = Describe("Channel references", func() {
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(plot.Key))
 			Expect(seen[0].Actions).To(HaveLen(1))
-			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
-			Expect(seen[0].Actions[0].Create.LinePlot.Channels.Y1).
+			created, ok := seen[0].Actions[0].Variant.(lineplot.CreatePayload)
+			Expect(ok).To(BeTrue())
+			Expect(created.LinePlot.Channels.Y1).
 				To(Equal([]channel.Key{kept}))
 		},
 	)

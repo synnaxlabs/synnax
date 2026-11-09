@@ -96,13 +96,15 @@ var _ = Describe("Signals", func() {
 			Expect(created.Key).To(Equal(p.Key))
 			Expect(created.DispatchKey).To(BeEmpty())
 			Expect(created.Actions).To(HaveLen(1))
-			Expect(created.Actions[0].Type).To(Equal(panel.ActionTypeCreate))
-			Expect(created.Actions[0].Create.Panel.Key).To(Equal(p.Key))
+			Expect(created.Actions[0].Type()).To(Equal(panel.CreateActionType))
+			payload, ok := created.Actions[0].Variant.(panel.CreatePayload)
+			Expect(ok).To(BeTrue())
+			Expect(payload.Panel.Key).To(Equal(p.Key))
 			last := decoded[len(decoded)-1]
 			Expect(last.Key).To(Equal(p.Key))
 			Expect(last.DispatchKey).To(Equal("dk-1"))
 			Expect(last.Actions).To(HaveLen(1))
-			Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeSet))
+			Expect(last.Actions[0].Type()).To(Equal(panel.SetActionType))
 		},
 	)
 

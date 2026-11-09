@@ -563,7 +563,7 @@ var _ = Describe("Task sync", func() {
 		)))
 		Expect(rec.Snapshot()).ToNot(ContainElement(HaveField(
 			"Actions",
-			ContainElement(HaveField("Type", task.ActionTypeCreate)),
+			ContainElement(HaveField("Type()", task.CreateActionType)),
 		)))
 	})
 
@@ -607,7 +607,7 @@ var _ = Describe("Task sync", func() {
 			}),
 		))
 		Expect(frames[0].Actions).ToNot(ContainElement(
-			HaveField("Type", task.ActionTypeCreate),
+			HaveField("Type()", task.CreateActionType),
 		))
 	})
 

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -178,7 +179,7 @@ var _ = Describe("Actions", func() {
 				dev.Key,
 				device.NewCreateAction(device.CreatePayload{Device: dev}),
 			)
-		})).To(MatchError(ContainSubstring("only the Core dispatches a device create")))
+		})).To(MatchError(actions.ErrCoreOnly))
 	})
 
 	It("Should rename the status with the device", func(ctx SpecContext) {

@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -405,52 +407,32 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
-			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			out, err := arc.Reduce(state, arc.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+	Describe("Action", func() {
+		It("Should reject an unknown type", func() {
+			var a arc.Action
+			Expect(json.Unmarshal([]byte(`{"type":"made_up"}`), &a)).To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
-		DescribeTable(
-			"Should error when Type names a variant whose payload pointer is nil",
-			func(actionType string) {
+		It("Should reject a type with no payload", func() {
+			var a arc.Action
+			Expect(json.Unmarshal([]byte(`{"type":"set_node"}`), &a)).To(SatisfyAll(
+				MatchError(union.ErrMissingPayload),
+				MatchError(ContainSubstring("set_node")),
+			))
+		})
+
+		It(
+			"Should error and leave state unchanged on an Action with no variant",
+			func() {
 				state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-				out, err := arc.Reduce(state, arc.Action{Type: actionType})
+				out, err := arc.Reduce(state, arc.Action{})
 				Expect(err).To(MatchError(union.ErrMissingPayload))
 				Expect(out).To(Equal(state))
 			},
-			Entry("set", arc.ActionTypeSet),
-			Entry("set_node", arc.ActionTypeSetNode),
-			Entry("set_node_position", arc.ActionTypeSetNodePosition),
-			Entry("set_node_inputs", arc.ActionTypeSetNodeInputs),
-			Entry("remove_node", arc.ActionTypeRemoveNode),
-			Entry("add_edge", arc.ActionTypeAddEdge),
-			Entry("remove_edge", arc.ActionTypeRemoveEdge),
-			Entry("reconnect_edge", arc.ActionTypeReconnectEdge),
 		)
-
-		It("Should dispatch on Type and ignore extra payload pointers", func() {
-			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			pos := arc.SetNodePositionPayload{
-				Key:      "n1",
-				Position: spatial.XY{X: 50, Y: 60},
-			}
-			edge := arc.AddEdgePayload{Edge: gedge("e1", "n1", "o", "n2", "i")}
-			out := MustSucceed(arc.Reduce(state, arc.Action{
-				Type:            arc.ActionTypeSetNodePosition,
-				SetNodePosition: &pos,
-				AddEdge:         &edge,
-			}))
-			Expect(
-				graphOf(out.Base()).Nodes[0].Position,
-			).To(Equal(spatial.XY{X: 50, Y: 60}))
-			Expect(graphOf(out.Base()).Edges).To(BeEmpty())
-		})
 	})
 })
 

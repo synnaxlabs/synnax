@@ -10,15 +10,8 @@
 package kv
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// pair.
-func (CreatePayload) Handle(Pair) (Pair, error) {
-	return Pair{}, actions.CoreOnlyError("a pair create")
-}
 
 // Handle applies the set to the pair's value.
 func (p SetPayload) Handle(

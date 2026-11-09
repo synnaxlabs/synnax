@@ -10,15 +10,8 @@
 package role
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
-
-// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
-// role.
-func (CreatePayload) Handle(Role) (Role, error) {
-	return Role{}, actions.CoreOnlyError("a role create")
-}
 
 // Handle applies the set to the role's name or description.
 func (p SetPayload) Handle(r Role) (Role, error) {
