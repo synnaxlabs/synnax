@@ -70,13 +70,19 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
 	Now func() telem.TimeStamp
+	// TickLimit is the longest that one cycle of a task's program can run. A cycle
+	// that runs longer stops the task with an error status.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
+	TickLimit telem.TimeSpan
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		Now:       func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		TickLimit: telem.Second,
 	}
 )
 
@@ -89,6 +95,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.TickLimit = override.Numeric(c.TickLimit, other.TickLimit)
 	return c
 }
 
@@ -100,6 +107,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("get_program", c.GetProgram)
 	v.NotNil("ranger", c.Ranger)
+	v.Positive("tick_limit", c.TickLimit)
 	return v.Error()
 }
 

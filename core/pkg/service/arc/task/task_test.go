@@ -887,6 +887,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
+				TickLimit:  telem.Second,
 			}
 		}
 
@@ -932,6 +933,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.Ranger = nil },
 					"ranger",
 				),
+				Entry(
+					"tick_limit",
+					func(c *arctask.FactoryConfig) { c.TickLimit = 0 },
+					"tick_limit",
+				),
 			)
 		})
 
@@ -945,6 +951,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
+				Expect(merged.TickLimit).To(Equal(src.TickLimit))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -3621,6 +3628,41 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		It("Should stop a task whose cycle runs past the tick limit", func(
+			ctx SpecContext,
+		) {
+			prog := arc.Text{Raw: `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-tick-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			factory := newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{TickLimit: 50 * telem.Millisecond},
+			)
+			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).Should(Succeed())
+			Expect(t.Stop(false)).To(MatchError(arctask.ErrTickLimit))
+		})
+
 		It(
 			"Should report WASM division by zero via status service",
 			func(ctx SpecContext) {

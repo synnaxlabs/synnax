@@ -63,6 +63,10 @@ const (
 	runtimeAddr         address.Address = "runtime"
 )
 
+// ErrTickLimit is returned when one cycle of a program runs longer than
+// FactoryConfig.TickLimit.
+var ErrTickLimit = errors.New("arc program ran past its tick limit")
+
 // impl implements the driver.Task interface and manages Arc program execution.
 type impl struct {
 	factoryCfg FactoryConfig
@@ -151,7 +155,10 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 
 // open builds and flows the Arc runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (err error) {
-	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
+	drt := dataRuntime{
+		clock:     telem.MonoClock{Source: t.factoryCfg.Now},
+		tickLimit: t.factoryCfg.TickLimit.Duration(),
+	}
 	var deps runtime.Dependencies
 	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		deps, err = runtime.NewDependencies(
@@ -180,7 +187,10 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	var wasmRT wazero.Runtime
 	if len(t.prog.Program.WASM) > 0 {
-		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		wasmRT = wazero.NewRuntimeWithConfig(
+			ctx,
+			wazero.NewRuntimeConfigCompiler().WithCloseOnContextDone(true),
+		)
 		closers = append(closers, xio.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
@@ -328,7 +338,20 @@ func (t *impl) open(ctx context.Context) (err error) {
 	if !ok {
 		return errors.Newf("unknown performance %q", t.cfg.Performance)
 	}
-	ticker := &tickerRuntime{dataRuntime: drt, spin: spin}
+	ticker := &tickerRuntime{
+		dataRuntime: drt,
+		spin:        spin,
+		overrun: func(ctx context.Context, err error) {
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantError,
+				false,
+				"Program ran too long",
+				err.Error(),
+			)
+		},
+	}
 	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
@@ -559,6 +582,8 @@ type dataRuntime struct {
 	timeMod   *time.Host
 	writeKeys channel.Keys
 	state     state
+	// tickLimit is the longest that one cycle can run.
+	tickLimit stdtime.Duration
 }
 
 func (d *dataRuntime) next(
@@ -573,7 +598,13 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
-	d.clock.Advance(d.scheduler.Next(ctx, cycle))
+	tickCtx, cancel := context.WithTimeout(ctx, d.tickLimit)
+	reserved := d.scheduler.Next(tickCtx, cycle)
+	cancel()
+	if errors.Is(tickCtx.Err(), context.DeadlineExceeded) {
+		return errors.Wrapf(ErrTickLimit, "a cycle ran longer than %s", d.tickLimit)
+	}
+	d.clock.Advance(reserved)
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -639,6 +670,8 @@ type tickerRuntime struct {
 	dataRuntime
 	// spin is how long the timer spins before each deadline.
 	spin stdtime.Duration
+	// overrun reports a cycle that ran past the tick limit.
+	overrun func(context.Context, error)
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -687,6 +720,9 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 			}
 			if err = r.next(ctx, res, runReason); err != nil {
+				if errors.Is(err, ErrTickLimit) {
+					r.overrun(ctx, err)
+				}
 				return err
 			}
 			if err = arm(); err != nil {
