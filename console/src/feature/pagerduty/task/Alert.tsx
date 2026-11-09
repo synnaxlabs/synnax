@@ -35,11 +35,11 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
-import { Secret } from "@/feature/secret";
 import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Secret } from "@/platform/secret";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 

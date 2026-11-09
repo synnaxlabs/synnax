@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
-import { createSecret } from "@/feature/secret/testutil";
+import { createSecret } from "@/platform/secret/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,

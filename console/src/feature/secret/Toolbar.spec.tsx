@@ -32,10 +32,10 @@ import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import { Secret } from "@/feature/secret";
-import { createSecret } from "@/feature/secret/testutil";
 import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { createSecret } from "@/platform/secret/testutil";
 import { Tree } from "@/platform/tree";
 import {
   assertDefined,

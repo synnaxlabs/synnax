@@ -21,6 +21,7 @@ import {
   expectDeleted,
   expectLive,
   holdResponses,
+  spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -168,6 +169,35 @@ describe("Secret", () => {
         await expect
           .poll(() => list.getCached()?.records.find((r) => r.key === privateKey)?.uses)
           .toEqual([{ type: "certificate", key: c.key }]);
+      } finally {
+        off();
+      }
+    });
+
+    it("should page a list that reads uses with a cursor", async () => {
+      const client = createTestClient();
+      const prefix = id.create();
+      for (const i of [0, 1])
+        await client.secrets.create({
+          name: `${prefix}-${i}`,
+          source: "stored",
+          value: "abc",
+        });
+      const send = spyOnSend(client);
+      const list = client.secrets.watch({
+        name: { startsWith: prefix },
+        includeUses: true,
+        limit: 1,
+      });
+      const off = list.onChange(() => {});
+      try {
+        await list.retrieve();
+        const window = await list.more(1);
+        expect(window.records.map(({ uses }) => uses)).toEqual([[], []]);
+        const afters = send.mock.calls
+          .filter(([target]) => target === "/secret/retrieve")
+          .map(([, req]) => (req as { after?: unknown }).after);
+        expect(afters).toEqual([undefined, expect.anything()]);
       } finally {
         off();
       }
