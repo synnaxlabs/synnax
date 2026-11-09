@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd/update"
+	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -59,7 +60,7 @@ var _ = Describe("Update", func() {
 
 	run := func(args ...string) (string, error) {
 		var out bytes.Buffer
-		cmd := update.NewCmd()
+		cmd := update.NewCmd(release.DefaultConfig)
 		cmd.SetOut(&out)
 		cmd.SetErr(io.Discard)
 		cmd.SetArgs(append(
