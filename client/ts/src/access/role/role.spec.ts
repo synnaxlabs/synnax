@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Action } from "@/access/action/types.gen";
-import { type role } from "@/access/role";
+import { role } from "@/access/role";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -87,6 +87,27 @@ describe("role", () => {
           return results.map((r) => r.name).sort();
         })
         .toEqual(names);
+    });
+  });
+
+  describe("rename", () => {
+    it("should rename the role", async () => {
+      const r = await createRole();
+      const name = `renamed-${id.create()}`;
+      await client.access.roles.rename(r.key, name);
+      expect((await createTestClient().access.roles.retrieve(r.key)).name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the role", async () => {
+      const r = await createRole();
+      await client.access.roles.dispatch(
+        r.key,
+        role.set({ path: ["description"], value: "dispatched" }),
+      );
+      const stored = await createTestClient().access.roles.retrieve(r.key);
+      expect(stored.description).toBe("dispatched");
     });
   });
 
