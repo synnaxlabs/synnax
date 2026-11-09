@@ -11,10 +11,10 @@ package alias
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
@@ -33,7 +33,7 @@ type ParentRetriever interface {
 	RetrieveParentKey(
 		ctx context.Context,
 		key ranger.Key,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 	) (ranger.Key, error)
 }
 
@@ -74,6 +74,7 @@ type Service struct {
 	search  *gorp.SearchIndex[string, Alias]
 	indexes indexes
 	cfg     ServiceConfig
+	state   *actions.State[string, Action]
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
@@ -82,7 +83,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex(), indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		search:  newSearchIndex(),
+		indexes: newIndexes(),
+		state:   actions.NewState[string, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
@@ -95,11 +101,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_alias_set"
-		signalsCfg.DeleteName = "sy_range_alias_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Alias]{
+			Changes:    s.table.Changes,
+			Resource:   resourceID,
+			SetKey:     signals.UnmarshalEntryKey[string, Alias],
+			SetName:    "sy_range_alias_set",
+			DeleteName: "sy_range_alias_delete",
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[string, Action]{
+			Name:     "sy_range_alias_action_set",
+			Actions:  s.state,
+			Resource: resourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -109,19 +124,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create and delete aliases.
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[string, Action] { return s.state }
+
+// NewWriter opens a new Writer to create, change, and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      gorp.OverrideTx(s.cfg.DB, tx),
-		channel: s.cfg.Channel,
-		table:   s.table,
+		tx:         tx,
+		channel:    s.cfg.Channel,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // NewReader opens a new Reader to retrieve aliases.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 	return Reader{
-		tx:              gorp.OverrideTx(s.cfg.DB, tx),
+		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}

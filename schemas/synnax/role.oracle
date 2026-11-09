@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/access/rbac/role"
 @py output "client/py/synnax/access/role"
@@ -38,6 +39,33 @@ Role struct {
     internal    bool = false {
         @doc value "is true if this is a built-in system role that cannot be deleted."
         @filter
+    }
+
+    action Create {
+        role Role
+
+        @doc value """
+            replaces the role with the given created state. Emitted by the Core when a
+            role is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the role."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the role.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the role."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the role."
     }
 
     @create

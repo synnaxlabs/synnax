@@ -962,9 +962,7 @@ describe("Read", () => {
       expect(updated.properties.readIndex).toBe(0);
       expect(updated.properties.read.channels).toEqual({});
     }
-    expect(await client.channels.retrieve({ where: { name: { in: [name] } } })).toEqual(
-      [],
-    );
+    expect(await client.channels.retrieve({ name: [name] })).toEqual([]);
   });
 
   it("should deploy once the user fixes a rejected name", async () => {

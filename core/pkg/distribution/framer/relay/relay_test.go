@@ -43,9 +43,7 @@ func (s scenario) Close() error { return s.close.Close() }
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
-			gatewayOnlyScenario,
-			peerOnlyScenario,
-			mixedScenario,
+			storageScenario,
 			freeScenario,
 		}
 		for i, sF := range scenarios {
@@ -79,8 +77,8 @@ var _ = Describe("Relay", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				// The writer takes ownership of the frame it is handed and mutates it
-				// asynchronously, so every attempt below writes a fresh one and the
-				// expected values live in a frame the writer never sees.
+				// asynchronously, so the expected values live in a frame the writer
+				// never sees.
 				newWriteFrame := func() frame.Frame {
 					return frame.NewMulti(
 						keys,
@@ -92,22 +90,15 @@ var _ = Describe("Relay", func() {
 					)
 				}
 				writeF := newWriteFrame()
-				// Peer taps subscribe after the open ack fires, so an early write is
-				// lost. Write until every demanded channel has delivered.
+				Expect(w.Write(newWriteFrame())).To(BeTrue())
+				var res relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&res))
+				resKeys := res.Frame.KeysSlice()
+				Expect(set.New(resKeys...)).To(HaveLen(len(keys)))
 				got := make(map[channel.Key]telem.Series, len(keys))
-				Eventually(func(g Gomega) int {
-					g.Expect(w.Write(newWriteFrame())).To(BeTrue())
-					var res relay.Response
-					g.Expect(readerRes.Outlet()).To(Receive(&res))
-					resKeys := res.Frame.KeysSlice()
-					g.Expect(set.New(resKeys...)).To(HaveLen(len(resKeys)))
-					for i, k := range resKeys {
-						if _, ok := got[k]; !ok {
-							got[k] = res.Frame.SeriesAt(i)
-						}
-					}
-					return len(got)
-				}, 5*time.Second).Should(Equal(len(keys)))
+				for i, k := range resKeys {
+					got[k] = res.Frame.SeriesAt(i)
+				}
 				for i, k := range keys {
 					series, ws := got[k], writeF.SeriesAt(i)
 					Expect(series.Data).To(Equal(ws.Data))
@@ -130,13 +121,13 @@ var _ = Describe("Relay", func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				idx = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				idx = MustSucceed(node.CreateChannels(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
 					Name:       "stamp_data",
 					DataType:   telem.Float32T,
 					LocalIndex: idx.LocalKey,
 				}
-				data = MustSucceed(node.Channel.Create(ctx, []channel.Channel{data}))[0]
+				data = MustSucceed(node.CreateChannels(ctx, []channel.Channel{data}))[0]
 				keys := channel.KeysFromChannels([]channel.Channel{idx, data})
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -178,7 +169,7 @@ var _ = Describe("Relay", func() {
 	Describe("Slow streamers", func() {
 		It("Should not delay other streamers", func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
-			channels := MustSucceed(node.Channel.Create(ctx, newChannelSet()))
+			channels := MustSucceed(node.CreateChannels(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(channels)
 			openStreamer := func() confluence.Outlet[relay.Response] {
 				GinkgoHelper()
@@ -231,11 +222,11 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
-			"Should filter out frames from a matching group on gateway writes",
+			"Should filter out frames from a matching group on storage writes",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
 				node := testutil.NewNode(ctx)
-				channels = MustSucceed(node.Channel.Create(ctx, channels))
+				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -281,7 +272,7 @@ var _ = Describe("Relay", func() {
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
 			node := testutil.NewNode(ctx)
-			channels = MustSucceed(node.Channel.Create(ctx, channels))
+			channels = MustSucceed(node.CreateChannels(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -328,7 +319,7 @@ var _ = Describe("Relay", func() {
 			func(ctx SpecContext) {
 				channels := newChannelSet()
 				node := testutil.NewNode(ctx)
-				channels = MustSucceed(node.Channel.Create(ctx, channels))
+				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
@@ -375,7 +366,7 @@ var _ = Describe("Relay", func() {
 					ch.Virtual = true
 					channels[i] = ch
 				}
-				channels = MustSucceed(svc.Channel.Create(ctx, channels))
+				channels = MustSucceed(svc.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
@@ -422,7 +413,7 @@ var _ = Describe("Relay", func() {
 	// These tests cover the SendOpenAck happens-before guarantee: once a caller sees
 	// the open ack, a subsequent write must be observable on the streamer. The relay
 	// implements this by waiting for the tapper to install the streamer's keys into the
-	// gateway tap before sending the ack. The cases below also exercise the edge cases
+	// storage tap before sending the ack. The cases below also exercise the edge cases
 	// that could deadlock the synchronous wait — empty initial keys, non-free leases,
 	// context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
@@ -448,7 +439,7 @@ var _ = Describe("Relay", func() {
 					Leaseholder: leaseholder,
 				}
 			}
-			return MustSucceed(svc.Channel.Create(ctx, chs))
+			return MustSucceed(svc.CreateChannels(ctx, chs))
 		}
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
 			GinkgoHelper()
@@ -512,12 +503,12 @@ var _ = Describe("Relay", func() {
 		)
 
 		It(
-			"Should deliver the open ack when the streamer subscribes only to gateway-leased channels",
+			"Should deliver the open ack when the streamer subscribes only to stored channels",
 			func(ctx SpecContext) {
 				// Channels with no explicit leaseholder are assigned to the host node
-				// and are served by the gateway tap alongside free channels. This
-				// exercises the ack path for a demand whose keys are all host-leased.
-				chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
+				// and are served by the storage tap. This exercises the ack path for a
+				// demand whose keys are all stored.
+				chs := MustSucceed(svc.CreateChannels(ctx, newChannelSet()))
 				keys := channel.KeysFromChannels(chs)
 
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
@@ -739,9 +730,8 @@ var _ = Describe("Relay", func() {
 	// The relay does not validate streamer keys against storage: the service layer
 	// validates at open time, but a channel can be deleted between that check and the
 	// demand reaching the tapper, and mid-stream key updates are never validated. The
-	// gateway tap must drop keys that don't resolve in local storage instead of failing
-	// outright, since a failed tap starves every streamer demanding host channels on
-	// the node.
+	// storage tap must drop keys that don't resolve in storage instead of failing
+	// outright, since a failed tap starves every streamer demanding stored channels.
 	Describe("Unknown Keys", Ordered, func() {
 		var svc testutil.Node
 		BeforeAll(func(ctx SpecContext) {
@@ -760,7 +750,7 @@ var _ = Describe("Relay", func() {
 					DataType: telem.Int64T,
 				}
 			}
-			return MustSucceed(svc.Channel.Create(ctx, chs))
+			return MustSucceed(svc.CreateChannels(ctx, chs))
 		}
 
 		It(
@@ -810,7 +800,7 @@ var _ = Describe("Relay", func() {
 				unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFE)
 
 				// The streamer with the unknown key opens first, so its demand is the
-				// one that opens the shared gateway tap.
+				// one that opens the shared storage tap.
 				mixed := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:        append(channel.Keys{unknown}, keys...),
 					SendOpenAck: new(true),
@@ -876,52 +866,16 @@ func newChannelSet() []channel.Channel {
 	}
 }
 
-func gatewayOnlyScenario(ctx context.Context) scenario {
+func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	node := testutil.OpenNode(ctx)
-	channels = MustSucceed(node.Channel.Create(ctx, channels))
+	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	return scenario{
-		name:     "Gateway Only",
+		name:     "Storage",
 		channels: channels,
 		dist:     node,
 		close:    node,
-	}
-}
-
-func peerOnlyScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 4)
-	dist := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 2)
-		channels[i] = ch
-	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
-	return scenario{
-		name:     "Peer Only",
-		channels: channels,
-		dist:     dist,
-		close:    cluster,
-	}
-}
-
-func mixedScenario(ctx context.Context) scenario {
-	GinkgoHelper()
-	channels := newChannelSet()
-	cluster := testutil.OpenCluster(ctx, 3)
-	gateway := cluster.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 1)
-		channels[i] = ch
-	}
-	channels = MustSucceed(gateway.Channel.Create(ctx, channels))
-	return scenario{
-		name:     "Mixed Gateway and Peer",
-		channels: channels,
-		dist:     gateway,
-		close:    cluster,
 	}
 }
 
@@ -934,7 +888,7 @@ func freeScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	return scenario{
 		name:     "Free Channel",
 		channels: channels,

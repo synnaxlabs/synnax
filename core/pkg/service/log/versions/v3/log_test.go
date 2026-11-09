@@ -32,11 +32,6 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Log{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the log resource identifier", func() {
 			k := uuid.New()

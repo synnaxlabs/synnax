@@ -35,6 +35,7 @@ func newIndexes() indexes {
 			Name:     "arc_key",
 			Table:    "arc",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *Config) []arc.Key {
 				return []arc.Key{e.ArcKey}
 			},

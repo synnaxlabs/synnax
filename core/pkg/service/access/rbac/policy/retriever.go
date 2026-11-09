@@ -20,17 +20,16 @@ import (
 )
 
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Policy]
 	indexes indexes
 	rolesOf RolesOf
 }
 
-// RolesOf returns the keys of the roles that the subjects hold, as seen by tx. It
+// RolesOf returns the keys of the roles that the subjects hold, as seen by snap. It
 // returns query.ErrNotFound when a subject does not exist.
 type RolesOf func(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	subjects ...resource.ID,
 ) ([]role.Key, error)
 
@@ -52,7 +51,7 @@ func MatchSubjects(subjects ...resource.ID) Filter {
 			}
 			var roles []role.Key
 			for _, subject := range subjects {
-				held, err := r.rolesOf(ctx, ctx.Tx, subject)
+				held, err := r.rolesOf(ctx, ctx.Snapshot, subject)
 				if errors.Is(err, query.ErrNotFound) {
 					continue
 				}
@@ -64,7 +63,7 @@ func MatchSubjects(subjects ...resource.ID) Filter {
 			if len(roles) == 0 {
 				return nil, nil
 			}
-			return r.indexes.role.Get(ctx, ctx.Tx, roles...)
+			return r.indexes.role.Get(ctx, ctx.Snapshot, roles...)
 		})
 	}
 }

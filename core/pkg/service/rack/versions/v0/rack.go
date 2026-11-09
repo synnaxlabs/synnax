@@ -19,8 +19,5 @@ var _ gorp.Entry[Key] = Rack{}
 // GorpKey implements gorp.Entry.
 func (r Rack) GorpKey() Key { return r.Key }
 
-// SetOptions implements gorp.Entry.
-func (Rack) SetOptions() []any { return nil }
-
 // ResourceID returns the unique resource identifier for the rack.
 func (r Rack) ResourceID() resource.ID { return r.Key.ResourceID() }

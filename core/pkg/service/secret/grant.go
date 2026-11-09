@@ -46,19 +46,21 @@ func (s *Service) Grant(
 // Resolve spends the grant, so no later call can use it. Resolve returns
 // access.ErrDenied when the grant does not name a secret or has ended,
 // query.ErrNotFound when a secret does not exist, and a validation error for a file
-// secret, whose value only the file holds.
+// secret, whose value only the file holds. Resolve opens its own snapshot and
+// transaction, so the caller must not hold either.
 func (s *Service) Resolve(
 	ctx context.Context,
-	tx gorp.Tx,
 	rack resource.ID,
 	grantKey grant.Key,
 	keys ...Key,
 ) (map[Key][]byte, error) {
 	var secrets []Secret
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&secrets).
-		Exec(ctx, tx); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().
+			Where(MatchKeys(keys...)).
+			Entries(&secrets).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	g, err := s.cfg.Grant.Redeem(ctx, grantKey, rack)

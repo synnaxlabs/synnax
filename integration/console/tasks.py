@@ -11,8 +11,7 @@ import random
 import re
 from typing import Literal
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 from console.base import ResourceClient

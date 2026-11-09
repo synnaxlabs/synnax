@@ -29,24 +29,8 @@ func (v View) WithKey(key Key) View {
 	return v
 }
 
-// WithName returns a copy of the view with its name set to name.
-func (v View) WithName(name string) View {
-	switch variant := v.Variant.(type) {
-	case RangeView:
-		variant.Name = name
-		v.Variant = variant
-	case StatusView:
-		variant.Name = name
-		v.Variant = variant
-	}
-	return v
-}
-
 // GorpKey returns the view's storage key.
 func (v View) GorpKey() Key { return v.Base().Key }
-
-// SetOptions returns no additional storage options.
-func (View) SetOptions() []any { return nil }
 
 // ResourceID returns the view's resource identifier.
 func (v View) ResourceID() resource.ID {

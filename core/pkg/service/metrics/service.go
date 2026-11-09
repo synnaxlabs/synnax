@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -41,10 +41,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider identifies the current host for channel naming.
+	// HostKey is the key of the host node. The metrics channel names include it.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostKey node.Key
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
@@ -81,7 +81,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.CollectionInterval = override.Numeric(
 		c.CollectionInterval,
@@ -97,7 +97,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
-	v.NotNil("host_provider", c.HostProvider)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("storage", c.Storage)
 	v.Positive("collection_interval", c.CollectionInterval)
 	v.NotNil("group", c.Group)
@@ -136,7 +136,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	); err != nil {
 		return nil, err
 	}
-	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
+	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostKey)
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
@@ -197,7 +197,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		framer.WriterConfig{
 			ControlSubject: control.Subject{
-				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostProvider.HostKey()),
+				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostKey),
 			},
 			Keys:                     channel.KeysFromChannels(metricsChannels),
 			AutoIndex:                new(true),
