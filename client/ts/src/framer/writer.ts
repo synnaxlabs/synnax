@@ -142,8 +142,8 @@ const resZ = z.object({
 /** The result of a commit. */
 export interface CommitResult {
   /**
-   * The end of the committed time range. Zero if the commit lacked control or if
-   * nothing has been committed yet, so a zero end does not mean lost control.
+   * The end of the committed time range. Zero if the commit lacked control or if the
+   * writer writes only virtual channels.
    */
   end: TimeStamp;
   /**

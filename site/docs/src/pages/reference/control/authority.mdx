@@ -162,9 +162,8 @@ error.
 To find out if the Core refused any data, call `commit_result` in place of `commit`.
 When `authorized` is false, the writer did not control a channel with samples to commit,
 or a write since the last commit had no control. Each refused write shows at one commit
-only. `end` is zero if the writer did not have control or if nothing has been committed
-yet, so a zero `end` does not mean lost control. The writer stays open and can get
-control again:
+only. `end` is zero if the writer did not have control or if it writes only virtual
+channels. The writer stays open and can get control again:
 
 ```python
 result = writer.commit_result()
@@ -205,9 +204,8 @@ error.
 To find out if the Core refused any data, call `commitResult` in place of `commit`. When
 `authorized` is false, the writer did not control a channel with samples to commit, or a
 write since the last commit had no control. Each refused write shows at one commit only.
-`end` is zero if the writer did not have control or if nothing has been committed yet,
-so a zero `end` does not mean lost control. The writer stays open and can get control
-again:
+`end` is zero if the writer did not have control or if it writes only virtual channels.
+The writer stays open and can get control again:
 
 ```typescript
 const result = await writer.commitResult();
