@@ -538,6 +538,24 @@ describe("log/Base", () => {
       expect(hit).toHaveBeenCalledTimes(2);
     });
 
+    it("should start no drag from a click that clears its line", async () => {
+      const selected = {
+        ...DEFAULT_STATE,
+        ...WHOLE,
+        selectionStart: 2,
+        selectionEnd: 2,
+      };
+      const { setState, hit } = setupAether({ ...selected, empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      expect(lastState(setState, selected)).toMatchObject({ selectionStart: -1 });
+      fireEvent.mouseMove(div, { clientY: 90 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
     it("should start no drag on a shift-click", async () => {
       const { setState, hit } = setupAether({ empty: false });
       hit.mockResolvedValue({ entry: 4, char: 3 });

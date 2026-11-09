@@ -1061,8 +1061,8 @@ export class Log
     return this.entries.slice(start.entry, end.entry + 1).flatMap((entry, i) => {
       const from = i === 0 ? start.char : 0;
       const to = start.entry + i === end.entry ? end.char : Infinity;
-      if (to <= from) return [];
       const dated = this.formatEntry(entry, true);
+      if (Math.min(to, this.formatEntry(entry).line.length) <= from) return [];
       let text = dated.line;
       if (from > 0) text = this.formatEntry(entry).line.slice(from, to);
       else if (to !== Infinity)
