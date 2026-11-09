@@ -10,6 +10,8 @@
 import { type device, ethercat } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { descriptionZ } from "@/feature/ethercat/device/settings";
+
 export const MAKE = "ethercat";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
@@ -89,6 +91,8 @@ export const slavePropertiesZ = z.object({
   /** The mode the Driver sets up. Unset means the Driver picks it. */
   opMode: opModeChoiceZ.optional(),
   startupParameters: z.array(startupParameterZ).default(() => []),
+  /** The fields that the slave's catalog describes, read from the slave at scan. */
+  settings: descriptionZ.optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 

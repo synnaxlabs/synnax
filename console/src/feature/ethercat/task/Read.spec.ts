@@ -27,9 +27,11 @@ import {
   createPDOs,
   createRepeatedNamePDOs,
   createRepeatedNameSlave,
+  createSettingsDescription,
   createSlaveDevice,
   createUnresolvedReadChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
 } from "@/feature/ethercat/testutil";
 import {
   awaitEditableForm,
@@ -97,6 +99,18 @@ const THREE_INPUTS: ethercat.PDOEntry[] = [
 ];
 
 const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+
+const createStrainSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    settings: createSettingsDescription(),
+  });
+
+const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16" };
+const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16" };
+const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32" };
 
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
@@ -221,6 +235,35 @@ describe("Read", () => {
       });
       expect(saved.config.channels[0]).toMatchObject({
         scale: { type: "linear", slope: 1, offset: 0 },
+      });
+    });
+  });
+
+  it("should save the setting picked for an entry that the catalog describes", async () => {
+    const slave = await createStrainSlave();
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(screen.queryByText("Excitation voltage")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+    expect(await screen.findByText("Excitation voltage")).toBeTruthy();
+    expect(
+      await screen.findByText("A bridge needs an excitation voltage above 0 V."),
+    ).toBeTruthy();
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        settings: [
+          { ...MEASUREMENT, value: 6 },
+          { ...RANGE, value: 0 },
+          { ...EXCITATION, value: 0 },
+        ],
       });
     });
   });
@@ -505,6 +548,56 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.readIndex).toBe(0);
+  });
+
+  it("should save a value for every setting that the catalog describes", async () => {
+    const slave = await createStrainSlave();
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          settings: [
+            { ...EXCITATION, value: 5 },
+            { ...MEASUREMENT, value: 6 },
+          ],
+        },
+      ],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.channels[0]).toMatchObject({
+      settings: [
+        { ...MEASUREMENT, value: 6 },
+        { ...RANGE, value: 0 },
+        { ...EXCITATION, value: 5 },
+      ],
+    });
+  });
+
+  it("should block configuration of a setting that breaks a rule of the catalog", async () => {
+    const slave = await createStrainSlave();
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          settings: [{ ...MEASUREMENT, value: 6 }],
+        },
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `^Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+          "voltage above 0 V\\.$",
+      ),
+    );
   });
 
   it("should configure a task whose unresolved channel is disabled", async () => {

@@ -11,4 +11,5 @@ export * from "@/feature/ethercat/device/ContextMenuItems";
 export * from "@/feature/ethercat/device/hardware";
 export * from "@/feature/ethercat/device/queries";
 export * from "@/feature/ethercat/device/SelectSlave";
+export * as Settings from "@/feature/ethercat/device/settings";
 export * from "@/feature/ethercat/device/types";

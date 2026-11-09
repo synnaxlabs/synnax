@@ -10,6 +10,7 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
+import { check, fill, findChannel } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -21,6 +22,7 @@ import {
   DIRECTIONS,
   entryAt,
   type EntryChannel,
+  type EntryReadChannel,
   getUnresolvedMessage,
   hasEntry,
   type PDOType,
@@ -133,6 +135,27 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     );
 
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
+};
+
+/**
+ * Fills the settings of each read channel that the slave's catalog describes, giving
+ * every field a value.
+ * @throws {Error} if a value breaks a limit or a rule of the catalog.
+ */
+export const fillSettings = (
+  slave: SlaveDevice,
+  channels: EntryReadChannel[],
+): void => {
+  for (const ch of channels) {
+    const channel = findChannel(slave.properties.settings, ch);
+    if (channel == null) continue;
+    ch.settings = fill(channel.settings, ch.settings);
+    const [problem] = check(channel, ch.settings);
+    if (problem != null)
+      throw new Error(
+        `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
+      );
+  }
 };
 
 export interface IndexOptions {
