@@ -143,7 +143,7 @@ interface InternalState {
   selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
-  // Matches the search everywhere in a value, or null when nothing matches.
+  // Matches the search everywhere in a value, or null when there is no valid search.
   pattern: RegExp | null;
   matchColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
