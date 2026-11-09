@@ -208,7 +208,9 @@ export interface Programs {
  */
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
-  await client.projects.create({ key: KEYS.project, name: NAME });
+  // A reset keeps the project, so the visualizations that the user added to it stay.
+  if (await exists(client)) await client.projects.rename(KEYS.project, NAME);
+  else await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
   await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
   // Overwriting an existing schematic or line plot keeps its project and group, and the

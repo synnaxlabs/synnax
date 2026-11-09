@@ -12,6 +12,7 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
+  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -112,12 +113,9 @@ const ScannerState = ({
             onClick={() =>
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
-                // Never write the status back: the Driver owns it.
-                await client.tasks.create({
-                  ...scanner.payload,
-                  config: { ...scanner.config, disabled: false },
-                  status: undefined,
-                });
+                const set = task.set({ path: ["config", "disabled"], value: false });
+                if (!(await client.tasks.dispatch(scanner.key, set)))
+                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
               }, "Failed to turn on scanning")
             }
           >
