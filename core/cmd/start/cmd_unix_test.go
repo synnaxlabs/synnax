@@ -54,8 +54,8 @@ var _ = Describe("Start", func() {
 	}
 
 	// holdShutdown opens a request to the Core at addr and leaves its body unsent. The
-	// Core waits on the request when it shuts down, until its read timeout ends the
-	// request, so stop signals sent in that time reach a Core that is shutting down.
+	// Core waits on the request when it shuts down, until its 5s read timeout from the
+	// request ends it, so stop signals sent in that window reach a shutting-down Core.
 	holdShutdown := func(addr string) {
 		GinkgoHelper()
 		conn := MustSucceed(net.Dial("tcp", addr))
