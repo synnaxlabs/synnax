@@ -169,13 +169,13 @@ func (p *Plugin) stale(req *plugin.Request, emitted []plugin.File) ([]string, er
 		if root == "" {
 			continue
 		}
-		candidates.Add(root, root+"/versions")
+		candidates.Add(path.Clean(root), path.Join(root, "versions"))
 		versions, err := versioning.VersionDirs(req.RepoRoot, root)
 		if err != nil {
 			return nil, err
 		}
 		for _, k := range versions {
-			candidates.Add(versioning.VersionedPath(root, k))
+			candidates.Add(path.Clean(versioning.VersionedPath(root, k)))
 		}
 	}
 	for _, f := range emitted {

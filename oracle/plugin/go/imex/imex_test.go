@@ -376,6 +376,32 @@ Log struct {
 			Expect(resp.Deletions).To(BeEmpty())
 		})
 
+		It(
+			"Should keep emitted imex files when the output path is not clean",
+			func(ctx SpecContext) {
+				tmpDir := GinkgoT().TempDir()
+				Expect(os.MkdirAll(
+					filepath.Join(tmpDir, "core/pkg/service/log/versions/v1"),
+					0o755,
+				)).To(Succeed())
+				live := `
+@go output "./core/pkg/service/log/"
+
+Log struct {
+	key  uuid @key
+	name string
+	@go imex
+}
+`
+				req := chainRequest(
+					ctx, tmpDir, live, map[int]string{1: logChain(true)},
+				)
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(HaveLen(3))
+				Expect(resp.Deletions).To(BeEmpty())
+			},
+		)
+
 		It("Should derive packages from a nested output path", func(ctx SpecContext) {
 			live := `
 @go output "core/pkg/service/schematic/symbol"
