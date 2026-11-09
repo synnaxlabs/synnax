@@ -998,7 +998,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createCommitted(ctx, arcTask)
 				frames := collect()
-				acts := []task.Action{set([]string{"config", "performance"}, "")}
+				acts := []task.Action{set([]string{"config", "performance"}, nil)}
 				computed := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))

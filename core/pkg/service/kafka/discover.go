@@ -93,7 +93,6 @@ type browseResult struct {
 // browseTopics returns the topics of the cluster of props, other than internal topics,
 // sorted by name.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
-	props.ApplyDefaults()
 	cl, err := openClient(props)
 	if err != nil {
 		return nil, err
@@ -386,7 +385,6 @@ func sampleTopics(
 			)
 		}
 	}
-	props.ApplyDefaults()
 	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)
 	cl, err := openClient(props)

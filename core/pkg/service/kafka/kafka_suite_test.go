@@ -39,6 +39,7 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -156,10 +157,11 @@ func clusterProperties() kafka.Properties {
 	return kafka.Properties{Brokers: cluster.ListenAddrs()}
 }
 
-// toJSON converts v into the map a stored task config or device holds.
+// toJSON converts v, with its zero fields defaulted, into the map a stored task config
+// or device holds.
 func toJSON(v any) msgpack.EncodedJSON {
 	GinkgoHelper()
-	b := MustSucceed(json.Marshal(v))
+	b := MustSucceed(json.Marshal(defaults.Fill(v)))
 	var m msgpack.EncodedJSON
 	Expect(json.Unmarshal(b, &m)).To(Succeed())
 	return m
