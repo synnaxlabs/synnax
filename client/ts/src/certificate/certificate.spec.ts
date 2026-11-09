@@ -50,7 +50,7 @@ describe("Certificate", () => {
         name: "Client certificate",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const key = await client.secrets.retrieve(c.privateKey);
@@ -63,7 +63,7 @@ describe("Certificate", () => {
         name: "Used key",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
@@ -82,7 +82,7 @@ describe("Certificate", () => {
         name: "Used key by key",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
@@ -91,17 +91,33 @@ describe("Certificate", () => {
       expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
     });
 
+    it("should keep the private key of a retrieved certificate saved again", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.create({
+        name: "Before",
+        source: "stored",
+        pem: PEM,
+        privateKeyPem: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const renamed = await client.certificates.create({ ...c, name: "After" });
+      assert(renamed.source === "stored");
+      expect(renamed.privateKey).toBe(c.privateKey);
+      const key = await client.secrets.retrieve(c.privateKey);
+      expect(key.name).toBe("After private key");
+    });
+
     it("should reject a private key that does not match the certificate", async () => {
       const client = createTestClient();
       const create = client.certificates.create({
         name: "Mismatched",
         source: "stored",
         pem: PEM,
-        privateKey: OTHER_PRIVATE_KEY,
+        privateKeyPem: OTHER_PRIVATE_KEY,
       });
       await expect(create).rejects.toThrow(PathError);
       await expect(create).rejects.toThrow(
-        "private_key: does not match the certificate: validation error",
+        "private_key_pem: does not match the certificate: validation error",
       );
     });
 
@@ -198,7 +214,7 @@ describe("Certificate", () => {
         name: "Cached key",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
@@ -223,7 +239,7 @@ describe("Certificate", () => {
         name: "In use",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
@@ -246,7 +262,7 @@ describe("Certificate", () => {
         name: "Grant",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const grant = await client.secrets.grant({
