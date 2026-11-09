@@ -11,13 +11,19 @@ package arc_test
 
 import (
 	"math"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("NaN and infinity", func() {
@@ -88,6 +94,20 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("v != v of NaN", "v != v", nan, true),
 		Entry("v != v of +Inf", "v != v", inf, false),
 		Entry("v != v of a number", "v != v", 1.5, false),
+		Entry("math.nan literal", "math.is_nan(math.nan)", 0.0, true),
+		Entry("v == math.inf", "v == math.inf", inf, true),
+		Entry("v == -math.inf", "v == -math.inf", -inf, true),
+		Entry("math.inf first", "math.inf == v", inf, true),
+		Entry("v < math.inf", "v < math.inf", 1.5, true),
+		Entry("-math.inf is infinite", "math.is_infinite(-math.inf)", 0.0, true),
+		Entry(
+			"math.inf in arithmetic",
+			"math.is_nan(v + math.inf - math.inf)",
+			1.5,
+			true,
+		),
+		Entry("v == math.nan", "v == math.nan", nan, false),
+		Entry("v != math.nan", "v != math.nan", nan, true),
 		Entry("is_finite of a float literal", "math.is_finite(1.0)", 0.0, true),
 		Entry("is_nan of an integer literal", "math.is_nan(3)", 0.0, false),
 		Entry("is_infinite of an integer literal", "math.is_infinite(3)", 0.0, false),
@@ -95,6 +115,289 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("is_finite of a negated integer", "math.is_finite(-3)", 0.0, true),
 		Entry("is_finite of integer arithmetic", "math.is_finite(1 + 2)", 0.0, true),
 	)
+
+	It("Should use a constant as f32 and f64 in one program", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		func check() {a f32} bool {
+			c f32 := -math.inf
+			d f64 := math.inf
+			last f64 $= math.nan
+			prior := last
+			last = f64(a)
+			return a > c and f64(a) < d and math.is_nan(prior)
+		}
+		a -> check() -> out`, channelSymbols(map[string]channelDef{
+			"a":   {types.F32(), 100},
+			"out": {types.Bool(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 200, DataType: telem.BooleanT},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[float32](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series[0].Unmarshal[bool]()[0]).To(BeTrue())
+	})
+
+	It("Should store constants in an f32 series", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		func check() {v f32} bool {
+			data series f32 := [math.inf, -math.inf, math.nan]
+			return data[0] > v and data[1] < v and math.is_nan(data[2])
+		}
+		x -> check() -> out`, channelSymbols(map[string]channelDef{
+			"x":   {types.F32(), 100},
+			"out": {types.Bool(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 200, DataType: telem.BooleanT},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[float32](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series[0].Unmarshal[bool]()[0]).To(BeTrue())
+	})
+
+	It("Should write a constant to a channel from a flow", func(ctx SpecContext) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		x -> -math.inf -> low
+		x -> (math.nan) -> bad`, channelSymbols(map[string]channelDef{
+			"x":   {types.F32(), 100},
+			"low": {types.F32(), 200},
+			"bad": {types.F32(), 201},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 200, DataType: telem.Float32T},
+			channels.Digest{Key: 201, DataType: telem.Float32T},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[float32](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		low := out.Get(200).Series[0].Unmarshal[float32]()[0]
+		Expect(math.IsInf(float64(low), -1)).To(BeTrue())
+		bad := out.Get(201).Series[0].Unmarshal[float32]()[0]
+		Expect(math.IsNaN(float64(bad))).To(BeTrue())
+	})
+
+	It("Should point a bare constant in a flow at parentheses", func(ctx SpecContext) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
+		}, &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}))
+		Expect(arc.CompileText(
+			ctx,
+			arc.Text{Raw: "import math\nx -> math.nan -> y"},
+			root,
+		)).Error().To(MatchError(ContainSubstring("use (math.nan) to send its value")))
+	})
+
+	DescribeTable("Should mix constants and literals in a series",
+		func(ctx SpecContext, dt types.Type, body string, last int, expected float64) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			func check() {v f64} f64 {
+				data series `+dt.String()+` := `+body+`
+				return f64(data[`+strconv.Itoa(last)+`])
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {types.F64(), 100},
+				"out": {types.F64(), 200},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV(1.0))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(expected))
+		},
+		Entry("integer then inf, f64", types.F64(), "[1, math.inf]", 1, inf),
+		Entry("integer then inf, f32", types.F32(), "[1, math.inf]", 1, inf),
+		Entry("nan then integer, f64", types.F64(), "[math.nan, 2]", 1, 2.0),
+		Entry("nan then integer, f32", types.F32(), "[math.nan, 2]", 1, 2.0),
+		Entry("float, inf, integer, f64", types.F64(), "[1.5, math.inf, 3]", 1, inf),
+		Entry("float, inf, integer, f32", types.F32(), "[1.5, math.inf, 3]", 1, inf),
+		Entry("negated inf first, f64", types.F64(), "[-math.inf, 1]", 0, -inf),
+	)
+
+	DescribeTable("Should keep a compared constant at the other operand's width",
+		func(ctx SpecContext, expr string) {
+			h := newRuntimeHarness(ctx, `
+			import math
+			func check() {v f32} f64 {
+				return f64(`+expr+`)
+			}
+			x -> check() -> out`, channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"out": {types.F64(), 200},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[float32](1))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(200).Series[0].Unmarshal[float64]()[0]).To(Equal(1.0))
+		},
+		Entry("constant first", "math.inf > v"),
+		Entry("constant second", "v < math.inf"),
+		Entry("equality", "math.inf != v"),
+	)
+
+	DescribeTable(
+		"Should reject a float constant in an integer series",
+		func(ctx SpecContext, source string) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			Expect(arc.CompileText(
+				ctx,
+				arc.Text{Raw: "import math\nfunc f() {\n" + source + "\n}"},
+				root,
+			)).Error().To(MatchError(ContainSubstring("type mismatch")))
+		},
+		Entry("constant only", "y series i32 := [math.inf]"),
+		Entry("integer then constant", "y series i32 := [1, math.nan]"),
+		Entry("constant then integer", "y series i64 := [math.inf, 1]"),
+		Entry("reassignment", "y series i32 := [1]\ny = [math.inf]"),
+		Entry("untyped reassignment", "y := [1]\ny = [math.inf]"),
+		Entry(
+			"reassignment after an integer",
+			"y series i64 := [1]\ny = [1, math.nan]",
+		),
+	)
+
+	DescribeTable("Should report a source that is not a channel once",
+		func(ctx SpecContext, source, message, note string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "y",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{
+					Raw: "import math\nfunc f() {v f64} f64 { return v }\n" + source,
+				})),
+				root,
+			)
+			Expect(*diagnostics).To(HaveLen(1), diagnostics.String())
+			Expect((*diagnostics)[0].Message).To(Equal(message))
+			Expect((*diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*diagnostics)[0].Notes[0].Message).To(Equal(note))
+		},
+		Entry(
+			"constant",
+			"x := 1\nmath.inf -> f() -> y",
+			"math.inf is not a channel",
+			"use (math.inf) to send its value",
+		),
+		Entry(
+			"function",
+			"x := math.is_nan(1.0)\nf -> f() -> y",
+			"f is not a channel",
+			"use f() to instantiate the function",
+		),
+	)
+
+	DescribeTable("Should run a constant initializer or call input",
+		func(ctx SpecContext, source string, expected float64) {
+			h := newRuntimeHarness(ctx, "import math\n"+source, channelSymbols(
+				map[string]channelDef{
+					"x":   {types.F64(), 100},
+					"out": {types.F64(), 200},
+				},
+			),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			for range 2 {
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			var values []float64
+			for _, s := range out.Get(200).Series {
+				values = append(values, s.Unmarshal[float64]()...)
+			}
+			Expect(values).ToNot(BeEmpty())
+			for _, v := range values {
+				if math.IsNaN(expected) {
+					Expect(math.IsNaN(v)).To(BeTrue(), "%v", values)
+				} else {
+					Expect(v).To(Equal(expected))
+				}
+			}
+		},
+		Entry("a constant", "limit := math.inf\nlimit -> out", math.Inf(1)),
+		Entry("a negated constant", "limit := -math.inf\nlimit -> out", math.Inf(-1)),
+		Entry(
+			"an expression on a constant",
+			"limit := math.inf * 2.0\nlimit -> out",
+			math.Inf(1),
+		),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.nan\n stage a {\n limit -> out\n }\n}\n"+
+				"x => main",
+			math.NaN(),
+		),
+		Entry(
+			"a stateful variable in a stage",
+			"sequence main {\n stage a {\n low f64 $= -math.inf\n low -> out\n }\n}\n"+
+				"x => main",
+			math.Inf(-1),
+		),
+		Entry(
+			"a call input",
+			"func f(a f64) {v f64} f64 {\n return a\n}\nx -> f(a=math.nan) -> out",
+			math.NaN(),
+		),
+	)
+
+	It("Should accept a flow variable that reads a channel and a constant", func(
+		ctx SpecContext,
+	) {
+		h := newRuntimeHarness(ctx, `
+		import math
+		scaled := x * math.inf
+		scaled -> y`, channelSymbols(map[string]channelDef{
+			"x": {types.F64(), 100},
+			"y": {types.F64(), 200},
+		}),
+			channels.Digest{Key: 100, DataType: telem.Float64T},
+			channels.Digest{Key: 200, DataType: telem.Float64T},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV(2.0))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		Expect(out.Get(200).Series).ToNot(BeEmpty())
+		Expect(
+			out.Get(200).Series[0].Unmarshal[float64](),
+		).To(Equal([]float64{math.Inf(1)}))
+	})
+
+	It("Should reject a constant at the start of a flow", func(ctx SpecContext) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}))
+		Expect(arc.CompileText(
+			ctx,
+			arc.Text{Raw: "import math\nmath.inf -> y"},
+			root,
+		)).Error().To(MatchError(ContainSubstring("math.inf is not a channel")))
+	})
 
 	Describe("Format string placeholders", func() {
 		// format runs a func that writes source to a string channel, with a NaN f32

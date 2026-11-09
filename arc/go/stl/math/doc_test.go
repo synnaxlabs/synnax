@@ -82,6 +82,8 @@ var _ = Describe("Hover examples", func() {
 			"math.is_nan",
 			"math.is_infinite",
 			"math.is_finite",
+			"math.nan",
+			"math.inf",
 		)))
 	})
 

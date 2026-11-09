@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -244,6 +245,42 @@ std::vector<std::uint8_t> run(const double speed) {
     h.push("speed", x::telem::Series(speed));
     return collect<std::uint8_t>(h.flush(), h.key("passed"));
 }
+}
+
+namespace float_constant {
+/// @brief compiles one program that writes math.nan and -math.inf as T, and returns
+/// the two values written.
+template<typename T>
+std::pair<T, T> run(const x::telem::DataType &dt) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    Sequence h(
+        "import math\nfunc nan_of() {v " + type + "} " + type +
+            " {\n    return math.nan\n}\nfunc low() {v " + type + "} " + type +
+            " {\n    return -math.inf\n}\n%x% -> nan_of() -> %a%\n"
+            "%x% -> low() -> %b%\n",
+        {{"x", dt}, {"a", dt}, {"b", dt}}
+    );
+    h.push("x", x::telem::Series(T(1.5)));
+    const auto out = h.flush();
+    return {last<T>(out, h.key("a")), last<T>(out, h.key("b"))};
+}
+
+template<typename T>
+void expect_values(const x::telem::DataType &dt) {
+    const auto [nan, low] = run<T>(dt);
+    EXPECT_TRUE(std::isnan(nan));
+    EXPECT_EQ(low, -std::numeric_limits<T>::infinity());
+}
+}
+
+/// @brief it should write NaN and negative infinity at f32 width.
+TEST(FloatConstantTest, WritesF32Values) {
+    float_constant::expect_values<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should write NaN and negative infinity at f64 width.
+TEST(FloatConstantTest, WritesF64Values) {
+    float_constant::expect_values<double>(x::telem::FLOAT64_T);
 }
 
 namespace float_check {
