@@ -77,6 +77,21 @@ describe("arc.directory", () => {
     expect(res.name).toBe(name);
   });
 
+  it("should apply a dispatched action to a directory", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const d = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const name = uniqueName();
+    await client.arcs.directories.dispatch(
+      d.key,
+      arc.directory.set({ path: ["name"], value: name }),
+    );
+    const [res] = await createTestClient().arcs.directories.retrieve([d.key]);
+    expect(res.name).toBe(name);
+  });
+
   it("should retrieve a directory by name", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({

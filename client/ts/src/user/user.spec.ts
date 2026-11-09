@@ -394,6 +394,14 @@ describe("User", () => {
       expect((await fresh.users.retrieve(u.key)).role).toEqual(to.key);
     });
   });
+  describe("Dispatch", () => {
+    test("should apply the action to the user", async () => {
+      const u = await createUser();
+      const name = `dispatched-${id.create()}`;
+      await client.users.dispatch(u.key, user.set({ path: ["name"], value: name }));
+      expect((await createTestClient().users.retrieve(u.key)).name).toEqual(name);
+    });
+  });
   describe("Delete", () => {
     test("one that exists", async () => {
       await expect(client.users.delete(userOne.key as string)).resolves.toBeUndefined();
