@@ -145,6 +145,52 @@ var _ = Describe("Migration", func() {
 		},
 	)
 
+	It("Should clear one parent in a cycle of ranges", func(ctx SpecContext) {
+		a, b := create(ctx, "Test"), create(ctx, "Burn")
+		relate(
+			ctx,
+			ontology.Relationship{
+				From: rangeID(a.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   rangeID(b.Key),
+			},
+			ontology.Relationship{
+				From: rangeID(b.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   rangeID(a.Key),
+			},
+		)
+		migrate(ctx)
+		parents := []*uuid.UUID{get(ctx, a.Key).Parent, get(ctx, b.Key).Parent}
+		Expect(parents).To(ConsistOf(BeNil(), Not(BeNil())))
+		if parents[0] == nil {
+			Expect(parents[1]).To(HaveValue(Equal(a.Key)))
+		} else {
+			Expect(parents[0]).To(HaveValue(Equal(b.Key)))
+		}
+	})
+
+	It("Should keep every parent in a chain of ranges", func(ctx SpecContext) {
+		a, b, c := create(ctx, "Test"), create(ctx, "Burn"), create(ctx, "Hold")
+		relate(
+			ctx,
+			ontology.Relationship{
+				From: rangeID(a.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   rangeID(b.Key),
+			},
+			ontology.Relationship{
+				From: rangeID(b.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   rangeID(c.Key),
+			},
+		)
+		migrate(ctx)
+		Expect(get(ctx, a.Key).Parent).To(BeNil())
+		Expect(get(ctx, b.Key).Parent).To(HaveValue(Equal(a.Key)))
+		Expect(get(ctx, c.Key).Parent).To(HaveValue(Equal(b.Key)))
+	})
+
 	It("Should move labels from relationships into the labels", func(ctx SpecContext) {
 		r := create(ctx, "Burn")
 		kept, gone := uuid.New(), uuid.New()

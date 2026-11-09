@@ -13,17 +13,21 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // Migrations move each range to its v2 shape, then move its parent from a parent
-// relationship between two ranges into the parent field, and its labels from
-// labeled_by relationships into the labels field. They delete each relationship they
-// move, and drop parents and labels that are not stored.
+// relationship between two ranges into the parent field, and its labels from labeled_by
+// relationships into the labels field. They delete each relationship they move, and
+// drop parents and labels that are not stored. Last, they clear one parent in each
+// parent cycle.
 var Migrations = []gorp.Migration{
 	migrate.NewEntry("v61_range_shape", autoMigrateRange),
 	ontology.NewFieldMigration(ontology.FieldConfig[Key, Range]{
@@ -37,6 +41,46 @@ var Migrations = []gorp.Migration{
 		},
 		Set: moveRelationship,
 	}),
+	migrate.New("v61_range_parent_cycles", breakParentCycles),
+}
+
+// breakParentCycles clears the parent of the first range, in key order, of each parent
+// cycle. Cores before v0.54 stored parent relationships without a cycle check.
+func breakParentCycles(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+) error {
+	var ranges []Range
+	if err := gorp.NewRetrieve[Key, Range]().Entries(&ranges).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	parents := make(map[Key]Key, len(ranges))
+	for _, r := range ranges {
+		if r.Parent != nil {
+			parents[r.Key] = *r.Parent
+		}
+	}
+	var cleared []Range
+	for _, r := range ranges {
+		seen := set.New[Key]()
+		for k, ok := parents[r.Key]; ok && !seen.Contains(k); k, ok = parents[k] {
+			if k == r.Key {
+				delete(parents, r.Key)
+				r.Parent = nil
+				cleared = append(cleared, r)
+				ins.L.Warn(
+					"cleared the parent of a range in a parent cycle",
+					zap.Stringer("key", r.Key),
+					zap.String("name", r.Name),
+				)
+				break
+			}
+			seen.Add(k)
+		}
+	}
+	return gorp.WrapWriter[Key, Range](tx).Set(ctx, cleared...)
 }
 
 func converts(rel ontology.Relationship) bool {
