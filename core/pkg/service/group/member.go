@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -223,7 +224,7 @@ func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) e
 // parent is a group, and leaves its group when it is not. It returns a validation error
 // when a group does not exist, and an error when no setter moves the type of a member.
 func (w Writer) Ungroup(ctx context.Context, keys ...Key) error {
-	for _, key := range keys {
+	for _, key := range lo.Uniq(keys) {
 		g, err := retrieveGroup(ctx, w.tx, key)
 		if err != nil {
 			return err

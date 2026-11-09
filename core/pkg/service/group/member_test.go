@@ -381,6 +381,15 @@ var _ = Describe("Member", func() {
 			},
 		)
 
+		It("Should ungroup a group named twice", func(ctx SpecContext) {
+			top := create(ctx, resource.TypeDevice, nil)
+			mid := create(ctx, resource.TypeDevice, new(top.ResourceID()))
+			place(ctx, "r3", mid)
+			Expect(ungroup(ctx, mid.Key, mid.Key)).To(Succeed())
+			Expect(exists(ctx, mid)).To(BeFalse())
+			Expect(groupOf(ctx, "r3")).To(Equal(&top.Key))
+		})
+
 		It("Should ungroup a group and a group under it", func(ctx SpecContext) {
 			top := create(ctx, resource.TypeDevice, nil)
 			mid := create(ctx, resource.TypeDevice, new(top.ResourceID()))
