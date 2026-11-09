@@ -862,14 +862,23 @@ func (c *collector) addHandField(
 	fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
 }
 
+// pascalJoin joins the parts of a qualified Go name, such as v0.Entry, into one
+// PascalCase name, such as V0Entry.
+func pascalJoin(qualified string) string {
+	var b strings.Builder
+	for part := range strings.SplitSeq(qualified, ".") {
+		b.WriteString(strings.ToUpper(part[:1]))
+		b.WriteString(part[1:])
+	}
+	return b.String()
+}
+
 // requireMovedFunc returns the step that copies a struct moved to another resource,
 // queueing its generation the first time.
 func (c *collector) requireMovedFunc(oldT, newT resolution.Type) string {
+	oldName := c.resolveTypeName(oldT, c.oldTable)
 	newName := c.resolveTypeName(newT, c.newTable)
-	goName := naming.GetGoName(oldT) + "To"
-	for part := range strings.SplitSeq(newName, ".") {
-		goName += strings.ToUpper(part[:1]) + part[1:]
-	}
+	goName := pascalJoin(oldName) + "To" + pascalJoin(newName)
 	name := "autoMigrate" + goName
 	key := oldT.QualifiedName + "->" + newT.QualifiedName
 	if c.generated.Contains(key) {
@@ -880,7 +889,7 @@ func (c *collector) requireMovedFunc(oldT, newT resolution.Type) string {
 	newSF, _ := newT.Form.(resolution.StructForm)
 	c.funcs = append(c.funcs, c.structFuncFromForms(
 		goName,
-		c.resolveTypeName(oldT, c.oldTable),
+		oldName,
 		newName,
 		"old",
 		oldSF,

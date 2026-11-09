@@ -2260,17 +2260,17 @@ Node struct {
 		))
 		Expect(content).To(MatchRegexp(`Modes:\s+modes,`))
 		Expect(content).To(ContainSubstring(
-			"entry, err := autoMigrateEntryToSharedEntry(ctx, old.Entry)",
+			"entry, err := autoMigrateV0EntryToSharedEntry(ctx, old.Entry)",
 		))
 		Expect(content).To(ContainSubstring(
-			"v, err := autoMigrateEntryToSharedEntry(ctx, *old.Maybe)",
+			"v, err := autoMigrateV0EntryToSharedEntry(ctx, *old.Maybe)",
 		))
 		Expect(content).To(MatchRegexp(`Maybe:\s+maybe,`))
 		Expect(content).To(ContainSubstring(
 			"func(v v0.Entry, _ int) (shared.Entry, error)",
 		))
 		Expect(content).To(MatchRegexp(`Entries:\s+entries,`))
-		Expect(content).To(ContainSubstring("func autoMigrateEntryToSharedEntry(" +
+		Expect(content).To(ContainSubstring("func autoMigrateV0EntryToSharedEntry(" +
 			"_ context.Context, old v0.Entry) (shared.Entry, error)"))
 		Expect(content).To(MatchRegexp(`Label:\s+old\.Label,`))
 		Expect(content).To(MatchRegexp(`Value:\s+old\.Value,`))
@@ -2278,15 +2278,17 @@ Node struct {
 
 	It("Should copy a moved type nested in a moved struct", func() {
 		content := MustSucceed(generateMove(types, nodeV0, nodeV1, live))
-		Expect(content).To(ContainSubstring("func autoMigrateReadingToSharedReading("))
+		Expect(
+			content,
+		).To(ContainSubstring("func autoMigrateV0ReadingToSharedReading("))
 		Expect(content).To(MatchRegexp(`Format:\s+shared\.Format\(old\.Format\),`))
 	})
 
 	It("Should copy a moved struct that refers to itself", func() {
 		content := MustSucceed(generateMove(types, nodeV0, nodeV1, live))
-		Expect(content).To(ContainSubstring("func autoMigrateTreeToSharedTree("))
+		Expect(content).To(ContainSubstring("func autoMigrateV0TreeToSharedTree("))
 		Expect(content).To(ContainSubstring(
-			"return autoMigrateTreeToSharedTree(ctx, v)",
+			"return autoMigrateV0TreeToSharedTree(ctx, v)",
 		))
 	})
 
@@ -2338,7 +2340,7 @@ Node struct {
 		Expect(content).To(ContainSubstring(
 			"func autoMigrateEntry(_ context.Context, old v0.Entry) (Entry, error)",
 		))
-		Expect(content).To(ContainSubstring("func autoMigrateEntryToSharedEntry(" +
+		Expect(content).To(ContainSubstring("func autoMigrateV0EntryToSharedEntry(" +
 			"_ context.Context, old v0.Entry) (shared.Entry, error)"))
 	})
 
