@@ -9,6 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Access } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -34,17 +35,27 @@ import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
+interface Rendered {
+  statuses: Status.NotificationSpec[];
+  /** The grant that the Core notice reads. */
+  granted: boolean;
+}
+
 /** Renders a Provider for a Core at coreVersion and returns its notifications. */
 const renderNotifications = async (
   granted: boolean,
   coreVersion = "1.5.0",
-): Promise<{ current: Status.NotificationSpec[] }> => {
+): Promise<{ current: Rendered }> => {
   const user = granted
     ? await createTestClientWithGrants(client, { update: [RESOURCE_ID] })
     : null;
-  const { result } = renderHook(() => Status.useNotifications().statuses, {
-    wrapper: await createWrapper({ client: user, coreVersion }),
-  });
+  const { result } = renderHook(
+    () => ({
+      statuses: Status.useNotifications().statuses,
+      granted: Access.useUpdateGranted(RESOURCE_ID),
+    }),
+    { wrapper: await createWrapper({ client: user, coreVersion }) },
+  );
   return result;
 };
 
@@ -63,7 +74,7 @@ describe("version Core notice", () => {
     mockLatestCore("1.6.0");
     const notifications = await renderNotifications(true);
     await waitFor(() =>
-      expect(notifications.current).toContainEqual(
+      expect(notifications.current.statuses).toContainEqual(
         expect.objectContaining({
           name: "Core",
           message: "Version 1.6.0 available",
@@ -81,16 +92,16 @@ describe("version Core notice", () => {
     await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
     await act(async () => {});
     expect(requestedLatestCore(fetch)).toBe(false);
-    expect(notifications.current).toEqual([]);
+    expect(notifications.current.statuses).toEqual([]);
   });
 
   it("should not check for a dev Core", async () => {
     const fetch = mockLatestCore("1.6.0");
     const notifications = await renderNotifications(true, "0.0.1");
-    await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
+    await waitFor(() => expect(notifications.current.granted).toBe(true));
     await act(async () => {});
     expect(requestedLatestCore(fetch)).toBe(false);
-    expect(notifications.current).toEqual([]);
+    expect(notifications.current.statuses).toEqual([]);
   });
 
   it("should say nothing when the Core is the newest release", async () => {
@@ -98,7 +109,7 @@ describe("version Core notice", () => {
     const notifications = await renderNotifications(true);
     await waitFor(() => expect(requestedLatestCore(fetch)).toBe(true));
     await act(async () => {});
-    expect(notifications.current).toEqual([]);
+    expect(notifications.current.statuses).toEqual([]);
   });
 
   it("should say nothing when the docs site cannot be reached", async () => {
@@ -107,7 +118,7 @@ describe("version Core notice", () => {
     const notifications = await renderNotifications(true);
     await waitFor(() => expect(warn).toHaveBeenCalledWith(new Error("offline")));
     expect(requestedLatestCore(fetch)).toBe(true);
-    expect(notifications.current).toEqual([]);
+    expect(notifications.current.statuses).toEqual([]);
   });
 
   it("should say nothing when the docs site sends an invalid version", async () => {
@@ -115,6 +126,6 @@ describe("version Core notice", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const notifications = await renderNotifications(true);
     await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.any(z.ZodError)));
-    expect(notifications.current).toEqual([]);
+    expect(notifications.current.statuses).toEqual([]);
   });
 });
