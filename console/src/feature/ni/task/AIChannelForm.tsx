@@ -15,7 +15,6 @@ import { deep, record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
-import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -611,8 +610,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <ForceUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_force_bridge_table: ({ path }) => (
@@ -721,8 +720,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <PressureUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_pressure_bridge_table: ({ path }) => (
@@ -871,8 +870,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <TorqueUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_torque_bridge_table: ({ path }) => (

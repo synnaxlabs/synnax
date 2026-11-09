@@ -591,6 +591,21 @@ public:
         });
     }
 
+    /// @brief pauses the server for duration. Returns once the server pauses, so a
+    /// request sent after the call gets no reply until duration ends.
+    void stall(const x::telem::TimeSpan &duration) {
+        std::unique_lock lock(this->added_mu);
+        this->requested_stall = duration;
+        const auto stalled = [this] {
+            return !this->requested_stall.has_value() || !this->ready;
+        };
+        // A cancel does nothing while the loop is not waiting, so repeat it.
+        while (!stalled()) {
+            this->cancel_loop();
+            this->added_cv.wait_for(lock, std::chrono::milliseconds(1), stalled);
+        }
+    }
+
     void start() {
         running = true;
         exited = false;
@@ -617,10 +632,7 @@ public:
         // Each pass of the event loop, shutdown included, blocks for up to 500 ms
         // unless it is canceled.
         while (thread.joinable() && !exited.load()) {
-            {
-                std::lock_guard lock(loop_mu);
-                if (loop != nullptr) loop->cancel(loop);
-            }
+            this->cancel_loop();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         if (thread.joinable()) thread.join();
@@ -636,6 +648,7 @@ private:
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
+    std::optional<x::telem::TimeSpan> requested_stall;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -782,6 +795,16 @@ private:
         this->added_cv.notify_all();
     }
 
+    void stall_requested() {
+        std::unique_lock lock(this->added_mu);
+        if (!this->requested_stall.has_value()) return;
+        const auto duration = *this->requested_stall;
+        this->requested_stall.reset();
+        lock.unlock();
+        this->added_cv.notify_all();
+        std::this_thread::sleep_for(duration.chrono());
+    }
+
     static void
     add_motor_node(UA_Server *server, const UA_DataType &type, Motor &value) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -890,6 +913,11 @@ private:
     std::mutex loop_mu;
     /// @brief the running server's event loop, or nullptr when there is none.
     UA_EventLoop *loop = nullptr;
+
+    void cancel_loop() {
+        std::lock_guard lock(this->loop_mu);
+        if (this->loop != nullptr) this->loop->cancel(this->loop);
+    }
 
     void serve() {
         UA_Server *server = UA_Server_new();
@@ -1021,6 +1049,7 @@ private:
                 );
             UA_Server_run_iterate(server, true);
             this->add_requested(server, structures.motor());
+            this->stall_requested();
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
@@ -1031,6 +1060,7 @@ private:
             std::lock_guard lock(this->added_mu);
             this->added.clear();
             this->added_motor.reset();
+            this->requested_stall.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);

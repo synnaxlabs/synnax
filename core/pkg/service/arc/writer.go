@@ -19,11 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -34,29 +32,30 @@ import (
 // TaskType is the task type for tasks that execute an Arc module.
 const TaskType = "arc"
 
-// Writer is used to create, update, and delete arcs within Synnax. The writer
-// executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// Writer is used to create, update, and delete arcs within Synnax. The writer executes
+// all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
 	tx          gorp.Tx
-	otgWriter   ontology.Writer
-	otg         *ontology.Ontology
 	root        directory.Key
-	directories *gorp.Table[directory.Key, directory.Directory]
+	directories *directory.Table
 	reserved    set.Set[string]
 	tasks       *task.Service
+	matchTasks  func(arcs ...Key) task.Filter
 	status      *status.Service
 	table       *gorp.Table[Key, Arc]
 	dispatcher  actions.Dispatcher[Key, Action]
 	sweeper     textSweeper
-	taskSync    *debounce.Keyed[Key]
+	resyncs     *gorp.Attachment[Key]
+	deletes     *gorp.Attachment[Key]
+	// directoryDispatcher attaches the actions that change directories.
+	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	w.directoryDispatcher = w.directoryDispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
@@ -109,40 +108,36 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	module := a.Type() == TypeModule
 	if !exists {
 		if err = w.validateEntry(
-			ctx, directory.OntologyID(w.root), a.OntologyID(), b.Name, module,
+			ctx,
+			w.root,
+			a.ResourceID(),
+			b.Name,
+			module,
 		); err != nil {
 			return err
 		}
+		b.Directory = &w.root
 	} else {
 		if err = validateType(existing.Type(), a.Type()); err != nil {
 			return err
 		}
 		if existing.Base().Name != b.Name {
-			if err = w.validateName(ctx, a.OntologyID(), b.Name, module); err != nil {
+			if err = w.validateName(ctx, a.ResourceID(), b.Name, module); err != nil {
 				return err
 			}
 		}
+		b.Directory = existing.Base().Directory
 	}
+	a.SetBase(b)
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
+	if exists {
+		if err = w.syncTask(ctx, b); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationships(
-			ctx,
-			directory.OntologyID(w.root),
-			ontology.RelationshipTypeParentOf,
-			a.OntologyID(),
-		); err != nil {
-			return err
-		}
-	} else if err = w.syncTask(ctx, b); err != nil {
-		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		b.Key,
 		NewCreateAction(CreatePayload{Arc: *a}),
@@ -161,10 +156,25 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Delete deletes the Arcs with the given keys and the tasks that TaskKeys returns for
-// them.
+// Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
+// will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	taskKeys, err := w.TaskKeys(ctx, keys...)
+	for _, key := range keys {
+		if err := w.deleteChildTasks(ctx, key); err != nil {
+			return err
+		}
+	}
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.deletes.Add(w.tx, keys...)
+	return nil
+}
+
+func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
+	taskKeys, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.matchTasks(key))
 	if err != nil {
 		return err
 	}
@@ -174,50 +184,32 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 	}
-	if err = w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Arc](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, key := range keys {
-		if err = w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-		w.sweeper.forget(key)
-		w.taskSync.Forget(key)
-	}
 	return nil
 }
 
-// TaskKeys returns the keys of the child tasks of the Arcs with the given keys. A
-// missing Arc has no tasks. A task with no ontology link to an Arc is not included.
-func (w Writer) TaskKeys(ctx context.Context, keys ...Key) ([]task.Key, error) {
-	var taskKeys []task.Key
-	for _, key := range keys {
-		children, err := w.childTaskKeys(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		taskKeys = append(taskKeys, children...)
-	}
-	return taskKeys, nil
+// liveTasks matches the tasks of the arc with the given key that are not snapshots.
+func (w Writer) liveTasks(key Key) task.Filter {
+	return task.And(w.matchTasks(key), task.MatchSnapshot(false))
 }
 
-func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
-	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypeTask).
-		Entries(&children).
-		ExcludeFieldData(true).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+func retrieveTaskKeys(
+	ctx context.Context,
+	tasks *task.Service,
+	snap gorp.Snapshot,
+	f task.Filter,
+) ([]task.Key, error) {
+	var matched []task.Task
+	if err := tasks.NewRetrieve().
+		Where(f).
+		Entries(&matched).
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	if len(children) == 0 {
-		return nil, nil
+	keys := make([]task.Key, len(matched))
+	for i, t := range matched {
+		keys[i] = t.Key
 	}
-	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+	return keys, nil
 }
 
 // TaskUpdate holds the fields of an arc's task to change. A nil field stays as it is.
@@ -238,7 +230,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := w.childTaskKeys(ctx, key)
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(key))
 	if err != nil {
 		return nil, err
 	}
@@ -316,16 +308,6 @@ func (w Writer) writeTask(
 	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
 	}
-	if len(existing) == 0 {
-		if err := w.otgWriter.DefineRelationships(
-			ctx,
-			OntologyID(a.Key),
-			ontology.RelationshipTypeParentOf,
-			tsk.OntologyID(),
-		); err != nil {
-			return nil, err
-		}
-	}
 	return &tsk, nil
 }
 
@@ -351,7 +333,7 @@ func (w Writer) retrieveTask(
 // semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
 // bound and for edits, like graph layout moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Base) error {
-	existing, err := w.childTaskKeys(ctx, a.Key)
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(a.Key))
 	if err != nil || len(existing) == 0 {
 		return err
 	}
@@ -372,7 +354,7 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
 		err := w.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
+			Where(status.MatchOwners[task.StatusDetails](task.ResourceID(taskKey))).
 			Entry(&stat).
 			Exec(ctx, w.tx)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {

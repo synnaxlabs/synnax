@@ -17,7 +17,7 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/mqtt/device/types";
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
-import { createTestDevice } from "@/platform/device/testutil";
+import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -59,7 +59,8 @@ export interface Scanner {
 }
 
 /**
- * Creates a scan task on the rack and answers its commands in place of the Core.
+ * Creates a scan task on the rack and answers its commands in place of the Core. The
+ * rack reports as running until the test ends, because an outage fails a command wait.
  * Open it before the command goes out.
  */
 export const openScanner = async (
@@ -67,6 +68,7 @@ export const openScanner = async (
   rackKey: rack.Key,
 ): Promise<Scanner> => {
   const rck = await client.racks.retrieve({ key: rackKey });
+  await startRackHeartbeat(client, rck);
   const scanTask = await rck.createTask({
     name: "MQTT scanner",
     type: SCAN_TYPE,
@@ -77,12 +79,12 @@ export const openScanner = async (
     answer: async ({ variant = "success", message = "", data }) => {
       const cmd = await awaitCommand(streamer, scanTask.key);
       await client.statuses.set({
-        key: task.statusKey(scanTask.key),
+        owner: task.resourceID(scanTask.key),
         name: scanTask.name,
         variant,
         message,
         time: TimeStamp.now(),
-        details: { task: scanTask.key, running: true, cmd: cmd.key, data },
+        details: { running: true, cmd: cmd.key, data },
       });
       return cmd;
     },

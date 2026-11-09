@@ -27,12 +27,14 @@
     width: fit-content;
     height: fit-content;
 
+    /* React Flow reads this box to anchor pipes, so it stays the same size at every
+       zoom and edit state. Only the ring it draws scales. */
     .react-flow__handle {
-        scale: calc(1 / var(--pluto-diagram-zoom, 1));
-        transform: translate(
-            calc(var(--pluto-diagram-zoom, 1) * -50%),
-            calc(var(--pluto-diagram-zoom, 1) * -50%)
-        );
+        transform: translate(-50%, -50%);
+
+        &::before {
+            scale: calc(1 / var(--pluto-diagram-zoom, 1));
+        }
     }
 
     &.lyra--location-bottom svg,
@@ -59,7 +61,10 @@
         }
     }
 
+    /* Handles sit at a percent of the symbol's box. An inline SVG adds the descender
+       gap of its line to that box, which moves them off the drawing. */
     & svg {
+        display: block;
         overflow: visible;
     }
 
@@ -87,6 +92,7 @@
 }
 
 .pluto-symbol-primitive-toggle {
+    display: block;
     cursor: pointer;
     background: none;
     border: none;

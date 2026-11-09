@@ -14,6 +14,7 @@ package policy
 import (
 	"strconv"
 
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,6 +44,9 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
@@ -51,12 +55,18 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Internal; l != nil {
+		if l.Eq == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "internal")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchInternal(*l.Eq))
 		}
 	}
 	if l := w.Subjects; l != nil {
 		fs = append(fs, MatchSubjects(l...))
+	}
+	if l := w.Roles; l != nil {
+		fs = append(fs, MatchRoles(l...))
 	}
 	return And(fs...), nil
 }

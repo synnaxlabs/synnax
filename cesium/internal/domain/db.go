@@ -66,7 +66,8 @@ type Config struct {
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
-	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
+	// MaxDescriptors is the maximum number of file descriptors that the DB will use for
+	// domain files. An open waits for a descriptor when the DB is at this limit. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively
 	// unknown.

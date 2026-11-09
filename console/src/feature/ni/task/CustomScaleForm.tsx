@@ -13,9 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
-import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
   type Scale,
@@ -135,14 +133,14 @@ const SCALE_FORMS: { [K in ScaleType]: FC<ScaleProps<K>> } = {
   polynomial: ({ path }) => (
     <>
       <CustomScaleUnitsFields path={path} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   table: ({ path }) => (
     <>
       <CustomScaleUnitsFields path={path} />
-      <TableScaleForm path={path} />
+      <Task.TableScaleForm path={path} />
     </>
   ),
   none: () => null,

@@ -81,6 +81,7 @@ const beforeSave = async ({
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get(path.rack).value,
+    one: true,
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
@@ -106,7 +107,7 @@ const beforeSave = async ({
     variant: "success",
     details: {
       rack: get(path.rack).value,
-      device: get(path.key).value,
+      connected: true,
     },
   });
   set(path.status, devStatus, { markTouched: false });

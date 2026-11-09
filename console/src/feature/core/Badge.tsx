@@ -68,6 +68,8 @@ const Content = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
+  // A browser Console only talks to the Core that served it.
+  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
   const editConnection = (): void => {
     if (activeKey == null) return;
     close();
@@ -85,7 +87,7 @@ const Content = (): ReactElement => {
           <Text.Text weight={500} color={10} overflow="fade">
             {core?.name ?? "Core"}
           </Text.Text>
-          {activeKey != null && (
+          {editable && (
             <Button.Button
               aria-label="Edit connection"
               variant="text"
@@ -127,11 +129,6 @@ const Content = (): ReactElement => {
         {details.nodeVersion != null && (
           <Text.Text level="small" color={9}>
             {`Core v${details.nodeVersion}`}
-          </Text.Text>
-        )}
-        {details.nodeVersion != null && !details.clientServerCompatible && (
-          <Text.Text level="small" status="warning">
-            {`Incompatible with client v${details.clientVersion}`}
           </Text.Text>
         )}
         {details.nodeVersion != null && <License.Summary />}

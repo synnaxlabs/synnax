@@ -15,9 +15,11 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -39,6 +41,10 @@ const (
 
 // StopperConfig is the configuration for creating a Stopper.
 type StopperConfig struct {
+	// DB runs the status reads of a stop.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Task provides the channel that carries the stop commands.
 	//
 	// [REQUIRED]
@@ -66,6 +72,7 @@ var (
 
 // Override implements xconfig.Config.
 func (c StopperConfig) Override(other StopperConfig) StopperConfig {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
@@ -76,6 +83,7 @@ func (c StopperConfig) Override(other StopperConfig) StopperConfig {
 // Validate implements xconfig.Config.
 func (c StopperConfig) Validate() error {
 	v := validate.New("task.stopper")
+	v.NotNil("db", c.DB)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
@@ -133,21 +141,23 @@ func (s *Stopper) retrieveRunning(
 	ctx context.Context,
 	keys []Key,
 ) ([]Key, error) {
-	// Status details are caller-provided, so a stop target must come from keys.
-	byStatus := lo.SliceToMap(keys, func(k Key) (string, Key) {
-		return OntologyID(k).String(), k
+	// Status details are caller-provided, so a stop target must come from owners.
+	byOwner := lo.SliceToMap(keys, func(k Key) (resource.ID, Key) {
+		return ResourceID(k), k
 	})
 	var statuses []Status
-	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](lo.Keys(byStatus)...)).
-		Entries(&statuses).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Status.NewRetrieve[StatusDetails]().
+			Where(status.MatchOwners[StatusDetails](lo.Keys(byOwner)...)).
+			Entries(&statuses).
+			Exec(ctx, snap)
+	}); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	running := make([]Key, 0, len(statuses))
 	for _, stat := range statuses {
-		if stat.Details.Running {
-			running = append(running, byStatus[stat.Key])
+		if stat.Details.Running && stat.Owner != nil {
+			running = append(running, byOwner[*stat.Owner])
 		}
 	}
 	return running, nil
@@ -181,8 +191,7 @@ func (s *Stopper) sendStops(ctx context.Context, keys []Key) error {
 	)
 	sw.InFrom(requests)
 	sw.OutTo(responses)
-	// A routine never starts under a canceled context, and then never closes its
-	// outlets. The writer runs apart from ctx, and every wait on it selects on ctx.
+	// The writer runs apart from ctx, and every wait on it selects on ctx.
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
 	sw.Flow(

@@ -22,33 +22,45 @@ import (
 )
 
 const (
-	ActionTypeCreate          = "create"
-	ActionTypeRename          = "rename"
-	ActionTypeSetNode         = "set_node"
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
+	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
+	ActionTypeSetNode = "set_node"
+	// ActionTypeSetNodePosition is the Type of an Action that carries
+	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNodeInputs   = "set_node_inputs"
-	ActionTypeRemoveNode      = "remove_node"
-	ActionTypeAddEdge         = "add_edge"
-	ActionTypeRemoveEdge      = "remove_edge"
-	ActionTypeReconnectEdge   = "reconnect_edge"
-	ActionTypeInsertChar      = "insert_char"
-	ActionTypeDeleteChar      = "delete_char"
-	ActionTypeForgetChars     = "forget_chars"
-	ActionTypeSet             = "set"
-	ActionTypeRemove          = "remove"
-	ActionTypeInsert          = "insert"
-	ActionTypeMove            = "move"
+	// ActionTypeSetNodeInputs is the Type of an Action that carries
+	// SetNodeInputsPayload.
+	ActionTypeSetNodeInputs = "set_node_inputs"
+	// ActionTypeRemoveNode is the Type of an Action that carries RemoveNodePayload.
+	ActionTypeRemoveNode = "remove_node"
+	// ActionTypeAddEdge is the Type of an Action that carries AddEdgePayload.
+	ActionTypeAddEdge = "add_edge"
+	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
+	ActionTypeRemoveEdge = "remove_edge"
+	// ActionTypeReconnectEdge is the Type of an Action that carries
+	// ReconnectEdgePayload.
+	ActionTypeReconnectEdge = "reconnect_edge"
+	// ActionTypeInsertChar is the Type of an Action that carries InsertCharPayload.
+	ActionTypeInsertChar = "insert_char"
+	// ActionTypeDeleteChar is the Type of an Action that carries DeleteCharPayload.
+	ActionTypeDeleteChar = "delete_char"
+	// ActionTypeForgetChars is the Type of an Action that carries ForgetCharsPayload.
+	ActionTypeForgetChars = "forget_chars"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Arc Arc `json:"arc" msgpack:"arc"`
-}
-
-// RenamePayload renames the Arc module.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
@@ -125,7 +137,8 @@ type ForgetCharsPayload struct {
 	IDs []crdt.ID `json:"ids" msgpack:"ids"`
 }
 
-// SetPayload replaces the value at a path in the graph's node inputs.
+// SetPayload replaces the Arc's name, or the value at a path in the graph's node
+// inputs.
 type SetPayload struct {
 	Path   []string      `json:"path" msgpack:"path"`
 	Value  any           `json:"value" msgpack:"value"`
@@ -161,7 +174,6 @@ type MovePayload struct {
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitzero" msgpack:"set_node_inputs,omitempty"`
@@ -191,11 +203,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -279,11 +286,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewSetNodeAction wraps a SetNodePayload in an Action envelope.

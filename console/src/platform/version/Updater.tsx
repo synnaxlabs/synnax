@@ -63,7 +63,7 @@ export const Notification: Notifications.Notification = ({ status, silence }) =>
 );
 Notification.match = Notifications.matchPrefix(STATUS_KEY_PREFIX);
 
-export const OpenUpdateDialogAction = () => {
+const OpenUpdateDialogAction = () => {
   const openInfo = useInfoModal();
   return (
     <Button.Button variant="outlined" size="small" onClick={() => openInfo()}>

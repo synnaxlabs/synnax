@@ -140,9 +140,7 @@ struct InputChan {
     }
 
     /// @brief the scale applied to raw samples, when the channel carries one.
-    [[nodiscard]] virtual const ::synnax::labjack::Scale *scale() const {
-        return nullptr;
-    }
+    [[nodiscard]] virtual const ::synnax::task::Scale *scale() const { return nullptr; }
 };
 
 /// @brief the range of a thermocouple input on each model that supports
@@ -164,7 +162,8 @@ struct ThermocoupleChan final : InputChan {
     const int type;
     /// @brief the AIN index the thermocouple's positive lead is wired to.
     const int pos_chan;
-    /// @brief the AIN port of the negative lead on T7 devices. 199 is single ended.
+    /// @brief the AIN port of the negative lead on T7 devices. LJM_GND is single
+    /// ended.
     const int neg_chan;
     /// @brief the source of the CJC temperature: TEMPERATURE_DEVICE_K,
     /// TEMPERATURE_AIR_K, or an AIN port wired to a temperature sensor.
@@ -176,7 +175,7 @@ struct ThermocoupleChan final : InputChan {
     /// @brief units for the thermocouple reading
     const LJM_TemperatureUnits units;
     /// @brief the scale applied to the temperature after conversion.
-    const ::synnax::labjack::Scale scale_cfg;
+    const ::synnax::task::Scale scale_cfg;
     /// @brief the warning for a voltage outside the range of the thermocouple type.
     const common::Warning out_of_range;
     /// @brief the position of the CJC register in the registers of the task.
@@ -189,7 +188,7 @@ struct ThermocoupleChan final : InputChan {
         InputChan(cfg),
         type(resolve_tc_type(parser, cfg.thermocouple_type)),
         pos_chan(resolve_ain_index(parser, cfg.port)),
-        neg_chan(cfg.neg_chan),
+        neg_chan(cfg.neg_chan.value_or(LJM_GND)),
         cjc_source(resolve_cjc_source(parser, cfg.cjc_source)),
         cjc_slope(cfg.cjc_slope),
         cjc_offset(cfg.cjc_offset),
@@ -201,9 +200,11 @@ struct ThermocoupleChan final : InputChan {
                                       "thermocouple type. Check for an open "
                                       "thermocouple or a loose wire. The Driver writes "
                                       "NaN until the voltage is in range.",
-        } {}
+        } {
+        transform::validate_scale(parser, "scale", this->scale_cfg);
+    }
 
-    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+    [[nodiscard]] const ::synnax::task::Scale *scale() const override {
         return &this->scale_cfg;
     }
 
@@ -288,18 +289,22 @@ struct AIChan final : InputChan {
     /// @brief the largest voltage magnitude the channel reads. The channel uses the
     /// smallest range of the device that covers it.
     const double range;
-    /// @brief the negative channel for differential readings. 199 is single ended.
+    /// @brief the negative channel for differential readings. LJM_GND is single ended.
     const int neg_chan;
     /// @brief the scale applied to raw samples after acquisition.
-    const ::synnax::labjack::Scale scale_cfg;
+    const ::synnax::task::Scale scale_cfg;
 
     AIChan(const ::synnax::labjack::AnalogReadChannel &cfg, x::json::Parser &parser):
-        InputChan(cfg), range(cfg.range), neg_chan(cfg.neg_chan), scale_cfg(cfg.scale) {
+        InputChan(cfg),
+        range(cfg.range),
+        neg_chan(cfg.neg_chan.value_or(LJM_GND)),
+        scale_cfg(cfg.scale) {
         if (this->range <= 0)
             parser.field_err("range", "Max voltage must be greater than 0");
+        transform::validate_scale(parser, "scale", this->scale_cfg);
     }
 
-    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+    [[nodiscard]] const ::synnax::task::Scale *scale() const override {
         return &this->scale_cfg;
     }
 
@@ -371,38 +376,16 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
     return nullptr;
 }
 
-/// @brief registers the channel's configured scale on the scale transform.
-inline void add_scale(
-    transform::Scale &scales,
-    const synnax::channel::Key key,
-    const x::telem::DataType &dt,
-    const ::synnax::labjack::Scale &scale
-) {
-    if (const auto *l = std::get_if<::synnax::labjack::LinearScale>(&scale))
-        scales.add(key, transform::UnaryLinearScale(l->slope, l->offset, dt));
-    else if (const auto *m = std::get_if<::synnax::labjack::MapScale>(&scale))
-        scales.add(
-            key,
-            transform::UnaryMapScale(
-                m->pre_scaled_min,
-                m->pre_scaled_max,
-                m->scaled_min,
-                m->scaled_max,
-                dt
-            )
-        );
-}
-
-/// @brief returns the scan backlog above which the task warns about skew. A zero
-/// or absent count means the caller has no preference, so the threshold falls back
-/// to seconds worth of scans at sample_rate.
+/// @brief returns the scan backlog above which the task warns about skew. An absent
+/// count falls back to seconds worth of scans at sample_rate.
 inline size_t parse_backlog_warn_on_count(
     x::json::Parser &parser,
     const std::string &field,
     const x::telem::Rate sample_rate,
     const float seconds
 ) {
-    if (const auto count = parser.field<size_t>(field, 0); count != 0) return count;
+    if (const auto count = parser.field<std::optional<std::uint32_t>>(field))
+        return *count;
     return static_cast<size_t>(sample_rate.hz() * seconds);
 }
 
@@ -550,7 +533,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         auto scale_transform = std::make_unique<transform::Scale>();
         for (const auto &ch: this->channels)
             if (const auto *scale = ch->scale())
-                add_scale(*scale_transform, ch->ch.key, ch->ch.data_type, *scale);
+                scale_transform->add(ch->ch.key, ch->ch.data_type, *scale);
         this->transform.add(std::move(scale_transform));
     }
 
@@ -896,7 +879,7 @@ class StreamSource final : public common::Source {
                 nullptr
             ))
             return err;
-        auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
+        auto scan_rate = this->cfg.sample_rate.hz();
         if (const auto err = d->e_stream_start(
                 this->cfg.samples_per_chan,
                 addrs.size(),

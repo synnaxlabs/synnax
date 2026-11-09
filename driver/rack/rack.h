@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,10 @@ const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
+
+/// @brief the flag that selects the state of the computer, which the Driver service
+/// reads, over the state of the user.
+const std::string MACHINE_STATE_FLAG = "--machine-state";
 
 struct RemoteInfo {
     /// @brief a saved rack that still needs enrollment. It is saved again only while
@@ -125,11 +130,18 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
+    /// @brief the version of the Core when it runs another minor than this Driver. The
+    /// Driver then starts no tasks. Set by load_remote.
+    std::optional<std::string> incompatible_core_version;
 
-    /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory>
-    new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
+    /// @brief returns a new task factory to use for creating tasks in the task manager.
+    /// Give it the same client as the task manager. With an incompatible Core, the
+    /// factory runs only the rack status, which reports the mismatch, and refuses every
+    /// other task.
+    [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {
@@ -261,8 +273,15 @@ struct Config {
 
     /// @brief applies the persisted state ownership and modes without opening the
     /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. Skips state that does not exist.
+    /// state that an earlier login left to root. Skips state that does not exist. On
+    /// Windows, it creates the state directory of the computer for LocalSystem and the
+    /// administrators alone, and returns an error when another user owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
+
+    /// @brief moves the state and OPC UA certificates of the user to the state of the
+    /// computer, which the service reads, unless that state exists. Does nothing on
+    /// Linux or with a --state-file argument. Requires admin rights.
+    static x::errors::Error move_user_state(x::args::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
@@ -283,7 +302,8 @@ struct Config {
     [[nodiscard]] x::errors::Error enroll();
 
     /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
-    /// it logs in with the password and loads the saved rack.
+    /// it logs in with the password and loads the saved rack. Writes the rack with this
+    /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
 };
 
@@ -306,7 +326,8 @@ class Rack {
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
-    /// should stop operations and shut down.
+    /// should stop operations and shut down. Calls on_shutdown unless a stop caused
+    /// the exit.
     bool
     should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
 
@@ -323,7 +344,8 @@ public:
     /// down prematurely
     void start(x::args::Parser &args, std::function<void()> on_shutdown = nullptr);
 
-    /// @brief stops the rack.
+    /// @brief stops the rack. Returns the error that stopped the rack before this call,
+    /// or NIL when the rack was still running.
     x::errors::Error stop();
 };
 }

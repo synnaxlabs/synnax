@@ -169,7 +169,7 @@ class MQTTRead(MQTTTask):
     """MQTT read task page. The list is a tree: a plain entry holds the fields of a
     JSON payload beneath it."""
 
-    page_type: PageType = "MQTT read task"
+    page_type: PageType = "mqtt_read"
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
@@ -219,7 +219,7 @@ class MQTTRead(MQTTTask):
 class MQTTWrite(MQTTTask):
     """MQTT write task page. A plain target publishes one command channel."""
 
-    page_type: PageType = "MQTT write task"
+    page_type: PageType = "mqtt_write"
     pluto_label: str = ".console-task-configure--mqtt_write"
     add_label = "Add targets"
 
@@ -244,7 +244,7 @@ class MQTTEdge(TaskPage):
     """Sparkplug edge node page. Each tag is a row of channel, name, Sparkplug B type,
     and command channel."""
 
-    page_type: PageType = "Sparkplug edge node"
+    page_type: PageType = "mqtt_sparkplug_edge"
     pluto_label: str = ".console-task-configure--mqtt_sparkplug_edge"
 
     def _rows(self) -> Locator:

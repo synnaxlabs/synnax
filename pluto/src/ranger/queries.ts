@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, ranger } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
+import { label, ranger } from "@synnaxlabs/client";
 import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
 const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
-const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
 export type RetrieveQuery = {
@@ -39,45 +36,17 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
-export type ListChildrenQuery = List.PagerParams & {
-  key?: ranger.Key;
-};
-
-export const useListChildren = Flux.createList<
-  ListChildrenQuery,
-  ranger.Key,
-  ranger.Range
->({
-  name: PLURAL_CHILDREN_RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return [];
-    return await client.ranges.children.retrieve({ key, limit, offset });
-  },
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key, limit, offset } }, handler) => {
-    if (key == null) return () => {};
-    return client.ranges.children.onChange({ key, limit, offset }, handler);
-  },
-  getCached: ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return undefined;
-    return client.ranges.children.getCached({ key, limit, offset });
-  },
-});
-
-export type RetrieveParentQuery = {
-  id: ontology.ID;
-};
-
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
+  RetrieveQuery,
   ranger.Range | null
 >({
   name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  retrieve: async ({ client, query: { key } }) =>
+    await client.ranges.parent.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.ranges.parent.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) =>
+    client.ranges.parent.watch(key).getCached(),
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =
@@ -85,8 +54,8 @@ export const { use, useEnsure, useTombstone, createSelector, useResult } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
     onChange: ({ client, query: { key } }, handler) =>
-      client.ranges.onChange(key, handler),
-    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+      client.ranges.watch(key).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.ranges.watch(key).getCached(),
   });
 
 export type RetrieveMultipleQuery = {
@@ -98,10 +67,11 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   ranger.Range[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.ranges.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+    client.ranges.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
 });
 
 const timeRangeZ = z
@@ -133,20 +103,14 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
-    const parentKey = value.parent;
     const rng = await client.ranges.create({
       ...value,
-      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
-    });
-    await Label.setLabelsFor({
-      client,
-      data: { id: rng.ontologyID, labels: value.labels },
+      parent: primitive.isNonZero(value.parent) ? value.parent : undefined,
     });
     reset({
       ...value,
       ...rng.payload,
       timeRange: rng.timeRange.numeric,
-      labels: value.labels,
       parent: value.parent,
     });
   },
@@ -172,42 +136,30 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
-export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
-
-export { type ListQuery } from "@/ranger/aether/queries";
-
-export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  ...listDefinition,
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
-});
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
+  const labels = useResult(key == null ? null : { key }).data?.labels;
+  return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
+};
 
 export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
-export type ListMetaDataQuery = {
+export type MetaDataQuery = {
   rangeKey: ranger.Key;
 };
 
-export const useListMetaData = Flux.createList<
-  ListMetaDataQuery,
-  string,
-  ranger.kv.Pair
+export const { useResult: useResultMetaData } = Flux.createRetrieve<
+  MetaDataQuery,
+  ranger.kv.Pair[]
 >({
   name: PLURAL_KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) =>
     await client.ranges.kv.retrieve(rangeKey),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) => {
-    if (rangeKey == null) return undefined;
-    const kv = client.ranges.getKV(rangeKey);
-    const value = await kv.get(key);
-    return { key, value, range: rangeKey };
-  },
   onChange: ({ client, query: { rangeKey } }, handler) =>
-    client.ranges.kv.onChange(rangeKey, handler),
-  getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
+    client.ranges.kv.watch(rangeKey).onChange(handler),
+  getCached: ({ client, query: { rangeKey } }) =>
+    client.ranges.kv.watch(rangeKey).getCached(),
 });
 
 export const kvPairFormSchema = ranger.kv.pairZ;
@@ -231,7 +183,7 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   },
 });
 
-export interface DeleteKVParams extends ListMetaDataQuery {
+export interface DeleteKVParams extends MetaDataQuery {
   key: string;
 }
 
@@ -247,7 +199,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   },
 });
 
-export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
+export interface SetKVParams extends MetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,

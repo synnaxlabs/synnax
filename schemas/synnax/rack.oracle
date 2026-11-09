@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
+import "schemas/synnax/role"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
@@ -27,27 +30,20 @@ Key uint32 {
     @key
 }
 
-StatusDetails struct {
-    rack Key {
-        @doc value "is the key of the rack this status pertains to."
-    }
-
-    @doc value "contains rack-specific status details."
-}
-
-Status = status.Status<StatusDetails> {
+Status = status.Status<nil> {
     @doc value "is rack-specific status information including operational state."
 }
 
 Rack struct {
-    key          Key      {
+    key          Key        {
         @doc value         "is the composite identifier for this rack."
         @key
         @validate required
     }
-    name         string   {
+    name         string     {
         @doc value         "is a human-readable name for the rack."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -55,7 +51,7 @@ Rack struct {
         @doc value "is true if this rack is embedded within the Synnax server process."
         @filter
     }
-    status       Status?  {
+    status       Status?    {
         @doc value  "is the current operational status of the rack."
         @go marshal omit
         @include
@@ -67,6 +63,54 @@ Rack struct {
         """
         @filter
     }
+    version      string?    {
+        @doc value """
+            is the version of the Driver that runs the rack, written at each connect.
+            Absent until a Driver reports it.
+        """
+    }
+    group        group.Key? {
+        @cpp omit
+        @doc value     "is the group the rack sits in, if any."
+        @group pinned
+        @group scope   device
+        @ref kind      place
+        @ref on_delete detach
+    }
+    role         role.Key   {
+        @cpp omit
+        @doc value     "is the role that grants the rack its permissions."
+        @pb omit
+        @ref kind      use
+        @ref on_delete restrict
+    }
+
+    action Create {
+        rack Rack
+
+        @doc value """
+            replaces the rack with the given created state. Emitted by the Core when a
+            rack is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the rack."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the rack.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the rack."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the rack."
+    }
 
     @cpp includes    "client/cpp/task/task.h"
     @cpp methods     "task::Client tasks"
@@ -77,8 +121,8 @@ Rack struct {
     """
     @go marshal
     @go migrate
-    @ontology type   "rack"
     @py name         "Base"
+    @resource type   "rack"
     @retrieve custom
     @ts name         "Payload"
 }
@@ -88,11 +132,13 @@ Where filter Rack {
     name
     embedded
     integrations
-    host_is_node bool {
-        @doc value """
-            matches racks on the Core that serves the request, or racks on other Cores
-            when false.
-        """
+    groups       group.Key[] {
+        @cpp omit
+        @doc value "matches the racks in any of the given groups."
+    }
+    grouped      bool        {
+        @cpp omit
+        @doc value "matches the racks in a group, or in no group when false."
     }
 
     @doc value         "is a filter that selects racks."
@@ -101,6 +147,7 @@ Where filter Rack {
 
 New struct extends Rack {
     -embedded
+    -role
     key = 0
 
     @cpp omit

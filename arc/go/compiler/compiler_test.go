@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -142,7 +143,7 @@ func bindDefaultModules(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
 	MustSucceed(stlmath.NewHost(ctx, r))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
-	MustSucceed(stltime.NewHost(ctx, r)).SetNow(cycleNow)
+	MustSucceed(stltime.NewHost(ctx, r, stringsState, discardReport)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState, channelState
 }
@@ -1683,6 +1684,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string, expected uint64) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
@@ -1694,8 +1696,8 @@ var _ = Describe("Compiler", func() {
 				results := MustSucceed(guard.Call(ctx))
 				Expect(results).To(ConsistOf(expected))
 			},
-			Entry("false and", "false and (i32(1) / i32(0)) > i32(0)", uint64(0)),
-			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
+			Entry("false and", "false and (i32(1) / zero) > i32(0)", uint64(0)),
+			Entry("true or", "true or (i32(1) / zero) > i32(0)", uint64(1)),
 		)
 
 		DescribeTable(
@@ -1703,16 +1705,19 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				_, err := mod.ExportedFunction("guard").Call(ctx)
-				Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
+				Expect(
+					mod.ExportedFunction("guard").Call(ctx),
+				).Error().
+					To(MatchError(ContainSubstring("integer divide by zero")))
 			},
-			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
-			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),
+			Entry("true and", "true and (i32(1) / zero) > i32(0)"),
+			Entry("false or", "false or (i32(1) / zero) > i32(0)"),
 		)
 	})
 
@@ -3669,6 +3674,38 @@ var _ = Describe("Compiler", func() {
 			_, strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
+		It("Should fail to compile a format function with no literal", func(
+			ctx SpecContext,
+		) {
+			resolver := []symbol.Symbol{
+				{
+					Name: "trig",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   100,
+				},
+				{
+					Name: "log",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+					ID:   101,
+				},
+			}
+			prog := MustSucceed(text.Parse(text.Text{Raw: `trig -> f"v={42}" -> log`}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i := range inter.Functions {
+				if strings.HasPrefix(
+					inter.Functions[i].Key,
+					compiler.FmtStrSyntheticPrefix,
+				) {
+					inter.Functions[i].Body.AST = nil
+				}
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().
+				To(MatchError(ContainSubstring("has no literal")))
+		})
+
 		It(
 			"Compiles a flow-form raw string with a single literal placeholder",
 			func(ctx SpecContext) {
@@ -4602,6 +4639,135 @@ var _ = Describe("Compiler", func() {
 				},
 			)
 		}
+	})
+
+	Describe("Time Formatting", func() {
+		var strMod *stlstrings.Host
+		var strState *stlstrings.ProgramState
+		BeforeEach(func(ctx SpecContext) {
+			_, strMod, strState, _ = bindDefaultModules(ctx, r)
+		})
+		strOf := func(results []uint64) string {
+			GinkgoHelper()
+			Expect(results).To(HaveLen(1))
+			return MustBeOk(strState.Get(uint32(results[0])))
+		}
+
+		It("Should format the cycle timestamp into a str local", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			import time
+			func compute() str {
+				t_str := time.format(time.now())
+				return t_str
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			results := MustSucceed(mod.ExportedFunction("compute").Call(ctx))
+			Expect(strOf(results)).To(Equal("1970-01-01T00:29:10Z"))
+		})
+
+		It("Should format inside a format string", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			import time
+			func compute() str {
+				return f"now {time.format(time.now())}"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			results := MustSucceed(mod.ExportedFunction("compute").Call(ctx))
+			Expect(strOf(results)).To(Equal("now 1970-01-01T00:29:10Z"))
+		})
+
+		Describe("Formats", func() {
+			// Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+			stamp := time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
+				UnixNano()
+			formatWith := func(ctx SpecContext, ns int64, format string) string {
+				GinkgoHelper()
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					return time.format(t, "`+format+`")
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(ns)),
+				)
+				return strOf(results)
+			}
+
+			It("Should accept a literal format", func(ctx SpecContext) {
+				Expect(formatWith(ctx, stamp, "%Y-%m-%d %H:%M:%S.%f")).
+					To(Equal("2012-01-17 08:32:05.250000"))
+			})
+
+			It("Should accept a literal time zone", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					return time.format(t, "%H:%M %Z", "America/Denver")
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(stamp)),
+				)
+				Expect(strOf(results)).To(Equal("01:32 MST"))
+			})
+
+			It("Should accept a dynamic time zone", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns, fmt str, tz str) str {
+					return time.format(t, fmt, tz)
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("compute").Call(
+					ctx,
+					uint64(stamp),
+					uint64(strState.Create("%H:%M %Z")),
+					uint64(strState.Create("America/Denver")),
+				))
+				Expect(strOf(results)).To(Equal("01:32 MST"))
+			})
+
+			It("Should format into an f-string through a local", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					clock := time.format(t, "%H:%M")
+					return f"at {clock}"
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(stamp)),
+				)
+				Expect(strOf(results)).To(Equal("at 08:32"))
+			})
+
+			It("Should copy an unknown dynamic code through", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns, fmt str) str {
+					return time.format(t, fmt)
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				format := strState.Create("%Q %")
+				results := MustSucceed(
+					mod.ExportedFunction("compute").
+						Call(ctx, uint64(stamp), uint64(format)),
+				)
+				Expect(strOf(results)).To(Equal("%Q %"))
+			})
+		})
 	})
 
 	Describe("Qualified Module Calls", func() {

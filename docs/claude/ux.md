@@ -110,6 +110,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A modal shows its commit shortcut in its primary button ("Create ⌘↵"), never as a hint
   in the footer.
 
+### Tags and badges
+
+- A tag (`Tag.Tag`) names an object that a person acts on: a label, a range, or a user.
+  A person can open, remove, or drag it.
+- A badge (`Badge.Badge`) shows a short fact that the program writes about the item
+  beside it: "Connected", "Auto", or "Dev3". It is not interactive. It has a color only
+  when the color means something.
+- An indicator (`Status.Indicator`) is a dot that shows the color of a state, with no
+  words.
+- A choice between options is a button or a tab, never a pill. Fluent, Polaris,
+  Atlassian, and Primer split these roles the same way.
+
 ### Modals
 
 - Header: an icon tile, the breadcrumb, and the close button, with no divider. The last
@@ -149,8 +161,9 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   timing settings. A row is a `Flex.Box x` of two or three fields in a stacked
   `Form.Sections`. Its first label stays in the label column, and its later fields line
   up with the later fields of every other row.
-- A row never starts with a checkbox. In a row of three, the later two fields are short:
-  a number or a duration. Wide later fields squeeze the first control.
+- A row never starts with a checkbox, except a checkbox that reveals the field beside
+  it, such as Optional with Fill value. In a row of three, the later two fields are
+  short: a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
 - A row of three fits the dialog with no overflow into its padding, so its labels are
@@ -182,18 +195,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 An auto field holds a value that the Console picks until a person sets one: an axis
 bound, a log precision, or the line plot X channel.
 
-- The field shows the "Auto" chip (`Input.AutoChip`) at its end, where a unit sits.
+- The field shows the "Auto" badge (`Input.AutoBadge`) at its end, where a unit sits.
   Violet (`--pluto-auto-z`, `--pluto-auto-text`) means auto. Primary blue stays for
   focus and selection.
 - The field never shows a value that it does not use, such as 0 for an auto bound. A
   field with room shows the prompt "Enter a value to override". A narrow field shows
-  only the chip.
-- A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
+  only the badge.
+- A set value removes the badge and shows the Auto button (`Input.AutoButton`): the Auto
   icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
   back in auto.
 - A select whose empty value is an auto mode shows the mode as a value ("Time") with the
-  chip, never "Select channel". The mode is a `Select.Item` in the select's `footer`, so
-  it stays under the list and the search never hides it. It has a one-line hint that
+  badge, never "Select channel". The mode is a `Select.Item` in the select's `footer`,
+  so it stays under the list and the search never hides it. It has a one-line hint that
   ends "Best for most needs." Its `label` leaves the hint out of the trigger.
 
 ### Task forms
@@ -261,15 +274,22 @@ bound, a log precision, or the line plot X channel.
 - Context menus use 12 px text in 24 px items.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - An option with a description shows the icon beside the name and the description under
-  the name. The dropdown is wide enough for each description on one line. Only a narrow
-  window wraps it, and it is never cut.
+  the name, through `Select.ItemDescription`. The dropdown is wide enough for each
+  description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
+- A device select shows the selected device's status as a badge at the end of the
+  trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
+  "Disconnected" from the status `connected` flag, in the color of the status variant.
+  Its tooltip shows the message and the description. A word from the variant was
+  rejected, because one variant covers both states.
 
 ### Lists with checkboxes
 
@@ -375,6 +395,17 @@ says why in a sentence, then gives the raw error.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
 
+### Logs
+
+- A log follows new lines only while its view is at the end. A scroll up or a text
+  selection holds the lines, and "Jump to latest" goes back to the end.
+- An error or a warning tints its line and colors its level word with
+  `--pluto-error-text` or `--pluto-warning-text`. Times, logger names, and debug lines
+  are gray l9.
+- Long lines wrap with a hanging indent. A log never scrolls sideways.
+- "Copy logs" copies a short header (product, version, state, time), then the lines as
+  plain text with UTC ISO times.
+
 ### Plot ranges
 
 - Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
@@ -431,12 +462,30 @@ says why in a sentence, then gives the raw error.
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
   and keep it for at least 300 ms. A plot draws its axes at once and streams data in.
 - Every command that a key runs also has a button or a menu item.
+- Cmd+C on selected tree items copies their names, one per line. The HTML form makes
+  each name a link when a link opens its type, so a paste into chat or email opens the
+  resource. The tree menu has the same Copy item. A text selection, such as a name in a
+  rename, copies as text.
 - Hover can show rare actions, never the current state. A control that shows on hover
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
+
+### Text selection
+
+- Selection is off by default. The Console's `body` turns it off. Selection inherits, so
+  a component turns it back on with `-webkit-user-select: text` and `user-select: text`,
+  never with `!important`. WebKit reads only the prefixed form.
+- Text that people paste somewhere else is selectable: dialog messages, error text,
+  read-only values (IDs, keys, addresses, thumbprints, versions), code, and logs. A
+  toast is not, because its copy button copies the whole status.
+- Controls are not selectable: buttons, tabs, menu items, tree and list items, field
+  labels, and toolbar titles. A record list copies through its context menu.
+- Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
+- A copy button shows a check while it stays in view. A menu item that copies shows a
+  toast, because the menu closes.
 
 ## Prior art
 

@@ -107,7 +107,8 @@ func (p *Plugin) generateFile(
 
 	data := templateData{
 		Package:    pkg,
-		TargetType: naming.GetGoName(typ),
+		TargetName: naming.GetGoName(typ),
+		TargetType: targetType(typ),
 		Manager:    mgr,
 	}
 
@@ -132,6 +133,17 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// targetType returns the Go type that Reduce takes. Go keeps only the type parameters
+// that have no default, and Reduce instantiates each one with any.
+func targetType(typ resolution.Type) string {
+	name := naming.GetGoName(typ)
+	params := resolution.NonDefaultedTypeParams(resolution.TypeParams(typ.Form))
+	if len(params) == 0 {
+		return name
+	}
+	return name + "[" + strings.Repeat("any, ", len(params)-1) + "any]"
 }
 
 // processField mirrors gotypes' optionality handling: optional values get a
@@ -159,6 +171,7 @@ func processField(
 
 type templateData struct {
 	Package    string
+	TargetName string
 	TargetType string
 	Actions    []actionData
 	*imports.Manager
@@ -196,8 +209,18 @@ func (f fieldData) MsgpackTagSuffix() string {
 	return ""
 }
 
+// constDocIndent is the display width of the single tab indenting a constant's doc
+// comment in a const block.
+const constDocIndent = 4
+
 var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
+	"formatFieldDoc": func(name, docStr string) string {
+		return doc.FormatGo(name, docStr, constDocIndent)
+	},
+	"typeDoc": func(name string) string {
+		return "is the Type of an Action that carries " + name + "Payload."
+	},
 }
 
 var fileTemplate = template.Must(
@@ -226,11 +249,13 @@ import (
 
 {{- if eq (len .Actions) 1}}
 {{- with index .Actions 0}}
+{{formatDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 const ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 {{- else}}
 const (
 {{- range .Actions}}
+	{{formatFieldDoc (printf "ActionType%s" .Name) (typeDoc .Name)}}
 	ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 )
@@ -245,7 +270,7 @@ type {{.Name}}Payload struct {
 {{- end}}
 }
 {{end}}
-// Action is a discriminated union for all {{.TargetType}} mutations. Type names
+// Action is a discriminated union for all {{.TargetName}} mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type string ` + "`" + `json:"type" msgpack:"type"` + "`" + `

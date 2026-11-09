@@ -115,8 +115,9 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { filter } from "@synnaxlabs/x";`,
-					`import { Payload, Where } from "@/thing/types.gen";`,
+					`import { compare, filter } from "@synnaxlabs/x";`,
+					`import { z } from "zod";`,
+					`import { Cursor, Payload, Where } from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
 					" * @returns whether only the Core can check where, because it holds a "+
@@ -175,6 +176,237 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
+		It("Should read each bare line from a value, a list, or an operator", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+					created_at
+					tags
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"/** key selects by key. */\n"+
+					"  key: filter.setInputZ(z.uuid()).exactOptional(),",
+				"name: filter.stringInputZ.exactOptional(),",
+				"createdAt: filter.orderedInputZ(z.int64()).exactOptional(),",
+				"tags: filter.containsInputZ(z.string()).exactOptional(),",
+				"export type WhereInput = filter.Input<typeof inputs> & {\n"+
+					"  and?: WhereInput[];\n"+
+					"  or?: WhereInput[];\n"+
+					"  not?: WhereInput;\n};",
+				"const whereInputZ: z.ZodType<Where, WhereInput> = z.strictObject({",
+				"return whereInputZ.array().exactOptional();",
+				"return whereInputZ.exactOptional();",
+				"export const retrieveInputZ = <O extends z.core.$ZodShape>("+
+					"options: O) =>",
+				"...inputs,\n      ...options,",
+				`filter.split(input, ["and", "or", "not", "key", "name", "createdAt", `+
+					`"tags"]),`,
+			)
+		})
+
+		It("Should read a key, a name, or a list of either as a shortcut", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"export const shortcutZ = z.union([",
+				"z.uuid().transform((key) => ({ where: { key: { eq: key } } })),",
+				"z.string().transform((name) => ({ where: { name: { eq: name } } "+
+					"})),",
+				"z.uuid().array().transform((keys) => ({ where: { key: { in: keys } "+
+					"} })),",
+				"z.string().array().transform((names) => ({ where: { name: { in: "+
+					"names } } })),",
+			)
+		})
+
+		It(
+			"Should order positions by a sorted field, then by key",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key        uuid   { @key }
+					name       string { @index sorted }
+					created_at int64  { @index sorted }
+					span       Span   { @index sorted start }
+
+					action Touch {
+						at int64
+					}
+
+					@ts name "Payload"
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "where.gen.ts").ToContain(
+					`import { compare, filter } from "@synnaxlabs/x";`,
+					"const compareNumbers = (a: number | bigint, b: number | bigint): number =>",
+					"export const cursor = (record: Payload, order?: Order): Cursor => {",
+					"if (order == null) return { key: record.key };",
+					`case "name":`,
+					"return { key: record.key, name: record.name };",
+					"return { key: record.key, spanStart: record.span.start };",
+					"return compare.text(a.name, b.name);",
+					"return compareNumbers(a.createdAt, b.createdAt);",
+					`throw new Error("a cursor has no span_start");`,
+					"export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {",
+					"if (order == null) return compare.uuids(a.key, b.key);",
+					"compareValues(order.field, a, b) || compare.uuids(a.key, b.key);",
+					`export const LIST_FIELDS: readonly string[] = ["key", "name", "created_at", `+
+						`"span"];`,
+					"return order.descending ? -c : c;",
+				)
+			},
+		)
+
+		It("Should order number keys by value", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					key  uint32 { @key }
+					name string { @index sorted }
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"const compareNumbers = ",
+				"compareValues(order.field, a, b) || compareNumbers(a.key, b.key);",
+			)
+		})
+
+		It("Should order by key alone without a sorted field", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").
+				ToContain(
+					"export const cursor = (record: Payload): Cursor => ({ key: record.key });",
+					"export const compareCursors = (a: Cursor, b: Cursor): number =>\n"+
+						"  compare.uuids(a.key, b.key);",
+				).
+				ToNotContain("compareNumbers", "OrderField", "LIST_FIELDS")
+		})
+
+		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					name string
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").
+				ToNotContain("LIST_FIELDS", "compareCursors", "export const cursor")
+		})
+
+		It("Should take no shortcut without a name line", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
+		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Key = string
+				Thing struct {
+					key  Key    { @key }
+					name string
+				}
+				Where filter Thing {
+					key
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
+		It("Should read a typed line as its type, or a list from a value", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span
+					spans    Span[]
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"overlaps: spanZ.exactOptional(),",
+				"spans: filter.listInputZ(spanZ).exactOptional(),",
+				`import { Cursor, Payload, Where, spanZ } from "@/thing/types.gen";`,
+			)
+		})
+
+		It("Should import a typed line's type from an ancestor as a namespace", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/thing", `
+				@ts output "client/ts/src/thing"
+
+				Span struct {
+					start int64
+				}
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+				import "schemas/thing"
+
+				@ts output "client/ts/src/thing/part"
+
+				Part struct {
+					key uuid { @key }
+
+					@ts name "Payload"
+				}
+
+				Where filter Part {
+					key
+					overlaps thing.Span
+				}
+			`, "part", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				`import * as thing from "@/thing/types.gen";`,
+				"overlaps: thing.spanZ.exactOptional(),",
+			)
+		})
+
 		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
@@ -207,7 +439,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { Where, Wire } from "@/thing/types.gen";`,
+					`import { Cursor, Where, Wire } from "@/thing/types.gen";`,
 					"record: Wire",
 					"!filter.matchesString(where.name, record.name)",
 				)

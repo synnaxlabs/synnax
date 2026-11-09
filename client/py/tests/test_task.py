@@ -8,8 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from collections.abc import Callable
-from typing import Any, assert_type, cast
+from typing import Any, assert_type
 from uuid import UUID, uuid4
 
 import pytest
@@ -21,11 +20,35 @@ from x import filter
 from x.testutil import assert_eventually
 
 
-def _device(rack: int) -> sy.Device:
+def _device(rack: sy.rack.Key) -> sy.Device:
     key = str(uuid4())
     return sy.Device(
         key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
     )
+
+
+def _reply_to_next_command(
+    client: sy.Synnax,
+    ready: threading.Event,
+    variant: sy.status.Variant,
+    message: str,
+    description: str,
+) -> None:
+    """Answers the next task command with one status, as a driver does."""
+    with client.open_streamer("sy_task_cmd") as s:
+        ready.set()
+        f = s.read(timeout=5)
+        assert f is not None
+        cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+        client.statuses.set(
+            sy.task.Status(
+                variant=variant,
+                message=message,
+                description=description,
+                details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                owner=sy.task.resource_id(cmd.task),
+            )
+        )
 
 
 @pytest.mark.task
@@ -91,7 +114,7 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=task.key, include_status=True)
         assert isinstance(res.status, sy.task.Status)
         assert res.status.details is not None
-        assert res.status.details.task == task.key
+        assert res.status.owner == task.resource_id
 
     def test_retrieve_by_rack(self, client: sy.Synnax) -> None:
         """Should return a list of only the tasks on the given rack."""
@@ -117,7 +140,7 @@ class TestTaskClient:
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when a key, name, or type is given."""
+        """Should return one task when a key or name is given."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         by_key = client.tasks.retrieve(key=task.key, include_status=True)
@@ -126,9 +149,19 @@ class TestTaskClient:
         by_name = client.tasks.retrieve(name=name, include_status=True)
         assert_type(by_name, sy.Task)
         assert by_name.key == task.key
-        by_type = client.tasks.retrieve(type="pagerduty_alert", include_status=True)
-        assert_type(by_type, sy.Task)
-        assert by_type.type == "pagerduty_alert"
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one task has the name or type."""
+        name = str(uuid4())
+        for _ in range(2):
+            client.tasks.create(name=name, type="pagerduty_alert")
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=rf"Expected one task where .*{name}.*, but found 2",
+        ):
+            client.tasks.retrieve(name=name)
+        with pytest.raises(sy.MultipleFoundError):
+            client.tasks.retrieve(type="pagerduty_alert", one=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every task when no filter is given."""
@@ -137,13 +170,39 @@ class TestTaskClient:
         assert_type(res, list[sy.Task])
         assert task.key in {t.key for t in res}
 
-    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when singular selectors are mixed with others."""
-        retrieve = cast(Callable[..., object], client.tasks.retrieve)
-        with pytest.raises(ValueError, match="cannot be combined"):
-            retrieve(name="test", rack=1)
-        with pytest.raises(ValueError, match="only one of"):
-            retrieve(name="test", type="pagerduty_alert")
+    def test_retrieve_type(self, client: sy.Synnax) -> None:
+        """Should return a list for a plain type, and one task with one set."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key)
+        assert_type(res, list[sy.Task])
+        assert [t.key for t in res] == [task.key]
+        found = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key, one=True)
+        assert_type(found, sy.Task)
+        assert found.key == task.key
+
+    def test_retrieve_plain_name_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one task for a plain name beside other fields."""
+        rack = client.racks.create(name=str(uuid4()))
+        name = str(uuid4())
+        task = client.tasks.create(name=name, type="pagerduty_alert", rack=rack.key)
+        assert client.tasks.retrieve(name=name, rack=rack.key).key == task.key
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(name=name, type="other")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should keep the tasks that match any filter in or_."""
+        rack = client.racks.create(name=str(uuid4()))
+        a = client.tasks.create(name="a", type="pagerduty_alert", rack=rack.key)
+        b = client.tasks.create(name="b", type="pagerduty_alert", rack=rack.key)
+        client.tasks.create(name="c", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(rack=rack.key, or_=[{"name": "a"}, {"key": b.key}])
+        assert {t.key for t in res} == {a.key, b.key}
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every task."""
+        with pytest.raises(sy.ValidationError, match="rack is None"):
+            client.tasks.retrieve(rack=None)  # type: ignore[call-overload]
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""
@@ -164,7 +223,7 @@ class TestTaskClient:
         where = task.Where(
             or_=[
                 task.Where(name=filter.String(eq="t0")),
-                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+                task.Where(key=filter.Set[task.Key](eq=tasks[1].key)),
             ]
         )
         res = client.tasks.retrieve(where=where, rack=rack.key)
@@ -181,13 +240,12 @@ class TestTaskClient:
         with pytest.raises(sy.NotFoundError):
             client.tasks.retrieve(uuid4())
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the tasks on a rack."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the tasks on a rack."""
         rack = client.racks.create(name=str(uuid4()))
         for i in range(3):
             client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
         assert len(client.tasks.retrieve(rack=rack.key, limit=2)) == 2
-        assert len(client.tasks.retrieve(rack=rack.key, offset=2)) == 1
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should return the tasks whose names match the search term."""
@@ -209,14 +267,10 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
                     sy.task.Status(
-                        key=str(sy.task.ontology_id(cmd.task)),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.task.StatusDetails(
-                            task=cmd.task,
-                            running=False,
-                            cmd=cmd.key,
-                        ),
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
                     )
                 )
 
@@ -256,6 +310,211 @@ class TestTaskClient:
         finally:
             stop.set()
             t.join()
+
+    def test_execute_command_sync_ends_when_the_driver_goes_down(
+        self, client: sy.Synnax
+    ) -> None:
+        """A down Driver never replies, so the status of its rack ends the wait."""
+        rack = client.racks.create(name=f"dying-{uuid4()}")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                client.statuses.set(
+                    sy.rack.Status(
+                        variant=sy.status.VARIANT_WARNING,
+                        message="Driver not running",
+                        description="The Core has not heard from the Driver.",
+                        details={},
+                        owner=sy.rack.resource_id(rack.key),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        timer = sy.Timer()
+        with pytest.raises(RuntimeError) as err:
+            tsk.execute_command_sync("test", timeout=60)
+        assert str(err.value) == (
+            "Driver not running: The Core has not heard from the Driver."
+        )
+        assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
+        t.join()
+
+    @pytest.mark.parametrize(
+        "variant", [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_ERROR]
+    )
+    def test_execute_command_sync_waits_through_a_live_rack(
+        self, client: sy.Synnax, variant: sy.status.Variant
+    ) -> None:
+        """A rack status from a live Driver, an error included, does not end the
+        wait."""
+        rack = client.racks.create(name=f"alive-{uuid4()}")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                client.statuses.set(
+                    sy.rack.Status(
+                        variant=variant,
+                        message="Driver is running",
+                        details={},
+                        owner=sy.rack.resource_id(rack.key),
+                    )
+                )
+                client.statuses.set(
+                    sy.task.Status(
+                        variant=sy.status.VARIANT_SUCCESS,
+                        message="Command executed.",
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        status = tsk.execute_command_sync("test", timeout=60)
+        assert status.message == "Command executed."
+        t.join()
+
+    def test_execute_command_sync_waits_past_the_timeout_after_a_loading_reply(
+        self, client: sy.Synnax
+    ) -> None:
+        """A loading reply acknowledges the command, so the wait goes on until the
+        final status even after the timeout."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                replies: list[tuple[sy.status.Variant, str]] = [
+                    (sy.status.VARIANT_LOADING, "Starting task"),
+                    (sy.status.VARIANT_SUCCESS, "Started task"),
+                ]
+                for variant, message in replies:
+                    client.statuses.set(
+                        sy.task.Status(
+                            variant=variant,
+                            message=message,
+                            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                            owner=sy.task.resource_id(cmd.task),
+                        )
+                    )
+                    sy.sleep(2)
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        status = tsk.execute_command_sync("start", timeout=1)
+        assert status.variant == sy.status.VARIANT_SUCCESS
+        assert status.message == "Started task"
+        t.join()
+
+    def test_start_raises_when_the_driver_fails_the_start(
+        self, client: sy.Synnax
+    ) -> None:
+        """start() raises the error status that the driver sends."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_ERROR, "Failed", "slave 1 refused"),
+        )
+        t.start()
+        ready.wait()
+        with pytest.raises(RuntimeError) as err:
+            tsk.start(timeout=5)
+        assert str(err.value) == "Failed: slave 1 refused"
+        t.join()
+
+    def test_stop_returns_when_the_stop_status_carries_an_error(
+        self, client: sy.Synnax
+    ) -> None:
+        """stop() returns on an error status, which carries an earlier error of the
+        task."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_ERROR, "Failed to read data", ""),
+        )
+        t.start()
+        ready.wait()
+        tsk.stop(timeout=5)
+        t.join()
+
+    @pytest.mark.parametrize("command", ["start", "stop"])
+    def test_start_and_stop_return_when_the_driver_runs_the_command(
+        self, client: sy.Synnax, command: str
+    ) -> None:
+        """start() and stop() return when the driver sends a success status."""
+        tsk = sy.pagerduty.AlertTask(
+            client.tasks.create(name="test", type="pagerduty_alert")
+        )
+        ready = threading.Event()
+        t = threading.Thread(
+            target=_reply_to_next_command,
+            args=(client, ready, sy.status.VARIANT_SUCCESS, "Done", ""),
+        )
+        t.start()
+        ready.wait()
+        getattr(tsk, command)(timeout=5)
+        t.join()
+
+    def test_execute_command_sync_ends_when_no_final_status_follows_a_loading_reply(
+        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A Driver that restarts after a loading reply never sends the final status,
+        so the wait ends at its limit."""
+        monkeypatch.setattr(
+            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        )
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                client.statuses.set(
+                    sy.task.Status(
+                        variant=sy.status.VARIANT_LOADING,
+                        message="Starting task",
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        timer = sy.Timer()
+        with pytest.raises(TimeoutError) as err:
+            tsk.execute_command_sync("start", timeout=0.5)
+        assert str(err.value) == "timed out waiting for driver to finish start command"
+        assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
+        t.join()
 
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
@@ -388,7 +647,9 @@ class TestTaskClient:
     def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
         """Should raise when the config names a device that does not exist."""
         tsk = sy.Task(name="test", type="modbus_read", config={"device": "missing"})
-        with pytest.raises(sy.NotFoundError, match=r"(?i)not found"):
+        with pytest.raises(
+            sy.NotFoundError, match='Found no device where key = "missing"'
+        ):
             client.tasks.configure(tsk)
 
     def test_list_tasks(self, client: sy.Synnax) -> None:
@@ -425,6 +686,36 @@ class TestTaskClient:
         assert copied.name == copy_name
         assert copied.type == original.type
         assert copied.config["routing_key"] == original.config["routing_key"]
+
+    def test_copy_snapshot_into_range(self, client: sy.Synnax) -> None:
+        """Should place a snapshot copy in a range and retrieve it by that range."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        assert snap.snapshot
+        assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
+        assert [t.key for t in rng.snapshots()] == [snap.key]
+
+    def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
+        """Should delete the snapshots in a range when the range is deleted."""
+        rng = client.ranges.create(
+            name=str(uuid4()),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(
+            original.key, str(uuid4()), snapshot=True, range_key=rng.key
+        )
+        client.ranges.delete(rng.key)
+        with pytest.raises(
+            sy.NotFoundError, match=f'Found no task where key = "{snap.key}"'
+        ):
+            client.tasks.retrieve(key=snap.key)
 
 
 @pytest.mark.task

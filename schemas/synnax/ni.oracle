@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port int32 = 0 {
+        port uint32 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -672,13 +672,17 @@ BaseAIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
-        @doc value "is the key of the device the channel belongs to."
+        @doc value     "is the key of the device the channel belongs to."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every NI analog input channel shares."
@@ -1190,13 +1194,17 @@ BaseCIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
-        @doc value "is the key of the device the counter belongs to."
+        @doc value     "is the key of the device the counter belongs to."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every NI counter input channel shares."
@@ -1227,8 +1235,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor     int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor     uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1243,7 +1252,7 @@ CIChannel union on type extends BaseCIChannel {
         count_direction CICountDirection = count_up {
             @doc value "selects the direction the counter counts."
         }
-        initial_count   float64 = 0 {
+        initial_count   uint32 = 0 {
             @doc value "is the value the counter starts at."
         }
         terminal        string = "" {
@@ -1275,8 +1284,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor       int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor       uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1392,8 +1402,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         terminal_a     string = "" {
             @doc value "is the terminal for encoder channel A."
@@ -1433,8 +1444,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         initial_angle  float64 = 0 {
             @doc value "is the angle the encoder starts at."
@@ -1500,10 +1512,14 @@ BaseAOChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -1511,7 +1527,7 @@ BaseAOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1562,13 +1578,16 @@ DIChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
-    line     int32 = 0 {
-        @doc value "is the digital line within the port the channel reads from."
+    line     uint8 = 0 {
+        @doc value    "is the digital line within the port the channel reads from."
+        @validate max 31
     }
 
     @doc value  "is a digital input channel the task acquires from."
@@ -1584,10 +1603,14 @@ DOChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -1595,11 +1618,12 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
-    line               int32 = 0 {
-        @doc value "is the digital line within the port the channel writes to."
+    line               uint8 = 0 {
+        @doc value    "is the digital line within the port the channel writes to."
+        @validate max 31
     }
 
     @doc value  "is a digital output channel the task drives."
@@ -1611,12 +1635,14 @@ AnalogReadConfig struct extends task.ReadConfig {
         @doc value "are the analog input channels the task acquires."
     }
 
-    @doc value  """
+    @doc value           """
         configures an NI analog read task. Each channel carries its own device.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 CounterReadConfig struct extends task.ReadConfig {
@@ -1624,12 +1650,14 @@ CounterReadConfig struct extends task.ReadConfig {
         @doc value "are the counter input channels the task acquires."
     }
 
-    @doc value  """
+    @doc value           """
         configures an NI counter read task. Each channel carries its own device.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -1647,24 +1675,30 @@ AnalogWriteConfig struct extends WriteConfig {
         @doc value "are the analog output channels the task drives."
     }
 
-    @doc value  "configures an NI analog write task."
-    @go imex    body
+    @doc value           "configures an NI analog write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 DigitalReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
-        @doc value "is the key of the device the task acquires from."
+        @doc value     "is the key of the device the task acquires from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     channels DIChannel[] {
         @doc value "are the digital input channels the task acquires."
     }
 
-    @doc value  "configures an NI digital read task."
-    @go imex    body
+    @doc value           "configures an NI digital read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 DigitalWriteConfig struct extends WriteConfig {
@@ -1672,10 +1706,12 @@ DigitalWriteConfig struct extends WriteConfig {
         @doc value "are the digital output channels the task drives."
     }
 
-    @doc value  "configures an NI digital write task."
-    @go imex    body
+    @doc value           "configures an NI digital write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -1683,6 +1719,7 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }
 
 AccelChargeSensitivityUnits enum {
@@ -1700,7 +1737,7 @@ AccelChargeSensitivityUnits enum {
 }
 
 AnalogInputPort struct {
-    port                    int32            {
+    port                    uint32           {
         @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
     }
     terminal_configs        TerminalConfig[] = [] {
@@ -1716,7 +1753,7 @@ AnalogInputPort struct {
     types                   string[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
-    negative                int32?           {
+    negative                uint32?          {
         @doc value """
             is the port that a differential channel on this port uses as its negative
             input. Absent when the port has no pair.
@@ -1727,7 +1764,7 @@ AnalogInputPort struct {
 }
 
 AnalogOutputPort struct {
-    port             int32            {
+    port             uint32           {
         @doc value "is the number in the DAQmx name of the port, such as 1 for ao1."
     }
     terminal_configs TerminalConfig[] = [] {
@@ -1741,7 +1778,7 @@ AnalogOutputPort struct {
 }
 
 CounterPort struct {
-    port  int32    {
+    port  uint32   {
         @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
     }
     types string[] = [] {
@@ -1754,11 +1791,12 @@ CounterPort struct {
 }
 
 DigitalPort struct {
-    port   int32 {
+    port   uint32 {
         @doc value "is the number in the DAQmx name of the port, such as 0 for port0."
     }
-    lines  int32 {
-        @doc value "is the number of lines in the port."
+    lines  uint8  {
+        @doc value    "is the number of lines in the port."
+        @validate max 32
     }
     input  bool = false {
         @doc value "is true when the port reads digital input."

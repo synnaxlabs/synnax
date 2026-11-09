@@ -47,6 +47,47 @@ var _ = Describe("Node", func() {
 		)
 	})
 
+	Describe("IsOnceNode", func() {
+		init := ir.Node{Key: "init", Outputs: types.Params{{Name: "output"}}}
+		stateful := ir.Node{
+			Key:    "reg",
+			Type:   "stateful_variable",
+			Inputs: types.Params{{Name: "f0"}, {Name: "f1"}},
+		}
+		plain := ir.Node{
+			Key:    "var",
+			Type:   "variable",
+			Inputs: types.Params{{Name: "f0"}},
+		}
+		edge := func(target, param string) ir.Edge {
+			return ir.Edge{
+				Source: ir.Handle{Node: "init", Param: "output"},
+				Target: ir.Handle{Node: target, Param: param},
+			}
+		}
+		DescribeTable(
+			"Classification",
+			func(nodes ir.Nodes, edges ir.Edges, expected bool) {
+				Expect(init.IsOnceNode(nodes, edges)).To(Equal(expected))
+			},
+			Entry("feeds the first input of a stateful variable",
+				ir.Nodes{init, stateful}, ir.Edges{edge("reg", "f0")}, true),
+			Entry("feeds a later input of a stateful variable",
+				ir.Nodes{init, stateful}, ir.Edges{edge("reg", "f1")}, false),
+			Entry("feeds a plain variable",
+				ir.Nodes{init, plain}, ir.Edges{edge("var", "f0")}, false),
+			Entry("has no outgoing edge",
+				ir.Nodes{init, stateful}, ir.Edges{}, false),
+			Entry("is not an entry node",
+				ir.Nodes{init, stateful},
+				ir.Edges{
+					edge("reg", "f0"),
+					{Target: ir.Handle{Node: "init", Param: "input"}},
+				},
+				false),
+		)
+	})
+
 	Describe("String", func() {
 		DescribeTable(
 			"Rendering",

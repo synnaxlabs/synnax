@@ -8,18 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Synnax } from "@synnaxlabs/pluto";
 import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+  createProxiedTestClient,
+  createTestClient,
+  FAST_RETRY,
+} from "@synnaxlabs/client/testutil";
+import { Access, Synnax } from "@synnaxlabs/pluto";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
@@ -31,8 +36,10 @@ import {
   createCoreState,
 } from "@/session/core/testutil";
 import {
+  createConsoleWrapper,
   createSessionConsoleWrapper,
   pinLocationOrigin,
+  renderSuspended,
   renderWithConsole,
   type TestStore,
   uniqueName,
@@ -60,6 +67,37 @@ const renderGuard = async (selected?: string): Promise<TestStore> => {
   return store;
 };
 
+const DEAD_KEY = "dead";
+
+const renderUnreachable = async (): Promise<void> => {
+  const { wrapper } = await createSessionConsoleWrapper({
+    client: null,
+    preloadedState: {
+      [Session.Core.SLICE_NAME]: {
+        ...Session.Core.ZERO_SLICE_STATE,
+        cores: {
+          [DEAD_KEY]: createCore("Dead", {
+            key: DEAD_KEY,
+            host: "localhost",
+            port: 9098,
+          }),
+        },
+        selected: DEAD_KEY,
+      },
+    },
+  });
+  render(
+    <Session.SettledProvider>
+      <Auth.Guard>
+        <Auth.ConnectionGuard>
+          <span>authenticated content</span>
+        </Auth.ConnectionGuard>
+      </Auth.Guard>
+    </Session.SettledProvider>,
+    { wrapper },
+  );
+};
+
 const submitCredentials = (username: string, password: string): void => {
   fireEvent.change(screen.getByPlaceholderText("synnax"), {
     target: { value: username },
@@ -69,6 +107,10 @@ const submitCredentials = (username: string, password: string): void => {
   });
   fireEvent.click(findButton("Log in"));
 };
+
+beforeEach(() => {
+  mocks.engine = "web";
+});
 
 describe("auth guard", () => {
   it("should render children when a Core is already selected", async () => {
@@ -146,67 +188,33 @@ describe("auth guard", () => {
   });
 
   it("should surface connection trouble at a cold start against an unreachable Core", async () => {
-    const DEAD_KEY = "dead";
-    const { wrapper } = await createSessionConsoleWrapper({
-      client: null,
-      preloadedState: {
-        [Session.Core.SLICE_NAME]: {
-          ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", {
-              key: DEAD_KEY,
-              host: "localhost",
-              port: 9098,
-            }),
-          },
-          selected: DEAD_KEY,
-        },
-      },
-    });
-    render(
-      <Session.SettledProvider>
-        <Auth.Guard>
-          <Auth.ConnectionGuard>
-            <span>authenticated content</span>
-          </Auth.ConnectionGuard>
-        </Auth.Guard>
-      </Session.SettledProvider>,
-      { wrapper },
-    );
+    await renderUnreachable();
     expect(await screen.findByText("Retry now", {}, { timeout: 10000 })).toBeTruthy();
     expect(screen.getAllByText("localhost:9098").length).toBeGreaterThan(0);
     expect(screen.queryByText("Preparing your workspace...")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
+  it("should not offer to edit the connection in a browser", async () => {
+    await renderUnreachable();
+    await screen.findByText("Retry now", {}, { timeout: 10000 });
+    expect(screen.queryByText("Edit connection")).toBeNull();
+  });
+
+  it("should offer to edit the connection on desktop", async () => {
+    mocks.engine = "tauri";
+    mockWindows("main");
+    // A dev build version skips the update check.
+    mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+    onTestFinished(clearMocks);
+    await renderUnreachable();
+    expect(
+      await screen.findByText("Edit connection", {}, { timeout: 10000 }),
+    ).toBeTruthy();
+  });
+
   it("should disable the retry button while a check is in flight", async () => {
-    const DEAD_KEY = "dead";
-    const { wrapper } = await createSessionConsoleWrapper({
-      client: null,
-      preloadedState: {
-        [Session.Core.SLICE_NAME]: {
-          ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", {
-              key: DEAD_KEY,
-              host: "localhost",
-              port: 9098,
-            }),
-          },
-          selected: DEAD_KEY,
-        },
-      },
-    });
-    render(
-      <Session.SettledProvider>
-        <Auth.Guard>
-          <Auth.ConnectionGuard>
-            <span>authenticated content</span>
-          </Auth.ConnectionGuard>
-        </Auth.Guard>
-      </Session.SettledProvider>,
-      { wrapper },
-    );
+    await renderUnreachable();
     await screen.findByText("Retry now", {}, { timeout: 10000 });
     // The scheduled retries raise the same flag, so the assertion starts from a
     // gap between them rather than from whatever the countdown happens to be doing.
@@ -250,7 +258,7 @@ describe("connection guard permissions", () => {
     const { result } = renderHook(
       () => {
         const client = Synnax.use();
-        const granted = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+        const granted = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
         if (client != null) verdicts.push(granted);
         return granted;
       },
@@ -269,27 +277,47 @@ describe("connection guard permissions", () => {
     ).toBeTruthy();
   });
 
-  const PASSWORD = "password123";
+  it("should return to the login surface through Log out", async () => {
+    const { proxy, client } = await createProxiedTestClient({
+      retry: FAST_RETRY,
+      onRetry: () => {},
+    });
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      preloadedState: {
+        [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+      },
+    });
+    // A Core that stays unreachable fails the permissions load.
+    await proxy.sever();
+    await renderSuspended(
+      <Auth.Guard>
+        <Auth.ConnectionGuard>
+          <span>authenticated content</span>
+        </Auth.ConnectionGuard>
+      </Auth.Guard>,
+      { wrapper, onCaughtError: () => {} },
+    );
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await waitFor(() =>
+      expect(screen.getAllByText("Log in").length).toBeGreaterThan(0),
+    );
+    expect(screen.queryByText("authenticated content")).toBeNull();
+  });
 
-  const assignRole = async (
-    client: ReturnType<typeof createTestClient>,
-    user: string,
-    roleName: string,
-  ): Promise<void> => {
-    const roles = await client.access.roles.retrieve({});
-    const role = roles.find(({ name }) => name === roleName);
-    if (role == null) throw new Error(`${roleName} role not provisioned`);
-    await client.access.roles.assign({ user, role: role.key });
-  };
+  const PASSWORD = "password123";
 
   const createUserWithRole = async (
     client: ReturnType<typeof createTestClient>,
     roleName: string,
-  ): Promise<{ username: string; key: string }> => {
+  ): Promise<string> => {
+    const roles = await client.access.roles.retrieve({});
+    const role = roles.find(({ name }) => name === roleName);
+    if (role == null) throw new Error(`${roleName} role not provisioned`);
     const username = uniqueName("role_user");
-    const { key } = await client.users.create({ username, password: PASSWORD });
-    await assignRole(client, key, roleName);
-    return { username, key };
+    await client.users.create({ username, password: PASSWORD, role: role.key });
+    return username;
   };
 
   const renderGuardedContent = async (): Promise<void> => {
@@ -303,56 +331,20 @@ describe("connection guard permissions", () => {
           </Auth.ConnectionGuard>
         </Auth.Guard>
       </Session.SettledProvider>,
-      // A denied policy fetch reaches the denial boundary.
-      { wrapper, onCaughtError: () => {} },
+      { wrapper },
     );
   };
 
-  it("should explain a denied policy fetch and recover through Retry", async () => {
-    const client = createTestClient();
-    // The Driver role cannot retrieve policies, so the permissions fetch is denied.
-    const { username, key } = await createUserWithRole(client, "Driver");
-    await renderGuardedContent();
-    submitCredentials(username, PASSWORD);
-    expect(
-      await screen.findByText("Console access denied", {}, { timeout: 10000 }),
-    ).toBeTruthy();
-    expect(screen.getByText(`Check role permissions for ${username}.`)).toBeTruthy();
-    // The denial renders the calm surface, not the crash fallback.
-    expect(screen.queryByText("Stack trace")).toBeNull();
-    expect(screen.queryByText("authenticated content")).toBeNull();
-    await assignRole(client, key, "Operator");
-    await act(async () => fireEvent.click(findButton("Retry")));
-    expect(
-      await screen.findByText("authenticated content", {}, { timeout: 10000 }),
-    ).toBeTruthy();
-  });
-
-  it("should return to the login surface through Log out", async () => {
-    const client = createTestClient();
-    const { username } = await createUserWithRole(client, "Driver");
-    await renderGuardedContent();
-    submitCredentials(username, PASSWORD);
-    await screen.findByText("Console access denied", {}, { timeout: 10000 });
-    fireEvent.click(findButton("Log out"));
-    await waitFor(() =>
-      expect(screen.getAllByText("Log in").length).toBeGreaterThan(0),
-    );
-    expect(screen.queryByText("Console access denied")).toBeNull();
-    expect(screen.queryByText("authenticated content")).toBeNull();
-  });
-
-  it.each(["Owner", "Engineer", "Operator", "Viewer"])(
+  it.each(["Owner", "Engineer", "Operator", "Viewer", "Driver"])(
     "should render the workspace for the %s role",
     async (roleName) => {
       const client = createTestClient();
-      const { username } = await createUserWithRole(client, roleName);
+      const username = await createUserWithRole(client, roleName);
       await renderGuardedContent();
       submitCredentials(username, PASSWORD);
       expect(
         await screen.findByText("authenticated content", {}, { timeout: 10000 }),
       ).toBeTruthy();
-      expect(screen.queryByText("Console access denied")).toBeNull();
     },
   );
 });

@@ -311,8 +311,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_TRUE(ASSERT_NIL_P(client.devices.retrieve(keys)).empty());
 }
 
-/// @brief it should retrieve devices using a device::RetrieveRequest with keys and
-/// names.
+/// @brief it should retrieve devices with a Where on keys and a Where on names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
@@ -348,26 +347,16 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     ASSERT_NIL(client.devices.create(d3));
-    const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .key = x::filter::Set<Key>{.in = std::vector<Key>{d1.key, d3.key}},
-            },
-        }
-    ));
+    const auto devices_keys = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.key = {d1.key, d3.key}})
+    );
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
     ASSERT_TRUE(dm.contains(d1.key));
     ASSERT_TRUE(dm.contains(d3.key));
-    const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .name = x::filter::String{
-                    .in = std::vector<std::string>{d1.name, d2.name},
-                },
-            },
-        }
-    ));
+    const auto devices_names = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.name = {d1.name, d2.name}})
+    );
     ASSERT_EQ(devices_names.size(), 2);
 }
 
@@ -391,16 +380,8 @@ TEST(DeviceTests, testRetrieveWhere) {
         devs.push_back(d);
     }
     const auto devices = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{.make = x::filter::String{.eq = devs[0].make}},
-                        Where{.key = x::filter::Set<Key>{.eq = devs[1].key}},
-                    },
-                .rack = x::filter::Set<rack::Key>{.eq = r.key},
-            },
-        }
+        (Where{.make = devs[0].make} || Where{.key = devs[1].key}) &&
+        Where{.rack = r.key}
     ));
     std::set<Key> keys;
     for (const auto &d: devices)
@@ -428,8 +409,8 @@ TEST(DeviceTests, testRetrieveMissingKey) {
     ASSERT_EQ(devices.size(), 1);
     ASSERT_EQ(devices[0].key, d.key);
 }
-/// @brief it should retrieve devices with limit and offset pagination.
-TEST(DeviceTests, testRetrieveWithLimitOffset) {
+/// @brief it should page a retrieve of devices by filter or by keys.
+TEST(DeviceTests, testRetrieveWithLimitAndCursor) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -449,21 +430,103 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         ASSERT_NIL(client.devices.create(d));
         devices.push_back(d);
     }
-    const auto where = Where{.make = x::filter::String{.eq = make}};
+    const auto where = Where{.make = make};
     const auto devices_limited = ASSERT_NIL_P(
-        client.devices.retrieve(RetrieveRequest{.where = where, .limit = 2})
+        client.devices.retrieve(where, {.limit = 2})
     );
     ASSERT_EQ(devices_limited.size(), 2);
-    const auto devices_offset = ASSERT_NIL_P(client.devices.retrieve(
-        RetrieveRequest{.where = where, .limit = 2, .offset = 2}
+    const auto devices_after = ASSERT_NIL_P(client.devices.retrieve(
+        where,
+        {.after = Cursor{.key = devices_limited[1].key}, .limit = 2}
     ));
-    ASSERT_EQ(devices_offset.size(), 2);
+    ASSERT_EQ(devices_after.size(), 2);
     bool different = true;
     for (const auto &da: devices_limited)
-        for (const auto &db: devices_offset)
+        for (const auto &db: devices_after)
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
+    std::vector<std::string> keys;
+    keys.reserve(devices.size());
+    for (const auto &d: devices)
+        keys.push_back(d.key);
+    const auto by_key = ASSERT_NIL_P(client.devices.retrieve(keys, {.limit = 2}));
+    ASSERT_EQ(by_key.size(), 2);
+    const auto by_key_rest = ASSERT_NIL_P(
+        client.devices.retrieve(keys, {.after = Cursor{.key = keys[3]}})
+    );
+    ASSERT_EQ(by_key_rest.size(), 1);
 }
+
+/// @brief it should reject a filter for one device that more than one device matches.
+TEST(DeviceTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto make = "one_make_" + std::to_string(gen_rand_device());
+    for (int i = 0; i < 2; ++i) {
+        auto d = Device{
+            .key = make + "_" + std::to_string(i),
+            .rack = r.key,
+            .location = "loc",
+            .make = make,
+            .model = "model",
+            .name = "one_device_" + std::to_string(i),
+        };
+        ASSERT_NIL(client.devices.create(d));
+    }
+    ASSERT_OCCURRED_AS_P(
+        client.devices.retrieve(Where{.make = make}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should retrieve the one device that a filter matches.
+TEST(DeviceTests, testRetrieveOneWhere) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto d = Device{
+        .key = "one_d_" + std::to_string(gen_rand_device()),
+        .rack = r.key,
+        .location = "loc",
+        .make = "make",
+        .model = "model",
+        .name = "one_device",
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const auto got = ASSERT_NIL_P(
+        client.devices.retrieve(Where{.key = d.key}, x::filter::one)
+    );
+    ASSERT_EQ(got.key, d.key);
+}
+
+/// @brief it should name the filter in the error when no device matches it.
+TEST(DeviceTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto make = "none_make_" + std::to_string(gen_rand_device());
+    const auto [_, err] = client.devices.retrieve(Where{.make = make}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
+}
+
+/// @brief it should reject a limit or a cursor on a retrieve of one device.
+TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
+        for (const auto &err:
+             {client.devices.retrieve("device", options).second,
+              client.devices.retrieve(Where{.key = "device"}, x::filter::one, options)
+                  .second}) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or cursor, since a page could "
+                "hide a second match"
+            );
+        }
+}
+
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();
@@ -484,7 +547,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device is connected",
         .time = x::telem::TimeStamp::now(),
-        .details = device::StatusDetails{.rack = r.key, .device = d.key}
+        .details = device::StatusDetails{.rack = r.key}
     };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(
@@ -547,37 +610,28 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
 
 /// @brief it should correctly parse device::StatusDetails from JSON.
 TEST(DeviceStatusDetailsTests, testParseFromJSON) {
-    x::json::json j = {{"rack", 12345}, {"device", "device-abc-123"}};
+    x::json::json j = {{"rack", 12345}};
     const x::json::Parser parser(j);
     const auto details = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 12345);
-    ASSERT_EQ(details.device, "device-abc-123");
 }
 
 /// @brief it should correctly serialize device::StatusDetails to JSON.
 TEST(DeviceStatusDetailsTests, testToJSON) {
-    const device::StatusDetails details{
-        .rack = 67890,
-        .device = "device-xyz-456",
-    };
+    const device::StatusDetails details{.rack = 67890};
     const auto j = details.to_json();
     ASSERT_EQ(j["rack"], 67890);
-    ASSERT_EQ(j["device"], "device-xyz-456");
 }
 
 /// @brief it should round-trip device::StatusDetails through JSON.
 TEST(DeviceStatusDetailsTests, testRoundTrip) {
-    device::StatusDetails original{
-        .rack = 11111,
-        .device = "round-trip-device",
-    };
+    device::StatusDetails original{.rack = 11111};
     const auto j = original.to_json();
     x::json::Parser parser(j);
     auto recovered = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
-    ASSERT_EQ(recovered.device, original.device);
 }
 
 /// @brief it should correctly parse a Device from JSON.
@@ -635,12 +689,8 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.configured, false);
 }
 
-TEST(DeviceTests, testDeviceStatusKey) {
-    const auto d = Device{.key = "cat"};
-    ASSERT_EQ(device::status_key(d), "device:cat");
-}
-
-TEST(DeviceTests, testCreateWithParentOntologyID) {
+/// @brief it should create a device held by another device.
+TEST(DeviceTests, testCreateWithParent) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -655,7 +705,6 @@ TEST(DeviceTests, testCreateWithParentOntologyID) {
         .properties = {{"is_chassis", true}},
     };
     ASSERT_NIL(client.devices.create(chassis));
-    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
     auto module = Device{
         .key = "module_" + rand,
         .rack = r.key,
@@ -664,12 +713,13 @@ TEST(DeviceTests, testCreateWithParentOntologyID) {
         .model = "NI-9205",
         .name = "module_" + rand,
         .properties = {{"is_chassis", false}},
-        .parent = chassis_otg,
+        .parent = chassis.key,
     };
     ASSERT_NIL(client.devices.create(module));
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
     ASSERT_EQ(retrieved.key, module.key);
     ASSERT_EQ(retrieved.name, module.name);
+    EXPECT_EQ(retrieved.parent, chassis.key);
 }
 
 TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
@@ -687,7 +737,6 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
         .properties = {{"is_chassis", true}},
     };
     ASSERT_NIL(client.devices.create(chassis));
-    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
     auto mod1 = Device{
         .key = "mod1_" + rand,
         .rack = r.key,
@@ -696,7 +745,7 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
         .model = "NI-9205",
         .name = "mod1_" + rand,
         .properties = {{"is_chassis", false}},
-        .parent = chassis_otg,
+        .parent = chassis.key,
     };
     auto mod2 = Device{
         .key = "mod2_" + rand,
@@ -706,7 +755,7 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
         .model = "NI-9264",
         .name = "mod2_" + rand,
         .properties = {{"is_chassis", false}},
-        .parent = chassis_otg,
+        .parent = chassis.key,
     };
     ASSERT_NIL(client.devices.create(mod1));
     ASSERT_NIL(client.devices.create(mod2));
@@ -716,45 +765,31 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
     ASSERT_EQ(retrieved.size(), 2);
 }
 
-/// @brief it should retrieve the parent of a device when the options ask for it.
-TEST(DeviceTests, testRetrieveIncludeParent) {
+/// @brief it should refuse a parent device that does not exist.
+TEST(DeviceTests, testCreateDeviceWithMissingParent) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
-    auto chassis = Device{
-        .key = "chassis_include_" + rand,
-        .rack = r.key,
-        .location = "slot_0",
-        .make = "NI",
-        .model = "cDAQ-9178",
-        .name = "chassis_include_" + rand,
-    };
-    ASSERT_NIL(client.devices.create(chassis));
-    const auto chassis_id = synnax::ontology::ID{"device", chassis.key};
     auto child = Device{
-        .key = "child_include_" + rand,
+        .key = "orphan_" + rand,
         .rack = r.key,
         .location = "slot_1",
         .make = "NI",
         .model = "NI-9205",
-        .name = "child_include_" + rand,
-        .parent = chassis_id,
+        .name = "orphan_" + rand,
+        .parent = "missing_" + rand,
     };
-    ASSERT_NIL(client.devices.create(child));
-    const auto by_key = ASSERT_NIL_P(
-        client.devices.retrieve(child.key, {.include_parent = true})
-    );
-    EXPECT_EQ(by_key.parent, chassis_id);
-    const auto by_keys = ASSERT_NIL_P(client.devices.retrieve(
-        std::vector<std::string>{child.key},
-        {.include_parent = true}
-    ));
-    ASSERT_EQ(by_keys.size(), 1);
-    EXPECT_EQ(by_keys[0].parent, chassis_id);
+    const auto err = client.devices.create(child);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_TRUE(err.data.contains(
+        "device missing_" + rand + " does not exist: validation error"
+    )) << err;
+    EXPECT_TRUE(err.data.contains(R"("path":["parent"])")) << err;
 }
 
-TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
+/// @brief it should create a device with no parent when none is given.
+TEST(DeviceTests, testCreateDeviceWithNoParent) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -771,5 +806,6 @@ TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
     ASSERT_NIL(client.devices.create(d));
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d.key));
     ASSERT_EQ(retrieved.key, d.key);
+    EXPECT_FALSE(retrieved.parent.has_value());
 }
 }

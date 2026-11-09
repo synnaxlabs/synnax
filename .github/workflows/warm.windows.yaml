@@ -7,8 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The Windows build bots lose their pnpm store and Go toolchain on every stop, and
-# merge queue runs cannot save caches, so main saves the caches they restore.
+# The Windows build bots lose their pnpm store and Go toolchain on every stop, and merge
+# queue runs cannot save caches, so main saves the caches they restore. A full
+# repository cache deletes the entries read longest ago, so each hour a check looks for
+# them and starts a bot only to save one that is gone.
 name: Warm - Windows
 
 on:
@@ -21,23 +23,81 @@ on:
       - .github/actions/setup-zstd/**
       - .github/scripts/go_toolchain_cache.sh
       - .github/workflows/warm.windows.yaml
+  schedule:
+    - cron: "23 * * * *"
   workflow_dispatch:
-
-concurrency:
-  group: warm-windows
-  cancel-in-progress: false
 
 permissions:
   contents: read
 
+# Both jobs share one concurrency group and check out the head of the branch, not the
+# commit that started the run. A newer pending job replaces an older one in the group
+# and does the same work, and a check waits until a running warm has saved.
 jobs:
+  check:
+    name: Check the cache
+    if: github.event_name == 'schedule'
+    concurrency:
+      group: warm-windows
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      missing: ${{ steps.check.outputs.missing }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            core/go.mod
+            pnpm-lock.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Look for the entries
+        id: check
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          # The key that setup-pnpm gives the store on a Windows build bot.
+          PNPM_KEY:
+            pnpm-store-self-hosted-Windows-X64-${{ hashFiles('pnpm-lock.yaml') }}
+        run: |
+          go_key=$(RUNNER_OS=Windows RUNNER_ARCH=X64 \
+            .github/scripts/go_toolchain_cache.sh core/go.mod | sed -n 's/^key=//p')
+          missing=false
+          for key in "$PNPM_KEY" "$go_key"; do
+            found=$(.github/scripts/gh_api.sh \
+              "repos/$GH_REPO/actions/caches?ref=refs/heads/main&key=$key" \
+              --jq "[.actions_caches[] | select(.key == \"$key\")] | length")
+            if [ "$found" = 0 ]; then
+              echo "$key is missing"
+              missing=true
+            fi
+          done
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+
   warm:
     name: Warm
+    needs: check
+    if:
+      ${{ !cancelled() && (needs.check.result == 'skipped' ||
+      needs.check.outputs.missing == 'true') }}
+    concurrency:
+      group: warm-windows
+      cancel-in-progress: false
     runs-on: windows-build-bot
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref }}
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -51,21 +111,21 @@ jobs:
 
       - name: Restore the Go toolchain
         id: restore
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Set up Go
         if: steps.restore.outputs.cache-hit != 'true'
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: core/go.mod
           cache: false
 
       - name: Save the Go toolchain
         if: steps.restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}

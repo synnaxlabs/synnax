@@ -15,17 +15,21 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
 import {
+  bindOrphanedChannels,
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
+  retrieveByName,
 } from "@/feature/ethercat/task/configure";
 import {
   addressKey,
+  createEntryWriteChannel,
   createWriteChannel,
   deployWriteConfigZ,
   entryAt,
@@ -94,6 +98,20 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
+  <>
+    <AddSlaveEntriesItem
+      {...props}
+      path={path.config.channels}
+      pdoType="outputs"
+      createChannel={createEntryWriteChannel}
+    />
+    {Task.writeChannelContextMenuItems(props)}
+  </>
+);
+
+const contextMenuItems = Component.renderProp(ContextMenuItems);
+
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const resolve = (ch: WriteChannel) => {
@@ -112,7 +130,7 @@ const Form: FC = () => {
       details={channelDetails}
       detailsTitle={detailsTitle}
       createChannel={createWriteChannel}
-      contextMenuItems={Task.writeChannelContextMenuItems}
+      contextMenuItems={contextMenuItems}
       resolve={resolve}
     />
   );
@@ -143,24 +161,47 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     const existingChannels = slave.properties.write.channels;
     // The command and state of a pair are checked apart: deleting one must recreate
     // only that one, leaving the other bound where the device already maps it.
-    const cmdToCreate = await findChannelsToCreate(client, channels, existingChannels);
-    const stateToCreate = await findChannelsToCreate(
+    const cmdMissing = await findChannelsToCreate(client, channels, existingChannels);
+    const stateMissing = await findChannelsToCreate(
       client,
       channels,
       existingChannels,
       stateKey,
     );
+    if (cmdMissing.length > 0 || stateMissing.length > 0) modified = true;
     const { identifier, pdos } = slave.properties;
-    const baseName = (ch: EntryWriteChannel) =>
-      getEntryChannelName(identifier, pdos.outputs, ch);
+    const cmdIndexName = (ch: EntryWriteChannel) =>
+      primitive.isNonZero(ch.cmdChannelName)
+        ? `${ch.cmdChannelName}_cmd_time`
+        : `${getEntryChannelName(identifier, pdos.outputs, ch)}_cmd_time`;
+    const cmdIndexNames = cmdMissing.map(cmdIndexName);
+    const orphanCmdIndexes = await retrieveByName(client, cmdIndexNames);
+    const cmdToCreate = await bindOrphanedChannels({
+      client,
+      slave: slave.key,
+      channels: cmdMissing,
+      names: cmdMissing.map((ch) => writeChannelNames(slave, ch).cmd),
+      // A custom name can be a live channel of another device. A default name holds
+      // the slave identifier, so only it is safe to reuse.
+      index: (i) =>
+        primitive.isZero(cmdMissing[i].cmdChannelName)
+          ? orphanCmdIndexes.get(cmdIndexNames[i])?.key
+          : undefined,
+      map: existingChannels,
+    });
+    const stateToCreate = await bindOrphanedChannels({
+      client,
+      channels: stateMissing,
+      names: stateMissing.map((ch) => writeChannelNames(slave, ch).state),
+      index: () => slave.properties.writeStateIndex,
+      map: existingChannels,
+      mapKey: stateKey,
+    });
 
     if (cmdToCreate.length > 0) {
-      modified = true;
       const cmdIndexes = await client.channels.create(
         cmdToCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.cmdChannelName)
-            ? `${ch.cmdChannelName}_cmd_time`
-            : `${baseName(ch)}_cmd_time`,
+          name: cmdIndexName(ch),
           dataType: "timestamp",
           isIndex: true,
         })),
@@ -180,7 +221,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     }
 
     if (stateToCreate.length > 0) {
-      modified = true;
       const stateChannels = await client.channels.create(
         stateToCreate.map((ch) => ({
           name: writeChannelNames(slave, ch).state,

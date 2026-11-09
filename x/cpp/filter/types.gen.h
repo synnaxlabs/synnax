@@ -33,8 +33,14 @@ struct String {
     std::optional<std::string> eq;
     /// @brief in matches a value equal to an element of in.
     std::optional<std::vector<std::string>> in;
-    /// @brief regex matches a value that the RE2 pattern regex matches.
+    /// @brief contains matches a value that holds contains.
+    std::optional<std::string> contains;
+    /// @brief starts_with matches a value that begins with starts_with.
+    std::optional<std::string> starts_with;
+    /// @brief regex matches a value that the unanchored RE2 pattern regex matches.
     std::optional<std::string> regex;
+    /// @brief case_insensitive makes every operator on the slot ignore case.
+    bool case_insensitive = false;
 
     static String parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

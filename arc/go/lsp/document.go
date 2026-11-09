@@ -24,12 +24,14 @@ import (
 
 type documentMetadata struct {
 	isFunctionBlock bool
+	isModule        bool
 }
 
 func extractMetadataFromURI(docURI uri.URI) *documentMetadata {
 	uriStr := string(docURI)
 	return &documentMetadata{
 		isFunctionBlock: strings.HasPrefix(uriStr, "arc://block/"),
+		isModule:        strings.HasPrefix(uriStr, "arc://module/"),
 	}
 }
 

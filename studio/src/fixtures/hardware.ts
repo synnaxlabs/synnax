@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack, task } from "@synnaxlabs/client";
+import { device, rack, task } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -24,7 +24,38 @@ export const NI_USB_6343: SimulatedDevice = {
   make: "NI",
   model: "USB-6343",
   location: "Dev1",
-  properties: { is_simulated: false, resource_name: "Dev1", is_chassis: false },
+  properties: {
+    is_simulated: false,
+    resource_name: "Dev1",
+    is_chassis: false,
+    hardware: {
+      // Inputs 0 to 7 and 16 to 23 each pair with the input 8 above for Diff.
+      analog_inputs: Array.from({ length: 32 }, (_, port) =>
+        port % 16 < 8
+          ? {
+              port,
+              terminal_configs: ["RSE", "NRSE", "Diff"],
+              default_terminal_config: "Diff",
+              negative: port + 8,
+            }
+          : {
+              port,
+              terminal_configs: ["RSE", "NRSE"],
+              default_terminal_config: "RSE",
+            },
+      ),
+      analog_outputs: [0, 1, 2, 3].map((port) => ({ port })),
+      counter_inputs: [0, 1, 2, 3].map((port) => ({ port })),
+      digital_ports: [
+        { port: 0, lines: 32, input: true, output: true },
+        { port: 1, lines: 8, input: true, output: true },
+        { port: 2, lines: 8, input: true, output: true },
+      ],
+      terminals: Array.from({ length: 16 }, (_, i) => `PFI${i}`),
+      ai_max_single_channel_rate: 500_000,
+      ai_max_multi_channel_rate: 500_000,
+    },
+  },
 };
 
 /** A LabJack T7 on USB that nobody has configured yet. */
@@ -171,11 +202,10 @@ export const configured = (
 
 /** rackStatus returns the status a Driver writes for its rack while it runs. */
 export const rackStatus = ({ key, name }: { key: rack.Key; name: string }) => ({
-  key: `rack:${key}`,
+  owner: rack.resourceID(key),
   name,
   variant: "success" as const,
   message: "Driver is running",
-  details: { rack: key },
 });
 
 /** deviceStatus returns the status a Driver on `rackKey` writes for a found device. */
@@ -184,11 +214,11 @@ export const deviceStatus = (
   { key, name }: { key: string; name: string },
   message = "Device present",
 ) => ({
-  key: `device:${key}`,
+  owner: device.resourceID(key),
   name,
   variant: "success" as const,
   message,
-  details: { rack: rackKey, device: key },
+  details: { rack: rackKey },
 });
 
 /**
@@ -201,12 +231,11 @@ export const taskStatus = (
   running: boolean,
   cmd?: string,
 ) => ({
-  key: task.statusKey(t.key),
+  owner: task.resourceID(t.key),
   name: t.name,
   variant: "success" as const,
   message: running ? "Started task" : "Stopped task",
   details: {
-    task: t.key,
     running,
     ...(cmd != null && { cmd }),
     configHash: t.configHash,

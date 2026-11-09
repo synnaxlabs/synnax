@@ -47,7 +47,7 @@ func RetrieveKey(typ Type) (TypeRef, bool) {
 		return TypeRef{}, false
 	}
 	name := expr.Values[0].StringValue
-	if !strings.Contains(name, ".") {
+	if !strings.Contains(name, ".") && !IsPrimitive(name) {
 		name = typ.Namespace + "." + name
 	}
 	return TypeRef{Name: name}, true
@@ -70,8 +70,15 @@ var operatorMembers = map[string][]string{
 	OperatorSet:      {"eq", "in"},
 	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
 	OperatorContains: {"any"},
-	OperatorString:   {"eq", "in", "regex"},
-	OperatorBool:     {"eq"},
+	OperatorString: {
+		"eq",
+		"in",
+		"contains",
+		"starts_with",
+		"regex",
+		"case_insensitive",
+	},
+	OperatorBool: {"eq"},
 }
 
 // OperatorMembers returns the members that the interpreters of the operator type op

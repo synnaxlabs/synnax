@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type status } from "@synnaxlabs/client";
-import { type destructor, observe } from "@synnaxlabs/x";
+import { type destructor, observe, type TimeRange } from "@synnaxlabs/x";
 
+import {
+  type LogEntry,
+  type LogSource,
+  type LogSourceSpec,
+} from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
-
-import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class MockLogSource implements LogSource {
   static readonly TYPE = TEST_SOURCE_TYPE;
@@ -34,6 +37,26 @@ export class MockLogSource implements LogSource {
 
   loadOlder(): void {
     this.loadOlderCalls++;
+  }
+
+  /** The number of times the log asked for newer entries. */
+  loadNewerCalls = 0;
+
+  loadNewer(): void {
+    this.loadNewerCalls++;
+  }
+
+  live = true;
+
+  timeRange: TimeRange | null = null;
+
+  exhausted = false;
+
+  /** The number of times the log asked to return to the newest samples. */
+  resumeCalls = 0;
+
+  resume(): void {
+    this.resumeCalls++;
   }
 
   setChannels(channels: channel.Key[]): void {
