@@ -11,6 +11,8 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/common/copyright.sh"
+
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
@@ -227,19 +229,6 @@ read_file_prefix() {
             break
         fi
     done < "$file"
-}
-
-# Reports whether a file is generated, by name or by a "DO NOT EDIT" line in its first
-# 30 lines. Reads LINES, so call it after read_file_prefix.
-is_generated() {
-    case "${1##*/}" in
-        *.gen.* | *.pb.go) return 0 ;;
-    esac
-    local line
-    for line in "${LINES[@]}"; do
-        [[ $line == *"DO NOT EDIT"* ]] && return 0
-    done
-    return 1
 }
 
 # Classify a single file and print one of:

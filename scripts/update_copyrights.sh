@@ -11,6 +11,8 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/common/copyright.sh"
+
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
@@ -332,19 +334,6 @@ locate_existing_header() {
     esac
 
     OLD_HEADER_END=$end_idx
-}
-
-# Reports whether a file is generated, by name or by a "DO NOT EDIT" line in its first
-# 30 lines. Reads LINES, so call it after read_whole_file.
-is_generated() {
-    case "${1##*/}" in
-        *.gen.* | *.pb.go) return 0 ;;
-    esac
-    local i
-    for ((i = 0; i < ${#LINES[@]} && i < 30; i++)); do
-        [[ ${LINES[i]} == *"DO NOT EDIT"* ]] && return 0
-    done
-    return 1
 }
 
 # Process a single file. Prints "UPDATED\t$file" or "SKIPPED\t$file".

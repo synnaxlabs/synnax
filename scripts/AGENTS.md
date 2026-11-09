@@ -55,8 +55,9 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   headers. Run before push after adding or copying files.
 
 Neither script touches `.oracle` schema files. A generated file (`*.gen.*`, `*.pb.go`,
-or a `DO NOT EDIT` line in its first 30 lines) keeps any past header year, because
-Oracle freezes the files in `versions/vN` packages.
+or a `// Code generated ... DO NOT EDIT.` comment line in its first 30 lines) keeps any
+past header year, because Oracle freezes the files in `versions/vN` packages. Both
+scripts source the rule from `common/copyright.sh`.
 
 ## Codegen
 
