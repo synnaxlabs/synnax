@@ -112,8 +112,8 @@ await client.racks.update({ key: rk, integrations: { insert: ["labjack"] } });
 
 `set` cannot share an operator object with other operators. The other operators apply
 in a fixed order: remove, update, insert, move. `insert` adds entries at the end.
-`move` takes `{ key, after }`, where `after` names the neighbor and `null` puts the
-entry first. An entry key, never an index, names each entry, because an index changes
+`move` takes `{ key, after }`, where `after` names the neighbor, and `null` or no
+`after` puts the entry first. An entry key, never an index, names each entry, because an index changes
 when another user adds or removes an entry first.
 
 ```ts
@@ -132,6 +132,9 @@ await client.tasks.update({
 
 A field with no schema, such as untyped device `properties`, takes a plain object and is
 replaced whole. An operator name inside such a field would read as data.
+
+A partial that merges into an absent optional struct starts from the struct's defaults,
+as JSON Merge Patch does (RFC 7386). A field with no default must then be given.
 
 ### 4.2 Unions
 
