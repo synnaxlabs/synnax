@@ -123,7 +123,9 @@ export const applyField = <S extends object>(
     schema: document,
   }).path;
   const fieldZ: z.ZodType | undefined =
-    field == null ? undefined : document.shape[field];
+    field == null || !Object.hasOwn(document.shape, field)
+      ? undefined
+      : document.shape[field];
   if (fieldZ == null) throw new Error(`no editable field at "${path.join(".")}"`);
   const result = applyPath(state, action, document);
   if (result.inverse.length === 0) return result;

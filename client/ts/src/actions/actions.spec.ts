@@ -245,11 +245,14 @@ describe("applyField", () => {
     expect(next).toEqual({ key: "a", maxSize: 1 });
   });
 
-  it.each([[["key"]], [["missing"]], [[]]])("should throw on a set at %j", (path) => {
-    expect(() => apply(setAt(path, 2))).toThrow(
-      `no editable field at "${path.join(".")}"`,
-    );
-  });
+  it.each([[["key"]], [["missing"]], [["constructor"]], [["__proto__"]], [[]]])(
+    "should throw on a set at %j",
+    (path) => {
+      expect(() => apply(setAt(path, 2))).toThrow(
+        `no editable field at "${path.join(".")}"`,
+      );
+    },
+  );
 
   it("should throw when the field does not parse after the action", () => {
     expect(() => apply(setAt(["max_size"], "big"))).toThrow(
