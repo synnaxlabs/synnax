@@ -33,7 +33,7 @@ const base = Flux.createUpdate<CreateParams>({
       throw new Error("Cannot group items that sit under more than one parent");
     await client.batch.send([
       client.groups.createRequest({ key, name, ...placement(parentID, rootID) }),
-      ...group.moveRequests(client, top, group.resourceID(key)),
+      ...client.groups.moveRequests(top, group.resourceID(key)),
     ]);
     return data;
   },

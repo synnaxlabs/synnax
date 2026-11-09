@@ -7,93 +7,64 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { channel } from "@/channel";
+import { device } from "@/device";
 import { group } from "@/group";
+import { project } from "@/project";
+import { rack } from "@/rack";
 import { type resource } from "@/resource";
-import { createTestClient, newVirtualChannel } from "@/testutil";
-
-const client = createTestClient();
-
-describe("moveRequests", () => {
-  const createGroup = async (): Promise<group.Group> =>
-    await client.groups.create({ name: id.create(), scope: "channel" });
-
-  it("should move records and groups under a group", async () => {
-    const [parent, child, ch] = await Promise.all([
-      createGroup(),
-      createGroup(),
-      newVirtualChannel(client),
-    ]);
-    await client.batch.send(
-      group.moveRequests(
-        client,
-        [channel.resourceID(ch.key), group.resourceID(child.key)],
-        group.resourceID(parent.key),
-      ),
-    );
-    expect((await client.channels.retrieve(ch.key)).group).toEqual(parent.key);
-    expect((await client.groups.retrieve({ key: child.key })).parent).toEqual(
-      group.resourceID(parent.key),
-    );
-  });
-
-  it("should move records out of their group when the parent is not a group", async () => {
-    const [g, ch] = await Promise.all([createGroup(), newVirtualChannel(client)]);
-    await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
-    await client.batch.send(group.moveRequests(client, [channel.resourceID(ch.key)]));
-    expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
-  });
-
-  it("should throw for a type that cannot sit in a group", () => {
-    expect(() =>
-      group.moveRequests(client, [{ type: "label", key: id.create() }]),
-    ).toThrow("a label cannot sit in a group");
-  });
-});
+import { schematic } from "@/schematic";
 
 describe("canMove", () => {
-  const root: resource.ID = { type: "builtin", key: "devices" };
-  const rack = (key: string): resource.ID => ({ type: "rack", key });
-  const destination: resource.ID = { type: "group", key: "g" };
-  const device: resource.ID = { type: "device", key: "d" };
-  const holder: resource.ID = { type: "device", key: "p" };
-  const ch: resource.ID = { type: "channel", key: "1" };
-  const above: resource.ID = { type: "group", key: "p" };
+  const destination = group.resourceID("g");
 
   it("should move a rack or project only into a group at the top", () => {
-    for (const type of ["rack", "project"] as const) {
-      const moved = [{ id: { type, key: "m" }, ancestors: [root] }];
+    const cases: [resource.ID, resource.ID, resource.ID][] = [
+      [rack.resourceID(2), device.TYPE_RESOURCE_ID, rack.resourceID(1)],
+      [project.resourceID("b"), project.TYPE_RESOURCE_ID, project.resourceID("a")],
+    ];
+    for (const [id, root, holder] of cases) {
+      const moved = [{ id, ancestors: [root] }];
       expect(group.canMove({ root, destination, ancestors: [root], moved })).toBe(true);
       expect(
-        group.canMove({ root, destination, ancestors: [rack("a"), root], moved }),
+        group.canMove({ root, destination, ancestors: [holder, root], moved }),
       ).toBe(false);
     }
   });
 
-  it("should keep a device under its rack", () => {
-    const moved = [{ id: device, ancestors: [rack("a"), root] }];
-    expect(
-      group.canMove({ root, destination, ancestors: [rack("a"), root], moved }),
-    ).toBe(true);
-    expect(
-      group.canMove({ root, destination, ancestors: [rack("b"), root], moved }),
-    ).toBe(false);
+  describe("device", () => {
+    const root = device.TYPE_RESOURCE_ID;
+    const canMove = (from: resource.ID[], to: resource.ID[]): boolean =>
+      group.canMove({
+        root,
+        destination,
+        ancestors: [...to, root],
+        moved: [{ id: device.resourceID("d"), ancestors: [...from, root] }],
+      });
+
+    it("should keep a device under its rack", () => {
+      expect(canMove([rack.resourceID(1)], [rack.resourceID(1)])).toBe(true);
+      expect(canMove([rack.resourceID(1)], [rack.resourceID(2)])).toBe(false);
+    });
+
+    it("should keep a device held by another device in place", () => {
+      const from = [device.resourceID("p"), rack.resourceID(1)];
+      expect(canMove(from, [rack.resourceID(1)])).toBe(false);
+    });
   });
 
-  it("should keep a device held by another device in place", () => {
-    const moved = [{ id: device, ancestors: [holder, rack("a"), root] }];
-    expect(
-      group.canMove({ root, destination, ancestors: [rack("a"), root], moved }),
-    ).toBe(false);
-  });
-
-  it("should move a record that is not pinned into any group", () => {
-    const moved = [{ id: ch, ancestors: [root] }];
-    expect(group.canMove({ root, destination, ancestors: [above, root], moved })).toBe(
-      true,
-    );
+  it("should move a record that is not pinned into a group under a project", () => {
+    const root = project.TYPE_RESOURCE_ID;
+    const ancestors = [project.resourceID("a"), root];
+    const canMove = (id: resource.ID): boolean =>
+      group.canMove({
+        root,
+        destination,
+        ancestors,
+        moved: [{ id, ancestors: [root] }],
+      });
+    expect(canMove(schematic.resourceID("s"))).toBe(true);
+    expect(canMove(project.resourceID("b"))).toBe(false);
   });
 });

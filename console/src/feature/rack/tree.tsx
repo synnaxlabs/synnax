@@ -124,7 +124,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
-  const groupSelection = Group.useCreateFromSelection();
+  const groupFromSelection = Group.useCreateFromSelection();
   const create = Arc.useCreate();
   const openConnectDevice = Device.useConnectModal();
   const openCredentials = Credential.useModal();
@@ -140,7 +140,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           rootID={rootID}
           parentID={parentID}
           shape={shape}
-          onClick={() => groupSelection(props)}
+          onClick={() => groupFromSelection(props)}
         />
       )}
       <Menu.Divider />
@@ -214,8 +214,7 @@ const TreeItem = Tree.createItem({
     group.canMove({ ...props, destination: props.destination.id }),
   drop: async ({ client, destination, items }) => {
     await client.batch.send(
-      group.moveRequests(
-        client,
+      client.groups.moveRequests(
         items.map(({ id }) => id),
         destination.id,
       ),

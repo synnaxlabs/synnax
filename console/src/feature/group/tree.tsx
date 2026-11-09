@@ -125,7 +125,7 @@ export const createTreeItems = (
         .filter((id) => !selected.has(resource.idToString(id)));
       const parent = resource.idsEqual(parentID, rootID) ? undefined : parentID;
       await client.batch.send([
-        ...group.moveRequests(client, childIDs, parent),
+        ...client.groups.moveRequests(childIDs, parent),
         client.groups.deleteRequest(ids.map(({ key }) => key)),
       ]);
       return data;
@@ -221,8 +221,7 @@ export const createTreeItems = (
     },
     drop: async ({ client, destination, items }) => {
       await client.batch.send(
-        group.moveRequests(
-          client,
+        client.groups.moveRequests(
           items.map(({ id }) => id),
           destination.id,
         ),

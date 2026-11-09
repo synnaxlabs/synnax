@@ -10,21 +10,11 @@
 package group_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/group"
 	. "github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
-
-func TestTSGroup(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Group Suite", SuiteConfig())
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("TS Group Plugin", func() {
 	var (
@@ -116,7 +106,7 @@ var _ = Describe("TS Group Plugin", func() {
 		Expect(resp.Files[0].Path).To(Equal("client/ts/src/group/members.gen.ts"))
 		ExpectContent(resp, "members.gen.ts").
 			ToContain(
-				`import { type resource } from "@/resource";`,
+				`import { resource } from "@/resource";`,
 				"scope: resource.Type;",
 				`rack: { scope: "device", pinned: true },`,
 				`schematic_symbol: { scope: "schematic_symbol", pinned: false },`,
@@ -127,7 +117,7 @@ var _ = Describe("TS Group Plugin", func() {
 	})
 
 	It(
-		"Should name the resource types unqualified in their own module",
+		"Should import the resource types from the types of their own module",
 		func(ctx SpecContext) {
 			loader.Add("schemas/group", `
 				@ts output "client/ts/src/group"
@@ -159,10 +149,10 @@ var _ = Describe("TS Group Plugin", func() {
 			resp := MustGenerateMulti(ctx, loader, p)
 			ExpectContent(resp, "members.gen.ts").
 				ToContain(
+					`import { Type } from "@/group/types.gen";`,
 					"scope: Type;",
 					`channel: { scope: "channel", pinned: false },`,
-				).
-				ToNotContain("import")
+				)
 		},
 	)
 

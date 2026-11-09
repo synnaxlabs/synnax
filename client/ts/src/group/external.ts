@@ -10,6 +10,6 @@
 export * from "@/group/client";
 export * from "@/group/member";
 export * from "@/group/members.gen";
-export * from "@/group/move";
+export { canMove, type CanMoveParams, type Moved } from "@/group/move";
 export * from "@/group/types.gen";
 export { type WhereInput } from "@/group/where.gen";
