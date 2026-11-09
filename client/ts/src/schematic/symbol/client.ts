@@ -19,6 +19,12 @@ import { group } from "@/group";
 import { imex } from "@/imex";
 import { query } from "@/query";
 import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+} from "@/schematic/symbol/actions.gen";
+import {
   type Key,
   keyZ,
   type New,
@@ -34,7 +40,6 @@ export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
 const createReqZ = z.object({ symbols: symbolZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveMultiParamsZ = z.union([
@@ -98,7 +103,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     this.cfg = cfg;
     this.store = store;
     this.setGroupRequest = group.createMoveRequest(
-      "/schematic/symbol/set-group",
+      "/schematic/symbol/dispatch",
       (keys, to) => group.moveCached(store, keys, to),
     );
   }
@@ -126,14 +131,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/schematic/symbol/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the symbol in one transaction.
+   * @throws {ValidationError} if the symbol cannot hold an action.
+   * @throws {NotFoundError} if the symbol does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/schematic/symbol/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

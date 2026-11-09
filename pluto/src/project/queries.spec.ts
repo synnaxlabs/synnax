@@ -285,6 +285,48 @@ describe("queries", () => {
     });
   });
 
+  describe("useForm", () => {
+    it("should create a project, then rename it on a second save", async () => {
+      const { result } = renderHook(() => Project.useForm({ query: null }), {
+        wrapper,
+      });
+      const name = `formProject-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, name));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      const key = result.current.form.value().key;
+      expect(key).toBeDefined();
+      expect((await client.projects.retrieve(key!)).name).toEqual(name);
+      const newName = `renamedProject-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, newName));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.form.value().key).toEqual(key);
+      await waitFor(async () =>
+        expect((await client.projects.retrieve(key!)).name).toEqual(newName),
+      );
+    });
+
+    it("should rename an existing project", async () => {
+      const proj = await client.projects.create({ name: `testProject-${id.create()}` });
+      const { result } = await renderHookSuspended(
+        () => Project.useForm({ query: { key: proj.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const newName = `newName-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, newName));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      await waitFor(async () =>
+        expect((await client.projects.retrieve(proj.key)).name).toEqual(newName),
+      );
+    });
+  });
+
   describe("useDelete", () => {
     it("should correctly delete a project", async () => {
       const proj = await client.projects.create({

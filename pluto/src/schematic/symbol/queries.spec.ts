@@ -359,9 +359,12 @@ describe("Symbol queries", () => {
         );
       });
 
+      const previewViewport = { zoom: 2, position: { x: 3, y: 4 } };
       await act(async () => {
         result.current.form.set(path.name, "updated-name");
         result.current.form.set(path.data.svg, "<svg>updated</svg>");
+        result.current.form.set(path.data.strokeScaled, true);
+        result.current.form.set(path.data.previewViewport, previewViewport);
         result.current.save();
       });
 
@@ -369,9 +372,14 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
-      expect(retrieved.name).toBe("updated-name");
-      expect(retrieved.data.svg).toBe("<svg>updated</svg>");
+      await waitFor(async () => {
+        const retrieved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(retrieved.name).toBe("updated-name");
+        expect(retrieved.group).toBe(parent.key);
+        expect(retrieved.data.svg).toBe("<svg>updated</svg>");
+        expect(retrieved.data.strokeScaled).toBe(true);
+        expect(retrieved.data.previewViewport).toEqual(previewViewport);
+      });
     });
   });
 

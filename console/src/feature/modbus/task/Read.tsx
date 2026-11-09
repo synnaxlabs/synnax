@@ -44,6 +44,7 @@ import {
   type TypedReadChannel,
   UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
+import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -225,7 +226,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await Device.setProperties(client, dev, SCHEMAS);
   }
 
   config.channels.forEach((c) => {

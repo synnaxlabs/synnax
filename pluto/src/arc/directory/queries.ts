@@ -61,7 +61,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 });
 
 export interface MoveParams {
-  source: resource.ID;
   destination: resource.ID;
   ids: resource.ID[];
 }
@@ -76,9 +75,9 @@ export const { useUpdate: useMove } = Flux.createUpdate<MoveParams>({
   name: RESOURCE_NAME,
   verbs: MOVE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
-    const { source, destination, ids } = data;
+    const { destination, ids } = data;
     await onOptimisticComplete(data);
-    await client.arcs.directories.move(source, destination, ...ids);
+    await client.arcs.directories.move(destination, ...ids);
     return data;
   },
 });

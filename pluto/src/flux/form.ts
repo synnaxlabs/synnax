@@ -54,10 +54,14 @@ import {
 import { type UpdateParams } from "@/flux/update";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
+export interface FormUpdateParams<
+  Schema extends z.ZodType<query.Data>,
+  Query extends query.Params = query.Params,
+>
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
-    Omit<Form.UseReturn<Schema>, "setStatus"> {}
+    Omit<Form.UseReturn<Schema>, "setStatus">,
+    Pick<FormClientParams<Query>, "query"> {}
 
 /** Client and query handles for a form operation. */
 interface FormClientParams<Query extends query.Params> {
@@ -83,7 +87,7 @@ export interface CreateFormParams<
    * A hit resolves the read synchronously, with no fetch and no suspension.
    */
   getCached?: (params: RetrieveParams<Query>) => z.infer<Schema> | undefined;
-  update: (params: FormUpdateParams<Schema>) => Promise<void>;
+  update: (params: FormUpdateParams<Schema, Query>) => Promise<void>;
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];

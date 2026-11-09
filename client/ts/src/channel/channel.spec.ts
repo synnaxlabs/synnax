@@ -471,13 +471,32 @@ describe("Channel", () => {
         virtual: true,
       });
       const g = await client.groups.create({ name: id.create(), scope: "channel" });
-      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      await client.batch.send(client.channels.setGroupRequest(ch.key, g.key));
       expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
       expect(
         (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
       ).toEqual([ch.key]);
-      await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
+      await client.batch.send(client.channels.setGroupRequest(ch.key, null));
       expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
+    });
+  });
+  describe("dispatch", () => {
+    it("should apply the actions to the channel", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      const name = id.create();
+      await client.channels.dispatch(ch.key, [
+        channel.rename({ name }),
+        channel.set({ path: ["group"], value: g.key }),
+      ]);
+      expect(await createTestClient().channels.retrieve(ch.key)).toMatchObject({
+        name,
+        group: g.key,
+      });
     });
   });
   describe("update calculations", () => {
@@ -879,7 +898,9 @@ describe("cached reads", () => {
           [ch.key],
         );
         await sleep.sleep(TimeSpan.milliseconds(250));
-        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+        expect(send.mock.calls.map(([target]) => target)).toEqual([
+          "/channel/dispatch",
+        ]);
       } finally {
         send.mockRestore();
         off();

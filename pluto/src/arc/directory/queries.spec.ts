@@ -95,11 +95,7 @@ describe("Arc.Directory", () => {
     const destination = arc.directory.resourceID(d.key);
     const { result } = renderHook(() => Arc.Directory.useMove(), { wrapper });
     await act(async () => {
-      await result.current.updateAsync({
-        source: root,
-        destination,
-        ids: [arc.resourceID(a.key)],
-      });
+      await result.current.updateAsync({ destination, ids: [arc.resourceID(a.key)] });
     });
     const res = await client.arcs.retrieve({ key: a.key });
     expect(res.directory).toBe(d.key);

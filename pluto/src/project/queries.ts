@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  actions,
   type group,
   project,
   query,
@@ -95,8 +96,15 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, set }) => {
-    const res = await client.projects.create(value());
-    set(formPath.key, res.key);
+    const values = value();
+    if (values.key == null) {
+      const created = await client.projects.create(values);
+      set(formPath.key, created.key);
+      return;
+    }
+    const prev = await client.projects.retrieve(values.key);
+    const edits = actions.diffFields(formSchema, prev, values, ["name"]);
+    if (edits.length > 0) await client.projects.dispatch(values.key, edits);
   },
 });
 

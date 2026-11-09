@@ -86,7 +86,6 @@ describe("arc/Explorer", () => {
     const sub = await createDirectory(clientArc.directory.resourceID(dir.key));
     const module = await createModule();
     await client.arcs.directories.move(
-      arcsID,
       clientArc.directory.resourceID(sub.key),
       clientArc.resourceID(module.key),
     );

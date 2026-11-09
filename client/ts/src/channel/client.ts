@@ -23,6 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type batch } from "@/batch";
+import { type Action, dispatchReqZ, dispatchResZ, rename } from "@/channel/actions";
 import {
   analyzeParams,
   isCalculated,
@@ -299,6 +301,7 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
+  batch: batch.Client;
 }
 
 /**
@@ -411,7 +414,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+    this.setGroupRequest = group.createMoveRequest("/channel/dispatch", (keys, to) => {
       const rollbacks = keys.map((key) => this.moveThrough(key, to));
       return () => rollbacks.forEach((rollback) => rollback());
     });
@@ -597,6 +600,7 @@ export class Client extends query.Retriever<
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
+  /** Renames the channels in one transaction, giving each key the name at its index. */
   async rename(key: Key, name: string, opts?: query.WriteOptions): Promise<void>;
   async rename(keys: Key[], names: string[], opts?: query.WriteOptions): Promise<void>;
   async rename(
@@ -606,13 +610,35 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const apply = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const requests = keysArr.map((key, i) => ({
+      endpoint: "/channel/dispatch",
+      payload: { key, actions: [rename({ name: namesArr[i] })] },
+    }));
     await query.optimistic({
-      rollbacks: rename(),
+      rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.rename(keysArr, namesArr),
+      // A batch prefixes its errors with the request index, so one rename skips it.
+      commit: async () =>
+        requests.length === 1
+          ? await this.dispatch(keysArr[0], requests[0].payload.actions)
+          : await this.cfg.batch.send(requests),
     });
-    rename();
+    apply();
+  }
+
+  /**
+   * Applies the actions to the channel in one transaction.
+   * @throws {ValidationError} if the channel cannot hold an action.
+   * @throws {NotFoundError} if the channel does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/channel/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /**
