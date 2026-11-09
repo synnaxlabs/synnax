@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Directory table for references. Pass it as
@@ -34,6 +35,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Directory, string]
 	parent *gorp.KeyReference[Key, Directory, Key]
 	search *gorp.SearchIndex[Key, Directory]
 }
@@ -43,6 +45,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Directory, string](
+			"name",
+			func(e *Directory) string { return compare.TextKey(string(e.Name)) },
+		),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Directory, Key]{
 			Name:     "parent",
 			Table:    "arc_directory",
@@ -69,6 +75,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Directory] {
 	return []gorp.Index[Key, Directory]{
+		i.name,
 		i.search,
 	}
 }
@@ -86,6 +93,37 @@ func (i indexes) references() []gorp.Reference[Key, Directory] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Directory] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Directory]
+
+// OrderBy walks the directories in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Directory] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Directory] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -145,10 +183,17 @@ func MatchKeys(keys ...Key) Filter {
 // directories whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Directory] {
-		return gorp.Match(func(_ gorp.Context, e *Directory) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Directory] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Directory) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
 	}
 }
 
@@ -196,10 +241,10 @@ func (r Retrieve) Entries(es *[]Directory) Retrieve {
 // Limit sets the maximum number of directories to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the directories to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 

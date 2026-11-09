@@ -12,21 +12,150 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 )
+
+// CursorToPB converts Cursor to Cursor.
+func CursorToPB(r arc.Cursor) (*Cursor, error) {
+	pb := &Cursor{
+		Key: r.Key.String(),
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
+	}
+	return pb, nil
+}
+
+// CursorFromPB converts Cursor to Cursor.
+func CursorFromPB(pb *Cursor) (arc.Cursor, error) {
+	var r arc.Cursor
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return arc.Cursor{}, err
+	}
+	if pb.Name != nil {
+		r.Name = pb.Name
+	}
+	return r, nil
+}
+
+// CursorsToPB converts a slice of Cursor to Cursor.
+func CursorsToPB(rs []arc.Cursor) ([]*Cursor, error) {
+	result := make([]*Cursor, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CursorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CursorsFromPB converts a slice of Cursor to Cursor.
+func CursorsFromPB(pbs []*Cursor) ([]arc.Cursor, error) {
+	result := make([]arc.Cursor, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CursorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrderToPB converts Order to Order.
+func OrderToPB(r arc.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func OrderFromPB(pb *Order) (arc.Order, error) {
+	var r arc.Order
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return arc.Order{}, err
+	}
+	r.Descending = pb.Descending
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []arc.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]arc.Order, error) {
+	result := make([]arc.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r arc.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:     r.SearchTerm,
-		Offset:         r.Offset,
 		IncludeProgram: r.IncludeProgram,
 	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = arcpb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.After != nil {
+		var err error
+		pb.After, err = CursorToPB(*r.After)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +177,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 	}
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeProgram = pb.IncludeProgram
 	if pb.Where != nil {
 		val, err := arcpb.WhereFromPB(pb.Where)
@@ -56,6 +184,20 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 			return arc.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return arc.RetrieveRequest{}, err
+		}
+		r.Order = &val
+	}
+	if pb.After != nil {
+		val, err := CursorFromPB(pb.After)
+		if err != nil {
+			return arc.RetrieveRequest{}, err
+		}
+		r.After = &val
 	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
@@ -140,4 +282,24 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]arc.RetrieveResponse, e
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts arc.OrderField to OrderField.
+func OrderFieldToPB(v arc.OrderField) (OrderField, error) {
+	switch v {
+	case arc.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	default:
+		return 0, errors.Newf("unrecognized arc.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to arc.OrderField.
+func OrderFieldFromPB(v OrderField) (arc.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return arc.OrderFieldName, nil
+	default:
+		return arc.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }

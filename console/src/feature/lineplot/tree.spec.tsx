@@ -37,7 +37,7 @@ import {
 const roles = new RoleClients(client);
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
@@ -83,11 +83,11 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
     };
     const itemID = List.itemNameID(resource.idToString(ids[0]));
     const element = (
-      <>
+      <Tree.Provider items={LinePlot.TREE_ITEMS}>
         <Menu {...props} />
         <Text.MaybeEditable id={itemID} value={current[0].name} onChange={() => {}} />
         <Modals.Stack />
-      </>
+      </Tree.Provider>
     );
     return { props, itemID, element };
   };
@@ -223,7 +223,7 @@ describe("lineplot/tree", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.resourceID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Plot"));
+      const items = Item.haulItems(createResource(id, "My Plot"), client);
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

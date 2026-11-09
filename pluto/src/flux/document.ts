@@ -30,8 +30,7 @@ import { Synnax } from "@/synnax";
 
 /** The part of a domain client that a document form reads and edits through. */
 export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
-  getCached: (key: Key) => query.Cached<Doc> | undefined;
-  onChange: (key: Key, handler: query.ChangeHandler<Doc>) => destructor.Destructor;
+  watch: (key: Key) => query.Live<Doc>;
   /** Begins a transaction of actions on the cached document, with camelCase keys. */
   beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
 }
@@ -189,7 +188,7 @@ class DocumentStore<
     this.client = params.client;
     this.query = params.query;
     this.key = params.query.key;
-    const cached = params.domain.getCached(this.key);
+    const cached = params.domain.watch(this.key).getCached();
     if (!query.isLive(cached)) throw new Error(`Document ${this.key} is not cached`);
     const values = params.toValues(cached, this.query);
     if (values === undefined)
@@ -199,7 +198,7 @@ class DocumentStore<
   }
 
   get = (): V => {
-    const cached = this.params.domain.getCached(this.key);
+    const cached = this.params.domain.watch(this.key).getCached();
     // A deleted document, or one whose edited part another client removed, keeps its
     // last values and takes no edits.
     if (query.isLive(cached) && cached !== this.doc) {
@@ -283,7 +282,7 @@ class DocumentStore<
   };
 
   onChange = (callback: () => void): destructor.Destructor =>
-    this.params.domain.onChange(this.key, () => callback());
+    this.params.domain.watch(this.key).onChange(() => callback());
 
   /**
    * Sends every edit the store holds, and waits for the sends already in flight.

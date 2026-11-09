@@ -157,7 +157,9 @@ describe("Panel tab", () => {
 
       // Restoring re-creates from the corpse under the original key. The guard
       // re-reads its own query: no boundary reset and no refetch.
-      const corpse = query.requireCorpse(client.schematics.getCached(schem.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(schem.key).getCached(),
+      );
       await act(async () => {
         await client.schematics.create({ ...corpse, project });
       });

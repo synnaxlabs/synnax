@@ -19,8 +19,9 @@ export type RetrieveQuery = { key: channel.Key };
 export const retrieveDefinition: flux.Definition<RetrieveQuery, control.KeyedState> = {
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.control.retrieve(query),
-  onChange: ({ client, query }, handler) => client.control.onChange(query, handler),
-  getCached: ({ client, query }) => client.control.getCached(query),
+  onChange: ({ client, query }, handler) =>
+    client.control.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.control.watch(query).getCached(),
 };
 
 export type ListQuery = { keys: channel.Key[] };
@@ -28,6 +29,7 @@ export type ListQuery = { keys: channel.Key[] };
 export const listDefinition: flux.Definition<ListQuery, control.KeyedState[]> = {
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.control.retrieve(query),
-  onChange: ({ client, query }, handler) => client.control.onChange(query, handler),
-  getCached: ({ client, query }) => client.control.getCached(query),
+  onChange: ({ client, query }, handler) =>
+    client.control.watch(query.keys).onChange(handler),
+  getCached: ({ client, query }) => client.control.watch(query.keys).getCached(),
 };

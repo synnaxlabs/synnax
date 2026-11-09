@@ -27,7 +27,24 @@ TYPE_STATUS: Literal["status"] = "status"
 
 Type = Literal["range", "status"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of views.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Base(BaseModel):
@@ -84,6 +101,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of views: the sort value and the key of a view.
+
+    Attributes:
+        key: Is the key of the view at the position.
+        name: Is the name of the view at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class RangeView(Base):
     """Is a saved view of ranges."""
 
@@ -112,16 +141,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the views to retrieve. An absent where selects all of them.
         search_term: Keeps the views that match the term, closest match first.
+        order: Sorts the views. An absent order sorts them by key.
+        after: Starts the views strictly past this position in their order.
         limit: Is the most views to return.
-        offset: Is the number of matching views to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class RetrieveResponse(BaseModel):

@@ -45,6 +45,7 @@ import {
   type LocalCache,
   localFor,
   promiseFor,
+  refresh,
   type RetrieveParams,
   type Settled,
   subscribeReader,
@@ -224,6 +225,14 @@ export interface UseInvalidate<Query extends query.Params> {
   (): (query: Query) => void;
 }
 
+/**
+ * Returns a callback that fetches a query again. Mounted readers keep showing the
+ * answer they hold until the new one replaces it.
+ */
+export interface UseRefresh<Query extends query.Params> {
+  (): (query: Query) => void;
+}
+
 /// A hook reading a deletion as a value instead of throwing it: the corpse
 /// while the record is deleted, null while it is present, re-rendering when
 /// that flips. Reach for it only where rendering absence is the caller's job,
@@ -295,6 +304,7 @@ export interface CreateRetrieveReturn<
   useEnsure: UseEnsure<Query>;
   useResult: UseResult<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
+  useRefresh: UseRefresh<Query>;
   useTombstone: UseTombstone<Query>;
   createSelector: CreateSelector<Query, Data>;
   createResultSelector: CreateResultSelector<Query, Data>;
@@ -442,6 +452,8 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
   });
+  // A refresh replaces the settled answer of a mounted reader.
+  useSettled<Query, Data>(locals, client, memoQuery);
   const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
@@ -536,6 +548,34 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
     if (client == null) return;
     const normalized = normalizeQuery?.(q) ?? q;
     invalidate(localFor(locals, client), query.hash(normalized));
+  };
+};
+
+const useRefresh = <Query extends query.Params, Data extends query.Data>({
+  locals,
+  normalizeQuery,
+  name,
+  retrieve,
+  onChange,
+  getCached,
+  awaitCreation,
+  retryUnreachable,
+}: Context<Query, Data>): ((q: Query) => void) => {
+  const client = Synnax.use();
+  return (q: Query) => {
+    if (client == null) return;
+    refresh(
+      { client, query: normalizeQuery?.(q) ?? q },
+      fetchParamsFor({
+        name,
+        retrieve,
+        onChange,
+        getCached,
+        awaitCreation,
+        retryUnreachable,
+        local: localFor(locals, client),
+      }),
+    );
   };
 };
 
@@ -741,6 +781,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useResult: createResultSelector<Query, Data, Data>(context, (data) => data),
     useInvalidate: () =>
       useInvalidate<Query, Data>(locals, createParams.normalizeQuery),
+    useRefresh: () => useRefresh<Query, Data>(context),
     useTombstone: (query: Query) => useTombstone(context, query),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
       select: (data: Data, query: ExtendedQuery) => Selected,
