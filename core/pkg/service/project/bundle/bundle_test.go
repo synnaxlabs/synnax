@@ -787,7 +787,9 @@ var _ = Describe("Import", func() {
 			return arcSvc.NewWriter(tx).Apply(
 				ctx,
 				a.Base().Key,
-				arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+				arc.NewSetAction(
+					arc.SetPayload{Path: []string{"name"}, Value: "Startup Source"},
+				),
 			)
 		})).To(Succeed())
 		tx = DeferClose(db.OpenTx())

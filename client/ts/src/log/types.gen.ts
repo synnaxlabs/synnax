@@ -18,6 +18,10 @@ import { project } from "@/project";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
   /** format controls how channel timestamps are rendered. */
@@ -26,6 +30,15 @@ export const timestampConfigZ = z.object({
   tz: telem.timeZoneZ,
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
+
+/** Order is a sort of logs. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -86,6 +99,15 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
+/** Cursor is a position in an order of logs: the sort value and the key of a log. */
+export const cursorZ = z.object({
+  /** key is the key of the log at the position. */
+  key: keyZ,
+  /** name is the name of the log at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /**
  * Log is a visualization that shows the samples of its channels as text, one line per
  * sample, in time order.
@@ -126,10 +148,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the logs that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the logs. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the logs strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most logs to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching logs to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof logZ> {}

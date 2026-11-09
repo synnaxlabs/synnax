@@ -16,6 +16,6 @@ export type RetrieveQuery = Record<string, never>;
 export const { useResult } = Flux.createRetrieve<RetrieveQuery, license.Info>({
   name: "license",
   retrieve: async ({ client }) => await client.license.retrieve(),
-  onChange: ({ client }, handler) => client.license.onChange(handler),
-  getCached: ({ client }) => client.license.getCached(),
+  onChange: ({ client }, handler) => client.license.watch().onChange(handler),
+  getCached: ({ client }) => client.license.watch().getCached(),
 });

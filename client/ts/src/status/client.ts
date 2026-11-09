@@ -12,6 +12,7 @@ import {
   array,
   type destructor,
   filter,
+  type record,
   scheduler,
   TimeSpan,
   uuid,
@@ -33,7 +34,13 @@ import {
   statusZ,
 } from "@/status/types.gen";
 import { LINES } from "@/status/where";
-import { matches, retrieveInputZ, serverComputed } from "@/status/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -98,16 +105,16 @@ export class Client extends query.Retriever<
   private readonly writeHandlers = new Set<(status: Status) => void>();
   private readonly ownedFetches = new scheduler.Batcher<resource.ID[], Status[]>({
     interval: OWNED_FETCH_DEBOUNCE,
-    exec: async (requests) => {
-      const owners = requests.flatMap(({ req }) => req);
-      const since = this.store.stamp();
-      const statuses = await this.execRetrieve({ where: { owners } });
-      this.store.ingest(statuses, { since });
-      requests.forEach(({ req, resolve }) => {
-        const wanted = new Set(resource.idToString(req));
-        resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
-      });
-    },
+    exec: async (requests) =>
+      await this.store.track(async (since) => {
+        const owners = requests.flatMap(({ req }) => req);
+        const statuses = await this.execRetrieve({ where: { owners } });
+        this.store.ingest(statuses, { since });
+        requests.forEach(({ req, resolve }) => {
+          const wanted = new Set(resource.idToString(req));
+          resolve(statuses.filter((s) => wanted.has(ownerOf(s) ?? "")));
+        });
+      }),
   });
 
   constructor(cfg: ClientConfig) {
@@ -126,6 +133,7 @@ export class Client extends query.Retriever<
       name: "status",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (status, req) => matches(LINES, status, req.where),
@@ -343,6 +351,20 @@ export class Client extends query.Retriever<
    */
   ownedBy(owner: resource.ID): Status | undefined {
     return this.owners.get(resource.idToString(owner))[0];
+  }
+
+  /**
+   * Keeps the status of each held record in the table from the cache's trim.
+   * @param owner - Returns the resource that a record key names.
+   */
+  holdOwned<K extends record.Key>(
+    table: { held: () => Iterable<K> },
+    owner: (key: K) => resource.ID,
+  ): void {
+    this.store.hold({
+      held: () =>
+        [...table.held()].flatMap((key) => this.ownedBy(owner(key))?.key ?? []),
+    });
   }
 
   /**

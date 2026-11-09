@@ -364,7 +364,9 @@ var _ = Describe("Dispatched Arc names", func() {
 			})).To(Succeed())
 		})
 		Expect(dispatch(ctx, renamed.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "dispatch_taken"},
+			),
 		})).To(MatchError(ContainSubstring("already used")))
 	})
 })
