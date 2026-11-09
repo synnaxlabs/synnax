@@ -173,18 +173,18 @@ class TestRackClient:
         res = client.racks.retrieve(keys=[r.key, 4123456789])
         assert [x.key for x in res] == [r.key]
 
-    def test_update_integrations(self, client: sy.Synnax) -> None:
-        """Should update integrations on upsert"""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a rack whose key exists and keep the stored rack."""
         rack = client.racks.create(
-            racks=sy.Rack(name="py-upsert-integ", integrations=["ni"])
+            racks=sy.Rack(name="py-existing-key", integrations=["ni"])
         )
-        client.racks.create(
-            racks=sy.Rack(
-                key=rack.key, name="py-upsert-integ", integrations=["ni", "opc", "arc"]
+        with pytest.raises(sy.ValidationError, match=f"rack {rack.key} already exists"):
+            client.racks.create(
+                racks=sy.Rack(
+                    key=rack.key, name="py-existing-key", integrations=["ni", "opc"]
+                )
             )
-        )
-        res = client.racks.retrieve(key=rack.key)
-        assert res.integrations == ["ni", "opc", "arc"]
+        assert client.racks.retrieve(key=rack.key).integrations == ["ni"]
 
     def test_retrieve_embedded_rack(self, client: sy.Synnax) -> None:
         rack = client.racks.retrieve_embedded_rack()
