@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type status } from "@synnaxlabs/client";
+import { channel, log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
@@ -56,6 +56,7 @@ export const logStateZ = log.logZ
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
     channelNames: z.record(z.string(), z.string()).default({}),
     channelDataTypes: z.record(z.string(), z.string()).default({}),
+    hiddenChannels: z.array(channel.keyZ).default([]),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -344,6 +345,7 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
+    i.telem.wrapped.setFilter?.({ hiddenChannels: this.state.hiddenChannels });
     const { data } = i.telem.value();
     this.entries = data;
 

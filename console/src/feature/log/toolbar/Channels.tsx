@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -26,6 +27,7 @@ import {
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
 const ALIAS_MAX_LENGTH = 64;
@@ -50,6 +52,9 @@ const ChannelRow = ({
   disabled,
 }: ChannelRowProps): ReactElement | null => {
   const dispatch = Log.useSingleDispatch();
+  const sessionDispatch = Session.useDispatch();
+  const key = Log.useKey();
+  const hidden = Session.Log.useSelectHiddenChannels().includes(channel);
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
@@ -80,6 +85,8 @@ const ChannelRow = ({
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
   // Clearing the row's channel removes the row.
+  const handleVisibleChange = () =>
+    sessionDispatch(Session.Log.setChannelVisible({ key, channel, visible: hidden }));
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
       to == null
@@ -103,6 +110,15 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
+        <Button.Button
+          onClick={handleVisibleChange}
+          size="small"
+          variant="text"
+          tooltip={hidden ? "Show channel" : "Hide channel"}
+          aria-label={hidden ? "Show channel" : "Hide channel"}
+        >
+          {hidden ? <Icon.Hidden /> : <Icon.Visible />}
+        </Button.Button>
         <Channel.SelectSingle
           value={channel}
           onChange={handleChannelChange}

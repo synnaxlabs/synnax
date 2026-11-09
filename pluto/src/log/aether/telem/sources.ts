@@ -17,6 +17,7 @@ import {
   type breaker,
   compare,
   DataType,
+  deep,
   type Series,
   staticWindow,
   sync,
@@ -27,9 +28,11 @@ import {
 import { z } from "zod";
 
 import {
+  type Filter,
   type LogEntry,
   type LogSource,
   type LogSourceSpec,
+  ZERO_FILTER,
 } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { telem } from "@/telem/aether";
@@ -172,6 +175,8 @@ export class StreamMultiChannelLog
   private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
+  private filter: Filter = ZERO_FILTER;
+  private hidden = new Set<channel.Key>();
 
   constructor(
     client: telem.Client | null,
@@ -230,6 +235,18 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  /**
+   * The log holds only the entries the filter keeps, so a change reads them again from
+   * the newest samples.
+   */
+  setFilter(filter: Filter): void {
+    if (deep.equal(this.filter, filter)) return;
+    this.filter = filter;
+    this.hidden = new Set(filter.hiddenChannels);
+    this.cancelPage();
+    this.reload();
+  }
+
   /** The times the channels store, or null until the oldest is known. */
   get timeRange(): TimeRange | null {
     const end = this.unread.at(-1)?.end ?? this.entries.at(-1)?.timestamp.valueOf();
@@ -257,6 +274,11 @@ export class StreamMultiChannelLog
     // A late older page could evict the newest entries of a live log.
     this.cancelPage();
     if (this.live) return this.notify();
+    this.reload();
+  }
+
+  // Clears the entries and pulls the newest samples again.
+  private reload(): void {
     this.unread = [];
     this.skipped = [];
     this.skippedLines = 0;
@@ -783,7 +805,9 @@ export class StreamMultiChannelLog
   // Inserts each group of entries at its place in time order: after the entries that
   // share its time, or before them when prepended from an older page. groups holds the
   // entries of one sample per group.
-  private insert(groups: LogEntry[][], prepended = false): void {
+  private insert(all: LogEntry[][], prepended = false): void {
+    const groups = this.filtered(all);
+    if (groups.length === 0) return;
     groups.sort((a, b) => compareTimes(a[0], b[0]));
     const first = groups[0][0].timestamp.valueOf();
     const last = this.entries.at(-1)?.timestamp.valueOf();
@@ -803,6 +827,13 @@ export class StreamMultiChannelLog
     }
     for (; i < this.entries.length; i++) merged.push(this.entries[i]);
     this.entries = merged;
+  }
+
+  // Returns the groups the filter keeps. The reads count every sample, so a filter
+  // changes only what the entries hold.
+  private filtered(groups: LogEntry[][]): LogEntry[][] {
+    if (this.hidden.size === 0) return groups;
+    return groups.filter(([{ channelKey }]) => !this.hidden.has(channelKey));
   }
 
   // Evicts the newest entries past maxEntries, which a later read finds again. The cut
