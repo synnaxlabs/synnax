@@ -38,11 +38,11 @@ const SET_GROUP: Partial<
   device: (client, keys, to) => client.devices.setGroupRequest(keys, to),
   rack: (client, keys, to) => client.racks.setGroupRequest(keys.map(Number), to),
   project: (client, keys, to) => client.projects.setGroupRequest(keys, to),
-  schematic: (client, keys, to) => [client.schematics.setGroupRequest(keys, to)],
-  lineplot: (client, keys, to) => [client.lineplots.setGroupRequest(keys, to)],
-  log: (client, keys, to) => [client.logs.setGroupRequest(keys, to)],
-  table: (client, keys, to) => [client.tables.setGroupRequest(keys, to)],
-  panel: (client, keys, to) => [client.panels.setGroupRequest(keys, to)],
+  schematic: (client, keys, to) => client.schematics.setGroupRequest(keys, to),
+  lineplot: (client, keys, to) => client.lineplots.setGroupRequest(keys, to),
+  log: (client, keys, to) => client.logs.setGroupRequest(keys, to),
+  table: (client, keys, to) => client.tables.setGroupRequest(keys, to),
+  panel: (client, keys, to) => client.panels.setGroupRequest(keys, to),
 };
 
 /**

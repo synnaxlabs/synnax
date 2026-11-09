@@ -229,7 +229,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
   });
   await client.batch.send([
     ...Group.moveRequests(client, groups, destination.id),
-    ...[...byType].map(([type, keys]) =>
+    ...[...byType].flatMap(([type, keys]) =>
       Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),
   ]);
