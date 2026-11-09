@@ -83,8 +83,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelEntry) SetDefaults() {
 	c.Notation = "standard"
-	c.Timestamp.Format = "preciseDate"
-	c.Timestamp.Tz = "local"
+	c.TimestampConfig.Format = "preciseDate"
+	c.TimestampConfig.TimeZone = "local"
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
