@@ -2344,6 +2344,38 @@ Node struct {
 			"_ context.Context, old v0.Entry) (shared.Entry, error)"))
 	})
 
+	It("Should name a moved field's variable apart from the receiver", func() {
+		content := MustSucceed(generateMove(
+			types,
+			types+`
+Node struct {
+	key uuid @key
+	old Format?
+
+	@go marshal
+	@go migrate
+}
+`,
+			`
+Node struct {
+	key uuid @key
+	old shared.Format?
+
+	@go marshal
+	@go migrate
+}
+`,
+			`
+Node struct {
+	key uuid @key
+	old shared.Format?
+}
+`,
+		))
+		Expect(content).To(ContainSubstring("var oldVal *shared.Format"))
+		Expect(content).To(MatchRegexp(`Old:\s+oldVal,`))
+	})
+
 	DescribeTable("Should require a hand-written step when a moved type changes shape",
 		func(shared, call string) {
 			content := MustSucceed(generateMove(shared, nodeV0, nodeV1, live))

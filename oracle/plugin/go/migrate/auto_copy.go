@@ -783,7 +783,7 @@ func (c *collector) addMovedField(
 		oldElem, newElem := oldRef.TypeArgs[0], newRef.TypeArgs[0]
 		oldT, _, _ := resolution.Dealias(oldElem, c.oldTable)
 		newT, _, _ := resolution.Dealias(newElem, c.newTable)
-		varName := naming.LowerFirst(goName)
+		varName := fn.varName(goName)
 		oldName := c.resolveTypeName(oldT, c.oldTable)
 		newName := c.resolveTypeName(newT, c.newTable)
 		c.usesLo = true
@@ -806,7 +806,7 @@ func (c *collector) addMovedField(
 	oldT, _, _ := resolution.Dealias(oldRef, c.oldTable)
 	newT, _, _ := resolution.Dealias(newRef, c.newTable)
 	newName := c.resolveTypeName(newT, c.newTable)
-	varName := naming.LowerFirst(goName)
+	varName := fn.varName(goName)
 	if _, isEnum := oldT.Form.(resolution.EnumForm); isEnum {
 		if !isOptional {
 			fn.Fields = append(fn.Fields, field{
@@ -836,6 +836,16 @@ func (c *collector) addMovedField(
 	fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
 }
 
+// varName returns the variable that holds a converted field, apart from the receiver
+// the function reads old fields through.
+func (fn *funcData) varName(goName string) string {
+	name := naming.LowerFirst(goName)
+	if name == fn.recv {
+		name += "Val"
+	}
+	return name
+}
+
 // addHandField reads a field whose type moved to another resource with a new shape
 // through a hand-written step, migrate<Type><Field>, that the build requires. A field
 // of an anonymous variant has no name to give the step, so it fails generation.
@@ -853,7 +863,7 @@ func (c *collector) addHandField(
 		))
 		return
 	}
-	varName := naming.LowerFirst(goName)
+	varName := fn.varName(goName)
 	fn.UsesCtx = true
 	fn.Preamble = append(fn.Preamble, step{
 		Kind: "migrate", VarName: varName,
