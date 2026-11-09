@@ -115,7 +115,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+		DB:      db,
+		Channel: channelSvc,
+	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,

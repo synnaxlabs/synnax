@@ -511,7 +511,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			})).Stores()...,
 		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB: db,
+			DB:      db,
+			Channel: channelSvc,
 		})).Stores()...)
 		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
