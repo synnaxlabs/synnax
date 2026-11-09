@@ -165,6 +165,29 @@ describe("Secret", () => {
       expect((await client.secrets.retrieve({ key: s.key })).uses).toBeUndefined();
     });
 
+    it("should read the uses of a secret created after a watched list", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      try {
+        const c = await createTestClient().certificates.create({
+          name: "Watched uses",
+          source: "stored",
+          pem: PEM,
+          privateKeyPem: PRIVATE_KEY,
+        });
+        assert(c.source === "stored" && c.privateKey != null);
+        const { privateKey } = c;
+        await expect
+          .poll(() => list.getCached()?.records.find((r) => r.key === privateKey)?.uses)
+          .toEqual([{ type: "certificate", key: c.key }]);
+      } finally {
+        off();
+      }
+    });
+
     it("should refetch the uses of a secret for a new subscriber", async () => {
       const client = createTestClient();
       await waitForStreamLive(client.connection);
