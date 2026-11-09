@@ -23,6 +23,7 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
 
 <details class="version-menu">
     <summary class="version-menu__trigger" aria-label="Docs version">
+        <Icon.Version className="version-menu__icon" />
         <span>{nameOf(version.name)}</span>
         <Icon.Caret.Down className="version-menu__caret" />
     </summary>
@@ -97,6 +98,12 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
             &:focus-visible {
                 outline: 1px solid var(--pluto-primary-z);
                 outline-offset: var(--pluto-focus-ring-offset);
+            }
+
+            & :global(.version-menu__icon) {
+                width: 2.25rem;
+                height: 2.25rem;
+                color: var(--pluto-gray-l8);
             }
 
             & :global(.version-menu__caret) {
