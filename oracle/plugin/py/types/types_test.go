@@ -443,6 +443,32 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should apply an exclusive lower bound in place of the implied one",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Wave struct {
+					cycles    int32 @validate gt 0
+					frequency float64 @validate gt 0.5
+				}
+			`
+				table, diag := Analyze(ctx, source, "wave", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(
+					&plugin.Request{Resolutions: table},
+				))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`cycles: int = Field(gt=0, le=2147483647)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`frequency: float = Field(gt=0.500000)`,
+				))
+			},
+		)
+
+		It(
 			"Should emit native Field length constraints, which count code points",
 			func(ctx SpecContext) {
 				source := `
