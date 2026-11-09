@@ -1676,24 +1676,64 @@ var _ = Describe("Writer", func() {
 				"Should send the renames of several writers to storage in one call",
 				func(ctx SpecContext) {
 					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
+					before := MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					)
 					first, second := UniqueChannelName(), UniqueChannelName()
-					var stored ts.Channel
+					var between ts.Channel
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						if err := svc.NewWriter(tx).
 							Rename(ctx, keys[0], first, false); err != nil {
 							return err
 						}
-						// This hook runs before any hook that the second writer adds.
+						// Storage takes no rename before the hook of the last one.
 						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
-							stored, err = dist.Storage.TS.RetrieveChannel(
+							between, err = dist.Storage.TS.RetrieveChannel(
 								ctx,
-								keys[1].StorageKey(),
+								keys[0].StorageKey(),
 							)
 							return err
 						})
 						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
 					})).To(Succeed())
-					Expect(stored.Name).To(Equal(second))
+					Expect(between.Name).To(Equal(before.Name))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[1].StorageKey()),
+					).Name).To(Equal(second))
+				},
+			)
+			It(
+				"Should rename a channel created after an earlier rename",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 1))
+					created := channel.Channel{
+						Name:     UniqueChannelName(),
+						Virtual:  true,
+						DataType: telem.Int64T,
+					}
+					first, second := UniqueChannelName(), UniqueChannelName()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := svc.NewWriter(tx)
+						if err := w.Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						if err := w.Create(ctx, &created); err != nil {
+							return err
+						}
+						return w.Rename(ctx, created.Key(), second, false)
+					})).To(Succeed())
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(
+							ctx,
+							created.Key().StorageKey(),
+						),
+					).Name).To(Equal(second))
 				},
 			)
 		})
