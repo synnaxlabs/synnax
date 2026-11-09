@@ -25,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -230,6 +232,73 @@ func (s *Service) NewArcSymbolResolver(
 	filters ...Filter,
 ) arc.SymbolResolver {
 	return &symbolResolver{svc: s, snap: snap, filters: filters}
+}
+
+// CalculationInputs returns the stored channels that the calculated channels among
+// channels read, directly or through other calculated channels, including the channels
+// that reset their operations. The channels need not be stored yet. A calculation whose
+// expression fails analysis adds nothing, since it cannot run. A failed read returns
+// its error. CalculationInputs reads through snap.
+func (s *Service) CalculationInputs(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []Channel,
+) (Keys, error) {
+	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(snap), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
+	var (
+		inputs  Keys
+		visited = set.New[Key]()
+	)
+	// A write replaces only the stored form of a calculated channel, so the walk still
+	// reads the stored form of every other channel among channels.
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			visited.Add(ch.Key())
+		}
+	}
+	for len(channels) > 0 {
+		var next Keys
+		for _, ch := range channels {
+			if !ch.IsCalculated() {
+				continue
+			}
+			result, err := analyzer.Analyze(ctx, ch)
+			if errors.As(err, new(*diagnostics.Diagnostics)) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			reads := result.Deps
+			for _, op := range ch.Operations {
+				if op.ResetChannel != 0 {
+					reads = append(reads, op.ResetChannel)
+				}
+			}
+			for _, k := range reads {
+				// A channel among channels that is not stored yet has no local key.
+				if k.LocalKey() == 0 {
+					continue
+				}
+				inputs = append(inputs, k)
+				if !visited.Contains(k) {
+					visited.Add(k)
+					next = append(next, k)
+				}
+			}
+		}
+		channels = nil
+		if err := s.NewRetrieve().
+			Where(MatchKeys(next...)).
+			Where(MatchCalculated()).
+			Entries(&channels).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+	}
+	return inputs.Unique(), nil
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's

@@ -528,6 +528,8 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
+    COMMAND_TIMEOUT: sy.TimeSpan = 5 * sy.TimeSpan.SECOND
+    """How long a start or stop waits for the Driver to acknowledge it."""
 
     @abstractmethod
     def create(
@@ -703,7 +705,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         channel_keys = self._channel_keys(self.tsk)
         ch = self.client.channels.retrieve(channel_keys[0])
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -741,7 +743,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             sample_rate = config.sample_rate
             frame_size = int(config.sample_rate / config.stream_rate)
             checks = [channel_keys]
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             start = collect_samples(
                 self.client, channel_keys, duration=duration, frame_size=frame_size
             )
@@ -764,7 +766,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         """Assert that no samples are persisted while the task is running."""
         channel_keys = self._channel_keys(task)
 
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -815,7 +817,7 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
         self.log("Testing: Send commands")
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
@@ -843,7 +845,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 f"Expected: {new_name}, Actual: {retrieved.name}"
             )
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),

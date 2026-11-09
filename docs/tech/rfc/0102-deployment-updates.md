@@ -69,15 +69,16 @@ The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer,
 the update with `synnax update undo`."
 
 The Core writes the file and an `UPDATING` marker right after the backup, before any
-migration runs, so an older Core refuses the half-migrated data. Once the Core serves,
-it commits the update by removing the marker. The commit also needs the license to cover
-the new version when it covered the old one
+migration runs, so an older Core refuses the half-migrated data. Once the Core opens the
+data, and before it serves clients, it commits the update by removing the marker. The
+commit also needs the license to cover the new version when it covered the old one
 (`core/pkg/service/license/service.go:426-471`). A failure before the commit restores
 the backup (§3.1) and exits with: "Update to Core 0.61.0 failed: no space left on
 device. The data is back at Core 0.60.1. Run Core 0.60.1, or fix the cause and run
 `synnax update retry`." No client writes before the commit, so the undo loses nothing. A
-start that finds the marker treats the earlier start as failed, as Mender does after a
-reboot before its commit.
+stop request before the commit restores the backup and records no failure, so the next
+start updates the data again. A start that finds the marker after a crash treats the
+earlier start as failed, as Mender does after a reboot before its commit.
 
 After an undo, the Core records the failed version in `<data>/UPDATE_FAILED`. A later
 start of that version refuses at once, with no backup and no migration, so a Docker,
