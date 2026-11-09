@@ -118,6 +118,11 @@ describe("log/Base", () => {
       expect(screen.getByText("No log entries")).toBeDefined();
     });
 
+    it("should expose the log role", () => {
+      renderLog();
+      expect(screen.getByRole("log")).toBeDefined();
+    });
+
     it("should show the loading symbol only while loading", () => {
       setupAether({ empty: false, loading: true });
       const { rerender } = renderLog();
@@ -527,14 +532,11 @@ describe("log/Base", () => {
 
   describe("channel name resolution", () => {
     it("should pass channels to aether state", () => {
-      renderLog({
-        channels: [{ channel: 1 }, { channel: 2 }, { channel: "virtual" }],
-      });
+      renderLog({ channels: [{ channel: 1 }, { channel: 2 }] });
       expect(mockAetherUse).toHaveBeenCalled();
       expect(getAetherInitialState().channels).toEqual([
         { channel: 1 },
         { channel: 2 },
-        { channel: "virtual" },
       ]);
     });
   });

@@ -32,6 +32,7 @@ export const Controls = memo((): ReactElement => {
         value={hold}
         onChange={handleHoldChange}
         size="small"
+        aria-label="Pause scrolling"
         className={CSS.cls(hold && Vis.CONTROLS_PINNED_CLASS)}
         tooltipLocation={location.BOTTOM_LEFT}
         tooltip={

@@ -10,6 +10,8 @@
 package expression_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -398,6 +400,18 @@ var _ = Describe("Identifier Compilation", func() {
 				int64(3),
 				[]any{OpF32Const, float32(3)},
 			),
+			Entry(
+				"stored f32 infinity",
+				types.F32(),
+				"Infinity",
+				[]any{OpF32Const, float32(math.Inf(1))},
+			),
+			Entry(
+				"stored f64 negative infinity",
+				types.F64(),
+				"-Infinity",
+				[]any{OpF64Const, math.Inf(-1)},
+			),
 			Entry("bool true", types.Bool(), true, []any{OpI32Const, int32(1)}),
 			Entry("bool false", types.Bool(), false, []any{OpI32Const, int32(0)}),
 		)
@@ -425,6 +439,20 @@ var _ = Describe("Identifier Compilation", func() {
 				5,
 				"cannot fold",
 			),
+		)
+
+		It(
+			"Should keep float text in a string variable as text",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "label", Kind: symbol.KindVariable, Type: types.String(),
+					DefaultValue: "NaN",
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "label")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(byteCode).ToNot(ContainElement(byte(OpF64Const)))
+			},
 		)
 
 		It(

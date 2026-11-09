@@ -23,7 +23,11 @@ class Repo:
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        for f in ["scripts/fix.sh", "scripts/update_copyrights.sh"]:
+        for f in [
+            "scripts/fix.sh",
+            "scripts/update_copyrights.sh",
+            "scripts/common/copyright.sh",
+        ]:
             (path / f).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / f, path / f)
         (path / "licenses/headers").mkdir(parents=True)

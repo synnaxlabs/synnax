@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -152,6 +153,15 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
 		}
+		if fnSym.Kind != symbol.KindFunction || fnSym.Exec == symbol.ExecWASM {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' type '%s' is not a flow function",
+				n.Key,
+				nodeType,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
 		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
 		freshType := freshFuncTypes[n.Key]
 		node := ir.Node{
@@ -234,6 +244,14 @@ func Analyze(
 	// Step 6: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
+	}
+	for _, fn := range g.Functions {
+		if fn.Body.Raw != "" {
+			constant.Check(aCtx.Child(fn.Body.AST))
+		}
+	}
+	if !aCtx.Diagnostics.Ok() {
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
