@@ -135,6 +135,40 @@ class TestChannel:
         assert channel.is_index is True
         assert channel.index == channel.key
 
+    def test_create_retrieve_if_name_exists(self, client: sy.Synnax) -> None:
+        """Should return the existing channel and create no duplicate"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        again = client.channels.create(
+            name=name,
+            virtual=True,
+            data_type=sy.DataType.FLOAT32,
+            retrieve_if_name_exists=True,
+        )
+        assert again.key == ch.key
+        assert [c.key for c in client.channels.retrieve([name])] == [ch.key]
+
+    def test_create_retrieve_if_name_exists_keeps_order(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should return the channels in the order they were passed"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        new_name = channel_name()
+        created = client.channels.create(
+            [
+                sy.Channel(name=new_name, virtual=True, data_type=sy.DataType.FLOAT32),
+                sy.Channel(name=name, virtual=True, data_type=sy.DataType.FLOAT32),
+            ],
+            retrieve_if_name_exists=True,
+        )
+        assert [c.name for c in created] == [new_name, name]
+        assert created[1].key == ch.key
+
     def test_create_bool(self, client: sy.Synnax) -> None:
         """Should create a channel with a BOOLEAN data type"""
         idx = client.channels.create(
