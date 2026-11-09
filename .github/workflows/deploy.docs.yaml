@@ -53,6 +53,11 @@ on:
           "Space-separated versions: trains such as 0.61, next, latest, or previous"
         required: true
         type: string
+      train:
+        description:
+          "A train a release changed. It deploys if it has a stable Core release."
+        type: string
+        default: ""
     secrets:
       DOCS_ALGOLIA_APP_ID:
         required: true
@@ -88,19 +93,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VERSIONS: ${{ github.event_name == 'push' && 'next' || inputs.versions }}
-          REF: ${{ github.event_name == 'push' && github.sha || inputs.ref }}
-        run: echo "deployments=$(pnpm --silent plan-deploy)" >> "$GITHUB_OUTPUT"
+          # A push builds main as it is when the deploy runs, so the last deploy of a
+          # burst of pushes builds the newest commit.
+          REF: ${{ github.event_name != 'push' && inputs.ref || '' }}
+          RELEASED: ${{ inputs.train }}
+        run: |
+          deployments=$(pnpm --silent plan-deploy)
+          echo "deployments=$deployments" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy ${{ matrix.version }}
     needs: plan
+    if: needs.plan.outputs.deployments != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.deployments) }}
+    # Two versions can plan the same host, such as the root during a release.
     concurrency:
-      group: deploy-docs-${{ matrix.version }}
+      group: deploy-docs-${{ matrix.host }}
       cancel-in-progress: false
     env:
       DOCS_VERSION: ${{ matrix.version }}
