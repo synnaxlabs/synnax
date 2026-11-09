@@ -87,8 +87,11 @@ const (
 
 // File is the binary of a product release for one platform.
 type File struct {
-	Product  Product
-	Version  string
+	// Product is the product that the file belongs to.
+	Product Product
+	// Version is the release version without a "v" prefix, such as 0.61.0.
+	Version string
+	// Platform is the operating system that the file runs on.
 	Platform Platform
 }
 
