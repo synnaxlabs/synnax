@@ -186,16 +186,27 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchLE returns the position of the domain that contains ts, or else of the closest
+// domain before ts, and that domain. ok is false when there is none. One lock covers
+// both, so a concurrent insert cannot shift the position off the domain.
+func (idx *index) searchLE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
-func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchGE is searchLE for the closest domain after ts.
+func (idx *index) searchGE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
 	idx.read(func() {
 		var exact bool
@@ -207,9 +218,10 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 				i += 1
 			}
 		}
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with
@@ -238,15 +250,16 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-func (idx *index) get(i int) (pointer, bool) {
-	idx.mu.RLock()
+func (idx *index) get(i int) (ptr pointer, ok bool) {
+	idx.read(func() { ptr, ok = idx.unprotectedGet(i) })
+	return ptr, ok
+}
+
+func (idx *index) unprotectedGet(i int) (pointer, bool) {
 	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
 		return pointer{}, false
 	}
-	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
-	return v, true
+	return idx.mu.pointers[i], true
 }
 
 func (idx *index) read(f func()) {

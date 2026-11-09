@@ -99,9 +99,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchLE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchLE(ctx, stamp))
 }
 
 // SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such
@@ -111,9 +109,7 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchGE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchGE(ctx, stamp))
 }
 
 // Next advances the iterator to the next domain. If the iterator has been exhausted,
@@ -182,17 +178,16 @@ func (i *Iterator) Close() error {
 }
 
 func (i *Iterator) reload() bool {
-	if i.position == -1 {
-		i.valid = false
-		return i.valid
-	}
 	ptr, ok := i.db.idx.get(i.position)
-	if !ok || !ptr.OverlapsWith(i.Bounds) {
-		i.valid = false
-		// it's important that we return here, so we don't clear the current current
-		// value of the iterator.
-		return i.valid
+	return i.load(i.position, ptr, ok)
+}
+
+func (i *Iterator) load(position int, ptr pointer, ok bool) bool {
+	i.position = position
+	i.valid = ok && ptr.OverlapsWith(i.Bounds)
+	// An invalid load keeps currPtr, so the iterator stays at its last domain.
+	if i.valid {
+		i.currPtr = ptr
 	}
-	i.currPtr = ptr
 	return i.valid
 }

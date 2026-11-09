@@ -271,6 +271,42 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.SeekGE(ctx, 10*telem.SecondTS)).To(BeFalse())
 					Expect(i.SeekLE(ctx, 10*telem.SecondTS)).To(BeFalse())
 				})
+
+				It("Should find a domain while domains are written before it",
+					func(ctx SpecContext) {
+						target := (1000 * telem.SecondTS).SpanRange(telem.Second)
+						Expect(testutil.WriteDomain(ctx, db, target, []byte{1})).
+							To(Succeed())
+						done := make(chan error, 1)
+						go func() {
+							var err error
+							for s := 100; s < 1000; s++ {
+								tr := (telem.TimeStamp(s) * telem.SecondTS).
+									SpanRange(telem.Second)
+								if err = testutil.WriteDomain(
+									ctx, db, tr, []byte{1},
+								); err != nil {
+									break
+								}
+							}
+							done <- err
+						}()
+						i := db.OpenIterator(domain.IterRange(target))
+						for {
+							select {
+							case err := <-done:
+								Expect(err).ToNot(HaveOccurred())
+								Expect(i.Close()).To(Succeed())
+								return
+							default:
+							}
+							Expect(i.SeekGE(ctx, target.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(target))
+							Expect(i.SeekLE(ctx, target.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(target))
+						}
+					},
+				)
 			})
 
 			Describe("Exhaustion", func() {
