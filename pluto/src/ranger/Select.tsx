@@ -18,10 +18,10 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
-import { type ListQuery, useList, useResult } from "@/ranger/queries";
+import { useResult } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 
 export interface SelectProps
@@ -37,14 +37,16 @@ export interface SelectProps
       | "children"
       | "resourceName"
     >,
-    Flux.UseListParams<ListQuery, ranger.Key, ranger.Payload> {}
+    Pick<
+      Flux.UseListParams<ranger.RetrieveMultipleParams, ranger.Range>,
+      "query" | "filter"
+    > {}
 
 export const Select = ({ filter, query, ...rest }: SelectProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem, status } = useList({
-    filter,
-    query,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, subscribe, getItem, status, more, search } = Flux.useList(
+    (client) => client.ranges,
+    { name: "ranges", filter, query },
+  );
   return (
     <Base.Single<ranger.Key, ranger.Payload | undefined>
       variant="modal"
@@ -58,7 +60,7 @@ export const Select = ({ filter, query, ...rest }: SelectProps): ReactElement =>
       subscribe={subscribe}
       getItem={getItem}
       status={status}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
     >
       {listItemRenderProp}

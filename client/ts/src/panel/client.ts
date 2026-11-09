@@ -18,8 +18,8 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/panel/actions.gen";
 import {
   type Key,
@@ -31,7 +31,15 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/panel/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/panel/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/panel/where.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -80,6 +88,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -92,6 +101,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       name: "panel",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (panel, req) => matches(LINES, panel, req.where),
@@ -167,7 +177,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });

@@ -23,7 +23,14 @@ import {
   type View,
   viewZ,
 } from "@/view/types.gen";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/view/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/view/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -65,6 +72,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (view, req) => matches(view, req.where),

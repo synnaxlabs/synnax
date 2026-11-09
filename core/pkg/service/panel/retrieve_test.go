@@ -101,16 +101,6 @@ var _ = Describe("Retrieve", func() {
 		Expect(res).To(HaveLen(2))
 	})
 
-	It("Should skip results with Offset", func(ctx SpecContext) {
-		keys := createN(ctx, 3)
-		var res []panel.Panel
-		Expect(
-			svc.NewRetrieve().Where(panel.MatchKeys(keys...)).Offset(1).Entries(&res).
-				Exec(ctx, tx),
-		).To(Succeed())
-		Expect(res).To(HaveLen(2))
-	})
-
 	It("Should count the matching panels", func(ctx SpecContext) {
 		keys := createN(ctx, 3)
 		Expect(

@@ -109,22 +109,23 @@ describe("applyPath", () => {
   });
   type Doc = z.infer<typeof docZ>;
   const apply = (doc: Doc, action: patch.Action) => {
-    let inverse: patch.Action[] = [];
+    let result: actions.HandlerResult<patch.Action> = actions.NO_OP_RESULT;
     const next = produce(doc, (draft) => {
-      inverse = actions.applyPath(draft, action, docZ);
+      result = actions.applyPath(draft, action, docZ);
     });
-    return { next, inverse };
+    return { next, result };
   };
 
-  it("should apply a wire-form path to the camelCase document", () => {
-    const { next, inverse } = apply(
+  it("should apply a wire-form path to the camelCase document and target it", () => {
+    const { next, result } = apply(
       { maxSize: 1, params: {} },
       { type: "set", set: { path: ["max_size"], value: 2, guards: [] } },
     );
     expect(next.maxSize).toBe(2);
-    expect(inverse).toEqual([
-      { type: "set", set: { path: ["max_size"], value: 1, guards: [] } },
-    ]);
+    expect(result).toEqual({
+      inverse: [{ type: "set", set: { path: ["max_size"], value: 1, guards: [] } }],
+      targets: ["max_size"],
+    });
   });
 
   it("should keep the case of a key the schema preserves", () => {
@@ -135,16 +136,26 @@ describe("applyPath", () => {
     expect(next.params).toEqual({ minValue: 2 });
   });
 
-  it("should return no inverse when a guard fails", () => {
-    const { next, inverse } = apply(
-      { maxSize: 1, params: {} },
-      {
-        type: "set",
-        set: { path: ["max_size"], value: 2, guards: [{ path: ["kind"], value: "a" }] },
-      },
+  it("should target the key that a remove clears", () => {
+    const { next, result } = apply(
+      { maxSize: 1, params: { a: 1 } },
+      { type: "remove", remove: { path: ["params"], key: "a", guards: [] } },
     );
-    expect(next.maxSize).toBe(1);
-    expect(inverse).toEqual([]);
+    expect(next.params).toEqual({});
+    expect(result).toEqual({
+      inverse: [{ type: "set", set: { path: ["params", "a"], value: 1, guards: [] } }],
+      targets: ["params.a"],
+    });
+  });
+
+  it("should return NO_OP_RESULT when a guard fails", () => {
+    const doc = { maxSize: 1, params: {} };
+    const { next, result } = apply(doc, {
+      type: "set",
+      set: { path: ["max_size"], value: 2, guards: [{ path: ["kind"], value: "a" }] },
+    });
+    expect(next).toBe(doc);
+    expect(result).toBe(actions.NO_OP_RESULT);
   });
 });
 
@@ -290,6 +301,36 @@ describe("createPathHandlers", () => {
     const handler = handlers[action.type] as (s: null, p: unknown) => unknown;
     expect(handler(null, payload)).toBe(result);
     expect(received).toEqual([action]);
+  });
+});
+
+describe("changesField", () => {
+  const fields = ["name"];
+
+  it.each<[string, patch.Action | { type: "rename" }, boolean]>([
+    [
+      "a set of a field",
+      { type: "set", set: { path: ["name"], value: "a", guards: [] } },
+      true,
+    ],
+    [
+      "a set inside a field",
+      { type: "set", set: { path: ["name", "x"], value: 1, guards: [] } },
+      true,
+    ],
+    [
+      "a remove of a field",
+      { type: "remove", remove: { path: [], key: "name", guards: [] } },
+      true,
+    ],
+    [
+      "a set of another field",
+      { type: "set", set: { path: ["data"], value: 1, guards: [] } },
+      false,
+    ],
+    ["an action that is not a path action", { type: "rename" }, false],
+  ])("should classify %s", (_, action, expected) => {
+    expect(actions.changesField(action, fields)).toBe(expected);
   });
 });
 

@@ -204,7 +204,9 @@ describe("project tree children", () => {
     assertDefined(Item.children);
     const sources = Item.children({ client, id, root: project.TYPE_RESOURCE_ID });
     const listed = await Promise.all(sources.map(async (src) => await src.retrieve()));
-    expect(listed.flat().map(({ name }) => name)).toEqual([g.name, s.name]);
+    expect(
+      listed.flatMap(({ resources }) => resources.map(({ name }) => name)),
+    ).toEqual([g.name, s.name]);
   });
 });
 

@@ -30,7 +30,14 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -135,8 +142,9 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record, true),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedRackKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Rack, Key, Rack>({
       name: "rack",
       table: composed,
@@ -153,15 +161,20 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => matches(LINES, r, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedRackKeys(event);
-          }),
+        triggers: [
+          query.trigger(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedRackKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>
@@ -221,16 +234,19 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await this.cfg.unary.send(
-      "/rack/create",
-      { racks: array.toArray(rack) },
-      createReqZ,
-      createResZ,
-    );
-    res.racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await this.cfg.unary.send(
+        "/rack/create",
+        { racks: array.toArray(rack) },
+        createReqZ,
+        createResZ,
+      );
+      res.racks.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
@@ -283,14 +299,18 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
-    const racks = await this.execRetrieve(req);
-    this.store.ingest(racks.map(stripStatus), { since });
-    racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
-    });
-    return racks;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const racks = await this.execRetrieve(req);
+          this.store.ingest(racks.map(stripStatus), { since });
+          racks.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return racks;
+        }),
+    );
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Rack> {

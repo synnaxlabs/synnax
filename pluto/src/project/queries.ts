@@ -17,13 +17,12 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, deep, type destructor, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "project";
-const PLURAL_RESOURCE_NAME = "projects";
 
 export type RetrieveQuery = {
   key: project.Key;
@@ -32,19 +31,9 @@ export type RetrieveQuery = {
 export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
-  getCached: ({ client, query }) => client.projects.getCached(query),
-});
-
-export type ListParams = project.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, project.Key, project.Project>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
-  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
-  getCached: ({ client, query }) => client.projects.getCached(query),
-  onChangeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
+  onChange: ({ client, query }, handler) =>
+    client.projects.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.projects.watch(query).getCached(),
 });
 
 export type DeleteParams = project.Key | project.Key[];
@@ -92,7 +81,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, query: { key } }) => await client.projects.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const cached = client.projects.getCached(key);
+    const cached = client.projects.watch(key).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, set, stored }) => {
@@ -125,16 +114,9 @@ export interface VisualizationQuery {
 /** The calls that every visualization client answers. */
 export interface VisualizationClient {
   retrieve(query: VisualizationQuery): Promise<Visualization[]>;
-  onChange(
-    key: string,
-    handler: query.ChangeHandler<Visualization>,
-  ): destructor.Destructor;
-  onChange(
-    query: VisualizationQuery,
-    handler: query.ChangeHandler<Visualization[]>,
-  ): destructor.Destructor;
-  getCached(key: string): query.Cached<Visualization> | undefined;
-  getCached(query: VisualizationQuery): query.Cached<Visualization[]> | undefined;
+  watch(
+    query: VisualizationQuery & { order?: { field: "name" } },
+  ): query.List<Visualization, unknown>;
   readonly setProjectRequest: project.MoveRequest<string>;
 }
 
