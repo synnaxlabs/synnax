@@ -66,6 +66,33 @@ var _ = Describe("Router", func() {
 				},
 			)
 
+			DescribeTable(
+				"should merge StreamMessageSizeLimit",
+				func(base, override, expected int64) {
+					Expect(fhttp.RouterConfig{StreamMessageSizeLimit: base}.Override(
+						fhttp.RouterConfig{StreamMessageSizeLimit: override},
+					).StreamMessageSizeLimit).To(Equal(expected))
+				},
+				Entry(
+					"from the override when the receiver is zero",
+					int64(0),
+					int64(64),
+					int64(64),
+				),
+				Entry(
+					"from the receiver when the override is zero",
+					int64(64),
+					int64(0),
+					int64(64),
+				),
+				Entry(
+					"from a non-zero override over the receiver",
+					int64(32),
+					int64(64),
+					int64(64),
+				),
+			)
+
 			It("should let a non-zero override win over a non-zero receiver", func() {
 				base := fhttp.RouterConfig{StreamWriteDeadline: 5 * time.Millisecond}
 				override := fhttp.RouterConfig{

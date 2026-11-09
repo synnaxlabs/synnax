@@ -530,6 +530,25 @@ var _ = Describe("Codec", func() {
 			Entry("variable density", telem.StringT, telem.NewSeriesV("a")),
 			Entry("boolean", telem.BooleanT, telem.NewSeriesV(true)),
 		)
+
+		DescribeTable("Should decode a series that spans several read chunks",
+			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				fr := frame.NewUnary(1, series)
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Get(1).Series[0].Data).To(Equal(series.Data))
+			},
+			Entry(
+				"fixed density",
+				telem.Uint8T,
+				telem.NewSeries(stepBytes(3<<20+17)),
+			),
+			Entry(
+				"boolean",
+				telem.BooleanT,
+				telem.Series{DataType: telem.BooleanT, Data: alternating(9<<20 + 3)},
+			),
+		)
 	})
 
 	Describe("Extended Flags", func() {
@@ -2189,4 +2208,22 @@ func FuzzDecodeStream(f *testing.F) {
 			t.Fatalf("decode returned a frame with error %v", err)
 		}
 	})
+}
+
+// stepBytes returns n bytes that count up from zero and wrap.
+func stepBytes(n int) []uint8 {
+	data := make([]uint8, n)
+	for i := range data {
+		data[i] = uint8(i)
+	}
+	return data
+}
+
+// alternating returns n boolean samples, one per byte, that alternate true and false.
+func alternating(n int) []byte {
+	data := make([]byte, n)
+	for i := range data {
+		data[i] = byte(i % 2)
+	}
+	return data
 }
