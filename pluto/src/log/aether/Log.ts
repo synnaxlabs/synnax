@@ -14,6 +14,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   notation,
   text,
@@ -27,6 +28,7 @@ import { aether } from "@/aether/aether";
 import { compile, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
+  type Filter,
   type LogEntry,
   type LogSource,
   logSourceSpecZ,
@@ -252,6 +254,18 @@ const formatNumber = (
   return notation.stringifyNumber(number, precision, valueNotation);
 };
 
+// Returns the filter of the source. An invalid regex filters nothing.
+const filterOf = ({
+  hiddenChannels,
+  search: { text, mode, filtered },
+}: z.infer<typeof logStateZ>): Filter => {
+  const search = { text, mode };
+  return {
+    hiddenChannels,
+    search: filtered && compile(search) != null ? search : null,
+  };
+};
+
 const sameEntries = (a: number[], b: number[]): boolean =>
   a.length === b.length && a.every((entry, i) => entry === b[i]);
 
@@ -351,12 +365,16 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    const { text, mode, filtered } = this.state.search;
-    const search = { text, mode };
-    i.telem.wrapped.setFilter?.({
-      hiddenChannels: this.state.hiddenChannels,
-      search: filtered && compile(search) != null ? search : null,
-    });
+    const filter = filterOf(this.state);
+    // A new filter reloads the entries, so a paused view returns to its time.
+    if (
+      this.state.scrolling &&
+      this.seeking == null &&
+      !deep.equal(filter, filterOf(this.prevState))
+    )
+      this.seeking =
+        this.entries[this.scrollState.offset - 1]?.timestamp.valueOf() ?? null;
+    i.telem.wrapped.setFilter?.(filter);
     const { data } = i.telem.value();
     this.entries = data;
 
@@ -826,17 +844,18 @@ export class Log
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
-    if (!reached && telem.wrapped.exhausted === false) return;
+    let lo = 0;
     if (reached) {
-      let [lo, hi] = [0, this.entries.length];
+      let hi = this.entries.length;
       while (lo < hi) {
         const mid = (lo + hi) >>> 1;
         if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
         else hi = mid;
       }
-      this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
-      this.scrollState.tail = 0;
     }
+    this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
+    this.scrollState.tail = 0;
+    if (!reached && telem.wrapped.exhausted === false) return;
     this.seeking = null;
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }

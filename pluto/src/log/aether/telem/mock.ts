@@ -9,6 +9,7 @@
 
 import { type channel, type status } from "@synnaxlabs/client";
 import {
+  deep,
   type destructor,
   observe,
   type TimeRange,
@@ -20,6 +21,7 @@ import {
   type LogEntry,
   type LogSource,
   type LogSourceSpec,
+  ZERO_FILTER,
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
@@ -32,10 +34,25 @@ export class MockLogSource implements LogSource {
   private readonly observable = new observe.BaseObserver<void>();
 
   value(): telem.Result<LogEntry[]> {
-    const { activeChannels, status } = this;
-    if (activeChannels.size === 0) return { data: this._entries, status };
-    const data = this._entries.filter((e) => activeChannels.has(e.channelKey));
+    const { activeChannels, filter, status } = this;
+    if (activeChannels.size === 0 && filter.hiddenChannels.length === 0)
+      return { data: this._entries, status };
+    const data = this._entries.filter(
+      (e) =>
+        (activeChannels.size === 0 || activeChannels.has(e.channelKey)) &&
+        !filter.hiddenChannels.includes(e.channelKey),
+    );
     return { data, status };
+  }
+
+  /** The last filter the log set. */
+  filter: Filter = ZERO_FILTER;
+
+  /** Notifies a change of filter, as a source that reloads its entries does. */
+  setFilter(filter: Filter): void {
+    if (deep.equal(this.filter, filter)) return;
+    this.filter = filter;
+    this.notify();
   }
 
   /** The number of times the log asked for older entries. */
@@ -63,13 +80,6 @@ export class MockLogSource implements LogSource {
 
   resume(): void {
     this.resumeCalls++;
-  }
-
-  /** The last filter the log set. */
-  filter: Filter | null = null;
-
-  setFilter(filter: Filter): void {
-    this.filter = filter;
   }
 
   reached: TimeStamp | null = null;
