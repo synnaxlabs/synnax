@@ -427,6 +427,13 @@ func (s *Service[E]) Normalize(
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
 		}
+		if rewrite.Validate != nil {
+			if err := rewrite.Validate(data); err != nil {
+				return nil, errors.Wrapf(
+					validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
+				)
+			}
+		}
 		data, version = rewrite.Apply(data), ladder.First
 	} else if version > ladder.Latest {
 		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, ladder.Latest)

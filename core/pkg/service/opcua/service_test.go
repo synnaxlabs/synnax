@@ -19,6 +19,7 @@ import (
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
@@ -85,6 +86,14 @@ var _ = Describe("Service", func() {
 				1,
 			),
 		)
+
+		It("Should reject an unversioned read config with an unknown sampling", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Read.Normalize(ctx, db, 0, msgpack.EncodedJSON{
+				"sampling": map[string]any{"type": "burst"},
+			})).Error().To(MatchError(validate.ErrValidation))
+		})
 	})
 
 	Describe("Stores", func() {

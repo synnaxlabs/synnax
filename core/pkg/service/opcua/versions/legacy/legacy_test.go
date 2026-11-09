@@ -85,6 +85,22 @@ var _ = Describe("Read", func() {
 		}))
 	})
 
+	DescribeTable("Should reject a sampling of an unknown type",
+		func(sampling map[string]any) {
+			Expect(legacy.Read.Validate(msgpack.EncodedJSON{"sampling": sampling})).
+				To(MatchError(ContainSubstring("Sampling: unknown type")))
+		},
+		Entry("an unknown type", map[string]any{"type": "burst"}),
+		Entry("no type", map[string]any{"size": 5}),
+	)
+
+	It("Should accept a config with or without a known sampling", func() {
+		Expect(legacy.Read.Validate(msgpack.EncodedJSON{})).To(Succeed())
+		Expect(legacy.Read.Validate(msgpack.EncodedJSON{
+			"sampling": map[string]any{"type": "array", "size": 24},
+		})).To(Succeed())
+	})
+
 	It("Should keep the flat array fields without a sampling", func() {
 		in := msgpack.EncodedJSON{"array_mode": true, "array_size": 3}
 		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
