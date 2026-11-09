@@ -67,8 +67,8 @@ export const ChangeIdentifierMenuItem = ({
   selection: { ids },
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
-  const { data: dev } = Device.useResult({ key: ids[0].key });
+  const dev = Device.use({ key: ids[0].key });
   const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(ids[0].key));
-  if (ids.length !== 1 || dev?.configured !== true || !hasUpdatePermission) return null;
+  if (ids.length !== 1 || !dev.configured || !hasUpdatePermission) return null;
   return <Internal icon={icon} deviceKey={dev.key} handleError={handleError} />;
 };

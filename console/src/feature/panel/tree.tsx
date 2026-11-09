@@ -16,12 +16,12 @@ import { renderIcon } from "@/feature/panel/icon";
 import { type Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
-interface PanelIconProps {
+interface ItemIconProps {
   panelKey: panel.Key;
 }
 
-const PanelIcon = ({ panelKey }: PanelIconProps): ReactElement => {
-  const { data } = Panel.useResult({ key: panelKey });
+const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
+  const { data } = Panel.useResultAppearance({ key: panelKey });
   return data == null ? <Icon.Panel /> : renderIcon(data);
 };
 
@@ -32,6 +32,6 @@ export const GROUP_MEMBER: Group.Member = {
     Tree.createSource(client.panels, { groups: [key] }, Tree.toResource("panel")),
 };
 
-const TreeItem = Tree.createItem({ icon: ({ id }) => <PanelIcon panelKey={id.key} /> });
+const TreeItem = Tree.createItem({ icon: ({ id }) => <ItemIcon panelKey={id.key} /> });
 
 export const TREE_ITEMS: Tree.Items = { panel: TreeItem };

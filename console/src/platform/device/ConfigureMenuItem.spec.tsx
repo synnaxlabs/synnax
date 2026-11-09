@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
@@ -21,10 +21,11 @@ import {
 import { createSelection } from "@/platform/tree/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const renderItem = async (
   devices: device.Device[],
-  itemClient: Synnax | null,
+  itemClient: Synnax,
 ): Promise<Mock> => {
   const onConfigure = vi.fn();
   const resources = devices.map(createDeviceResource);
@@ -41,7 +42,7 @@ const renderItem = async (
 describe("ConfigureMenuItem", () => {
   it("should render nothing without update permission", async () => {
     const dev = await createTestDevice(client, { configured: false });
-    await renderItem([dev], null);
+    await renderItem([dev], await roles.get("Viewer"));
     expect(screen.queryByText("Configure")).toBeNull();
   });
 

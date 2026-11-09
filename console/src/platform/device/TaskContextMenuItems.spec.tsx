@@ -39,6 +39,7 @@ const setup = async (configured: boolean, itemClient: Synnax | null = client) =>
   const dev = await createTestDevice(client, { configured });
   await renderMenuItem(
     <Device.TaskContextMenuItems
+      client={client}
       onConfigure={onConfigure}
       selection={createSelection({ ids: [device.resourceID(dev.key)] })}
       items={items}

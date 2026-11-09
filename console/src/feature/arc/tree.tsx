@@ -108,7 +108,7 @@ interface TypeIconProps extends Icon.IconProps {
 }
 
 const TypeIcon = ({ arcKey, ...rest }: TypeIconProps): ReactElement | null => {
-  const type = Arc.useResult({ key: arcKey }).data?.type;
+  const { data: type } = Arc.useResultType({ key: arcKey });
   if (type == null) return null;
   const C = PlatformArc.TYPE_ICONS[type];
   return <C {...rest} />;

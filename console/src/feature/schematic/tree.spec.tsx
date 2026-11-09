@@ -182,6 +182,24 @@ describe("Schematic TreeContextMenu", () => {
   });
 });
 
+describe("snapshot schematics", () => {
+  it("should withhold copying from a snapshot", async () => {
+    const s = await createSchematic();
+    const snap = await client.schematics.copy({
+      key: s.key,
+      name: uniqueName("snap"),
+      snapshot: true,
+    });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(schematic.resourceID(snap.key), snap.name)],
+    });
+    expect(await screen.findByText("Delete")).toBeTruthy();
+    expect(screen.queryByText("Copy")).toBeNull();
+  });
+});
+
 describe("permission to write the schematic", () => {
   it("should offer Reload Console", async () => {
     const s = await createSchematic();
