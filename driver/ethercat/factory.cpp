@@ -34,7 +34,7 @@
 #include "x/cpp/breaker/breaker.h"
 
 namespace driver::ethercat {
-
+namespace {
 #ifdef _WIN32
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
@@ -42,7 +42,7 @@ const std::string PCAP_LIB_NAME = "libpcap.dylib";
 #endif
 
 #ifndef __linux__
-static bool check_pcap_available() {
+bool check_pcap_available() {
 #ifdef _WIN32
     // Npcap installs its DLLs outside the default search path unless it runs in
     // WinPcap-compatible mode.
@@ -71,7 +71,6 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-namespace {
 /// @brief returns the settings saved for each slave on the network, keyed by position.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
@@ -268,15 +267,6 @@ Factory::configure_initial_tasks(
         SCAN_TASK_TYPE,
         INTEGRATION_NAME
     );
-}
-
-bool Factory::is_interface_active(const std::string &key) const {
-    return this->pool->is_active(key);
-}
-
-std::vector<slave::Properties>
-Factory::get_cached_slaves(const std::string &key) const {
-    return slave::discovered_properties(this->pool->get_slaves(key));
 }
 
 }

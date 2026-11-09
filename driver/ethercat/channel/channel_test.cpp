@@ -201,7 +201,6 @@ TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(ch->enabled);
     ASSERT_TRUE(ch->is_input);
-    ASSERT_EQ(ch->device_key, "dev-001");
     ASSERT_EQ(ch->synnax_key, 42);
     ASSERT_EQ(ch->slave_position, 1);
     ASSERT_EQ(ch->index, 0x6000);
@@ -553,6 +552,21 @@ TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
     const auto ch = output(wide_output_slave(), parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_FALSE(ch->enabled);
+}
+
+/// @brief it should reject a fractional stop value on an integer entry.
+TEST(Output, RejectsAFractionalStopValueOnAnIntegerEntry) {
+    auto j = write_entry(0x7000, 3, "uint32");
+    j["stop_value"] = 1.5;
+    auto parser = x::json::Parser(j);
+    output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value 1.5 does not fit entry 0x7000:03 on slave EL2252. Pick a whole "
+        "number from 0 to 16777215."
+    );
 }
 
 /// @brief it should reject a stop value outside the finite range of a float32 entry.

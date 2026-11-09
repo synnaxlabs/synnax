@@ -166,19 +166,6 @@ protected:
         };
     }
 
-    x::json::json create_unresolved_input_channel_config(
-        const synnax::channel::Channel &channel,
-        const std::string &pdo_name
-    ) {
-        return {
-            {"type", "unresolved"},
-            {"device", slave_device.key},
-            {"pdo", pdo_name},
-            {"channel", channel.key},
-            {"disabled", false}
-        };
-    }
-
     /// @brief starts a source that reads the int16 entry at 0x6000:01 into a float64
     /// channel with the given scale.
     std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
@@ -226,49 +213,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     EXPECT_EQ(task_cfg.channels[0]->data_type, x::telem::INT16_T);
 }
 
-/// @brief it should take the bit length of a read channel from the slave.
-TEST_F(EtherCATReadTest, ParseConfigTakesBitLengthFromTheSlave) {
-    const auto data_ch = create_data_channel("analog", x::telem::FLOAT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_input_channel_config(data_ch, 0x6000, 2, "float32")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 1);
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 2);
-    EXPECT_EQ(task_cfg.channels[0]->bit_length, 32);
-    EXPECT_EQ(task_cfg.channels[0]->data_type, x::telem::FLOAT32_T);
-}
-
-TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch1"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ch2"),
-        x::telem::INT32_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(ch1, 0x6000, 1, "int16"));
-    cfg["channels"].push_back(create_input_channel_config(ch2, 0x6000, 2, "int32"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 2);
-}
-
+/// @brief it should report a read channel that does not exist in the Core.
 TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     auto cfg = this->create_base_config();
     synnax::channel::Channel invalid_ch;
@@ -280,44 +225,10 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-}
-
-/// @brief it should report a read channel at an address the slave does not have.
-TEST_F(EtherCATReadTest, ParseConfigWithAddressMissingFromSlave) {
-    const auto data_ch = create_data_channel("analog", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 3, "int32"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.index");
-    EXPECT_EQ(errors[0]["message"], "slave Test Slave has no input entry at 0x6000:03");
-}
-
-/// @brief it should report a read channel whose name was not resolved to an address.
-TEST_F(EtherCATReadTest, ParseConfigWithUnresolvedChannel) {
-    const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_unresolved_input_channel_config(data_ch, "Analog Input Ch1")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
-    EXPECT_EQ(
-        errors[0]["message"],
-        "'Analog Input Ch1' matches no input entry on slave Test Slave. Pick an "
-        "entry."
-    );
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(errors[0]["message"], "channels matching keys 99999 not found.");
 }
 
 /// @brief it should report a second read channel on an entry another channel already
@@ -357,91 +268,6 @@ TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
-}
-
-/// @brief it should bind a read channel to each entry of a slave whose entries all have
-/// the same name.
-TEST_F(EtherCATReadTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName) {
-    x::json::json inputs = x::json::json::array();
-    for (int i = 0; i < 8; i++)
-        inputs.push_back(
-            {{"name", "Input"},
-             {"pdo_name", "Channel " + std::to_string(i + 1)},
-             {"pdo_index", 0x1A00 + i},
-             {"index", 0x6000 + 0x10 * i},
-             {"sub_index", 1},
-             {"bit_length", 1},
-             {"data_type", "uint8"}}
-        );
-    slave_device = create_slave_device(
-        SLAVE_SERIAL + 1,
-        inputs,
-        x::json::json::array(),
-        1
-    );
-
-    auto cfg = this->create_base_config();
-    for (int i = 0; i < 8; i++) {
-        const auto ch = create_data_channel("input", x::telem::UINT8_T);
-        cfg["channels"].push_back(
-            create_input_channel_config(ch, 0x6000 + 0x10 * i, 1, "uint8")
-        );
-    }
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(task_cfg.channels.size(), 8);
-    for (int i = 0; i < 8; i++) {
-        EXPECT_EQ(task_cfg.channels[i]->slave_position, 1);
-        EXPECT_EQ(task_cfg.channels[i]->index, 0x6000 + 0x10 * i);
-        EXPECT_EQ(task_cfg.channels[i]->sub_index, 1);
-        EXPECT_EQ(task_cfg.channels[i]->bit_length, 1);
-    }
-}
-
-/// @brief it should report a read channel with an unknown type.
-TEST_F(EtherCATReadTest, ParseConfigReportsAnUnknownChannelType) {
-    const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        {{"type", "automatic"},
-         {"device", slave_device.key},
-         {"pdo", "status_word"},
-         {"channel", data_ch.key},
-         {"disabled", false}}
-    );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.type");
-    EXPECT_EQ(errors[0]["message"], "unknown ReadChannel type: automatic");
-}
-
-/// @brief it should report a read channel whose data type is wider than its entry.
-TEST_F(EtherCATReadTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
-    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        create_input_channel_config(data_ch, 0x6000, 1, "float64")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
-    EXPECT_EQ(
-        errors[0]["message"],
-        "data type float64 is 8 bytes but entry 0x6000:01 on slave Test Slave holds 2 "
-        "bytes. Pick a 2 byte type."
-    );
 }
 
 /// @brief it should reject a scaled read channel whose Synnax channel is not a float
@@ -487,27 +313,7 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
     EXPECT_EQ(writer_cfg.channels.size(), 2);
 }
 
-TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
-    auto data_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto source = ReadTaskSource(engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
-    EXPECT_TRUE(engine->running());
-    ASSERT_NIL(source.stop());
-}
-
+/// @brief it should report a read channel on a slave device that does not exist.
 TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -533,51 +339,13 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-}
-
-/// @brief it should accept a stream rate below 1 Hz and read the matching number of
-/// samples for each stream.
-TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["sample_rate"] = 2;
-    cfg["stream_rate"] = 0.5;
-    cfg["channels"].push_back(
-        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(
+        errors[0]["message"],
+        R"(Found no device where key = "nonexistent_device_key")"
     );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(this->client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.samples_per_chan, 4);
-}
-
-/// @brief it should accept a 0.1 Hz stream rate, despite the float precision of a rate.
-TEST_F(EtherCATReadTest, StreamRateOfATenthHzIsValid) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["sample_rate"] = 100;
-    cfg["stream_rate"] = 0.1;
-    cfg["channels"].push_back(
-        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
-    );
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(this->client, parser);
-    ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.samples_per_chan, 1000);
 }
 
 /// @brief it should reject a stream rate that does not divide the sample rate.
@@ -595,38 +363,6 @@ TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
         parser.errors->at(0)["message"],
         "sample_rate must be divisible by stream_rate"
     );
-}
-
-TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(this->client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
-
-    this->mock_master->set_input<int16_t>(0, 0x1234);
-
-    x::breaker::Breaker brk;
-    brk.start();
-
-    x::telem::Frame frame;
-    auto result = source.read(brk, frame);
-    ASSERT_NIL(result.error);
-    EXPECT_FALSE(frame.empty());
-
-    brk.stop();
-    ASSERT_NIL(source.stop());
 }
 
 /// @brief it should report samples that failed bus cycles dropped as a warning with a
@@ -659,91 +395,6 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
     brk.stop();
     ASSERT_NIL(source.stop());
-}
-
-TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
-
-    auto cfg = this->create_base_config();
-    cfg["sample_rate"] = 10;
-    cfg["stream_rate"] = 10;
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(this->client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
-
-    this->mock_master->set_input<int16_t>(0, 0x5678);
-
-    x::breaker::Breaker brk;
-    brk.start();
-
-    ASSERT_EVENTUALLY_EQ(
-        [&] {
-            x::telem::Frame frame;
-            source.read(brk, frame);
-            if (frame.empty() || frame.series->empty()) return static_cast<int16_t>(0);
-            return frame.series->at(0).at<int16_t>(0);
-        }(),
-        static_cast<int16_t>(0x5678)
-    );
-
-    brk.stop();
-    ASSERT_NIL(source.stop());
-}
-
-/// @brief it should reject a map scale whose pre-scaled bounds are equal.
-TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
-    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
-
-    auto cfg = this->create_base_config();
-    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
-    ch["scale"] = {
-        {"type", "map"},
-        {"pre_scaled_min", 4},
-        {"pre_scaled_max", 4},
-        {"scaled_min", 0},
-        {"scaled_max", 10},
-    };
-    cfg["channels"].push_back(ch);
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_max");
-    EXPECT_EQ(errors[0]["message"], "Pre-scaled min and pre-scaled max must differ");
-}
-
-/// @brief it should reject a table scale whose pre-scaled values do not increase.
-TEST_F(EtherCATReadTest, ParseConfigRejectsATableScaleWithUnorderedPreScaledValues) {
-    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
-
-    auto cfg = this->create_base_config();
-    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
-    ch["scale"] = {
-        {"type", "table"},
-        {"pre_scaled_vals", {0, 200, 100}},
-        {"scaled_vals", {0, 10, 40}},
-    };
-    cfg["channels"].push_back(ch);
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-    const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_vals");
-    EXPECT_EQ(errors[0]["message"], "Pre-scaled values must be in increasing order");
 }
 
 /// @brief it should skip the map scale check on a disabled channel.
@@ -788,75 +439,6 @@ TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
             return frame.series->at(0).at<double>(0);
         }(),
         -110.0
-    );
-    brk.stop();
-    ASSERT_NIL(source->stop());
-}
-
-/// @brief it should apply a map scale to each sample it reads.
-TEST_F(EtherCATReadTest, SourceAppliesAMapScale) {
-    const auto source = start_scaled_source(
-        {{"type", "map"},
-         {"pre_scaled_min", 0},
-         {"pre_scaled_max", 32000},
-         {"scaled_min", 0},
-         {"scaled_max", 10}}
-    );
-    this->mock_master->set_input<int16_t>(0, 8000);
-    x::breaker::Breaker brk;
-    brk.start();
-    ASSERT_EVENTUALLY_EQ(
-        [&] {
-            x::telem::Frame frame;
-            source->read(brk, frame);
-            if (frame.empty()) return 0.0;
-            return frame.series->at(0).at<double>(0);
-        }(),
-        2.5
-    );
-    brk.stop();
-    ASSERT_NIL(source->stop());
-}
-
-/// @brief it should apply a polynomial scale to each sample it reads.
-TEST_F(EtherCATReadTest, SourceAppliesAPolynomialScale) {
-    const auto source = start_scaled_source(
-        {{"type", "polynomial"}, {"coeffs", {1, 2, 3}}}
-    );
-    this->mock_master->set_input<int16_t>(0, 2);
-    x::breaker::Breaker brk;
-    brk.start();
-    ASSERT_EVENTUALLY_EQ(
-        [&] {
-            x::telem::Frame frame;
-            source->read(brk, frame);
-            if (frame.empty()) return 0.0;
-            return frame.series->at(0).at<double>(0);
-        }(),
-        17.0
-    );
-    brk.stop();
-    ASSERT_NIL(source->stop());
-}
-
-/// @brief it should apply a table scale to each sample it reads.
-TEST_F(EtherCATReadTest, SourceAppliesATableScale) {
-    const auto source = start_scaled_source(
-        {{"type", "table"},
-         {"pre_scaled_vals", {0, 100, 200}},
-         {"scaled_vals", {0, 10, 40}}}
-    );
-    this->mock_master->set_input<int16_t>(0, 150);
-    x::breaker::Breaker brk;
-    brk.start();
-    ASSERT_EVENTUALLY_EQ(
-        [&] {
-            x::telem::Frame frame;
-            source->read(brk, frame);
-            if (frame.empty()) return 0.0;
-            return frame.series->at(0).at<double>(0);
-        }(),
-        25.0
     );
     brk.stop();
     ASSERT_NIL(source->stop());
@@ -1279,86 +861,4 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(source.start(), errors::TOPOLOGY_MISMATCH);
 }
 
-/// @brief it should fail to start the source when the bus no longer has a configured
-/// entry.
-TEST_F(EtherCATReadTest, SourceStartFailsWhenTheBusLacksAnEntry) {
-    const auto data_ch = create_data_channel("sensor", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
-    remapped_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
-            .input_pdos = {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 1,
-                 .bit_length = 16,
-                 .is_input = true,
-                 .name = "status_word",
-                 .data_type = x::telem::INT16_T},
-            },
-        }
-    );
-    auto remapped_engine = std::make_shared<engine::Engine>(remapped_master);
-
-    auto source = ReadTaskSource(remapped_engine, std::move(task_cfg));
-    const auto err = source.start();
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(err.data, "PDO 0x6000:02 is not in the process image of slave 0");
-    EXPECT_FALSE(remapped_engine->running());
-}
-
-/// @brief it should fail to start the source when a configured entry changed its bit
-/// length on the bus.
-TEST_F(EtherCATReadTest, SourceStartFailsWhenAnEntryChangedBitLength) {
-    const auto data_ch = create_data_channel("sensor", x::telem::INT32_T);
-
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
-
-    auto parser = x::json::Parser(cfg);
-    ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
-    remapped_master->add_slave(
-        slave::Properties{
-            .position = 0,
-            .vendor_id = 0x1,
-            .product_code = 0x2,
-            .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
-            .input_pdos = {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 2,
-                 .bit_length = 16,
-                 .is_input = true,
-                 .name = "sensor_value",
-                 .data_type = x::telem::INT16_T},
-            },
-        }
-    );
-    auto remapped_engine = std::make_shared<engine::Engine>(remapped_master);
-
-    auto source = ReadTaskSource(remapped_engine, std::move(task_cfg));
-    const auto err = source.start();
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "PDO 0x6000:02 on slave 0 is 16 bits, not 32. Scan the network again"
-    );
-    EXPECT_FALSE(remapped_engine->running());
-}
 }

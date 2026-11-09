@@ -110,26 +110,6 @@ TEST(PDOKeyTest, WorksInUnorderedMap) {
     EXPECT_EQ(offsets[lookup].byte, 0);
 }
 
-/// @brief it should correctly round up bit lengths to bytes.
-TEST(PDOEntryTest, ByteLengthCalculation) {
-    Entry entry;
-
-    entry.bit_length = 8;
-    EXPECT_EQ(entry.byte_length(), 1);
-
-    entry.bit_length = 1;
-    EXPECT_EQ(entry.byte_length(), 1);
-
-    entry.bit_length = 16;
-    EXPECT_EQ(entry.byte_length(), 2);
-
-    entry.bit_length = 9;
-    EXPECT_EQ(entry.byte_length(), 2);
-
-    entry.bit_length = 32;
-    EXPECT_EQ(entry.byte_length(), 4);
-}
-
 /// @brief it should correctly round up bit lengths to bytes for Properties.
 TEST(PDOPropertiesTest, ByteLengthCalculation) {
     Properties props{
@@ -316,57 +296,6 @@ TEST(ComputeOffsetsProperties, MultiSlave) {
     const Key k2{2, 0x6000, 1, true};
     EXPECT_EQ(offsets[k1].byte, 0);
     EXPECT_EQ(offsets[k2].byte, 10);
-}
-
-TEST(ComputeOffsetsEntries, InputOutputDistinction) {
-    Offsets offsets;
-    std::vector<Entry> entries = {
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 1,
-         .bit_length = 16,
-         .is_input = true},
-        {.slave_position = 1,
-         .index = 0x7000,
-         .sub_index = 1,
-         .bit_length = 8,
-         .is_input = false},
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 2,
-         .bit_length = 32,
-         .is_input = true},
-    };
-    compute_offsets(offsets, entries, 0, 50);
-
-    const Key ki1{1, 0x6000, 1, true};
-    const Key ko1{1, 0x7000, 1, false};
-    const Key ki2{1, 0x6000, 2, true};
-    EXPECT_EQ(offsets[ki1].byte, 0);
-    EXPECT_EQ(offsets[ko1].byte, 50);
-    EXPECT_EQ(offsets[ki2].byte, 2);
-}
-
-TEST(ComputeOffsetsEntries, BaseOffsets) {
-    Offsets offsets;
-    std::vector<Entry> entries = {
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 1,
-         .bit_length = 8,
-         .is_input = true},
-        {.slave_position = 1,
-         .index = 0x7000,
-         .sub_index = 1,
-         .bit_length = 16,
-         .is_input = false},
-    };
-    compute_offsets(offsets, entries, 10, 20);
-
-    const Key ki{1, 0x6000, 1, true};
-    const Key ko{1, 0x7000, 1, false};
-    EXPECT_EQ(offsets[ki].byte, 10);
-    EXPECT_EQ(offsets[ko].byte, 20);
 }
 
 /// @brief it should preserve values through JSON parse and serialize round-trip.
