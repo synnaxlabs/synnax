@@ -127,6 +127,10 @@ export class Client extends query.Retriever<
     // The secret table never holds uses. No change stream keeps uses current, so only a
     // retrieve that asks for them writes or reads this table.
     const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
+    // A secret created again under a deleted key reads its uses again.
+    store.subscribe((event) => {
+      if (event.variant === "delete") usesStore.evict(event.key);
+    });
     const usesTrigger = query.trigger(
       usesStore,
       (event, q: RetrieveRequest | RetrieveSingleParams) =>
