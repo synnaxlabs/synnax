@@ -187,5 +187,24 @@ describe("Input", () => {
         document.activeElement,
       );
     });
+
+    it("should keep the edit when the field takes the focus back", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.TimeSpan
+            inline
+            value={TimeSpan.HOUR.nanoseconds}
+            onChange={() => {}}
+            aria-label="Period"
+          />
+        </Triggers.Provider>,
+      );
+      const field = page.getByRole("textbox", { name: "Period" });
+      await userEvent.click(field);
+      await userEvent.fill(field, "90s");
+      await userEvent.click(page.getByRole("dialog"), { position: { x: 1, y: 1 } });
+      await userEvent.click(field);
+      await expect.element(field).toHaveValue("90s");
+    });
   });
 });
