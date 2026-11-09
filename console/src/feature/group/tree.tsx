@@ -30,6 +30,8 @@ const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID
   return parentID;
 };
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
+
 /**
  * Returns the tree items of groups. A group lists its child groups and the members of
  * its scope.
@@ -50,13 +52,13 @@ export const createTreeItems = (
   const retrieveChildren = async (
     props: Tree.ChildrenProps,
   ): Promise<resource.ID[]> => {
-    const windows = await Promise.all(
-      children(props).map(async (source) => await source.retrieve()),
+    const resources = await Promise.all(
+      children(props).map(async (source) => await source.retrieveAll()),
     );
-    return windows.flatMap(({ resources }) => resources.map(({ id }) => id));
+    return resources.flat().map(({ id }) => id);
   };
 
-  // Ungroup reads children from the Core, since the tree holds only loaded ones.
+  // Ungroup reads children from the Core, since the tree holds only the pages it shows.
   const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
     name: "resources",
     verbs: {
@@ -129,6 +131,7 @@ export const createTreeItems = (
           />
         )}
         <Menu.Divider />
+        <Tree.CopyContextMenuItem {...props} />
         {isSingle && (
           <>
             <Link.CopyContextMenuItem
@@ -136,7 +139,7 @@ export const createTreeItems = (
                 handleLink({ name: getResource(firstID).name, resourceID: firstID })
               }
             />
-            <Tree.CopyPropertiesContextMenuItem {...props} />
+            <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
           </>
         )}
         <Menu.Divider />
@@ -153,9 +156,9 @@ export const createTreeItems = (
   };
 
   const TreeItem = Tree.createItem({
-    type: "group",
     icon: <Icon.Group />,
     children,
+    folder: true,
     canDrop: (props) => {
       const types = new Set<resource.Type>([
         "group",
