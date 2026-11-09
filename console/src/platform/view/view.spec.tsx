@@ -12,10 +12,10 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { uniqueRangeName } from "@/platform/range/testutil";
@@ -41,11 +41,13 @@ const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
 const item = Component.renderProp(RenderItem);
 
 const Inner = (): ReactElement => {
-  const listProps = Ranger.useList({
-    query: { where: View.useContext().getInitialView().where },
+  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const listProps = Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: { where },
   });
   return (
-    <View.Form {...listProps}>
+    <View.Form {...listProps} onWhereChange={setWhere}>
       <View.Toolbar>
         <View.FilterMenu>
           <Menu.Item itemKey="only">Filter Option</Menu.Item>

@@ -10,9 +10,11 @@
 from synnax.panel.client import Client
 from synnax.panel.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
     LeafNode,
     Node,
+    Order,
     Panel,
     ResourceTab,
     SplitNode,
@@ -29,9 +31,11 @@ from synnax.panel.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Key",
     "LeafNode",
     "Node",
+    "Order",
     "Panel",
     "ResourceTab",
     "SplitNode",

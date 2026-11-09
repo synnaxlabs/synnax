@@ -149,13 +149,8 @@ sequence main {
 - `inf` -> the positive infinity value. `-math.inf` is negative infinity.
 
 A constant fits `f32` or `f64`, and it defaults to `f64`. It does not fit an integer
-type. Use a constant in an expression or a function body. On its own, with an optional
-minus sign or `f32` or `f64` cast, a constant can also be a function input value, a `$=`
-initializer in a sequence or stage, or a variable's value outside a function, such as
-`limit := -math.inf`. Outside a function, an initializer that computes with a constant
-must also read a channel, as `scaled := raw * math.inf` does. A flow has no value to
-read for `limit := math.inf * 2.0`, so a flow that uses `limit` fails with
-`cannot use 'limit' in a flow: its initializer is not a compile-time constant`.
+type. Use a constant anywhere a float value fits, such as `limit := math.inf * 2.0`, a
+`$=` initializer, or a function input.
 
 ```arc bodies="lowest"
 import math

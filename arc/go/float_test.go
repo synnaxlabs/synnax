@@ -475,25 +475,61 @@ var _ = Describe("NaN and infinity", func() {
 		),
 	)
 
-	It(
-		"Should reject a flow variable initialized from an expression on a constant",
-		func(
-			ctx SpecContext,
-		) {
-			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
-				Name: "y",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-				ID:   2,
-			}))
-			Expect(arc.CompileText(
-				ctx,
-				arc.Text{Raw: "import math\nlimit := math.inf * 2.0\nlimit -> y"},
-				root,
-			)).Error().To(MatchError(ContainSubstring(
-				"cannot use 'limit' in a flow: its initializer is not a compile-time constant",
-			)))
+	DescribeTable("Should run a constant initializer or call input",
+		func(ctx SpecContext, source string, expected float64) {
+			h := newRuntimeHarness(ctx, "import math\n"+source, channelSymbols(
+				map[string]channelDef{
+					"x":   {types.F64(), 100},
+					"out": {types.F64(), 200},
+				},
+			),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			for range 2 {
+				h.Ingest(100, telem.NewSeriesV(1.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			var values []float64
+			for _, s := range out.Get(200).Series {
+				values = append(values, s.Unmarshal[float64]()...)
+			}
+			Expect(values).ToNot(BeEmpty())
+			for _, v := range values {
+				if math.IsNaN(expected) {
+					Expect(math.IsNaN(v)).To(BeTrue(), "%v", values)
+				} else {
+					Expect(v).To(Equal(expected))
+				}
+			}
 		},
+		Entry("a constant", "limit := math.inf\nlimit -> out", math.Inf(1)),
+		Entry("a negated constant", "limit := -math.inf\nlimit -> out", math.Inf(-1)),
+		Entry(
+			"an expression on a constant",
+			"limit := math.inf * 2.0\nlimit -> out",
+			math.Inf(1),
+		),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.nan\n stage a {\n limit -> out\n }\n}\n"+
+				"x => main",
+			math.NaN(),
+		),
+		Entry(
+			"a stateful variable in a stage",
+			"sequence main {\n stage a {\n low f64 $= -math.inf\n low -> out\n }\n}\n"+
+				"x => main",
+			math.Inf(-1),
+		),
+		Entry(
+			"a call input",
+			"func f(a f64) {v f64} f64 {\n return a\n}\nx -> f(a=math.nan) -> out",
+			math.NaN(),
+		),
 	)
 
 	It("Should accept a flow variable that reads a channel and a constant", func(

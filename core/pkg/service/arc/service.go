@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"slices"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -163,16 +165,27 @@ type Service struct {
 	// followCommit reads them once the transaction commits.
 	resyncs *gorp.Attachment[Key]
 	deletes *gorp.Attachment[Key]
+	// directoryState holds the actions that change directories.
+	directoryState *actions.State[directory.Key, directory.Action]
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules, the
 // Core channel resolver, and the user modules below Arcs. The root looks up channels
-// and modules in snap. A root resolves each channel name and module the same way for
-// its lifetime, so build one per analysis or compile.
-func (s *Service) NewRoot(snap gorp.Snapshot) *symbol.Symbol {
-	channels := channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap))
+// and modules in snap and records each lookup in lookups. A root resolves each channel
+// name and module the same way for its lifetime, so build one per compile.
+func (s *Service) NewRoot(snap gorp.Snapshot, lookups *channel.Lookups) *symbol.Symbol {
+	return s.newRoot(
+		s.cfg.Channel.NewCheckedResolver(snap, lookups),
+		s.checkedModuleSource(snap, lookups),
+	)
+}
+
+func (s *Service) newRoot(
+	channels symbol.Resolver,
+	source func(context.Context, string) (arctext.Text, error),
+) *symbol.Symbol {
 	modules := arctext.NewLoader(arctext.LoaderConfig{
-		Source:   s.moduleSource(snap),
+		Source:   source,
 		Channels: channels,
 		Ambient:  standardSymbols,
 		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
@@ -184,26 +197,44 @@ func standardSymbols() []*symbol.Symbol {
 	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
-func (s *Service) NewLSP() (*lsp.Server, error) {
+// LSPConfig configures the language server of one editor session.
+type LSPConfig struct {
+	// Allowed reads the access of the subject of the session and returns whether the
+	// subject can retrieve a record. The server calls it once for each analysis.
+	Allowed func(context.Context) (func(resource.ID) bool, error)
+	// Rename renames the channel with key to name when an editor renames it.
+	Rename func(ctx context.Context, key channel.Key, name string) error
+}
+
+// Validate returns a validation error if Allowed or Rename is nil.
+func (c LSPConfig) Validate() error {
+	v := validate.New("arc.lsp")
+	v.NotNil("allowed", c.Allowed)
+	v.NotNil("rename", c.Rename)
+	return v.Error()
+}
+
+// NewLSP opens the language server of one editor session. The server treats the
+// channels and modules that the subject cannot retrieve as unknown names. NewLSP
+// returns a validation error if cfg is not valid.
+func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return lsp.New(lsp.Config{
-		Instrumentation: s.cfg.Child("lsp"),
-		// The LSP analyzes outside any scope the Core holds, so its roots read the DB
-		// with no snapshot.
-		NewRoot:          func() *symbol.Symbol { return s.NewRoot(s.cfg.DB) },
+		Instrumentation:  s.cfg.Child("lsp"),
+		NewRoot:          func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
 		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
 			sym *symbol.Symbol,
-			oldName,
+			_,
 			newName string,
 		) error {
 			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
-			return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return s.cfg.Channel.NewWriter(tx).
-					Rename(ctx, channel.Key(sym.ID), newName, false)
-			})
+			return cfg.Rename(ctx, channel.Key(sym.ID), newName)
 		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
@@ -215,6 +246,49 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 			},
 		},
 	})
+}
+
+// newLSPRoot builds a root that reads the DB with no snapshot, since the LSP analyzes
+// outside any scope the Core holds. It hides the records that allowed rejects.
+func (s *Service) newLSPRoot(
+	allowed func(context.Context) (func(resource.ID) bool, error),
+) *symbol.Symbol {
+	access := &readAccess{read: allowed}
+	return s.newRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(
+			s.cfg.DB,
+			channel.Match(func(
+				ctx gorp.Context,
+				_ channel.Retrieve,
+				ch *channel.Channel,
+			) (bool, error) {
+				return access.allows(ctx, ch.ResourceID())
+			}),
+		)),
+		s.moduleSource(s.cfg.DB, Match(func(
+			ctx gorp.Context,
+			_ Retrieve,
+			a *Arc,
+		) (bool, error) {
+			return access.allows(ctx, a.ResourceID())
+		})),
+	)
+}
+
+// readAccess reads the access of an LSP subject at the first lookup of one root.
+type readAccess struct {
+	read    func(context.Context) (func(resource.ID) bool, error)
+	once    sync.Once
+	allowed func(resource.ID) bool
+	err     error
+}
+
+func (a *readAccess) allows(ctx context.Context, id resource.ID) (bool, error) {
+	a.once.Do(func() { a.allowed, a.err = a.read(ctx) })
+	if a.err != nil {
+		return false, a.err
+	}
+	return a.allowed(id), nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -247,17 +321,21 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 			entry.Base().Name,
 		)
 	}
-	var prog arc.Program
-	// Compilation reads the DB with no snapshot, so it delays no write.
-	root := s.NewRoot(s.cfg.DB)
-	switch src := automation.Source.Variant.(type) {
-	case TextSource:
-		prog, err = arc.CompileText(ctx, src.Text.Materialize(), root,
-			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	case GraphSource:
-		prog, err = arc.CompileGraph(ctx, src.Graph, root,
-			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	}
+	prog, err := channel.CompileConsistent(ctx, s.cfg.DB, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (arc.Program, error) {
+		root := s.NewRoot(snap, lookups)
+		switch src := automation.Source.Variant.(type) {
+		case TextSource:
+			return arc.CompileText(ctx, src.Text.Materialize(), root,
+				arc.WithAllowDashedNames(s.AllowDashedNames()))
+		case GraphSource:
+			return arc.CompileGraph(ctx, src.Graph, root,
+				arc.WithAllowDashedNames(s.AllowDashedNames()))
+		}
+		return arc.Program{}, nil
+	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
@@ -296,6 +374,7 @@ func OpenService(
 			cfg.TextSweepQuiescence,
 			cfg.TextSweepThreshold,
 		),
+		directoryState: actions.NewState[directory.Key, directory.Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -342,6 +421,16 @@ func OpenService(
 		); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionConfig[directory.Key, directory.Action]{
+				Name:     "sy_arc_directory_action_set",
+				Actions:  s.directoryState,
+				Resource: directory.ResourceID,
+			},
+		); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -355,21 +444,30 @@ func (s *Service) OnAction(
 	return s.state.OnChange(handler)
 }
 
+// OnDirectoryAction calls handler with each directory action batch that a transaction
+// attaches, after the transaction commits. It has the contract of OnAction.
+func (s *Service) OnDirectoryAction(
+	handler func(context.Context, actions.Scoped[directory.Key, directory.Action]),
+) observe.Disconnect {
+	return s.directoryState.OnChange(handler)
+}
+
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:          tx,
-		root:        s.root,
-		directories: s.directories,
-		reserved:    s.reserved,
-		tasks:       s.cfg.Task,
-		matchTasks:  s.cfg.MatchTasks,
-		status:      s.cfg.Status,
-		table:       s.table,
-		dispatcher:  s.state.Dispatcher(),
-		sweeper:     s.sweeper,
-		resyncs:     s.resyncs,
-		deletes:     s.deletes,
+		tx:                  tx,
+		root:                s.root,
+		directories:         s.directories,
+		reserved:            s.reserved,
+		tasks:               s.cfg.Task,
+		matchTasks:          s.cfg.MatchTasks,
+		status:              s.cfg.Status,
+		table:               s.table,
+		dispatcher:          s.state.Dispatcher(),
+		directoryDispatcher: s.directoryState.Dispatcher(),
+		sweeper:             s.sweeper,
+		resyncs:             s.resyncs,
+		deletes:             s.deletes,
 	}
 }
 
