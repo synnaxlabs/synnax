@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Client, connection } from "@synnaxlabs/client";
+import { connection, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -75,7 +75,7 @@ const COMPATIBLE_STATUS: connection.Status = {
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
-  client: Client | null = null,
+  client: Synnax | null = null,
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
