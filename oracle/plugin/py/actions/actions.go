@@ -110,7 +110,7 @@ func (p *Plugin) generateFile(
 	for i, action := range actions {
 		a := &data.Actions[i]
 		for _, field := range action.Fields {
-			fd := fp.ProcessField(field)
+			fd := fp.ProcessField(absentAsNull(field, req.Resolutions))
 			a.Fields = append(a.Fields, fd)
 			a.HasAlias = a.HasAlias || fd.Alias != ""
 		}
@@ -129,6 +129,15 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// absentAsNull makes a required any field optional. The JSON codec drops None fields,
+// so a payload must read an absent key in its own encoding as null.
+func absentAsNull(field resolution.Field, table *resolution.Table) resolution.Field {
+	if field.Default == nil && resolution.PrimitiveBase(field.Type, table) == "any" {
+		field.Optional = true
+	}
+	return field
 }
 
 // templateData's fields are read by fileTemplate, so they must stay exported.
