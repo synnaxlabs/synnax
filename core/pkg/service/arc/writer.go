@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"encoding/json/v2"
+	"maps"
 	"uuid"
 
 	"github.com/synnaxlabs/arc"
@@ -407,9 +408,9 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's name or
-// compiled hash, keeping the task in step with the arc. A no-op for arcs with no rack
-// bound and for edits, like graph layout moves, that change neither.
+// syncTask rewrites the arc's task when an edit changed its name or compiled hash, and
+// its drift record when an edit changed its content hashes. A no-op for arcs with no
+// rack bound and for edits, like graph layout moves, that change none of these.
 func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	b := a.Base()
 	existing, err := w.taskKeys(ctx, w.liveTasks(b.Key))
@@ -425,12 +426,20 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 		return err
 	}
 	hash, hashes, err := w.build(ctx, a, rec.Stored)
-	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
+	if err != nil {
 		return err
 	}
-	cfg.Hash = hash
-	if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
-		return err
+	if cfg.Hash != hash || tsk.Name != b.Name {
+		cfg.Hash = hash
+		if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
+			return err
+		}
+	}
+	// The hash of an automation that does not compile leaves out its modules, so a
+	// module edit can change the record and not the task.
+	if hashes.Text == rec.Stored.Text &&
+		maps.Equal(hashes.Modules, rec.Stored.Modules) {
+		return nil
 	}
 	return w.writeRecord(ctx, tsk, rec, hashes)
 }

@@ -614,6 +614,23 @@ var _ = Describe("Change propagation", Ordered, func() {
 			).To(Equal(map[string]string{"pt_m": hashOf(edited)}))
 		})
 
+		It("Should rehash a module edited while the automation does not compile", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			a = overwrite(ctx, a, broken)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			brokenHash := settledHash(ctx, key)
+			edited := overwrite(ctx, m, moduleV2)
+			Eventually(func() string {
+				return record(ctx, a).Stored.Modules["pt_m"]
+			}).Should(Equal(hashOf(edited)))
+			Expect(configHash(ctx, key)()).To(Equal(brokenHash))
+		})
+
 		It("Should drop a module that left its path from a broken automation", func(
 			ctx SpecContext,
 		) {
