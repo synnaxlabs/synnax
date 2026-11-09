@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <fstream>
 #include <variant>
 
 #include <include/gtest/gtest.h>
@@ -27,5 +28,30 @@ TEST(ActionsTests, testCreateRoundTrip) {
     const auto &payload = std::get<CreatePayload>(action);
     ASSERT_EQ(payload.rack.key, 12);
     ASSERT_EQ(payload.rack.name, "Edge");
+}
+
+/// @brief it should decode each action envelope that the Core and every client share.
+TEST(ActionsTests, testVectors) {
+    std::ifstream f("core/testdata/actions/vectors.json");
+    ASSERT_TRUE(f.is_open());
+    const auto vectors = x::json::json::parse(f).at("rack");
+    ASSERT_FALSE(vectors.empty());
+    for (const auto &v: vectors) {
+        const auto name = v.at("name").get<std::string>();
+        SCOPED_TRACE(name);
+        const x::json::Parser parser(v.at("action"));
+        const auto action = parse_action(parser);
+        ASSERT_NIL(parser.error());
+        ASSERT_EQ(to_json(action).at("type"), v.at("action").at("type"));
+        if (!v.contains("value")) continue;
+        x::json::json value;
+        if (const auto *set = std::get_if<SetPayload>(&action))
+            value = set->value;
+        else if (const auto *insert = std::get_if<InsertPayload>(&action))
+            value = insert->value;
+        else
+            FAIL() << "only a set or insert holds a value";
+        ASSERT_EQ(value, v.at("value"));
+    }
 }
 }

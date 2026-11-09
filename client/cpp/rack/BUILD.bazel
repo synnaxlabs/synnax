@@ -60,6 +60,7 @@ cc_test(
 cc_test(
     name = "actions_test",
     srcs = ["actions_test.cpp"],
+    data = ["//core/testdata/actions:vectors.json"],
     deps = [
         ":rack",
         "//x/cpp/json",

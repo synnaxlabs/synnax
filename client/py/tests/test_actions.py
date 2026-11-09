@@ -17,6 +17,7 @@ from pydantic import BaseModel, TypeAdapter
 
 import synnax
 from synnax.device import actions_gen as device_actions, types_gen as device_types
+from synnax.rack import types_gen as rack_types
 from synnax.ranger import actions_gen as ranger_actions, types_gen as ranger_types
 from x.codec import JSONCodec
 
@@ -54,6 +55,11 @@ CASES = [
 ]
 
 ROOT = Path(synnax.__file__).parent
+VECTORS = json.loads(
+    (
+        Path(__file__).parents[3] / "core" / "testdata" / "actions" / "vectors.json"
+    ).read_text()
+)
 MODULES = sorted(
     ".".join(("synnax", *p.relative_to(ROOT).with_suffix("").parts))
     for p in ROOT.rglob("actions_gen.py")
@@ -87,3 +93,14 @@ class TestActions:
         )
         TypeAdapter(types.Action)
 
+    @pytest.mark.parametrize(
+        "vector", VECTORS["rack"], ids=[v["name"] for v in VECTORS["rack"]]
+    )
+    def test_vector(self, vector: dict[str, Any]) -> None:
+        """Should decode each action envelope that the Core and every client share."""
+        action = TypeAdapter(rack_types.Action).validate_python(vector["action"])
+        assert action.type == vector["action"]["type"]
+        if "value" not in vector:
+            return
+        payload = getattr(action, action.type)
+        assert payload.value == vector["value"]

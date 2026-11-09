@@ -1,0 +1,76 @@
+{
+  "rack": [
+    {
+      "name": "create",
+      "action": {
+        "type": "create",
+        "create": {
+          "rack": {
+            "key": 12,
+            "name": "Edge",
+            "role": "00000000-0000-4000-8000-000000000001"
+          }
+        }
+      }
+    },
+    {
+      "name": "set",
+      "action": {
+        "type": "set",
+        "set": {
+          "path": ["name"],
+          "value": "Edge",
+          "guards": []
+        }
+      },
+      "value": "Edge"
+    },
+    {
+      "name": "set with no value",
+      "action": {
+        "type": "set",
+        "set": {
+          "path": ["name"],
+          "guards": []
+        }
+      },
+      "value": null
+    },
+    {
+      "name": "remove",
+      "action": {
+        "type": "remove",
+        "remove": {
+          "path": ["integrations"],
+          "key": "modbus",
+          "guards": []
+        }
+      }
+    },
+    {
+      "name": "insert",
+      "action": {
+        "type": "insert",
+        "insert": {
+          "path": ["integrations"],
+          "value": "opc",
+          "after": "modbus",
+          "guards": []
+        }
+      },
+      "value": "opc"
+    },
+    {
+      "name": "move",
+      "action": {
+        "type": "move",
+        "move": {
+          "path": ["integrations"],
+          "key": "opc",
+          "after": "modbus",
+          "guards": []
+        }
+      }
+    }
+  ]
+}
