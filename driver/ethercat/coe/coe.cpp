@@ -19,6 +19,10 @@ constexpr uint16_t SM_TYPE_INDEX = 0x1C00;
 constexpr uint16_t PDO_ASSIGN_INDEX = 0x1C10;
 /// @brief the first index past the PDO assign objects.
 constexpr uint16_t PDO_ASSIGN_END = 0x1C30;
+constexpr uint16_t RXPDO_MAPPING_INDEX = 0x1600;
+constexpr uint16_t RXPDO_MAPPING_END = 0x1800;
+constexpr uint16_t TXPDO_MAPPING_INDEX = 0x1A00;
+constexpr uint16_t TXPDO_MAPPING_END = 0x1C00;
 /// @brief complete access sends sub-index 0 as 16 bits.
 constexpr size_t COMPLETE_ACCESS_HEADER = 2;
 constexpr uint32_t SM_TYPE_MAILBOX_IN = 2;
@@ -30,12 +34,15 @@ constexpr uint32_t FIRST_PROCESS_DATA_SM = 2;
 constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
 
-/// @brief returns the size in bytes of each entry of an object that read_layout reads:
-/// the sync manager types, a PDO assign object, or a PDO mapping object.
+/// @brief returns the size in bytes of each entry of the sync manager type object, a
+/// PDO assign object, or a PDO mapping object, or 0 for another object.
 size_t entry_size(const uint16_t index) {
     if (index == SM_TYPE_INDEX) return 1;
     if (index >= PDO_ASSIGN_INDEX && index < PDO_ASSIGN_END) return 2;
-    return 4;
+    if ((index >= RXPDO_MAPPING_INDEX && index < RXPDO_MAPPING_END) ||
+        (index >= TXPDO_MAPPING_INDEX && index < TXPDO_MAPPING_END))
+        return 4;
+    return 0;
 }
 
 /// @brief returns the entries of an object read with complete access, or nullopt when
@@ -62,10 +69,12 @@ Read with_complete_access(Read read, ReadAll read_all) {
                const uint16_t index,
                const uint8_t sub_index
            ) -> std::pair<uint32_t, x::errors::Error> {
+        const size_t size = entry_size(index);
+        if (size == 0) return read(index, sub_index);
         auto [it, added] = objects->try_emplace(index);
         if (added)
             if (const auto bytes = read_all(index))
-                it->second = parse_entries(*bytes, entry_size(index));
+                it->second = parse_entries(*bytes, size);
         if (const auto &entries = it->second; entries && sub_index <= entries->size())
             return {
                 sub_index == 0 ? static_cast<uint32_t>(entries->size())

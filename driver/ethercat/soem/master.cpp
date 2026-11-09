@@ -788,10 +788,12 @@ std::pair<std::string, telem::DataType> Master::read_object_entry(
     if (this->api->readOEsingle(0, sub_index, &od_list, &oe_list) <= 0 ||
         oe_list.Entries == 0)
         return {"", telem::DataType::EC_UNKNOWN};
-    return entries[{index, sub_index}] = {
-               std::string(oe_list.Name[sub_index]),
-               static_cast<telem::DataType>(oe_list.DataType[sub_index])
+    const std::pair entry{
+        std::string(oe_list.Name[sub_index]),
+        static_cast<telem::DataType>(oe_list.DataType[sub_index])
     };
+    entries[{index, sub_index}] = entry;
+    return entry;
 }
 
 template<std::integral T>

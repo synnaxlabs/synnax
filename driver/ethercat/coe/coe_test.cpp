@@ -70,10 +70,10 @@ Objects without(Objects objects, const std::pair<uint16_t, uint8_t> &key) {
     return objects;
 }
 
-using Wholes = std::map<uint16_t, std::vector<uint8_t>>;
+using WholeObjects = std::map<uint16_t, std::vector<uint8_t>>;
 
 /// @brief the objects of LAYOUT as complete access reads return them.
-const Wholes WHOLE_LAYOUT{
+const WholeObjects WHOLE_LAYOUT{
     {0x1C00, {4, 0, 1, 2, 3, 4}},
     {0x1C12, {1, 0, 0x00, 0x16}},
     {0x1600, {1, 0, 0x10, 0x01, 0x00, 0x70}},
@@ -84,7 +84,7 @@ const Wholes WHOLE_LAYOUT{
 
 /// @brief returns a read of whole objects that answers from wholes and fails for any
 /// other object. Counts the reads of each object in calls.
-ReadAll whole_reader(const Wholes &wholes, std::map<uint16_t, int> &calls) {
+ReadAll whole_reader(const WholeObjects &wholes, std::map<uint16_t, int> &calls) {
     return
         [wholes, &calls](const uint16_t index) -> std::optional<std::vector<uint8_t>> {
             calls[index]++;
@@ -370,6 +370,18 @@ TEST(CompleteAccessTest, ReadsEachSubIndexWhenTheWholeReadFails) {
     ASSERT_EQ(syncs[1].pdos.size(), 1);
     ASSERT_EQ(syncs[1].pdos[0].entries.size(), 3);
     EXPECT_EQ(syncs[1].pdos[0].entries[2].sub_index, 17);
+}
+
+/// @brief it should read an object that is not part of a PDO layout one sub-index at a
+/// time.
+TEST(CompleteAccessTest, ReadsOtherObjectsOneSubIndexAtATime) {
+    std::map<uint16_t, int> calls;
+    const auto read = with_complete_access(
+        reader({{{0x1C32, 1}, 2}}),
+        whole_reader({{0x1C32, {1, 0, 9, 0}}}, calls)
+    );
+    EXPECT_EQ(ASSERT_NIL_P(read(0x1C32, 1)), 2);
+    EXPECT_TRUE(calls.empty());
 }
 
 /// @brief it should read each sub-index of an object whose complete access read is too

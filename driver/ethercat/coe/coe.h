@@ -38,9 +38,10 @@ using Read = std::function<
 /// access. Returns its bytes from sub-index 0, or nullopt when the read fails.
 using ReadAll = std::function<std::optional<std::vector<uint8_t>>(uint16_t index)>;
 
-/// @brief returns a Read for read_layout that reads each object with one read_all
-/// call, as SOEM reads them. It falls back to read for an object that read_all fails
-/// or that is too short for its count.
+/// @brief returns a Read for read_layout that reads the sync manager type, PDO assign,
+/// and PDO mapping objects with one read_all call each, as SOEM reads them. It uses
+/// read for any other object, and for an object that read_all fails or that is too
+/// short for its count.
 Read with_complete_access(Read read, ReadAll read_all);
 
 /// @brief what read_layout does after a failed read.

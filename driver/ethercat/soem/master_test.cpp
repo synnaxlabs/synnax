@@ -587,6 +587,21 @@ TEST_F(SOEMMasterTest, ScanReadsTheOpModesOfAModelOnce) {
     EXPECT_EQ(slaves[1].properties.op_modes[0].name, DC_SECOND.name);
 }
 
+/// @brief it should read the SII of the next slave of a model when the SII of the first
+/// one gives no synchronization modes.
+TEST_F(SOEMMasterTest, ScanReadsTheOpModesAgainAfterAReadFindsNone) {
+    this->add_slave(create_named_slave(1));
+    this->add_slave(create_named_slave(1));
+    set_op_modes(this->mock->slave_infos[1], {DC_SECOND});
+
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_TRUE(slaves[0].properties.op_modes.empty());
+    ASSERT_EQ(slaves[1].properties.op_modes.size(), 1);
+    EXPECT_EQ(slaves[1].properties.op_modes[0].name, DC_SECOND.name);
+}
+
 /// @brief it should wait for the slaves to reach PRE-OP before it reads PDOs from the
 /// CoE object dictionary.
 TEST_F(SOEMMasterTest, CoEDiscoveryWaitsForPreOp) {
