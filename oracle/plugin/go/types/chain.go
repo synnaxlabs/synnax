@@ -361,11 +361,14 @@ func annotateOutputs(
 					ownLive, lp,
 				)
 			}
-			// A dependency chain may span several Go outputs (task and
-			// task/config); a member with its own live output resolves there,
-			// not at the chain's first output. That package is generated from
-			// the live declaration, so its @go name comes along.
-			if lt, has := liveType(req, lp, t.Name); has {
+			current, err := isCurrentVersion(ctx, req, lp, v)
+			if err != nil {
+				return err
+			}
+			// Only the current package renders from the live file, so only a pin of
+			// it takes the live @go output and name. A frozen package declares every
+			// member at the chain root under its version file's name.
+			if lt, has := liveType(req, lp, t.Name); current && has {
 				if p := output.GetPath(lt, "go"); p != "" {
 					goRoot = p
 				}
@@ -377,6 +380,18 @@ func annotateOutputs(
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
 	return nil
+}
+
+// isCurrentVersion reports whether v is the current version of livePath's chain.
+func isCurrentVersion(
+	ctx context.Context, req *plugin.Request, livePath string, v int,
+) (bool, error) {
+	chain, ok := req.Versions.Chains()[livePath]
+	if !ok || chain.Current() != v {
+		return false, nil
+	}
+	ended, err := req.Versions.Ended(ctx, livePath)
+	return !ended, err
 }
 
 // versionedGoRoot finds the @go output path a live schema file's versions

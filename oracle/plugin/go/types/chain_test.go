@@ -1446,6 +1446,171 @@ Doc struct {
 	)
 })
 
+var _ = Describe("Pinned dependency Go names", func() {
+	const colorPkg = `"github.com/synnaxlabs/synnax/x/go/color/versions/`
+	generate := func(liveColor string) *plugin.Response {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/x/versions/color/v0.oracle": `
+Old struct {
+	r uint8
+}
+
+Shade struct {
+	r uint8
+}
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`,
+			"schemas/x/versions/color/v1.oracle": `
+Shade = v0.Shade
+
+Color = v0.Color
+`,
+			"schemas/x/color.oracle": liveColor,
+			"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+	old color.Old {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+import "schemas/x/versions/color/v1"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+}
+`,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/doc"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		return MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+	}
+
+	It("Should keep a frozen pin on the name its version file declares", func() {
+		resp := generate(`
+@go output "x/go/color"
+
+Shade struct {
+	r uint8
+}
+
+Color struct {
+	r uint8
+
+	@go marshal
+	@go name "Tint"
+}
+`)
+		Expect(generatedFile(resp, "x/go/color/versions/v0/types.gen.go")).
+			To(ContainSubstring("type Color struct"))
+		frozen := generatedFile(resp, "core/pkg/service/doc/versions/v0/types.gen.go")
+		Expect(frozen).To(ContainSubstring("Tint color.Color"))
+		Expect(frozen).ToNot(ContainSubstring("color.Tint"))
+		Expect(generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")).
+			To(ContainSubstring("Tint color.Tint"))
+	})
+
+	It(
+		"Should keep a frozen pin at the chain root when the live file moves a type",
+		func() {
+			resp := generate(`
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Shade struct {
+	r uint8
+
+	@go output "x/go/shade"
+}
+`)
+			Expect(generatedFile(resp, "x/go/color/versions/v0/types.gen.go")).
+				To(ContainSubstring("type Shade struct"))
+			frozen := generatedFile(
+				resp,
+				"core/pkg/service/doc/versions/v0/types.gen.go",
+			)
+			Expect(frozen).To(ContainSubstring("Shade color.Shade"))
+			Expect(frozen).To(ContainSubstring(`color ` + colorPkg + `v0"`))
+			Expect(frozen).ToNot(ContainSubstring("x/go/shade"))
+		},
+	)
+
+	It(
+		"Should keep a frozen pin at the chain root when the live file drops a type",
+		func() {
+			resp := generate(`
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Shade struct {
+	r uint8
+}
+`)
+			frozen := generatedFile(
+				resp,
+				"core/pkg/service/doc/versions/v0/types.gen.go",
+			)
+			Expect(frozen).To(ContainSubstring("Old color.Old"))
+			Expect(frozen).To(ContainSubstring(`color ` + colorPkg + `v0"`))
+		},
+	)
+})
+
 var _ = Describe("Frozen omitted field with a default", func() {
 	DescribeTable("Should resolve the default against the same table as the field",
 		func(decls, field string) {
