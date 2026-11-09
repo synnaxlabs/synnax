@@ -86,6 +86,27 @@ var _ = Describe("Alias", Ordered, func() {
 		})).To(Succeed())
 		return ch
 	}
+	createRange := func(ctx context.Context, tx gorp.Tx, parent *ranger.Key) ranger.Key {
+		GinkgoHelper()
+		r := ranger.Range{
+			Name:      "Range",
+			TimeRange: telem.NewRangeSeconds(5, 10),
+			Parent:    parent,
+		}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+		return r.Key
+	}
+	// createChain creates a root range and n nested descendants, and returns the root
+	// and the deepest range.
+	createChain := func(ctx context.Context, tx gorp.Tx, n int) (ranger.Key, ranger.Key) {
+		GinkgoHelper()
+		root := createRange(ctx, tx, nil)
+		leaf := root
+		for range n {
+			leaf = createRange(ctx, tx, &leaf)
+		}
+		return root, leaf
+	}
 
 	Describe("Set", func() {
 		It("Should set an alias for a channel on a range", func(ctx SpecContext) {
@@ -102,6 +123,33 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
+		})
+
+		It("Should move an alias that another channel holds on the range", func(
+			ctx SpecContext,
+		) {
+			a, b := createChannel(ctx), createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := createRange(ctx, tx, nil)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, r, a.Key(), "x")).To(Succeed())
+			Expect(w.Set(ctx, r, b.Key(), "x")).To(Succeed())
+			reader := aliasSvc.NewReader(tx)
+			Expect(reader.Resolve(ctx, r, "x")).To(Equal(b.Key()))
+			Expect(reader.Retrieve(ctx, r, a.Key())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should keep an alias that a channel holds on another range", func(
+			ctx SpecContext,
+		) {
+			a, b := createChannel(ctx), createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r1, r2 := createRange(ctx, tx, nil), createRange(ctx, tx, nil)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, r1, a.Key(), "x")).To(Succeed())
+			Expect(w.Set(ctx, r2, b.Key(), "x")).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Resolve(ctx, r1, "x")).To(Equal(a.Key()))
 		})
 	})
 
@@ -154,6 +202,20 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(err).
 				To(MatchError(ContainSubstring(`unknown object member name "channel"`)))
 			Expect(retrieve(ctx)).To(Equal("Before"))
+		})
+
+		It("Should move an alias that the edit gives to the channel", func(
+			ctx SpecContext,
+		) {
+			other := createChannel(ctx)
+			Expect(write(ctx, func(w alias.Writer) error {
+				return w.Set(ctx, r.Key, other.Key(), "After")
+			})).To(Succeed())
+			Expect(apply(ctx, key, set("alias", "After"))).To(Succeed())
+			Expect(aliasSvc.NewReader(db).Resolve(ctx, r.Key, "After")).
+				To(Equal(ch.Key()))
+			Expect(aliasSvc.NewReader(db).Retrieve(ctx, r.Key, other.Key())).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should refuse an alias that does not exist", func(ctx SpecContext) {
@@ -459,6 +521,50 @@ var _ = Describe("Alias", Ordered, func() {
 					To(MatchError(query.ErrNotFound))
 			},
 		)
+	})
+
+	Describe("Resolve exactly", func() {
+		DescribeTable("Should not match an alias as a pattern", func(
+			ctx SpecContext,
+			term string,
+		) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			r := createRange(ctx, tx, nil)
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, r, ch.Key(), "p10")).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Resolve(ctx, r, term)).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+			Entry("prefix", "p1"),
+			Entry("wildcard", "p.0"),
+			Entry("anchored", "^p"),
+		)
+	})
+
+	Describe("Ancestor limit", func() {
+		It("Should resolve an alias on a range 64 ancestors up", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			root, leaf := createChain(ctx, tx, 64)
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, root, ch.Key(), "x")).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).Resolve(ctx, leaf, "x")).To(Equal(ch.Key()))
+		})
+
+		It("Should return an error past 64 ancestors", func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			root, leaf := createChain(ctx, tx, 65)
+			Expect(aliasSvc.NewWriter(tx).Set(ctx, root, ch.Key(), "x")).To(Succeed())
+			reader := aliasSvc.NewReader(tx)
+			Expect(reader.Resolve(ctx, leaf, "x")).Error().
+				To(MatchError(alias.ErrAncestorLimit))
+			Expect(reader.Retrieve(ctx, leaf, ch.Key())).Error().
+				To(MatchError(alias.ErrAncestorLimit))
+			Expect(reader.List(ctx, leaf)).Error().
+				To(MatchError(alias.ErrAncestorLimit))
+		})
 	})
 
 	Describe("Search", func() {
