@@ -10,7 +10,15 @@
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
 
@@ -28,6 +36,7 @@ import {
   createWrapper,
   type CreateWrapperParams,
   type IPC,
+  mockLatestCore,
   mockUpdater,
   renderProvider,
   RESOURCE_ID,
@@ -78,13 +87,17 @@ const renderBadge = async (client: Client | null = null): Promise<SetStatus> => 
 };
 
 describe("version useInfoModal", () => {
+  let latestCore: MockInstance<typeof fetch>;
   beforeEach(() => {
     mocks.engine = "tauri";
+    // The Core notice asks the docs site for the newest Core.
+    latestCore = mockLatestCore("1.5.0");
   });
 
   afterEach(async () => {
     await clearUpdater();
     vi.clearAllMocks();
+    latestCore.mockRestore();
   });
 
   it("should report that the console is up to date in the web engine", async () => {

@@ -27,6 +27,7 @@ import {
   STATUS_KEY_PREFIX,
   useTarget,
 } from "@/platform/version/check";
+import { CoreNotice } from "@/platform/version/CoreNotice";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -82,7 +83,8 @@ interface Installing {
  * Checks for an update now and every 30 seconds until it finds one, then adds a status.
  * A change of the Core, its version, or the grant starts the checks again. The found
  * update stays open for {@link useCheck} until the checks start again or the Provider
- * unmounts, and while {@link useInstall} installs it.
+ * unmounts, and while {@link useInstall} installs it. A status also tells a user who
+ * may take the Console past the Core about a newer Core release.
  */
 export const Provider = ({
   installMiddleware = runInstall,
@@ -163,7 +165,12 @@ export const Provider = ({
     if (failed)
       throw error instanceof Error ? error : new Error(String(error), { cause: error });
   };
-  return <Context value={{ check, install }}>{children}</Context>;
+  return (
+    <Context value={{ check, install }}>
+      <CoreNotice target={target} />
+      {children}
+    </Context>
+  );
 };
 
 /**

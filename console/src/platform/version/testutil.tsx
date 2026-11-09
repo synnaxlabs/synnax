@@ -13,7 +13,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { type DownloadEvent } from "@tauri-apps/plugin-updater";
 import { act, cleanup } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { type Mock, vi } from "vitest";
+import { type Mock, type MockInstance, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
 import { Version } from "@/platform/version";
@@ -91,6 +91,29 @@ export const clearUpdater = async (): Promise<void> => {
   await act(async () => {});
   clearMocks();
 };
+
+const CORE_RELEASE_PATH = "/releases/core/latest.json";
+
+/**
+ * Answers the request of the Console for the newest Core release with latest, or fails
+ * it when latest is an error. Every other request goes to the network.
+ * @returns the spy on fetch.
+ */
+export const mockLatestCore = (latest: string | Error): MockInstance<typeof fetch> => {
+  const original = globalThis.fetch;
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    if (!urlOf(input).endsWith(CORE_RELEASE_PATH)) return await original(input, init);
+    if (latest instanceof Error) throw latest;
+    return Response.json({ version: latest });
+  });
+};
+
+const urlOf = (input: Parameters<typeof fetch>[0]): string =>
+  input instanceof Request ? input.url : String(input);
+
+/** Reports whether the Console requested the newest Core release through fetch. */
+export const requestedLatestCore = (spy: MockInstance<typeof fetch>): boolean =>
+  spy.mock.calls.some(([input]) => urlOf(input).endsWith(CORE_RELEASE_PATH));
 
 /** Returns the calls that ipc received for the command. */
 export const callsOf = (ipc: IPC, cmd: string): unknown[][] =>

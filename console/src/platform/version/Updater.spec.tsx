@@ -10,7 +10,15 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreEmbedded?: boolean } => ({
   engine: "tauri",
@@ -30,6 +38,7 @@ import {
   createWrapper,
   type CreateWrapperParams,
   ENDPOINT,
+  mockLatestCore,
   mockUpdater,
   renderProvider,
   RESOURCE_ID,
@@ -47,14 +56,18 @@ const versionOf = (check: Version.Check): string | null =>
   check.variant === "success" ? (check.available?.update.version ?? null) : null;
 
 describe("version Provider", () => {
+  let latestCore: MockInstance<typeof fetch>;
   beforeEach(() => {
     mocks.engine = "tauri";
     mocks.coreEmbedded = false;
+    // The Core notice asks the docs site for the newest Core.
+    latestCore = mockLatestCore("1.5.0");
   });
 
   afterEach(async () => {
     await clearUpdater();
     vi.clearAllMocks();
+    latestCore.mockRestore();
   });
 
   it("should not check for updates in the web engine", async () => {
