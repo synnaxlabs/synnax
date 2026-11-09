@@ -66,7 +66,7 @@ func moveRelationship(
 		r.Labels = append(r.Labels, label)
 		return true, nil
 	}
-	if r.Parent != nil {
+	if r.Parent != nil || rel.From.Key == rel.To.Key {
 		return false, nil
 	}
 	parent, err := uuid.Parse(rel.From.Key)

@@ -103,6 +103,48 @@ var _ = Describe("Migration", func() {
 		},
 	)
 
+	It(
+		"Should drop a parent relationship from a range to itself",
+		func(ctx SpecContext) {
+			r := create(ctx, "Burn")
+			relate(ctx, ontology.Relationship{
+				From: rangeID(r.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   rangeID(r.Key),
+			})
+			migrate(ctx)
+			Expect(get(ctx, r.Key).Parent).To(BeNil())
+			Expect(relationships(ctx)).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should keep the parent of a range that is also its own parent",
+		func(ctx SpecContext) {
+			child, parent := create(ctx, "Burn"), create(ctx, "Test")
+			// Relationships migrate in key order, so the self relationship goes first.
+			if parent.Key.String() < child.Key.String() {
+				child, parent = parent, child
+			}
+			relate(
+				ctx,
+				ontology.Relationship{
+					From: rangeID(child.Key),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   rangeID(child.Key),
+				},
+				ontology.Relationship{
+					From: rangeID(parent.Key),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   rangeID(child.Key),
+				},
+			)
+			migrate(ctx)
+			Expect(get(ctx, child.Key).Parent).To(HaveValue(Equal(parent.Key)))
+			Expect(relationships(ctx)).To(BeEmpty())
+		},
+	)
+
 	It("Should move labels from relationships into the labels", func(ctx SpecContext) {
 		r := create(ctx, "Burn")
 		kept, gone := uuid.New(), uuid.New()
