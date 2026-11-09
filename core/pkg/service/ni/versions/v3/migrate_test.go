@@ -341,3 +341,124 @@ var _ = Describe("AnalogReadMigration", func() {
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
 })
+
+// runStored stores old under namespace, runs migration over it, and returns the
+// migrated record with the field of each change the migration logged.
+func runStored[I, O gorp.Entry[uuid.UUID]](
+	ctx SpecContext,
+	namespace string,
+	migration gorp.Migration,
+	old I,
+) (O, []any) {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, I]{DB: db}))
+	Expect(gorp.NewCreate[uuid.UUID, I]().Entry(&old).Exec(ctx, db)).To(Succeed())
+	core, logs := observer.New(zapcore.WarnLevel)
+	logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+		ZapLogger: zap.New(core),
+	}))
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+		DB:              db,
+		Namespace:       namespace,
+		Migrations:      []gorp.Migration{migration},
+	})).To(Succeed())
+	var got O
+	Expect(gorp.NewRetrieve[uuid.UUID, O]().
+		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	fields := []any{}
+	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
+		fields = append(fields, e.ContextMap()["field"])
+	}
+	return got, fields
+}
+
+var noScale = v2.CustomScale{CustomScale: v2.Scale{Variant: v2.NoneScale{}}}
+
+var _ = Describe("MigrateAnalogWriteConfig", func() {
+	It("Should clamp a negative port and disable the channel", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateAnalogWriteConfig(ctx, v2.AnalogWriteConfig{
+			Channels: []v2.AOChannel{{Variant: v2.AOVoltageChannel{
+				BaseAOChannel: v2.BaseAOChannel{Key: "ao", Port: -1},
+			}}},
+		}))
+		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ch.Port).To(BeZero())
+		Expect(ch.Disabled).To(BeTrue())
+	})
+})
+
+var _ = Describe("MigrateCounterReadConfig", func() {
+	It("Should clamp each counter channel", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
+			Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{Divisor: -2}}},
+		}))
+		Expect(got.Channels[0].Variant.(v3.CIFrequencyChannel).Divisor).
+			To(Equal(uint32(1)))
+	})
+})
+
+var _ = Describe("MigrateDigitalReadConfig", func() {
+	It("Should clamp and disable each digital channel", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateDigitalReadConfig(ctx, v2.DigitalReadConfig{
+			Device:   "dev",
+			Channels: []v2.DIChannel{{Key: "a", Line: 33}},
+		}))
+		Expect(string(got.Device)).To(Equal("dev"))
+		Expect(got.Channels).To(Equal([]v3.DIChannel{
+			{Key: "a", Line: 31, Disabled: true},
+		}))
+	})
+})
+
+var _ = Describe("MigrateDigitalWriteConfig", func() {
+	It("Should clamp and disable each digital channel", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateDigitalWriteConfig(ctx, v2.DigitalWriteConfig{
+			Channels: []v2.DOChannel{{Key: "a", Port: -1, Line: 2}},
+		}))
+		Expect(got.Channels).To(Equal([]v3.DOChannel{
+			{Key: "a", Line: 2, Disabled: true},
+		}))
+	})
+})
+
+var _ = Describe("AnalogWriteMigration", func() {
+	It("Should clamp a stored output port and log each change", func(ctx SpecContext) {
+		got, fields := runStored[v2.AnalogWriteConfig, v3.AnalogWriteConfig](
+			ctx,
+			"ni_analog_write_config",
+			v3.AnalogWriteMigration,
+			v2.AnalogWriteConfig{
+				Key: uuid.New(),
+				Channels: []v2.AOChannel{{Variant: v2.AOVoltageChannel{
+					BaseAOChannel: v2.BaseAOChannel{Key: "ao", Port: -4},
+					CustomScale:   noScale,
+				}}},
+			},
+		)
+		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ch.Port).To(BeZero())
+		Expect(ch.Disabled).To(BeTrue())
+		Expect(fields).To(ConsistOf("Port", "Disabled"))
+	})
+})
+
+var _ = Describe("DigitalWriteMigration", func() {
+	It("Should clamp a stored line and log each change", func(ctx SpecContext) {
+		got, fields := runStored[v2.DigitalWriteConfig, v3.DigitalWriteConfig](
+			ctx,
+			"ni_digital_write_config",
+			v3.DigitalWriteMigration,
+			v2.DigitalWriteConfig{
+				Key:      uuid.New(),
+				Channels: []v2.DOChannel{{Key: "do", Port: 1, Line: -1}},
+			},
+		)
+		Expect(got.Channels).To(Equal([]v3.DOChannel{
+			{Key: "do", Port: 1, Line: 0, Disabled: true},
+		}))
+		Expect(fields).To(ConsistOf("Line", "Disabled"))
+	})
+})
