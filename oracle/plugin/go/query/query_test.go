@@ -633,6 +633,34 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
+			It(
+				"Should pluralize an uncountable name apart in prose and identifiers",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/series"
+
+					Series struct {
+						key uuid {
+							@key
+						}
+						metadata string {
+							@filter
+						}
+						@resource type "series"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "series", loader, p)
+
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"func MatchMetadataList(vals ...string) Filter",
+							"// Limit sets the maximum number of series to return.",
+						).
+						ToNotContain("seriesList")
+				},
+			)
+
 			It("Should generate a slice filter", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
