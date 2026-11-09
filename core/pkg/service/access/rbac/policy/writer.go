@@ -15,19 +15,32 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	tx            gorp.Tx
-	otg           ontology.Writer
 	allowInternal bool
 	table         *gorp.Table[Key, Policy]
+	roles         *role.Service
+	dispatcher    actions.Dispatcher[Key, Action]
 }
 
-// Create creates a new policy in the database.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Create creates or overwrites a policy, and its commit carries a create action that
+// holds the stored policy. It returns a validation error when the policy's role does
+// not exist. A writer that does not allow internal writes also returns a validation
+// error for an internal policy, a policy of a built-in role, and a policy that would
+// overwrite one of a built-in role.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
@@ -38,10 +51,50 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
+	if !w.allowInternal {
+		if err := w.checkStored(ctx, p.Key); err != nil {
+			return err
+		}
+		if err := w.checkRole(ctx, p.Role); err != nil {
+			return err
+		}
+	}
 	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResources(ctx, p.OntologyID())
+	w.dispatcher.Attach(w.tx, p.Key, NewCreateAction(CreatePayload{Policy: *p}))
+	return nil
+}
+
+// Apply applies the actions to the policy with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns a validation error when an action is a create, is not a set of a whole
+// member, or leaves the policy invalid, or when the policy belongs to a built-in role
+// and w does not allow internal writes, and an error wrapping query.ErrNotFound when no
+// policy has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Policy](key)).
+		ChangeErr(func(ctx gorp.Context, p Policy) (Policy, error) {
+			if !w.allowInternal {
+				if err := w.checkRole(ctx, p.Role); err != nil {
+					return Policy{}, err
+				}
+			}
+			next, err := Reduce(p, acts...)
+			if err != nil {
+				return Policy{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Policy{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,
@@ -55,21 +108,53 @@ func (w Writer) CreateMany(ctx context.Context, policies *[]Policy) error {
 	return nil
 }
 
-// Delete removes policies with the given keys from the database.
+// Delete removes policies with the given keys from the database. A writer that does
+// not allow internal writes returns a validation error for a policy of a built-in role.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...)).
-		Exec(ctx, w.tx)
+	q := w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...))
+	if !w.allowInternal {
+		q = q.Guard(func(ctx gorp.Context, p Policy) error {
+			return w.checkRole(ctx, p.Role)
+		})
+	}
+	return q.Exec(ctx, w.tx)
 }
 
-func (w Writer) SetOnRole(
-	ctx context.Context,
-	roleKey role.Key,
-	policies ...Key,
-) error {
-	return w.otg.DefineRelationships(
-		ctx,
-		role.OntologyID(roleKey),
-		ontology.RelationshipTypeParentOf,
-		OntologyIDs(policies)...,
-	)
+func (w Writer) checkStored(ctx context.Context, key Key) error {
+	var stored Policy
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Policy](key)).
+		Entry(&stored).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return w.checkRole(ctx, stored.Role)
+}
+
+// checkRole returns a validation error when the role with key r is built in. It leaves
+// a missing role to the reference check of the write.
+func (w Writer) checkRole(ctx context.Context, r role.Key) error {
+	var rol role.Role
+	err := w.roles.NewRetrieve().
+		Where(role.MatchKeys(r)).
+		Entry(&rol).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if rol.Internal {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot change the policies of built-in role %s",
+			rol.Name,
+		)
+	}
+	return nil
 }

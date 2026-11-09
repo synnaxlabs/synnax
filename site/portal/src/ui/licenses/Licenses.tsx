@@ -18,10 +18,11 @@ import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
 import { activatePath } from "@/shell";
-import { date, edition, statusOf } from "@/ui/format";
+import { edition, statusOf } from "@/ui/format";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface LicensesProps {
   organization: Organization;
@@ -37,6 +38,7 @@ export const Licenses = ({
   licenses,
   now,
 }: LicensesProps): ReactElement => {
+  const clock = useClock();
   const activatable = licenses.filter((l) => deny(l.license, now) == null);
   return (
     <Page
@@ -87,7 +89,7 @@ export const Licenses = ({
                 {term(lic)}
               </Text.Text>
               <Text.Text level="p" color={9}>
-                {date(lic.issuedAt)}
+                {clock.date(lic.issuedAt)}
               </Text.Text>
             </Row>
           ))}

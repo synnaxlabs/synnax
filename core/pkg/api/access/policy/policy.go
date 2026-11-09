@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -25,7 +25,7 @@ import (
 
 // ServiceConfig is the configuration for the policy API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC stores and retrieves policies.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -73,19 +73,12 @@ type (
 	CreateResponse = CreateRequest
 )
 
-// Create creates the policies in the request.
+// Create creates or overwrites the policies in the request.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
-		Action:  access.ActionCreate,
-	}); err != nil {
-		return CreateRequest{}, err
-	}
 	w := s.internal.Policy.NewWriter(tx, allowInternal)
 	if err := w.CreateMany(ctx, &req.Policies); err != nil {
 		return CreateRequest{}, err
@@ -93,24 +86,46 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// Retrieve retrieves the policies that the request selects.
+// DispatchRequest carries an action sequence to apply to a single policy. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[rbacpolicy.Key, rbacpolicy.Action]
+
+// Dispatch applies the action sequence to the target policy atomically. Subscribers to
+// the policy action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+}
+
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the policies that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, rbacpolicy.ResourceID)
+}
+
+// Retrieve returns the policies that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.Policy.NewRetrieve().Entries(&res.Policies))
+	q, err := ApplyRetrieve(req, s.internal.NewPolicyRetrieve().Entries(&res.Policies))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rbacpolicy.OntologyIDsFromPolicies(res.Policies),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -121,19 +136,12 @@ type DeleteRequest struct {
 	Keys []rbacpolicy.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the policies in the request.
+// Delete deletes the policies with the keys in the request.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: rbacpolicy.OntologyIDs(req.Keys),
-		Action:  access.ActionDelete,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
 		Delete(ctx, req.Keys...)
 }

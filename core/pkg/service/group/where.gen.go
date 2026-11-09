@@ -14,6 +14,9 @@ package group
 import (
 	"strconv"
 
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,12 +46,80 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
 		if l.In != nil {
 			fs = append(fs, MatchKeys(l.In...))
 		}
+	}
+	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchNames(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
+		}
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
+			if err != nil {
+				return nil, validate.PathedError(err, "name")
+			}
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Group,
+			) (bool, error) {
+				return match(e.Name), nil
+			}))
+		}
+	}
+	if l := w.Scope; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "scope")
+		}
+		if l.Eq != nil {
+			if !l.Eq.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid scope %q", *l.Eq),
+					"scope",
+					"eq",
+				)
+			}
+			fs = append(fs, MatchScopes(*l.Eq))
+		}
+		if l.In != nil {
+			for i, v := range l.In {
+				if !v.IsValid() {
+					return nil, validate.PathedError(
+						errors.Wrapf(validate.ErrValidation, "invalid scope %q", v),
+						"scope",
+						"in",
+						strconv.Itoa(i),
+					)
+				}
+			}
+			fs = append(fs, MatchScopes(l.In...))
+		}
+	}
+	if l := w.Parents; l != nil {
+		fs = append(fs, MatchParents(l...))
+	}
+	if l := w.Nested; l != nil {
+		fs = append(fs, MatchNested(*l))
 	}
 	return And(fs...), nil
 }

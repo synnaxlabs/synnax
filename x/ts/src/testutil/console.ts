@@ -13,8 +13,8 @@ const METHODS = ["error", "warn"] as const;
 
 /**
  * Fails every test that writes to console.error or console.warn. A test that expects
- * output mocks the method with vi.spyOn, which replaces the recorder for that test. Call
- * it once from a setup file.
+ * output mocks the method with vi.spyOn, which replaces the recorder for that test.
+ * Call it once from a setup file.
  */
 export const failOnConsoleOutput = (): void => {
   const originals = { error: console.error, warn: console.warn };

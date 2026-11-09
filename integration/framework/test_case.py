@@ -124,6 +124,13 @@ class TestCase(ABC):
 
     log_client: LogClient
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        """Returns the machine resources the case uses while it runs, from
+        `framework.resources`. The conductor runs a case only when its resources are
+        free. An override joins its resources with super().resources()."""
+        return frozenset()
+
     def __init__(
         self,
         *,
@@ -147,6 +154,9 @@ class TestCase(ABC):
         self._error_message: str | None = None
         self._error_traceback: str | None = None
         self.skip_reason: str | None = None
+        # Numbers the test measured, which the conductor writes into summary.json. Each
+        # name ends in its unit, such as wait_20ms_spread_ms.
+        self.metrics: dict[str, float] = {}
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"

@@ -12,8 +12,8 @@
 package v2
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -97,7 +97,7 @@ type Panel struct {
 	Root Node `json:"root" msgpack:"root"`
 	// Parent is the parent resource for the panel in the ontology. Required on create
 	// and absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 	// Icon is the key of the icon that marks the panel in lists. When null, the Console
 	// draws its default panel icon.
 	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`
@@ -117,7 +117,6 @@ func (p *Panel) ApplyDefaults() {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	if p.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })

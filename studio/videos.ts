@@ -39,7 +39,6 @@ export default manifest.define([
   hero("console/visualize/hero", "scripts/still-visualize-hero.ts"),
   hero("console/ranges/hero", "scripts/still-range-hero.ts"),
   hero("control/arc/hero", "scripts/still-arc-hero.ts"),
-  hero("control/arc/graph-editor/hero", "scripts/still-arc-graph-hero.ts"),
   hero("console/alarms/hero", "scripts/still-alarm-hero.ts"),
   hero("hardware/hero", "scripts/still-hardware-hero.ts"),
   hero("console/projects/hero", "scripts/still-project-hero.ts"),
@@ -153,10 +152,6 @@ export default manifest.define([
   {
     id: "control/arc/start-from-schematic/start-button",
     script: "scripts/control-arc-start-button.ts",
-  },
-  {
-    id: "control/arc/graph-editor/build-alarm",
-    script: "scripts/control-arc-build-alarm.ts",
   },
   { id: "console/line-plots/create", script: "scripts/line-plot-create.ts" },
   { id: "console/logs/create", script: "scripts/log-create.ts" },

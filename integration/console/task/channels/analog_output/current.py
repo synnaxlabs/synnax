@@ -23,7 +23,7 @@ class Current(Analog):
         port (int): Physical port number
         min_val (float): Minimum current value
         max_val (float): Maximum current value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "Linear", "Map", "Table"
     """
 
     def __init__(

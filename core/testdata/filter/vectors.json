@@ -8,13 +8,7 @@
           "start": 1000,
           "end": 2000
         },
-        "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          }
-        ]
+        "labels": ["00000000-0000-4000-8000-0000000000f1"]
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
@@ -24,16 +18,8 @@
           "end": 3000
         },
         "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          },
-          {
-            "key": "00000000-0000-4000-8000-0000000000f2",
-            "name": "Anomaly",
-            "color": "#00ff00"
-          }
+          "00000000-0000-4000-8000-0000000000f1",
+          "00000000-0000-4000-8000-0000000000f2"
         ]
       },
       "c": {
@@ -149,6 +135,57 @@
         },
         "expected": ["a", "b"],
         "server_computed": true
+      },
+      {
+        "name": "name contains",
+        "where": { "name": { "contains": "fire" } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name contains compares case",
+        "where": { "name": { "contains": "FIRE" } },
+        "expected": []
+      },
+      {
+        "name": "name starts_with",
+        "where": { "name": { "starts_with": "Cold" } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name starts_with matches only the start",
+        "where": { "name": { "starts_with": "flow" } },
+        "expected": []
+      },
+      {
+        "name": "name eq ignores case",
+        "where": { "name": { "eq": "hotfire 1", "case_insensitive": true } },
+        "expected": ["a"]
+      },
+      {
+        "name": "name in ignores case",
+        "where": { "name": { "in": ["COLD FLOW"], "case_insensitive": true } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name contains ignores case",
+        "where": { "name": { "contains": "FIRE", "case_insensitive": true } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name starts_with ignores case",
+        "where": { "name": { "starts_with": "cold", "case_insensitive": true } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name regex ignores case",
+        "where": { "name": { "regex": "^hot", "case_insensitive": true } },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "a false case_insensitive compares case",
+        "where": { "name": { "eq": "hotfire 1", "case_insensitive": false } },
+        "expected": []
       },
       {
         "name": "the slots on one node are ANDed",
@@ -347,13 +384,7 @@
         "variant": "success",
         "message": "Started task",
         "time": 1000,
-        "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          }
-        ]
+        "labels": ["00000000-0000-4000-8000-0000000000f1"]
       },
       "b": {
         "key": "status-b",
@@ -362,16 +393,8 @@
         "message": "Started task",
         "time": 1000,
         "labels": [
-          {
-            "key": "00000000-0000-4000-8000-0000000000f1",
-            "name": "Engine",
-            "color": "#ff0000"
-          },
-          {
-            "key": "00000000-0000-4000-8000-0000000000f2",
-            "name": "Anomaly",
-            "color": "#00ff00"
-          }
+          "00000000-0000-4000-8000-0000000000f1",
+          "00000000-0000-4000-8000-0000000000f2"
         ]
       },
       "c": {
@@ -607,25 +630,29 @@
         "key": 65538,
         "name": "Hotfire rack",
         "embedded": false,
-        "integrations": ["ni", "labjack"]
+        "integrations": ["ni", "labjack"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "b": {
         "key": 65539,
         "name": "Cold flow rack",
         "embedded": false,
-        "integrations": ["opc"]
+        "integrations": ["opc"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "c": {
         "key": 131073,
         "name": "Remote rack",
         "embedded": false,
-        "integrations": []
+        "integrations": [],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       },
       "d": {
         "key": 131074,
         "name": "Remote embedded rack",
         "embedded": true,
-        "integrations": ["ni"]
+        "integrations": ["ni"],
+        "role": "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
       }
     },
     "cases": [
@@ -751,22 +778,6 @@
           }
         },
         "expected": []
-      },
-      {
-        "name": "host is node",
-        "where": {
-          "host_is_node": true
-        },
-        "expected": ["a", "b"],
-        "server_computed": true
-      },
-      {
-        "name": "host is not node",
-        "where": {
-          "host_is_node": false
-        },
-        "expected": ["c", "d"],
-        "server_computed": true
       },
       {
         "name": "the slots on one node are ANDed",
@@ -1244,6 +1255,11 @@
         "server_computed": true
       },
       {
+        "name": "type starts_with ignores case",
+        "where": { "type": { "starts_with": "LABJACK_W", "case_insensitive": true } },
+        "expected": ["a", "c"]
+      },
+      {
         "name": "rack eq",
         "where": {
           "rack": {
@@ -1498,24 +1514,6 @@
           }
         },
         "expected": ["a", "c"],
-        "server_computed": true
-      },
-      {
-        "name": "name_patterns matches a valid name exactly",
-        "where": { "name_patterns": ["pressure_1", "pressure"] },
-        "expected": ["a"],
-        "server_computed": true
-      },
-      {
-        "name": "name_patterns anchors an unanchored pattern",
-        "where": { "name_patterns": ["pressure_.*", "valve"] },
-        "expected": ["a", "c"],
-        "server_computed": true
-      },
-      {
-        "name": "name_patterns keeps an anchored pattern as given",
-        "where": { "name_patterns": ["^valve"] },
-        "expected": ["d"],
         "server_computed": true
       },
       {

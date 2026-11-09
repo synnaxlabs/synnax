@@ -9,8 +9,18 @@
 
 package access
 
-import "github.com/synnaxlabs/synnax/pkg/service/auth"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+)
 
 // ErrDenied is returned when a subject does not have permission to perform an
 // action on a resource.
 var ErrDenied = auth.ErrAccessDenied
+
+// Denied returns an error that wraps ErrDenied and names the subject, the action, and
+// the object that the subject cannot act on.
+func Denied(subject resource.ID, action Action, object resource.ID) error {
+	return errors.Wrapf(ErrDenied, "%s cannot %s %s", subject, action, object)
+}

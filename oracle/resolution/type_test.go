@@ -88,12 +88,24 @@ var _ = Describe("InFilterRequest", func() {
 })
 
 var _ = Describe("OperatorMembers", func() {
-	DescribeTable("Should return the members of an operator type",
+	DescribeTable(
+		"Should return the members of an operator type",
 		func(op string, members []string) {
 			Expect(MustBeOk(resolution.OperatorMembers(op))).To(Equal(members))
 		},
 		Entry("a set", resolution.OperatorSet, []string{"eq", "in"}),
-		Entry("a string", resolution.OperatorString, []string{"eq", "in", "regex"}),
+		Entry(
+			"a string",
+			resolution.OperatorString,
+			[]string{
+				"eq",
+				"in",
+				"contains",
+				"starts_with",
+				"regex",
+				"case_insensitive",
+			},
+		),
 	)
 
 	It("Should return false for a type that is not an operator", func() {

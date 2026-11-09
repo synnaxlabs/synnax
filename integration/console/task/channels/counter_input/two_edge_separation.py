@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -32,9 +33,9 @@ class TwoEdgeSeparation(Counter):
         name: str,
         device: str,
         *,
-        units: Literal["Seconds", "Ticks"] | None = None,
-        first_edge: Literal["Rising", "Falling"] | None = None,
-        second_edge: Literal["Rising", "Falling"] | None = None,
+        units: sy.ni.CITimeUnits | None = None,
+        first_edge: sy.ni.CIEdge | None = None,
+        second_edge: sy.ni.CIEdge | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         """Initialize two edge separation channel with configuration."""

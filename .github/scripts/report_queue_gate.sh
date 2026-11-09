@@ -10,9 +10,10 @@
 # included in the file licenses/APL.txt.
 
 # Posts the Review gate status of a merge group. Usage: report_queue_gate.sh <queue_ref>
-# <sha>. Judges the pull request the queue ref names. A merge group cannot wait, so
-# anything short of success is a failure. When the gate cannot judge, posts a failure,
-# so the queue does not stall until its timeout, and exits non-zero.
+# <sha>. Judges the pull request the queue ref names, if GitHub's ref points at the
+# commit. A merge group cannot wait, so anything short of success is a failure. When the
+# gate cannot judge, posts a failure, so the queue does not stall until its timeout, and
+# exits non-zero.
 
 set -euo pipefail
 
@@ -27,7 +28,9 @@ fi
 PR=${BASH_REMATCH[1]}
 
 JUDGED=true
-if VERDICT=$("$(dirname "$0")/check_review.sh" "$PR"); then
+QUEUED=$("$(dirname "$0")/gh_api.sh" "repos/${REPO}/git/ref/heads/${QUEUE_REF}" \
+    --jq .object.sha) || QUEUED=
+if [ "$QUEUED" = "$SHA" ] && VERDICT=$("$(dirname "$0")/check_review.sh" "$PR"); then
     IFS=$'\t' read -r STATE DESCRIPTION <<< "$VERDICT"
     if [ "$STATE" != success ]; then
         STATE=failure

@@ -20,14 +20,14 @@ import (
 )
 
 // Reduce drives an action through its generated constructor and the generated
-// dispatcher - the production Writer.Dispatch path - whereas the Actions specs
+// dispatcher - the production Writer.Apply path - whereas the Actions specs
 // invoke each payload's Handle directly. These specs cover the New*Action
 // constructors and every Reduce branch.
 var _ = Describe("Reduce", func() {
-	It("Should route a Rename action through its constructor and handler", func() {
+	It("Should route a Set action through its constructor and handler", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
-			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
+			panel.NewSetAction(panel.SetPayload{Path: []string{"name"}, Value: "new"}),
 		))
 		Expect(next.Name).To(Equal("new"))
 	})
@@ -121,7 +121,7 @@ var _ = Describe("Reduce", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
-			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
+			panel.NewSetAction(panel.SetPayload{Path: []string{"name"}, Value: "new"}),
 			panel.NewInsertTabsAction(
 				panel.InsertTabsPayload{
 					Tabs:       []panel.Tab{tab(k)},
@@ -144,7 +144,7 @@ var _ = Describe("Reduce", func() {
 			)))
 			Expect(res).To(Equal(p))
 		},
-		Entry("Rename", panel.ActionTypeRename),
+		Entry("Set", panel.ActionTypeSet),
 		Entry("InsertTabs", panel.ActionTypeInsertTabs),
 		Entry("RemoveTab", panel.ActionTypeRemoveTab),
 		Entry("MoveTab", panel.ActionTypeMoveTab),

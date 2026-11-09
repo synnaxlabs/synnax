@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import Option, Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol, option_text
 
 
 class StateIndicator(Symbol):
@@ -21,15 +22,14 @@ class StateIndicator(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the state input
-            options: List of option dicts with "name", "value", and optional "color"
-                keys
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the state input
+        :param options: List of option dicts with "name", "value", and optional "color"
+            keys
         """
         super().__init__(label=label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
@@ -42,7 +42,7 @@ class StateIndicator(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
 
@@ -64,15 +64,14 @@ class StateIndicator(Symbol):
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
+                value_input.fill(option_text(option.value))
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.
 
-        Returns:
-            The text shown inside the state indicator.
+        :returns: The text shown inside the state indicator.
         """
         self._disable_edit_mode()
         content = self.locator.locator(".pluto-state-indicator__content").first

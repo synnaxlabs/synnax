@@ -13,7 +13,7 @@ package v3
 
 import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -86,6 +86,21 @@ const (
 	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsMVoltsPerG
 	// AccelSensitivityUnitsVoltsPerG is volts per g.
 	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsVoltsPerG
+)
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
+
+const (
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 
 // AccelUnits are the engineering units for an acceleration measurement.
@@ -898,18 +913,3 @@ type ScanConfig struct {
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
 }
-
-// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
-// sensitivity rating.
-type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
-
-const (
-	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
-	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
-	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
-	// per meter per second squared.
-	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
-	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
-	// per inch per second squared.
-	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
-)

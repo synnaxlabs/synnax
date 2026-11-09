@@ -64,6 +64,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				kind   Kind
 				tags   string[]
 				owner  uuid     { @filter scalar }
+				alias  string   { @filter scalar }
 				@retrieve
 			}
 		`
@@ -127,7 +128,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"return re.MatchString(e.Base().Name), nil",
+					"return match(e.Base().Name), nil",
 					"fs = append(fs, MatchTypes(l.In...))",
 				)
 		})
@@ -173,9 +174,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should compile a regex and reject an invalid one at its path", func(
-			ctx SpecContext,
-		) {
+		It("Should match text operators through x/filter", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
 					name
@@ -184,14 +183,36 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					`"regexp"`,
-					"re, err := regexp.Compile(*l.Regex)",
-					"errors.Wrap(validate.ErrValidation, err.Error())",
-					`"name",`,
-					`"regex",`,
+					`/x/go/filter"`,
+					"text := *l",
+					"if !l.CaseInsensitive {",
+					"fs = append(fs, MatchNames(*l.Eq))",
+					"fs = append(fs, MatchNames(l.In...))",
+					"text.In = nil",
+					"text.Eq = nil",
+					"match, err := filter.CompileString(text)",
+					`return nil, validate.PathedError(err, "name")`,
 					"e *Thing,",
-					"return re.MatchString(e.Name), nil",
-				)
+					"return match(e.Name), nil",
+				).
+				ToNotContain(`"regexp"`, `/x/go/errors"`)
+		})
+
+		It("Should match an in on a scalar text line through x/filter", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					alias
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"fs = append(fs, MatchAlias(*l.Eq))",
+					"match, err := filter.CompileString(text)",
+				).
+				ToNotContain("MatchAlias(l.In...)", "text.In = nil")
 		})
 
 		It("Should reject an invalid enum value at its path", func(ctx SpecContext) {
@@ -246,7 +267,31 @@ var _ = Describe("Go Filter Plugin", func() {
 					"fs = append(fs, MatchOverlaps(*l))",
 					"fs = append(fs, MatchLabels(l...))",
 				).
-				ToNotContain(`"regexp"`, `/gorp"`)
+				ToNotContain(`"regexp"`, `/gorp"`, "ErrNoOperator")
+		})
+
+		It("Should reject a bare line that sets no operator", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+					count
+					tags
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"if l.Eq == nil && l.In == nil {",
+					"if l.Eq == nil && l.In == nil && l.Contains == nil && "+
+						"l.StartsWith == nil &&\n\t\t\tl.Regex == nil {",
+					"if l.Eq == nil && l.In == nil && l.Gt == nil && l.Gte == nil && "+
+						"l.Lt == nil &&\n\t\t\tl.Lte == nil {",
+					"if l.Any == nil {",
+					`return nil, validate.PathedError(filter.ErrNoOperator, "name")`,
+					`return nil, validate.PathedError(filter.ErrNoOperator, "tags")`,
+				).
+				ToNotContain("l.CaseInsensitive == nil")
 		})
 
 		It("Should decode the retrieve request strictly", func(ctx SpecContext) {
@@ -331,7 +376,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve) (Retrieve, error) {",
 					"q = q.SkipMissingKeys()",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
@@ -340,12 +385,82 @@ var _ = Describe("Go Filter Plugin", func() {
 					"if *r.Limit == 0 {",
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
-					"return q.Offset(int(r.Offset)), nil",
+					"return q, nil",
+					`"a search cannot resume after a position",`,
+					"q = q.After(r.After.Key)",
 				).
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
+				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit")
 		})
 
-		It("Should generate the request methods at the request output", func(
+		It(
+			"Should apply an order and its cursor to the Retrieve",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key  uuid   {
+						@key
+					}
+					name string {
+						@index sorted
+						@search
+					}
+					span Span   { @index sorted start }
+					@retrieve
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "request.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`errors.Wrap(validate.ErrValidation, "a search sorts by relevance")`,
+						"o, err := r.order()",
+						"q = q.OrderBy(o)",
+						"} else if r.After != nil {",
+						"func (r RetrieveRequest) order() (Order, error) {",
+						"case OrderFieldName:",
+						"return OrderByName(dir), nil",
+						"if r.After.Name == nil {",
+						"return OrderByNameAfter(\n\t\t\tdir,\n\t\t\t*r.After.Name,\n\t\t\t"+
+							"r.After.Key,\n\t\t), nil",
+						"case OrderFieldSpanStart:",
+						`"is required to resume an order by span_start",`,
+						"return OrderBySpanStartAfter(",
+						`"%q is not a field to sort by",`,
+					).
+					ToNotContain("errors.New(")
+			},
+		)
+
+		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					name string
+					@retrieve
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToNotContain("r.After", "r.Order")
+		})
+
+		It("Should generate the request functions at the request output", func(
 			ctx SpecContext,
 		) {
 			resp := MustGenerate(ctx, `
@@ -371,7 +486,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToContain(
 					"package thing",
 					`servicething "github.com/synnaxlabs/synnax/core/pkg/service/thing"`,
-					"func (r RetrieveRequest) Apply(q servicething.Retrieve) "+
+					"func ApplyRetrieve(r RetrieveRequest, q servicething.Retrieve) "+
 						"(servicething.Retrieve, error) {",
 					"f, err := servicething.MatchWhere(*r.Where)",
 					"return servicething.Retrieve{}, validate.PathedError(err, \"where\")",
@@ -400,7 +515,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve[any]) "+
+						"(Retrieve[any], error) {",
 					"f, err := MatchWhere[any](*r.Where)",
 					"q = q.Where(MatchSearch(r.SearchTerm))",
 					"return q.Where(MatchKeys[any]()), nil",
@@ -446,10 +562,10 @@ var _ = Describe("Go Filter Plugin", func() {
 		},
 			Entry(
 				"a member no operator has",
-				"regex string?",
-				"contains string?",
+				"regex            string?",
+				"ends_with        string?",
 				"name",
-				"the member contains of String",
+				"the member ends_with of String",
 			),
 			Entry(
 				"a member of another operator",

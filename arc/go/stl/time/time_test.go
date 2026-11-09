@@ -117,8 +117,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("interval_1"),
 			}
-			_, err := factory.Create(cfg)
-			Expect(err).To(Equal(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 		It(
 			"Should error at construction when the period input value is invalid",
@@ -183,6 +182,20 @@ var _ = Describe("Time", func() {
 				))
 			},
 		)
+		It("Should allow a computed period at construction", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Inputs: types.Params{{
+						Name:  "period",
+						Type:  types.VarRef(types.TimeSpan(), "p"),
+						Value: int64(0),
+					}},
+				},
+				State: s.Node("interval_1"),
+			}
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
+		})
 		It(
 			"Should allow a zero var-bound period at construction",
 			func() {

@@ -13,7 +13,14 @@ import { color, filter, notation, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
+import { ranger } from "@/ranger";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
@@ -24,13 +31,22 @@ export const timestampConfigZ = z.object({
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
 
+/** Order is a sort of logs. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /** ChannelEntry is a per-channel display configuration entry within a log. */
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
-  channel: channel.keyZ,
+  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
   /** color is the display color for the channel. */
   color: color.colorZ,
   /** notation is the numeric notation used to render samples. */
@@ -53,6 +69,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -69,7 +89,24 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the logs in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the logs in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the logs owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the logs owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
+
+/** Cursor is a position in an order of logs: the sort value and the key of a log. */
+export const cursorZ = z.object({
+  /** key is the key of the log at the position. */
+  key: keyZ,
+  /** name is the name of the log at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /**
  * Log is a visualization that shows the samples of its channels as text, one line per
@@ -88,6 +125,20 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
+  /** timeZone is the time zone of the line times and day rows of the log. */
+  timeZone: telem.timeZoneZ.default("local"),
+  /** group is the group the log sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the log, if any. Exactly one of project and range
+   * is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the log, if any. Exactly one of project and range is
+   * set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 
@@ -97,10 +148,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the logs that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the logs. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the logs strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most logs to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching logs to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof logZ> {}
@@ -112,5 +165,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("log");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("log");
+export const TYPE_RESOURCE_ID = resourceID("");

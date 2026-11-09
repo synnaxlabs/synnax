@@ -40,8 +40,8 @@ export const Toolbar = (): ReactElement => {
           gap="small"
           className={CSS.BE("arc-toolbar", "actions")}
         >
-          <Export.ToolbarButton id={arc.ontologyID(key)} />
-          <Core.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
+          <Export.ToolbarButton id={arc.resourceID(key)} />
+          <Core.CopyLinkToolbarButton name={name} resourceID={arc.resourceID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box center>

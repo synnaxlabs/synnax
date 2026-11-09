@@ -36,6 +36,9 @@ const (
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
+// oneOption is the client retrieve option that asks for one record.
+const oneOption = "one"
+
 // collectFilter registers a filter definition as a struct holding the tree fields and
 // the typed lines. expandFilters adds the bare lines once the target resolves.
 func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
@@ -100,7 +103,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 			}
 		}
 		for _, d := range body.AllDomain() {
-			addDomain(domains, collectDomain(d))
+			addDomain(domains, collectDomain(c, d))
 		}
 	}
 	lo.Must0(c.table.Add(resolution.Type{
@@ -118,7 +121,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 func collectFilterLine(
 	c *analysisCtx, filterName string, def parser.IFieldDefContext,
 ) (resolution.Field, bool) {
-	field := collectField(def, nil)
+	field := collectField(c, def, nil)
 	var problem string
 	switch {
 	case field.Optional:
@@ -465,20 +468,31 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			resolution.ExpressionValue{Kind: resolution.ValueKindString},
 		))
 	}
-	request = append(
-		request,
-		optionalField(
-			"limit",
-			resolution.TypeRef{Name: "uint32"},
-			fmt.Sprintf("is the most %s to return.", words),
-		),
-		defaultField(
-			"offset",
-			resolution.TypeRef{Name: "uint32"},
-			fmt.Sprintf("is the number of matching %s to skip.", words),
-			resolution.ExpressionValue{Kind: resolution.ValueKindInt},
-		),
-	)
+	ordering, sorted, ok := orderingTypes(c, where, target, fields, domains, words)
+	if !ok {
+		return
+	}
+	if sorted {
+		request = append(request, optionalField(
+			"order",
+			resolution.TypeRef{Name: c.namespace + ".Order"},
+			fmt.Sprintf("sorts the %s. An absent order sorts them by key.", words),
+		))
+	}
+	if len(ordering) > 0 {
+		request = append(request, optionalField(
+			"after",
+			resolution.TypeRef{Name: c.namespace + ".Cursor"},
+			fmt.Sprintf(
+				"starts the %s strictly past this position in their order.", words,
+			),
+		))
+	}
+	request = append(request, optionalField(
+		"limit",
+		resolution.TypeRef{Name: "uint32"},
+		fmt.Sprintf("is the most %s to return.", words),
+	))
 	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
 	if !ok {
 		return
@@ -493,13 +507,31 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			))
 		}
 	}
-	created := []resolution.Type{{
+	// A client takes lines and retrieve options side by side, so no line may share a
+	// name with an option in any casing.
+	options := append(
+		lo.Map(request, func(f resolution.Field, _ int) string { return f.Name }),
+		oneOption,
+	)
+	for _, line := range where.Filter.Lines {
+		if lo.Contains(options, casing.FieldSnake(line.Name)) {
+			c.report(diagnostics.Errorf(
+				where.AST.(parser.IFilterDefContext),
+				"filter %s: %q is reserved for retrieve",
+				where.Name,
+				line.Name,
+			))
+			return
+		}
+	}
+	// The request refers to the ordering types, so they resolve first.
+	created := append(ordering, resolution.Type{
 		Name: "RetrieveRequest",
 		Form: resolution.StructForm{Fields: request},
 		Domains: withDoc(domains, fmt.Sprintf(
 			"is a request to retrieve %s.", words,
 		)),
-	}, response}
+	}, response)
 	derived := true
 	for _, t := range created {
 		t.Namespace = c.namespace
@@ -527,6 +559,106 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	filter.Response = c.namespace + "." + response.Name
 	where.Filter = &filter
 	replaceType(c.table, where)
+}
+
+// orderingTypes derives the types that order a retrieve: the cursor that `after` holds
+// and, when the target marks fields `@index sorted`, the order that `order` holds and
+// the enum of fields it can sort by. sorted reports whether the target marks any.
+func orderingTypes(
+	c *analysisCtx,
+	where, target resolution.Type,
+	fields []resolution.Field,
+	domains map[string]resolution.Domain,
+	words string,
+) (types []resolution.Type, sorted, ok bool) {
+	def := where.AST.(parser.IFilterDefContext)
+	sorts, err := resolution.Sorts(fields, c.table)
+	if err != nil {
+		c.report(diagnostics.Errorf(def, "filter %s: %v", where.Name, err))
+		return nil, false, false
+	}
+	key, ok := resolution.RetrieveKey(target)
+	if !ok {
+		keyField, found := lo.Find(fields, func(f resolution.Field) bool {
+			_, ok := f.Domains["key"]
+			return ok
+		})
+		if !found && len(sorts) > 0 {
+			c.report(diagnostics.Errorf(
+				def,
+				"filter %s: %s has sorted fields but no key to order ties by",
+				where.Name,
+				target.Name,
+			))
+			return nil, false, false
+		}
+		// A target with no key has no position to resume after.
+		if !found {
+			return nil, false, true
+		}
+		key = keyField.Type
+	}
+	singular := strings.ReplaceAll(casing.TypeSnake(target.Name), "_", " ")
+	cursor := []resolution.Field{requiredField(
+		"key",
+		key,
+		fmt.Sprintf("is the key of the %s at the position.", singular),
+	)}
+	values := make([]resolution.EnumValue, len(sorts))
+	for i, sort := range sorts {
+		path := strings.ReplaceAll(sort.Name, "_", " ")
+		values[i] = resolution.EnumValue{
+			Name:  sort.Name,
+			Value: sort.Name,
+			Domains: map[string]resolution.Domain{"doc": docValue(fmt.Sprintf(
+				"sorts the %s by %s.", words, path,
+			))},
+		}
+		cursor = append(cursor, optionalField(
+			sort.Name,
+			sort.Type,
+			fmt.Sprintf(
+				"is the %s of the %s at the position, when the order sorts by it.",
+				path,
+				singular,
+			),
+		))
+	}
+	types = []resolution.Type{{
+		Name: "Cursor",
+		Form: resolution.StructForm{Fields: cursor},
+		Domains: withDoc(domains, fmt.Sprintf(
+			"is a position in an order of %s: the sort value and the key of a %s.",
+			words,
+			singular,
+		)),
+	}}
+	if len(sorts) == 0 {
+		return types, false, true
+	}
+	return append(types, resolution.Type{
+		Name: "OrderField",
+		Form: resolution.EnumForm{Values: values},
+		Domains: withDoc(domains, fmt.Sprintf(
+			"is a field that %s can be sorted by.", words,
+		)),
+	}, resolution.Type{
+		Name: "Order",
+		Form: resolution.StructForm{Fields: []resolution.Field{
+			requiredField(
+				"field",
+				resolution.TypeRef{Name: c.namespace + ".OrderField"},
+				"is the field to sort by. Records with equal values sort by key.",
+			),
+			defaultField(
+				"descending",
+				resolution.TypeRef{Name: "bool"},
+				"sorts from the greatest value to the least.",
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
+			),
+		}},
+		Domains: withDoc(domains, fmt.Sprintf("is a sort of %s.", words)),
+	}), true, true
 }
 
 // retrieveResponse derives the response and returns it with the fields of the records

@@ -11,18 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax.resource import ID
 from synnax.schematic import symbol
-from x import border, filter, spatial, text
-from x import color as color_
-from x import notation as notation_
+from x import border, color as color_, filter, notation as notation_, spatial, text
+from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -45,6 +43,11 @@ PAGE_TYPE_TABLE: Literal["table"] = "table"
 
 
 PageType = Literal["schematic", "lineplot", "log", "table"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 COMPONENT_SIZE_TINY: Literal["tiny"] = "tiny"
 
@@ -221,6 +224,18 @@ class ScaledConfig(BaseModel):
     scale: float = 1
 
 
+class Order(BaseModel):
+    """Is a sort of schematics.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Where(BaseModel):
     """Is a filter that selects schematics.
 
@@ -229,6 +244,11 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        snapshot: Selects by snapshot.
+        groups: Matches the schematics in any of the given groups.
+        grouped: Matches the schematics in a group, or in no group when false.
+        projects: Matches the schematics owned by any of the given projects.
+        ranges: Matches the schematics owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -237,6 +257,48 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    snapshot: filter.Bool | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
+
+    @field_validator("groups", "projects", "ranges", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "snapshot": filter.BoolInput,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of schematics: the sort value and the key of a
+    schematic.
+
+    Attributes:
+        key: Is the key of the schematic at the position.
+        name: Is the name of the schematic at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class Edge(BaseModel):
@@ -318,16 +380,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the schematics to retrieve. An absent where selects all of them.
         search_term: Keeps the schematics that match the term, closest match first.
+        order: Sorts the schematics. An absent order sorts them by key.
+        after: Starts the schematics strictly past this position in their order.
         limit: Is the most schematics to return.
-        offset: Is the number of matching schematics to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
@@ -1943,6 +2007,11 @@ class Schematic(BaseModel):
         edges: Contains all connections between nodes.
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
+        group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+        range: Is the range that owns the schematic, if any. Exactly one of project and
+            range is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1951,6 +2020,9 @@ class Schematic(BaseModel):
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -1970,8 +2042,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="schematic")
+TYPE_RESOURCE_ID = ID(type="schematic")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="schematic", key=str(key))

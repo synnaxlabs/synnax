@@ -48,10 +48,9 @@ describe("Select.Multiple", () => {
         "data" | "value" | "onChange" | "children" | "resourceName"
       >,
     ) => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       const [value, setValue] = useState<string[]>([]);
       const handleChange = (keys: string[]) => {
         setValue(keys);

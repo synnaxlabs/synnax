@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -18,18 +19,19 @@ class VelocityIEPE(Analog):
     Velocity IEPE channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        velocity_units (str): "m/s", "in/s"
+        velocity_units (str): "MetersPerSecond", "InchesPerSecond"
         sensitivity (float): Velocity sensitivity value
-        sensitivity_units (str): "mV/mm/s", "mV/in/s"
+        sensitivity_units (str): "MillivoltsPerMillimeterPerSecond" or
+            "MilliVoltsPerInchPerSecond"
         current_excitation_source (str): "Internal", "External", "None"
         current_excitation_value (float): Current excitation value
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -38,12 +40,10 @@ class VelocityIEPE(Analog):
         name: str,
         device: str,
         *,
-        velocity_units: Literal["m/s", "in/s"] | None = None,
+        velocity_units: sy.ni.VelocityUnits | None = None,
         sensitivity: float | None = None,
-        sensitivity_units: Literal["mV/mm/s", "mV/in/s"] | None = None,
-        current_excitation_source: (
-            Literal["Internal", "External", "None"] | None
-        ) = None,
+        sensitivity_units: sy.ni.VelocitySensitivityUnits | None = None,
+        current_excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

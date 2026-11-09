@@ -45,6 +45,10 @@ type region[R Resource] struct {
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
 	counter uint
+	// opening is non-nil from when the region is created until its resource opens or
+	// fails to, and closes at that point. A region that is opening has no gates and no
+	// resource. Guarded by controller.mu.
+	opening chan struct{}
 	// use serializes access to resource by authorized gates.
 	use sync.Mutex
 	// RWMutex locks access to the region's state. Only specified fields in a region are
@@ -110,11 +114,11 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 }
 
 // state returns the control State of the gate in control, or nil when the region is
-// empty or bounded.
+// bounded or still opening.
 func (r *region[R]) state() *State {
 	r.RLock()
 	defer r.RUnlock()
-	if r.bounded || len(r.gates) == 0 {
+	if r.bounded || r.curr == nil {
 		return nil
 	}
 	return r.curr.state()
@@ -124,8 +128,7 @@ func (r *region[R]) state() *State {
 func (r *region[R]) overlapError(tr telem.TimeRange) error {
 	r.RLock()
 	defer r.RUnlock()
-	// A released region stays in the controller until controller.remove runs.
-	holder := "a closing writer"
+	holder := "a writer that is opening"
 	if r.curr != nil {
 		holder = "writer " + r.curr.Subject().String()
 	}
@@ -149,14 +152,16 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	return higherAuth || betterPos
 }
 
-// release a gate from the region. The region lock is released before calling
-// controller.remove to maintain consistent lock ordering (controller.mu before
-// region.RWMutex), preventing AB-BA deadlocks with OpenGate.
+// release a gate from the region. Releasing the last gate removes the region from the
+// controller in the same critical section, so no gate can join a region whose resource
+// the caller is about to close.
 func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
+	r.controller.mu.Lock()
+	defer r.controller.mu.Unlock()
 	r.Lock()
+	defer r.Unlock()
 	r.gates.Remove(g)
 	if r.curr != g {
-		r.Unlock()
 		return res, transfer
 	}
 	r.curr = nil
@@ -167,13 +172,10 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 			transfer.To = candidate.state()
 		}
 	}
-	shouldRemove := transfer.IsRelease()
-	res = r.resource
-	r.Unlock()
-	if shouldRemove {
-		r.controller.remove(r)
+	if transfer.IsRelease() {
+		r.controller.unsafeRemove(r)
 	}
-	return res, transfer
+	return r.resource, transfer
 }
 
 // update a gate's authority.

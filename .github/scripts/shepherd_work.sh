@@ -12,7 +12,7 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "threads <count>" for review threads that
-# need action, and "outside-diff" for open Greptile findings outside the diff.
+# need action, and "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -32,9 +32,15 @@ if [ "$STATE" = dirty ]; then
 fi
 
 RUNS="repos/${REPO}/actions/workflows/ci.yaml/runs"
-RUN=$(gh api "${RUNS}?head_sha=${SHA}&event=pull_request&per_page=1" \
-    --jq '.workflow_runs[0] | select(.conclusion == "failure") | .id')
-if [ -n "$RUN" ]; then
+QUERY="head_sha=${SHA}&event=pull_request&per_page=1"
+read -r RUN CONCLUSION < <(gh api "${RUNS}?${QUERY}" \
+    --jq '.workflow_runs[0] | "\(.id) \(.conclusion)"')
+# CI wakes the shepherd from inside the run, once its OK job fails.
+if [ "$RUN" != null ] && [ "$CONCLUSION" = null ]; then
+    CONCLUSION=$(gh api "repos/${REPO}/actions/runs/${RUN}/jobs?per_page=100" \
+        --paginate --jq '.jobs[] | select(.name == "OK") | .conclusion')
+fi
+if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
@@ -43,7 +49,7 @@ if [ "$THREADS" -gt 0 ]; then
     echo "threads $THREADS"
 fi
 
-OUTSIDE=$("$HERE/greptile_outside_diff.sh" "$PR")
+OUTSIDE=$("$HERE/outside_diff.sh" "$PR")
 if [ -n "$OUTSIDE" ]; then
     echo outside-diff
 fi

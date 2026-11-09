@@ -72,6 +72,13 @@ describe("WriteFrameAdapter", () => {
     expect(res3.get(dataCh.key).at(0)).toEqual(1);
   });
 
+  it("should read a name pattern as an exact channel name", async () => {
+    const pattern = `(${timeCh.name}|${dataCh.name})`;
+    const adapt = adapter.adapt(pattern, new Series(1));
+    await expect(adapt).rejects.toThrow(NotFoundError);
+    await expect(adapt).rejects.toThrow(`Found no channel where name = "${pattern}"`);
+  });
+
   it("should correctly adapt multiple names to multiple series", async () => {
     const ts = TimeStamp.now().valueOf();
     const res4 = await adapter.adapt(

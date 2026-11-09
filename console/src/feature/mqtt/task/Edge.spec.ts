@@ -192,9 +192,7 @@ describe("MQTT Edge form", () => {
         { commandChannel: 0, commandChannelName: cmdName },
       ]),
     );
-    expect(
-      await client.channels.retrieve({ where: { name: { eq: cmdName } } }),
-    ).toEqual([]);
+    expect(await client.channels.retrieve({ name: [cmdName] })).toEqual([]);
   });
 
   it("should mark a new command channel, unless its tag is disabled", async () => {
@@ -375,17 +373,27 @@ describe("MQTT Edge form", () => {
       expect(cmd.dataType.toString()).toBe("string");
     });
 
-    it("should create a command channel again when it no longer exists", async () => {
+    it("should replace a gone command channel the broker maps", async () => {
       const ch = await createDataChannel();
       const kept = await createDataChannel();
       const deleted = await createDataChannel();
       await client.channels.delete(deleted.key);
       const name = uniqueName("b");
-      const { container, draft } = await renderEdge([
-        createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
-        createTag("t2", { name, channel: ch.key, commandChannel: deleted.key }),
-        createTag("t3", { name: "c", channel: ch.key }),
-      ]);
+      const dev = await createBroker(client, {
+        properties: { edge: { [`spBv1.0/plant/line1//${name}`]: deleted.key } },
+      });
+      const draft = await createDraft(
+        client,
+        createEdgeConfig(dev.key, [
+          createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
+          createTag("t2", { name, channel: ch.key, commandChannelName: `${name}_cmd` }),
+          createTag("t3", { name: "c", channel: ch.key }),
+        ]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
+        client,
+        taskKey: draft.key,
+      });
       const created = await deployAndAwaitTask(
         client,
         container,
@@ -424,9 +432,7 @@ describe("MQTT Edge form", () => {
         MQTT.Task.EDGE_SCHEMAS,
       );
       expect(created.config.tags[1].commandChannel).toBe(0);
-      expect(
-        await client.channels.retrieve({ where: { name: { eq: disabledName } } }),
-      ).toEqual([]);
+      expect(await client.channels.retrieve({ name: [disabledName] })).toEqual([]);
     });
 
     it("should reuse the command channel of a failed deploy after the form reopens", async () => {
@@ -465,9 +471,7 @@ describe("MQTT Edge form", () => {
         first.draft.key,
         MQTT.Task.EDGE_SCHEMAS,
       );
-      const named = await client.channels.retrieve({
-        where: { name: { eq: cmdName } },
-      });
+      const named = await client.channels.retrieve({ name: [cmdName] });
       expect(named.map(({ key }) => key)).toEqual([
         created.config.tags[0].commandChannel,
       ]);

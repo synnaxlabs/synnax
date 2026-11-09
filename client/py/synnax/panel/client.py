@@ -7,21 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import ontology
-from synnax.exceptions import NotFoundError
+from synnax import group as group_, project as project_, ranger
 from synnax.panel.types_gen import (
-    ONTOLOGY_TYPE,
+    Cursor,
     Key,
+    Order,
     Panel,
     RetrieveRequest,
     RetrieveResponse,
     Where,
+    WhereInput,
 )
+from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
@@ -38,36 +40,34 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenamePayload(BaseModel):
-    name: str
+class _SetPayload(BaseModel):
+    path: list[str]
+    value: Any
 
 
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: _SetPayload
 
 
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_RenameAction]
+    actions: list[_SetAction]
 
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting panels on a Synnax
-    Core. A panel is a tree of visualization tabs owned by a parent resource, such as
-    a project.
+    Core. A panel is a tree of visualization tabs owned by a project or a range.
     """
 
     _client: UnaryClient
-    _ontology: ontology.Client
 
-    def __init__(self, client: UnaryClient, ontology: ontology.Client) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self._ontology = ontology
 
     @overload
-    def create(self, *, name: str, parent: ontology.ID) -> Panel: ...
+    def create(self, *, name: str, project: project_.Key) -> Panel: ...
 
     @overload
     def create(self, panels: Panel) -> Panel: ...
@@ -80,22 +80,23 @@ class Client:
         panels: Panel | list[Panel] | None = None,
         *,
         name: str = "",
-        parent: ontology.ID | None = None,
+        project: project_.Key | None = None,
     ) -> Panel | list[Panel]:
         """Create one or more panels.
 
         :param panels: A single panel or a list of them. When omitted, a panel is
-            created from the ``name`` and ``parent`` keyword arguments.
+            created from the ``name`` and ``project`` keyword arguments.
         :param name: The name of the panel to create when ``panels`` is omitted.
-        :param parent: The ontology ID of the resource that owns the panel, such as a
-            project, when ``panels`` is omitted.
+        :param project: The key of the project that owns the panel when ``panels`` is
+            omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
-        :raises ValidationError: If a panel has no parent.
+        :raises ValidationError: If a panel does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(panels, list)
         if panels is None:
-            panels = [Panel(name=name, parent=parent)]
+            panels = [Panel(name=name, project=project)]
         req = _CreateRequest(panels=normalize(panels))
         res = self._client.send("/panel/create", req, _CreateResponse)
         return res.panels[0] if is_single else res.panels
@@ -114,78 +115,115 @@ class Client:
         :param name: The new name for the panel.
         """
         req = _DispatchRequest(
-            key=key, actions=[_RenameAction(rename=_RenamePayload(name=name))]
+            key=key, actions=[_SetAction(set=_SetPayload(path=["name"], value=name))]
         )
         self._client.send("/panel/dispatch", req, Empty)
-
-    @overload
-    def retrieve(self, *, key: Key) -> Panel: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: list[Key] | None = None,
-        where: Where | None = None,
-        parent: ontology.ID | None = None,
-        search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
+        key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Panel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        one: Literal[True],
+    ) -> Panel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
+        one: Literal[False] = ...,
     ) -> list[Panel]: ...
 
     def retrieve(
         self,
         *,
-        key: Key | None = None,
         keys: list[Key] | None = None,
         where: Where | None = None,
-        parent: ontology.ID | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
+        one: bool = False,
+        **fields: Any,
     ) -> Panel | list[Panel]:
-        """Retrieve one or more panels.
+        """Retrieves panels. With no arguments, retrieves every panel.
 
-        :param key: The key of a single panel to retrieve. When provided, a single
-            panel is returned and NotFoundError is raised if it does not exist.
-        :param keys: The keys of the panels to retrieve.
-        :param where: A filter that the panels must also match.
-        :param parent: The ontology ID of a resource, such as a project. Only the
-            panels that are children of this resource are returned. Replaces ``keys``.
+        Each filter field takes a value, a list of values, or an operator, and a panel
+        must match every field. A plain ``key`` returns one panel.
+
+        :param key: Keeps panels with this key.
+        :param and_: Keeps panels that match every filter in the list.
+        :param or_: Keeps panels that match any filter in the list.
+        :param not_: Keeps panels that do not match the filter.
+        :param where: A filter tree that the panels must also match.
+        :param keys: Keeps panels with one of these keys.
+        :param projects: Keeps the panels owned by any of these projects.
+        :param ranges: Keeps the panels owned by any of these ranges.
+        :param groups: Keeps panels in any of these groups.
+        :param grouped: Keeps only panels in a group when True, and only panels in no
+            group when False.
         :param search_term: A fuzzy search term matched against panel names.
-        :param limit: The maximum number of panels to return.
-        :param offset: The number of panels to skip before returning results.
-        :returns: The matching panel when ``key`` is provided, otherwise a list of
-            matching panels. The list leaves out keys that do not exist.
-        :raises NotFoundError: If ``key`` is provided and no panel exists for it.
+        :param limit: The maximum number of panels to retrieve.
+        :param order: The order of the panels. Defaults to key order.
+        :param after: Retrieves the panels past this position in the order: the key of
+            the last panel of the page before, and its value of the order field.
+        :param one: Returns one panel for any filter.
+        :returns: One panel for a plain ``key`` or when ``one`` is set, otherwise a list
+            of panels. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one panel is wanted and none matches.
+        :raises MultipleFoundError: If one panel is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one panel is wanted
+            beside a limit or a cursor.
         """
-        is_single = key is not None
-        if key is not None:
-            keys = [key]
-        if parent is not None:
-            keys = []
-            for child in self._ontology.retrieve_children(parent):
-                if child.type != ONTOLOGY_TYPE.type:
-                    continue
-                if child.key is None:
-                    raise ValueError(f"panel child of {parent} has no key")
-                keys.append(Key(child.key))
-            if len(keys) == 0:
-                return []
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
-        res = self._client.send(
-            "/panel/retrieve",
-            RetrieveRequest(
-                where=filter.merge(where, flat),
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
-            ),
-            RetrieveResponse,
+        req = RetrieveRequest(
+            where=request_where(Where, filter.merge(where, flat), fields),
+            search_term=search_term,
+            limit=limit,
+            order=order,
+            after=after,
         )
-        panels = res.panels
-        if is_single:
-            if len(panels) == 0:
-                raise NotFoundError("Panel not found")
-            return panels[0]
-        return panels
+        res = self._client.send("/panel/retrieve", req, RetrieveResponse)
+        return sole("panel", req, res.panels) if single else res.panels

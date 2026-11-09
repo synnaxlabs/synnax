@@ -60,18 +60,22 @@ Source union on mode Mode {
 }
 
 Base struct {
-    key    Key = create {
+    key       Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name   string {
+    name      string {
         @doc value         "is a human-readable name for the module."
         @filter
+        @index sorted
         @search
         @validate required
     }
-    source Source = text {
+    source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
+    }
+    directory uuid?  {
+        @doc value "is the key of the directory that holds the Arc."
     }
 
     @doc value  "carries the fields that every Arc shares."
@@ -101,12 +105,6 @@ Arc union on type Type extends Base {
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
         """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the Arc module."
     }
 
     action SetNode {
@@ -208,7 +206,9 @@ Arc union on type Type extends Base {
     }
 
     action Set extends patch.Set {
-        @doc value "replaces the value at a path in the graph's node inputs."
+        @doc value """
+            replaces the Arc's name, or the value at a path in the graph's node inputs.
+        """
     }
 
     action Remove extends patch.Remove {
@@ -235,8 +235,8 @@ Arc union on type Type extends Base {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "arc"
     @py name       "Payload"
+    @resource type "arc"
     @retrieve
 }
 
@@ -253,6 +253,9 @@ Type enum {
 Where filter Arc {
     key
     name
+    directories uuid[] {
+        @doc value "matches the Arcs in any of the given directories."
+    }
 
     @doc value         "is a filter that selects Arcs."
     @go request_output "core/pkg/api/arc"

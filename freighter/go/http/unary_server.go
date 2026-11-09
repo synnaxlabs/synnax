@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/set"
@@ -55,7 +56,7 @@ func WithRequestDecoders(decoders ...http.Decoder) UnaryServerOption {
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
-// the request's Accept header.
+// the request's Accept header. Errors are always JSON, whatever the encoders.
 func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
@@ -103,7 +104,7 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 
 // Report describes the unary server's protocol and the content types it accepts on
 // requests vs emits on responses. Accept and emit lists may differ — e.g. an import
-// endpoint that accepts JSON|YAML|TOML but emits only JSON|MessagePack.
+// endpoint that accepts JSON|YAML|TOML but emits only JSON.
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol": unaryProtocol,
@@ -173,27 +174,12 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	return s.writeError(fCtx, fErr)
 }
 
-// writeError answers the request with fErr as a 400.
+// writeError answers the request with fErr as a 400 in JSON. Errors skip the route's
+// response encoders, which may carry only one payload shape.
 func (s *unaryServer[RQ, RS]) writeError(fCtx fiber.Ctx, fErr errors.Payload) error {
-	errEncoder := resolveErrorEncoder(fCtx)
-	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
+	fCtx.Set(fiber.HeaderContentType, json.Codec.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fCtx, errEncoder, fErr)
-}
-
-// Errors skip the route's response encoders, which may carry only one payload shape.
-func resolveErrorEncoder(fCtx fiber.Ctx) http.Encoder {
-	offers := lo.Map(defaultEncoders, func(e http.Encoder, _ int) string {
-		return e.ContentType()
-	})
-	if matched := fCtx.Accepts(offers...); matched != "" {
-		for _, e := range defaultEncoders {
-			if e.ContentType() == matched {
-				return e
-			}
-		}
-	}
-	return defaultEncoders[0]
+	return encodeAndWrite(fCtx, json.Codec, fErr)
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(

@@ -480,26 +480,66 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Params>("params", Params{})`)
 			})
-			It(
-				"Should leave a non-empty struct default required",
-				func(ctx SpecContext) {
-					source := `
+			It("Should fall back to a non-empty struct", func(ctx SpecContext) {
+				source := `
 					@cpp output "client/cpp/task"
 
 					Ports struct {
 						index uint32
+						rate  uint32
 					}
 
 					Task struct {
-						ports Ports = { index = 1 }
+						ports Ports = { rate = 2, index = 1 }
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
-					ExpectContent(resp, "json.gen.h").
-						ToContain(`parser.field<Ports>("ports")`)
-				},
-			)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
+				)
+			})
+			It("Should fall back to an int enum variant", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Mode enum {
+						off = 0
+						on = 1
+					}
+
+					Task struct {
+						mode Mode = off
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Mode>("mode", Mode::Off)`)
+			})
+			It("Should fall back to the current time", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp hand
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						time telem.TimeStamp = now
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`"time", x::telem::TimeStamp::now()`,
+				)
+			})
 		})
 
 		Context("map type handling", func() {
@@ -609,6 +649,94 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should assign a map of scalars with string keys directly",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, uint32>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j["metadata"] = this->metadata;`)
+				},
+			)
+			It(
+				"Should write a map of scalars with integer keys as an object",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uint32, string>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->names) obj[std::to_string(key)] = item;`,
+							`j["names"] = obj;`,
+							`parser.field<std::unordered_map<std::uint32_t, std::string>>("names")`,
+						).
+						ToNotContain(`j["names"] = this->names;`)
+				},
+			)
+			It(
+				"Should unwrap an optional map of scalars with integer keys",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uint16, uint8>?
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`if (this->names.has_value()) {`,
+							`for (const auto& [key, item] : *this->names) obj[std::to_string(key)] = item;`,
+						)
+				},
+			)
+			It(
+				"Should write the UUID keys of a map of scalars as strings",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uuid, string>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[key.to_string()] = item;`)
+				},
+			)
+			It(
+				"Should write a generic map of scalars as an object",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Names struct<K extends comparable> {
+						values map<K, uint32>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[x::json::map_key(key)] = item;`)
+				},
+			)
+			It(
 				"Should defer the key check of a generic map of structs",
 				func(ctx SpecContext) {
 					source := `
@@ -628,8 +756,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
 				},
 			)
-			DescribeTable("Should reject a map of structs with an unsupported key",
-				func(ctx SpecContext, key string) {
+			DescribeTable("Should reject a map with an unsupported key",
+				func(ctx SpecContext, key, value string) {
 					req := MustGenerateRequest(ctx, `
 					@cpp output "client/cpp/task"
 
@@ -642,7 +770,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					}
 
 					Task struct {
-						pairs map<`+key+`, Pair>
+						pairs map<`+key+`, `+value+`>
 					}
 				`, "task", loader)
 					Expect(jsonPlugin.Generate(req)).Error().To(SatisfyAll(
@@ -650,8 +778,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						MatchError(validate.ErrValidation),
 					))
 				},
-				Entry("string enum", "Units"),
-				Entry("float", "float64"),
+				Entry("string enum with struct values", "Units", "Pair"),
+				Entry("float with struct values", "float64", "Pair"),
+				Entry("string enum with scalar values", "Units", "uint32"),
+				Entry("float with scalar values", "float64", "uint32"),
 			)
 			It(
 				"Should serialize a map of structs declared through an alias",

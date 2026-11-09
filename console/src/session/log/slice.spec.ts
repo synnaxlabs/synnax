@@ -117,6 +117,34 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setPosition", () => {
+    it("should set the position", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+      });
+      expect(docOf()?.position).toBe("42");
+    });
+
+    it("should clear the position when the hold ends", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hold: true }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+        store.dispatch(Log.setHold({ key: KEY, hold: false }));
+      });
+      expect(docOf()?.position).toBe("");
+    });
+
+    it("should not bring back a removed log", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.remove({ keys: [KEY] }));
+        store.dispatch(Log.setPosition({ key: KEY, position: "42" }));
+      });
+      expect(docOf()).toBeUndefined();
+    });
+  });
+
   describe("remove", () => {
     it("should remove a log by key", () => {
       act(() => {

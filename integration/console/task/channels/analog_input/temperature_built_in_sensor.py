@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -18,14 +19,14 @@ class TemperatureBuiltInSensor(Analog):
     Temperature Built-In Sensor channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        temperature_units (str): "Celsius", "Fahrenheit", "Kelvin", "Rankine"
+        temperature_units (str): "DegC", "DegF", "Kelvins", "DegR"
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -34,9 +35,7 @@ class TemperatureBuiltInSensor(Analog):
         name: str,
         device: str,
         *,
-        temperature_units: (
-            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
-        ) = None,
+        temperature_units: sy.ni.TemperatureUnits | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(

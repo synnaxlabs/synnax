@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -49,7 +50,7 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   const tab = await resolveFocusedTab(store, client);
   if (tab.variant !== "resource")
     throw new Error("focused tab is not a range resource");
-  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
+  expect(tab.resource.type).toBe(ranger.TYPE_RESOURCE_ID.type);
   expect(tab.resource.key).toBe(key);
 };
 
@@ -78,6 +79,23 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
   return await screen.findByText(name);
 };
 
+const searchRanges = async (term: string): Promise<void> => {
+  await enableEditing();
+  const search = await waitFor(() =>
+    screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
+  );
+  fireEvent.change(search, { target: { value: term } });
+};
+
+const createRangeAt = async (name: string, start: TimeStamp): Promise<ranger.Range> =>
+  await client.ranges.create({
+    name,
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(30))),
+  });
+
+const listedNames = (word: string): Array<string | null> =>
+  screen.queryAllByText(new RegExp(word)).map((el) => el.textContent);
+
 const rowOf = (el: HTMLElement): HTMLElement => {
   const row = el.closest<HTMLElement>(".lyra-list__item");
   if (row == null) throw new Error("list item not found");
@@ -102,6 +120,49 @@ describe("range/Explorer", () => {
     const rng = await createTestRange(client);
     await renderExplorer();
     expect(await revealRange(rng.name)).toBeTruthy();
+  });
+
+  it("lists to-do ranges, then in-progress ranges, then completed ones", async () => {
+    const word = uniqueRangeName("stage");
+    const now = TimeStamp.now();
+    await createRangeAt(`${word} past`, now.sub(TimeSpan.hours(1)));
+    await createRangeAt(`${word} current`, now.sub(TimeSpan.seconds(1)));
+    await createRangeAt(`${word} future`, now.add(TimeSpan.hours(1)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() =>
+      expect(listedNames(word)).toEqual([
+        `${word} future`,
+        `${word} current`,
+        `${word} past`,
+      ]),
+    );
+  });
+
+  it("lists a range that starts after the explorer opens as in progress", async () => {
+    const word = uniqueRangeName("stage");
+    await createRangeAt(`${word} future`, TimeStamp.now().add(TimeSpan.hours(1)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() => expect(listedNames(word)).toEqual([`${word} future`]));
+    await createRangeAt(word, TimeStamp.now());
+    await waitFor(() => expect(listedNames(word)).toEqual([`${word} future`, word]));
+  });
+
+  it("moves a to-do range to in progress when it starts", async () => {
+    const word = uniqueRangeName("stage");
+    const now = TimeStamp.now();
+    await createRangeAt(`${word} later`, now.add(TimeSpan.hours(1)));
+    await createRangeAt(`${word} soon`, now.add(TimeSpan.seconds(2)));
+    await renderExplorer();
+    await searchRanges(word);
+    await waitFor(() =>
+      expect(listedNames(word)).toEqual([`${word} soon`, `${word} later`]),
+    );
+    await waitFor(
+      () => expect(listedNames(word)).toEqual([`${word} later`, `${word} soon`]),
+      { timeout: 5000 },
+    );
   });
 
   it("opens the create range modal from the toolbar button", async () => {
@@ -219,15 +280,15 @@ describe("range/Explorer permissions", () => {
     await createTestClientWithGrants(client, {
       ...grants,
       retrieve: [
-        ranger.TYPE_ONTOLOGY_ID,
-        view.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        panel.TYPE_ONTOLOGY_ID,
+        ranger.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
       ],
-      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
-      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
+      update: [view.TYPE_RESOURCE_ID, ...(grants.update ?? [])],
+      create: [view.TYPE_RESOURCE_ID, ...(grants.create ?? [])],
     });
 
   it("should withhold the create button from a subject who cannot create ranges", async () => {
@@ -244,7 +305,7 @@ describe("range/Explorer permissions", () => {
   });
 
   it("should offer the create button to a subject who may create ranges", async () => {
-    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
+    await renderExplorer(await createEditor({ create: [ranger.TYPE_RESOURCE_ID] }));
     await enableEditing();
     expect(await findToolbarIconButton("add")).toBeTruthy();
   });
@@ -265,9 +326,9 @@ describe("range/Explorer permissions", () => {
       const rng = await createTestRange(client);
       await renderExplorer(
         await createEditor({
-          create: [ranger.TYPE_ONTOLOGY_ID],
-          update: [ranger.TYPE_ONTOLOGY_ID],
-          delete: [ranger.TYPE_ONTOLOGY_ID],
+          create: [ranger.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
         }),
       );
       fireEvent.contextMenu(await revealRange(rng.name));

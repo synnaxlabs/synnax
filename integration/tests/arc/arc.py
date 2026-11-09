@@ -15,7 +15,7 @@ Drives the Arc program + task lifecycle directly through the Synnax Python clien
 with no Console UI or Playwright involved.
 
 Deployment note: the Arc runtime reports task status without echoing the triggering
-command's key (only ``details.task`` / ``details.running``), so the client's blocking
+command's key (only ``owner`` / ``details.running``), so the client's blocking
 ``task.start()`` never resolves and hangs. We send the start command asynchronously and
 wait for a status that reports the task running.
 """
@@ -58,7 +58,7 @@ class ArcCase(SimDaqCase, TestCase):
     start_cmd_channel: str
     end_cmd_channel: str = ""
     subscribe_channels: list[str]
-    rack: sy.Rack | None
+    rack: sy.Rack
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
@@ -78,7 +78,6 @@ class ArcCase(SimDaqCase, TestCase):
                 raise TypeError(
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
-        self.rack = None
         self.set_manual_timeout(180)
         create_virtual_channel(
             self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
@@ -92,7 +91,6 @@ class ArcCase(SimDaqCase, TestCase):
             self.rack = self.client.racks.retrieve(rack_key)
         else:
             self.rack = self.client.racks.retrieve(embedded=False, limit=1)[0]
-        assert self.rack is not None, "Failed to retrieve rack"
         self.log(f"Selecting rack: {self.rack.name} (key: {self.rack.key})")
 
     def load_arc(
@@ -109,7 +107,6 @@ class ArcCase(SimDaqCase, TestCase):
         start command deploys it and this blocks until the runtime reports it
         running.
         """
-        assert self.rack is not None, "Call _retrieve_rack() before load_arc()"
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")
@@ -121,7 +118,6 @@ class ArcCase(SimDaqCase, TestCase):
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task)
-        self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
@@ -149,13 +145,13 @@ class ArcCase(SimDaqCase, TestCase):
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != task.resource_id:
                         continue
                     if status.variant == "error":
                         raise AssertionError(
                             f"Arc task '{task.name}' failed to start: {status.message}"
                         )
-                    if status.details.running:
+                    if status.details is not None and status.details.running:
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
 

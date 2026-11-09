@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, deep, uuid } from "@synnaxlabs/x";
+import { color, deep, TimeRange, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -41,7 +41,8 @@ const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
 const client = createTestClient();
 
 const createTestSchematic = async (projectKey: string): Promise<schematic.Schematic> =>
-  await client.schematics.create(projectKey, {
+  await client.schematics.create({
+    project: projectKey,
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -169,8 +170,10 @@ describe("schematic queries", () => {
 
       // Restoring re-creates from the corpse, which keeps the original key.
       // The read heals off the cache alone: no boundary reset, no refetch.
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
-      await client.schematics.create(proj.key, corpse);
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
+      await client.schematics.create({ ...corpse, project: proj.key });
       await waitFor(() => expect(result.current).toBeNull());
     });
   });
@@ -187,9 +190,9 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, doomed.key);
       await client.schematics.delete(doomed.key);
       await waitFor(() =>
-        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
-          true,
-        ),
+        expect(
+          query.Deleted.matches(client.schematics.watch(doomed.key).getCached()),
+        ).toBe(true),
       );
 
       const caught: Error[] = [];
@@ -214,7 +217,9 @@ describe("schematic queries", () => {
       const error = caught[0];
       assert(Flux.DeletedError.matches(error));
       expect(error.corpseName).toBe("test_schematic");
-      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      const corpse = query.requireCorpse(
+        client.schematics.watch(doomed.key).getCached(),
+      );
       expect(corpse.key).toBe(doomed.key);
     });
 
@@ -405,6 +410,66 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("list", () => {
+    it("should list the snapshots of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "list_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const [source] = await Promise.all([
+        client.schematics.create({ project: proj.key, name: "list_source" }),
+        client.schematics.create({ project: proj.key, name: "list_other" }),
+      ]);
+      const snapshot = await client.schematics.copy({
+        key: source.key,
+        name: "list_snapshot",
+        snapshot: true,
+        range: rng.key,
+      });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.schematics, {
+            name: "schematics",
+            query: { ranges: [rng.key] },
+          }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => {
+        expect(result.current.variant).toBe("success");
+        expect(result.current.data).toEqual([snapshot.key]);
+      });
+      expect(result.current.getItem(snapshot.key)?.name).toBe("list_snapshot");
+    });
+  });
+
+  describe("useSnapshot", () => {
+    it("should copy the schematics into the range as snapshots", async () => {
+      const source = await client.schematics.create({
+        project: proj.key,
+        name: "source",
+      });
+      const rng = await client.ranges.create({
+        name: "snapshot_range",
+        timeRange: new TimeRange(1n, 1000n),
+      });
+      const { result } = renderHook(() => Schematic.useSnapshot(), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          schematics: { key: source.key, name: source.name },
+          range: rng.key,
+        });
+      });
+      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0].name).toBe("source (Snapshot)");
+      expect(snapshots[0].snapshot).toBe(true);
+      expect(snapshots[0].project).toBeUndefined();
+    });
+  });
+
   describe("useCreate", () => {
     it("creates a schematic and caches it", async () => {
       const { result } = renderHook(() => Schematic.useCreate(), {
@@ -475,7 +540,7 @@ describe("schematic queries", () => {
             // The client applies the rename before it calls back, so the cached
             // schematic already carries the new name here.
             afterOptimistic: ({ client: c, data }) => {
-              const cached = c.schematics.getCached(data.key);
+              const cached = c.schematics.watch(data.key).getCached();
               order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
             },
             afterSuccess: () => {
@@ -1048,6 +1113,36 @@ describe("schematic queries", () => {
       });
     });
 
+    it("should show the last of two variant changes to an edge", async () => {
+      const schem = await client.schematics.create({
+        project: proj.key,
+        name: "edge_variants",
+        nodes: [
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 10, y: 10 } },
+        ],
+        edges: [
+          {
+            key: "e1",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+          },
+        ],
+        configs: {
+          n1: { variant: "tank" },
+          n2: { variant: "tank" },
+          e1: { variant: "pipe", segments: [] },
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => Schematic.useConfigForm({ key: schem.key, elKey: "e1" }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set(element.variant, "electric"));
+      act(() => result.current.form.set(element.variant, "secondary"));
+      expect(result.current.form.get(element.variant).value).toBe("secondary");
+    });
+
     it("should send an edit as a path action into the element's config", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
@@ -1085,7 +1180,8 @@ describe("schematic queries", () => {
     });
 
     it("should set the first entry of an empty list without keys", async () => {
-      const schem = await client.schematics.create(proj.key, {
+      const schem = await client.schematics.create({
+        project: proj.key,
         name: "test_schematic",
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         configs: { n1: { variant: "string_display" } },

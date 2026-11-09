@@ -8,29 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { matches, serverComputed } from "@/access/role/where.gen";
-import { ontology } from "@/ontology";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/access/role/where.gen";
 import { query } from "@/query";
-import { user } from "@/user";
 
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -43,7 +50,7 @@ export type CreateParams = z.input<typeof createParamsZ>;
 const createResZ = z.object({ roles: roleZ.array() });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = RetrieveRequest;
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const deleteResZ = z.object({});
@@ -53,32 +60,9 @@ const deleteParamsZ = keyZ
   .or(keyZ.array().transform((keys) => ({ keys })));
 export type DeleteParams = z.input<typeof deleteParamsZ>;
 
-const assignReqZ = z.object({
-  user: user.keyZ,
-  role: keyZ,
-});
-export type AssignParams = z.input<typeof assignReqZ>;
-
-const assignResZ = z.object({});
-
-const unassignReqZ = z.object({
-  user: user.keyZ,
-  role: keyZ,
-});
-export type UnassignParams = z.input<typeof unassignReqZ>;
-
-const unassignResZ = z.object({});
-
-const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => ({
-  from: ontologyID(role),
-  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to: user.ontologyID(userKey),
-});
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Role> {
@@ -98,7 +82,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     super(cache, {
       name: "role",
       table: store,
+      shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (role, req) => matches(role, req.where),
@@ -125,11 +111,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
 
   async delete(params: DeleteParams, opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(params);
-    const ids = ontologyID(keysArr);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ids),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -142,17 +124,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete((r) =>
-      ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve(key);
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -161,44 +137,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
       },
     });
     rename();
-  }
-
-  async assign(params: AssignParams, opts: query.WriteOptions = {}): Promise<void> {
-    const rel = assignmentRel(params.role, params.user);
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.set(
-          ontology.relationshipToString(rel),
-          rel,
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/access/role/assign",
-          params,
-          assignReqZ,
-          assignResZ,
-        ),
-    });
-  }
-
-  async unassign(params: UnassignParams, opts: query.WriteOptions = {}): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.delete(
-          ontology.relationshipToString(assignmentRel(params.role, params.user)),
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/access/role/unassign",
-          params,
-          unassignReqZ,
-          unassignResZ,
-        ),
-    });
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Role[]> {

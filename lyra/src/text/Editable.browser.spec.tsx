@@ -28,7 +28,8 @@ const Field = (): ReactElement => {
 };
 
 const typeLongName = async (el: Element): Promise<void> => {
-  await expect.poll(() => el.getAttribute("contenteditable")).toBe("true");
+  // Text.edit sets contenteditable before the field takes focus and selects its text.
+  await expect.poll(() => document.activeElement).toBe(el);
   await userEvent.keyboard(LONG_NAME);
   expect(el.scrollLeft).toBeGreaterThan(0);
 };

@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
-import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
+import { moveRequests } from "@/platform/group/move";
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
-  group: group.Group;
+  group: Pick<group.Group, "key" | "name">;
 }
 
 const base = Flux.createUpdate<CreateParams>({
@@ -26,65 +26,50 @@ const base = Flux.createUpdate<CreateParams>({
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const {
-      selection: { parentID, ids },
-      state: { shape },
+      selection: { parentID, rootID, top },
       group: { name, key },
     } = data;
     if (parentID == null)
       throw new Error("Cannot group items that sit under more than one parent");
-    const resourcesToGroup = getResourcesToGroup(ids, shape);
-    await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(
-      parentID,
-      group.ontologyID(key),
-      ...resourcesToGroup,
-    );
+    await client.batch.send([
+      client.groups.createRequest({ key, name, ...placement(parentID, rootID) }),
+      ...moveRequests(client, top, group.resourceID(key)),
+    ]);
     return data;
   },
 });
 
-const beforeUpdate = async ({
-  data,
-  rollbacks,
-}: Flux.BeforeUpdateParams<CreateParams>) => {
-  const {
-    selection,
-    state: { nodes, setNodes, setSelection, shape, setResource },
-    group: { key },
-  } = data;
-  const newID = group.ontologyID(key);
-  const newIDString = ontology.idToString(newID);
-  const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
-  const prevNodes = PTree.deepCopy(nodes);
-  rollbacks.push(() => setNodes(prevNodes));
-  const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-  setResource(res);
-  // The new group shows where the selection shows. In flat search results, that is the
-  // top of the tree, while the real parent is a group.
-  const destination =
-    PTree.findNodeParent({
-      tree: nodes,
-      key: ontology.idToString(resourcesToGroup[0]),
-    })?.key ?? null;
-  let nextNodes = PTree.setNode({
-    tree: nodes,
-    destination,
-    additions: { key: newIDString, children: [] },
-  });
-  nextNodes = PTree.moveNode({
-    tree: nextNodes,
-    destination: newIDString,
-    keys: resourcesToGroup.map((id) => ontology.idToString(id)),
-  });
-  setNodes([...nextNodes]);
-  setSelection([newIDString]);
-  const [groupName, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
+const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => {
+  const key = resource.idToString(group.resourceID(data.group.key));
+  const [name, renamed] = await Text.asyncEdit(List.itemNameID(key));
   if (!renamed) return false;
-  return { ...data, group: { ...data.group, name: groupName } };
+  return { ...data, group: { ...data.group, name } };
 };
 
+/**
+ * Returns a function that shows a draft group holding the top of the selection, where
+ * the selection shows, and creates the group once the user names it.
+ */
 export const useCreateFromSelection = () => {
-  const { update } = base.useUpdate({ beforeUpdate });
-  return (props: Tree.ContextMenuProps) =>
-    update({ ...props, group: { key: uuid.create(), name: "" } });
+  const { updateAsync } = base.useUpdate({ beforeUpdate });
+  return (props: Tree.ContextMenuProps) => {
+    const {
+      selection: { top },
+      state: { addDraft, getParent, setSelection },
+    } = props;
+    const groupKey = uuid.create();
+    const id = group.resourceID(groupKey);
+    const key = resource.idToString(id);
+    const children = resource.idToString(top);
+    // In flat search results the selection shows at the top of the tree, while its real
+    // parent is a group.
+    const parent = getParent(children[0]);
+    if (parent == null) throw new Error(`${children[0]} does not show in the tree`);
+    const done = addDraft({ resource: { key, id, name: "" }, parent, children });
+    setSelection([key]);
+    void (async () => {
+      await updateAsync({ ...props, group: { key: groupKey, name: "" } });
+      done();
+    })();
+  };
 };

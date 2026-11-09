@@ -54,6 +54,26 @@ var _ = Describe("AST Utilities", func() {
 		)
 	})
 
+	Describe("BareIdentifier", func() {
+		It("returns the identifier of a lone name", func() {
+			Expect(parser.BareIdentifier(parseExpr("x")).GetText()).To(Equal("x"))
+		})
+
+		DescribeTable(
+			"nil cases",
+			func(code string) { Expect(parser.BareIdentifier(parseExpr(code))).To(BeNil()) },
+			Entry("function call", "foo()"),
+			Entry("call with arguments", `len("abc")`),
+			Entry("index", "arr[0]"),
+			Entry("qualified name", "time.now"),
+			Entry("qualified call", "time.now()"),
+			Entry("parenthesized", "(x)"),
+			Entry("literal", "42"),
+			Entry("negation", "-x"),
+			Entry("addition", "x + 1"),
+		)
+	})
+
 	Describe("IsNegatedLiteral", func() {
 		DescribeTable(
 			"true cases",
@@ -363,6 +383,31 @@ var _ = Describe("AST Utilities", func() {
 			Expect(parser.FunctionName(functionOf("x -> calc()"))).To(Equal("calc"))
 			Expect(parser.FunctionName(functionOf("x -> math.avg()"))).
 				To(Equal("math.avg"))
+		})
+	})
+
+	Describe("IdentifierParts and IdentifierName", func() {
+		identifierOf := func(code string) parser.IIdentifierContext {
+			GinkgoHelper()
+			prog := MustSucceed(parser.Parse(code))
+			return prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.IdentifierParts(identifierOf("trig -> out"))
+			Expect(head).To(Equal("out"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified identifier", func() {
+			head, tail := parser.IdentifierParts(identifierOf("trig -> m.f"))
+			Expect(head).To(Equal("m"))
+			Expect(tail).To(Equal("f"))
+		})
+
+		It("Should join names only when a tail is present", func() {
+			Expect(parser.IdentifierName(identifierOf("trig -> out"))).To(Equal("out"))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(Equal("m.f"))
 		})
 	})
 

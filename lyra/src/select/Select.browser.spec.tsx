@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { type ReactElement, useState } from "react";
+import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -167,6 +169,116 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const DESCRIPTION = "Wider than the minimum width of a select dialog";
+const TRIGGER_WIDTH = 100;
+
+interface DescribedOption {
+  option: Element;
+  icon: DOMRect;
+  name: DOMRect;
+  description: Element;
+}
+
+const rangeOf = (node: Node): Range => {
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  return range;
+};
+
+const renderDescribedOptions = async (
+  searchHidden = true,
+): Promise<DescribedOption[]> => {
+  const { getByRole } = await renderThemed(
+    <div style={{ width: TRIGGER_WIDTH, marginLeft: "auto" }}>
+      <Select.Simple<string>
+        resourceName="level"
+        value="low"
+        onChange={() => {}}
+        variant="floating"
+        searchHidden={searchHidden}
+        initialVisible
+      >
+        {["low", "high"].map((key) => (
+          <Select.Item key={key} itemKey={key} label={key} textValue={key}>
+            <Icon.Auto />
+            {key}
+            <Select.ItemDescription>{DESCRIPTION}</Select.ItemDescription>
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </div>,
+  );
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return getByRole("option")
+    .elements()
+    .map((option) => {
+      const name = Array.from(option.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE,
+      );
+      if (name == null) throw new Error("option name not found");
+      return {
+        option,
+        icon: option.querySelector(".lyra-icon")!.getBoundingClientRect(),
+        name: rangeOf(name).getBoundingClientRect(),
+        description: option.querySelector(".lyra-select__item-description")!,
+      };
+    });
+};
+
+const LEVELS = [
+  <Select.Item key="low" itemKey="low">
+    Low
+  </Select.Item>,
+  <Select.Item key="high" itemKey="high">
+    High
+  </Select.Item>,
+];
+
+/** Opens a select from the keyboard, inside a modal. */
+const openInModal = async (multiple = false): Promise<HTMLElement> => {
+  await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame variant="modal" initialVisible>
+        <Dialog.Dialog>
+          {multiple ? (
+            <Select.Simple<string>
+              resourceName="level"
+              multiple
+              value={["low"]}
+              onChange={() => {}}
+            >
+              {LEVELS}
+            </Select.Simple>
+          ) : (
+            <Select.Simple<string> resourceName="level" value="low" onChange={() => {}}>
+              {LEVELS}
+            </Select.Simple>
+          )}
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  const trigger = page.getByRole("button", { name: /^Level/ }).element();
+  assert(trigger instanceof HTMLElement);
+  trigger.focus();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByPlaceholder("Search levels...")).toHaveFocus();
+  return trigger;
+};
+
+const TextTags = (): ReactElement => {
+  const [value, setValue] = useState(["low"]);
+  return (
+    <Dialog.Frame>
+      <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
+        <Select.MultipleTrigger variant="text" aria-label="Levels" />
+        <Select.Dialog>{LEVELS}</Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  );
+};
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -210,6 +322,37 @@ const renderSearchless = async (
 };
 
 describe("Select", () => {
+  describe("described options", () => {
+    it("should put the icon beside the name and the description under it", async () => {
+      const [{ icon, name, description }] = await renderDescribedOptions();
+      const line = description.getBoundingClientRect();
+      expect(icon.right).toBeLessThan(name.left);
+      expect(line.left).toBeCloseTo(name.left, 0);
+      expect(line.top).toBeGreaterThanOrEqual(name.bottom);
+    });
+
+    it("should fit each description on one line", async () => {
+      const options = await renderDescribedOptions();
+      options.forEach(({ description }) =>
+        expect(rangeOf(description).getClientRects()).toHaveLength(1),
+      );
+    });
+
+    it("should space the options apart", async () => {
+      const [first, second] = await renderDescribedOptions();
+      expect(second.option.getBoundingClientRect().top).toBeGreaterThan(
+        first.option.getBoundingClientRect().bottom,
+      );
+    });
+
+    it("should hide the options a search leaves out, with no space above the rest", async () => {
+      const [low, high] = await renderDescribedOptions(false);
+      await userEvent.fill(page.getByPlaceholder("Search levels..."), "high");
+      await expect.poll(() => computed(low.option, "display")).toBe("none");
+      expect(computed(high.option, "margin-top")).toBe("0px");
+    });
+  });
+
   describe("searchless options", () => {
     it("should close and stay closed when Enter picks an option", async () => {
       const onChange = await renderSearchless(false);
@@ -223,6 +366,54 @@ describe("Select", () => {
       const onChange = await renderSearchless(true);
       expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
       await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+  });
+
+  describe("in a modal", () => {
+    it("should focus the trigger when Enter picks an option", async () => {
+      const trigger = await openInModal();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should focus the trigger of a multiple select on Escape", async () => {
+      const trigger = await openInModal(true);
+      await userEvent.keyboard("{Escape}");
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should focus the trigger when a click picks an option", async () => {
+      const trigger = await openInModal();
+      await userEvent.click(page.getByRole("option", { name: "High" }));
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  describe("text multiple trigger", () => {
+    it("should get the focus back once its last tag goes", async () => {
+      const { container } = await renderThemed(
+        <Triggers.Provider>
+          <TextTags />
+        </Triggers.Provider>,
+      );
+      const add = Array.from(container.querySelectorAll("button")).at(-1);
+      assert(add instanceof HTMLElement);
+      await userEvent.click(add);
+      await userEvent.click(page.getByRole("option", { name: "Low" }));
+      await userEvent.keyboard("{Escape}");
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(
+        page.getByRole("button", { name: "Levels" }).element(),
+      );
     });
   });
 
@@ -317,6 +508,43 @@ describe("Select", () => {
       expect(bottom(last)).toBeGreaterThan(bottom(scroll));
       await userEvent.wheel(scroll, { delta: { y: 1000 } });
       await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
+    });
+
+    it("should show the new options when they shrink under a scrolled list", async () => {
+      const keys = (prefix: string, count: number): string[] =>
+        Array.from({ length: count }, (_, i) => `${prefix}-${i}`);
+      const select = (data: string[]): ReactElement => (
+        <Select.Single<string, undefined>
+          resourceName="channel"
+          value="old-0"
+          onChange={() => {}}
+          data={data}
+          initialVisible
+          allowNone
+        >
+          {({ key, ...rest }) => (
+            <Select.Item key={key} {...rest} textValue={rest.itemKey}>
+              {rest.itemKey}
+            </Select.Item>
+          )}
+        </Select.Single>
+      );
+      const { getByRole, getByText, rerender } = await renderThemed(
+        select(keys("old", 200)),
+      );
+      const scroll = getByRole("listbox").element();
+      await expect.poll(() => scroll.scrollHeight).toBeGreaterThan(5000);
+      scroll.scrollTop = scroll.scrollHeight;
+      await expect.poll(() => getByText("old-199").elements().length).toBe(1);
+
+      await rerender(select(keys("new", 3)));
+
+      await expect.poll(() => getByText("new-0").elements().length).toBe(1);
+      expect(getByRole("dialog").element().isConnected).toBe(true);
+      expect(getByRole("listbox").element()).toBe(scroll);
+      expect(scroll.scrollTop).toBeLessThanOrEqual(
+        Math.max(0, scroll.scrollHeight - scroll.clientHeight),
+      );
     });
   });
 
