@@ -273,8 +273,9 @@ struct Config {
 
     /// @brief applies the persisted state ownership and modes without opening the
     /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. On Windows, it gives the state of the
-    /// computer to LocalSystem and the administrators. Skips state that does not exist.
+    /// state that an earlier login left to root. Skips state that does not exist. On
+    /// Windows, it creates the state directory of the computer for LocalSystem and the
+    /// administrators alone, and returns an error when another user owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
 
     /// @brief moves the state and OPC UA certificates of the user to the state of the

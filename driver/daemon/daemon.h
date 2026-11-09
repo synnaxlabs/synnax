@@ -52,7 +52,8 @@ x::errors::Error status();
 
 /// @brief sets the variables in the Driver's environment file into the process
 /// environment, so login reads the same variables as the service. A variable already in
-/// the environment is kept. Does nothing where no service environment file exists.
+/// the environment is kept. Does nothing where the service reads no environment file:
+/// on Windows, and on macOS while the service is not installed.
 x::errors::Error load_env();
 
 /// @brief runs the application as a daemon with the given configuration. Returns the

@@ -29,6 +29,10 @@ namespace driver::daemon {
 const std::string ENV_FILE = "/etc/synnax/driver.env";
 
 x::errors::Error load_env() {
+#ifdef __APPLE__
+    // Without the service, login saves the state of the user, which no file configures.
+    if (!installed()) return x::errors::NIL;
+#endif
     return x::env::load_file(ENV_FILE);
 }
 

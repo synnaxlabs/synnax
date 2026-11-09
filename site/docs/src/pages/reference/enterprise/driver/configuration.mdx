@@ -81,7 +81,8 @@ To learn what each parameter does, see [Parameters](#parameters).
 On Linux, NI Linux Real-Time, and macOS, the service and `login` read
 `/etc/synnax/driver.env`. Write one `KEY=value` on each line, with no `export`. `login`
 uses the file only for variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not
-read the `SYNNAX_DRIVER_` variables.
+read the `SYNNAX_DRIVER_` variables. On macOS, `login` reads the file only while the
+service is installed.
 
 `install` creates the file. Only root can read it, so edit it and run `login` as root:
 with `sudo` on Linux and macOS, and as `admin` on NI Linux Real-Time. Restart the
