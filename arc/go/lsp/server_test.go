@@ -642,6 +642,27 @@ var _ = Describe("Analysis Panics", func() {
 			))
 		},
 	)
+
+	It("Should return an error when completion panics", func(ctx SpecContext) {
+		var panicking atomic.Bool
+		server, docURI := SetupTestServer(lsp.Config{
+			NewRoot: func() *symbol.Symbol {
+				if panicking.Load() {
+					panic("analyzer failure")
+				}
+				return NewRoot(StaticResolver{})
+			},
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
+		OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := \n}")
+		panicking.Store(true)
+		Expect(server.Completion(ctx, &protocol.CompletionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 1, Character: 6},
+		})).Error().To(MatchError(lsp.ErrAnalysisPanic))
+	})
 })
 
 var _ = Describe("Server Lifecycle", func() {
