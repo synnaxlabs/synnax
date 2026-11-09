@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -64,6 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
