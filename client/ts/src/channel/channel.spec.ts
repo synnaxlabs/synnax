@@ -501,50 +501,35 @@ describe("Channel", () => {
   });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {
-      const channel = await client.channels.create({
+      const ch = await client.channels.create({
         name: id.create(),
         virtual: true,
         dataType: DataType.INT64,
         expression: "return 1",
       });
-
-      const updated = await client.channels.create({
-        key: channel.key,
-        name: channel.name,
-        dataType: channel.dataType,
-        leaseholder: channel.leaseholder,
-        virtual: true,
-        expression: "return 2",
-      });
-
-      const channelsWithName = await client.channels.retrieve([channel.name]);
+      await client.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 2" }),
+      );
+      const fresh = createTestClient();
+      const channelsWithName = await fresh.channels.retrieve([ch.name]);
       expect(channelsWithName.length).toEqual(1);
-
-      expect(updated.expression).toEqual("return 2");
-
-      const retrieved = await client.channels.retrieve(channel.key);
+      const retrieved = await fresh.channels.retrieve(ch.key);
       expect(retrieved.expression).toEqual("return 2");
     });
 
     test("update calculated channel name", async () => {
-      const channel = await client.channels.create({
+      const ch = await client.channels.create({
         name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: "return 1",
       });
-
-      const updated = await client.channels.create({
-        key: channel.key,
-        name: id.create(),
-        dataType: channel.dataType,
-        virtual: true,
-        expression: channel.expression,
-      });
-      expect(updated.name).toEqual(updated.name);
-
-      const retrieved = await client.channels.retrieve(channel.key);
-      expect(retrieved.name).toEqual(updated.name);
+      const name = id.create();
+      await client.channels.rename(ch.key, name);
+      const retrieved = await client.channels.retrieve(ch.key);
+      expect(retrieved.name).toEqual(name);
+      expect(retrieved.expression).toEqual("return 1");
     });
   });
 

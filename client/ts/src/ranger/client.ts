@@ -386,9 +386,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Creates the ranges. Creating a range that exists keeps the labels it holds and
-   * ignores the carried ones, and keeps its parent unless one is carried. Change labels
-   * with the label client.
+   * Creates the ranges. Change labels with the label client.
+   * @throws {ValidationError} if a range with a carried key exists.
    */
   async create(range: New): Promise<Range>;
   async create(ranges: New[]): Promise<Range[]>;
@@ -396,7 +395,7 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
-    // The Core keeps the stored labels on the create of an existing range.
+    // A label change streamed during the request is newer than the reply.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,

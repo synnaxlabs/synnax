@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -178,21 +178,20 @@ describe("View queries", () => {
       });
     });
     it("should update the form when the view is updated externally", async () => {
-      const view = await client.views.create({
+      const existing = await client.views.create({
         name: "existing-view",
         type: "range",
       });
-      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => View.useForm({ query: { key: existing.key } }),
+        { wrapper },
+      );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value()).toEqual(view);
-      await client.views.create({
-        key: view.key,
-        name: "edited-view",
-        type: "range",
-        where: { labels: [label] },
-      });
+      expect(result.current.form.value()).toEqual(existing);
+      await client.views.dispatch(existing.key, [
+        view.set({ path: ["name"], value: "edited-view" }),
+        view.set({ path: ["where"], value: { labels: [label] } }),
+      ]);
       await waitFor(() => {
         expect(result.current.form.value()).toMatchObject({
           name: "edited-view",

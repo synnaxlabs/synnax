@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { id, type record } from "@synnaxlabs/x";
+import { caseconv, id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -102,10 +102,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
       await act(async () => {
-        await client.devices.create({
-          ...dev,
-          name: "test2",
-        });
+        await client.devices.rename(dev.key, "test2");
       });
       await waitFor(() => {
         expect(result.current?.name).toEqual("test2");
@@ -176,10 +173,7 @@ describe("queries", () => {
         expect(result.current?.status?.variant).toEqual("success");
       });
       await act(async () => {
-        await client.devices.create({
-          ...dev,
-          name: "updated-name",
-        });
+        await client.devices.rename(dev.key, "updated-name");
       });
       await waitFor(() => {
         expect(result.current?.name).toEqual("updated-name");
@@ -264,8 +258,11 @@ describe("queries", () => {
         const local = createTestClient();
         const stop = local.devices.onChange(dev.key, () => {});
         await waitForStreamLive(local.connection);
-        // An update that keeps the name and the parent writes no status.
-        await client.devices.create({ ...dev, location: "updated" });
+        // An edit that keeps the name and the parent writes no status.
+        await client.devices.dispatch(
+          dev.key,
+          device.set({ path: ["location"], value: "updated" }),
+        );
         await waitFor(() => {
           const cached = local.devices.getCached(dev.key);
           expect(query.isLive(cached) ? cached.location : undefined).toEqual("updated");
@@ -345,7 +342,10 @@ describe("queries", () => {
         });
         expect(result.current?.key).toEqual(dev.key);
         await act(async () => {
-          await client.devices.create({ ...dev, location: "updated" });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["location"], value: "updated" }),
+          );
         });
         await waitFor(() => expect(result.current?.location).toEqual("updated"));
       });
@@ -377,7 +377,7 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current?.name).toEqual("original"));
       await act(async () => {
-        await client.devices.create({ ...item, name: "updated" });
+        await client.devices.rename(item.key, "updated");
       });
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
     });
@@ -415,7 +415,7 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current?.status?.variant).toEqual("success"));
       await act(async () => {
-        await client.devices.create({ ...item, name: "updated" });
+        await client.devices.rename(item.key, "updated");
       });
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
       expect(result.current?.status?.variant).toEqual("success");
@@ -628,10 +628,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(dev.key)?.name).toEqual("original");
 
-      await client.devices.create({
-        ...dev,
-        name: "updated",
-      });
+      await client.devices.rename(dev.key, "updated");
 
       await waitFor(() => {
         expect(result.current.getItem(dev.key)?.name).toEqual("updated");
@@ -1087,7 +1084,10 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(false));
-      await client.devices.create({ ...dev, configured: true });
+      await client.devices.dispatch(
+        dev.key,
+        device.set({ path: ["configured"], value: true }),
+      );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(true));
     });
   });
@@ -1681,6 +1681,11 @@ describe("queries", () => {
       make: makeSchema,
       model: modelSchema,
     };
+    const setProperties = (properties: z.infer<typeof propertiesSchema>) =>
+      device.set({
+        path: ["properties"],
+        value: caseconv.camelToSnake(properties, { schema: propertiesSchema }),
+      });
 
     describe("createRetrieve", () => {
       it("should retrieve a device with typed properties", async () => {
@@ -1733,12 +1738,9 @@ describe("queries", () => {
         expect(result.current?.properties.sampleRate).toBe(100);
 
         await act(async () => {
-          await client.devices.create(
-            {
-              ...dev,
-              properties: { sampleRate: 500, channels: { ch1: 10 } },
-            },
-            schemas,
+          await client.devices.dispatch(
+            dev.key,
+            setProperties({ sampleRate: 500, channels: { ch1: 10 } }),
           );
         });
 
@@ -1793,7 +1795,10 @@ describe("queries", () => {
         });
         await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
         await act(async () => {
-          await client.devices.create({ ...dev, name: "renamed", properties: {} });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["name"], value: "renamed" }),
+          );
         });
         await waitFor(() => expect(result.current?.name).toBe("renamed"));
         expect(result.current?.properties.sampleRate).toBe(100);
@@ -1854,9 +1859,9 @@ describe("queries", () => {
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
         await act(async () => {
-          await client.devices.create(
-            { ...second, properties: { sampleRate: 500, channels: {} } },
-            schemas,
+          await client.devices.dispatch(
+            second.key,
+            setProperties({ sampleRate: 500, channels: {} }),
           );
         });
         await waitFor(() => {
@@ -2201,7 +2206,10 @@ describe("queries", () => {
         });
 
         await act(async () => {
-          await client.devices.create({ ...dev, status: undefined, properties: {} });
+          await client.devices.dispatch(
+            dev.key,
+            device.set({ path: ["properties"], value: {} }),
+          );
         });
         await waitFor(() => {
           expect(latestProperties.current).toEqual({});
@@ -2241,15 +2249,10 @@ describe("queries", () => {
         });
 
         await act(async () => {
-          await client.devices.create(
-            {
-              ...dev,
-              status: undefined,
-              name: "renamed_device",
-              properties: { sampleRate: 500, channels: {} },
-            },
-            schemas,
-          );
+          await client.devices.dispatch(dev.key, [
+            device.set({ path: ["name"], value: "renamed_device" }),
+            setProperties({ sampleRate: 500, channels: {} }),
+          ]);
         });
 
         await waitFor(() => {

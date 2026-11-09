@@ -139,8 +139,8 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       await Promise.all([
-        client.access.policies.create({ ...policy1, name: "updated1" }),
-        client.access.policies.create({ ...policy2, name: "updated2" }),
+        client.access.policies.rename(policy1.key, "updated1"),
+        client.access.policies.rename(policy2.key, "updated2"),
       ]);
 
       await waitFor(() => {

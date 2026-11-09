@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, NotFoundError } from "@synnaxlabs/client";
+import { access, NotFoundError } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -161,8 +161,8 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       await Promise.all([
-        client.access.roles.create({ ...role1, name: "updated1" }),
-        client.access.roles.create({ ...role2, name: "updated2" }),
+        client.access.roles.rename(role1.key, "updated1"),
+        client.access.roles.rename(role2.key, "updated2"),
       ]);
 
       await waitFor(() => {
@@ -257,7 +257,10 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current.data?.description).toEqual("Before"));
-      await remote.access.roles.create({ ...role, description: "After" });
+      await remote.access.roles.dispatch(
+        role.key,
+        access.role.set({ path: ["description"], value: "After" }),
+      );
       await waitFor(() => expect(result.current.data?.description).toEqual("After"));
     });
 

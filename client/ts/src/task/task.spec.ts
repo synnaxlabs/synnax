@@ -115,22 +115,19 @@ describe("Task", async () => {
     });
   });
   describe("update", () => {
-    it("should update a task if the key is provided", async () => {
+    it("should refuse a task whose key exists and keep the stored task", async () => {
       const m = await testRack.createTask({
         name: "test",
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different
-      // input/output types
+      // Exclude status, internal, snapshot - these have different input/output types
       const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
-      const updated = await client.tasks.create({
-        ...taskFields,
-        name: "updated",
-      });
-      expect(updated.name).toBe("updated");
-      const retrieved = await client.tasks.retrieve(m.key);
-      expect(retrieved.name).toBe("updated");
+      const create = client.tasks.create({ ...taskFields, name: "updated" });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`task ${m.key} already exists`);
+      const retrieved = await createTestClient().tasks.retrieve(m.key);
+      expect(retrieved.name).toBe("test");
     });
   });
   describe("rename", () => {
@@ -1959,7 +1956,7 @@ describe("Task", async () => {
       });
     });
 
-    it("applies another client's overwrite to a cached task", async () => {
+    it("applies another client's config set to a cached task", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
         config: { routingKey: "dog" },
@@ -1975,10 +1972,15 @@ describe("Task", async () => {
         expect((await remote.tasks.retrieve(params)).config).toMatchObject({
           routingKey: "dog",
         });
-        await client.tasks.create({
-          ...t.payload,
-          config: { ...(t.payload.config as object), routingKey: "cat" },
-        });
+        expect(
+          await client.tasks.dispatch(
+            t.key,
+            task.set({
+              path: ["config"],
+              value: { ...(t.payload.config as object), routingKey: "cat" },
+            }),
+          ),
+        ).toBe(true);
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);
@@ -2035,7 +2037,12 @@ describe("Task", async () => {
       const off = remote.tasks.onChange(params, vi.fn());
       try {
         expect(await remote.tasks.retrieve(params)).toHaveLength(0);
-        await client.tasks.create({ ...t.payload, rack: dest.key });
+        expect(
+          await client.tasks.dispatch(
+            t.key,
+            task.set({ path: ["rack"], value: dest.key }),
+          ),
+        ).toBe(true);
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);
@@ -2079,13 +2086,10 @@ describe("Task", async () => {
       try {
         await remote.tasks.retrieve(params);
         const fetches = recordResponses(remote, "/task/retrieve");
-        await client.tasks.create({
-          ...denied.payload,
-          name: `${denied.name}-renamed`,
-        });
+        await client.tasks.rename(denied.key, `${denied.name}-renamed`);
         // Both changes stream on one channel, so the readable rename lands last.
         const name = `set-readable-renamed-${id.create()}`;
-        await client.tasks.create({ ...readable.payload, name });
+        await client.tasks.rename(readable.key, name);
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);

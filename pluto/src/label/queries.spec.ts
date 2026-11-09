@@ -57,7 +57,10 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current?.name).toEqual("original"));
       await act(async () => {
-        await client.labels.create({ ...item, name: "updated" });
+        await client.labels.dispatch(
+          item.key,
+          label.set({ path: ["name"], value: "updated" }),
+        );
       });
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
     });
@@ -189,13 +192,13 @@ describe("queries", () => {
       });
       expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
 
-      const updatedLabel = await client.labels.create({
-        ...testLabel,
-        name: "updated",
-      });
+      await client.labels.dispatch(
+        testLabel.key,
+        label.set({ path: ["name"], value: "updated" }),
+      );
 
       await waitFor(() => {
-        expect(result.current.getItem(updatedLabel.key)?.name).toEqual("updated");
+        expect(result.current.getItem(testLabel.key)?.name).toEqual("updated");
       });
     });
 
@@ -259,10 +262,11 @@ describe("queries", () => {
         );
         await waitFor(() => expect(result.current).not.toBeNull());
         expect(result.current).toEqual(labels);
-        labels[0] = await client.labels.create({
-          ...labels[0],
-          name: "updatedLabel",
-        });
+        await client.labels.dispatch(
+          labels[0].key,
+          label.set({ path: ["name"], value: "updatedLabel" }),
+        );
+        labels[0] = { ...labels[0], name: "updatedLabel" };
         await waitFor(() => {
           expect(result.current).toEqual(expect.arrayContaining(labels));
         });

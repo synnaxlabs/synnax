@@ -950,10 +950,7 @@ describe("Arc queries", () => {
       });
 
       await act(async () => {
-        await client.tasks.create({
-          ...testTask.payload,
-          name: "renamed-task-name",
-        });
+        await client.tasks.rename(testTask.key, "renamed-task-name");
       });
 
       await waitFor(() => {

@@ -137,7 +137,7 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current?.name).toEqual("original"));
       await act(async () => {
-        await client.racks.create({ ...item, name: "updated" });
+        await client.racks.rename(item.key, "updated");
       });
       await waitFor(() => expect(result.current?.name).toEqual("updated"));
     });
@@ -278,10 +278,7 @@ describe("queries", () => {
       });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
 
-      await client.racks.create({
-        ...testRack,
-        name: "updated",
-      });
+      await client.racks.rename(testRack.key, "updated");
 
       await waitFor(() => {
         expect(result.current.getItem(testRack.key)?.name).toEqual("updated");
@@ -375,11 +372,10 @@ describe("queries", () => {
         expect(result.current.data).toContain(testRack.key);
       });
 
-      await client.racks.create({
-        key: testRack.key,
-        name: "changing-rack",
-        integrations: ["modbus"],
-      });
+      await client.racks.dispatch(
+        testRack.key,
+        rack.set({ path: ["integrations"], value: ["modbus"] }),
+      );
 
       await waitFor(() => {
         expect(result.current.data).not.toContain(testRack.key);
