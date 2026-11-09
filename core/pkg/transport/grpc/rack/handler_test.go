@@ -23,7 +23,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ = Describe("Create", func() {
@@ -130,14 +129,14 @@ var _ = Describe("Dispatch", func() {
 	It("Should decode each action from the JSON form that HTTP takes", func(
 		ctx SpecContext,
 	) {
-		set := MustSucceed(structpb.NewStruct(map[string]any{
-			"type": "set",
-			"set":  map[string]any{"path": []any{"version"}, "value": "0.50.0"},
-		}))
 		MustSucceed(client.Exec(ctx, &grpcrack.DispatchRequest{
 			Key:         65537,
 			DispatchKey: "dk",
-			Actions:     []*structpb.Struct{set},
+			Actions: [][]byte{
+				[]byte(
+					`{"type": "set", "set": {"path": ["version"], "value": "0.50.0"}}`,
+				),
+			},
 		}))
 		Expect(received).To(Equal(rack.DispatchRequest{
 			Key:         65537,
@@ -150,10 +149,9 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should reject an action that does not decode", func(ctx SpecContext) {
-		bad := MustSucceed(structpb.NewStruct(map[string]any{"type": 1.0}))
 		Expect(client.Exec(ctx, &grpcrack.DispatchRequest{
 			Key:     65537,
-			Actions: []*structpb.Struct{bad},
+			Actions: [][]byte{[]byte(`{"type": 1}`)},
 		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
 	})
 })

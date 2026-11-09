@@ -14,7 +14,6 @@ package grpc.rack;
 import "core/pkg/api/rack/pb/rack.proto";
 import "core/pkg/service/rack/pb/rack.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/rack";
 
@@ -52,10 +51,11 @@ message DeleteRequest {
   repeated uint32 keys = 1;
 }
 
-// DispatchRequest applies actions to one rack. Each action is the JSON object that the
-// HTTP dispatch route takes, such as {"type": "set", "set": {...}}.
+// DispatchRequest applies actions to one rack.
 message DispatchRequest {
   uint32 key = 1;
   string dispatch_key = 2;
-  repeated google.protobuf.Struct actions = 3;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }

@@ -11,6 +11,7 @@ package device
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -18,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
 	svcdevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -193,12 +196,15 @@ func New(t *api.Transport) grpc.BindableTransport {
 }
 
 func (dispatchRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	req device.DispatchRequest,
 ) (*DispatchRequest, error) {
-	acts, err := xpb.ToStructs(req.Actions)
-	if err != nil {
-		return nil, err
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(ctx, a); err != nil {
+			return nil, err
+		}
 	}
 	return &DispatchRequest{
 		Key:         req.Key,
@@ -208,12 +214,18 @@ func (dispatchRequestTranslator) Forward(
 }
 
 func (dispatchRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	req *DispatchRequest,
 ) (device.DispatchRequest, error) {
-	acts, err := xpb.FromStructs[svcdevice.Action](req.Actions)
-	if err != nil {
-		return device.DispatchRequest{}, validate.PathedError(err, "actions")
+	acts := make([]svcdevice.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(ctx, b, &acts[i]); err != nil {
+			return device.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
 	}
 	return device.DispatchRequest{
 		Key:         req.Key,
