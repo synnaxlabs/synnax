@@ -24,7 +24,12 @@ const auto READ_TIMEOUT_SLACK = x::telem::MILLISECOND * 200;
 }
 
 Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
-    engine(engine), input(std::move(input)) {}
+    engine(engine), input(std::move(input)) {
+    size_t width = 0;
+    for (const auto &entry: this->input->entries)
+        width = std::max(width, entry.decoder.type().density());
+    this->values.resize(this->input->samples_per_read * width);
+}
 
 Engine::Reader::~Reader() {
     this->engine.close_input(this->input);
@@ -79,19 +84,20 @@ x::errors::Error Engine::Reader::read(
             )
         );
     }
-    for (size_t s = 0; s < count; ++s) {
-        const size_t slot = (tail + s) % in.capacity;
-        const uint8_t *sample = in.samples.get() + slot * in.sample_size;
-        for (size_t i = 0; i < in.entries.size(); ++i)
-            telem::read_pdo_to_series(
-                sample + in.sample_offsets[i],
-                in.offsets[i].bit,
-                in.entries[i].bit_length,
-                in.entries[i].data_type,
-                frame.series->at(i)
+    const auto slot = [&](const size_t s) { return (tail + s) % in.capacity; };
+    for (size_t i = 0; i < in.entries.size(); ++i) {
+        const auto &decoder = in.entries[i].decoder;
+        const size_t width = decoder.type().density();
+        const uint8_t *entry = in.samples.get() + in.entries[i].sample_offset;
+        for (size_t s = 0; s < count; ++s)
+            decoder.decode(
+                entry + slot(s) * in.sample_size,
+                this->values.data() + s * width
             );
-        times.write(in.times[slot]);
+        frame.series->at(i).write_casted(this->values.data(), count, decoder.type());
     }
+    for (size_t s = 0; s < count; ++s)
+        times.write(in.times[slot(s)]);
     in.tail.store(tail + count, std::memory_order_release);
     return x::errors::NIL;
 }

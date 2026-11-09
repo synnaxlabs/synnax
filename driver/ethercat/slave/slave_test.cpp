@@ -15,13 +15,14 @@
 
 namespace driver::ethercat::slave {
 
-TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
-    ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
-    ASSERT_EQ(slave_state_to_string(State::PRE_OP), "PRE-OP");
-    ASSERT_EQ(slave_state_to_string(State::SAFE_OP), "SAFE-OP");
-    ASSERT_EQ(slave_state_to_string(State::OP), "OP");
-    ASSERT_EQ(slave_state_to_string(State::BOOT), "BOOT");
-    ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
+/// @brief it should name each slave state as the EtherCAT standard does.
+TEST(StateToString, NamesEachState) {
+    ASSERT_EQ(to_string(State::INIT), "INIT");
+    ASSERT_EQ(to_string(State::PRE_OP), "PRE-OP");
+    ASSERT_EQ(to_string(State::SAFE_OP), "SAFE-OP");
+    ASSERT_EQ(to_string(State::OP), "OP");
+    ASSERT_EQ(to_string(State::BOOT), "BOOT");
+    ASSERT_EQ(to_string(State::UNKNOWN), "UNKNOWN");
 }
 
 TEST(FromAlState, ConvertsStandardStates) {
@@ -143,7 +144,7 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_EQ(props.name, "EL2008");
     ASSERT_EQ(props.network, "eth0");
     ASSERT_EQ(props.position, 1);
-    ASSERT_TRUE(props.enabled);
+    ASSERT_TRUE(props.config.enabled);
 }
 
 TEST(PropertiesParse, ParsesWithPdos) {
@@ -204,7 +205,7 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
 /// @brief it should parse a device stored before slaves listed their OpModes as a slave
 /// with no OpModes.
 TEST(PropertiesParse, DefaultsToNoOpModes) {
-    auto j = Properties{.position = 1, .name = "EL2008", .enabled = true}.to_json();
+    auto j = Properties{.position = 1, .name = "EL2008"}.to_json();
     j.erase("op_modes");
     auto parser = x::json::Parser(j);
     const auto props = Properties::parse(parser);
@@ -218,14 +219,14 @@ TEST(PropertiesParse, RoundTripsOpModes) {
     const Properties props{
         .position = 1,
         .name = "6xSTG",
-        .op_modes =
-            {{.name = "SM-Synchron", .sync0_factor = 1},
-             {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
-             {.name = "DC-bus1",
-              .assign_activate = 0x0700,
-              .sync0_cycle = 1000,
-              .sync1_factor = -1000}},
-        .enabled = true,
+        .op_modes = {
+            {.name = "SM-Synchron", .sync0_factor = 1},
+            {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+            {.name = "DC-bus1",
+             .assign_activate = 0x0700,
+             .sync0_cycle = 1000,
+             .sync1_factor = -1000}
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
@@ -233,25 +234,23 @@ TEST(PropertiesParse, RoundTripsOpModes) {
     EXPECT_EQ(parsed.op_modes, props.op_modes);
 }
 
-/// @brief it should give back the chosen mode of a slave after a JSON round trip, and
-/// pass it to the master in the slave settings.
+/// @brief it should give back the chosen mode of a slave after a JSON round trip.
 TEST(PropertiesParse, RoundTripsTheChosenMode) {
     const Properties props{
         .position = 1,
         .name = "6xSTG",
-        .op_mode =
-            dc::Choice{
+        .config = {
+            .op_mode = dc::Choice{
                 .index = 1,
                 .assign_activate = 0x0300,
                 .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
             },
-        .enabled = true,
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(parsed.op_mode, props.op_mode);
-    EXPECT_EQ(parsed.config().op_mode, props.op_mode);
+    EXPECT_EQ(parsed.config.op_mode, props.config.op_mode);
 }
 
 /// @brief it should leave out the chosen mode of a slave with no choice, as the Console
@@ -277,15 +276,15 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .is_input = true,
               .name = "Value",
               .data_type = x::telem::INT16_T}},
-        .output_pdos =
-            {{.pdo_index = 0x1600,
-              .index = 0x7000,
-              .sub_index = 1,
-              .bit_length = 8,
-              .is_input = false,
-              .name = "Control",
-              .data_type = x::telem::UINT8_T}},
-        .enabled = true,
+        .output_pdos = {
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 8,
+             .is_input = false,
+             .name = "Control",
+             .data_type = x::telem::UINT8_T}
+        },
     };
 
     auto j = props.to_json();
@@ -492,8 +491,8 @@ TEST(Properties, ParsesStartupParameters) {
     );
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(props.startup_parameters.size(), 1);
-    EXPECT_EQ(props.startup_parameters[0].index, 0x8000);
+    ASSERT_EQ(props.config.startup_parameters.size(), 1);
+    EXPECT_EQ(props.config.startup_parameters[0].index, 0x8000);
     EXPECT_FALSE(props.to_json().contains("startup_parameters"));
 }
 
@@ -575,6 +574,6 @@ TEST(Properties, ParsesWithoutStartupParameters) {
     );
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
-    EXPECT_TRUE(props.startup_parameters.empty());
+    EXPECT_TRUE(props.config.startup_parameters.empty());
 }
 }

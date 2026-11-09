@@ -566,7 +566,6 @@ TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIWhenTheSyncManagerCountFails
 
     ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
     EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
-    EXPECT_TRUE(slaves[0].status.pdos_discovered);
     EXPECT_EQ(
         slaves[0].status.pdo_discovery_error,
         "failed to read the PDO layout: failed to read 0x1C00:00: Unsupported access "
@@ -586,7 +585,6 @@ TEST_F(SOEMMasterTest, CoEDiscoveryReportsAFailedReadWithoutSIIPDOs) {
     const auto slaves = ASSERT_NIL_P(this->master->scan());
 
     EXPECT_TRUE(slaves[0].properties.input_pdos.empty());
-    EXPECT_FALSE(slaves[0].status.pdos_discovered);
     EXPECT_EQ(
         slaves[0].status.pdo_discovery_error,
         "failed to read the PDO layout: failed to read 0x1C00:00: Unsupported access "
@@ -620,7 +618,6 @@ TEST_F(SOEMMasterTest, CoEDiscoveryFallsBackToTheSIIWhenItReadsNoCoEPDO) {
 
     ASSERT_EQ(slaves[0].properties.input_pdos.size(), 1);
     EXPECT_EQ(slaves[0].properties.input_pdos[0].index, 0x6000);
-    EXPECT_TRUE(slaves[0].status.pdos_discovered);
     EXPECT_EQ(
         slaves[0].status.pdo_discovery_error,
         "failed to read the PDO layout: failed to read 0x1A00:00: Object does not "

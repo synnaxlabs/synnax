@@ -26,6 +26,7 @@
 #include "x/cpp/thread/rt/rt.h"
 
 #include "driver/ethercat/master/master.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
 /// @brief Configuration for the Engine.
@@ -88,14 +89,17 @@ class Engine {
 
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
-        std::vector<pdo::Entry> entries;
+        /// @brief where one entry sits in the input image and in a sample.
+        struct Entry {
+            size_t image_byte = 0;
+            size_t sample_offset = 0;
+            /// @brief the number of image bytes the entry spans.
+            size_t length = 0;
+            telem::Decoder decoder;
+        };
+        std::vector<Entry> entries;
         x::telem::Rate rate;
         size_t samples_per_read;
-        std::vector<pdo::Offset> offsets;
-        /// @brief the byte offset of each entry in a sample.
-        std::vector<size_t> sample_offsets;
-        /// @brief the number of image bytes each entry spans.
-        std::vector<size_t> lengths;
         size_t sample_size = 0;
         size_t capacity = 0;
         std::unique_ptr<uint8_t[]> samples;
@@ -113,8 +117,8 @@ class Engine {
         size_t countdown = 0;
 
         Input(
-            std::vector<pdo::Entry> entries,
-            std::vector<pdo::Offset> offsets,
+            const std::vector<pdo::Entry> &entries,
+            const std::vector<pdo::Offset> &offsets,
             x::telem::Rate rate,
             size_t samples_per_read
         );
@@ -223,6 +227,22 @@ class Engine {
     /// errors::PDO_MAPPING_ERROR when the image does not hold an entry.
     [[nodiscard]] std::pair<std::vector<pdo::Offset>, x::errors::Error>
     offsets_locked(const std::vector<pdo::Entry> &entries) const;
+    /// @brief what join_locked() gives a new reader or writer.
+    struct Joined {
+        /// @brief the bus rate in millihertz.
+        uint64_t mhz = 0;
+        /// @brief the offset of each entry in the process image.
+        std::vector<pdo::Offset> offsets;
+    };
+    /// @brief returns the bus rate and the offset of each entry once the bus runs at a
+    /// rate that also serves rate as a read rate, or as a write rate when output is
+    /// true. Starts the bus when it is stopped, and stops it again on an error.
+    [[nodiscard]] std::pair<Joined, x::errors::Error> join_locked(
+        std::unique_lock<std::mutex> &lock,
+        const std::vector<pdo::Entry> &entries,
+        x::telem::Rate rate,
+        bool output
+    );
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -231,6 +251,8 @@ public:
     class Reader {
         Engine &engine;
         std::shared_ptr<Input> input;
+        /// @brief the decoded values of one entry in a read.
+        std::vector<uint8_t> values;
 
     public:
         Reader(Engine &engine, std::shared_ptr<Input> input);

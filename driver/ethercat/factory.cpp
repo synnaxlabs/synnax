@@ -117,7 +117,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
         const auto label = props.serial == 0
                              ? dev.name
                              : std::format("{} (serial {})", dev.name, props.serial);
-        const auto config = props.config();
+        const auto &config = props.config;
         const auto [it, added] = configs.emplace(props.position, config);
         if (added) {
             labels[props.position] = label;
@@ -184,7 +184,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = this->pool->acquire(cfg.slaves.network);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     // The bus recovers a lost device without a limit, so the task waits for it.
@@ -204,7 +204,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = this->pool->acquire(cfg.slaves.network);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(

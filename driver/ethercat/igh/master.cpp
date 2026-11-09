@@ -189,7 +189,6 @@ x::errors::Error Master::initialize() {
                                                     err.data;
                 break;
             }
-        result.status.pdos_discovered = true;
         esi::fill(result);
         this->cached_slaves.push_back(std::move(result));
     }
@@ -385,7 +384,7 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
             "slave {} ({}) is in {}",
             pos,
             name,
-            slave::slave_state_to_string(state)
+            slave::to_string(state)
         );
         if (info.error_flag == 0) continue;
         msg += " with an AL error";

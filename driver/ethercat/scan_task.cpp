@@ -36,10 +36,6 @@ std::string get_pdo_error_guidance(const std::string &error) {
            "while no task uses the port.";
 }
 
-bool pdo_discovery_failed(const slave::DiscoveryResult &slave) {
-    return !slave.status.pdos_discovered || !slave.status.pdo_discovery_error.empty();
-}
-
 /// @brief sets the variant, message, description, and connection of status from the
 /// condition of an enabled slave on a running bus.
 void set_live_status(const slave::Health &health, synnax::device::Status &status) {
@@ -77,7 +73,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              "of the device.";
         return;
     }
-    const auto state = slave::slave_state_to_string(health.state);
+    const auto state = slave::to_string(health.state);
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
@@ -173,9 +169,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto health = this->pool->health(key);
         bool rediscovery_needed = false;
         for (const auto &slave: slaves) {
-            auto dev = this->create_slave_device(slave, health, key, scan_ctx);
-            rediscovery_needed |= pdo_discovery_failed(slave) &&
-                                  dev.properties.at("enabled").get<bool>();
+            auto [dev, enabled] = this->create_slave_device(
+                slave,
+                health,
+                key,
+                scan_ctx
+            );
+            rediscovery_needed |= enabled && !slave.status.pdo_discovery_error.empty();
             devices.push_back(std::move(dev));
         }
         if (!rediscovery_needed)
@@ -203,7 +203,7 @@ bool Scanner::exec(
     return false;
 }
 
-synnax::device::Device Scanner::create_slave_device(
+std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
@@ -220,7 +220,7 @@ synnax::device::Device Scanner::create_slave_device(
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
     const auto [saved, saved_err] = parse_properties(json_props);
-    const bool is_enabled = saved.enabled;
+    const bool is_enabled = saved.config.enabled;
 
     synnax::device::Device dev;
     dev.key = key;
@@ -250,13 +250,11 @@ synnax::device::Device Scanner::create_slave_device(
     } else if (live != health.end())
         set_live_status(*live, status);
     else if (
-        pdo_discovery_failed(slave) && props.input_pdos.empty() &&
+        !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
         status.message = "Failed to discover PDOs";
-        status.description = pdo_error_description(
-            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
-        );
+        status.description = pdo_error_description(sts.pdo_discovery_error);
         status.variant = synnax::status::VARIANT_WARNING;
     } else {
         const auto objects = [](const std::vector<pdo::Properties> &pdos) {
@@ -274,7 +272,7 @@ synnax::device::Device Scanner::create_slave_device(
         }
     }
     dev.status = std::move(status);
-    return dev;
+    return {std::move(dev), is_enabled};
 }
 
 nlohmann::json Scanner::get_existing_properties(
@@ -310,12 +308,13 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         props.position,
         &slave::Health::position
     );
-    const bool connected = props.enabled && (live == health.end() || !live->lost);
+    const bool connected = props.config.enabled &&
+                           (live == health.end() || !live->lost);
     synnax::device::Status status{
         .name = dev.name,
-        .variant = props.enabled ? synnax::status::VARIANT_SUCCESS
-                                 : synnax::status::VARIANT_DISABLED,
-        .message = props.enabled ? "Device enabled" : "Device disabled",
+        .variant = props.config.enabled ? synnax::status::VARIANT_SUCCESS
+                                        : synnax::status::VARIANT_DISABLED,
+        .message = props.config.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .connected = connected},
         .owner = synnax::device::resource_id(dev.key),

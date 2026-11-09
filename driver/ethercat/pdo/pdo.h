@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#pragma once
+
 #include <cstdint>
 #include <format>
 #include <functional>
@@ -14,8 +16,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#pragma once
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"

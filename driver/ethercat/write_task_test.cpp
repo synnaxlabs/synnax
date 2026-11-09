@@ -165,6 +165,19 @@ protected:
         return cfg;
     }
 
+    x::json::json create_unresolved_output_channel_config(
+        const synnax::channel::Key &command_key,
+        const std::string &pdo_name
+    ) {
+        return {
+            {"type", "unresolved"},
+            {"device", slave_device.key},
+            {"pdo", pdo_name},
+            {"cmd_channel", command_key},
+            {"disabled", false}
+        };
+    }
+
     synnax::channel::Channel create_command_channel(
         const std::string &name,
         const x::telem::DataType &data_type
@@ -246,6 +259,33 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     );
 }
 
+/// @brief it should report only the entry error of each write channel whose entry it
+/// cannot find.
+TEST_F(EtherCATWriteTest, ParseConfigReportsEachChannelWithNoEntry) {
+    const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
+    const auto ch2 = create_command_channel("ch2", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch1.key, "Missing")
+    );
+    cfg["channels"].push_back(
+        create_unresolved_output_channel_config(ch2.key, "Missing")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
+    EXPECT_EQ(errors[1]["path"], "channels.1.pdo");
+    EXPECT_EQ(
+        errors[1]["message"],
+        "'Missing' matches no output entry on slave Test Slave. Pick an entry."
+    );
+}
+
 /// @brief it should allow a disabled write channel on an entry another channel uses.
 TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
@@ -265,7 +305,35 @@ TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.outputs.size(), 1);
 }
 
-/// @brief it should report a write channel on a slave device that does not exist.
+/// @brief it should ignore a disabled write channel on a slave device that does not
+/// exist.
+TEST_F(EtherCATWriteTest, ParseConfigIgnoresTheDeviceOfADisabledChannel) {
+    const auto enabled = create_command_channel("enabled", x::telem::INT16_T);
+    const auto disabled = create_command_channel("disabled", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(enabled.key, 0x7000, 1, "int16")
+    );
+    auto disabled_cfg = create_output_channel_config(
+        disabled.key,
+        0x7000,
+        1,
+        "int16",
+        0,
+        true
+    );
+    disabled_cfg["device"] = "nonexistent_slave_key";
+    cfg["channels"].push_back(disabled_cfg);
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.outputs.size(), 1);
+    EXPECT_EQ(task_cfg.outputs[0]->command_key, enabled.key);
+}
+
+/// @brief it should report each write channel on a slave device that does not exist.
 TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -286,17 +354,37 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
            {"cmd_channel", cmd_ch.key},
            {"disabled", false}}}}
     };
+    auto second = cfg["channels"][0];
+    second["sub_index"] = 2;
+    cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
+    ASSERT_EQ(errors.size(), 2);
     EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(errors[1]["path"], "channels.1.device");
     EXPECT_EQ(
-        errors[0]["message"],
+        errors[1]["message"],
         R"(Found no device where key = "nonexistent_slave_key")"
     );
+}
+
+/// @brief it should reject a write task whose channels are all disabled.
+TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
+    const auto ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(ch.key, 0x7000, 1, "int16", 0, true)
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
 }
 
 /// @brief it should write the stop value of each channel when the task stops.

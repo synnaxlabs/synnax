@@ -166,6 +166,19 @@ protected:
         };
     }
 
+    x::json::json create_unresolved_input_channel_config(
+        const synnax::channel::Channel &channel,
+        const std::string &pdo_name
+    ) {
+        return {
+            {"type", "unresolved"},
+            {"device", slave_device.key},
+            {"pdo", pdo_name},
+            {"channel", channel.key},
+            {"disabled", false}
+        };
+    }
+
     /// @brief starts a source that reads the int16 entry at 0x6000:01 into a float64
     /// channel with the given scale.
     std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
@@ -206,11 +219,11 @@ TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
-    EXPECT_EQ(task_cfg.interface_name, "eth0");
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
-    EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);
-    EXPECT_EQ(task_cfg.channels[0]->data_type, x::telem::INT16_T);
+    EXPECT_EQ(task_cfg.slaves.network, "eth0");
+    EXPECT_EQ(task_cfg.channels[0]->entry.index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[0]->entry.sub_index, 1);
+    EXPECT_EQ(task_cfg.channels[0]->entry.bit_length, 16);
+    EXPECT_EQ(task_cfg.channels[0]->entry.data_type, x::telem::INT16_T);
 }
 
 /// @brief it should report a read channel that does not exist in the Core.
@@ -229,6 +242,25 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels");
     EXPECT_EQ(errors[0]["message"], "channels matching keys 99999 not found.");
+}
+
+/// @brief it should report only the entry error of a read channel whose entry it cannot
+/// find.
+TEST_F(EtherCATReadTest, ParseConfigReportsAChannelWithNoEntry) {
+    const auto ch = create_data_channel("ch", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(create_unresolved_input_channel_config(ch, "Missing"));
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "'Missing' matches no input entry on slave Test Slave. Pick an entry."
+    );
 }
 
 /// @brief it should report a second read channel on an entry another channel already
@@ -268,6 +300,36 @@ TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
+}
+
+/// @brief it should start when a disabled channel names a slave that is not on the
+/// bus, and enable a channel whose config has no disabled field.
+TEST_F(EtherCATReadTest, StartIgnoresTheSlaveOfADisabledChannel) {
+    const auto enabled_ch = create_data_channel("enabled", x::telem::INT16_T);
+    const auto disabled_ch = create_data_channel("disabled", x::telem::INT16_T);
+    const auto absent = create_slave_device(
+        SLAVE_SERIAL + 1,
+        x::json::json::array(),
+        x::json::json::array(),
+        5
+    );
+
+    auto cfg = this->create_base_config();
+    auto enabled = create_input_channel_config(enabled_ch, 0x6000, 1, "int16");
+    enabled.erase("disabled");
+    cfg["channels"].push_back(enabled);
+    auto disabled = create_input_channel_config(disabled_ch, 0x6000, 1, "int16", true);
+    disabled["device"] = absent.key;
+    cfg["channels"].push_back(disabled);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.channels[0]->synnax_key, enabled_ch.key);
+    ReadTaskSource source(engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.stop());
 }
 
 /// @brief it should reject a scaled read channel whose Synnax channel is not a float
@@ -335,17 +397,49 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
            {"channel", data_ch.key},
            {"disabled", false}}}}
     };
+    auto second = cfg["channels"][0];
+    second["sub_index"] = 2;
+    cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 1);
+    ASSERT_EQ(errors.size(), 2);
     EXPECT_EQ(errors[0]["path"], "channels.0.device");
+    EXPECT_EQ(errors[1]["path"], "channels.1.device");
     EXPECT_EQ(
-        errors[0]["message"],
+        errors[1]["message"],
         R"(Found no device where key = "nonexistent_device_key")"
     );
+}
+
+/// @brief it should reject each channel on a slave that is on another network than the
+/// slaves before it.
+TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
+    auto other = this->slave_device;
+    other.key += "_eth1";
+    other.properties["network"] = "eth1";
+    ASSERT_NIL(this->client->devices.create(other));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto off_network = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    off_network["device"] = other.key;
+    cfg["channels"].push_back(off_network);
+    off_network["sub_index"] = 2;
+    cfg["channels"].push_back(off_network);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "channels.1.device");
+    EXPECT_EQ(errors[1]["path"], "channels.2.device");
+    EXPECT_EQ(errors[1]["message"], "all slaves must be on the same network");
 }
 
 /// @brief it should reject a stream rate that does not divide the sample rate.

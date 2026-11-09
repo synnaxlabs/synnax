@@ -656,7 +656,6 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     // SOEM maps a slave from its SII when CoE gives no process data.
     if (!read_coe) this->discover_pdos_sii(slave);
     const bool found = !props.input_pdos.empty() || !props.output_pdos.empty();
-    slave.status.pdos_discovered = found || !layout_err;
     esi::fill(slave);
     // The catalog layout does not clear a failed read, so the scanner warns and
     // discovers the slave again.
@@ -1131,16 +1130,14 @@ bool Master::refuses(const uint16_t pos, const uint16_t state) const {
 
 master::Activation
 Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
-    const auto target = slave::slave_state_to_string(slave::from_al_state(state));
+    const auto target = slave::to_string(slave::from_al_state(state));
     std::string msg;
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
         msg += "slave " + std::to_string(pos) + " (" + this->record(pos).name +
                ") is in " +
-               slave::slave_state_to_string(
-                   slave::from_al_state(this->record(pos).state)
-               );
+               slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;
         const auto code = this->record(pos).ALstatuscode;
         const std::string text = ec_ALstatuscode2string(code);
