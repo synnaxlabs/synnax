@@ -396,7 +396,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
-					MustSucceed(host.Channel.Create(ctx, []channel.Channel{
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{
 						{Name: "held_time", IsIndex: true, DataType: telem.TimestampT},
 						{Name: "free_time", IsIndex: true, DataType: telem.TimestampT},
 					})),

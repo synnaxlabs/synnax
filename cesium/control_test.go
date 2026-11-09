@@ -433,6 +433,17 @@ var _ = Describe("Control", func() {
 					},
 				)
 				It(
+					"Should return an error from a one-shot write without control",
+					func(ctx SpecContext) {
+						high := open(ctx, "high", xcontrol.AuthorityAbsolute, idx)
+						Expect(db.Write(ctx, 10*telem.SecondTS, frame(10))).
+							To(MatchError(xcontrol.ErrUnauthorized))
+						Expect(high.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.HasData()).To(BeFalse())
+					},
+				)
+				It(
 					"Should not report control of a channel the writer never wrote to",
 					func(ctx SpecContext) {
 						controlled := createIndex(ctx)
