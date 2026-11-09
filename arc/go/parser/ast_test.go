@@ -266,6 +266,22 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
+	Describe("ExpressionNameParts", func() {
+		DescribeTable("returns the parts of a lone name",
+			func(code, head, tail string) {
+				h, t := parser.ExpressionNameParts(parseExpr(code))
+				Expect(h).To(Equal(head))
+				Expect(t).To(Equal(tail))
+			},
+			Entry("bare name", "x", "x", ""),
+			Entry("qualified name", "m.doubled", "m", "doubled"),
+			Entry("operator", "x + 1", "", ""),
+			Entry("call", "m.f()", "", ""),
+			Entry("index", "x[0]", "", ""),
+			Entry("literal", "42", "", ""),
+		)
+	})
+
 	Describe("CollectNamedPrimaries", func() {
 		DescribeTable("collects the names an expression reads",
 			func(code string, expected []string) {

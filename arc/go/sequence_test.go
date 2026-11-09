@@ -5389,6 +5389,39 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Variable reassignment", func() {
+		It("Writes through a top-level alias from a function", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in":        {types.U8(), 101},
+				"out":       {types.U8(), 102},
+				"go2":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				a := out
+				func set_value() u8 {
+				    a = 7
+				    return 0
+				}
+				func copy_in() u8 {
+				    a = in
+				    return 0
+				}
+				start_cmd -> set_value()
+				go2 -> copy_in()`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(7)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](9))
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(9)))
+		})
+
 		It("Reflects a reassignment to an initialized variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},

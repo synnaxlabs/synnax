@@ -43,9 +43,8 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
-		// Inherited channel read/write (cpu := chan): no local here, read by key.
-		if scope.Type.Kind == types.KindChan && !SameFunction(ctx.Scope, scope) {
-			ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
+		if scope.Type.Kind == types.KindChan {
+			EmitChannelKey(ctx, scope)
 			if chanRef {
 				return scope.Type, nil
 			}
@@ -65,13 +64,6 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			)
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
-		if scope.Type.Kind == types.KindChan {
-			if chanRef {
-				return scope.Type, nil
-			}
-			emitChannelRead(ctx, scope.Type)
-			return scope.Type.Unwrap(), nil
-		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
 		// Reassigned is only tracked at flow level; a never-written $= there is
@@ -86,7 +78,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
-		ctx.Writer.WriteI32Const(int32(scope.ID))
+		EmitChannelKey(ctx, scope)
 		if chanRef {
 			return scope.Type, nil
 		}
@@ -115,6 +107,20 @@ func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
 		return in
 	}
 	return nil
+}
+
+// EmitChannelKey pushes the key of the channel that sym names. A param or variable of
+// the function being compiled holds the key in a local. A channel, or an alias declared
+// outside the function, has a constant key.
+func EmitChannelKey[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	sym *symbol.Symbol,
+) {
+	if sym.Kind != symbol.KindChannel && SameFunction(ctx.Scope, sym) {
+		ctx.Writer.WriteLocalGet(sym.ID)
+		return
+	}
+	ctx.Writer.WriteI32Const(int32(channelKeyOf(sym)))
 }
 
 // channelKeyOf returns the channel key sym refers to: its SourceID when sym is

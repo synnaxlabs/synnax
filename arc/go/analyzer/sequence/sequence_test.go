@@ -14,10 +14,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -775,5 +777,16 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
 		)
+	})
+
+	Describe("RejectReactiveAssignment", func() {
+		It("Should point the assignment at a flow write", func() {
+			stmt := MustSucceed(parser.ParseStatement("valve = 1"))
+			var diag diagnostics.Diagnostics
+			sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
+			Expect(diag).To(HaveLen(1))
+			Expect(diag[0].Message).
+				To(Equal("use '<value> -> valve' to write to 'valve'"))
+		})
 	})
 })
