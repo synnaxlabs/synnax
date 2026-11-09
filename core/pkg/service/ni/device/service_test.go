@@ -287,6 +287,24 @@ var _ = Describe("Service", func() {
 			)).To(MatchError(ContainSubstring("name: required")))
 		})
 
+		It("Should refuse a move to a rack that does not exist", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			missing := rack.NewKey(1, 999)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.Rack = missing
+					return d, nil
+				},
+			)).To(MatchError(fmt.Sprintf(
+				"rack: rack %d does not exist: validation error",
+				missing,
+			)))
+		})
+
 		It("Should return not found for a missing device", func(ctx SpecContext) {
 			Expect(svc.NewWriter(tx).Update(
 				ctx,
@@ -348,6 +366,11 @@ var _ = Describe("Service", func() {
 			d := create(ctx)
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
 				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
+		})
+
+		It("Should parse the key of a device resource ID", func() {
+			key := uuid.New()
+			Expect(device.KeyFromResourceID(device.ResourceID(key))).To(Equal(key))
 		})
 
 		It("Should reject a key that is not a UUID", func(ctx SpecContext) {
