@@ -329,9 +329,8 @@ export const Base = ({
             {new TimeStamp(BigInt(searchedTo)).toString("dateTime", timeZone)}
           </Text.Text>
         )}
-        <JumpContext value={{ jump, status: jumpStatus }}>
-          {empty ? emptyContent : children}
-        </JumpContext>
+        {empty && emptyContent}
+        <JumpContext value={{ jump, status: jumpStatus }}>{children}</JumpContext>
       </div>
     </Menu.ContextMenu>
   );
