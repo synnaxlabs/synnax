@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -264,9 +265,15 @@ var _ = Describe("Undo", func() {
 		openAt(ctx, dir, "0.59.0")
 		openAt(ctx, dir, "0.60.0")
 		name := MustSucceed(newBackups(dir).Undo()).Backup.Name
-		Expect(newBackups(dir).Undo()).Error().To(MatchError(ContainSubstring(
-			"The last update is already undone. To restore backup %s again", name,
-		)))
+		Expect(newBackups(dir).Undo()).Error().To(SatisfyAll(
+			MatchError(
+				func(err error) bool { return errors.Is(err, storage.ErrUndone) },
+				"storage.ErrUndone",
+			),
+			MatchError(ContainSubstring(
+				"The last update is already undone. To restore backup %s again", name,
+			)),
+		))
 		MustSucceed(newBackups(dir).Restore(name))
 	})
 
@@ -280,6 +287,21 @@ var _ = Describe("Undo", func() {
 		Expect(newBackups(dir).Undo()).Error().
 			To(MatchError(ContainSubstring("The last update is already undone")))
 	})
+
+	It(
+		"Should not check the undo while a Core runs on the data",
+		func(ctx SpecContext) {
+			openAt(ctx, dir, "0.59.0")
+			openAt(ctx, dir, "0.60.0")
+			MustSucceed(newBackups(dir).Undo())
+			MustOpen(storage.OpenLayer(
+				ctx,
+				storage.LayerConfig{Dirname: dir, Version: "0.59.0"},
+			))
+			Expect(newBackups(dir).Undo()).Error().
+				To(MatchError(ContainSubstring("Failed to acquire lock")))
+		},
+	)
 
 	It("Should return an error when there is no backup", func(ctx SpecContext) {
 		openAt(ctx, dir, "0.60.0")

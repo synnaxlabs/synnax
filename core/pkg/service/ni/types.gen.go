@@ -973,6 +973,14 @@ type DigitalPort struct {
 	Output bool `json:"output" msgpack:"output"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalPort) Validate() error {
+	v := validate.New("DigitalPort")
+	v.LessThanEq("lines", d.Lines, 32)
+	return v.Error()
+}
+
 // Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
 // NI device. The Driver stores it in the device properties under hardware.
 type Hardware struct {
@@ -1027,6 +1035,11 @@ func (h Hardware) Validate() error {
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {
 			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))
+		})
+	}
+	for i := range h.DigitalPorts {
+		v.Exec(func() error {
+			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
 		})
 	}
 	return v.Error()

@@ -354,7 +354,7 @@ export const baseAIChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical port the channel reads from. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
   /** device is the key of the device the channel belongs to. */
   device: device.keyZ.default(""),
 });
@@ -384,7 +384,7 @@ export const baseCIChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical counter the channel uses. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
   /** device is the key of the device the counter belongs to. */
   device: device.keyZ.default(""),
 });
@@ -405,7 +405,7 @@ export const baseAOChannelZ = z.object({
   /** stateChannelName is the human-readable name of the state channel. */
   stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
 });
 export interface BaseAOChannel extends z.infer<typeof baseAOChannelZ> {}
 
@@ -420,9 +420,9 @@ export const diChannelZ = z.object({
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.default(0),
   /** port is the physical port the channel reads from. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
   /** line is the digital line within the port the channel reads from. */
-  line: z.int32().default(0),
+  line: zod.uint8.max(31).default(0),
 });
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 
@@ -441,9 +441,9 @@ export const doChannelZ = z.object({
   /** stateChannelName is the human-readable name of the state channel. */
   stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
   /** line is the digital line within the port the channel writes to. */
-  line: z.int32().default(0),
+  line: zod.uint8.max(31).default(0),
 });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
@@ -511,7 +511,7 @@ export const digitalPortZ = z.object({
   /** port is the number in the DAQmx name of the port, such as 0 for port0. */
   port: zod.uint16,
   /** lines is the number of lines in the port. */
-  lines: zod.uint8,
+  lines: zod.uint8.max(32),
   /** input is true when the port reads digital input. */
   input: z.boolean().default(false),
   /** output is true when the port writes digital output. */
@@ -537,7 +537,7 @@ export interface ConstValCJC extends z.infer<typeof constValCJCZ> {}
 export const chanCJCZ = z.object({
   source: z.literal("chan"),
   /** port is the port of the channel that measures the reference. */
-  port: z.int32().default(0),
+  port: z.uint32().default(0),
 });
 export interface ChanCJC extends z.infer<typeof chanCJCZ> {}
 
@@ -1418,7 +1418,7 @@ export const ciFrequencyChannelZ = baseCIChannelZ
     /** measTime is the averaging window for high-frequency measurement, in seconds. */
     measTime: z.number().default(0.000006),
     /** divisor is the counter divisor for large-range measurement. */
-    divisor: z.int32().default(4),
+    divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
   });
@@ -1432,7 +1432,7 @@ export const ciEdgeCountChannelZ = baseCIChannelZ.extend({
   /** countDirection selects the direction the counter counts. */
   countDirection: ciCountDirectionZ.default("CountUp"),
   /** initialCount is the value the counter starts at. */
-  initialCount: z.number().default(0),
+  initialCount: z.uint32().default(0),
   /** terminal is the terminal the counter signal is wired to. */
   terminal: z.string().default(""),
 });
@@ -1457,7 +1457,7 @@ export const ciPeriodChannelZ = baseCIChannelZ
     /** measTime is the averaging window for high-frequency measurement, in seconds. */
     measTime: z.number().default(0.001),
     /** divisor is the counter divisor for large-range measurement. */
-    divisor: z.int32().default(4),
+    divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
   });
@@ -1562,7 +1562,7 @@ export const ciVelocityAngularChannelZ = baseCIChannelZ
     /** decodingType selects the encoder decoding type. */
     decodingType: ciDecodingTypeZ.default("X4"),
     /** pulsesPerRev is the number of encoder pulses per revolution. */
-    pulsesPerRev: z.number().default(24),
+    pulsesPerRev: z.uint32().min(1).default(24),
     /** terminalA is the terminal for encoder channel A. */
     terminalA: z.string().default(""),
     /** terminalB is the terminal for encoder channel B. */
@@ -1606,7 +1606,7 @@ export const ciPositionAngularChannelZ = baseCIChannelZ
     /** decodingType selects the encoder decoding type. */
     decodingType: ciDecodingTypeZ.default("X4"),
     /** pulsesPerRev is the number of encoder pulses per revolution. */
-    pulsesPerRev: z.number().default(24),
+    pulsesPerRev: z.uint32().min(1).default(24),
     /** initialAngle is the angle the encoder starts at. */
     initialAngle: z.number().default(0),
     /** terminalA is the terminal for encoder channel A. */
