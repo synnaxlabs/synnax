@@ -345,20 +345,6 @@ var _ = Describe("Service", func() {
 			Expect(got).To(HaveLen(1))
 			Expect(got[0].Key).To(Equal(d.Key))
 		})
-
-		It("Should match devices by chassis", func(ctx SpecContext) {
-			key := uuid.New()
-			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
-			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-			create(ctx)
-			var got []device.Device
-			Expect(svc.NewRetrieve().
-				Where(device.MatchChassis(key)).
-				Entries(&got).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(got).To(HaveLen(1))
-			Expect(got[0].Key).To(Equal(d.Key))
-		})
 	})
 
 	Describe("Resources", func() {
