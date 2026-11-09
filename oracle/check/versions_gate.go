@@ -840,49 +840,68 @@ func checkAliasedRules(
 			})
 		}
 	}
-	// A frozen definer's package calls into each dependency it pins through the
-	// dependency's version file, so a live-only rule there never runs either.
-	checked := make(set.Set[string])
+	// A frozen definer's package calls into every dependency its pins reach, directly
+	// or
+	// through the dependencies' own pins, by the dependency's version file. A live-only
+	// rule on a dependency at its current version therefore never runs either.
+	type pin struct {
+		origin, version int
+		livePath        string
+	}
+	var queue []pin
 	for _, v := range slices.Sorted(maps.Keys(definers)) {
 		for _, depLive := range slices.Sorted(maps.Keys(definers[v].Pins)) {
-			pv := definers[v].Pins[depLive]
-			depChain, ok := resolver.Chains()[depLive]
-			if !ok || pv != depChain.Current() {
+			queue = append(queue, pin{v, definers[v].Pins[depLive], depLive})
+		}
+	}
+	visited := make(set.Set[string])
+	for len(queue) > 0 {
+		p := queue[0]
+		queue = queue[1:]
+		key := p.livePath + "@" + strconv.Itoa(p.version)
+		depChain, versioned := resolver.Chains()[p.livePath]
+		if !versioned || visited.Contains(key) {
+			continue
+		}
+		visited.Add(key)
+		depFile, err := resolver.File(ctx, p.livePath, p.version)
+		if err != nil {
+			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+			return
+		}
+		for _, next := range slices.Sorted(maps.Keys(depFile.Pins)) {
+			queue = append(queue, pin{p.origin, depFile.Pins[next], next})
+		}
+		ended, err := resolver.Ended(ctx, p.livePath)
+		if err != nil {
+			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+			return
+		}
+		if ended || p.version != depChain.Current() {
+			continue
+		}
+		for _, t := range depFile.Defined {
+			if t.Synthetic {
 				continue
 			}
-			if ended, err := resolver.Ended(ctx, depLive); err != nil || ended {
-				continue
-			}
-			depFile, err := resolver.File(ctx, depLive, pv)
-			if err != nil {
-				r.fail(
-					Finding{Path: path, Severity: SeverityError, Message: err.Error()},
-				)
-				return
-			}
-			for _, t := range depFile.Defined {
-				key := depLive + "." + t.Name
-				if t.Synthetic || checked.Contains(key) {
-					continue
-				}
-				checked.Add(key)
-				for _, rule := range rulesDrift(
-					res, depLive, t, depFile.Table, false,
-				) {
-					r.fail(Finding{
-						Path:     depChain.FilePath(pv) + ".oracle",
-						Severity: SeverityError,
-						Message: fmt.Sprintf(
-							"%s v%d pins %s v%d, but the live %s does not match v%d's",
-							livePath, v, depLive, pv, rule, pv,
-						),
-						FixHint: fmt.Sprintf(
-							"frozen %s v%d calls %s's v%d rules: restate the rule "+
-								"in %s v%d",
-							livePath, v, depLive, pv, depLive, pv,
-						),
-					})
-				}
+			for _, rule := range rulesDrift(
+				res, p.livePath, t, depFile.Table, false,
+			) {
+				r.fail(Finding{
+					Path:     depChain.FilePath(p.version) + ".oracle",
+					Severity: SeverityError,
+					Message: fmt.Sprintf(
+						"frozen %s v%d reaches %s v%d, but the live %s does not "+
+							"match v%d's",
+						livePath, p.origin, p.livePath, p.version, rule, p.version,
+					),
+					FixHint: fmt.Sprintf(
+						"frozen %s v%d calls %s's v%d rules: restate the rule in "+
+							"%s v%d",
+						livePath, p.origin, p.livePath, p.version, p.livePath,
+						p.version,
+					),
+				})
 			}
 		}
 	}

@@ -84,8 +84,8 @@ or generator logic and schemas disagree.
   an alias; enum member sets compare exactly), and rule parity (a type the current
   version aliases from a frozen definer has the same `@validate`, `@default`,
   `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
-  dependency type such a definer pins at its current version has the same `@validate`
-  and `@default` in its live file and its version file).
+  dependency type such a definer reaches through its pins, at its current version, has
+  the same `@validate` and `@default` in its live file and its version file).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
