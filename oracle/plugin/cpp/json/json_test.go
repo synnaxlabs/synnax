@@ -82,6 +82,28 @@ var _ = Describe("C++ JSON Plugin", func() {
 			},
 		)
 
+		It(
+			"Should declare every type parameter of a generic struct",
+			func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/thing"
+
+					Pair struct<K, V> {
+						key   K
+						value V
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						"template <typename K, typename V>\n"+
+							"Pair<K, V> Pair<K, V>::parse(x::json::Parser parser) {",
+						"template <typename K, typename V>\n"+
+							"x::json::json Pair<K, V>::to_json() const {",
+					)
+			},
+		)
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

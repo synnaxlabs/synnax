@@ -30,7 +30,7 @@ namespace {{.Namespace}} {
 {{- range .Serializers}}
 {{- if .IsGeneric}}
 
-template <typename {{.TypeParamNames}}>
+template <{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}typename {{$p.Name}}{{end}}>
 {{.Name}}<{{.TypeParamNames}}> {{.Name}}<{{.TypeParamNames}}>::parse(x::json::Parser parser) {
     return {{.Name}}<{{.TypeParamNames}}>{
 {{- range $j, $f := .Fields}}
@@ -39,7 +39,7 @@ template <typename {{.TypeParamNames}}>
     };
 }
 
-template <typename {{.TypeParamNames}}>
+template <{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}typename {{$p.Name}}{{end}}>
 x::json::json {{.Name}}<{{.TypeParamNames}}>::to_json() const {
     x::json::json j = x::json::json::object();
 {{- range .Fields}}
