@@ -743,7 +743,9 @@ export class Lists<
     )
       return composed.value;
     const records = table.get(keys);
+    // An unmaintained window misses trigger changes, so equal records can hide one.
     if (
+      entry.teardown != null &&
       composed != null &&
       composed.end === end &&
       compare.arraysEqual(composed.records, records)

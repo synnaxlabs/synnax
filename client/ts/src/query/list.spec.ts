@@ -540,6 +540,16 @@ describe("Lists", () => {
       ]);
     });
 
+    it("should compose a member again after a watched change while unwatched", async () => {
+      const { statuses, lists } = setupWatched([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      release();
+      statuses.set("1", { key: "1", variant: "error" });
+      expect(list.getCached()?.records[0].variant).toEqual("error");
+    });
+
     it("should fetch a search again when a watched change can change its matches", async () => {
       const { statuses, fetch, lists } = setupWatched([rec("1", "ab")]);
       const list = lists.list({ searchTerm: "a" });
