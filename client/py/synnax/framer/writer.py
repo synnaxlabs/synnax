@@ -88,11 +88,11 @@ class CommitResult(BaseModel):
     """The result of a commit."""
 
     end: TimeStamp
-    """The end of the committed time range. Only valid when authorized is True."""
+    """The end of the committed time range. Zero only when the commit lacked control."""
     authorized: bool
-    """Whether the writer had control of every channel it writes at the commit. When
-    False, other channels may have committed. The writer stays open so that it can
-    regain control."""
+    """False if the commit lacked control of a channel, or if the Core refused a write
+    since the last commit. Each refused write is reported at one commit only. The
+    writer stays open so that it can regain control."""
 
 
 class _WSWriterCodec(WSCodec):

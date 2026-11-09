@@ -160,8 +160,10 @@ writer controls one of the channels. Writes made later without control still ret
 error.
 
 To find out if a commit had control, call `commit_result` in place of `commit`. When
-`authorized` is false, the writer did not control a channel. Some channels can still
-commit, so do not use `end`. The writer stays open and can get control again:
+`authorized` is false, the writer did not control a channel at the commit, or a write
+since the last commit had no control. Each refused write shows at one commit only. `end`
+is zero only when the writer did not control a channel at the commit. The writer stays
+open and can get control again:
 
 ```python
 result = writer.commit_result()
@@ -200,8 +202,10 @@ writer controls one of the channels. Writes made later without control still ret
 error.
 
 To find out if a commit had control, call `commitResult` in place of `commit`. When
-`authorized` is false, the writer did not control a channel. Some channels can still
-commit, so do not use `end`. The writer stays open and can get control again:
+`authorized` is false, the writer did not control a channel at the commit, or a write
+since the last commit had no control. Each refused write shows at one commit only. `end`
+is zero only when the writer did not control a channel at the commit. The writer stays
+open and can get control again:
 
 ```typescript
 const result = await writer.commitResult();
