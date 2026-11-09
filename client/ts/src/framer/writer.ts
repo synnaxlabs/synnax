@@ -141,12 +141,15 @@ const resZ = z.object({
 
 /** The result of a commit. */
 export interface CommitResult {
-  /** The end of the committed time range. Zero only when the commit lacked control. */
+  /**
+   * The end of the committed time range. Zero if the commit lacked control or if
+   * nothing has been committed yet, so a zero end does not mean lost control.
+   */
   end: TimeStamp;
   /**
-   * False if the commit lacked control of a channel, or if the Core refused a write
-   * since the last commit. Each refused write is reported at one commit only. The
-   * writer stays open so that it can regain control.
+   * False if the writer lacked control of a channel with samples to commit, or if the
+   * Core refused a write since the last commit. Each refused write is reported at one
+   * commit only. The writer stays open so that it can regain control.
    */
   authorized: boolean;
 }
