@@ -23,11 +23,24 @@ import (
 // above it.
 const LastVersion imex.Version = 0
 
-// Read converts the released read shape.
+// Read converts the released read shape. A config that already holds sampling keeps
+// it: the rewrite writes it as the array_mode and array_size that the first typed shape
+// lifts back into the same sampling. Only a config without sampling keeps its own
+// array_mode and array_size.
 var Read = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RenameKey(ch, "use_as_index", "is_index")
 	})
+	sampling, ok := config["sampling"].(map[string]any)
+	if !ok {
+		return
+	}
+	delete(config, "sampling")
+	delete(config, "array_size")
+	config["array_mode"] = sampling["type"] == "array"
+	if size, ok := sampling["size"]; ok {
+		config["array_size"] = size
+	}
 }}
 
 // Scan converts the stored driver scan form.

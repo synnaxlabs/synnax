@@ -54,6 +54,39 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Normalize", func() {
+		DescribeTable("Should lift an unversioned read config to array sampling",
+			func(ctx SpecContext, in msgpack.EncodedJSON, size int) {
+				out := MustSucceed(svc.Read.Normalize(ctx, db, 0, in))
+				Expect(out["sampling"]).To(And(
+					HaveKeyWithValue("type", "array"),
+					HaveKeyWithValue("size", BeNumerically("==", size)),
+				))
+			},
+			Entry("a present array sampling",
+				msgpack.EncodedJSON{
+					"array_mode": false,
+					"sampling":   map[string]any{"type": "array", "size": 24},
+				},
+				24,
+			),
+			Entry("a present array sampling below the minimum size",
+				msgpack.EncodedJSON{
+					"sampling": map[string]any{"type": "array", "size": 0},
+				},
+				1,
+			),
+			Entry("the flat array fields",
+				msgpack.EncodedJSON{"arrayMode": true, "arraySize": 24},
+				24,
+			),
+			Entry("the flat array fields below the minimum size",
+				msgpack.EncodedJSON{"arrayMode": true, "arraySize": -4},
+				1,
+			),
+		)
+	})
+
 	Describe("Stores", func() {
 		It("Should expose one store per OPC UA task type", func() {
 			types := []string{}
