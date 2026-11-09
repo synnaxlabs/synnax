@@ -407,7 +407,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]table.Action{setGroup(destG.Key), setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]table.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrieveTable(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -443,7 +446,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]table.Action{setProject(dest.Key), removeGroup}))
+			Expect(res.Actions).To(Equal([]table.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrieveTable(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

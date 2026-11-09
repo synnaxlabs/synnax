@@ -137,7 +137,10 @@ var _ = Describe("Apply of a move", func() {
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(apply(ctx, target.Key, setGroup(inDest.Key))).
-				To(Equal([]schematic.Action{setGroup(inDest.Key), setProject(dest.Key)}))
+				To(Equal([]schematic.Action{
+					setGroup(inDest.Key),
+					setProject(dest.Key),
+				}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(Equal(&inDest.Key))
 			Expect(res.Project).To(Equal(&dest.Key))
