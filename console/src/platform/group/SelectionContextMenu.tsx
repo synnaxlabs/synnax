@@ -13,7 +13,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { ContextMenu } from "@/platform/context-menu";
 import { ContextMenuItem } from "@/platform/group/ContextMenuItem";
 import { useCreateFromSelection } from "@/platform/group/useCreateFromSelection";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 
 /** The menu for a tree selection of more than one resource type. */
 export const SelectionContextMenu: Tree.ContextMenu = (props) => {
@@ -37,6 +37,8 @@ export const SelectionContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
+      <Tree.CopyContextMenuItem {...props} />
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

@@ -20,7 +20,9 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { array, state as xstate } from "@synnaxlabs/x";
 import {
+  type ClipboardEvent,
   type FC,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -31,11 +33,11 @@ import {
 
 import { CSS } from "@/platform/css";
 import { type Source } from "@/platform/tree/children";
+import { useContextMenus, useItems } from "@/platform/tree/context";
 import { LIMIT } from "@/platform/tree/createSearch";
 import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
-import { useContextMenus, useItems } from "@/platform/tree/Provider";
 import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
 import { isMoreKey, type Results, Store } from "@/platform/tree/store";
 import {
@@ -44,6 +46,7 @@ import {
   type RootContextMenuProps,
   type TreeState,
 } from "@/platform/tree/types";
+import { useCopy } from "@/platform/tree/useCopy";
 
 interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   client: Client;
@@ -285,6 +288,28 @@ const Internal = ({
     handleError,
   });
   const menuProps = Menu.useContextMenu();
+  const { intoEvent } = useCopy();
+  // Chromium keeps a text selection elsewhere after a click on a row, and sends Cmd+C
+  // to that selection. Dropping it sends Cmd+C to the tree.
+  const handleFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const text = window.getSelection();
+    if (text == null || text.isCollapsed) return;
+    if (!text.getRangeAt(0).intersectsNode(e.currentTarget)) text.removeAllRanges();
+  };
+  const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
+    // Text selected in the tree, such as part of a name being renamed, copies as text.
+    const text = window.getSelection();
+    if (
+      text != null &&
+      !text.isCollapsed &&
+      text.getRangeAt(0).intersectsNode(e.currentTarget)
+    )
+      return;
+    const resources = getItem(selectedRef.current);
+    if (resources.length === 0) return;
+    e.preventDefault();
+    intoEvent(resources, e.clipboardData);
+  };
 
   return (
     <Context value={{ store, ...dragAndDrop }}>
@@ -305,6 +330,8 @@ const Internal = ({
         // the editable then scrolls the row into view.
         pinned={shape.keys.filter(store.isDraft)}
         onContextMenu={menuProps.open}
+        onFocus={handleFocus}
+        onCopy={handleCopy}
         ref={ref}
         onKeyDown={onKeyDown}
       >

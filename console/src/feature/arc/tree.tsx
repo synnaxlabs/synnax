@@ -88,6 +88,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
@@ -115,6 +116,7 @@ const TypeIcon = ({ arcKey, ...rest }: TypeIconProps): ReactElement | null => {
 };
 
 const TreeItem = Tree.createItem({
+  linkable: true,
   icon: ({ id }) => <TypeIcon arcKey={id.key} />,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
@@ -162,6 +164,7 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <Link.CopyContextMenuItem
           onClick={() =>

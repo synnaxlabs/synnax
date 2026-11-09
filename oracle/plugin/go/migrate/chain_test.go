@@ -2057,6 +2057,96 @@ Controller struct {
 			nil,
 		),
 	)
+
+	It("Should keep a member with another live output in a frozen migration", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Tag struct {
+	name string
+
+	@go marshal
+	@go migrate
+}
+
+Channel struct {
+	key uuid @key
+
+	@go marshal
+	@go migrate
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Tag struct {
+	name string
+	color string
+
+	@go marshal
+	@go migrate
+}
+
+Channel struct {
+	key uuid @key
+	name string
+
+	@go marshal
+	@go migrate
+}
+`)
+		write("schemas/synnax/versions/channel/v2.oracle", `
+Tag = v1.Tag
+
+Channel struct {
+	key uuid @key
+	name string
+	virtual bool
+
+	@go marshal
+	@go migrate
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `
+@go output "core/pkg/service/channel"
+
+Channel struct {
+	key uuid @key
+	name string
+	virtual bool
+}
+
+Tag struct {
+	name string
+	color string
+
+	@go output "core/pkg/service/tag"
+}
+`,
+			"schemas/synnax/channel.oracle", "channel",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(migrate.New().Generate(&plugin.Request{
+			Resolutions: table, RepoRoot: root, Versions: resolver,
+		}))
+		files := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			files[f.Path] = string(f.Content)
+		}
+		frozen := files["core/pkg/service/channel/versions/v1/migrate.gen.go"]
+		Expect(frozen).To(ContainSubstring("func autoMigrateTag"))
+		Expect(frozen).To(ContainSubstring("func autoMigrateChannel"))
+	})
 })
 
 var _ = Describe("Plugin", func() {

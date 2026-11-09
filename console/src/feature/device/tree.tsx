@@ -81,6 +81,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           {first != null && (
@@ -171,6 +172,7 @@ const children: Tree.Children = ({ client, id }) => [
 ];
 
 const TreeItem = Tree.createItem({
+  linkable: true,
   children,
   ContextMenu: TreeContextMenu,
   Content,
