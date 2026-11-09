@@ -46,15 +46,6 @@ class WorkerStub
 
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
 
-// Holds entries, so the log shows its controls once the worker has its state.
-class FilledStub extends WorkerStub {
-  afterUpdate(): void {
-    if (this.state.empty !== false) this.setState((s) => ({ ...s, empty: false }));
-  }
-}
-
-const FILLED_REGISTRY = { [FilledStub.TYPE]: FilledStub };
-
 describe("log/Log", () => {
   it("asks for channels when the log has none", async () => {
     await renderLog(Log, { additionalRegistry: REGISTRY });
@@ -100,18 +91,16 @@ describe("log/Log", () => {
     };
 
     const WithSource = (): ReactElement => (
-      <>
+      <Haul.Provider>
         <DragSource />
         <Log />
-      </>
+      </Haul.Provider>
     );
 
     const dropRange = async () => {
       seeks.mockClear();
-      const rendered = await renderLog(WithSource, {
-        additionalRegistry: FILLED_REGISTRY,
-      });
-      const target = await screen.findByLabelText("Go to a time");
+      const rendered = await renderLog(WithSource, { additionalRegistry: REGISTRY });
+      const target = await screen.findByText("No channels configured");
       fireEvent.dragStart(screen.getByText(DRAG_HANDLE));
       fireEvent.drop(target);
       return rendered;
@@ -120,23 +109,20 @@ describe("log/Log", () => {
     const docOf = (store: TestStore, key: string) =>
       documentIn(store.getState()[Session.Log.SLICE_NAME], key);
 
+    const DROPPED = {
+      start: RANGE.start.valueOf().toString(),
+      end: RANGE.end.valueOf().toString(),
+    };
+
     it("goes to the start of a dropped range, paused, with the range kept", async () => {
       const { key, store } = await dropRange();
-      await waitFor(() =>
-        expect(seeks).toHaveBeenCalledWith(RANGE.start.valueOf().toString()),
-      );
-      expect(docOf(store, key)).toMatchObject({
-        hold: true,
-        range: {
-          start: RANGE.start.valueOf().toString(),
-          end: RANGE.end.valueOf().toString(),
-        },
-      });
+      await waitFor(() => expect(seeks).toHaveBeenCalledWith(DROPPED.start));
+      expect(docOf(store, key)).toMatchObject({ hold: true, range: DROPPED });
     });
 
     it("clears the range when the log resumes", async () => {
       const { key, store } = await dropRange();
-      await waitFor(() => expect(docOf(store, key)?.range).not.toBeNull());
+      await waitFor(() => expect(docOf(store, key)?.range).toEqual(DROPPED));
       act(() => void store.dispatch(Session.Log.setHold({ key, hold: false })));
       expect(docOf(store, key)?.range).toBeNull();
     });
