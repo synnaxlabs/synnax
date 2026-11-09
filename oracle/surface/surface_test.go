@@ -114,6 +114,25 @@ widget.Valve!Rename.name string
 `))
 	})
 
+	It("Should write an action that aliases a struct", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Set struct {
+	path string[]
+}
+
+Valve struct {
+	key uuid
+
+	action Set = Set
+}
+`)).To(Equal(`widget.Set struct
+widget.Set.path Array<string>
+widget.Valve struct
+widget.Valve.key uuid
+widget.Valve action Set = widget.Set
+`))
+	})
+
 	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
 		Expect(report(ctx, `
 Method enum {

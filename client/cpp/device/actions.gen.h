@@ -15,7 +15,6 @@
 #include <string>
 #include <type_traits>
 #include <variant>
-#include <vector>
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/rack/key.h"
@@ -28,87 +27,30 @@ namespace synnax::device {
 /// @brief CreatePayload replaces the device with the given created state. Emitted by
 /// the Core when a device is created; clients never dispatch it.
 struct CreatePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "create";
     Device device;
 
     static CreatePayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief SetPayload replaces the value at a path in the device.
-struct SetPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set";
-    /// @brief path is the path to the value. A segment into a list names the key of an
-    /// entry.
-    std::vector<std::string> path;
-    /// @brief value is the new value.
-    x::json::json value;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
 
-    static SetPayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
 
-/// @brief RemovePayload removes an entry from a list or a field from an object in the
-/// device.
-struct RemovePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "remove";
-    /// @brief path is the path to the list or object.
-    std::vector<std::string> path;
-    /// @brief key is the key of the list entry or the name of the object field.
-    std::string key;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
 
-    static RemovePayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief InsertPayload adds an entry to a list in the device.
-struct InsertPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "insert";
-    /// @brief path is the path to the list.
-    std::vector<std::string> path;
-    /// @brief value is the new entry. It is an object with a string key.
-    x::json::json value;
-    /// @brief after is the key of the entry that the new entry goes after. The entry
-    /// goes first when absent, and last when no entry has the key.
-    std::optional<std::string> after;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
-
-    static InsertPayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief MovePayload moves an entry in a list in the device.
-struct MovePayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "move";
-    /// @brief path is the path to the list.
-    std::vector<std::string> path;
-    /// @brief key is the key of the entry to move.
-    std::string key;
-    /// @brief after is the key of the entry that the moved entry goes after. The entry
-    /// goes first when absent, and last when no other entry has the key.
-    std::optional<std::string> after;
-    /// @brief guards are the variant guards for the path.
-    std::vector<::x::patch::Guard> guards = {};
-
-    static MovePayload parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 /// @brief SetRackPayload moves the device to a rack, under parent when it is set, or
 /// directly on the rack when it is empty. The device leaves its group.
 struct SetRackPayload {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "set_rack";
     ::synnax::rack::Key rack = 0;
     std::optional<Key> parent;
 
@@ -117,7 +59,7 @@ struct SetRackPayload {
 };
 
 /// @brief Action is a discriminated union for all Device mutations. Its JSON form is
-/// {"type": t, t: payload}, where t is the TYPE of the payload.
+/// {"type": t, t: payload}, where t is the type of the action.
 using Action = std::variant<
     CreatePayload,
     SetPayload,
@@ -173,98 +115,6 @@ inline x::json::json CreatePayload::to_json() const {
     return j;
 }
 
-inline SetPayload SetPayload::parse(x::json::Parser parser) {
-    return SetPayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .value = parser.field<x::json::json>("value"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json SetPayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["value"] = this->value;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline RemovePayload RemovePayload::parse(x::json::Parser parser) {
-    return RemovePayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .key = parser.field<std::string>("key"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json RemovePayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["key"] = this->key;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline InsertPayload InsertPayload::parse(x::json::Parser parser) {
-    return InsertPayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .value = parser.field<x::json::json>("value"),
-        .after = parser.field<std::optional<std::string>>("after"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json InsertPayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["value"] = this->value;
-    if (this->after.has_value()) j["after"] = *this->after;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
-inline MovePayload MovePayload::parse(x::json::Parser parser) {
-    return MovePayload{
-        .path = parser.field<std::vector<std::string>>(
-            "path",
-            std::vector<std::string>{}
-        ),
-        .key = parser.field<std::string>("key"),
-        .after = parser.field<std::optional<std::string>>("after"),
-        .guards = parser.field<std::vector<::x::patch::Guard>>(
-            "guards",
-            std::vector<::x::patch::Guard>{}
-        ),
-    };
-}
-
-inline x::json::json MovePayload::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["path"] = this->path;
-    j["key"] = this->key;
-    if (this->after.has_value()) j["after"] = *this->after;
-    j["guards"] = x::json::to_array(this->guards);
-    return j;
-}
-
 inline SetRackPayload SetRackPayload::parse(x::json::Parser parser) {
     return SetRackPayload{
         .rack = parser.field<::synnax::rack::Key>("rack"),
@@ -281,18 +131,12 @@ inline x::json::json SetRackPayload::to_json() const {
 
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
-    if (type == CreatePayload::TYPE)
-        return CreatePayload::parse(parser.child(CreatePayload::TYPE));
-    if (type == SetPayload::TYPE)
-        return SetPayload::parse(parser.child(SetPayload::TYPE));
-    if (type == RemovePayload::TYPE)
-        return RemovePayload::parse(parser.child(RemovePayload::TYPE));
-    if (type == InsertPayload::TYPE)
-        return InsertPayload::parse(parser.child(InsertPayload::TYPE));
-    if (type == MovePayload::TYPE)
-        return MovePayload::parse(parser.child(MovePayload::TYPE));
-    if (type == SetRackPayload::TYPE)
-        return SetRackPayload::parse(parser.child(SetRackPayload::TYPE));
+    if (type == "create") return CreatePayload::parse(parser.child("create"));
+    if (type == "set") return SetPayload::parse(parser.child("set"));
+    if (type == "remove") return RemovePayload::parse(parser.child("remove"));
+    if (type == "insert") return InsertPayload::parse(parser.child("insert"));
+    if (type == "move") return MovePayload::parse(parser.child("move"));
+    if (type == "set_rack") return SetRackPayload::parse(parser.child("set_rack"));
     parser.field_err("type", "unknown Action type: " + type);
     return {};
 }
@@ -301,9 +145,22 @@ inline x::json::json to_json(const Action &value) {
     return std::visit(
         [](const auto &payload) {
             using Payload = std::decay_t<decltype(payload)>;
+            std::string type;
+            if constexpr (std::is_same_v<Payload, CreatePayload>)
+                type = "create";
+            else if constexpr (std::is_same_v<Payload, SetPayload>)
+                type = "set";
+            else if constexpr (std::is_same_v<Payload, RemovePayload>)
+                type = "remove";
+            else if constexpr (std::is_same_v<Payload, InsertPayload>)
+                type = "insert";
+            else if constexpr (std::is_same_v<Payload, MovePayload>)
+                type = "move";
+            else if constexpr (std::is_same_v<Payload, SetRackPayload>)
+                type = "set_rack";
             x::json::json j = x::json::json::object();
-            j["type"] = Payload::TYPE;
-            j[Payload::TYPE] = payload.to_json();
+            j["type"] = type;
+            j[type] = payload.to_json();
             return j;
         },
         value

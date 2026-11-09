@@ -971,7 +971,7 @@ func processField(
 	fd := fieldData{
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
-		IsOptional: field.Optional,
+		IsOptional: optionalInPython(field),
 		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
@@ -1028,7 +1028,7 @@ func processField(
 	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	optional := field.Optional || isOptionalTypeParam || excludedRequired
+	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType = fd.PyType + " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
@@ -1047,7 +1047,7 @@ func processField(
 // requiredInPython reports whether a Python model must be given field: it is not
 // optional and has no default.
 func requiredInPython(field resolution.Field, table *resolution.Table) bool {
-	if field.Optional || field.Default != nil {
+	if optionalInPython(field) || field.Default != nil {
 		return false
 	}
 	if field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
@@ -1056,6 +1056,13 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 	}
 	_, isCollection := resolution.CollectionKind(field.Type, table)
 	return !isCollection
+}
+
+// optionalInPython reports whether field is optional in Python. `@py optional` makes a
+// field optional in Python alone, such as an any field that the JSON codec drops when
+// it is None.
+func optionalInPython(field resolution.Field) bool {
+	return field.Optional || domain.HasExprFromField(field, "py", "optional")
 }
 
 // orderBounds moves ge and le to the end of constraints, so the output does not depend
@@ -2280,23 +2287,6 @@ func formatVariantDocstring(v unionVariantData) string {
 	return googleDocstring(v.Doc, nil)
 }
 
-// pyDocComment renders doc text as a Python line comment, capitalizing the first
-// letter (Python convention omits the identifier name) and prefixing every line
-// with "# ". It is used to document module-level aliases that cannot carry a
-// docstring, such as a discriminated union's Annotated alias.
-func pyDocComment(docText string) string {
-	if docText == "" {
-		return ""
-	}
-	r := []rune(docText)
-	docText = strings.ToUpper(string(r[0])) + string(r[1:])
-	lines := strings.Split(docText, "\n")
-	for i := range lines {
-		lines[i] = "# " + lines[i]
-	}
-	return strings.Join(lines, "\n")
-}
-
 // genericArg returns the Python type argument for a type parameter in Generic[...].
 func genericArg(tpd typeParamData) string {
 	return tpd.Name
@@ -2325,7 +2315,7 @@ var templateFuncs = template.FuncMap{
 	"formatGoogleDocstring":  formatGoogleDocstring,
 	"hasDocumentation":       hasDocumentation,
 	"formatVariantDocstring": formatVariantDocstring,
-	"pyDocComment":           pyDocComment,
+	"pyDocComment":           doc.FormatPyComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
 	"fieldName":              fieldName,
