@@ -16,7 +16,8 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { uuid } from "@synnaxlabs/x";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { binary, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -63,6 +64,13 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
+// Clients cannot create internal channels, so this reads one the Core made.
+const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
+  const [ch] = await client.channels.retrieve({ internal: true, limit: 1 });
+  assertDefined(ch);
+  return ch;
+};
+
 // Hosts the channels under the host root, outside any group.
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
   createHostItems((c) => [
@@ -91,9 +99,8 @@ describe("channel/tree", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();
       const items = Item.haulItems(
-        createResource(channelClient.resourceID(ch.key), ch.name, {
-          internal: false,
-        }),
+        createResource(channelClient.resourceID(ch.key), ch.name),
+        client,
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("channel");
@@ -101,11 +108,10 @@ describe("channel/tree", () => {
     });
 
     it("hauls an internal channel as a schematic value element only", async () => {
-      const ch = await createChannel();
+      const ch = await retrieveInternalChannel();
       const items = Item.haulItems(
-        createResource(channelClient.resourceID(ch.key), ch.name, {
-          internal: true,
-        }),
+        createResource(channelClient.resourceID(ch.key), ch.name),
+        client,
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("schematic-element");
@@ -335,25 +341,18 @@ describe("channel/tree", () => {
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
         client,
-        resources: [
-          createResource(channelClient.resourceID(ch.key), ch.name, ch.payload),
-        ],
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("withholds rename and aliasing from an internal channel", async () => {
-      const ch = await createChannel();
+      const ch = await retrieveInternalChannel();
       const rng = await createTestRange(client);
       assertDefined(Item.ContextMenu);
       const { store } = await renderTreeContextMenu(Item.ContextMenu, {
         client,
-        resources: [
-          createResource(channelClient.resourceID(ch.key), ch.name, {
-            ...ch.payload,
-            internal: true,
-          }),
-        ],
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       // Delete shares the update permission the rename item needs, so its presence
@@ -365,15 +364,31 @@ describe("channel/tree", () => {
   });
 });
 
+describe("copy properties", () => {
+  it("should copy the stored channel as JSON", async () => {
+    const writeText = stubClipboardWriteText();
+    const ch = await createChannel();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
+    });
+    fireEvent.click(await screen.findByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        binary.JSON_CODEC.encodeString(ch.payload),
+      ),
+    );
+  });
+});
+
 describe("permission to write the channel", () => {
   it("should withhold rename, grouping, aliasing, and delete from a viewer", async () => {
     const ch = await createChannel();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [
-        createResource(channelClient.resourceID(ch.key), ch.name, { ...ch.payload }),
-      ],
+      resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

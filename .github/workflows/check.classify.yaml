@@ -133,7 +133,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: ${{ matrix.go }}
-          cache-dependency-path: ${{ matrix.go }}
+          # A pull request's cache serves only that pull request, and a Core one holds
+          # 1.5 GB, so saving it evicts the caches that main saves for every run.
+          cache: false
 
       - name: Download the Go modules
         if: steps.base.outputs.touched == 'true' && matrix.go

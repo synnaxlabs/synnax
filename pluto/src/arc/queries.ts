@@ -43,15 +43,23 @@ export type RetrieveQuery = {
   key: arc.Key;
 };
 
-export const { use, useEnsure, useTombstone, useResult, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-    onChange: ({ client, query: { key } }, handler) =>
-      client.arcs.watch({ key }).onChange(handler),
-    getCached: ({ client, query: { key } }) => client.arcs.watch({ key }).getCached(),
-    awaitCreation: true,
-  });
+export const {
+  use,
+  useEnsure,
+  useTombstone,
+  useResult,
+  createSelector,
+  createResultSelector,
+} = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.arcs.watch({ key }).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.arcs.watch({ key }).getCached(),
+  awaitCreation: true,
+});
+
+export const useResultType = createResultSelector(({ type }) => type);
 
 // graphOf returns the graph of a graph-mode Arc. Only the graph editor reads it, and it
 // renders only for a graph-mode Arc.

@@ -126,6 +126,12 @@ func newReadTopic(
 		if err != nil {
 			return nil, errors.Wrap(err, path)
 		}
+		if ch.DataType == telem.BytesT && len(pointer) == 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: a bytes channel requires a JSON pointer", path,
+			)
+		}
 		field := readField{
 			name:     f.Name,
 			pointer:  pointer,

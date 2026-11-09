@@ -561,6 +561,28 @@ var _ = Describe("Edge task", func() {
 			},
 		)
 
+		It("Should write each command that arrives within one step of the clock",
+			func(ctx SpecContext) {
+				stamp := telem.Now()
+				factory = MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
+					Device:  deviceSvc,
+					Channel: channelSvc,
+					Framer:  framerSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Now:     func() telem.TimeStamp { return stamp },
+				}))
+				_, cmdData := createIndexed(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, commandTag(
+					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+				)))
+				host.sendCommand(commandMetric("setpoint", 0, 1.0))
+				host.sendCommand(commandMetric("setpoint", 0, 2.0))
+				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
+					Should(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
+			},
+		)
+
 		It("Should write the commands that it holds when the connection drops",
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)

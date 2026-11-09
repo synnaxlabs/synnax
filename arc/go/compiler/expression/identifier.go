@@ -83,6 +83,8 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
+	case symbol.KindConstant:
+		return compileFloatConstant(ctx, scope)
 	default:
 		return types.Type{}, errors.Newf(
 			"unsupported symbol kind: %v for '%s'",
@@ -149,7 +151,7 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	sym *symbol.Symbol,
 ) (types.Type, error) {
-	t, v := sym.Type, sym.DefaultValue
+	t, v := sym.Type, types.DecodeValue(sym.DefaultValue, sym.Type)
 	var cast any
 	switch t.Kind {
 	case types.KindString:

@@ -332,7 +332,7 @@ func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	case http.GeneratorTypeUUID:
 		return slot{kind: slotUUID}, nil
 	case http.GeneratorTypeTimestamp:
-		s := slot{kind: slotTimestamp, format: xjson.UnixNanosecond}
+		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
 		if field.TimeFormat != nil {
 			var err error
 			if s.format, err = xjson.ParseTimeFormat(

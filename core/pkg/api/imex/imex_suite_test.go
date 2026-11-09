@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -112,7 +113,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})).To(Succeed())
 	MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
 	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	importEnvelope = bind.Write(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
