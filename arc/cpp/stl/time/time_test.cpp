@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <ctime>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -19,9 +27,13 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::stl::time {
+/// @brief drops every warning, for tests that do not check them.
+const Reporter discard = [](const std::string &, const std::string &) {};
+
 runtime::node::Context make_context(
     const x::telem::TimeSpan elapsed,
     const runtime::node::RunReason reason = runtime::node::RunReason::TimerTick
@@ -192,7 +204,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_a_time_node";
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     ASSERT_OCCURRED_AS_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -202,7 +214,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates an Interval node from valid configuration.
 TEST(TimeModuleTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -212,7 +224,7 @@ TEST(TimeModuleTest, CreatesIntervalNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.interval type.
 TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.interval", "period", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>(), discard);
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -223,7 +235,7 @@ TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
 /// @brief Test that module creates a Wait node from valid configuration.
 TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -233,7 +245,7 @@ TEST(TimeModuleTest, CreatesWaitNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.wait type.
 TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.wait", "duration", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>(), discard);
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -244,7 +256,7 @@ TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
 /// @brief Test that shortest_span is set to the first interval when uninitialized.
 TEST(TimeModuleTest, ShortestSpanSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * x::telem::MILLISECOND).nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -259,7 +271,7 @@ TEST(TimeModuleTest, ShortestSpanUnsetForZeroVarBoundPeriod) {
         .kind = types::Kind::VarRef,
         .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
     };
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
@@ -271,7 +283,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node())
     ));
@@ -284,7 +296,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
 /// @brief Test that the module rejects a non-positive literal span.
 TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     TestSetup wait("wait", "duration", 0);
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     const auto result = factory.create(
         runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
     );
@@ -1110,7 +1122,7 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
 /// @brief Now node does not affect shortest_span.
 TEST(TimeModuleTest, NowDoesNotAffectShortestSpan) {
     NowTestSetup setup;
-    Module factory;
+    Module factory(std::make_shared<strings::State>(), discard);
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -1125,7 +1137,7 @@ class VarConfig {
     runtime::state::State state;
 
 public:
-    Module factory;
+    Module factory{std::make_shared<strings::State>(), discard};
     std::unique_ptr<runtime::node::Node> node;
 
     VarConfig(
@@ -1354,7 +1366,10 @@ compile_shortest(const synnax::Synnax &client, const std::string &source) {
             b.name
         )
     );
-    auto factory = std::make_shared<Module>();
+    auto factory = std::make_shared<Module>(
+        std::make_shared<strings::State>(),
+        discard
+    );
     runtime::state::State s(
         runtime::state::Config{.ir = static_cast<const ir::IR &>(prog), .channels = {}},
         runtime::errors::noop_handler
@@ -1601,4 +1616,402 @@ sequence main {
     ),
     [](const testing::TestParamInfo<ShortestCase> &info) { return info.param.name; }
 );
+
+const std::string_view FORMAT_WAT = R"wat(
+(module
+  (import "time" "format" (func $format (param i64 i32 i32) (result i32)))
+  (func (export "call_format") (param i64 i32 i32) (result i32)
+    (call $format (local.get 0) (local.get 1) (local.get 2)))
+)
+)wat";
+
+/// @brief binds the time module into a guest that imports only time.format.
+struct FormatFixture {
+    std::shared_ptr<strings::State> str_state;
+    /// @brief every warning the module reported, as message and description.
+    std::vector<std::pair<std::string, std::string>> reports;
+    Module mod;
+    wasmtime::Engine engine;
+    wasmtime::Store store;
+    wasmtime::Linker linker;
+    wasmtime::Instance instance;
+
+    FormatFixture():
+        str_state(std::make_shared<strings::State>()),
+        mod(str_state,
+            [this](const std::string &message, const std::string &description) {
+                this->reports.emplace_back(message, description);
+            }),
+        store(engine),
+        linker(engine),
+        instance(setup_instance()) {}
+
+    std::string format(
+        const int64_t ns,
+        const std::string_view fmt = "",
+        const std::string_view zone = ""
+    ) {
+        const auto handle = static_cast<int32_t>(str_state->create(std::string(fmt)));
+        const auto zone_handle = static_cast<int32_t>(
+            str_state->create(std::string(zone))
+        );
+        return str_state->get(call(ns, handle, zone_handle));
+    }
+
+    /// @brief calls time.format with raw format and zone handles and returns the
+    /// result handle.
+    uint32_t call(const int64_t ns, const int32_t handle, const int32_t zone = 0) {
+        auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
+        const auto result = fn.call(
+                                  store,
+                                  {wasmtime::Val(ns),
+                                   wasmtime::Val(handle),
+                                   wasmtime::Val(zone)}
+        )
+                                .unwrap();
+        return static_cast<uint32_t>(result[0].i32());
+    }
+
+private:
+    wasmtime::Instance setup_instance() {
+        mod.bind_to(linker, store);
+        auto wasm_mod = wasmtime::Module::compile(engine, FORMAT_WAT).unwrap();
+        return linker.instantiate(store, wasm_mod).unwrap();
+    }
+};
+
+/// @brief it should warn and return the empty string on an unknown format handle.
+TEST(FormatTest, WarnsOnAnUnknownFormatHandle) {
+    FormatFixture f;
+    EXPECT_EQ(f.call(0, 999, 0), 0);
+    ASSERT_EQ(f.reports.size(), 1);
+    EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
+    EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
+}
+
+/// @brief it should warn and return the empty string on an unknown time zone handle.
+TEST(FormatTest, WarnsOnAnUnknownTimeZoneHandle) {
+    FormatFixture f;
+    EXPECT_EQ(f.call(0, 0, 999), 0);
+    ASSERT_EQ(f.reports.size(), 1);
+    EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
+    EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
+}
+
+/// @brief it should warn and return the empty string on an invalid zone.
+TEST(FormatTest, WarnsOnAnInvalidZone) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0, "", "America/Denvr"), "");
+    ASSERT_EQ(f.reports.size(), 1);
+    EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
+    EXPECT_EQ(f.reports[0].second, "The time zone \"America/Denvr\" is invalid.");
+}
+
+/// @brief it should format valid format and zone handles without a warning.
+TEST(FormatTest, FormatsValidHandlesWithoutAWarning) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0, "%Y"), "1970");
+    EXPECT_EQ(f.str_state->get(f.call(0, 0, 0)), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.format(0, "", "America/Denver"), "1969-12-31T17:00:00-07:00");
+    EXPECT_TRUE(f.reports.empty());
+}
+
+/// @brief it should match the ISO 8601 vectors byte for byte with no format.
+TEST(FormatTest, MatchesTheISO8601Vectors) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.format(1'500'000'000), "1970-01-01T00:00:01.5Z");
+    EXPECT_EQ(f.format(1'000'000'001), "1970-01-01T00:00:01.000000001Z");
+    EXPECT_EQ(f.format(1'000'000'000'000'000'000), "2001-09-09T01:46:40Z");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000), "1938-04-24T22:13:20Z");
+    EXPECT_EQ(f.format(1'326'789'125'000'000'000), "2012-01-17T08:32:05Z");
+    EXPECT_EQ(f.format(1'326'789'125'250'000'000), "2012-01-17T08:32:05.25Z");
+    EXPECT_EQ(f.format(1'709'251'199'999'999'999), "2024-02-29T23:59:59.999999999Z");
+    EXPECT_EQ(f.format(946'684'800'000'000'000), "2000-01-01T00:00:00Z");
+}
+
+/// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+constexpr int64_t STAMP = 1'326'789'125'250'000'000;
+
+/// @brief it should expand every format code as the Go table does.
+TEST(FormatTest, ExpandsEveryCode) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Y"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%y"), "12");
+    EXPECT_EQ(f.format(STAMP, "%m"), "01");
+    EXPECT_EQ(f.format(STAMP, "%d"), "17");
+    EXPECT_EQ(f.format(STAMP, "%e"), "17");
+    EXPECT_EQ(f.format(STAMP, "%H"), "08");
+    EXPECT_EQ(f.format(STAMP, "%I"), "08");
+    EXPECT_EQ(f.format(STAMP, "%M"), "32");
+    EXPECT_EQ(f.format(STAMP, "%S"), "05");
+    EXPECT_EQ(f.format(STAMP, "%j"), "017");
+    EXPECT_EQ(f.format(STAMP, "%f"), "250000");
+    EXPECT_EQ(f.format(STAMP, "%N"), "250000000");
+    EXPECT_EQ(f.format(STAMP, "%u"), "2");
+    EXPECT_EQ(f.format(STAMP, "%w"), "2");
+    EXPECT_EQ(f.format(STAMP, "%U"), "03");
+    EXPECT_EQ(f.format(STAMP, "%W"), "03");
+    EXPECT_EQ(f.format(STAMP, "%G"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%V"), "03");
+    EXPECT_EQ(f.format(STAMP, "%z"), "+0000");
+    EXPECT_EQ(f.format(STAMP, "%Z"), "UTC");
+    EXPECT_EQ(f.format(STAMP, "%F"), "2012-01-17");
+    EXPECT_EQ(f.format(STAMP, "%T"), "08:32:05");
+    EXPECT_EQ(f.format(STAMP, "%%"), "%");
+    EXPECT_EQ(f.format(STAMP, "%C"), "20");
+    EXPECT_EQ(f.format(STAMP, "%D"), "01/17/12");
+    EXPECT_EQ(f.format(STAMP, "%g"), "12");
+    EXPECT_EQ(f.format(STAMP, "%n"), "\n");
+    EXPECT_EQ(f.format(STAMP, "%R"), "08:32");
+    EXPECT_EQ(f.format(STAMP, "%t"), "\t");
+    EXPECT_EQ(f.format(STAMP, "%a"), "Tue");
+    EXPECT_EQ(f.format(STAMP, "%A"), "Tuesday");
+    EXPECT_EQ(f.format(STAMP, "%b"), "Jan");
+    EXPECT_EQ(f.format(STAMP, "%h"), "Jan");
+    EXPECT_EQ(f.format(STAMP, "%B"), "January");
+    EXPECT_EQ(f.format(STAMP, "%p"), "AM");
+    EXPECT_EQ(f.format(STAMP, "%c"), "Tue Jan 17 08:32:05 2012");
+    EXPECT_EQ(f.format(STAMP, "%x"), "01/17/12");
+    EXPECT_EQ(f.format(STAMP, "%X"), "08:32:05");
+    EXPECT_EQ(f.format(STAMP, "%r"), "08:32:05 AM");
+    EXPECT_EQ(f.format(STAMP, "%Y-%m-%d %H:%M:%S.%f"), "2012-01-17 08:32:05.250000");
+    EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
+}
+
+/// @brief it should match C and Python for week numbers, the 12-hour clock, and ISO
+/// week rollover.
+TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
+    FormatFixture f;
+    // Sunday, January 1, 2012 at midnight.
+    EXPECT_EQ(
+        f.format(1'325'376'000'000'000'000, "%u %w %U %W %I %e %j"),
+        "7 0 01 00 12  1 001"
+    );
+    // Noon and one o'clock on January 17, 2012.
+    EXPECT_EQ(f.format(1'326'801'600'000'000'000, "%I"), "12");
+    EXPECT_EQ(f.format(1'326'805'200'000'000'000, "%I"), "01");
+    // January 1, 2021 falls in ISO week 53 of 2020.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%G-%V %Y"), "2020-53 2021");
+    // December 30, 2024 falls in ISO week 1 of 2025.
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%G-%V %Y"), "2025-01 2024");
+    EXPECT_EQ(f.format(0, "%F %T"), "1970-01-01 00:00:00");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000, "%F %T"), "1938-04-24 22:13:20");
+    // The two-digit ISO year follows %G, not %Y.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%g %y"), "20 21");
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%g %y"), "25 24");
+    // Midnight on the 12-hour clock, with a one-digit day.
+    EXPECT_EQ(
+        f.format(1'325'376'000'000'000'000, "%p %r %c"),
+        "AM 12:00:00 AM Sun Jan  1 00:00:00 2012"
+    );
+    // The last second before noon, noon, and one o'clock in the afternoon.
+    EXPECT_EQ(f.format(1'326'801'599'000'000'000, "%p %r"), "AM 11:59:59 AM");
+    EXPECT_EQ(f.format(1'326'801'600'000'000'000, "%p %r"), "PM 12:00:00 PM");
+    EXPECT_EQ(f.format(1'326'805'200'000'000'000, "%p %r"), "PM 01:00:00 PM");
+    // A Sunday in December.
+    EXPECT_EQ(
+        f.format(1'356'893'100'000'000'000, "%a %A %b %B %h %p %c"),
+        "Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012"
+    );
+}
+
+/// @brief it should format the ends of the timestamp range without overflow.
+TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
+    FormatFixture f;
+    const std::string_view fmt = "%F %T.%N %j %w %G-%V %C %g";
+    EXPECT_EQ(f.format(-1, fmt), "1969-12-31 23:59:59.999999999 365 3 1970-01 19 70");
+    EXPECT_EQ(
+        f.format(999'999'999, fmt),
+        "1970-01-01 00:00:00.999999999 001 4 1970-01 19 70"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MIN, fmt),
+        "1677-09-21 00:12:43.145224192 264 2 1677-38 16 77"
+    );
+    EXPECT_EQ(f.format(INT64_MIN + 1, "%F %T.%N"), "1677-09-21 00:12:43.145224193");
+    EXPECT_EQ(
+        f.format(INT64_MAX, fmt),
+        "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MIN, "%c %r %x"),
+        "Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MAX, "%c %r %x"),
+        "Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62"
+    );
+}
+
+/// @brief it should copy an unknown code and a trailing percent through unchanged.
+TEST(FormatTest, CopiesAnUnknownCodeThrough) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
+}
+
+/// @brief one row of the time zone table, shared with the Go spec of the same name.
+struct ZoneCase {
+    /// @brief names the row in a failure.
+    const char *name;
+    /// @brief the timestamp to format.
+    int64_t ns;
+    /// @brief the format string.
+    const char *format;
+    /// @brief the IANA zone, or empty for UTC.
+    const char *zone;
+    /// @brief the text time.format must print.
+    const char *expected;
+};
+
+/// @brief a Saturday in March before daylight time starts, and a day in July.
+constexpr int64_t WINTER = 1'772'895'845'000'000'000;
+constexpr int64_t SUMMER = 1'784'116'800'000'000'000;
+/// @brief January 1, 1800, when Denver kept local mean time at UTC-6:59:56.
+constexpr int64_t EIGHTEEN_HUNDRED = -5'364'662'400'000'000'000;
+
+/// @brief it should print local time in a zone.
+TEST(FormatTest, PrintsLocalTimeInAZone) {
+    const ZoneCase cases[] = {
+        {"Denver in winter",
+         WINTER,
+         "%H:%M %Z %z",
+         "America/Denver",
+         "08:04 MST -0700"},
+        {"Denver in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Denver",
+         "06:00 MDT -0600"},
+        {"ISO 8601 with an offset",
+         WINTER + 250'000'000,
+         "",
+         "America/Denver",
+         "2026-03-07T08:04:05.25-07:00"},
+        {"Phoenix in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Phoenix",
+         "05:00 MST -0700"},
+        {"Edmonton in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Edmonton",
+         "06:00 MDT -0600"},
+        {"Toronto in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Toronto",
+         "08:00 EDT -0400"},
+        {"Berlin in winter", WINTER, "%H:%M %Z %z", "Europe/Berlin", "16:04 CET +0100"},
+        {"Berlin in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "Europe/Berlin",
+         "14:00 CEST +0200"},
+        {"the UTC zone", WINTER, "", "UTC", "2026-03-07T15:04:05Z"},
+        {"no zone", WINTER, "%Z %z", "", "UTC +0000"},
+        {"a half-hour offset",
+         WINTER,
+         "%H:%M %Z %z",
+         "Asia/Kolkata",
+         "20:34 IST +0530"},
+        {"a 45-minute offset",
+         WINTER,
+         "%H:%M %Z %z",
+         "Asia/Kathmandu",
+         "20:49 +0545 +0545"},
+        {"a lower case name", WINTER, "%H:%M %Z", "america/denver", "08:04 MST"},
+        {"a short alias", WINTER, "%H:%M %Z", "US/Mountain", "08:04 MST"},
+        {"a lower case short alias", SUMMER, "%H:%M %Z", "us/mountain", "06:00 MDT"},
+        {"the last second before the daylight gap",
+         1'772'960'399'000'000'000,
+         "%H:%M:%S %Z",
+         "America/Denver",
+         "01:59:59 MST"},
+        {"the first second of daylight time",
+         1'772'960'400'000'000'000,
+         "%H:%M:%S %Z",
+         "America/Denver",
+         "03:00:00 MDT"},
+        {"the repeated hour in daylight time",
+         1'793'518'200'000'000'000,
+         "%H:%M %Z",
+         "America/Denver",
+         "01:30 MDT"},
+        {"the repeated hour in standard time",
+         1'793'521'800'000'000'000,
+         "%H:%M %Z",
+         "America/Denver",
+         "01:30 MST"},
+        {"a date, day, and week that change with the zone",
+         1'767'236'400'000'000'000,
+         "%Y-%m-%d %j %U %a",
+         "America/Denver",
+         "2025-12-31 365 52 Wed"},
+        {"the latest timestamp at UTC+14",
+         INT64_MAX,
+         "",
+         "Etc/GMT-14",
+         "2262-04-12T13:47:16.854775807+14:00"},
+        {"the earliest timestamp at UTC-12",
+         INT64_MIN,
+         "",
+         "Etc/GMT+12",
+         "1677-09-20T12:12:43.145224192-12:00"},
+        {"a local mean time offset with seconds",
+         EIGHTEEN_HUNDRED,
+         "%H:%M:%S %Z %z",
+         "America/Denver",
+         "17:00:04 LMT -0659"},
+        {"ISO 8601 with a local mean time offset",
+         EIGHTEEN_HUNDRED,
+         "",
+         "America/Denver",
+         "1799-12-31T17:00:04-06:59"},
+        {"London on UTC in winter",
+         WINTER,
+         "",
+         "Europe/London",
+         "2026-03-07T15:04:05Z"},
+        {"London in summer", SUMMER, "", "Europe/London", "2026-07-15T13:00:00+01:00"},
+    };
+    FormatFixture f;
+    for (const auto &c: cases)
+        EXPECT_EQ(f.format(c.ns, c.format, c.zone), c.expected) << c.name;
+    EXPECT_TRUE(f.reports.empty());
+}
+
+/// @brief it should format sampled days from 1970 to 2100 as the C library does.
+TEST(FormatTest, MatchesTheCLibraryOnSampledDays) {
+    const char *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F "
+                         "%T %a %A %b %B %h %p %r %x %X";
+    // The Windows C library prints %c in its own form, so %c is checked against the
+    // C standard's definition instead.
+    const char *standard_c = "%a %b %e %T %Y";
+    // The sweep checks the week on each side of a new year, where the week and day of
+    // year codes roll over, and every 97th day. 4'133'980'800 is 2101-01-01T00:00:00Z.
+    int n = 0;
+    for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
+        n++;
+        const auto t = static_cast<std::time_t>(sec);
+        std::tm tm{};
+#ifdef _WIN32
+        ASSERT_EQ(gmtime_s(&tm, &t), 0) << sec;
+#else
+        ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
+#endif
+        const bool new_year = (tm.tm_mon == 0 && tm.tm_mday <= 7) ||
+                              (tm.tm_mon == 11 && tm.tm_mday >= 25);
+        if (!new_year && n % 97 != 0) continue;
+        char buf[256];
+        const size_t n = std::strftime(buf, sizeof(buf), format, &tm);
+        ASSERT_GT(n, 0u) << sec;
+        const auto ts = x::telem::TimeStamp(sec * 1'000'000'000);
+        EXPECT_EQ(strftime(ts, format), std::string(buf, n)) << sec;
+        const size_t c_n = std::strftime(buf, sizeof(buf), standard_c, &tm);
+        ASSERT_GT(c_n, 0u) << sec;
+        EXPECT_EQ(strftime(ts, "%c"), std::string(buf, c_n)) << sec;
+    }
+}
 }

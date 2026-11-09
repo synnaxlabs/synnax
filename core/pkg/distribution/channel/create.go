@@ -19,13 +19,13 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// Create assigns local keys to the provided new channels (those with a zero LocalKey)
-// and creates their storage channels. The returned channels carry their assigned keys,
-// in the same order as the input. Free channels draw their keys from a separate counter
-// and are never registered in storage. A channel with an unspecified (zero) leaseholder
-// defaults to the host node. Create returns a query.ErrNotFound error for a leaseholder
-// that is neither the host node nor node.KeyFree.
-func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
+// Allocate assigns local keys to the provided new channels (those with a zero
+// LocalKey). The returned channels carry their assigned keys, in the same order as the
+// input. Free channels draw their keys from a separate counter. A channel with an
+// unspecified (zero) leaseholder defaults to the host node. Allocate returns a
+// query.ErrNotFound error for a leaseholder that is neither the host node nor
+// node.KeyFree. It creates no storage channels.
+func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
 	copy(out, channels)
 	host := s.cfg.HostKey
@@ -43,9 +43,9 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		var err error
 		switch {
 		case target == host:
-			err = s.allocateLeased(ctx, chs)
+			err = assignKeys(ctx, s.leasedCounter, chs)
 		case target.Free():
-			err = s.allocateFree(ctx, chs)
+			err = assignKeys(ctx, s.freeCounter, chs)
 		default:
 			err = errors.Wrapf(query.ErrNotFound, "node %d", target)
 		}
@@ -57,6 +57,16 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 		}
 	}
 	return out, nil
+}
+
+// Create creates the storage channels for the provided channels, which carry the keys
+// that Allocate assigned. Free channels have no storage registration and are skipped.
+func (s *Service) Create(ctx context.Context, channels []Channel) error {
+	stored := lo.Reject(channels, func(c Channel, _ int) bool { return c.Key().Free() })
+	return s.cfg.TS.CreateChannel(
+		ctx,
+		lo.Map(stored, func(c Channel, _ int) ts.Channel { return c.Storage() })...,
+	)
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
@@ -84,23 +94,4 @@ func assignKeys(ctx context.Context, c *counter, channels []Channel) error {
 		}
 	}
 	return nil
-}
-
-func (s *Service) allocateLeased(ctx context.Context, channels []Channel) error {
-	if err := assignKeys(ctx, s.leasedCounter, channels); err != nil {
-		return err
-	}
-	return s.cfg.TS.CreateChannel(
-		ctx,
-		lo.Map(channels, func(c Channel, _ int) ts.Channel {
-			return c.Storage()
-		})...,
-	)
-}
-
-// allocateFree assigns keys to free channels. Free channels have no storage
-// registration; their writes flow through the distribution relay rather than the
-// storage engine.
-func (s *Service) allocateFree(ctx context.Context, channels []Channel) error {
-	return assignKeys(ctx, s.freeCounter, channels)
 }

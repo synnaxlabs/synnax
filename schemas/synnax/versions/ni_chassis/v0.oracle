@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/status"
 import "schemas/synnax/versions/rack/v2"
+import "schemas/synnax/versions/status/v2"
 
 Key = uuid {
     @doc value "uniquely identifies an NI chassis."

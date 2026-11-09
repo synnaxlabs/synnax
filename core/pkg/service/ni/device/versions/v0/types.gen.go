@@ -16,55 +16,10 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Device is an NI module in a chassis, or a standalone USB or PCIe device.
-type Device struct {
-	// Key uniquely identifies the device.
-	Key Key `json:"key" msgpack:"key"`
-	// Rack is the key of the rack the device is connected to.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
-	// Name is a human-readable name for the device.
-	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the device, or its NI-MAX resource name when it is
-	// simulated.
-	Serial string `json:"serial" msgpack:"serial"`
-	// Model is the product name of the device.
-	Model string `json:"model" msgpack:"model"`
-	// Alias is the DAQmx alias of the device.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Simulated is true when the device is simulated in NI-MAX.
-	Simulated bool `json:"simulated" msgpack:"simulated"`
-	// Chassis is the chassis that holds the device. Absent for a standalone device.
-	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
-	// Identifier is the prefix of the device's channel names. The device is
-	// unconfigured while it is empty.
-	Identifier string `json:"identifier" msgpack:"identifier"`
-	// AnalogInput are the channels of the analog input ports.
-	AnalogInput InputPorts `json:"analog_input" msgpack:"analog_input"`
-	// AnalogOutput are the channels of the analog output ports.
-	AnalogOutput OutputPorts `json:"analog_output" msgpack:"analog_output"`
-	// CounterInput are the channels of the counter input ports.
-	CounterInput InputPorts `json:"counter_input" msgpack:"counter_input"`
-	// DigitalInput are the channels of the digital input lines.
-	DigitalInput InputPorts `json:"digital_input" msgpack:"digital_input"`
-	// DigitalOutput are the channels of the digital output lines.
-	DigitalOutput OutputPorts `json:"digital_output" msgpack:"digital_output"`
-	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d Device) Validate() error {
-	v := validate.New("Device")
-	v.NotEmptyString("name", d.Name)
-	return v.Error()
-}
 
 // Key uniquely identifies an NI device.
 type Key = uuid.UUID
@@ -103,3 +58,47 @@ type StatusDetails struct {
 
 // Status is the operational status of a device.
 type Status = status.Status[StatusDetails]
+
+// Device is an NI module in a chassis, or a standalone USB or PCIe device.
+type Device struct {
+	// Key uniquely identifies the device.
+	Key Key `json:"key" msgpack:"key"`
+	// Rack is the key of the rack the device is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the device.
+	Name string `json:"name" msgpack:"name"`
+	// Serial is the serial number of the device, or its NI-MAX resource name when it is
+	// simulated.
+	Serial string `json:"serial" msgpack:"serial"`
+	// Model is the product name of the device.
+	Model string `json:"model" msgpack:"model"`
+	// Alias is the DAQmx alias of the device.
+	Alias string `json:"alias" msgpack:"alias"`
+	// Simulated is true when the device is simulated in NI-MAX.
+	Simulated bool `json:"simulated" msgpack:"simulated"`
+	// Chassis is the chassis that holds the device. Absent for a standalone device.
+	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
+	// Identifier is the prefix of the device's channel names. The device is
+	// unconfigured while it is empty.
+	Identifier string `json:"identifier" msgpack:"identifier"`
+	// AnalogInput are the channels of the analog input ports.
+	AnalogInput InputPorts `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput are the channels of the analog output ports.
+	AnalogOutput OutputPorts `json:"analog_output" msgpack:"analog_output"`
+	// CounterInput are the channels of the counter input ports.
+	CounterInput InputPorts `json:"counter_input" msgpack:"counter_input"`
+	// DigitalInput are the channels of the digital input lines.
+	DigitalInput InputPorts `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput are the channels of the digital output lines.
+	DigitalOutput OutputPorts `json:"digital_output" msgpack:"digital_output"`
+	// Status is the current operational status of the device.
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	v.NotEmptyString("name", d.Name)
+	return v.Error()
+}

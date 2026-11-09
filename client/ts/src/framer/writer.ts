@@ -136,7 +136,23 @@ const resZ = z.object({
   command: z.enum(WriterCommand),
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
+  authorized: z.boolean(),
 });
+
+/** The result of a commit. */
+export interface CommitResult {
+  /**
+   * The end of the committed time range. Zero if the commit lacked control or if the
+   * writer writes only virtual channels.
+   */
+  end: TimeStamp;
+  /**
+   * False if the writer lacked control of a channel with samples to commit, or if the
+   * Core refused a write since the last commit. Each refused write is reported at one
+   * commit only. The writer stays open so that it can regain control.
+   */
+  authorized: boolean;
+}
 
 const authorityParamsZ = z
   .tuple([
@@ -280,13 +296,25 @@ export class Writer {
    * throws, the writer must be closed and re-opened to continue use.
    */
   async commit(): Promise<TimeStamp> {
+    return (await this.commitResult()).end;
+  }
+
+  /**
+   * Commits like `commit`, and also reports whether the Core refused data.
+   * @returns the result of the commit.
+   * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
+   * before the commit.
+   * @throws {EOF} if the Core ends the stream during the commit.
+   * @throws {ValidationError} if the Core rejects the commit.
+   */
+  async commitResult(): Promise<CommitResult> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
       await this.closeInternal(null);
-      return TimeStamp.ZERO;
+      throw new WriterClosedError();
     }
-    const res = await this.execute({ command: WriterCommand.Commit });
-    return res.end;
+    const { end, authorized } = await this.execute({ command: WriterCommand.Commit });
+    return { end, authorized };
   }
 
   /**

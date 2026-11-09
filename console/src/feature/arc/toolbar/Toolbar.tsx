@@ -20,7 +20,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, Arc } from "@synnaxlabs/pluto";
+import { Access, Arc, Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/arc/explorer";
@@ -51,8 +51,10 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
-  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
+  const { data, getItem, subscribe, more, answered } = Flux.useList(
+    (client) => client.arcs,
+    { name: "Arcs", pageSize: 1000 },
+  );
 
   const { update: handleRename } = Arc.useRename();
 
@@ -83,7 +85,7 @@ const Content = () => {
             subscribe={subscribe}
             value={selected}
             onChange={setSelected}
-            onFetchMore={fetchMore}
+            onFetchMore={more}
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>

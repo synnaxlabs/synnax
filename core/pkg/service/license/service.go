@@ -269,7 +269,7 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 	if err = s.checkFit(lic); err != nil {
 		return Info{}, err
 	}
-	info := s.evaluate(lic)
+	info := s.evaluate(lic, s.cfg.Version)
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
@@ -368,9 +368,40 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 func (s *Service) load(ctx context.Context) error {
 	s.loadMu.Lock()
 	defer s.loadMu.Unlock()
-	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
+	chosen, err := s.pick(s.cfg.Version)
 	if err != nil {
 		return err
+	}
+	s.mu.Lock()
+	s.mu.info = chosen
+	s.mu.Unlock()
+	s.changes.Notify(ctx, ResourceKey)
+	return nil
+}
+
+// CheckUpdate returns the error of Check when a license covers a Core of version from,
+// and nil otherwise. It refuses an update that leaves the license behind.
+func (s *Service) CheckUpdate(from string) error {
+	err := s.Check()
+	if err == nil {
+		return nil
+	}
+	before, pickErr := s.pick(from)
+	if pickErr != nil {
+		return errors.Combine(err, pickErr)
+	}
+	if before.State != StateOk {
+		return nil
+	}
+	return err
+}
+
+// pick returns the info of the stored key that load applies to a Core of the given
+// version.
+func (s *Service) pick(version string) (Info, error) {
+	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
+	if err != nil {
+		return Info{}, err
 	}
 	var chosen *Info
 	for iter.First(); iter.Valid(); iter.Next() {
@@ -390,22 +421,18 @@ func (s *Service) load(ctx context.Context) error {
 			)
 			continue
 		}
-		info := s.evaluate(lic)
+		info := s.evaluate(lic, version)
 		if chosen == nil || better(info, *chosen) {
 			chosen = &info
 		}
 	}
 	if err = iter.Close(); err != nil {
-		return err
+		return Info{}, err
 	}
 	if chosen == nil {
-		chosen = &Info{State: StateMissing, Fingerprint: s.fingerprint}
+		return Info{State: StateMissing, Fingerprint: s.fingerprint}, nil
 	}
-	s.mu.Lock()
-	s.mu.info = *chosen
-	s.mu.Unlock()
-	s.changes.Notify(ctx, ResourceKey)
-	return nil
+	return *chosen, nil
 }
 
 func better(a, b Info) bool {
@@ -422,8 +449,9 @@ func better(a, b Info) bool {
 const clockTemplate = "system clock is more than %s behind the last recorded time, " +
 	"so the license term cannot be checked"
 
-// evaluate decides the state a license puts this Core in at the current time.
-func (s *Service) evaluate(lic License) Info {
+// evaluate decides the state a license puts a Core of the given version in at the
+// current time.
+func (s *Service) evaluate(lic License, version string) Info {
 	info := Info{State: StateOk, Fingerprint: s.fingerprint, License: &lic}
 	termUnknown := lic.Exp != nil && s.clockBehind.Load()
 	if lic.Exp != nil && !termUnknown {
@@ -443,7 +471,7 @@ func (s *Service) evaluate(lic License) Info {
 			return info
 		}
 	}
-	if lic.MaxVersion != nil && versionCovered(s.cfg.Version, *lic.MaxVersion) {
+	if lic.MaxVersion != nil && versionCovered(version, *lic.MaxVersion) {
 		switch {
 		case termUnknown:
 			info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
@@ -464,7 +492,7 @@ func (s *Service) evaluate(lic License) Info {
 		info.Warning = fmt.Sprintf(
 			"license covers versions up to %s, this Core is %s",
 			*lic.MaxVersion,
-			s.cfg.Version,
+			version,
 		)
 	}
 	return info

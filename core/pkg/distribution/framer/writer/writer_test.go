@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
@@ -69,7 +69,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 			})
 		}
 	})
@@ -88,13 +88,13 @@ var _ = Describe("Writer", func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
-			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+			idxCh = MustSucceed(node.CreateChannels(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
 				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			strCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+			strCh = MustSucceed(node.CreateChannels(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
 				dist:   node,
 				closer: node,
@@ -115,7 +115,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("hello", "world", "foo"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: telem.TimeRangeMax,
@@ -133,7 +133,7 @@ var _ = Describe("Writer", func() {
 				LocalIndex: idxCh.LocalKey,
 			}
 			floatCh = MustSucceed(
-				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
+				s.dist.CreateChannels(ctx, []channel.Channel{floatCh}),
 			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
 			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -149,7 +149,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("a", "b", "c"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
@@ -312,12 +312,12 @@ var _ = Describe("Writer", func() {
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
-				idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}}))[0]
-				data := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:       "local",
 					DataType:   telem.Int64T,
 					LocalIndex: idx.LocalKey,
@@ -341,10 +341,10 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
 				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
@@ -352,7 +352,7 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
-				MustSucceed(fill.Commit())
+				MustCommit(fill)
 				Expect(fill.Close()).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			},
@@ -362,7 +362,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
-					MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 						Name:     "host_time",
 						IsIndex:  true,
 						DataType: telem.TimestampT,
@@ -391,9 +391,50 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
+		It(
+			"Should report a commit without control",
+			func(ctx SpecContext) {
+				host := testutil.NewNode(ctx)
+				keys := channel.KeysFromChannels(
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{
+						{Name: "held_time", IsIndex: true, DataType: telem.TimestampT},
+						{Name: "free_time", IsIndex: true, DataType: telem.TimestampT},
+					})),
+				)
+				frameAt := func(second telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(second),
+						telem.NewSeriesSecondsTSV(second),
+					})
+				}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject:   control.Subject{Key: "low"},
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Authorities:      []control.Authority{1},
+					EnableAutoCommit: new(false),
+					Sync:             new(true),
+				}))
+				Expect(w.Write(frameAt(10))).To(BeTrue())
+				holder := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "high"},
+					Keys:           channel.Keys{keys[0]},
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{control.AuthorityAbsolute},
+					Sync:           new(true),
+				}))
+				end, authorized := MustSucceed2(w.Commit())
+				Expect(authorized).To(BeFalse())
+				Expect(end).To(BeZero())
+				Expect(holder.Close()).To(Succeed())
+				Expect(w.Write(frameAt(11))).To(BeTrue())
+				Expect(MustCommit(w)).To(Equal(11*telem.SecondTS + 1))
+				Expect(w.Close()).To(Succeed())
+			},
+		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
 			host := testutil.NewNode(ctx)
-			idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
 				DataType:    telem.TimestampT,
@@ -445,13 +486,13 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				idx = MustSucceed(host.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				idx = MustSucceed(host.CreateChannels(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
 					Name:       "auto_index_data",
 					DataType:   telem.Float64T,
 					LocalIndex: idx.LocalKey,
 				}
-				data = MustSucceed(host.Channel.Create(ctx, []channel.Channel{data}))[0]
+				data = MustSucceed(host.CreateChannels(ctx, []channel.Channel{data}))[0]
 
 				before := telem.Now()
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
@@ -464,7 +505,7 @@ var _ = Describe("Writer", func() {
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
 				))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
 
@@ -507,11 +548,11 @@ var _ = Describe("Writer", func() {
 					}
 				)
 				idxCh = MustSucceed(
-					s.dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+					s.dist.CreateChannels(ctx, []channel.Channel{idxCh}),
 				)[0]
 				dataCh.LocalIndex = idxCh.LocalKey
 				dataCh = MustSucceed(
-					s.dist.Channel.Create(ctx, []channel.Channel{dataCh}),
+					s.dist.CreateChannels(ctx, []channel.Channel{dataCh}),
 				)[0]
 
 				keys := []channel.Key{idxCh.Key(), dataCh.Key()}
@@ -582,7 +623,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				keys := channel.Keys{ch.Key()}
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        keys,
@@ -627,7 +668,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				keys := channel.Keys{ch.Key()}
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        keys,
@@ -676,7 +717,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				s.dist.Framer.SetFreeIndexResolver(nil)
 				Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  channel.Keys{ch.Key()},
@@ -793,7 +834,7 @@ var _ = Describe("Writer", func() {
 			"Should span a variable-length virtual series 1ns for each sample",
 			func(ctx SpecContext) {
 				s := DeferClose(storageScenario(ctx))
-				ch := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+				ch := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:     "strings",
 					Virtual:  true,
 					DataType: telem.StringT,
@@ -857,14 +898,14 @@ var _ = Describe("Writer", func() {
 			"Should align indexed free channels and stamp index-less ones in one frame",
 			func(ctx SpecContext) {
 				s := DeferClose(storageScenario(ctx))
-				idx := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+				idx := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:        "mixed_time",
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}}))[0]
-				created := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{
+				created := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{
 					{
 						Name:        "mixed_data",
 						DataType:    telem.Float32T,
@@ -965,7 +1006,7 @@ func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	node := testutil.OpenNode(ctx)
-	channels = MustSucceed(node.Channel.Create(ctx, channels))
+	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		name:   "Storage",
@@ -984,7 +1025,7 @@ func freeWriterScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
 }

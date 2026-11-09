@@ -46,13 +46,12 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
-		// A never-reassigned flow variable collapses to its initial value;
-		// reassigned reads are lifted into params before compilation gets here.
+		// A never-reassigned literal flow variable collapses to its initial value;
+		// reassigned and computed reads are lifted into params before compilation.
 		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
 			if scope.DefaultValue != nil {
 				return castAndEmitConst(ctx, scope)
 			}
-			// SY-4474: Enable const-expression initializers for variables
 			return types.Type{}, errors.Newf(
 				"cannot read '%s': its initializer is not a compile-time constant",
 				name,
@@ -86,6 +85,8 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
+	case symbol.KindConstant:
+		return compileFloatConstant(ctx, scope)
 	default:
 		return types.Type{}, errors.Newf(
 			"unsupported symbol kind: %v for '%s'",
@@ -122,7 +123,7 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	sym *symbol.Symbol,
 ) (types.Type, error) {
-	t, v := sym.Type, sym.DefaultValue
+	t, v := sym.Type, types.DecodeValue(sym.DefaultValue, sym.Type)
 	var cast any
 	switch t.Kind {
 	case types.KindString:

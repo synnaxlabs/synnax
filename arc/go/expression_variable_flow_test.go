@@ -12,10 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -62,43 +59,52 @@ var _ = Describe("Expression variables in flows", func() {
 		Expect(series[len(series)-1].Unmarshal[float64]()).To(ContainElement(4.0))
 	})
 
-	DescribeTable("Should reject a variable with a non-constant initializer",
-		func(ctx SpecContext, source string) {
-			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
-				Name: "x",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-				ID:   100,
-			}, &symbol.Symbol{
-				Name: "out",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-				ID:   200,
-			}))
-			Expect(arc.CompileText(ctx, arc.Text{Raw: source}, root)).Error().To(
-				MatchError(ContainSubstring(
-					"cannot use 'y' in a flow: its initializer is not a compile-time constant",
-				)),
+	DescribeTable("Should send a variable with a computed initializer",
+		func(ctx SpecContext, source string, expected []float64) {
+			h := newRuntimeHarness(ctx, source, channelSymbols(
+				map[string]channelDef{
+					"x":   {types.F64(), 100},
+					"out": {types.F64(), 200},
+				},
+			),
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
+			defer h.Close(ctx)
+			for _, v := range []float64{3, 5} {
+				h.Ingest(100, telem.NewSeriesV(v))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			var values []float64
+			for _, s := range out.Get(200).Series {
+				values = append(values, s.Unmarshal[float64]()...)
+			}
+			Expect(values).To(Equal(expected))
 		},
-		Entry("top-level source", "y := 1.5 + 2.0\ny -> out"),
+		Entry("top-level source", "y := 1.5 + 2.0\ny -> out", []float64{3.5}),
 		Entry(
 			"stage source",
 			"sequence main {\n stage a {\n y := 1.5 + 2.0\n y -> out\n }\n}\nx => main",
+			[]float64{3.5},
 		),
 		Entry(
 			"stage sink",
-			"sequence main {\n stage a {\n y := 1.5 + 2.0\n x -> y\n }\n}\nx => main",
+			"sequence main {\n stage a {\n y := 1.5 + 2.0\n x -> y\n y -> out\n }\n}\nx => main",
+			[]float64{3.5, 5},
 		),
 		Entry(
 			"value variable derived from a reactive variable",
 			"sequence main {\n a f64 := x + 1.0\n y f64 := a + 2.0\n stage s {\n"+
 				" y -> out\n }\n}\nx => main",
+			[]float64{6, 8},
 		),
 		Entry(
 			"sequence variable written and read",
 			"sequence main {\n y := 1.5 + 2.0\n stage a {\n x -> y\n y -> out\n }\n}\n"+
 				"x => main",
+			[]float64{3.5, 5},
 		),
 	)
 })

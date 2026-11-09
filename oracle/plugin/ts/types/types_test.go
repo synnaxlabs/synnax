@@ -95,14 +95,20 @@ var _ = Describe("TS Types Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			source := strings.Replace(
+				ThingFilter,
+				"name string",
+				"name string { @search }",
+				1,
+			)
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").
 				ToContain(
-					"offset: z.uint32().optional(),",
+					"searchTerm: z.string().optional(),",
 					"export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;",
 					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
 				).
-				ToNotContain(".default(0)", "optional.Optional")
+				ToNotContain(`.default("")`, "optional.Optional")
 		})
 
 		It("Should leave the defaulted fields of an operator type to the Core", func(

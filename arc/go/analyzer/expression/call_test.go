@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -167,5 +168,37 @@ var _ = Describe("AnalyzeCallSite", func() {
 			ContainSubstring("cannot be called inside a func block"),
 		)
 		Expect(*ctx.CallEdges).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Computed arguments", func() {
+	It("Should type a computed argument by its node's output", func(bCtx SpecContext) {
+		root := NewRoot(nil)
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		float := types.FloatConstraint()
+		out := types.Variable("out", &float)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Kind: symbol.KindFunction,
+			AST:  expr,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: out}},
+			}),
+		}))
+		ctx := context.NewRoot(bCtx, expr, root)
+		fnType := types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: "a", Type: types.F32()}},
+		})
+		expression.AnalyzeCall(
+			ctx,
+			"f",
+			fnType,
+			[]symbol.Argument{{Name: "a", Expr: expr, AST: expr}},
+			nil,
+			expr,
+			"",
+		)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		Expect(ctx.Constraints.ApplySubstitutions(out)).To(Equal(types.F32()))
 	})
 })

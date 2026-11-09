@@ -14,6 +14,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/address"
@@ -40,6 +41,22 @@ func (n Node) Close() error {
 		err = errors.Join(err, n.Storage.Close())
 	}
 	return err
+}
+
+// CreateChannels assigns keys to channels and creates their storage channels. It
+// returns the channels with their keys, in the same order as the input.
+func (n Node) CreateChannels(
+	ctx context.Context,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	allocated, err := n.Channel.Allocate(ctx, channels)
+	if err != nil {
+		return nil, err
+	}
+	if err = n.Channel.Create(ctx, allocated); err != nil {
+		return nil, err
+	}
+	return allocated, nil
 }
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be

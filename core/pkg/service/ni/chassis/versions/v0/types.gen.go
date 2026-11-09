@@ -14,18 +14,31 @@ package v0
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// Key uniquely identifies an NI chassis.
+type Key = uuid.UUID
+
+// StatusDetails identifies the chassis and rack that a status pertains to.
+type StatusDetails struct {
+	// Rack is the key of the rack the chassis belongs to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Chassis is the key of the chassis.
+	Chassis Key `json:"chassis" msgpack:"chassis"`
+}
+
+// Status is the operational status of a chassis.
+type Status = status.Status[StatusDetails]
 
 // Chassis is an NI chassis that holds device modules.
 type Chassis struct {
 	// Key uniquely identifies the chassis.
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack the chassis is connected to.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the chassis.
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the chassis. Empty on simulated hardware.
@@ -48,17 +61,3 @@ func (c Chassis) Validate() error {
 	v.NotEmptyString("model", c.Model)
 	return v.Error()
 }
-
-// Key uniquely identifies an NI chassis.
-type Key = uuid.UUID
-
-// StatusDetails identifies the chassis and rack that a status pertains to.
-type StatusDetails struct {
-	// Rack is the key of the rack the chassis belongs to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Chassis is the key of the chassis.
-	Chassis Key `json:"chassis" msgpack:"chassis"`
-}
-
-// Status is the operational status of a chassis.
-type Status = status.Status[StatusDetails]

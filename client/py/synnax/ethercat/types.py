@@ -150,7 +150,7 @@ class Device(device.Device):
 
     :param name: Human-readable name for the device.
     :param network: Network interface name (e.g. "eth0", "enp3s0").
-    :param position: Position of the slave on the EtherCAT bus, 0-indexed.
+    :param position: Position of the slave on the EtherCAT bus, counting from 1.
     :param vendor_id: EtherCAT vendor ID from device EEPROM.
     :param product_code: Product code identifying the device model.
     :param revision: Hardware/firmware revision number.
@@ -168,7 +168,7 @@ class Device(device.Device):
         *,
         name: str = "",
         network: str = "",
-        position: int = 0,
+        position: int = 1,
         vendor_id: int = 0,
         product_code: int = 0,
         revision: int = 0,

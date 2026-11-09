@@ -11,12 +11,17 @@ package time_test
 
 import (
 	"context"
+	"fmt"
+	"math"
+	stdtime "time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/strings"
+	stltestutil "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -25,9 +30,19 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/tz"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 )
+
+// swept reports whether a day sweep checks day, its nth day. It checks the week on each
+// side of a new year, where the week and day of year codes roll over, and every 97th
+// day.
+func swept(day stdtime.Time, n int) bool {
+	newYear := (day.Month() == stdtime.January && day.Day() <= 7) ||
+		(day.Month() == stdtime.December && day.Day() >= 25)
+	return newYear || n%97 == 0
+}
 
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
@@ -39,9 +54,565 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
+					discard,
 				),
 			)
 			Expect(factory).ToNot(BeNil())
+		})
+		It("Should reject a runtime without a strings state", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+			Expect(time.NewHost(ctx, rt, nil, discard)).Error().
+				To(MatchError(ContainSubstring("strings")))
+		})
+		It("Should reject a runtime without a reporter", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+			Expect(time.NewHost(ctx, rt, strings.NewProgramState(), nil)).Error().
+				To(MatchError(ContainSubstring("report")))
+		})
+		It("Should not create a node for format", func(ctx SpecContext) {
+			factory := MustSucceed(time.NewHost(ctx, nil, nil, nil))
+			Expect(factory.Create(node.Config{Node: ir.Node{Type: "format"}})).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+	Describe("Format host function", func() {
+		var (
+			rt          *stltestutil.Runtime
+			stringState *strings.ProgramState
+			reports     [][2]string
+		)
+		BeforeEach(func(ctx SpecContext) {
+			rt = stltestutil.NewRuntime(ctx)
+			DeferCleanup(rt.Close)
+			stringState = strings.NewProgramState()
+			reports = nil
+			MustSucceed(time.NewHost(
+				ctx,
+				rt.Underlying(),
+				stringState,
+				func(_ context.Context, message, description string) {
+					reports = append(reports, [2]string{message, description})
+				},
+			))
+			rt.Passthrough(ctx, "time")
+		})
+		call := func(ctx context.Context, ns int64, format, zone uint32) uint32 {
+			return stltestutil.AsU32(rt.Call(
+				ctx,
+				"time",
+				"format",
+				stltestutil.I64(ns),
+				stltestutil.U32(format),
+				stltestutil.U32(zone),
+			)[0])
+		}
+		format := func(ctx context.Context, ns int64, layout, zone string) string {
+			GinkgoHelper()
+			out := call(ctx, ns, stringState.Create(layout), stringState.Create(zone))
+			return MustBeOk(stringState.Get(out))
+		}
+		// Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+		stamp := stdtime.Date(2012, stdtime.January, 17, 8, 32, 5, 250_000_000, stdtime.UTC).
+			UnixNano()
+
+		It(
+			"Should warn and return an empty string for an unknown format handle",
+			func(ctx SpecContext) {
+				Expect(call(ctx, 0, 999, 0)).To(BeZero())
+				Expect(reports).To(Equal([][2]string{{
+					"Failed to format timestamp",
+					"The Arc runtime passed an invalid string handle.",
+				}}))
+			},
+		)
+		It(
+			"Should warn and return an empty string for an unknown time zone handle",
+			func(ctx SpecContext) {
+				Expect(call(ctx, 0, 0, 999)).To(BeZero())
+				Expect(reports).To(Equal([][2]string{{
+					"Failed to format timestamp",
+					"The Arc runtime passed an invalid string handle.",
+				}}))
+			},
+		)
+		It(
+			"Should warn and return an empty string for an invalid zone",
+			func(ctx SpecContext) {
+				Expect(format(ctx, 0, "", "America/Denvr")).To(BeEmpty())
+				Expect(reports).To(Equal([][2]string{{
+					"Failed to format timestamp",
+					`The time zone "America/Denvr" is invalid.`,
+				}}))
+			},
+		)
+		It("Should format valid handles without a warning", func(ctx SpecContext) {
+			Expect(format(ctx, 0, "%Y", "")).To(Equal("1970"))
+			Expect(MustBeOk(stringState.Get(call(ctx, 0, 0, 0)))).
+				To(Equal("1970-01-01T00:00:00Z"))
+			Expect(format(ctx, 0, "", "America/Denver")).
+				To(Equal("1969-12-31T17:00:00-07:00"))
+			Expect(reports).To(BeEmpty())
+		})
+
+		DescribeTable("Should match the ISO 8601 vectors",
+			func(ctx SpecContext, ns int64, expected string) {
+				Expect(format(ctx, ns, "", "")).To(Equal(expected))
+			},
+			Entry("epoch", int64(0), "1970-01-01T00:00:00Z"),
+			Entry("trimmed fraction", int64(1_500_000_000), "1970-01-01T00:00:01.5Z"),
+			Entry(
+				"full fraction",
+				int64(1_000_000_001),
+				"1970-01-01T00:00:01.000000001Z",
+			),
+			Entry(
+				"whole second",
+				int64(1_000_000_000_000_000_000),
+				"2001-09-09T01:46:40Z",
+			),
+			Entry(
+				"before the epoch",
+				int64(-1_000_000_000_000_000_000),
+				"1938-04-24T22:13:20Z",
+			),
+			Entry(
+				"January 17, 2012 at 08:32:05",
+				stdtime.Date(2012, stdtime.January, 17, 8, 32, 5, 0, stdtime.UTC).
+					UnixNano(),
+				"2012-01-17T08:32:05Z",
+			),
+			Entry(
+				"January 17, 2012 with milliseconds",
+				stdtime.Date(2012, stdtime.January, 17, 8, 32, 5, 250_000_000, stdtime.UTC).
+					UnixNano(),
+				"2012-01-17T08:32:05.25Z",
+			),
+			Entry(
+				"leap day 2024, last nanosecond",
+				stdtime.Date(2024, stdtime.February, 29, 23, 59, 59, 999_999_999, stdtime.UTC).
+					UnixNano(),
+				"2024-02-29T23:59:59.999999999Z",
+			),
+			Entry(
+				"New Year 2000 at midnight",
+				stdtime.Date(2000, stdtime.January, 1, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"2000-01-01T00:00:00Z",
+			),
+		)
+
+		DescribeTable("Should expand every code",
+			func(ctx SpecContext, layout, expected string) {
+				Expect(format(ctx, stamp, layout, "")).To(Equal(expected))
+			},
+			Entry("%Y", "%Y", "2012"),
+			Entry("%y", "%y", "12"),
+			Entry("%m", "%m", "01"),
+			Entry("%d", "%d", "17"),
+			Entry("%e", "%e", "17"),
+			Entry("%H", "%H", "08"),
+			Entry("%I", "%I", "08"),
+			Entry("%M", "%M", "32"),
+			Entry("%S", "%S", "05"),
+			Entry("%j", "%j", "017"),
+			Entry("%f", "%f", "250000"),
+			Entry("%N", "%N", "250000000"),
+			Entry("%u", "%u", "2"),
+			Entry("%w", "%w", "2"),
+			Entry("%U", "%U", "03"),
+			Entry("%W", "%W", "03"),
+			Entry("%G", "%G", "2012"),
+			Entry("%V", "%V", "03"),
+			Entry("%z", "%z", "+0000"),
+			Entry("%Z", "%Z", "UTC"),
+			Entry("%F", "%F", "2012-01-17"),
+			Entry("%T", "%T", "08:32:05"),
+			Entry("%%", "%%", "%"),
+			Entry("%C", "%C", "20"),
+			Entry("%D", "%D", "01/17/12"),
+			Entry("%g", "%g", "12"),
+			Entry("%n", "%n", "\n"),
+			Entry("%R", "%R", "08:32"),
+			Entry("%t", "%t", "\t"),
+			Entry("%a", "%a", "Tue"),
+			Entry("%A", "%A", "Tuesday"),
+			Entry("%b", "%b", "Jan"),
+			Entry("%h", "%h", "Jan"),
+			Entry("%B", "%B", "January"),
+			Entry("%p", "%p", "AM"),
+			Entry("%c", "%c", "Tue Jan 17 08:32:05 2012"),
+			Entry("%x", "%x", "01/17/12"),
+			Entry("%X", "%X", "08:32:05"),
+			Entry("%r", "%r", "08:32:05 AM"),
+			Entry(
+				"a Python format",
+				"%Y-%m-%d %H:%M:%S.%f",
+				"2012-01-17 08:32:05.250000",
+			),
+			Entry("text around a code", "T+%S s", "T+05 s"),
+		)
+
+		DescribeTable("Should match C and Python at the edges",
+			func(ctx SpecContext, ns int64, layout, expected string) {
+				Expect(format(ctx, ns, layout, "")).To(Equal(expected))
+			},
+			Entry(
+				"Sunday, January 1, 2012 at midnight",
+				stdtime.Date(2012, stdtime.January, 1, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%u %w %U %W %I %e %j",
+				"7 0 01 00 12  1 001",
+			),
+			Entry(
+				"noon and one o'clock on the 12-hour clock",
+				stdtime.Date(2012, stdtime.January, 17, 12, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%I",
+				"12",
+			),
+			Entry(
+				"one o'clock on the 12-hour clock",
+				stdtime.Date(2012, stdtime.January, 17, 13, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%I",
+				"01",
+			),
+			Entry(
+				"ISO week in the previous year",
+				stdtime.Date(2021, stdtime.January, 1, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%G-%V %Y",
+				"2020-53 2021",
+			),
+			Entry(
+				"ISO week in the next year",
+				stdtime.Date(2024, stdtime.December, 30, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%G-%V %Y",
+				"2025-01 2024",
+			),
+			Entry("epoch", int64(0), "%F %T", "1970-01-01 00:00:00"),
+			Entry(
+				"before the epoch",
+				int64(-1_000_000_000_000_000_000),
+				"%F %T",
+				"1938-04-24 22:13:20",
+			),
+			Entry(
+				"two-digit ISO year in the previous year",
+				stdtime.Date(2021, stdtime.January, 1, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%g %y",
+				"20 21",
+			),
+			Entry(
+				"two-digit ISO year in the next year",
+				stdtime.Date(2024, stdtime.December, 30, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%g %y",
+				"25 24",
+			),
+			Entry(
+				"midnight on the 12-hour clock, with a one-digit day",
+				stdtime.Date(2012, stdtime.January, 1, 0, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%p %r %c",
+				"AM 12:00:00 AM Sun Jan  1 00:00:00 2012",
+			),
+			Entry(
+				"the last second before noon",
+				stdtime.Date(2012, stdtime.January, 17, 11, 59, 59, 0, stdtime.UTC).
+					UnixNano(),
+				"%p %r",
+				"AM 11:59:59 AM",
+			),
+			Entry(
+				"noon",
+				stdtime.Date(2012, stdtime.January, 17, 12, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%p %r",
+				"PM 12:00:00 PM",
+			),
+			Entry(
+				"one o'clock in the afternoon",
+				stdtime.Date(2012, stdtime.January, 17, 13, 0, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%p %r",
+				"PM 01:00:00 PM",
+			),
+			Entry(
+				"a Sunday in December",
+				stdtime.Date(2012, stdtime.December, 30, 18, 45, 0, 0, stdtime.UTC).
+					UnixNano(),
+				"%a %A %b %B %h %p %c",
+				"Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012",
+			),
+		)
+
+		DescribeTable("Should hold at the ends of the range",
+			func(ctx SpecContext, ns int64, layout, expected string) {
+				Expect(format(ctx, ns, layout, "")).To(Equal(expected))
+			},
+			Entry(
+				"the last nanosecond before the epoch",
+				int64(-1),
+				"%F %T.%N %j %w %G-%V %C %g",
+				"1969-12-31 23:59:59.999999999 365 3 1970-01 19 70",
+			),
+			Entry(
+				"the last nanosecond of the first second",
+				int64(999_999_999),
+				"%F %T.%N %j %w %G-%V %C %g",
+				"1970-01-01 00:00:00.999999999 001 4 1970-01 19 70",
+			),
+			Entry(
+				"the earliest timestamp",
+				int64(math.MinInt64),
+				"%F %T.%N %j %w %G-%V %C %g",
+				"1677-09-21 00:12:43.145224192 264 2 1677-38 16 77",
+			),
+			Entry(
+				"one nanosecond after the earliest timestamp",
+				int64(math.MinInt64+1),
+				"%F %T.%N",
+				"1677-09-21 00:12:43.145224193",
+			),
+			Entry(
+				"the latest timestamp",
+				int64(math.MaxInt64),
+				"%F %T.%N %j %w %G-%V %C %g",
+				"2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
+			),
+			Entry(
+				"the names at the earliest timestamp",
+				int64(math.MinInt64),
+				"%c %r %x",
+				"Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77",
+			),
+			Entry(
+				"the names at the latest timestamp",
+				int64(math.MaxInt64),
+				"%c %r %x",
+				"Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62",
+			),
+		)
+
+		It("Should copy an unknown code through", func(ctx SpecContext) {
+			Expect(format(ctx, stamp, "%Q %", "")).To(Equal("%Q %"))
+		})
+
+		It("Should match the Go time package on sampled days", func(ctx SpecContext) {
+			layout := stringState.Create(
+				"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T " +
+					"%a %A %b %B %p %c",
+			)
+			// The sweep steps through every day an i64 ns timestamp can hold. %U
+			// counts the Sundays so far this year and %W the Mondays, which is
+			// their definition.
+			sundays, mondays, n := 0, 0, 0
+			first := stdtime.Date(1678, stdtime.January, 1, 13, 4, 5, 0, stdtime.UTC)
+			for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
+				n++
+				if day.YearDay() == 1 {
+					sundays, mondays = 0, 0
+				}
+				switch day.Weekday() {
+				case stdtime.Sunday:
+					sundays++
+				case stdtime.Monday:
+					mondays++
+				}
+				if !swept(day, n) {
+					continue
+				}
+				isoYear, isoWeek := day.ISOWeek()
+				weekday := int(day.Weekday())
+				expected := fmt.Sprintf(
+					"%s %2d %03d %d %d %02d %02d %04d-%02d %02d %02d %02d %s %s %s %s "+
+						"%s %s",
+					day.Format("2006-01-02 15:04:05"),
+					day.Day(),
+					day.YearDay(),
+					(weekday+6)%7+1,
+					weekday,
+					sundays,
+					mondays,
+					isoYear,
+					isoWeek,
+					day.Year()/100,
+					day.Year()%100,
+					isoYear%100,
+					day.Format("01/02/06"),
+					day.Format("15:04"),
+					day.Format("2006-01-02"),
+					day.Format("15:04:05"),
+					day.Format("Mon Monday Jan January PM"),
+					// stdtime.ANSIC is the C standard's %c.
+					day.Format(stdtime.ANSIC),
+				)
+				out := call(ctx, day.UnixNano(), layout, 0)
+				Expect(MustBeOk(stringState.Get(out))).
+					To(Equal(expected), day.Format(stdtime.RFC3339))
+			}
+		})
+
+		Describe("Time zones", func() {
+			at := func(year int, month stdtime.Month, day, hour, minute, second int) int64 {
+				return stdtime.Date(year, month, day, hour, minute, second, 0, stdtime.UTC).
+					UnixNano()
+			}
+			// A Saturday in March before daylight time starts, and a day in July.
+			winter := at(2026, stdtime.March, 7, 15, 4, 5)
+			summer := at(2026, stdtime.July, 15, 12, 0, 0)
+
+			DescribeTable("Should print local time in a zone",
+				func(ctx SpecContext, ns int64, layout, zone, expected string) {
+					Expect(format(ctx, ns, layout, zone)).To(Equal(expected))
+				},
+				Entry("Denver in winter", winter, "%H:%M %Z %z", "America/Denver",
+					"08:04 MST -0700"),
+				Entry("Denver in summer", summer, "%H:%M %Z %z", "America/Denver",
+					"06:00 MDT -0600"),
+				Entry("ISO 8601 with an offset", winter+250_000_000, "",
+					"America/Denver", "2026-03-07T08:04:05.25-07:00"),
+				Entry("Phoenix in summer", summer, "%H:%M %Z %z", "America/Phoenix",
+					"05:00 MST -0700"),
+				Entry("Edmonton in summer", summer, "%H:%M %Z %z", "America/Edmonton",
+					"06:00 MDT -0600"),
+				Entry("Toronto in summer", summer, "%H:%M %Z %z", "America/Toronto",
+					"08:00 EDT -0400"),
+				Entry("Berlin in winter", winter, "%H:%M %Z %z", "Europe/Berlin",
+					"16:04 CET +0100"),
+				Entry("Berlin in summer", summer, "%H:%M %Z %z", "Europe/Berlin",
+					"14:00 CEST +0200"),
+				Entry("the UTC zone", winter, "", "UTC", "2026-03-07T15:04:05Z"),
+				Entry("no zone", winter, "%Z %z", "", "UTC +0000"),
+				Entry("a half-hour offset", winter, "%H:%M %Z %z", "Asia/Kolkata",
+					"20:34 IST +0530"),
+				Entry("a 45-minute offset", winter, "%H:%M %Z %z", "Asia/Kathmandu",
+					"20:49 +0545 +0545"),
+				Entry("a lower case name", winter, "%H:%M %Z", "america/denver",
+					"08:04 MST"),
+				Entry("a short alias", winter, "%H:%M %Z", "US/Mountain", "08:04 MST"),
+				Entry("a lower case short alias", summer, "%H:%M %Z", "us/mountain",
+					"06:00 MDT"),
+				Entry(
+					"the last second before the daylight gap",
+					at(
+						2026,
+						stdtime.March,
+						8,
+						8,
+						59,
+						59,
+					),
+					"%H:%M:%S %Z",
+					"America/Denver",
+					"01:59:59 MST",
+				),
+				Entry(
+					"the first second of daylight time",
+					at(
+						2026,
+						stdtime.March,
+						8,
+						9,
+						0,
+						0,
+					),
+					"%H:%M:%S %Z",
+					"America/Denver",
+					"03:00:00 MDT",
+				),
+				Entry(
+					"the repeated hour in daylight time",
+					at(
+						2026,
+						stdtime.November,
+						1,
+						7,
+						30,
+						0,
+					),
+					"%H:%M %Z",
+					"America/Denver",
+					"01:30 MDT",
+				),
+				Entry(
+					"the repeated hour in standard time",
+					at(
+						2026,
+						stdtime.November,
+						1,
+						8,
+						30,
+						0,
+					),
+					"%H:%M %Z",
+					"America/Denver",
+					"01:30 MST",
+				),
+				Entry("a date, day, and week that change with the zone",
+					at(2026, stdtime.January, 1, 3, 0, 0), "%Y-%m-%d %j %U %a",
+					"America/Denver", "2025-12-31 365 52 Wed"),
+				Entry("the latest timestamp at UTC+14", int64(math.MaxInt64), "",
+					"Etc/GMT-14", "2262-04-12T13:47:16.854775807+14:00"),
+				Entry("the earliest timestamp at UTC-12", int64(math.MinInt64), "",
+					"Etc/GMT+12", "1677-09-20T12:12:43.145224192-12:00"),
+				Entry("a local mean time offset with seconds",
+					at(1800, stdtime.January, 1, 0, 0, 0), "%H:%M:%S %Z %z",
+					"America/Denver", "17:00:04 LMT -0659"),
+				Entry("ISO 8601 with a local mean time offset",
+					at(1800, stdtime.January, 1, 0, 0, 0), "", "America/Denver",
+					"1799-12-31T17:00:04-06:59"),
+				Entry("London on UTC in winter", winter, "", "Europe/London",
+					"2026-03-07T15:04:05Z"),
+				Entry("London in summer", summer, "", "Europe/London",
+					"2026-07-15T13:00:00+01:00"),
+			)
+
+			It(
+				"Should match the Go time package on sampled days in Denver",
+				func(ctx SpecContext) {
+					layout := stringState.Create(
+						"%Y-%m-%d %H:%M:%S %j %a %b %p %z %Z %c",
+					)
+					zone := stringState.Create("America/Denver")
+					denver := MustSucceed(MustSucceed(tz.Open()).Load("America/Denver"))
+					// The sweep samples days across the range an i64 ns timestamp can
+					// hold, from local mean time through the daylight rules of today.
+					first := stdtime.Date(
+						1678,
+						stdtime.January,
+						1,
+						13,
+						4,
+						5,
+						0,
+						stdtime.UTC,
+					)
+					n := 0
+					for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
+						n++
+						if !swept(day, n) {
+							continue
+						}
+						local := day.In(denver)
+						expected := fmt.Sprintf(
+							"%s %03d %s %s",
+							local.Format("2006-01-02 15:04:05"),
+							local.YearDay(),
+							local.Format("Mon Jan PM -0700 MST"),
+							// stdtime.ANSIC is the C standard's %c.
+							local.Format(stdtime.ANSIC),
+						)
+						out := call(ctx, day.UnixNano(), layout, zone)
+						Expect(MustBeOk(stringState.Get(out))).
+							To(Equal(expected), day.Format(stdtime.RFC3339))
+					}
+				},
+			)
 		})
 	})
 	Describe("Interval", func() {
@@ -56,6 +627,8 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -182,6 +755,20 @@ var _ = Describe("Time", func() {
 				))
 			},
 		)
+		It("Should allow a computed period at construction", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Inputs: types.Params{{
+						Name:  "period",
+						Type:  types.VarRef(types.TimeSpan(), "p"),
+						Value: int64(0),
+					}},
+				},
+				State: s.Node("interval_1"),
+			}
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
+		})
 		It(
 			"Should allow a zero var-bound period at construction",
 			func() {
@@ -458,6 +1045,8 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -1181,7 +1770,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1273,6 +1862,25 @@ var _ = Describe("Time", func() {
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
+		It("Should expose time.format as a WASM-only function", func(ctx SpecContext) {
+			sym := timeM(ctx, "format")
+			Expect(sym.Name).To(Equal("format"))
+			Expect(sym.Exec).To(Equal(symbol.ExecWASM))
+			Expect(sym.Trigger).To(Equal(symbol.TriggerOnly))
+			Expect(sym.Deprecated).To(BeNil())
+			Expect(sym.Type.Inputs).To(Equal(types.Params{
+				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
+				{Name: "format", Type: types.String(), Value: ""},
+				{Name: "tz", Type: types.String(), Value: ""},
+			}))
+			Expect(sym.Type.Outputs).To(Equal(types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			}))
+		})
+		It("Should not expose a bare format symbol", func(ctx SpecContext) {
+			Expect(root.Resolve(ctx, "format", symbol.IncludeInternal)).Error().
+				To(MatchError(ContainSubstring("undefined symbol: format")))
+		})
 	})
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
@@ -1283,7 +1891,7 @@ var _ = Describe("Time", func() {
 				fired    int
 			)
 			BeforeEach(func(ctx SpecContext) {
-				factory := MustSucceed(time.NewHost(ctx, nil))
+				factory := MustSucceed(time.NewHost(ctx, nil, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1382,7 +1990,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1583,6 +2191,8 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -1749,7 +2359,7 @@ var _ = Describe("Time", func() {
 	Describe("Variable inputs", func() {
 		var factory *time.Host
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 		})
 
 		// varConfig builds a config whose span input is var-bound: Value holds

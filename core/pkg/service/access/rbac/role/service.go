@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -51,6 +52,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Role]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -63,7 +65,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Role]{
@@ -94,8 +100,12 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 		tx:            tx,
 		allowInternal: allowInternal,
 		table:         s.table,
+		dispatcher:    s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}

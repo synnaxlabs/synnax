@@ -16,6 +16,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -39,7 +40,7 @@ enum class State : uint8_t {
 };
 
 /// @brief converts a slave::State enum value to its string representation.
-inline std::string slave_state_to_string(const State state) {
+inline std::string to_string(const State state) {
     switch (state) {
         case State::INIT:
             return "INIT";
@@ -215,7 +216,7 @@ struct Config {
 struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
-    /// @brief position of the slave on the EtherCAT bus (0-based index).
+    /// @brief position of the slave on the bus, counting from 1.
     uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
     uint32_t vendor_id{};
@@ -227,39 +228,15 @@ struct Properties {
     uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
-    /// @brief total input size in bits.
-    uint32_t input_bits{};
-    /// @brief total output size in bits.
-    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
     /// @brief synchronization modes the slave lists in its SII, in SII order.
     std::vector<dc::OpMode> op_modes;
-    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
-    std::optional<dc::Choice> op_mode;
-    /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable{};
-    /// @brief whether the device is enabled or not.
-    bool enabled = true;
-    /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
-    /// user, so to_json leaves them out and a scan keeps them.
-    std::vector<StartupParameter> startup_parameters;
-
-    /// @brief returns the settings the master applies to the slave when the bus starts.
-    [[nodiscard]] Config config() const {
-        return {
-            .enabled = this->enabled,
-            .op_mode = this->op_mode,
-            .startup_parameters = this->startup_parameters,
-        };
-    }
-
-    /// @brief returns the total number of discovered PDO entries.
-    [[nodiscard]] size_t pdo_count() const {
-        return this->input_pdos.size() + this->output_pdos.size();
-    }
+    /// @brief the settings the user chose. to_json leaves out the startup parameters,
+    /// so a scan keeps them.
+    Config config;
 
     /// @brief returns the entry at the given address in one direction, or nullopt when
     /// the slave has no such entry. Padding never matches.
@@ -280,13 +257,20 @@ struct Properties {
         props.revision = parser.field<uint32_t>("revision");
         props.name = parser.field<std::string>("name");
         props.network = parser.field<std::string>("network", "");
-        props.position = static_cast<uint16_t>(parser.field<int>("position"));
-        props.enabled = parser.field<bool>("enabled");
+        const auto errors_before = parser.errors->size();
+        const auto position = parser.field<double>("position");
+        if (position >= 1 && position <= std::numeric_limits<uint16_t>::max() &&
+            position == std::trunc(position))
+            props.position = static_cast<uint16_t>(position);
+        else if (parser.errors->size() == errors_before)
+            parser.field_err("position", "must be a whole number from 1 to 65535");
+        props.config.enabled = parser.field<bool>("enabled");
         props.op_modes = parser.field<std::vector<dc::OpMode>>("op_modes", {});
-        props.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
+        props.config.op_mode = parser.field<std::optional<dc::Choice>>("op_mode");
+        auto &params = props.config.startup_parameters;
         if (parser.has("startup_parameters"))
-            parser.iter("startup_parameters", [&props](x::json::Parser &param) {
-                props.startup_parameters.push_back(StartupParameter::parse(param));
+            parser.iter("startup_parameters", [&params](x::json::Parser &param) {
+                params.push_back(StartupParameter::parse(param));
             });
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
@@ -310,16 +294,13 @@ struct Properties {
         props["name"] = this->name;
         props["network"] = network;
         props["position"] = this->position;
-        props["input_bits"] = this->input_bits;
-        props["output_bits"] = this->output_bits;
-        props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
-        props["enabled"] = this->enabled;
+        props["enabled"] = this->config.enabled;
 
         nlohmann::json op_modes = nlohmann::json::array();
         for (const auto &mode: this->op_modes)
             op_modes.push_back(mode.to_json());
         props["op_modes"] = op_modes;
-        if (this->op_mode) props["op_mode"] = this->op_mode->to_json();
+        if (this->config.op_mode) props["op_mode"] = this->config.op_mode->to_json();
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
@@ -337,12 +318,20 @@ struct Properties {
 /// @brief dynamic status information about an EtherCAT slave from discovery.
 struct Status {
     /// @brief current application layer state of the slave.
-    State state;
-    /// @brief true if PDO discovery completed successfully.
-    bool pdos_discovered;
-    /// @brief error message if PDO discovery failed (empty on success).
+    State state = State::UNKNOWN;
+    /// @brief why PDO discovery failed, or empty when it succeeded.
     std::string pdo_discovery_error;
 };
+
+/// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
+/// message about one or more such slaves ends with it once.
+inline constexpr std::string_view DC_SYNC_ADVICE =
+    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
+    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
+    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
+    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "list the mode it expects, change its mode with the configuration tool of its "
+    "vendor.";
 
 /// @brief why the bus started without a slave that refused a state.
 struct Refusal {
@@ -350,7 +339,7 @@ struct Refusal {
     /// Inconsistent settings".
     std::string reason;
     /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
-    /// message about the refusal ends with master::DC_SYNC_ADVICE.
+    /// message about the refusal ends with DC_SYNC_ADVICE.
     bool dc_sync_invalid = false;
 
     bool operator==(const Refusal &) const = default;
@@ -389,7 +378,7 @@ struct Health {
     /// watchdog".
     [[nodiscard]] std::string to_string() const {
         if (this->lost) return "not responding";
-        std::string desc = slave_state_to_string(this->state);
+        std::string desc = slave::to_string(this->state);
         if (this->faulted) desc += " + ERROR";
         if (!this->al_status.empty()) desc += ": " + this->al_status;
         if (!this->dc_restore_error.empty())
@@ -406,15 +395,5 @@ struct DiscoveryResult {
     Properties properties;
     Status status;
 };
-
-/// @brief extracts properties from a vector of discovery results.
-inline std::vector<Properties>
-discovered_properties(const std::vector<DiscoveryResult> &results) {
-    std::vector<Properties> props;
-    props.reserve(results.size());
-    for (const auto &r: results)
-        props.push_back(r.properties);
-    return props;
-}
 
 }
