@@ -34,7 +34,7 @@ type Selection = Pick<
 
 interface Press {
   point: log.Point;
-  // What the press selected, held from the first move of its drag.
+  // What the press selected, once its update applies.
   selection?: Selection;
 }
 
@@ -156,7 +156,7 @@ export const Base = ({
   const handleError = Status.useErrorHandler();
 
   // A click selects its whole line, or clears it when it alone is selected. A
-  // shift-click extends the selection by whole lines.
+  // shift-click extends the selection by whole lines and starts no drag.
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const { clientX: x, clientY: y, shiftKey } = e;
@@ -164,7 +164,9 @@ export const Base = ({
     const gesture = ++gestureRef.current;
     handleError(async () => {
       const point = await methods.hit({ x, y });
-      if (gesture === gestureRef.current) downRef.current = { point };
+      const press: Press | null =
+        !shiftKey && gesture === gestureRef.current ? { point } : null;
+      if (press != null) downRef.current = press;
       const { entry } = point;
       setState((s) => {
         const whole = { selectionStartChar: -1, selectionEndChar: -1 };
@@ -173,8 +175,11 @@ export const Base = ({
           s.selectionStart === entry &&
           s.selectionEnd === entry &&
           s.selectionStartChar < 0;
-        if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
-        return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
+        const selection: Selection = alone
+          ? { ...whole, selectionStart: -1, selectionEnd: -1 }
+          : { ...whole, selectionStart: entry, selectionEnd: entry };
+        if (press != null) press.selection = selection;
+        return { ...s, ...selection };
       });
     }, "Failed to select log lines");
   };
@@ -194,13 +199,6 @@ export const Base = ({
         if (selection != null) setState((s) => ({ ...s, ...selection }));
         return;
       }
-      if (press.selection == null)
-        press.selection = {
-          selectionStart,
-          selectionEnd,
-          selectionStartChar: state.selectionStartChar,
-          selectionEndChar: state.selectionEndChar,
-        };
       setState((s) => ({
         ...s,
         selectionStart: down.entry,

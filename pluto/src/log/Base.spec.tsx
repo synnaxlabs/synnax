@@ -450,24 +450,12 @@ describe("log/Base", () => {
       hit.mockResolvedValueOnce({ entry: 1, char: 4 });
       hit.mockResolvedValueOnce({ entry: 3, char: 2 });
       hit.mockResolvedValueOnce({ entry: 1, char: 4 });
-      const { container, rerender } = renderLog();
+      const { container } = renderLog();
       const div = getLogDiv(container);
       fireEvent.mouseDown(div, { button: 0 });
       await waitFor(() => expect(setState).toHaveBeenCalled());
-      // The press selected line 1, and the log renders it.
-      mockAetherUse.mockReturnValue([
-        "test-key",
-        {
-          ...DEFAULT_STATE,
-          empty: false,
-          selectionStart: 1,
-          selectionEnd: 1,
-          ...WHOLE,
-        },
-        setState,
-        { selectedLines: vi.fn(), hit },
-      ]);
-      rerender(<Base />);
+      // The press's update applies before the log renders it.
+      lastState(setState, DEFAULT_STATE);
       fireEvent.mouseMove(div, { clientY: 90 });
       await waitFor(() =>
         expect(lastState(setState)).toMatchObject({ selectionEndChar: 2 }),
@@ -480,6 +468,17 @@ describe("log/Base", () => {
           ...WHOLE,
         }),
       );
+    });
+
+    it("should start no drag on a shift-click", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 4, char: 3 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0, shiftKey: true });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseMove(div, { clientY: 90 });
+      expect(hit).toHaveBeenCalledTimes(1);
     });
 
     it("should extend the selection by whole lines on a shift-click", async () => {
