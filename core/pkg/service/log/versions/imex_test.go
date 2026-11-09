@@ -55,6 +55,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Entry("a Console v0 state", "testdata/import_v0_state_repeated_channels.json"),
 	)
 
+	It("Should map the tz of a v2 envelope to time_zone", func(ctx SpecContext) {
+		l := decode(ctx, "testdata/import_v2.json")
+		Expect(l.Channels[0].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
+		Expect(l.Channels[1].TimestampConfig.TimeZone).To(Equal(telem.TimeZoneLocal))
+	})
+
 	It("Should decode a v3 envelope", func(ctx SpecContext) {
 		l := decode(ctx, "testdata/import_v3.json")
 		Expect(l.Channels).To(HaveLen(2))
@@ -66,14 +72,14 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		ctx SpecContext,
 	) {
 		l := decode(ctx, "testdata/import_v3.json")
-		Expect(l.Channels[1].Timestamp.Format).To(BeEmpty())
+		Expect(l.Channels[1].TimestampConfig.Format).To(BeEmpty())
 	})
 
 	It("Should fill an empty timestamp format from an older version", func(
 		ctx SpecContext,
 	) {
 		l := decode(ctx, "testdata/import_v2.json")
-		Expect(l.Channels[1].Timestamp.Format).
+		Expect(l.Channels[1].TimestampConfig.Format).
 			To(Equal(telem.TimestampFormatPreciseDate))
 	})
 

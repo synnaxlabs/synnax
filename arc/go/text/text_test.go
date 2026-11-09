@@ -3088,7 +3088,7 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(
 						diagnostics.String(),
-					).To(ContainSubstring("out of range for u8"))
+					).To(ContainSubstring("constant -5 overflows u8"))
 				},
 			)
 		})

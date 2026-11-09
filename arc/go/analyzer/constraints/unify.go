@@ -251,6 +251,12 @@ func (s *System) unifyTypeVariableWithVisited(
 		if tv.Constraint != nil && other.Constraint == nil {
 			s.Substitutions[other.Name] = tv
 			return nil
+		} else if tv.Constraint != nil && other.Constraint != nil &&
+			tv.Constraint.Kind == types.KindFloatConstant &&
+			other.Constraint.Kind == types.KindIntegerConstant {
+			// An integer literal in a float position takes the float's type.
+			s.Substitutions[other.Name] = tv
+			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {
 			s.Substitutions[tv.Name] = other
 			return nil

@@ -18,11 +18,25 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// floatLiteral returns the type of an untyped float literal or constant.
+func floatLiteral() types.Type {
+	c := types.FloatConstraint()
+	return types.Variable("float", &c)
+}
+
+// integerLiteral returns the type of an untyped integer literal.
+func integerLiteral() types.Type {
+	c := types.IntegerConstraint()
+	return types.Variable("integer", &c)
+}
 
 // inferExprType is a helper that parses an expression and infers its type.
 func inferExprType(
@@ -42,6 +56,42 @@ func parseTypeFromDecl(decl string) parser.ITypeContext {
 	stmt := MustSucceed(parser.ParseStatement(decl))
 	return stmt.VariableDeclaration().LocalVariable().Type_()
 }
+
+var _ = Describe("Module constants", func() {
+	infer := func(bCtx context.Context, expr string) acontext.Context[parser.IExpressionContext] {
+		GinkgoHelper()
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		ctx := acontext.NewRoot(bCtx, MustSucceed(parser.ParseExpression(expr)), root)
+		atypes.InferFromExpression(ctx)
+		return ctx
+	}
+
+	It("Should infer a float type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf")
+		t := atypes.InferFromExpression(ctx)
+		Expect(t.Kind).To(Equal(types.KindVariable))
+		Expect(t.Constraint.Kind).To(Equal(types.KindFloatConstant))
+	})
+
+	It("Should give each reference its own type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf + math.nan")
+		names := make(set.Set[string])
+		for _, t := range ctx.TypeMap {
+			if strings.HasPrefix(t.Name, "const_") {
+				names.Add(t.Name)
+			}
+		}
+		Expect(names).To(HaveLen(2))
+	})
+
+	It("Should default to f64", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.nan")
+		t := atypes.InferFromExpression(ctx)
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		Expect(ctx.Constraints.ApplySubstitutions(t)).To(Equal(types.F64()))
+	})
+})
 
 var _ = Describe("Binary minus spacing", func() {
 	hasSpacingErr := func(expr string, cfg parser.Config) bool {
@@ -883,6 +933,15 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
+			Entry("float constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(floatLiteral()), false),
+			Entry("integer constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(integerLiteral()), true),
 			Entry(
 				"series to channel",
 				types.Chan(types.I32()),
@@ -909,6 +968,11 @@ var _ = Describe("Type Inference", func() {
 			},
 			Entry("same type f32", types.F32(), types.F32(), true),
 			Entry("same type i32", types.I32(), types.I32(), true),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
 			Entry("signed int to unsigned", types.U32(), types.I64(), true),
 			Entry("int to float", types.F64(), types.I64(), true),
 			Entry("float to wider float", types.F32(), types.F64(), true),
