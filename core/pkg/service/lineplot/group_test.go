@@ -157,6 +157,17 @@ var _ = Describe("Apply of a move", func() {
 		Expect(res.Project).To(Equal(&proj.Key))
 	})
 
+	It(
+		"Should move a line plot out of its group with a set of null",
+		func(ctx SpecContext) {
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(apply(ctx, target.Key, lineplot.NewSetAction(
+				lineplot.SetPayload{Path: []string{"group"}},
+			))).To(BeEmpty())
+			Expect(retrieve(ctx, target.Key).Group).To(BeNil())
+		},
+	)
+
 	It("Should reject a group under no project", func(ctx SpecContext) {
 		top := group.Group{Name: "top", Scope: resource.TypeProject}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
