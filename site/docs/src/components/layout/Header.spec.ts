@@ -78,6 +78,24 @@ describe("Header", () => {
     ]);
   });
 
+  it("should name the root by its train only on the newest train", async () => {
+    const labels = async (version: Version): Promise<string[]> =>
+      classed(await render(version), "version-menu__list")
+        .flatMap(elements)
+        .filter(({ tagName }) => tagName === "a")
+        .map((link) => text(elements(link)[0]));
+    expect(await labels(resolve("0.60", ["0.60", "0.59"]))).toEqual([
+      "Next",
+      "0.60",
+      "0.59",
+    ]);
+    expect(await labels(resolve("0.59", ["0.60", "0.59"]))).toEqual([
+      "Next",
+      "Latest",
+      "0.59",
+    ]);
+  });
+
   it("should send the pages no version owns to the root", async () => {
     expect(hrefs(await render(resolve("next", ["0.60"])), "Blog")).toEqual([
       `${ROOT}/blog/`,
