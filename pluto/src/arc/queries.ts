@@ -158,6 +158,10 @@ export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useType = Scope.bindHook(createSelector(({ type }) => type));
 
+export const useDirectory = Scope.bindHook(
+  createSelector(({ directory }) => directory),
+);
+
 export interface AddNodeProps {
   key: string;
   type: string;
