@@ -24,7 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -165,6 +167,122 @@ var _ = Describe("Layer", func() {
 			Where(group.MatchKeys(key)).
 			Entry(&group.Group{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+	})
+
+	Describe("Dispatch entries", func() {
+		var (
+			proj                           project.Project
+			sym                            symbol.Symbol
+			rck                            rack.Rack
+			projGroup, symGroup, rackGroup group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			proj = project.Project{Name: "moved"}
+			sym = symbol.Symbol{
+				Name: "moved",
+				Data: symbol.Spec{
+					SVG:     "<svg></svg>",
+					Variant: "valve",
+					States:  []symbol.State{{Key: "default", Name: "default"}},
+				},
+			}
+			rck = rack.Rack{Name: "moved"}
+			projGroup = group.Group{Name: "Projects", Scope: resource.TypeProject}
+			symGroup = group.Group{Name: "Symbols", Scope: resource.TypeSchematicSymbol}
+			rackGroup = group.Group{Name: "Racks", Scope: resource.TypeDevice}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				gw := svc.Group.NewWriter(tx)
+				for _, g := range []*group.Group{&projGroup, &symGroup, &rackGroup} {
+					if err := gw.Create(ctx, g); err != nil {
+						return err
+					}
+				}
+				if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+					return err
+				}
+				if err := svc.Schematic.Symbol.NewWriter(tx).
+					Create(ctx, &sym); err != nil {
+					return err
+				}
+				return svc.Rack.NewWriter(tx).Create(ctx, &rck)
+			})).To(Succeed())
+		})
+		// moveBody returns a batch that moves the project, symbol, and rack into their
+		// groups with a set of the group on each.
+		moveBody := func() string {
+			return fmt.Sprintf(`{"requests": [
+				{"endpoint": "/project/dispatch", "payload": {"key": %[1]q, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[2]q}}
+				]}},
+				{"endpoint": "/schematic/symbol/dispatch", "payload": {
+					"key": %[3]q,
+					"actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[4]q}}
+					]
+				}},
+				{"endpoint": "/rack/dispatch", "payload": {"key": %[5]d, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[6]q}}
+				]}}
+			]}`, proj.Key, projGroup.Key, sym.Key, symGroup.Key, rck.Key, rackGroup.Key)
+		}
+
+		It("Should move records of several types in one transaction", func(
+			ctx SpecContext,
+		) {
+			u := newUser(
+				ctx,
+				resource.TypeGroup,
+				resource.TypeProject,
+				resource.TypeSchematicSymbol,
+				resource.TypeRack,
+			)
+			MustSucceed(execBatch(ctx, u, moveBody()))
+			var (
+				storedProj project.Project
+				storedSym  symbol.Symbol
+				storedRack rack.Rack
+			)
+			Expect(svc.Project.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&storedProj).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedProj.Group).To(Equal(&projGroup.Key))
+			Expect(svc.Schematic.Symbol.NewRetrieve().
+				Where(symbol.MatchKeys(sym.Key)).
+				Entry(&storedSym).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedSym.Group).To(Equal(&symGroup.Key))
+			Expect(svc.Rack.NewRetrieve().
+				Where(rack.MatchKeys(rck.Key)).
+				Entry(&storedRack).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedRack.Group).To(Equal(&rackGroup.Key))
+		})
+
+		It("Should commit nothing when the subject cannot update one record", func(
+			ctx SpecContext,
+		) {
+			u := newUser(
+				ctx,
+				resource.TypeGroup,
+				resource.TypeProject,
+				resource.TypeSchematicSymbol,
+			)
+			Expect(execBatch(ctx, u, moveBody())).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot update %s",
+					u.ResourceID(),
+					rck.ResourceID(),
+				)),
+			))
+			var storedProj project.Project
+			Expect(svc.Project.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&storedProj).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedProj.Group).To(BeNil())
+		})
 	})
 
 	It(
