@@ -239,8 +239,8 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Path actions
 
-`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
-path actions may edit. A path to any other field fails, so a Core-owned field such as
+`@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
+actions may edit. A path to any other field fails, so a Core-owned field such as
 `labels` gets no tag. Go generates a `Patch` method for the document and for every
 struct that a `@patch` field reaches, in the version package that declares the struct. A
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares
