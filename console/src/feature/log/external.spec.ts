@@ -34,7 +34,9 @@ describe("Log.TABS restore", () => {
     await client.logs.retrieve(created.key);
     await client.logs.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.logs.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.logs.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
     await restore({ client, project: to.key, resource: log.resourceID(created.key) });
     const restored = await createTestClient().logs.retrieve(created.key);

@@ -313,7 +313,8 @@ const tasks = await client.tasks.retrieve({
 });
 
 // List the tasks on every Driver.
-for (const t of await client.tasks.list()) console.log(t.name, t.type);
+const all = await client.tasks.retrieve({ where: { internal: { eq: false } } });
+for (const t of all) console.log(t.name, t.type);
 
 // Copy a task with a new name.
 const copy = await client.tasks.copy(task.key, "Tank sensors copy", false);

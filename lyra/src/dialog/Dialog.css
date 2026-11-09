@@ -13,6 +13,9 @@
     position: fixed;
     overflow: hidden;
 
+    /* The surface takes the focus, on open or on a click, with no ring. */
+    outline: none;
+
     /* Dialogs are elevated chrome: fills lighten even when the dialog is anchored
        inside a recessed-chrome region. */
     --pluto-fill-rest: var(--pluto-gray-l3);
@@ -21,9 +24,6 @@
 
     &.lyra--modal {
         position: relative;
-
-        /* The surface takes the focus on open, with no ring. */
-        outline: none;
 
         &.lyra--visible {
             top: 15%;

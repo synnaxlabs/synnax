@@ -204,14 +204,13 @@ class TestRackClient:
         assert res.status is not None
         assert res.status.owner == sy.rack.resource_id(rack.key)
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the matching racks."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the matching racks."""
         racks = client.racks.create(
             racks=[sy.Rack(name=str(uuid4())) for _ in range(3)]
         )
         keys = [r.key for r in racks]
         assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
-        assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
 
     def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
         """Should return a list when names are combined with a limit."""
@@ -248,7 +247,7 @@ class TestRackClient:
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject a plain name beside a limit, since a page could hide a
         match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
