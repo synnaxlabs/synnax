@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -25,10 +26,11 @@ func UniqueChannelName() string {
 	return fmt.Sprintf("test_ch_%09d", rand.IntN(999999999))
 }
 
-// CreateVirtual creates count virtual channels with unique names through svc and
+// CreateVirtual creates count virtual channels with unique names through svc in db and
 // returns their keys in creation order.
 func CreateVirtual(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *channel.Service,
 	count int,
 ) (channel.Keys, error) {
@@ -40,7 +42,9 @@ func CreateVirtual(
 			Virtual:  true,
 		}
 	}
-	if err := svc.NewWriter(nil).CreateMany(ctx, &channels); err != nil {
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).CreateMany(ctx, &channels)
+	}); err != nil {
 		return nil, err
 	}
 	return channel.KeysFromChannels(channels), nil

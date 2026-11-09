@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -25,7 +24,6 @@ var _ = Describe("ServiceConfig", func() {
 			Label:  &label.Service{},
 			Ranger: &ranger.Service{},
 			Status: &status.Service{},
-			RBAC:   &rbac.Service{},
 		}
 	}
 
@@ -56,11 +54,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apilabel.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apilabel.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -71,7 +64,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
 			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -80,7 +72,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
 			Expect(merged.Ranger).To(BeIdenticalTo(cfg.Ranger))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })

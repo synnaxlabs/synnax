@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -46,22 +47,13 @@ func (d *storedDetails) DecodeMsgpack(dec *msgpack.Decoder) (err error) {
 	return err
 }
 
-// Writer is used to create and update statuses within the DB. A Writer with no
-// transaction runs each call in a transaction of its own.
+// Writer is used to create and update statuses within the DB. Each create or update
+// attaches a set action that holds the stored status.
 type Writer struct {
-	svc     *Service
-	tx      gorp.Tx
-	table   *gorp.Table[Key, Status[any]]
-	indexes indexes
-}
-
-// inTx calls f with w, or with a Writer on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	if db, ok := w.tx.(*gorp.DB); ok {
-		return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
-	}
-	return f(w)
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Status[any]]
+	indexes    indexes
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Set creates or updates a status. A status with an owner goes to the status its owner
@@ -70,15 +62,13 @@ func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
 // keeps the stored owner and labels. Labels change only through AddLabels,
 // ReplaceLabels, and RemoveLabels. On return, s holds what was stored.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := w.validate(*s); err != nil {
-			return err
-		}
-		if err := w.Resolve(ctx, s); err != nil {
-			return err
-		}
-		return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
-	})
+	if err := w.validate(*s); err != nil {
+		return err
+	}
+	if err := w.Resolve(ctx, s); err != nil {
+		return err
+	}
+	return w.write(ctx, s.ToAny())
 }
 
 // SetMany calls Set for each status, in order.
@@ -86,27 +76,23 @@ func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error
 	if statuses == nil {
 		return nil
 	}
-	return w.inTx(ctx, func(w Writer) error {
-		for i := range *statuses {
-			if err := w.Set(ctx, &(*statuses)[i]); err != nil {
-				return err
-			}
+	for i := range *statuses {
+		if err := w.Set(ctx, &(*statuses)[i]); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // RenameOwned renames the status that owner holds, keeping every other field. It
 // returns query.ErrNotFound if owner holds no status and a validation error if name is
 // empty.
 func (w Writer) RenameOwned(ctx context.Context, owner resource.ID, name string) error {
-	return w.inTx(ctx, func(w Writer) error {
-		key, err := w.ownedKey(ctx, owner)
-		if err != nil {
-			return err
-		}
-		return w.Rename(ctx, key, name)
-	})
+	key, err := w.ownedKey(ctx, owner)
+	if err != nil {
+		return err
+	}
+	return w.Rename(ctx, key, name)
 }
 
 // DeleteOwned deletes the statuses that owners hold. DeleteOwned is idempotent.
@@ -115,13 +101,11 @@ func (w Writer) DeleteOwned(ctx context.Context, owners ...resource.ID) error {
 	for i, o := range owners {
 		targets[i] = resourceTarget(o)
 	}
-	return w.inTx(ctx, func(w Writer) error {
-		keys, err := w.indexes.owner.Get(ctx, w.tx, targets...)
-		if err != nil {
-			return err
-		}
-		return w.Delete(ctx, keys...)
-	})
+	keys, err := w.indexes.owner.Get(ctx, w.tx, targets...)
+	if err != nil {
+		return err
+	}
+	return w.Delete(ctx, keys...)
 }
 
 func (w Writer) ownedKey(ctx context.Context, owner resource.ID) (Key, error) {
@@ -205,14 +189,21 @@ func (w Writer) update(
 	key Key,
 	change func(*Status[storedDetails]),
 ) error {
-	return w.inTx(ctx, func(w Writer) error {
-		s, err := w.retrieveRaw(ctx, key)
-		if err != nil {
-			return err
-		}
-		change(&s)
-		return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
-	})
+	s, err := w.retrieveRaw(ctx, key)
+	if err != nil {
+		return err
+	}
+	change(&s)
+	return w.write(ctx, s.ToAny())
+}
+
+// write stores s and attaches a set action that holds it.
+func (w Writer) write(ctx context.Context, s Status[any]) error {
+	if err := w.table.NewCreate().Entry(&s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewSetAction(SetPayload{Status: s}))
+	return nil
 }
 
 func (w Writer) retrieveRaw(

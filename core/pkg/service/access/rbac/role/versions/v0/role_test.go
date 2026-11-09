@@ -32,11 +32,6 @@ var _ = Describe("Role", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Role{}.SetOptions()).To(BeNil())
-		})
-	})
 	Describe("ResourceID", func() {
 		It("Should return the role resource identifier", func() {
 			k := uuid.New()

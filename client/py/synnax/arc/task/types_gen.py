@@ -11,8 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
-from typing import override as _override
+from typing import Literal, override as _override
 
 from synnax import task
 from synnax.arc import types_gen

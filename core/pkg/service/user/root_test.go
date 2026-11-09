@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -30,6 +30,7 @@ func provision(ctx context.Context, username, pwd string) user.User {
 		svc,
 		passwordSvc,
 		auth.Credentials{Username: username, Password: pwd},
+		owner,
 	))
 	return root
 }
@@ -40,7 +41,7 @@ func storedHash(ctx context.Context, username string) []byte {
 	Expect(passwordSvc.NewRetrieve().
 		Where(password.MatchUsernames(username)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return p.Hash
 }
 
@@ -58,7 +59,7 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 	var u user.User
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		if root {
-			u = user.User{Key: uuid.New(), Name: username, RootUser: true}
+			u = user.User{Key: uuid.New(), Name: username, RootUser: true, Role: owner}
 			if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 				return err
 			}
@@ -66,14 +67,13 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 			var err error
 			if u, err = svc.NewWriter(tx).Create(ctx, user.User{
 				Name: username,
+				Role: member,
 			}); err != nil {
 				return err
 			}
 		}
-		return passwordSvc.NewWriter(tx).Set(ctx, u.ResourceID(), auth.Credentials{
-			Username: username,
-			Password: pwd,
-		})
+		return passwordSvc.NewWriter(tx).
+			Set(ctx, u.ResourceID(), username, hash(passwordSvc, pwd))
 	})).To(Succeed())
 	return u
 }
@@ -85,11 +85,11 @@ func findUser(ctx context.Context, username string) user.User {
 	Expect(passwordSvc.NewRetrieve().
 		Where(password.MatchUsernames(username)).
 		Entry(&p).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	key := MustSucceed(user.KeyFromResourceID(p.Subject))
 	var u user.User
 	Expect(svc.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return u
 }
 
@@ -99,43 +99,44 @@ func rootUsers(ctx context.Context) []user.User {
 	Expect(svc.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entries(&roots).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return roots
 }
 
-// purgeUsers deletes raw, because [user.Writer.Delete] rejects root users.
+// purgeUsers deletes raw, because [user.Writer.Delete] rejects root users. A raw delete
+// follows no cascade, so it deletes the passwords too.
 func purgeUsers(ctx context.Context) {
 	GinkgoHelper()
 	var users []user.User
-	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, nil)).To(Succeed())
-	if len(users) == 0 {
-		return
-	}
+	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, db)).To(Succeed())
 	keys := make([]user.Key, len(users))
 	for i, u := range users {
 		keys[i] = u.Key
 	}
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := gorp.WrapWriter[user.Key, user.User](
-			tx,
-		).Delete(ctx, keys...); err != nil {
-			return err
-		}
-		return passwordSvc.NewWriter(tx).
-			DeleteFor(ctx, user.ResourceIDsFromKeys(keys)...)
-	})).To(Succeed())
+	Expect(gorp.WrapWriter[user.Key, user.User](db).Delete(ctx, keys...)).
+		To(Succeed())
+	var passwords []password.Password
+	Expect(passwordSvc.NewRetrieve().Entries(&passwords).Exec(ctx, db)).To(Succeed())
+	pwKeys := make([]password.Key, len(passwords))
+	for i, p := range passwords {
+		pwKeys[i] = p.Key
+	}
+	Expect(gorp.WrapWriter[password.Key, password.Password](db).Delete(ctx, pwKeys...)).
+		To(Succeed())
 }
 
 var _ = Describe("ProvisionRoot", Serial, func() {
 	BeforeEach(func(ctx SpecContext) { purgeUsers(ctx) })
 	It("Should reject incomplete credentials", func(ctx SpecContext) {
-		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{})).Error().
+		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{}, owner)).
+			Error().
 			To(MatchError(ContainSubstring("username: required")))
 	})
 	It("Should create a root user on a fresh Core", func(ctx SpecContext) {
 		root := provision(ctx, "alpha", "p1")
 		Expect(root.RootUser).To(BeTrue())
 		Expect(root.Name).To(Equal("alpha"))
+		Expect(root.Role).To(Equal(owner))
 		Expect(findUser(ctx, "alpha")).To(Equal(root))
 		Expect(MustSucceed(login(ctx, "alpha", "p1")).Subject).
 			To(Equal(root.ResourceID()))
@@ -153,6 +154,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p2"},
+			owner,
 		))
 		Expect(changed).To(BeTrue())
 		MustSucceed(login(ctx, "alpha", "p2"))
@@ -165,6 +167,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p1"},
+			owner,
 		))
 		Expect(changed).To(BeTrue())
 		before := storedHash(ctx, "alpha")
@@ -173,6 +176,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			svc,
 			passwordSvc,
 			auth.Credentials{Username: "alpha", Password: "p1"},
+			owner,
 		))
 		Expect(changed).To(BeFalse())
 		Expect(storedHash(ctx, "alpha")).To(Equal(before))
@@ -183,6 +187,7 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 			provision(ctx, "alpha", "p1")
 			provision(ctx, "beta", "p2")
 			Expect(findUser(ctx, "alpha").RootUser).To(BeFalse())
+			Expect(findUser(ctx, "alpha").Role).To(Equal(owner))
 			Expect(findUser(ctx, "beta").RootUser).To(BeTrue())
 			Expect(rootUsers(ctx)).To(HaveLen(1))
 			MustSucceed(login(ctx, "alpha", "p1"))
@@ -195,11 +200,38 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		after := provision(ctx, "gamma", "p3")
 		Expect(after.Key).To(Equal(before.Key))
 		Expect(after.RootUser).To(BeTrue())
+		Expect(after.Role).To(Equal(owner))
+		Expect(findUser(ctx, "gamma").Role).To(Equal(owner))
 		Expect(findUser(ctx, "old-root").RootUser).To(BeFalse())
 		Expect(rootUsers(ctx)).To(HaveLen(1))
 		MustSucceed(login(ctx, "gamma", "p3"))
 		Expect(login(ctx, "gamma", "x")).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should broadcast the promotion and the demotion", func(ctx SpecContext) {
+		prev := provision(ctx, "old-root", "p")
+		next := createUser(ctx, "gamma", "x", false)
+		rec := &Recorder[user.Key, user.Action]{}
+		DeferCleanup(svc.Actions().OnChange(rec.Record))
+		provision(ctx, "gamma", "p3")
+		set := func(path string, value any) user.Action {
+			return user.NewSetAction(
+				user.SetPayload{Path: []string{path}, Value: value},
+			)
+		}
+		Expect(rec.Snapshot()).To(ConsistOf(
+			SatisfyAll(
+				HaveField("Key", next.Key),
+				HaveField("Actions", Equal([]user.Action{
+					set("root_user", true),
+					set("role", owner),
+				})),
+			),
+			SatisfyAll(
+				HaveField("Key", prev.Key),
+				HaveField("Actions", Equal([]user.Action{set("root_user", false)})),
+			),
+		))
 	})
 	It("Should demote every stale root", func(ctx SpecContext) {
 		provision(ctx, "root-bootstrap", "p")
@@ -216,11 +248,20 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		ctx SpecContext,
 	) {
 		provision(ctx, "old-root", "p")
-		decoy := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "delta"}))
-		owner := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "owner"}))
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.ResourceID(), auth.Credentials{
-			Username: "delta",
-			Password: "p",
+		var decoy, owner user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			decoy, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "delta", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			owner, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "owner", Role: member})
+			return err
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return passwordSvc.NewWriter(tx).
+				Set(ctx, owner.ResourceID(), "delta", hash(passwordSvc, "p"))
 		})).To(Succeed())
 		root := provision(ctx, "delta", "p")
 		Expect(root.Key).To(Equal(owner.Key))
@@ -229,29 +270,15 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	It("Should create a root user when no password holds the username", func(
 		ctx SpecContext,
 	) {
-		other := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Name: "orphan"}))
+		var other user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			other, err = svc.NewWriter(tx).
+				Create(ctx, user.User{Name: "orphan", Role: member})
+			return err
+		})).To(Succeed())
 		root := provision(ctx, "orphan", "p")
 		Expect(root.Key).ToNot(Equal(other.Key))
 		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
 			To(Equal(root.ResourceID()))
-	})
-	It("Should reject a username whose password is not held by a user", func(
-		ctx SpecContext,
-	) {
-		Expect(passwordSvc.NewWriter(nil).Set(
-			ctx,
-			resource.ID{Type: "rack", Key: "1"},
-			auth.Credentials{Username: "rack-held", Password: "p"},
-		)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(passwordSvc.NewWriter(nil).DeleteFor(
-				ctx,
-				resource.ID{Type: "rack", Key: "1"},
-			)).To(Succeed())
-		})
-		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{
-			Username: "rack-held",
-			Password: "p",
-		})).Error().To(MatchError(ContainSubstring("not held by a user")))
 	})
 })

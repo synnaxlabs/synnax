@@ -21,6 +21,7 @@ Alert struct {
     }
     status          status.Key = "" {
         @doc value     "is the key of the Synnax status the alert watches."
+        @ref kind      use
         @ref on_delete detach
     }
     errors_critical bool = false {
@@ -58,5 +59,6 @@ TaskConfig struct extends task.StartConfig {
     @go imex             body
     @go marshal
     @go migrate
+    @patch
     @retrieve references
 }

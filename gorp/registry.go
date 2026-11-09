@@ -25,12 +25,12 @@ type registeredTable interface {
 	// canonical reports whether k is a key of the table in the text form that
 	// FormatKey returns.
 	canonical(k string) bool
-	// exists reports whether the entry with the text key k exists in tx.
-	exists(ctx context.Context, tx Tx, k string) (bool, error)
-	// deleteKeys deletes the entries with the text keys keys.
+	// exists reports whether the entry with the text key k exists in snap.
+	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
+	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
 	// detach removes the targets of ops from the entry with the text key k and writes
-	// it back.
+	// it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
 }
 
@@ -42,7 +42,7 @@ type registeredReference interface {
 	onDeletePolicy() OnDelete
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
-	dependents(ctx context.Context, tx Tx, target Target) ([]string, error)
+	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
 // detachOp removes target from the reference at index ref of an entry.
@@ -54,9 +54,11 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
-	// mu guards tables, referencing, and indexed.
+	// mu guards tables, names, referencing, and indexed.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
+	// names maps a key prefix to the name of the registered table that stores under it.
+	names map[string]string
 	// referencing maps a table name to the references that may point at it.
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
@@ -66,6 +68,7 @@ type registry struct {
 func newRegistry() *registry {
 	return &registry{
 		tables:      make(map[string]registeredTable),
+		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
 	}
@@ -101,14 +104,32 @@ func (r *registry) indexedTables(prefix []byte) []any {
 	return slices.Clone(r.indexed[string(prefix)])
 }
 
-func (r *registry) register(name string, table registeredTable) error {
+// register adds table, named name, which stores under prefix. Two registered tables
+// cannot share a name or a prefix.
+func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
+	if other, ok := r.names[string(prefix)]; ok {
+		return errors.Newf(
+			"[gorp] - table %q stores under the key prefix of open table %q",
+			name,
+			other,
+		)
+	}
 	r.tables[name] = table
+	r.names[string(prefix)] = name
 	return nil
+}
+
+// tableName returns the name of the registered table that stores under prefix.
+func (r *registry) tableName(prefix []byte) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	name, ok := r.names[string(prefix)]
+	return name, ok
 }
 
 // addReferences adds refs to the references that deletes of their target tables
@@ -123,10 +144,11 @@ func (r *registry) addReferences(refs []registeredReference) {
 	}
 }
 
-func (r *registry) unregister(name string) {
+func (r *registry) unregister(name string, prefix []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.tables, name)
+	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
 		kept := refs[:0]
 		for _, ref := range refs {
@@ -162,12 +184,12 @@ func (r *registry) referencesTo(table string) []registeredReference {
 // dependents returns the entries that hold target through any registered reference.
 func (r *registry) dependents(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	target Target,
 ) ([]Target, error) {
 	var out []Target
 	for _, ref := range r.referencesTo(target.Table) {
-		keys, err := ref.dependents(ctx, tx, target)
+		keys, err := ref.dependents(ctx, snap, target)
 		if err != nil {
 			return nil, err
 		}
@@ -180,11 +202,14 @@ func (r *registry) dependents(
 
 // deletePlan is the full effect of deleting a set of entries.
 type deletePlan struct {
-	// deletes holds the text keys to delete, by table name. It includes the entries
-	// the caller asked to delete.
-	deletes map[string]set.Set[string]
+	// table is the name of the table of the entries the caller asked to delete.
+	table string
+	// requested holds the text keys of the entries the caller asked to delete.
+	requested set.Set[string]
+	// cascades holds the text keys of the other entries to delete, by table name.
+	cascades map[string]set.Set[string]
 	// detaches holds the targets to remove from each entry the delete keeps. An entry
-	// leaves detaches when the plan adds it to deletes.
+	// leaves detaches when the plan adds it to cascades.
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
@@ -194,18 +219,34 @@ type deletePlan struct {
 func (p *deletePlan) changes() int { return p.size + len(p.detaches) }
 
 func (p *deletePlan) contains(t Target) bool {
-	keys, ok := p.deletes[t.Table]
+	if t.Table == p.table && p.requested.Contains(t.Key) {
+		return true
+	}
+	keys, ok := p.cascades[t.Table]
 	return ok && keys.Contains(t.Key)
 }
 
-func (p *deletePlan) add(t Target) bool {
-	keys, ok := p.deletes[t.Table]
+// request adds the entry with the text key k to the entries the caller asked to delete.
+// It reports false when the plan already deletes the entry.
+func (p *deletePlan) request(k string) bool {
+	if p.requested.Contains(k) {
+		return false
+	}
+	p.requested.Add(k)
+	p.size++
+	return true
+}
+
+// cascade adds t to the entries that a cascade deletes. It reports false when the plan
+// already deletes t.
+func (p *deletePlan) cascade(t Target) bool {
+	if p.contains(t) {
+		return false
+	}
+	keys, ok := p.cascades[t.Table]
 	if !ok {
 		keys = set.New[string]()
-		p.deletes[t.Table] = keys
-	}
-	if keys.Contains(t.Key) {
-		return false
+		p.cascades[t.Table] = keys
 	}
 	keys.Add(t.Key)
 	p.size++
@@ -227,8 +268,10 @@ func (r *registry) plan(
 	limit int,
 ) (*deletePlan, error) {
 	p := &deletePlan{
-		deletes:  make(map[string]set.Set[string]),
-		detaches: make(map[Target][]detachOp),
+		table:     table,
+		requested: set.New[string](),
+		cascades:  make(map[string]set.Set[string]),
+		detaches:  make(map[Target][]detachOp),
 	}
 	tooLarge := func() error {
 		named := table + " " + keys[0]
@@ -244,9 +287,8 @@ func (r *registry) plan(
 	}
 	var queue []Target
 	for _, k := range keys {
-		t := Target{Table: table, Key: k}
-		if p.add(t) {
-			queue = append(queue, t)
+		if p.request(k) {
+			queue = append(queue, Target{Table: table, Key: k})
 		}
 	}
 	if p.changes() > limit {
@@ -280,7 +322,7 @@ func (r *registry) plan(
 				dep := Target{Table: ref.ownerTable(), Key: k}
 				switch ref.onDeletePolicy() {
 				case Cascade:
-					if !p.add(dep) {
+					if !p.cascade(dep) {
 						continue
 					}
 					queue = append(queue, dep)
@@ -325,7 +367,8 @@ func (r *registry) plan(
 	return p, nil
 }
 
-// apply carries out p: it detaches first, then deletes every entry in p.
+// apply carries out what p adds to the delete that the caller asked for: it detaches
+// first, then cascades. It leaves the entries the caller asked to delete in place.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)
@@ -336,7 +379,7 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 			return err
 		}
 	}
-	for name, keys := range p.deletes {
+	for name, keys := range p.cascades {
 		t, err := r.table(name)
 		if err != nil {
 			return err
