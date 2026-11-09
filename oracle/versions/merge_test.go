@@ -314,6 +314,22 @@ Channel struct {
 		Expect(merged).To(ContainSubstring("Channel struct"))
 	})
 
+	It("Should keep the license year of the live file", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+}
+`)
+		header := "// Copyright 2019 Synnax Labs, Inc.\n//\n" +
+			"// Use of this software is governed by the Business Source License " +
+			"included in the file\n// licenses/BSL.txt.\n\n"
+		liveSource := "Channel struct {\n    name string\n}\n"
+		write("schemas/synnax/channel.oracle", header+liveSource)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(HavePrefix(header))
+	})
+
 	It("Should leave the live source of an ended chain hand-owned", func(
 		ctx SpecContext,
 	) {
