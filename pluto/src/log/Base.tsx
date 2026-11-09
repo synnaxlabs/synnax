@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings, type TimeStamp } from "@synnaxlabs/x";
+import { bounds, box, strings, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -46,6 +46,22 @@ const [SeekContext, useSeekContext] = context.create<(time: TimeStamp) => void>(
 
 /** Returns a function that pauses the enclosing log at a time. */
 export const useSeek = (): ((time: TimeStamp) => void) => useSeekContext("Log.useSeek");
+
+// The width from the right edge of a log where a press grabs the scrollbar.
+const SCROLLBAR_HIT_WIDTH = 12;
+
+// Returns where the thumb sits on its track, from 0 to 1, when the pointer holding it
+// grab pixels below its top is y pixels below the top of the region.
+const progressAt = (
+  y: number,
+  grab: number,
+  thumb: log.Thumb,
+  regionHeight: number,
+): number => {
+  const travel = regionHeight - thumb.height;
+  if (travel <= 0) return 0;
+  return bounds.clamp({ lower: 0, upper: 1 }, (y - grab) / travel);
+};
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
@@ -156,8 +172,36 @@ export const Base = ({
     return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
+  // A press on the thumb drags it. A press on the track moves the thumb's middle there.
+  // Either seeks on release.
+  const dragThumb = (e: React.MouseEvent, thumb: log.Thumb): void => {
+    const y = (clientY: number): number => clientY - box.top(region);
+    const pressed = y(e.clientY);
+    const onThumb = pressed >= thumb.top && pressed <= thumb.top + thumb.height;
+    const grab = onThumb ? pressed - thumb.top : thumb.height / 2;
+    const regionHeight = box.height(region);
+    let progress = -1;
+    const drag = (clientY: number): void => {
+      const next = progressAt(y(clientY), grab, thumb, regionHeight);
+      progress = next;
+      setState((s) => ({ ...s, dragProgress: next }));
+    };
+    drag(e.clientY);
+    const handleMove = (move: MouseEvent): void => drag(move.clientY);
+    const handleUp = (): void => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      setState((s) => ({ ...s, dragProgress: -1 }));
+      methods.seekProgress(progress);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    if (state.thumb != null && e.clientX >= box.right(region) - SCROLLBAR_HIT_WIDTH)
+      return dragThumb(e, state.thumb);
     const idx = mouseYToEntryIndex(e.clientY);
     draggingRef.current = true;
     if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));

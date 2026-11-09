@@ -17,6 +17,7 @@ import {
   type destructor,
   notation,
   text,
+  type TimeRange,
   TimeStamp,
   type TimeZone,
   xy,
@@ -34,6 +35,11 @@ import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+
+const thumbZ = z.object({ top: z.number(), height: z.number() });
+
+/** The scrollbar thumb, in whole pixels below the top of the region. */
+export interface Thumb extends z.infer<typeof thumbZ> {}
 
 export const logStateZ = log.logZ
   .pick({
@@ -69,6 +75,10 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
+    // The thumb that a paused view draws, if any.
+    thumb: thumbZ.nullable().default(null),
+    // Where a dragged thumb sits on its track, from 0 at the top to 1, or -1.
+    dragProgress: z.number().default(-1),
   });
 
 const lineZ = z.object({ text: z.string(), color: z.string() });
@@ -81,6 +91,8 @@ export const methodsZ = {
   selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
   /** Moves a paused view to a time, a decimal count of nanoseconds. */
   seek: z.function({ input: z.tuple([z.string()]), output: z.void() }),
+  /** Moves a paused view to the time at progress down the scrollbar track. */
+  seekProgress: z.function({ input: z.tuple([z.number()]), output: z.void() }),
 };
 
 /**
@@ -245,6 +257,17 @@ const formatNumber = (
   const number = Number(value);
   if (Number.isNaN(number)) return value;
   return notation.stringifyNumber(number, precision, valueNotation);
+};
+
+/** Returns the time at progress through the range, from 0 at its start to 1. */
+export const timeAt = (range: TimeRange, progress: number): TimeStamp => {
+  const start = range.start.valueOf();
+  const span = range.end.valueOf() - start;
+  const scale = 1_000_000;
+  const share = BigInt(
+    Math.round(bounds.clamp({ lower: 0, upper: 1 }, progress) * scale),
+  );
+  return new TimeStamp(start + (span * share) / BigInt(scale));
 };
 
 const sameEntries = (a: number[], b: number[]): boolean =>
@@ -659,7 +682,7 @@ export class Log
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
-    this.renderScrollbar(draw2d, rows);
+    this.syncThumb(this.renderScrollbar(draw2d, rows));
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
@@ -681,8 +704,22 @@ export class Log
     return { top: clamp(share(rows[0])), bottom: clamp(share(rows[rows.length - 1])) };
   }
 
-  private renderScrollbar(draw2d: Draw2D, rows: Row[]): void {
-    if (!this.state.scrolling) return;
+  private syncThumb(drawn: Thumb | null): void {
+    const thumb =
+      drawn == null
+        ? null
+        : {
+            top: Math.round(drawn.top - box.top(this.state.region)),
+            height: Math.round(drawn.height),
+          };
+    const prev = this.state.thumb;
+    if (prev?.top === thumb?.top && prev?.height === thumb?.height) return;
+    this.setState((s) => ({ ...s, thumb }));
+  }
+
+  // Draws the thumb of a paused view, and returns where it sits.
+  private renderScrollbar(draw2d: Draw2D, rows: Row[]): Thumb | null {
+    if (!this.state.scrolling) return null;
     const reg = this.state.region;
     const regHeight = box.height(reg);
     const shown = this.timeShare(rows);
@@ -693,17 +730,16 @@ export class Log
       const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
       const outside = shown.top + 1 - shown.bottom;
       const progress = outside <= 0 ? 0 : shown.top / outside;
-      this.drawThumb(draw2d, box.top(reg) + progress * (regHeight - height), height);
-      return;
+      return this.drawThumb(draw2d, progress, height);
     }
     const { totalHeight } = this;
-    if (totalHeight <= 0) return;
+    if (totalHeight <= 0) return null;
     const top = this.calcTop(this.internal.lineHeight);
     // Wrapped rows fit fewer entries on screen, so they shrink the thumb.
     const proportionalHeight =
       (regHeight / totalHeight) * regHeight * (top.offset / this.visibleLineCount);
     const upper = regHeight * SCROLLBAR_RENDER_THRESHOLD;
-    if (proportionalHeight >= upper && top.tail === 0) return;
+    if (proportionalHeight >= upper && top.tail === 0) return null;
     const height = bounds.clamp(
       { lower: SCROLLBAR_MIN_HEIGHT, upper },
       proportionalHeight,
@@ -717,23 +753,62 @@ export class Log
       scrollRange <= 0
         ? 0
         : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
-    this.drawThumb(
-      draw2d,
-      box.bottom(reg) - height - progress * (regHeight - height),
-      height,
-    );
+    return this.drawThumb(draw2d, 1 - progress, height);
   }
 
-  private drawThumb(draw2d: Draw2D, y: number, height: number): void {
+  // Draws the thumb at progress down its track, or where the user drags it.
+  private drawThumb(draw2d: Draw2D, progress: number, height: number): Thumb {
     const reg = this.state.region;
+    const { dragProgress } = this.state;
+    const at = dragProgress >= 0 ? dragProgress : progress;
+    const top = box.top(reg) + at * (box.height(reg) - height);
     draw2d.container({
       region: box.construct(
-        { x: box.right(reg) - SCROLLBAR_WIDTH, y },
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y: top },
         { width: SCROLLBAR_WIDTH, height },
       ),
       bordered: false,
       backgroundColor: (t: theme.Theme) => t.colors.gray.l6,
     });
+    if (dragProgress >= 0) this.drawDragTime(draw2d, top, height);
+    return { top, height };
+  }
+
+  // Shows the time under a dragged thumb, beside it.
+  private drawDragTime(draw2d: Draw2D, top: number, height: number): void {
+    const time = this.timeAt(this.state.dragProgress);
+    if (time == null) return;
+    const text = time.toPreciseString(this.state.timeZone);
+    const reg = this.state.region;
+    const { charWidth, lineHeight } = this.internal;
+    const width = text.length * charWidth + CONTENT_PADDING * 2;
+    const region = box.construct(
+      {
+        x: box.right(reg) - SCROLLBAR_WIDTH - CONTENT_PADDING - width,
+        y: top + height / 2 - lineHeight / 2,
+      },
+      { width, height: lineHeight },
+    );
+    draw2d.container({
+      region,
+      bordered: true,
+      borderColor: (t: theme.Theme) => t.colors.gray.l5,
+      backgroundColor: (t: theme.Theme) => t.colors.gray.l1,
+    });
+    draw2d.text({
+      text,
+      level: this.state.font,
+      color: this.internal.textColor,
+      position: { x: box.left(region) + CONTENT_PADDING, y: box.top(region) },
+      code: true,
+    });
+  }
+
+  // Returns the stored time at progress down the track, or null when the source does
+  // not know its oldest time.
+  private timeAt(progress: number): TimeStamp | null {
+    const range = this.internal.telem.wrapped.timeRange;
+    return range == null ? null : timeAt(range, progress);
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
@@ -831,6 +906,11 @@ export class Log
     this.reanchor();
     this.loadNearEdges();
     if (this.state.visible) this.requestRender();
+  }
+
+  seekProgress(progress: number): void {
+    const time = this.timeAt(progress);
+    if (time != null) this.seek(time.valueOf().toString());
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
