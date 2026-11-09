@@ -126,8 +126,7 @@ func (b *Backups) restore(name string) (res Restored, err error) {
 var ErrUndone = errors.New("update already undone")
 
 // Undo restores the newest backup, as Restore does. It returns an error when there is
-// no
-// backup, and ErrUndone when an earlier undo already restored the newest backup.
+// no backup, and ErrUndone when an earlier undo already restored the newest backup.
 func (b *Backups) Undo() (Restored, error) {
 	return b.locked(func() (Restored, error) {
 		backups, err := b.List()
