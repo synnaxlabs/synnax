@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pytest
 
@@ -149,6 +151,23 @@ class TestChannel:
         )
         assert again.key == ch.key
         assert [c.key for c in client.channels.retrieve([name])] == [ch.key]
+
+    def test_create_retrieve_if_name_exists_concurrent(self, client: sy.Synnax) -> None:
+        """Should create one channel when creates of the same name run at once"""
+        name = channel_name()
+
+        def create(_: int) -> sy.Channel:
+            return client.channels.create(
+                name=name,
+                virtual=True,
+                data_type=sy.DataType.FLOAT32,
+                retrieve_if_name_exists=True,
+            )
+
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            keys = {ch.key for ch in pool.map(create, range(10))}
+        assert len(keys) == 1
+        assert {c.key for c in client.channels.retrieve([name])} == keys
 
     def test_create_retrieve_if_name_exists_keeps_order(
         self, client: sy.Synnax

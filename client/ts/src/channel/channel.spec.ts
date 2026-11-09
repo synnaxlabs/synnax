@@ -239,6 +239,26 @@ describe("Channel", () => {
         });
         expect(retrieved.map((c) => c.key)).toEqual([channel.key]);
       });
+      it("should create one channel when creates of the same name run at once", async () => {
+        const name = id.create();
+        const props = {
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        };
+        const created = await Promise.all(
+          Array.from({ length: 10 }, () =>
+            client.channels.create(props, { retrieveIfNameExists: true }),
+          ),
+        );
+        const keys = new Set(created.map((c) => c.key));
+        expect(keys.size).toEqual(1);
+        const retrieved = await client.channels.retrieve({
+          where: { name: { eq: name } },
+        });
+        expect(retrieved.map((c) => c.key)).toEqual([...keys]);
+      });
       it("should return the channels in the order they were passed", async () => {
         const name = id.create();
         const channel = await client.channels.create({
