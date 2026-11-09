@@ -639,13 +639,20 @@ export class Client extends query.Retriever<
   /**
    * Applies the actions to the channel in one transaction, then fetches the channel
    * into the cache before it resolves. The fetch catches the fields that the Core sets
-   * itself, such as the data type of a calculated channel.
+   * itself, such as the data type of a calculated channel. A failed fetch goes to the
+   * cache's error handler, since the Core applied the actions.
    * @throws {ValidationError} if the channel cannot hold an action.
    * @throws {NotFoundError} if the channel does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
     await this.send(key, array.toArray(actions));
-    await this.store.retrieve([key], { refresh: true });
+    try {
+      await this.store.retrieve([key], { refresh: true });
+    } catch (exc) {
+      this.cfg.cache.onError(
+        new Error("failed to fetch a dispatched channel", { cause: exc }),
+      );
+    }
   }
 
   private async send(key: Key, actions: Action[]): Promise<void> {

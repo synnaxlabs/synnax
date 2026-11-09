@@ -27,6 +27,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  failRequests,
   FAST_RETRY,
   spyOnSend,
   waitForStreamLive,
@@ -515,6 +516,29 @@ describe("Channel", () => {
       const cached = unstreamed.channels.store.get(ch.key);
       expect(cached?.expression).toEqual("return 1.5");
       expect(cached?.dataType).toEqual(DataType.FLOAT64);
+    });
+
+    it("should resolve and report the error when the fetch after it fails", async () => {
+      const onInternalError = vi.fn();
+      const local = createTestClient({ onInternalError });
+      const ch = await local.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      const fetchError = new Error("fetch failed");
+      failRequests(local, "/channel/retrieve", fetchError);
+      await local.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 2" }),
+      );
+      expect(onInternalError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "failed to fetch a dispatched channel",
+          cause: fetchError,
+        }),
+      );
     });
 
     it("should keep the cached channel when the Core rejects the actions", async () => {
