@@ -34,13 +34,11 @@ const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
 const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
 export class Client {
-  private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;
 
   constructor(rangeKey: Key, client: UnaryClient) {
     this.rangeKey = rangeKey;
-    this.cache = new Map();
     this.client = client;
   }
 
@@ -55,28 +53,13 @@ export class Client {
   async resolve(
     aliases: string | string[],
   ): Promise<channel.Key | Record<string, channel.Key>> {
-    const toFetch: string[] = [];
-    const isSingle = typeof aliases === "string";
-    const cached: Record<string, channel.Key> = {};
-    if (isSingle) {
-      const c = this.cache.get(aliases);
-      if (c != null) return c;
-      toFetch.push(aliases);
-    } else
-      aliases.forEach((alias) => {
-        const c = this.cache.get(alias);
-        if (c != null) cached[alias] = c;
-        else toFetch.push(alias);
-      });
-    if (toFetch.length === 0) return cached;
     const res = await this.client.send(
       "/range/alias/resolve",
-      { range: this.rangeKey, aliases: toFetch },
+      { range: this.rangeKey, aliases: array.toArray(aliases) },
       resolveReqZ,
       resolveResZ,
     );
-    Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
-    if (!isSingle) return { ...cached, ...res.aliases };
+    if (typeof aliases !== "string") return res.aliases;
     if (!Object.hasOwn(res.aliases, aliases))
       throw new NotFoundError(`alias not found matching ${JSON.stringify(aliases)}`);
     return res.aliases[aliases];
