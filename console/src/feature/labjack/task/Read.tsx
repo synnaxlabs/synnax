@@ -22,7 +22,6 @@ import {
   type Device,
   DI_PORT_TYPE,
   type DIPort,
-  GROUND_CHANNEL,
   MAKE,
   type Model,
   negativeChannelOf,
@@ -38,7 +37,7 @@ import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
 import { maxTerminalChars, terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
-import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
+import { FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
   READ_CHANNEL_TYPE_ITEMS,
   READ_CHANNEL_TYPE_NAMES,
@@ -190,7 +189,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
       )}
       {"scale" in ch && (
         <PForm.Section title="Scale">
-          <CustomScaleForm path={deep.variant(path, "type", ch.type).scale} />
+          <Task.ScaleForm path={deep.variant(path, "type", ch.type).scale} />
         </PForm.Section>
       )}
     </PForm.Sections>
@@ -224,8 +223,8 @@ const createChannelOn = (
     port: port.key,
   };
   // A differential copy reads against the pair of its own port.
-  if ("negChan" in next && next.negChan !== GROUND_CHANNEL)
-    next.negChan = negativeChannelOf(port.key) ?? GROUND_CHANNEL;
+  if ("negChan" in next && next.negChan != null)
+    next.negChan = negativeChannelOf(port.key) ?? undefined;
   return next;
 };
 

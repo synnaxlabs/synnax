@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -23,7 +24,7 @@ import (
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v3.Version
+const Latest = v4.Version
 
 // ReadConfigLadder decodes ReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -40,6 +41,16 @@ func decodeReadConfig(
 ) (ReadConfig, error) {
 	switch version {
 	case v3.Version:
+		t3, err := imex.DecodeBlob[v3.ReadConfig](data, "http.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		t4, err := v4.MigrateReadConfig(ctx, t3)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t4, nil
+	case v4.Version:
 		return imex.DecodeBlob[ReadConfig](data, "http.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("http.ReadConfig", version, Latest)
@@ -66,6 +77,12 @@ func decodeWriteConfig(
 		}
 		return t2, nil
 	case v3.Version:
+		t3, err := imex.DecodeBlob[v3.WriteConfig](data, "http.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t3, nil
+	case v4.Version:
 		return imex.DecodeBlob[WriteConfig](data, "http.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("http.WriteConfig", version, Latest)
@@ -92,6 +109,12 @@ func decodeScanConfig(
 		}
 		return t2, nil
 	case v3.Version:
+		t3, err := imex.DecodeBlob[v3.ScanConfig](data, "http.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t3, nil
+	case v4.Version:
 		return imex.DecodeBlob[ScanConfig](data, "http.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("http.ScanConfig", version, Latest)

@@ -15,13 +15,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,48 +37,65 @@ func TestAPITask(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	node   testutil.Node
 	svc    *service.Layer
-	apiSvc *apitask.Service
+	binder *bind.Service
+	// create, copyTask, dispatch, rename, and retrieve run their routes as the API
+	// layer binds them.
+	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
+	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
+	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
+	rename   freighter.UnaryHandler[apitask.RenameRequest, struct{}]
+	retrieve freighter.UnaryHandler[
+		apitask.RetrieveRequest,
+		apitask.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apitask.NewService(apitask.ServiceConfig{
+	apiSvc := MustSucceed(apitask.NewService(apitask.ServiceConfig{
+		DB:     node.DB,
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
 		Framer: svc.Framer,
 	}))
+	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	create = bind.Write(binder, apiSvc.Create)
+	copyTask = bind.Write(binder, apiSvc.Copy)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	rename = bind.Write(binder, apiSvc.Rename)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user that can do nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Name: "user-" + uuid.New().String(),
-	}))
+	return MustSucceed(
+		rbactestutil.CreateUser(ctx, node.DB, svc.RBAC, svc.User, user.User{
+			Name: "user-" + uuid.New().String(),
+		}),
+	)
 }
 
-// grant grants the action on the given objects to the subject through a fresh role.
+// grant grants the action on the objects to the subject.
 func grant(
 	ctx SpecContext,
 	action access.Action,
-	subject ontology.ID,
-	objects ...ontology.ID,
+	subject resource.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, node.DB, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

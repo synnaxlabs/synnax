@@ -264,6 +264,7 @@ class TableLifecycle(ConsoleCase):
         assert_envelope(
             exported, envelope_type="table", min_version=1, name=self.ctx_table_name
         )
+        sy.table.Table.model_validate(exported)
 
     def test_ctx_delete(self) -> None:
         """Test deleting a table via context menu."""

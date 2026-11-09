@@ -12,7 +12,7 @@ import { Note } from "@/components/note";
 
 import { Platform } from "@/components/platform";
 import DownloadURL from "@/components/core/DownloadURL.astro";
-import MoveCommand from "@/components/core/MoveCommand.astro";
+import UpdateCommand from "@/components/core/UpdateCommand.astro";
 import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -34,13 +34,15 @@ different minor version, it shows the two versions in place of the workspace.
    [numeric license keys](/reference/enterprise/license#numeric-license-keys). After the
    license term ends, a license with a version cap covers only versions up to the cap.
    See [expiry](/reference/enterprise/license#expiry).
-4. Stop the Core. Press **Ctrl+C** in its terminal, or stop its service.
-5. Copy the data folder of the Core to a safe place. The data folder holds all data,
-   metadata, and the stored license key. See
+4. For disaster recovery, stop the Core and copy its data folder to a safe place. See
    [Back up the Core](/reference/enterprise/production-checklist#back-up-the-core).
 
-The new Core changes the data folder when it first starts. An older Core cannot always
-read it after that, so the copy is the only way back.
+The new Core changes the data folder when it first starts, and an older Core cannot
+always read it after that. Before the first start of a new version, the Core backs up
+its metadata to the `backups` folder in the data folder: channels, ranges, users, and
+the other records it stores. It keeps the three newest backups. A backup holds no
+telemetry, so only a copy of the data folder keeps all data. If the backup fails, the
+Core does not start.
 
 <Divider.Divider x />
 
@@ -54,18 +56,24 @@ Download the new binary:
 
 <DownloadURL os="linux" />
 
-Replace the binary that the Core runs from. For a Core in `/usr/local/bin`:
+If the Core runs as a [service](/reference/enterprise/service), update it with the new
+binary, because an older Core has no update command:
 
-<MoveCommand os="linux" />
+<UpdateCommand os="linux" target="service" />
 
-Make the binary executable:
+The command stops the service, puts the new binary in place of the old one, and starts
+the service. It then waits up to 10 minutes for the new Core to commit the update. To
+change the wait, add `--timeout`, such as `--timeout 30m`. If the new Core fails, the
+command puts the old Core back and starts it. The old binary stays next to the new one,
+with an `.old` extension.
 
-```bash
-sudo chmod +x /usr/local/bin/synnax
-```
+If the Core runs in a terminal, stop it with **Ctrl+C**, then put the new binary in
+place of the old one:
+
+<UpdateCommand os="linux" target="binary" />
 
 Start the Core with the same flags and from the same folder as before, so it uses the
-same data folder. For a service, start the service.
+same data folder.
 
 </Fragment>
 
@@ -75,15 +83,9 @@ Download the new binary:
 
 <DownloadURL os="macos" />
 
-Replace the binary that the Core runs from. For a Core in `/usr/local/bin`:
+Stop the Core with **Ctrl+C**, then put the new binary in place of the old one:
 
-<MoveCommand os="macos" />
-
-Make the binary executable:
-
-```bash
-sudo chmod +x /usr/local/bin/synnax
-```
+<UpdateCommand os="macos" target="binary" />
 
 Start the Core with the same flags and from the same folder as before, so it uses the
 same data folder.
@@ -92,20 +94,15 @@ same data folder.
 
 <Fragment slot="Windows">
 
-1. If the Core runs as a service, stop it and wait until it stops:
+Download and run the new installer:
 
-   ```powershell
-   synnax service stop
-   synnax service status
-   ```
+<WindowsDownloadButton />
 
-2. Download and run the new installer:
-
-   <WindowsDownloadButton />
-
-The installer replaces the Core and installs the service again. The service keeps its
-settings in `C:\ProgramData\Synnax\config.yaml`, which the installer does not change. If
-you clear **Install Synnax as a Windows Service**, the installer removes the service.
+The installer updates a Core service in the same way as `synnax update`. It waits for
+the new Core to commit the update. If the new Core fails, the installer starts the old
+Core again and stops with an error. The service keeps its settings in
+`C:\ProgramData\Synnax\config.yaml`, which the installer does not change. If you clear
+**Install Synnax as a Windows Service**, the installer removes the service.
 
 </Fragment>
 
@@ -135,16 +132,50 @@ you clear **Install Synnax as a Windows Service**, the installer removes the ser
      synnaxlabs/synnax:<version> <the same flags as before>
    ```
 
+If the new Core fails, it puts the data back and stops. Start a container with the old
+image again.
+
 </Fragment>
 
 </Platform.Tabs>
 
 On its first start, the new Core logs `running migrations` and one `migration completed`
 line for each change to stored data. Wait for
-`Synnax is running and available at <address>`. If the Core stops during a migration,
-the migration rolls back, and the next start runs it again.
+`Synnax is running and available at <address>`.
 
 To check the version, run `synnax --version`.
+
+<Divider.Divider x />
+
+## When an update fails
+
+The new Core commits the update after it opens the data and before it serves clients, so
+no client writes to the data before the commit. If the new Core fails before the commit,
+it puts the backup back and stops with a message such as:
+
+```
+Update to Core 0.61.0 failed: no space left on device. The data is back at Core 0.60.1.
+Run Core 0.60.1, or fix the cause and run `synnax update retry`.
+```
+
+The update also fails when the license covered the old version but does not cover the
+new one. When you stop the Core before the commit, it puts the backup back, and its next
+start updates the data again. When the Core stops before the commit without a chance to
+clean up, for example after a power loss, its next start undoes the update.
+
+After a failed update, the new version does not start on the data, so a service or a
+container that restarts does not repeat the update. `synnax update` and the Windows
+installer start the old Core again. In other cases, run the old version. To try the new
+version again, fix the cause, then run:
+
+```bash
+synnax update retry
+```
+
+For a Core that does not run as a service, add `--data <data folder>`.
+
+If you snapshot the data folder before each update, you can turn off the backup with the
+`--no-update-backup` start flag. The Core then does not undo a failed update.
 
 <Divider.Divider x />
 
@@ -163,14 +194,61 @@ libraries warn and still connect. Upgrade the Core first, then the Console and D
 A Console older than 0.60 shows errors instead of the activation screen when a Core 0.60
 has no license, so upgrade the Console with the Core.
 
+Drivers after 0.60 number the EtherCAT modules on IgH from 1, as on the built-in master.
+If a Driver uses IgH, delete its
+[EtherCAT devices](/reference/hardware/ethercat/configure-device) after you upgrade it
+from 0.60 or earlier, and before you start a task. The next scan finds the modules
+again, and you configure them again. Until then, tasks on that network do not start.
+
 <Note.Note variant="info">
-  Synnax Desktop has its own Core, which updates with the app. Synnax Desktop backs up
-  its metadata before each update.
+  Synnax Desktop has its own Core, which updates with the app and backs up its metadata
+  in the same way.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Go back to an earlier version
 
-Synnax does not support a downgrade. To go back, stop the Core, replace the data folder
-with the copy you made before the upgrade, then start the earlier version.
+Synnax does not support a downgrade. A Core does not open data that a newer Core opened,
+and stops with a message such as
+`Data was last opened by Core 0.61.0. Run Core 0.61.0 or newer, or undo the update with synnax update undo.`
+To go back, undo the update:
+
+1. Stop the Core.
+2. Undo the update with the new binary:
+
+   ```bash
+   synnax update undo
+   ```
+
+   For a Core service, the command uses the data folder of the service. On Linux, run it
+   with `sudo`. Otherwise, add the same `--data` flag as `synnax start`.
+
+   The command restores the backup of the last update and prints the Core version to
+   run. It refuses if the last update is already undone. If `synnax update` installed
+   the new binary, the undo also puts the old binary back.
+
+3. If the undo did not put the old binary back, install that version of the Core. Then
+   start the Core.
+
+To restore a backup again, or to go back further, list the backups with
+`synnax update history`, then run `synnax update undo <backup>`. Each backup is named
+`<time>-<version>`, where `<version>` is the Core that last ran on the data before the
+backup.
+
+The undo puts back the metadata of the backup. Telemetry stays, including telemetry
+recorded after the update. The undo moves the telemetry of channels created after the
+update to an `orphaned-<time>` folder in the `backups` folder. Telemetry deleted after
+the update does not come back. The undo cannot run while a Core runs on the data folder.
+If an undo stops before it finishes, the Core does not start until you run the undo
+again.
+
+In Docker, run the undo with the image of the new version, such as `0.61.0`:
+
+```bash
+docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \
+  synnaxlabs/synnax:0.61.0 update undo
+```
+
+To go back to the exact state before the upgrade, replace the data folder with the copy
+you made before the upgrade instead, then start the earlier version.

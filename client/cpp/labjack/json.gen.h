@@ -93,13 +93,12 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
             });
         return result;
     }();
-    result.device_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
-        "device_scan_backlog_warn_on_count",
-        0
+    result
+        .device_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
+        "device_scan_backlog_warn_on_count"
     );
-    result.ljm_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
-        "ljm_scan_backlog_warn_on_count",
-        0
+    result.ljm_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
+        "ljm_scan_backlog_warn_on_count"
     );
     return result;
 }
@@ -115,8 +114,11 @@ inline x::json::json ReadConfig::to_json() const {
             arr.push_back(::synnax::labjack::to_json(item));
         j["channels"] = arr;
     }
-    j["device_scan_backlog_warn_on_count"] = this->device_scan_backlog_warn_on_count;
-    j["ljm_scan_backlog_warn_on_count"] = this->ljm_scan_backlog_warn_on_count;
+    if (this->device_scan_backlog_warn_on_count.has_value())
+        j["device_scan_backlog_warn_on_count"] =
+            *this->device_scan_backlog_warn_on_count;
+    if (this->ljm_scan_backlog_warn_on_count.has_value())
+        j["ljm_scan_backlog_warn_on_count"] = *this->ljm_scan_backlog_warn_on_count;
     return j;
 }
 
@@ -159,7 +161,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::ScanConfig &>(
         result
     ) = ::synnax::task::ScanConfig::parse(parser);
-    result.tcp_scan_multiplier = parser.field<std::int32_t>("tcp_scan_multiplier", 10);
+    result.tcp_scan_multiplier = parser.field<std::uint32_t>("tcp_scan_multiplier", 10);
     return result;
 }
 
@@ -171,62 +173,15 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline LinearScale LinearScale::parse(x::json::Parser parser) {
-    LinearScale result;
-    result.slope = parser.field<double>("slope", 1);
-    result.offset = parser.field<double>("offset", 0);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json LinearScale::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["slope"] = this->slope;
-    j["offset"] = this->offset;
-    j["type"] = this->type;
-    return j;
-}
-
-inline MapScale MapScale::parse(x::json::Parser parser) {
-    MapScale result;
-    result.pre_scaled_min = parser.field<double>("pre_scaled_min", 0);
-    result.pre_scaled_max = parser.field<double>("pre_scaled_max", 1);
-    result.scaled_min = parser.field<double>("scaled_min", 0);
-    result.scaled_max = parser.field<double>("scaled_max", 1);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json MapScale::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["pre_scaled_min"] = this->pre_scaled_min;
-    j["pre_scaled_max"] = this->pre_scaled_max;
-    j["scaled_min"] = this->scaled_min;
-    j["scaled_max"] = this->scaled_max;
-    j["type"] = this->type;
-    return j;
-}
-
-inline NoneScale NoneScale::parse(x::json::Parser parser) {
-    NoneScale result;
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json NoneScale::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["type"] = this->type;
-    return j;
-}
-
 inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
     AnalogReadChannel result;
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.range = parser.field<double>("range", 10);
-    result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
-    result.scale = parser.has("scale") ? parse_scale(parser.child("scale"))
-                                       : Scale{NoneScale{}};
+    result.neg_chan = parser.field<std::optional<std::uint16_t>>("neg_chan");
+    result.scale = parser.has("scale")
+                     ? ::synnax::task::parse_scale(parser.child("scale"))
+                     : ::synnax::task::Scale{::synnax::task::NoneScale{}};
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -237,8 +192,8 @@ inline x::json::json AnalogReadChannel::to_json() const {
         j.update(parent);
     j["port"] = this->port;
     j["range"] = this->range;
-    j["neg_chan"] = this->neg_chan;
-    j["scale"] = ::synnax::labjack::to_json(this->scale);
+    if (this->neg_chan.has_value()) j["neg_chan"] = *this->neg_chan;
+    j["scale"] = ::synnax::task::to_json(this->scale);
     j["type"] = this->type;
     return j;
 }
@@ -265,13 +220,14 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "K");
-    result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
+    result.neg_chan = parser.field<std::optional<std::uint16_t>>("neg_chan");
     result.cjc_source = parser.field<std::string>("cjc_source", "TEMPERATURE_DEVICE_K");
     result.cjc_slope = parser.field<double>("cjc_slope", 1);
     result.cjc_offset = parser.field<double>("cjc_offset", 0);
     result.units = parser.field<std::string>("units", "K");
-    result.scale = parser.has("scale") ? parse_scale(parser.child("scale"))
-                                       : Scale{NoneScale{}};
+    result.scale = parser.has("scale")
+                     ? ::synnax::task::parse_scale(parser.child("scale"))
+                     : ::synnax::task::Scale{::synnax::task::NoneScale{}};
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -282,12 +238,12 @@ inline x::json::json ThermocoupleReadChannel::to_json() const {
         j.update(parent);
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
-    j["neg_chan"] = this->neg_chan;
+    if (this->neg_chan.has_value()) j["neg_chan"] = *this->neg_chan;
     j["cjc_source"] = this->cjc_source;
     j["cjc_slope"] = this->cjc_slope;
     j["cjc_offset"] = this->cjc_offset;
     j["units"] = this->units;
-    j["scale"] = ::synnax::labjack::to_json(this->scale);
+    j["scale"] = ::synnax::task::to_json(this->scale);
     j["type"] = this->type;
     return j;
 }
@@ -324,19 +280,6 @@ inline x::json::json DigitalWriteChannel::to_json() const {
     j["port"] = this->port;
     j["type"] = this->type;
     return j;
-}
-
-inline Scale parse_scale(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "linear") return LinearScale::parse(parser);
-    if (discriminator == "map") return MapScale::parse(parser);
-    if (discriminator == "none") return NoneScale::parse(parser);
-    parser.field_err("type", "unknown Scale type: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const Scale &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline ReadChannel parse_read_channel(x::json::Parser parser) {

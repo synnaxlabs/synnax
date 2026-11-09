@@ -29,6 +29,7 @@ from multiprocessing.process import BaseProcess
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
+from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import Config
 
@@ -44,6 +45,11 @@ class SimulatorCase(HardwareCase):
     sim: DeviceSim | None = None
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        sims = {resources.simulator(s.device_name) for s in cls.sim_classes}
+        return super().resources() | sims
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
         super().__init__(**kwargs)
@@ -67,8 +73,7 @@ class SimulatorCase(HardwareCase):
     def start_simulator(self, device_name: str | None = None) -> None:
         """Start (or restart) a simulator.
 
-        Args:
-            device_name: Target a specific sim. When None, restarts the primary sim.
+        :param device_name: Target a specific sim. When None, restarts the primary sim.
         """
         target = device_name or self.device_name
         old_sim = self.sims.get(target)
@@ -86,9 +91,8 @@ class SimulatorCase(HardwareCase):
     ) -> None:
         """Stop a simulator.
 
-        Args:
-            log: Whether to log cleanup.
-            device_name: Target a specific sim. When None, stops the primary sim.
+        :param log: Whether to log cleanup.
+        :param device_name: Target a specific sim. When None, stops the primary sim.
         """
         target = device_name or self.device_name
         sim = self.sims.get(target)

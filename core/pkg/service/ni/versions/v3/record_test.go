@@ -15,10 +15,16 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 )
 
-var _ = Describe("ScanConfig", func() {
-	Describe("CustomTypeName", func() {
-		It("Should return the NI scanner config gorp type name", func() {
-			Expect(v3.ScanConfig{}.CustomTypeName()).To(Equal("ni_scanner_config"))
-		})
-	})
+var _ = Describe("CustomTypeName", func() {
+	DescribeTable("Should return the NI gorp type name of each config",
+		func(cfg interface{ CustomTypeName() string }, want string) {
+			Expect(cfg.CustomTypeName()).To(Equal(want))
+		},
+		Entry("analog read", v3.AnalogReadConfig{}, "ni_analog_read_config"),
+		Entry("analog write", v3.AnalogWriteConfig{}, "ni_analog_write_config"),
+		Entry("counter read", v3.CounterReadConfig{}, "ni_counter_read_config"),
+		Entry("digital read", v3.DigitalReadConfig{}, "ni_digital_read_config"),
+		Entry("digital write", v3.DigitalWriteConfig{}, "ni_digital_write_config"),
+		Entry("scanner", v3.ScanConfig{}, "ni_scanner_config"),
+	)
 })

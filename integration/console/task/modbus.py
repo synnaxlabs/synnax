@@ -24,6 +24,8 @@ READ_TYPE_NAMES = {
     "discrete_input": "Discrete input",
     "holding_register": "Holding register",
     "input_register": "Input register",
+    "holding_register_string": "Holding register string",
+    "input_register_string": "Input register string",
     "holding_register_bit": "Holding register bit",
     "input_register_bit": "Input register bit",
 }
@@ -120,12 +122,12 @@ class ModbusTask(TaskPage):
 class ModbusRead(ModbusTask):
     """Modbus read task page."""
 
-    page_type: PageType = "Modbus read task"
+    page_type: PageType = "modbus_read"
     pluto_label: str = ".console-task-configure--modbus_read"
 
 
 class ModbusWrite(ModbusTask):
     """Modbus write task page."""
 
-    page_type: PageType = "Modbus write task"
+    page_type: PageType = "modbus_write"
     pluto_label: str = ".console-task-configure--modbus_write"

@@ -2554,7 +2554,7 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 
 			It(
-				"Should emit ToPBAny/FromPBAny helpers for the struct-typed instantiation",
+				"Should convert the struct type argument through its JSON form",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/control"
@@ -2577,15 +2577,12 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							// ensureAnyHelper appends a ToPBAny/FromPBAny helper pair
-							// for each struct-typed generic instantiation.
-							"DetailsToPBAny",
-							"DetailsFromPBAny",
-							// Generic struct conversion forwards the typed converters;
-							// the argument and converters pin the instantiation.
-							"StatusToPB(r.Status, DetailsToPBAny)",
-							"StatusFromPB(pb.Status, DetailsFromPBAny)",
-						)
+							`xpb "github.com/synnaxlabs/x/pb"`,
+							// The argument and converters pin the instantiation.
+							"StatusToPB(r.Status, xpb.ToAny[control.Details])",
+							"StatusFromPB(pb.Status, xpb.FromAny[control.Details])",
+						).
+						ToNotContain("ToPBAny", "FromPBAny", "protojson")
 				},
 			)
 
@@ -2619,12 +2616,10 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"func DetailsToPBAny(v common.Details) "+
-								"(*anypb.Any, error) {",
-							"pb, err := commonpb.DetailsToPB(v)",
-							"var pb commonpb.Details",
-							"return commonpb.DetailsFromPB(&pb)",
-							"PairFromPB(pb.Pair, DetailsFromPBAny, xpb.NilFromPBAny)",
+							"PairToPB(r.Pair, xpb.ToAny[common.Details], "+
+								"xpb.NilToPBAny)",
+							"PairFromPB(pb.Pair, xpb.FromAny[common.Details], "+
+								"xpb.NilFromPBAny)",
 						)
 				},
 			)

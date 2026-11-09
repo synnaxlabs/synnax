@@ -16,6 +16,7 @@ it with an error status when the task is started.
 import platform
 
 import synnax as sy
+from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import TestCase
 from tests.driver.ni_task import retrieve_present_device
@@ -38,6 +39,10 @@ class NIInvalidConfig(TestCase):
         3. Out-of-range values — min/max outside hardware capabilities.
         4. Duplicate channel — two tasks using the same channel on the same port.
     """
+
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":

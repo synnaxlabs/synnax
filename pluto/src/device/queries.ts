@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, query as clientQuery, type query } from "@synnaxlabs/client";
+import { device, query as clientQuery, type query, resource } from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "device";
@@ -128,16 +129,15 @@ export const createRetrieve = <
     },
     onChange: ({ client, query }, handler) =>
       parser == null
-        ? client.devices.onChange(
-            query,
-            handler as unknown as query.ChangeHandler<device.Device>,
-          )
-        : client.devices.onChange(query, (cached) => handler(parser.one(cached))),
+        ? client.devices
+            .watch(query)
+            .onChange(handler as unknown as query.ChangeHandler<device.Device>)
+        : client.devices.watch(query).onChange((cached) => handler(parser.one(cached))),
     getCached: ({ client, query }) =>
       parser == null
-        ? (client.devices.getCached(query) as
+        ? (client.devices.watch(query).getCached() as
             query.Cached<device.Device<Properties, Make, Model>> | undefined)
-        : parser.one(client.devices.getCached(query)),
+        : parser.one(client.devices.watch(query).getCached()),
   });
 };
 
@@ -155,16 +155,28 @@ export const createRetrieveMultiple = <
   schemas: device.DeviceSchemas<Properties, Make, Model>,
 ) => {
   const parser = createCachedParser(schemas);
+  const reads = flux.listReads<RetrieveMultipleQuery, device.Device>(
+    ({ client, query }) => client.devices.watch(query),
+  );
   return Flux.createRetrieve<
     RetrieveMultipleQuery,
     device.Device<Properties, Make, Model>[]
   >({
     name: PLURAL_RESOURCE_NAME,
-    retrieve: async ({ client, query }) =>
-      await client.devices.retrieve({ ...query, schemas }),
-    onChange: ({ client, query }, handler) =>
-      client.devices.onChange(query, (cached) => handler(parser.many(cached))),
-    getCached: ({ client, query }) => parser.many(client.devices.getCached(query)),
+    // deviceZ types each optional schema as a union with its default, so the parsed
+    // records narrow to the vendor's type here.
+    retrieve: async (params) =>
+      device
+        .deviceZ(schemas)
+        .array()
+        .parse(await reads.retrieve(params)) as device.Device<
+        Properties,
+        Make,
+        Model
+      >[],
+    onChange: (params, handler) =>
+      reads.onChange(params, (cached) => handler(parser.many(cached))),
+    getCached: (params) => parser.many(reads.getCached(params)),
   });
 };
 
@@ -174,9 +186,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.devices.retrieve(query),
-  onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
-  getCached: ({ client, query }) => client.devices.getCached(query),
+  ...flux.listReads(({ client, query }) => client.devices.watch(query)),
 });
 
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
@@ -185,21 +195,24 @@ export const useResultStatus = createResultSelector(
   (a, b) => a?.variant === b?.variant && a?.message === b?.message,
 );
 
-export const useResultRack = createResultSelector(({ rack }) => rack);
+export const useResultMake = createResultSelector(({ make }) => make);
 
-export type ListParams = device.RetrieveMultipleParams;
+export const useResultLocation = createResultSelector(({ location }) => location);
 
-export const useList = Flux.createList<ListParams, device.Key, device.Device>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.devices.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.devices.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.devices.onChange({ ...BASE_QUERY, key }, handler),
-  getCached: ({ client, query }) => client.devices.getCached(query),
-});
+/** Lists devices with their statuses, also for a device outside the list. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<RetrieveMultipleQuery, device.Device>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<device.Key, device.Device> =>
+  Flux.useList((client) => client.devices, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { ...BASE_QUERY, ...query },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export type UseDeleteParams = device.Key | device.Key[];
 
@@ -312,7 +325,7 @@ export const createForm: CreateForm = (
         ? await client.devices.retrieve({ ...query, schemas })
         : await client.devices.retrieve(query),
     getCached: ({ client, query }) => {
-      const cached = client.devices.getCached(query);
+      const cached = client.devices.watch(query).getCached();
       return clientQuery.isLive(cached) ? parseRecord(cached) : undefined;
     },
     update: async ({ value, client, set }) => {
@@ -321,10 +334,9 @@ export const createForm: CreateForm = (
         data.key = uuid.create();
         set(formPath.key, data.key);
       }
-      // A status under the device's key was read from the Core. A beforeSave hook that
-      // reports a new status creates it under its own key.
-      const reported =
-        data.status != null && data.status.key !== device.statusKey(data.key);
+      // A status read from the Core names the device as its owner. A beforeSave hook
+      // that reports a new status leaves the owner out, and the Core sets it.
+      const reported = data.status != null && data.status.owner == null;
       const sent = reported ? data : device.toUpdate(data);
       await client.devices.create(sent as device.New, schemas);
     },
@@ -337,7 +349,9 @@ export const createForm: CreateForm = (
           if (parsed != null) reset(parsed);
         }),
         client.statuses.onSet((changed) => {
-          if (changed.key !== device.statusKey(key)) return;
+          const { owner } = changed;
+          if (owner == null || !resource.idsEqual(owner, device.resourceID(key)))
+            return;
           set(
             formPath.status,
             zod.parse(device.statusZ, changed, { label: "device status" }),

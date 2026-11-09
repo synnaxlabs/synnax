@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Test changing a user's role via drag-drop in the ontology tree."""
+"""Test changing a user's role via drag-drop in the resource tree."""
 
 from console.case import ConsoleCase
 from x import random_name

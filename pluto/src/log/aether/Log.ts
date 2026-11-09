@@ -13,10 +13,12 @@ import {
   bounds,
   box,
   color,
+  DataType,
   type destructor,
   notation,
   text,
   TimeStamp,
+  type TimeZone,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -39,6 +41,7 @@ export const logStateZ = log.logZ
     timestampPrecision: true,
     channelNamesHidden: true,
     timestampsHidden: true,
+    timeZone: true,
   })
   .extend({
     region: box.box,
@@ -57,17 +60,34 @@ export const logStateZ = log.logZ
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
     overshoot: xy.xyZ.default({ x: 0, y: 0 }),
+    // position is the time of the entry at the bottom of a paused view: a decimal count
+    // of nanoseconds, since a number cannot hold it exactly. Empty while live.
+    position: z.string().default(""),
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
     visibleStart: z.number().default(0),
-    selectedText: z.string().default(""),
-    selectedLines: z
-      .array(z.object({ text: z.string(), color: z.string() }))
-      .default([]),
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
   });
+
+const lineZ = z.object({ text: z.string(), color: z.string() });
+
+/** A selected line as a copy writes it. An empty color follows the theme. */
+export interface Line extends z.infer<typeof lineZ> {}
+
+const selectionZ = z.object({ lines: z.array(lineZ), partial: z.boolean() });
+
+/**
+ * The selected lines as a copy writes them. partial is true when the selection is a
+ * select-all and the channels store values the log does not hold.
+ */
+export interface Selection extends z.infer<typeof selectionZ> {}
+
+export const methodsZ = {
+  /** Returns the selection at the time of the call. */
+  selection: z.function({ input: z.tuple([]), output: selectionZ }),
+};
 
 /**
  * A selection end that follows the newest entry, so select-all needs no entry count
@@ -180,19 +200,20 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
   ]);
 };
 
-const dayText = ({ timestamp }: LogEntry): string =>
+const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
   new Date(new TimeStamp(timestamp).milliseconds).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: timeZone === "UTC" ? "UTC" : undefined,
   });
 
-const sameDay = (a: LogEntry, b: LogEntry): boolean =>
-  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), "local");
+const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
+  new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), timeZone);
 
-// East Asian characters take two columns of a monospace font. An emoji takes two already,
-// as a surrogate pair.
+// East Asian characters take two columns of a monospace font. An emoji takes two
+// already, as a surrogate pair.
 const WIDE =
   /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
 
@@ -212,6 +233,26 @@ const wrapStarts = (value: string, columns: number): number[] => {
   return starts;
 };
 
+const INTEGER = /^-?\d+$/;
+
+// Returns the sample in the number format of its channel. A sample shows as it arrives
+// when the channel holds no numbers, its data type has not loaded, or a calculated
+// channel changed type after the sample arrived.
+const formatNumber = (
+  value: string,
+  dataType: string | undefined,
+  { precision, notation: valueNotation }: log.ChannelEntry,
+): string => {
+  if (dataType == null) return value;
+  const type = new DataType(dataType);
+  if (type.isInteger && INTEGER.test(value))
+    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
+  if (!type.isFloat || value.trim() === "") return value;
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return notation.stringifyNumber(number, precision, valueNotation);
+};
+
 const sameEntries = (a: number[], b: number[]): boolean =>
   a.length === b.length && a.every((entry, i) => entry === b[i]);
 
@@ -222,10 +263,14 @@ const wrapPoint = (value: string, at: number): number => {
   return code >= 0xdc00 && code <= 0xdfff ? at + 1 : at;
 };
 
-export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
+export class Log
+  extends aether.Leaf<typeof logStateZ, InternalState, typeof methodsZ>
+  implements aether.HandlersFromSchema<typeof methodsZ>
+{
   static readonly TYPE = "log";
   static readonly z = logStateZ;
   schema = Log.z;
+  methods = methodsZ;
   entries: LogEntry[] = [];
   // Copied, not shared: the scrollback branch mutates this in place.
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
@@ -234,6 +279,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // A source change can insert or evict entries before the anchors, so their positions
   // are found again by identity.
   private anchors: Anchors = {};
+  // The position to return to, until the entries reach it.
+  private seeking: bigint | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -262,7 +309,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
     i.theme = theming.use(ctx);
     i.draw2d = new Draw2D(i.render[CANVAS], i.theme);
-    if (this.renderKey === "") this.renderKey = `${this.type}-${this.key}`;
+    if (this.renderKey === "") {
+      this.renderKey = `${this.type}-${this.key}`;
+      if (this.state.scrolling && this.state.position !== "")
+        this.seeking = BigInt(this.state.position);
+    }
 
     if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
@@ -276,9 +327,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
-    const channelKeys = channelEntries
-      .map((e) => e.channel)
-      .filter((ch): ch is number => typeof ch === "number");
+    const channelKeys = channelEntries.map((e) => e.channel);
     const configs: Record<string, log.ChannelEntry> = {};
     for (const entry of channelEntries) configs[entry.channel] = entry;
 
@@ -300,8 +349,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
-    // Always call setChannels — the source short-circuits if unchanged.
-    // This handles both initial setup (where prevState === state) and subsequent changes.
+    // Always call setChannels — the source short-circuits if unchanged. This handles
+    // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
     const { data } = i.telem.value();
     this.entries = data;
@@ -327,6 +376,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     // Scrollback: snapshot the current position when the user first pauses scrolling.
     const justEnteredScrollback = this.state.scrolling && !this.prevState.scrolling;
     if (justEnteredScrollback) {
+      this.seeking = null;
       const off = this.entries.length;
       this.scrollState = {
         offset: off,
@@ -339,6 +389,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // Adjust viewport offset based on wheel delta from the snapshot reference.
       const { scrollState } = this;
       const dist = Math.ceil((wheelPos - scrollState.scrollRef) / lh);
+      if (dist !== scrollState.moved) this.seeking = null;
       this.moveView(dist - scrollState.moved, lh);
       scrollState.moved = dist;
       // Clamp: if scrolled to top, lock wheel position to prevent over-scroll.
@@ -404,10 +455,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   }
 
   afterDelete(): void {
-    const { telem, render: renderCtx, stopListeningRestore } = this.internal;
+    const { telem, stopListeningRestore } = this.internal;
     stopListeningRestore?.();
     telem.cleanup?.();
-    renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
+    this.requestRender();
   }
 
   private requestRender(): void {
@@ -544,11 +595,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // Returns whether a day row sits above the entry. Times with no date need no day.
   private startsDay(entry: number): boolean {
     if (this.state.timestampsHidden) return false;
-    return entry === 0 || !sameDay(this.entries[entry], this.entries[entry - 1]);
+    return (
+      entry === 0 ||
+      !sameDay(this.entries[entry], this.entries[entry - 1], this.state.timeZone)
+    );
   }
 
   private dayRow(entry: number): Row {
-    const prefix = dayText(this.entries[entry]);
+    const prefix = dayText(this.entries[entry], this.state.timeZone);
     return { entry, prefix, value: "", channelKey: "", first: false, day: true };
   }
 
@@ -582,7 +636,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   render(): render.Cleanup | undefined {
     const { render: renderCtx, lineHeight: lh, draw2d } = this.internal;
     const region = this.state.region;
-    if (box.areaIsZero(region)) return undefined;
+    if (this.deleted || box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;
@@ -590,20 +644,22 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
+    const position = this.state.scrolling ? shown.toString() : "";
 
     if (
+      this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
       !sameEntries(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
+        position,
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
       }));
-
-    this.updateSelectedText();
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
@@ -687,13 +743,15 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
-  // SELECT_ALL_END, which stays open.
+  // SELECT_ALL_END, which stays open. A select-all leaves its start open too, so it
+  // covers the entries that older pages add.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
       i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
+    const all = selectionStart === 0 && selectionEnd === SELECT_ALL_END;
     this.anchors = {
-      start: anchor(selectionStart),
+      start: all ? undefined : anchor(selectionStart),
       end: anchor(selectionEnd),
       scroll: this.state.scrolling
         ? this.entries[this.scrollState.offset - 1]
@@ -721,7 +779,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // evicted anchor maps to the oldest entry.
   private reanchor(): void {
     const { start, end, scroll } = this.anchors;
-    if (scroll != null && this.state.scrolling) {
+    if (this.seeking != null && this.state.scrolling) this.seek(this.seeking);
+    else if (scroll != null && this.state.scrolling) {
       const offset = Math.max(
         this.calcMinOffset(this.internal.lineHeight),
         this.locate(scroll) + 1,
@@ -739,23 +798,35 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const newEnd = end == null ? selectionEnd : this.locate(end);
     if (newStart < 0 && newEnd < 0) {
       this.anchors = { scroll: this.anchors.scroll };
-      this.setState((s) => ({
-        ...s,
-        selectionStart: -1,
-        selectionEnd: -1,
-        selectedText: "",
-      }));
+      this.setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));
       return;
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
     if (nextStart === selectionStart && nextEnd === selectionEnd) return;
-    this.setState((s) => ({
-      ...s,
-      selectionStart: nextStart,
-      selectionEnd: nextEnd,
-      selectedText: "",
-    }));
+    this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
+  }
+
+  // Waits at the oldest entry while older pages can still reach the time. When no
+  // stored sample does, the view stays there. Entries that share the time all show.
+  private seek(time: bigint): void {
+    const { lineHeight, telem } = this.internal;
+    this.moveView(0, lineHeight);
+    if (this.entries.length === 0) return;
+    const reached = time >= this.entries[0].timestamp.valueOf();
+    if (!reached && telem.wrapped.exhausted === false) return;
+    if (reached) {
+      let [lo, hi] = [0, this.entries.length];
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
+        else hi = mid;
+      }
+      this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
+      this.scrollState.tail = 0;
+    }
+    this.seeking = null;
+    this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
@@ -796,27 +867,28 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, timestampsHidden, channelDataTypes } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
+      this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
+      ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
+        format: "preciseDate",
+        timeZone: "local",
+      };
       try {
-        value = new TimeStamp(BigInt(value)).toString(format, tz);
+        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
-      const num = parseFloat(value);
-      if (!isNaN(num))
-        value = notation.stringifyNumber(num, cfg.precision ?? 0, cfg.notation);
-    }
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
+      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
@@ -826,7 +898,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
     if (dated && ts !== "") {
-      const date = new TimeStamp(entry.timestamp).toString("ISODate", "local");
+      const date = new TimeStamp(entry.timestamp).toString("ISODate", timeZone);
       prefix = `${date} ${prefix}`;
     }
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
@@ -834,26 +906,23 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  private updateSelectedText(): void {
+  selection(): Selection {
     const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0 || selectionEnd < 0) {
-      if (this.state.selectedText !== "")
-        this.setState((s) => ({ ...s, selectedText: "", selectedLines: [] }));
-      return;
-    }
+    if (selectionStart < 0 || selectionEnd < 0) return { lines: [], partial: false };
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
-    const selected = this.entries.slice(selMin, selMax + 1);
-    const formatted = selected.map((e) => this.formatEntry(e, true));
-    const text = formatted.map((f) => f.line).join("\n");
-    if (text !== this.state.selectedText) {
-      const { valueColors } = this.internal;
-      const selectedLines = formatted.map((f) => ({
-        text: f.line,
-        color: f.channelKey in valueColors ? color.hex(valueColors[f.channelKey]) : "",
-      }));
-      this.setState((s) => ({ ...s, selectedText: text, selectedLines }));
-    }
+    const { valueColors, telem } = this.internal;
+    const lines = this.entries.slice(selMin, selMax + 1).map((entry) => {
+      const { line, channelKey } = this.formatEntry(entry, true);
+      const lineColor = valueColors[channelKey];
+      return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
+    });
+    const { exhausted, live } = telem.wrapped;
+    const partial =
+      selMin === 0 &&
+      selMax === SELECT_ALL_END &&
+      (exhausted === false || live === false);
+    return { lines, partial };
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

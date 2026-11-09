@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,13 +18,20 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
-import { matches, serverComputed } from "@/device/where.gen";
-import { ontology } from "@/ontology";
+import { LINES } from "@/device/where";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/device/where.gen";
+import { group } from "@/group";
 import { query } from "@/query";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -54,7 +61,16 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
+  query.addressesOne(params);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -70,7 +86,7 @@ const retrieveResZ = <
   });
 
 const singleRetrieveParamsZ = z
-  .object({ key: keyZ, includeStatus: z.boolean().optional() })
+  .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
   .transform(({ key, includeStatus }): RetrieveRequest => ({
     where: { key: { eq: key } },
     includeStatus,
@@ -79,7 +95,7 @@ const singleRetrieveParamsZ = z
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -92,7 +108,7 @@ type RetrieveSchemas<
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
 
 /** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
@@ -110,35 +126,18 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
- * Removes the fields that make the Core write a device's status and parent. Use it to
- * send a retrieved device or a create reply back to {@link Client.create}: a reply
- * carries a parent, and the Core writes the status of any device sent with one.
+ * Removes the status of a device. Use it to send a retrieved device or a create reply
+ * back to {@link Client.create} without replacing the status the Core holds.
  */
-export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
-  status: _status,
-  parent: _parent,
+export const toUpdate = <D extends Pick<Device, "status">>({
+  status: _,
   ...device
-}: D): Omit<D, "status" | "parent"> => device;
-
-// Device statuses live in the status table under the "device:<key>" status
-// key, carrying the device key in their details.
-const affectedDeviceKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  if (event.variant === "set") {
-    const parsed = statusZ.safeParse(event.value);
-    return parsed.success ? [parsed.data.details.device] : null;
-  }
-  const [type, key] = event.key.split(":");
-  if (type !== "device" || !primitive.isNonZero(key)) return null;
-  return [key];
-};
+}: D): Omit<D, "status"> => device;
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
-  ontology: ontology.Client;
+  statuses: status.Client;
 }
 
 export class Client extends query.Retriever<
@@ -151,9 +150,17 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
+  /**
+   * Builds requests that move devices between groups. The group must sit under each
+   * device's rack.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedDeviceKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "device");
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
@@ -171,8 +178,11 @@ export class Client extends query.Retriever<
       name: "device.composed",
       source: store,
       compose: (record) => this.compose(record, true),
-      watch: [query.deriveWatch(statusStore, (event) => affectedDeviceKeys(event))],
+      triggers: [
+        query.deriveTrigger(statusStore, (event) => affectedDeviceKeys(event)),
+      ],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Device, Key, Device>({
       name: "device",
       table: composed,
@@ -190,16 +200,21 @@ export class Client extends query.Retriever<
       name: "device",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => matches(d, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (d, req) => matches(LINES, d, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
-        watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedDeviceKeys(event);
-          }),
+        triggers: [
+          query.trigger(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedDeviceKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>
@@ -208,6 +223,9 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = group.createMoveRequest("/device/set-group", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async retrieve<
@@ -215,32 +233,41 @@ export class Client extends query.Retriever<
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: (RetrieveSingleParams | OneParams) &
+      RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    params: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: (RetrieveMultipleParams | FilterParams) &
+      RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
+  async retrieve(
+    params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
+  ): Promise<Array<Device>>;
 
   async retrieve(
-    rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
+    rawParams:
+      | Key
+      | Key[]
+      | ((RetrieveParams | OneParams | FilterParams) & { schemas?: DeviceSchemas }),
   ): Promise<Device | Array<Device>> {
+    if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
-    const isSingle = "key" in rest;
+    const isSingle = isOneParams(rest);
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const devices = await this.fetchThrough(rest, schemas);
-      checkForMultipleOrNoResults("Device", rest, devices, isSingle);
+      const request = retrieveParamsZ.parse(query.dropOne(rest));
+      const devices = await this.fetchThrough(request, schemas);
+      checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -291,21 +318,24 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statusStore.stamp();
-    const res = await query.optimistic({
-      rollbacks: apply(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/device/create",
-          { devices: normalized },
-          createReqZ(schemas),
-          createResZ(schemas),
-        ),
-    });
-    res.devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
+            "/device/create",
+            { devices: normalized },
+            createReqZ(schemas),
+            createResZ(schemas),
+          ),
+      });
+      res.devices.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
@@ -313,10 +343,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -332,10 +359,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -366,7 +390,7 @@ export class Client extends query.Retriever<
 
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
-    const st = this.cfg.statusStore.get(statusKey(cached.key));
+    const st = this.cfg.statuses.ownedBy(resourceID(cached.key));
     if (st == null) return cached;
     const parsed = statusZ.safeParse(st);
     if (!parsed.success) return cached;
@@ -374,7 +398,7 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(
-    params: RetrieveParams,
+    params: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
     const res = await this.cfg.unary.send(
@@ -387,30 +411,42 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(
-    req: RetrieveParams,
+    req: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statusStore.stamp();
-    const devices = await this.execRetrieve(req, schemas);
-    this.store.ingest(devices.map(stripStatus), { since });
-    devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
-    });
-    return devices;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const devices = await this.execRetrieve(req, schemas);
+          this.store.ingest(devices.map(stripStatus), { since });
+          devices.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return devices;
+        }),
+    );
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Device> {
     // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
       const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Device", q, devices, true);
+      checkForMultipleOrNoResults(
+        "device",
+        { where: { key: { eq: q.key } } },
+        devices,
+        true,
+      );
       return devices[0];
     }
     const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Device", q, devices, true);
+    checkForMultipleOrNoResults(
+      "device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
     return devices[0];
   }
 }
-
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

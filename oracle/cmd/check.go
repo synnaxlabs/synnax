@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/check"
@@ -85,10 +87,10 @@ Examples:
 func runCheck(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	gates, _ := cmd.Flags().GetStringSlice(checkGatesFlag)
-	outputFormat, _ := cmd.Flags().GetString(checkFormatFlag)
-	includeDiffs, _ := cmd.Flags().GetBool(checkDiffFlag)
-	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
+	gates := lo.Must(cmd.Flags().GetStringSlice(checkGatesFlag))
+	outputFormat := lo.Must(cmd.Flags().GetString(checkFormatFlag))
+	includeDiffs := lo.Must(cmd.Flags().GetBool(checkDiffFlag))
+	warningsAsErrors := lo.Must(cmd.Flags().GetBool(checkWarningsAsErrorsFlag))
 	verbose := viper.GetBool(verboseFlag)
 
 	if outputFormat != string(check.FormatText) &&
@@ -192,7 +194,7 @@ func buildCheckers(
 }
 
 func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
-	return format.Default(repoRoot)
+	return format.Default(repoRoot, time.Now().Year(), nil)
 }
 
 func loadCheckCache(repoRoot string) *format.Cache {

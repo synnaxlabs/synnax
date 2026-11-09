@@ -86,7 +86,11 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
         return _timedelta_nanoseconds(value)
     if isinstance(value, np.timedelta64):
         return _timedelta64_nanoseconds(value)
-    if isinstance(value, (int, float, np.integer, np.floating)):
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, Rate):
+        return int(value.period)
+    if isinstance(value, (float, np.floating)):
         return int(value)
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
@@ -222,7 +226,7 @@ class TimeStamp(int):
         return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
-        """:return: True if the TimeStamp is after or equal to the given TimeStamp.
+        """:returns: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
         return int(self) >= _stamp_operand(ts)
@@ -246,7 +250,7 @@ class TimeStamp(int):
         return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: CrudeTimeStamp) -> TimeRange:
-        """:return: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
+        """:returns: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
         TimeRange is guaranteed to be valid i.e. start before or equal to end.
         :param ts: The second time stamp
         """
@@ -357,6 +361,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * Rate - The period of the rate, so 2 Hz is 500 milliseconds.
     * str - Parses a decimal string of nanoseconds.
     """
 
@@ -421,14 +426,15 @@ class TimeSpan(int):
 
     @staticmethod
     def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
-        """An alternative constructor for TimeSpan that parses raw numeric values as
-        seconds instead of nanoseconds.
+        """Converts a duration parameter. Every Python API that takes a duration uses
+        this conversion, so a bare number is seconds. The TimeSpan constructor reads a
+        bare number as nanoseconds instead.
         """
-        if isinstance(span, TimeSpan):
-            return span
+        if isinstance(span, (TimeSpan, TimeStamp)):
+            return TimeSpan(span)
         if isinstance(span, Rate):
             return span.period
-        if isinstance(span, (float, int)):
+        if isinstance(span, (int, float, np.integer, np.floating)):
             return TimeSpan.SECOND * span
         return TimeSpan(span)
 
@@ -763,7 +769,7 @@ def convert_time_units(
     :param data: the numpy array to convert.
     :param _from: the units of the data
     :param to: the units to convert to
-    :return: the data in the new units
+    :returns: the data in the new units
     """
     if _from == "iso":
         data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
@@ -1333,7 +1339,7 @@ class DataType(str):
     @property
     def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
-        :return: The numpy type
+        :returns: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
         if not isinstance(npt, np.dtype):
@@ -1430,7 +1436,7 @@ CrudeTimeStamp: TypeAlias = (
     int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
+    int | float | TimeSpan | TimeStamp | Rate | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | np.integer | np.floating | TimeSpan | Rate

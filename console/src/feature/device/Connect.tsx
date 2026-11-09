@@ -173,14 +173,16 @@ const Connect = ({
   if (selected == null || (network != null && variant === "loading"))
     return <Picker racks={racks} rack={rackKey} onSelect={setSelected} />;
   const back = () => setSelected(null);
-  if (network != null)
+  if (network != null) {
+    const { Connect: NetworkConnect } = network;
     return (
-      <network.Connect
+      <NetworkConnect
         rack={rackKey ?? PlatformDevice.getDefaultRack(racks ?? [], network.key)}
         close={() => close()}
         onBack={back}
       />
     );
+  }
   const hardware = HARDWARE.find(({ key }) => key === selected);
   if (hardware == null) throw new Error(`No integration named ${selected}`);
   return <FindStep hardware={hardware} rack={rackKey} close={close} onBack={back} />;

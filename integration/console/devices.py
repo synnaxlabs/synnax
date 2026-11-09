@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import re
 from typing import ClassVar
 
@@ -123,18 +122,16 @@ class DevicesClient(ResourceClient):
         self.layout.delete_with_confirmation(rack_item)
         self.wait_for_rack_removed(name)
 
-    def copy_rack_properties(self, name: str) -> dict[str, object]:
-        """Copy a rack's properties to the clipboard and return as a dict.
+    def copy_rack_properties(self, name: str) -> sy.Rack:
+        """Copy a rack's properties to the clipboard and return them.
 
         :param name: Name of the rack.
-        :returns: Parsed JSON properties dict.
+        :returns: The copied rack.
         """
         self.show_toolbar()
         rack_item = self._get_item(self.RACK_PREFIX, name)
         self.ctx_menu.action(rack_item, "Copy properties")
-        raw = self.layout.read_clipboard()
-        result: dict[str, object] = json.loads(raw)
-        return result
+        return sy.Rack.model_validate_json(self.layout.read_clipboard())
 
     def _ensure_device_visible(self, name: str) -> Locator | None:
         """Expand ancestor nodes so a device becomes visible in the tree.
@@ -204,20 +201,20 @@ class DevicesClient(ResourceClient):
         self.tree.wait_for_removal(self.DEVICE_PREFIX, name, exact=False)
 
     # Map CSS color variables to status variants.
-    _COLOR_TO_VARIANT: ClassVar[dict[str, str]] = {
+    _COLOR_TO_VARIANT: ClassVar[dict[str, sy.status.Variant]] = {
         "--pluto-primary-z": "success",
         "--pluto-gray-l8": "disabled",
         "--pluto-warning-m1": "warning",
         "--pluto-error-m1": "error",
     }
 
-    def get_status(self, name: str) -> dict[str, str]:
+    def get_status(self, name: str) -> sy.Status:
         """Get the status of a device or rack by hovering over its status indicator.
 
         Automatically detects whether the item is a rack or device and uses
         the appropriate status icon selector and variant detection.
 
-        :returns: Dict with 'variant' (str) and 'message' (str).
+        :returns: The status, with its variant and message.
         """
         self.show_toolbar()
         item = self._find_item(self.DEVICE_PREFIX, name)
@@ -235,20 +232,19 @@ class DevicesClient(ResourceClient):
         tooltip = self.layout.page.locator(".lyra-tooltip:not(.lyra--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
+        variant: sy.status.Variant = "disabled"
         if is_device:
             color_attr = status_icon.get_attribute("color") or ""
-            variant = "disabled"
             for css_var, v in self._COLOR_TO_VARIANT.items():
                 if css_var in color_attr:
                     variant = v
                     break
         else:
             class_attr = status_icon.get_attribute("class") or ""
-            variant = (
-                "success" if "pluto-rack__heartbeat--beat" in class_attr else "disabled"
-            )
+            if "pluto-rack__heartbeat--beat" in class_attr:
+                variant = "success"
         self.layout.page.mouse.move(0, 0)
-        return {"variant": variant, "message": message}
+        return sy.Status(variant=variant, message=message)
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a device via context menu inline edit."""
@@ -456,18 +452,16 @@ class DevicesClient(ResourceClient):
             action=action,
         )
 
-    def copy_properties(self, name: str) -> dict[str, object]:
-        """Copy a device's properties to the clipboard and return as a dict.
+    def copy_properties(self, name: str) -> sy.Device:
+        """Copy a device's properties to the clipboard and return them.
 
         :param name: Name of the device.
-        :returns: Parsed JSON properties dict.
+        :returns: The copied device.
         """
         self.show_toolbar()
         device_item = self.get(name)
         self.ctx_menu.action(device_item, "Copy properties")
-        raw = self.layout.read_clipboard()
-        result: dict[str, object] = json.loads(raw)
-        return result
+        return sy.Device.model_validate_json(self.layout.read_clipboard())
 
     def change_identifier(self, name: str, new_identifier: str) -> None:
         """Change a configured device's identifier via context menu modal.

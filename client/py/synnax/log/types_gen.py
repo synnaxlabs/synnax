@@ -11,31 +11,46 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax.ontology.payload import ID
-from x import color as color_
-from x import filter, telem
-from x import notation as notation_
+from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax.resource import ID
+from x import color as color_, filter, notation as notation_, telem
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
 
 class TimestampConfig(BaseModel):
-    """Is per-channel timestamp display configuration.
+    """Is how a timestamp channel shows its values.
 
     Attributes:
-        format: Controls how channel timestamps are rendered.
-        tz: Is the time zone used when rendering timestamps.
+        format: Is the format of the values of a timestamp channel.
+        time_zone: Is the time zone of the values of a timestamp channel.
     """
 
     format: telem.TimestampFormat
-    tz: telem.TimeZone
+    time_zone: telem.TimeZone
+
+
+class Order(BaseModel):
+    """Is a sort of logs.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Where(BaseModel):
@@ -46,6 +61,10 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the logs in any of the given groups.
+        grouped: Matches the logs in a group, or in no group when false.
+        projects: Matches the logs owned by any of the given projects.
+        ranges: Matches the logs owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -54,6 +73,45 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    ranges: list[ranger.Key] | None = None
+
+    @field_validator("groups", "projects", "ranges", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "ranges": ranger.Key | list[ranger.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of logs: the sort value and the key of a log.
+
+    Attributes:
+        key: Is the key of the log at the position.
+        name: Is the name of the log at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class ChannelEntry(BaseModel):
@@ -63,10 +121,11 @@ class ChannelEntry(BaseModel):
         channel: Is the channel this entry references.
         color: Is the display color for the channel.
         notation: Is the numeric notation used to render samples.
-        precision: Is the number of decimal digits to display. Absent shows each sample
-            as it arrives; 17 is the maximum significant digits for a float64.
+        precision: Is the number of digits after the decimal point, from 0 to 17. Absent
+            shows each sample as it arrives.
         alias: Is a human-readable alias displayed in place of the channel name.
-        timestamp: Is the per-channel timestamp display configuration.
+        timestamp_config: Formats the values of a timestamp channel. It has no effect on
+            line times.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -74,8 +133,8 @@ class ChannelEntry(BaseModel):
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
-    timestamp: TimestampConfig = Field(
-        default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
+    timestamp_config: TimestampConfig = Field(
+        default_factory=lambda: TimestampConfig(format="preciseDate", time_zone="local")
     )
 
 
@@ -85,16 +144,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the logs to retrieve. An absent where selects all of them.
         search_term: Keeps the logs that match the term, closest match first.
+        order: Sorts the logs. An absent order sorts them by key.
+        after: Starts the logs strictly past this position in their order.
         limit: Is the most logs to return.
-        offset: Is the number of matching logs to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class Log(BaseModel):
@@ -104,10 +165,16 @@ class Log(BaseModel):
     Attributes:
         key: Is the unique identifier for this log.
         name: Is a human-readable name for the log.
-        channels: Are the channels displayed in this log, in order.
+        channels: Are the channels displayed in this log.
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
+        time_zone: Is the time zone of the line times and day rows of the log.
+        group: Is the group the log sits in, if any.
+        project: Is the project that owns the log, if any. Exactly one of project and
+            range is set.
+        range: Is the range that owns the log, if any. Exactly one of project and range
+            is set.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -116,6 +183,10 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
+    time_zone: telem.TimeZone = "local"
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -135,8 +206,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="log")
+TYPE_RESOURCE_ID = ID(type="log")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="log", key=str(key))

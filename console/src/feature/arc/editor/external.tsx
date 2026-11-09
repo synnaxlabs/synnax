@@ -35,7 +35,7 @@ const TAB: Panel.Tab = {
     <TypeIcon />,
   ),
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
+    const corpse = query.requireCorpse(client.arcs.watch(resource.key).getCached());
     await client.arcs.create(corpse);
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
@@ -43,5 +43,5 @@ const TAB: Panel.Tab = {
 };
 
 export const TABS: Panel.Tabs = {
-  [arc.TYPE_ONTOLOGY_ID.type]: TAB,
+  [arc.TYPE_RESOURCE_ID.type]: TAB,
 };

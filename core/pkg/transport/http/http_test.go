@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -190,34 +189,27 @@ var _ = Describe("HTTP", func() {
 			return res.Token
 		}
 
-		It("Should log in with a MessagePack session request", func() {
-			body := MustSucceed(
-				msgpack.Codec.Encode(context.Background(), map[string]any{
-					"proof": map[string]string{
-						"method":   "password",
-						"username": creds.Username,
-						"password": creds.Password,
-					},
-				}),
-			)
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/auth/session/create",
-				bytes.NewReader(body),
-			)
-			req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
-			req.Header.Set(fiber.HeaderAccept, msgpack.Codec.ContentType())
-			res := MustSucceed(app.Test(req, fiber.TestConfig{
-				Timeout:       10 * time.Second,
-				FailOnTimeout: true,
-			}))
-			raw := MustSucceed(io.ReadAll(res.Body))
-			Expect(res.StatusCode).To(Equal(http.StatusOK), string(raw))
-			var created apiauth.SessionCreateResponse
-			Expect(msgpack.Codec.Decode(context.Background(), raw, &created)).
-				To(Succeed())
-			Expect(created.Token).To(HavePrefix("sys_"))
-		})
+		DescribeTable(
+			"Should reject a MessagePack request",
+			func(ctx SpecContext, path string) {
+				req := httptest.NewRequest(
+					http.MethodPost,
+					path,
+					bytes.NewReader(
+						MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{})),
+					),
+				)
+				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
+				res := MustSucceed(app.Test(req, fiber.TestConfig{
+					Timeout:       10 * time.Second,
+					FailOnTimeout: true,
+				}))
+				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+			},
+			Entry("session create", "/api/v1/auth/session/create"),
+			Entry("schematic create", "/api/v1/schematic/create"),
+			Entry("frame read", "/api/v1/frame/read"),
+		)
 
 		DescribeTable(
 			"Should reach an ungated endpoint while no license is active",
@@ -364,6 +356,16 @@ var _ = Describe("HTTP", func() {
 			Expect(refreshed[0].Value).To(Equal(cookie.Value))
 			Expect(refreshed[0].MaxAge).
 				To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
+		})
+		It("Should set no cookie when a request fails", func() {
+			cookie := loginWithCookie("localhost:9090")
+			res := post(
+				"/api/v1/channel/retrieve",
+				withCookie("localhost:9090", cookie),
+				channel.RetrieveRequest{},
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(res.Cookies()).To(BeEmpty())
 		})
 		It("Should not set a cookie when a header client renews", func() {
 			cookie := loginWithCookie("localhost:9090")
@@ -587,7 +589,7 @@ var _ = Describe("HTTP", func() {
 					"/api/v1/auth/key/create",
 					rootToken,
 					apiauth.KeyCreateRequest{
-						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
+						Subject: rack.ResourceIDs([]rack.Key{r.Key})[0],
 					},
 					&created,
 				)).To(Equal(http.StatusOK))

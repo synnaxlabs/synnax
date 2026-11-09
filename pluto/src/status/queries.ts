@@ -7,28 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
+import { query, status, TimeStamp } from "@synnaxlabs/client";
 import { deep, primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
 import { Flux } from "@/flux";
-import { Label } from "@/label";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
-
-export type ListParams = status.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, status.Key, status.Status>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
-  onChange: ({ client, query }, handler) => client.statuses.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.statuses.onChange(key, handler),
-  getCached: ({ client, query }) => client.statuses.getCached(query),
-});
 
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
@@ -37,26 +25,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
     await client.statuses.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
-    return data;
-  },
-});
-
-export interface SetParams {
-  statuses: status.New | status.New[];
-  parent?: ontology.ID;
-}
-
-export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SET,
-  update: async ({
-    client,
-    data,
-    data: { statuses, parent },
-    onOptimisticComplete,
-  }) => {
-    const onOptimistic = async () => await onOptimisticComplete(data);
-    await client.statuses.set(statuses, { parent, onOptimistic });
     return data;
   },
 });
@@ -73,9 +41,11 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
-      client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
+      client.statuses
+        .watch(query)
+        .onChange(handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
-      client.statuses.getCached(query) as
+      client.statuses.watch(query).getCached() as
         query.Cached<status.Status<DetailsSchema>> | undefined,
   });
 
@@ -89,10 +59,10 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) =>
-    await client.statuses.retrieve({ where: { key: { in: keys } } }),
+    await client.statuses.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.statuses.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
+    client.statuses.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.statuses.watch(keys).getCached(),
 });
 
 export const { use, useResult } = createRetrieve();
@@ -107,9 +77,7 @@ export const useDeleteSynchronizer = (onDelete: (key: status.Key) => void): void
   useEffect(() => client?.statuses.onDelete(onDelete), [client, onDelete]);
 };
 
-export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
-  labels: label.keyZ.array().optional(),
-});
+export const formSchema = status.statusZ();
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -127,33 +95,22 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query }) => {
-    const [stat, labels] = await Promise.all([
-      client.statuses.retrieve(query),
-      client.labels.retrieve({ where: { for: status.ontologyID(query.key) } }),
-    ]);
-    return { ...stat, labels: labels.map((l) => l.key) };
-  },
+  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
   update: async ({ client, value, set }) => {
     set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
-    const { labels: labelKeys, ...rest } = v;
-    const res = await client.statuses.set(rest);
-    if (labelKeys != null)
-      await Label.setLabelsFor({
-        client,
-        data: { id: status.ontologyID(res.key), labels: labelKeys },
-      });
-    set(formPath.key, res.key);
+    // An update keeps the stored labels, so the same transaction replaces them.
+    await client.batch.send([
+      client.statuses.setRequest(v),
+      client.labels.labelRequest(status.resourceID(v.key), v.labels, { replace: true }),
+    ]);
+    set(formPath.key, v.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.statuses.onChange(key, (result) => {
+    client.statuses.watch(key).onChange((result) => {
       if (query.Deleted.matches(result)) abandon();
-      else if (query.isLive(result)) {
-        const { labels, ...rest } = result;
-        reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
-      }
+      else if (query.isLive(result)) reset(result);
     }),
 });
 

@@ -10,8 +10,7 @@
 from typing import cast
 
 import pytest
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.notifications import NotificationsClient
@@ -79,3 +78,25 @@ class TestClearAndClick:
             notifications.clear_and_click(cast(Locator, locator))
         assert raised.value is locator.errors[-1]
         assert events == [CLEAR, CLICK] * ATTEMPTS_TO_DEADLINE
+
+
+class FakeToasts:
+    def evaluate_all(self, _: str) -> list[dict[str, str]]:
+        return [{"variant": "error", "message": "Failed", "description": "No Core"}]
+
+
+class FakeToastsClient(NotificationsClient):
+    def __init__(self) -> None:
+        super().__init__(cast(Page, None))
+
+    def _all(self) -> Locator:
+        return cast(Locator, FakeToasts())
+
+
+class TestCheck:
+    def test_should_return_each_notification_as_a_status(self) -> None:
+        status = FakeToastsClient().check()[0]
+        assert isinstance(status, sy.Status)
+        assert status.variant == "error"
+        assert status.message == "Failed"
+        assert status.description == "No Core"

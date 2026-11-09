@@ -19,7 +19,7 @@ from console.schematic.schematic import (
 from console.schematic.select import Select
 from console.schematic.setpoint import Setpoint
 from console.schematic.state_indicator import StateIndicator
-from console.schematic.symbol import Option, PropertyDict, Symbol
+from console.schematic.symbol import Properties, Symbol
 from console.schematic.value import Value
 from console.schematic.valve import Valve
 from console.schematic.valve_threeway import ValveThreeWay
@@ -32,8 +32,7 @@ __all__ = [
     "CustomSymbol",
     "DistributionType",
     "OffPageReference",
-    "Option",
-    "PropertyDict",
+    "Properties",
     "Schematic",
     "Select",
     "Setpoint",

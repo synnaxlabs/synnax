@@ -8,34 +8,50 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-TimestampConfig = v2.TimestampConfig
+TimestampConfig struct {
+    format    telem.TimestampFormat {
+        @doc value "is the format of the values of a timestamp channel."
+    }
+    time_zone telem.TimeZone        {
+        @doc value "is the time zone of the values of a timestamp channel."
+    }
+
+    @doc value  "is how a timestamp channel shows its values."
+    @go marshal
+}
 
 ChannelEntry struct {
-    channel   channel.Key       {
+    channel          channel.Key       {
         @doc value "is the channel this entry references."
     }
-    color     color.Color       {
+    color            color.Color       {
         @doc value "is the display color for the channel."
     }
-    notation  notation.Notation = "standard" {
+    notation         notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
     }
-    precision uint8?            {
+    precision        uint8?            {
         @doc value """
-            is the number of decimal digits to display. Absent shows each sample as it
-            arrives; 17 is the maximum significant digits for a float64.
+            is the number of digits after the decimal point, from 0 to 17. Absent shows
+            each sample as it arrives.
         """
     }
-    alias     string = "" {
+    alias            string = "" {
         @doc value "is a human-readable alias displayed in place of the channel name."
     }
-    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
-        @doc value "is the per-channel timestamp display configuration."
+    timestamp_config TimestampConfig = { format = "preciseDate", time_zone = "local" } {
+        @doc value """
+            formats the values of a timestamp channel. It has no effect on line times.
+        """
     }
 
     @doc value  "is a per-channel display configuration entry within a log."
@@ -51,7 +67,7 @@ Log struct {
         @doc value "is a human-readable name for the log."
     }
     channels             ChannelEntry[] = [] {
-        @doc value "are the channels displayed in this log, in order."
+        @doc value "are the channels displayed in this log."
     }
     timestamp_precision  uint8 = 0 {
         @doc value "is the precision of displayed timestamps (0-3)."
@@ -61,6 +77,24 @@ Log struct {
     }
     timestamps_hidden    bool = false {
         @doc value "is true when entry timestamps are hidden."
+    }
+    time_zone            telem.TimeZone = "local" {
+        @doc value "is the time zone of the line times and day rows of the log."
+    }
+    group                group.Key?     {
+        @doc value "is the group the log sits in, if any."
+    }
+    project              project.Key?   {
+        @doc value """
+            is the project that owns the log, if any. Exactly one of project and range
+            is set.
+        """
+    }
+    range                ranger.Key?    {
+        @doc value """
+            is the range that owns the log, if any. Exactly one of project and range is
+            set.
+        """
     }
 
     @doc value  """

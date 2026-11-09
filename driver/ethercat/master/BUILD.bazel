@@ -14,10 +14,27 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/dc",
+        "//driver/ethercat/errors",
         "//driver/ethercat/pdo",
         "//driver/ethercat/slave",
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "contract",
+    testonly = True,
+    hdrs = ["contract.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        ":master",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/telem",
+        "//x/cpp/breaker",
+        "//x/cpp/testutil",
+        "@googletest//:gtest",
     ],
 )

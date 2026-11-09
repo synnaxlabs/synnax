@@ -26,6 +26,7 @@ from examples.modbus import ModbusSim
 from examples.opcua import OPCUASim
 
 import synnax as sy
+from framework import resources
 from synnax import modbus, opcua
 from tests.driver.modbus_read import ModbusReadCoil, ModbusReadInputRegister
 from tests.driver.modbus_write import ModbusWriteCoil
@@ -62,6 +63,10 @@ class GrandFinale(SimulatorCase):
     STREAM_RATE = 10 * sy.Rate.HZ
     TASK_DURATION = 2 * sy.TimeSpan.SECOND
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
+
     def setup(self) -> None:
         self.read_tasks: list[ReadTask] = []
         self.write_tasks: list[WriteTask] = []
@@ -96,7 +101,6 @@ class GrandFinale(SimulatorCase):
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                array_mode=False,
                 channels=OPCUAReadFloat.create_channels(self.client),
             ),
         ]
@@ -223,7 +227,7 @@ class GrandFinale(SimulatorCase):
         self.log("Test 5 - Verify read sample counts")
 
         start_time = sy.TimeStamp.now()
-        sy.sleep(self.TASK_DURATION.seconds * 1.25)
+        sy.sleep(self.TASK_DURATION.seconds * 1.25)  # noqa: TID251 fixed sample window
         stack.close()
         end_time = sy.TimeStamp.now()
 

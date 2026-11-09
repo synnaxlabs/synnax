@@ -204,6 +204,10 @@ jobs:
             shard: 1
             codegen: true
     runs-on: ${{ matrix.os }}
+    # Tests read no DWARF, and race reports get function names and lines without it.
+    # Dropping it cuts compile time and halves link time.
+    env:
+      GOFLAGS: -gcflags=all=-dwarf=false -ldflags=-w
     steps:
       # The matrix holds four shards, so a larger count would skip suites.
       - name: Check the shard count
@@ -336,9 +340,11 @@ jobs:
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
-          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
-          go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
-            --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go run github.com/onsi/ginkgo/v2/ginkgo "${flags[@]}" --randomize-suites \
+            --fail-on-empty --keep-going --trace --timeout=2h --github-output \
+            "${suites[@]}"
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their

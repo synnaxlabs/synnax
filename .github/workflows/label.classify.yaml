@@ -66,6 +66,16 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/results
 
+      - name: List the jobs of the run
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/jobs" \
+            --jq ".jobs[].name" > "$RUNNER_TEMP/results/jobs"
+
       - name: Create an App token
         id: token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3

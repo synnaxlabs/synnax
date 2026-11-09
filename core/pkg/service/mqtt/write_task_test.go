@@ -105,7 +105,7 @@ var _ = Describe("Write task", func() {
 
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -166,6 +166,15 @@ var _ = Describe("Write task", func() {
 				})
 			},
 		)
+
+		It("Should publish bytes as base64", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.BytesT)
+			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
+			})
+		})
 
 		It("Should publish a timestamp as ISO 8601 when no time format is set",
 			func(ctx SpecContext) {
@@ -419,7 +428,7 @@ var _ = Describe("Write task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(ContainSubstring(message)))
 			stat := taskStatus(ctx, t)

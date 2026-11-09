@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -63,8 +64,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	case sym.IsValueVariable():
 		statement.AnalyzeAssignment(ctx.Child(assign))
 		if expr := assign.Expression(); expr != nil &&
-			statement.CastConstValue(expr, sym.Type) == nil {
+			statement.CastConstValue(ctx, expr, sym.Type) == nil {
 			flow.AnalyzeSingleExpression(ctx.Child(expr))
+			flow.BindOutput(ctx, expr, sym.Type.UnwrapChan())
 		}
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
@@ -366,6 +368,26 @@ func analyzeScopeBodyItem[T antlr.ParserRuleContext](
 	}
 }
 
+// warnLateDeclarations flags each declaration that follows a step in the body.
+func warnLateDeclarations[T antlr.ParserRuleContext, I interface {
+	VariableDeclaration() parser.IVariableDeclarationContext
+}](ctx context.Context[T], items []I) {
+	sawStep := false
+	for _, item := range items {
+		decl := item.VariableDeclaration()
+		if decl == nil {
+			sawStep = true
+			continue
+		}
+		if sawStep {
+			ctx.Diagnostics.Add(diagnostics.Warningf(
+				decl,
+				"declare variables at the top of a stage or sequence",
+			).WithCode(codes.DeclarationAfterStep))
+		}
+	}
+}
+
 // Analyze performs second-pass semantic analysis on a sequence declaration.
 func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	seqScope, err := context.ResolveOwnScope(ctx)
@@ -381,6 +403,7 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 		}
 		analyzeScopeBodyItem(ctx, item)
 	}
+	warnLateDeclarations(ctx, ctx.AST.AllSequenceItem())
 }
 
 // collectTopLevelStage registers a top-level stage as a sequence in the symbol
@@ -436,6 +459,7 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	for _, item := range stageBody.AllStageItem() {
 		analyzeScopeBodyItem(ctx, item)
 	}
+	warnLateDeclarations(ctx, stageBody.AllStageItem())
 }
 
 func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext]) {
