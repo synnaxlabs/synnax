@@ -27,15 +27,8 @@ interface Props {
 }
 
 const { version } = Astro.props;
+const GITHUB = "https://github.com/synnaxlabs/synnax";
 const url = Astro.url.pathname;
-// An unversioned build shows the newest Core train beside the GitHub link.
-const label =
-    version == null
-        ? (await Astro.locals.releases.latest("core").catch(() => null))
-              ?.split(".")
-              .slice(0, -1)
-              .join(".")
-        : undefined;
 const root = rootOf(version);
 ---
 
@@ -80,20 +73,15 @@ const root = rootOf(version);
                     >
                         Reliability
                     </Button.Button>
+                    <Button.Button variant="text" className="nav-link" href={GITHUB}>
+                        GitHub
+                        <Icon.OpenExternal className="nav-link__external" />
+                    </Button.Button>
                 </Flex.Box>
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
                 {version != null && <VersionMenu version={version} />}
-                <Button.Button
-                    className="version-button"
-                    variant="outlined"
-                    href="https://github.com/synnaxlabs/synnax"
-                    aria-label={label == null ? "GitHub" : undefined}
-                >
-                    {label != null && <p class="version">{label}</p>}
-                    <Icon.Logo.Github />
-                </Button.Button>
                 <Button.Button
                     className="login-button"
                     variant="filled"
@@ -115,6 +103,9 @@ const root = rootOf(version);
                         </a>
                         <a href={`${root}/reliability/`} class="mobile-drawer-link">
                             Reliability
+                        </a>
+                        <a href={GITHUB} class="mobile-drawer-link">
+                            GitHub
                         </a>
                         <Divider.Divider x className="mobile-drawer-divider" />
                         <span class="mobile-drawer-section-label">Reference</span>
@@ -202,21 +193,11 @@ const root = rootOf(version);
             font-weight: 500;
         }
 
-        .version-button {
-            text-decoration: none;
-
-            & p {
-                color: var(--pluto-gray-l8);
-                font-size: var(--pluto-small-size);
-                font-weight: 400;
-                text-decoration: none;
-            }
-
-            & .lyra-icon {
-                color: var(--pluto-gray-l9);
-                height: 2.5rem;
-                width: 2.5rem;
-            }
+        .nav-link__external {
+            width: 1.75rem;
+            height: 1.75rem;
+            margin-left: -0.5rem;
+            color: var(--pluto-gray-l7);
         }
 
         .mobile-menu-btn,
@@ -277,7 +258,6 @@ const root = rootOf(version);
                 display: none;
             }
 
-            .version-button,
             .version-menu {
                 display: none;
             }

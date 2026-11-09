@@ -241,6 +241,7 @@ import {
   TbEraser,
   TbLayoutSidebar,
   TbLetterE,
+  TbLetterV,
   TbLivePhoto,
   TbMathFunction,
   TbPlugConnected,
@@ -525,6 +526,7 @@ export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
+export const Version = wrapSVGIcon(TbLetterV, "version");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
