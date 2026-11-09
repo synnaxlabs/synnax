@@ -151,6 +151,17 @@ describe("Rack", () => {
       );
     });
   });
+  describe("dispatch", () => {
+    it("should apply the action to the rack", async () => {
+      const r = await client.racks.create({ name: `rack-${id.create()}` });
+      await client.racks.dispatch(
+        r.key,
+        rack.set({ path: ["integrations"], value: ["modbus"] }),
+      );
+      const stored = await createTestClient().racks.retrieve(r.key);
+      expect(stored.integrations).toEqual(["modbus"]);
+    });
+  });
   describe("retrieve", () => {
     it("retrieves a rack by its name", async () => {
       const created = await client.racks.create({ name: `named-rack-${id.create()}` });

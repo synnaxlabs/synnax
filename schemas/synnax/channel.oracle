@@ -170,7 +170,7 @@ Channel struct {
 
         @doc value """
             replaces the channel with the given created state. Emitted by the Core when
-            a channel is created or overwritten whole; clients never dispatch it.
+            a channel is created; clients never dispatch it.
         """
     }
 

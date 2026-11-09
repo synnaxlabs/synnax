@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the symbol with the given created state. Emitted by the Core when a
-    symbol is created or overwritten whole; clients never dispatch it.
+    symbol is created; clients never dispatch it.
     """
 
     symbol: Symbol

@@ -32,7 +32,7 @@ const (
 )
 
 // CreatePayload replaces the channel with the given created state. Emitted by the Core
-// when a channel is created or overwritten whole; clients never dispatch it.
+// when a channel is created; clients never dispatch it.
 type CreatePayload struct {
 	Channel Channel `json:"channel" msgpack:"channel"`
 }

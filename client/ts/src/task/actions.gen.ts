@@ -17,7 +17,7 @@ import { keyZ, type Payload, payloadZ } from "@/task/types.gen";
 
 /**
  * Create replaces the task with the given created state. Emitted by the Core when a
- * task is created or overwritten whole; clients never dispatch it.
+ * task is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   task: payloadZ(),

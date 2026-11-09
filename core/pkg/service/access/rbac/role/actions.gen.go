@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the role with the given created state. Emitted by the Core
-// when a role is created or overwritten whole; clients never dispatch it.
+// when a role is created; clients never dispatch it.
 type CreatePayload struct {
 	Role Role `json:"role" msgpack:"role"`
 }

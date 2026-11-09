@@ -17,7 +17,7 @@ import { keyZ, type View, viewZ } from "@/view/types.gen";
 
 /**
  * Create replaces the view with the given created state. Emitted by the Core when a
- * view is created or overwritten whole; clients never dispatch it.
+ * view is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   view: viewZ,

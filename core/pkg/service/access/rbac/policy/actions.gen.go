@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the policy with the given created state. Emitted by the Core
-// when a policy is created or overwritten whole; clients never dispatch it.
+// when a policy is created; clients never dispatch it.
 type CreatePayload struct {
 	Policy Policy `json:"policy" msgpack:"policy"`
 }

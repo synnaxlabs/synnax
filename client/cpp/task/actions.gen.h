@@ -25,7 +25,7 @@
 namespace synnax::task {
 
 /// @brief CreatePayload replaces the task with the given created state. Emitted by the
-/// Core when a task is created or overwritten whole; clients never dispatch it.
+/// Core when a task is created; clients never dispatch it.
 struct CreatePayload {
     /// @brief TYPE is the type of the Action that carries the payload.
     static constexpr auto TYPE = "create";

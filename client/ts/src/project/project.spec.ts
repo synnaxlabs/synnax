@@ -37,6 +37,17 @@ describe("Project", () => {
       expect(res.name).toEqual("Schematic2");
     });
   });
+  describe("dispatch", () => {
+    test("should apply the action to the project", async () => {
+      const proj = await client.projects.create({ name: "Schematic" });
+      const name = `project-${id.create()}`;
+      await client.projects.dispatch(
+        proj.key,
+        project.set({ path: ["name"], value: name }),
+      );
+      expect((await createTestClient().projects.retrieve(proj.key)).name).toEqual(name);
+    });
+  });
   describe("delete", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({

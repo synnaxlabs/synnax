@@ -17,7 +17,7 @@ import { keyZ, type Label, labelZ } from "@/label/types.gen";
 
 /**
  * Create replaces the label with the given created state. Emitted by the Core when a
- * label is created or overwritten whole; clients never dispatch it.
+ * label is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   label: labelZ,

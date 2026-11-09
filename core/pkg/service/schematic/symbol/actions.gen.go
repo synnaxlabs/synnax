@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the symbol with the given created state. Emitted by the Core
-// when a symbol is created or overwritten whole; clients never dispatch it.
+// when a symbol is created; clients never dispatch it.
 type CreatePayload struct {
 	Symbol Symbol `json:"symbol" msgpack:"symbol"`
 }
