@@ -28,8 +28,8 @@ export interface Step {
   still: string;
   /** The regions of the still that the step highlights, as one box around them all. */
   regions: string[];
-  /** Regions of another name that open the step. */
-  hotspots?: string[];
+  /** Regions of another name that open the step, with the title of each. */
+  hotspots?: Record<string, string>;
   /** Whether the still shows a dialog, which a selection outside of closes. */
   modal?: boolean;
 }
@@ -99,7 +99,7 @@ export const STEPS: Step[] = [
   {
     ...part("help", "Help and updates", "top", "getting-help"),
     regions: ["help", "code"],
-    hotspots: ["code"],
+    hotspots: { code: "Connect from code" },
   },
 ];
 
