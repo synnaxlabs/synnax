@@ -31,6 +31,10 @@ const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 /// @brief command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 
+/// @brief command type for switching a slave to standalone mode, in which only
+/// Synnax sets it up and reads its data. The slave changes after a power restart.
+const std::string SET_STANDALONE_CMD_TYPE = "set_standalone";
+
 /// @brief configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
@@ -45,6 +49,15 @@ struct TestInterfaceArgs {
 
     explicit TestInterfaceArgs(x::json::Parser &parser):
         interface(parser.field<std::string>("interface")) {}
+};
+
+/// @brief arguments for the set_standalone command.
+struct SetStandaloneArgs {
+    /// @brief key of the slave device to switch.
+    std::string device;
+
+    explicit SetStandaloneArgs(x::json::Parser &parser):
+        device(parser.field<std::string>("device")) {}
 };
 
 /// @brief scanner implementation for EtherCAT device discovery.
@@ -110,6 +123,9 @@ private:
 
     /// @brief handles the test_interface command.
     void test_interface(const synnax::task::Command &cmd) const;
+
+    /// @brief handles the set_standalone command.
+    void set_standalone(const synnax::task::Command &cmd) const;
 };
 
 }

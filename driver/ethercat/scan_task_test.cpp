@@ -798,4 +798,186 @@ TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
         );
     }
 }
+
+/// @brief a scanner of eth0 with a slave whose input 0x6000:1 might be one that only
+/// DewesoftX reads.
+class EtherCATScanModeTest : public EtherCATScanTest {
+protected:
+    const std::vector<slave::StartupParameter> standalone{
+        {.index = 0x8020, .sub_index = 9, .data_type = x::telem::UINT16_T, .value = 0},
+        {.index = 0x8020, .sub_index = 2, .data_type = x::telem::UINT16_T, .value = 2},
+    };
+    slave::Properties props;
+    std::shared_ptr<testutil::Master> master;
+    std::shared_ptr<engine::Pool> pool;
+    std::unique_ptr<Scanner> scanner;
+
+    /// @brief puts the slave on eth0. Only DewesoftX reads the entry at
+    /// only_read_index, and shared says whether DewesoftX also sets up the slave.
+    void start(const bool shared, const uint16_t only_read_index = 0x6000) {
+        auto change = x::json::json::array();
+        if (shared)
+            for (const auto &param: this->standalone)
+                change.push_back({
+                    {"index", param.index},
+                    {"sub_index", param.sub_index},
+                    {"data_type", "uint16"},
+                    {"value", param.value},
+                });
+        this->props = slave::Properties{
+            .network = "eth0",
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 12345,
+            .name = "Test Slave",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 32,
+                  .is_input = true,
+                  .data_type = x::telem::UINT32_T}},
+            .settings = x::json::json{
+                {"device", x::json::json::array()},
+                {"channels",
+                 {{{"entries",
+                    {{{"index", only_read_index},
+                      {"sub_index", 1},
+                      {"only_read_by", "DewesoftX"}}}},
+                   {"settings", x::json::json::array()},
+                   {"requires", x::json::json::array()}}}},
+                {"mode",
+                 {{"value", shared ? 1 : 0}, {"shared", shared}, {"switch", change}}},
+            },
+        };
+        this->master = std::make_shared<testutil::Master>();
+        this->master->add_slave(this->props);
+        auto manager = std::make_unique<testutil::Manager>();
+        manager->configure("eth0", this->master);
+        this->pool = std::make_shared<engine::Pool>(
+            std::move(manager),
+            NO_SLAVE_CONFIGS
+        );
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            this->scan_task(),
+            ScanTaskConfig{},
+            this->pool
+        );
+    }
+
+    /// @brief scans once and returns the status of the only slave device.
+    [[nodiscard]] synnax::device::Status scan_status() const {
+        const auto devices = ASSERT_NIL_P(
+            this->scanner->scan(common::ScannerContext{.count = 1})
+        );
+        EXPECT_EQ(devices.size(), 1);
+        return devices.at(0).status.value();
+    }
+
+    /// @brief creates the device of the slave and sends the set_standalone command for
+    /// it. Returns the status that the command sets.
+    synnax::task::Status set_standalone() {
+        synnax::device::Device dev{
+            .key = "ethercat_1_2_12345",
+            .rack = this->rack.key,
+            .location = "eth0.Slot 1",
+            .make = INTEGRATION_NAME,
+            .model = SLAVE_DEVICE_MODEL,
+            .name = "Test Slave",
+            .properties = this->props.to_json(),
+        };
+        EXPECT_NIL(this->client->devices.create(dev));
+        synnax::task::Command cmd;
+        cmd.type = SET_STANDALONE_CMD_TYPE;
+        cmd.args = {{"device", dev.key}};
+        cmd.key = "1";
+        auto task = this->scan_task();
+        EXPECT_TRUE(this->scanner->exec(cmd, task, this->ctx));
+        EXPECT_FALSE(this->ctx->statuses.empty());
+        return this->ctx->statuses.back();
+    }
+};
+
+/// @brief it should warn about a slave that sends data that only DewesoftX reads, and
+/// say how to fix it.
+TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
+    this->start(true);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "On this port, the device sends data that only DewesoftX reads. In the device "
+        "settings, switch the device to Synnax only, or connect Synnax to the port "
+        "that DewesoftX does not use."
+    );
+}
+
+/// @brief it should ask for a power restart when a switched slave still sends data
+/// that only DewesoftX reads.
+TEST_F(EtherCATScanModeTest, AsksForAPowerRestartAfterTheSwitch) {
+    this->start(false);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(
+        status.description,
+        "The device changes to Synnax only after a power restart. Until then, it sends "
+        "data that only DewesoftX reads."
+    );
+}
+
+/// @brief it should not warn about a shared slave on the port that DewesoftX does not
+/// use.
+TEST_F(EtherCATScanModeTest, ShowsDiscoveryOnThePortThatDewesoftXDoesNotUse) {
+    this->start(true, 0x6041);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+}
+
+/// @brief it should write the switch that the scan read to the slave on a stopped bus.
+TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
+    this->start(true);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
+    EXPECT_EQ(status.description, "Restart the power of the device to finish.");
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {1, this->standalone},
+        })
+    );
+}
+
+/// @brief it should refuse to switch a slave while a task runs its bus.
+TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
+    this->start(true);
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({entry}, x::telem::Rate(100), 1)
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should report a set_standalone command that names no device.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
+    this->start(true);
+    synnax::task::Command cmd;
+    cmd.type = SET_STANDALONE_CMD_TYPE;
+    cmd.args = x::json::json::object_t{};
+    auto task = this->scan_task();
+    EXPECT_TRUE(this->scanner->exec(cmd, task, this->ctx));
+    ASSERT_FALSE(this->ctx->statuses.empty());
+    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to switch the device");
+    EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
+}
 }

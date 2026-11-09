@@ -49,6 +49,23 @@ read_stg(const uint16_t index, const uint8_t sub_index) {
     return {it->second, x::errors::NIL};
 }
 
+/// @brief the sync modes that the SII of the 6xSTG lists.
+const std::vector<dc::OpMode> STG_OP_MODES{
+    {.name = "SM", .assign_activate = 0x0000},
+    {.name = "DC", .assign_activate = 0x0300},
+};
+
+/// @brief returns a read of a 6xSTG that holds mode in ECAT0 App (0x8020:09) and
+/// power_on in PowerONdefault (0x8020:02).
+coe::Read stg(const uint32_t mode, const uint32_t power_on = 1) {
+    return [mode, power_on](const uint16_t index, const uint8_t sub_index) {
+        if (index == 0x8020 && sub_index == 9) return std::pair{mode, x::errors::NIL};
+        if (index == 0x8020 && sub_index == 2)
+            return std::pair{power_on, x::errors::NIL};
+        return read_stg(index, sub_index);
+    };
+}
+
 std::vector<std::string> names(const x::json::json &options) {
     std::vector<std::string> result;
     for (const auto &option: options)
@@ -69,7 +86,9 @@ setting(const x::json::json &channel, const uint8_t sub_index, const size_t nth 
 /// @brief it should describe the six inputs of a 6xSTG with the ranges, filters, and
 /// excitation limits that the card holds.
 TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
-    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+    );
     ASSERT_TRUE(settings.has_value());
     const auto &channels = (*settings)["channels"];
     ASSERT_EQ(channels.size(), 6);
@@ -97,7 +116,9 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
 /// and buffered PDO layouts.
 TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
-    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+    );
     ASSERT_TRUE(settings.has_value());
     const auto &entries = (*settings)["channels"][1]["entries"];
     std::vector<std::pair<int, int>> addresses;
@@ -107,12 +128,86 @@ TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
     for (int k = 1; k <= 8; k++)
         want.emplace_back(0x6041, k);
     EXPECT_EQ(addresses, want);
+    EXPECT_FALSE(entries[0].contains("only_read_by"));
+    EXPECT_EQ(entries[1]["only_read_by"], "DewesoftX");
+}
+
+/// @brief it should give a standalone 6xSTG the DC sync mode that its mode needs and
+/// nothing to switch.
+TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &mode = (*settings)["mode"];
+    EXPECT_EQ(mode["value"], 0);
+    EXPECT_FALSE(mode["shared"].get<bool>());
+    EXPECT_EQ(
+        mode["op_mode"],
+        (x::json::json{
+            {"index", 1},
+            {"assign_activate", 0x0300},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 1000000000},
+        })
+    );
+    EXPECT_TRUE(mode["switch"].empty());
+}
+
+/// @brief it should mark a 6xSTG that DewesoftX also sets up as shared, and switch it
+/// to standalone with a write that saves the mode.
+TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 1))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &mode = (*settings)["mode"];
+    EXPECT_EQ(mode["value"], 1);
+    EXPECT_TRUE(mode["shared"].get<bool>());
+    EXPECT_FALSE(mode.contains("op_mode"));
+    EXPECT_EQ(
+        mode["switch"],
+        (x::json::json{
+            {{"index", 0x8020},
+             {"sub_index", 9},
+             {"data_type", "uint16"},
+             {"value", 0}},
+            {{"index", 0x8020},
+             {"sub_index", 2},
+             {"data_type", "uint16"},
+             {"value", 2}},
+        })
+    );
+}
+
+/// @brief it should not add the save write for a 6xSTG that saves each change.
+TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &change = (*settings)["mode"]["switch"];
+    ASSERT_EQ(change.size(), 1);
+    EXPECT_EQ(change[0]["sub_index"], 9);
+}
+
+/// @brief it should give a 6xSTG in SM mode no sync mode when the SII lists no mode
+/// with the catalog's assign activate value.
+TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
+    const std::vector<dc::OpMode> sm_only{{.name = "SM", .assign_activate = 0}};
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, sm_only, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    EXPECT_FALSE((*settings)["mode"].contains("op_mode"));
 }
 
 /// @brief it should return no settings for a product that the catalog does not
 /// describe.
 TEST(ReadSettings, ReturnsNoneForAnUndescribedProduct) {
-    const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, 0xFFFF, read_stg));
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, 0xFFFF, STG_OP_MODES, stg(0))
+    );
     EXPECT_FALSE(settings.has_value());
 }
 
@@ -122,7 +217,7 @@ TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
         return std::pair{uint32_t{0}, coe::read_error(index, sub_index, 0x06020000)};
     };
     ASSERT_OCCURRED_AS_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, missing),
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, missing),
         coe::OBJECT_MISSING
     );
 }

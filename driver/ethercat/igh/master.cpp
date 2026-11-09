@@ -96,13 +96,14 @@ uint16_t ring_position(const uint16_t position) {
 /// the IgH master cannot run.
 x::errors::Error
 check_op_mode(const slave::Properties &slave, const slave::Config &config) {
-    if (!config.enabled || !config.op_mode) return x::errors::NIL;
-    const auto err = config.op_mode->assign_activate != 0
+    const auto choice = config.op_mode ? config.op_mode : slave.catalog_op_mode();
+    if (!config.enabled || !choice) return x::errors::NIL;
+    const auto err = choice->assign_activate != 0
                        ? x::errors::Error(
                              errors::SLAVE_CONFIG_ERROR,
                              "the IgH master does not run DC sync"
                          )
-                       : dc::check_cycles({}, config.op_mode->cycles);
+                       : dc::check_cycles({}, choice->cycles);
     if (!err) return x::errors::NIL;
     return x::errors::Error(
         errors::SLAVE_CONFIG_ERROR,
@@ -199,6 +200,7 @@ x::errors::Error Master::initialize() {
         auto [settings, settings_err] = esi::read_settings(
             slave_info.vendor_id,
             slave_info.product_code,
+            result.properties.op_modes,
             sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
         );
         if (settings_err)

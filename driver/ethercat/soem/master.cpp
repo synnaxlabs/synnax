@@ -472,7 +472,8 @@ x::errors::Error Master::write(
             "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 failure
         );
-    this->session.value().plan.slaves[pos].add_startup_parameters(parameters);
+    if (this->session)
+        this->session->plan.slaves[pos].add_startup_parameters(parameters);
     return x::errors::NIL;
 }
 
@@ -536,6 +537,7 @@ void Master::read_settings(slave::Properties &props) {
     auto [settings, err] = esi::read_settings(
         props.vendor_id,
         props.product_code,
+        props.op_modes,
         [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);
         }
@@ -939,7 +941,7 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
         const auto &props = slave.properties;
         const auto config = this->config(props.position);
         if (!config.enabled) continue;
-        const auto &choice = config.op_mode;
+        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
         const auto [mode, select_err] = dc::select(props.op_modes, choice);
         if (select_err)
             return {

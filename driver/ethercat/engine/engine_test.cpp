@@ -1783,6 +1783,50 @@ TEST_F(EngineTest, DiscoverReturnsTheSlavesOnTheBus) {
     EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
+/// @brief the writes that switch a 6xSTG to standalone mode and save the mode.
+const std::vector<slave::StartupParameter> STANDALONE{
+    {.index = 0x8020, .sub_index = 9, .data_type = x::telem::UINT16_T, .value = 0},
+    {.index = 0x8020, .sub_index = 2, .data_type = x::telem::UINT16_T, .value = 2},
+};
+
+/// @brief it should write to a slave on a stopped bus, then discover the slaves again.
+TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
+    ASSERT_NIL(this->engine->configure(0, STANDALONE));
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{"scan", "write", "deactivate", "scan"})
+    );
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {0, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should refuse to write to a slave while a task runs the bus.
+TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->clear_call_log();
+    const auto err = this->engine->configure(0, STANDALONE);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(err.data, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
+/// @brief it should return the error of a write that the slave rejects.
+TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
+    this->master->inject_write_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected")
+    );
+    ASSERT_OCCURRED_AS(
+        this->engine->configure(0, STANDALONE),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+}
+
 /// @brief it should create an engine for an interface on the first discovery.
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     auto master = std::make_shared<testutil::Master>();

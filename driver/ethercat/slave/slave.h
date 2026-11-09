@@ -204,7 +204,8 @@ private:
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
-    /// @brief the mode the user chose, or nullopt for the mode that dc::select picks.
+    /// @brief the mode the user chose, or nullopt for the mode that
+    /// Properties::catalog_op_mode gives, else the one that dc::select picks.
     std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP.
     std::vector<StartupParameter> startup_parameters;
@@ -267,6 +268,15 @@ struct Properties {
             if (!pdo.is_padding() && pdo.index == index && pdo.sub_index == sub_index)
                 return pdo;
         return std::nullopt;
+    }
+
+    /// @brief returns the sync mode that the catalog gives for the mode the card held
+    /// at the scan, or nullopt when it gives none.
+    [[nodiscard]] std::optional<dc::Choice> catalog_op_mode() const {
+        if (!this->settings || !this->settings->contains("mode")) return std::nullopt;
+        const auto &mode = this->settings->at("mode");
+        if (!mode.contains("op_mode")) return std::nullopt;
+        return dc::Choice::parse(x::json::Parser(mode.at("op_mode")));
     }
 
     /// @brief parses slave properties from JSON.
@@ -350,8 +360,9 @@ struct Status {
 inline constexpr std::string_view DC_SYNC_ADVICE =
     "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
     "mode that the Driver did not set up. Set the DC mode of the slave in its device "
-    "settings. With no setting, the Driver uses SM sync when the slave lists an SM "
-    "mode, and its first DC mode when it lists only DC modes. If the slave does not "
+    "settings. With no setting, the Driver uses the mode that the catalog gives for "
+    "the slave, else SM sync when the slave lists an SM mode, and its first DC mode "
+    "when it lists only DC modes. If the slave does not "
     "list the mode it expects, change its mode with the configuration tool of its "
     "vendor.";
 

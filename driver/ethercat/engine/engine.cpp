@@ -747,6 +747,21 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
     return this->rediscover_locked();
 }
 
+x::errors::Error Engine::configure(
+    const uint16_t position,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::lock_guard lock(this->mu);
+    if (this->running())
+        return x::errors::Error(
+            errors::SLAVE_CONFIG_ERROR,
+            "a task uses " + this->iface + ". Stop the tasks that use it first"
+        );
+    if (auto [_, err] = this->master->scan(); err) return err;
+    if (auto err = this->master->write(position, parameters)) return err;
+    return this->rediscover_locked().second;
+}
+
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rediscover_locked() {
     this->master->deactivate();

@@ -395,6 +395,15 @@ public:
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover();
 
+    /// @brief writes parameters to the slave at position while the bus is stopped, then
+    /// discovers the slaves again so that they show the change. Thread-safe.
+    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus, or the error of
+    /// the write.
+    [[nodiscard]] x::errors::Error configure(
+        uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    );
+
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;
