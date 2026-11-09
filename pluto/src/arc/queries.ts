@@ -280,8 +280,9 @@ const useDriftedResult = createTaskResultSelector(
 /**
  * Whether the arc's running instance was deployed from different content, config, or
  * rack than its task now holds. The Core rewrites the task config whenever the arc's
- * semantic content changes, so content drift surfaces as ordinary task config drift.
- * Arcs that are not running never drift. Re-renders only when the boolean changes.
+ * compiled program changes, including by an edit to a module it imports, so content
+ * drift surfaces as ordinary task config drift. Arcs that are not running never drift.
+ * Re-renders only when the boolean changes.
  */
 export const useDrifted = (query: RetrieveTaskParams): boolean =>
   useDriftedResult(query).data === true;
@@ -299,6 +300,48 @@ export interface UseTaskControlsReturn {
   onStartStop: () => void;
   taskStatus: status.Status;
 }
+
+const { useResult: useResultModuleStatus } = Flux.createRetrieve<
+  RetrieveQuery,
+  status.Status | null
+>({
+  name: "Arc status",
+  retrieve: async ({ client, query }) => await client.arcs.status.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.arcs.status.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.status.watch(query.key).getCached(),
+});
+
+/**
+ * The stored compile status of the module with the given key, or the read status
+ * until it loads.
+ */
+export const useModuleStatus = (key: arc.Key): status.Status => {
+  const { data, variant, status: readStatus } = useResultModuleStatus({ key });
+  return variant !== "success" || data == null ? readStatus : data;
+};
+
+export type RetrieveChangesQuery = {
+  key: arc.Key;
+  /** The task's config hash. The Core rewrites the changes with the task, so a new
+   * hash is what asks again. */
+  configHash: string;
+};
+
+const { useResult: useResultChanges } = Flux.createRetrieve<
+  RetrieveChangesQuery,
+  arc.Change[]
+>({
+  name: "Arc changes",
+  retrieve: async ({ client, query }) => await client.arcs.retrieveChanges(query.key),
+});
+
+/**
+ * What changed in the automation since its task was deployed, as the Core last saw
+ * it. Empty until it loads.
+ */
+export const useChanges = (query: RetrieveChangesQuery): arc.Change[] =>
+  useResultChanges(query).data ?? [];
 
 const notDeployed = (name: string) =>
   status.create({ name, variant: "disabled", message: "Task not deployed" });
