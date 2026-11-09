@@ -272,8 +272,9 @@ const useDriftedResult = createTaskResultSelector(
 /**
  * Whether the arc's running instance was deployed from different content, config, or
  * rack than its task now holds. The Core rewrites the task config whenever the arc's
- * semantic content changes, so content drift surfaces as ordinary task config drift.
- * Arcs that are not running never drift. Re-renders only when the boolean changes.
+ * compiled program changes, including by an edit to a module it imports, so content
+ * drift surfaces as ordinary task config drift. Arcs that are not running never drift.
+ * Re-renders only when the boolean changes.
  */
 export const useDrifted = (query: RetrieveTaskParams): boolean =>
   useDriftedResult(query).data === true;

@@ -58,11 +58,12 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
-// The table caches Arcs without their compiled program or module status. A module's
-// status is read through Client.status.
+// The table caches Arcs without their compiled program, module status, or changes. A
+// module's status is read through Client.status, and changes through retrieveChanges.
 const cachedRequestZ = retrieveRequestZ.omit({
   includeProgram: true,
   includeStatus: true,
+  includeChanges: true,
 });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -431,7 +432,9 @@ export class Client extends query.Retriever<
     return a.type === "automation" ? (a.changes ?? []) : [];
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
+  private async execRetrieve(
+    params: SingleRetrieveParams | RetrieveRequest,
+  ): Promise<Arc[]> {
     const res = await this.cfg.unary.send(
       "/arc/retrieve",
       params,

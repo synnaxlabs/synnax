@@ -368,19 +368,19 @@ func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
 }
 
 // compile compiles the automation's source against a root that reads snap. It also
-// returns the text hash of every module the compile loaded, at any depth, by path.
+// returns the path of every module the compile loaded, at any depth. An error means
+// the automation does not compile.
 func (s *Service) compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	automation AutomationArc,
-) (arc.Program, map[string]string, error) {
+) (arc.Program, []string, error) {
 	root := s.snapshotRoot(snap)
 	prog, err := s.compileWith(ctx, root, automation)
 	if err != nil {
 		return arc.Program{}, nil, err
 	}
-	modules, err := s.moduleHashes(ctx, snap, arctext.LoadedPaths(root))
-	return prog, modules, err
+	return prog, arctext.LoadedPaths(root), nil
 }
 
 // compileWith compiles the automation's source against root.
@@ -399,34 +399,15 @@ func (s *Service) compileWith(
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
 }
 
-// moduleHashes returns the text hash of the module at each path.
-func (s *Service) moduleHashes(
+// hashModules returns the text hash of the module at each path. A path that holds no
+// module is left out.
+func (s *Service) hashModules(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	paths []string,
 ) (map[string]string, error) {
 	hashes := make(map[string]string, len(paths))
 	for _, path := range paths {
-		m, err := s.retrieveModule(ctx, snap, path)
-		if err != nil {
-			return nil, err
-		}
-		if hashes[path], err = Hash(m.Base()); err != nil {
-			return nil, err
-		}
-	}
-	return hashes, nil
-}
-
-// rehash returns the current text hash of the module at each path in previous. A
-// path that no longer holds a module is left out.
-func (s *Service) rehash(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	previous map[string]string,
-) (map[string]string, error) {
-	hashes := make(map[string]string, len(previous))
-	for path := range previous {
 		a, err := s.retrieveArc(ctx, snap, path)
 		if errors.Is(err, symbol.ErrModuleNotFound) {
 			continue
@@ -606,7 +587,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		editedModules:       s.editedModules,
 		compile:             s.compile,
 		analyze:             s.analyzeModule,
-		rehash:              s.rehash,
+		hashModules:         s.hashModules,
 		now:                 s.cfg.Now,
 		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}

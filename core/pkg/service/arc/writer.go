@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"maps"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/arc"
@@ -58,10 +59,10 @@ type Writer struct {
 	editedModules       *gorp.Attachment[Key]
 	compile             func(
 		context.Context, gorp.Snapshot, AutomationArc,
-	) (arc.Program, map[string]string, error)
-	analyze func(context.Context, gorp.Snapshot, ModuleArc) error
-	rehash  func(
-		context.Context, gorp.Snapshot, map[string]string,
+	) (arc.Program, []string, error)
+	analyze     func(context.Context, gorp.Snapshot, ModuleArc) error
+	hashModules func(
+		context.Context, gorp.Snapshot, []string,
 	) (map[string]string, error)
 	now    func() telem.TimeStamp
 	parser parser.Config
@@ -319,19 +320,23 @@ func (w Writer) build(
 	if err != nil {
 		return "", drift.Hashes{}, err
 	}
-	hashes := drift.Hashes{Text: text, Modules: previous.Modules}
 	automation, ok := a.Variant.(AutomationArc)
 	if !ok {
-		return text, hashes, nil
+		return text, drift.Hashes{Text: text, Modules: previous.Modules}, nil
 	}
-	prog, modules, err := w.compile(ctx, w.tx, automation)
+	hash, paths := text, slices.Collect(maps.Keys(previous.Modules))
+	prog, loaded, err := w.compile(ctx, w.tx, automation)
+	if err == nil {
+		if hash, err = HashProgram(prog); err != nil {
+			return "", drift.Hashes{}, err
+		}
+		paths = loaded
+	}
+	modules, err := w.hashModules(ctx, w.tx, paths)
 	if err != nil {
-		hashes.Modules, err = w.rehash(ctx, w.tx, previous.Modules)
-		return text, hashes, err
+		return "", drift.Hashes{}, err
 	}
-	hashes.Modules = modules
-	hash, err := HashProgram(prog)
-	return hash, hashes, err
+	return hash, drift.Hashes{Text: text, Modules: modules}, nil
 }
 
 // sync rewrites an automation's task config or a module's compile status from its
