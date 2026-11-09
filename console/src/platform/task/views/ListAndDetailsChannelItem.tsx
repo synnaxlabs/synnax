@@ -146,7 +146,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
           />
         )}
       </Flex.Box>
-      <Flex.Box x align="center" size="small">
+      <Flex.Box x align="center" gap="small" size="small">
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
