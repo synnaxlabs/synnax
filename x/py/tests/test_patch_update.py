@@ -11,7 +11,7 @@ import json
 from typing import Any, TypedDict
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x import patch
 from x.codec import JSONCodec
@@ -27,11 +27,23 @@ class SettingsUpdate(TypedDict, total=False):
     stream: int
 
 
+class Pair(TypedDict):
+    key: str
+    rate: int
+
+
+class PairUpdate(TypedDict, total=False):
+    key: str
+    rate: int
+
+
 class Holder(TypedDict, total=False):
     name: str
     group: patch.Change[str]
     settings: patch.Struct[SettingsUpdate, Settings]
     extra: patch.Change[patch.Struct[SettingsUpdate, Settings]]
+    tags: patch.ValueListDict[str]
+    pairs: patch.ListDict[Pair, str, PairUpdate]
 
 
 HOLDER = TypeAdapter(Holder)
@@ -50,6 +62,18 @@ class TestStruct:
             ({"extra": None}, '{"extra":null}'),
             ({"settings": {"rate": 5}}, '{"settings":{"rate":5}}'),
             ({"group": None}, '{"group":null}'),
+            ({"tags": {"set": []}}, '{"tags":{"set":[]}}'),
+            (
+                {
+                    "pairs": {
+                        "remove": ["a"],
+                        "update": [{"key": "b", "rate": 2}],
+                        "move": [{"key": "b"}, {"key": "c", "after": "b"}],
+                    }
+                },
+                '{"pairs":{"remove":["a"],"update":[{"key":"b","rate":2}],'
+                '"move":[{"key":"b"},{"key":"c","after":"b"}]}}',
+            ),
         ],
         ids=[
             "absent",
@@ -58,6 +82,8 @@ class TestStruct:
             "clear",
             "required merge",
             "scalar clear",
+            "empty set",
+            "keyed operators",
         ],
     )
     def test_round_trip(self, value: Holder, data: str) -> None:
@@ -91,6 +117,11 @@ class TestList:
         assert parsed.set == []
         assert parsed.insert is None
         assert parsed.move == [patch.ListMove[str](key="a")]
+
+    def test_dict_form_rejects_plain_list(self) -> None:
+        """Should reject a plain list where a dict form takes operators."""
+        with pytest.raises(ValidationError):
+            HOLDER.validate_python({"tags": ["a"]})
 
     def test_value_operators(self) -> None:
         """Should read value list operators."""

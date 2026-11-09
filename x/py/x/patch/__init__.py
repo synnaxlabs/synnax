@@ -12,11 +12,14 @@ from x.patch.types_gen import (
     Guard,
     Insert,
     List,
+    ListDict,
     ListMove,
+    ListMoveDict,
     Move,
     Remove,
     Set,
     ValueList,
+    ValueListDict,
 )
 from x.patch.update import Update
 
@@ -25,7 +28,9 @@ __all__ = [
     "Guard",
     "Insert",
     "List",
+    "ListDict",
     "ListMove",
+    "ListMoveDict",
     "Move",
     "Remove",
     "Replace",
@@ -33,4 +38,5 @@ __all__ = [
     "Struct",
     "Update",
     "ValueList",
+    "ValueListDict",
 ]
