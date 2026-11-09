@@ -28,15 +28,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     await capture.clickToolbarCreate(session);
-    const first = page.getByPlaceholder("Richard").first();
-    await session.waitFor(first);
+    const name = page.getByPlaceholder("Richard Feynman").first();
+    await session.waitFor(name);
     await session.hold(600);
     await session.zoom(page.locator(capture.MODAL).first());
 
-    await session.click(first);
-    await session.type("Grace");
-    await session.click(page.getByPlaceholder("Feynman").first());
-    await session.type("Hopper");
+    await session.click(name);
+    await session.type("Grace Hopper");
     await session.click(page.getByPlaceholder("username").first());
     await session.type("grace");
     await session.click(page.getByPlaceholder("password").first());
@@ -63,7 +61,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(600);
 
     await capture.clickButton(session, "Register");
-    await session.waitForHidden(first);
+    await session.waitForHidden(name);
     session.endZoom();
     await session.hold(800);
 

@@ -142,10 +142,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
   await capture.zoomCenter(session, drawer, 1.4);
   await capture.addChannels(session, "Y1", ["ramp"], { search: "ramp" });
-  // A new plot starts on Rolling 30s, so the tutorial only checks it.
-  await session.moveTo(drawer.getByText("Rolling 30s", { exact: true }).first(), {
-    text: true,
-  });
+  // A new plot starts on a rolling 30s window, so the tutorial only checks it.
+  const rolling = drawer
+    .locator(".lyra-tag")
+    .filter({ has: page.locator(".console-range-select__live-icon") })
+    .first();
+  await session.moveTo(rolling.getByText("30s", { exact: true }), { text: true });
   await session.hold(1200);
   session.endZoom();
   await session.moveTo(capture.PARK);

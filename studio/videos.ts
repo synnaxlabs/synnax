@@ -142,6 +142,20 @@ export default manifest.define([
   },
   { id: "get-started/first-run", script: "scripts/first-run.ts" },
   {
+    id: "console/tables/redline",
+    script: "scripts/still-table-redline.ts",
+    dsf: 3,
+    stills: { regions: "../site/docs/src/components/media/stills/table-redline.json" },
+  },
+  {
+    id: "console/schematics/symbol-color-regions",
+    script: "scripts/still-symbol-color-regions.ts",
+    dsf: 3,
+    stills: {
+      regions: "../site/docs/src/components/media/stills/symbol-color-regions.json",
+    },
+  },
+  {
     id: "control/authority/hand-off",
     script: "scripts/control-authority-hand-off.ts",
   },

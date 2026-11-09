@@ -26,7 +26,7 @@ const PROGRAMS = {
   opcua: (host: string, port: number) =>
     "import asyncio\n" +
     "from examples.opcua.sim import run_server\n" +
-    `asyncio.run(run_server("opc.tcp://${host}:${port}"))`,
+    `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}"))`,
   http: (host: string, port: number) =>
     "from examples.http_sim.server import run_server\n" +
     `run_server("${host}", ${port})`,
