@@ -227,9 +227,10 @@ rejects them from a client.
 
 ### 4.6 Core
 
-Oracle generates an `Apply` method on each record for its update type, built from the
-typed helpers in `x/go/patch` (`Change`, `List`, `ValueList`). It uses no reflection and
-no JSON round trip. Each service writer applies the update, validates the result, writes
+The list operator types (`List`, `ValueList`) are generic structs in
+`schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
+generates an `Apply` method on each record for its update type, built from the typed
+helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service writer applies the update, validates the result, writes
 it, and attaches the update to the dispatch, as it attaches actions today. A writer that
 has a side effect reads the applied update. A channel rename, for example, renames
 storage before the commit when `name` is set.
@@ -272,17 +273,17 @@ Each phase is additive until phase 8: the Core accepts path actions and `update`
 side, so `main` stays green between phases. No stable release has shipped the path
 actions, so phase 8 deletes them with no migration.
 
-| Phase | Scope                                           | Touches                                                                                | Depends on |
-| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---------- |
-| 1     | Synthesize a typed action union for each record | `oracle`, `schemas`, `core/pkg/service`, `client/ts`, `client/py`, `client/cpp`        | -          |
-| 2     | Add the update engine to the patch libraries    | `x/go/patch`, `x/ts/src/patch`, `x/py`, `x/cpp/patch`, `x/testdata/update`             | -          |
-| 3     | Generate update types and the update action     | `oracle`, `schemas`                                                                    | 1, 2       |
-| 4     | Serve every dispatch endpoint with one handler  | `core/pkg/api`                                                                         | 1          |
-| 5     | Apply updates in the Core                       | `core/pkg/service`, `core/pkg/api`                                                     | 3, 4       |
-| 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                        | 5          |
-| 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                    | 5          |
-| 8     | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py` | 6, 7       |
-| 9     | Type the gRPC dispatch protos                   | `oracle/plugin/pb`, `core/pkg/api/grpc`, `client/cpp`                                  | 8          |
+| Phase | Scope                                           | Touches                                                                                 | Depends on |
+| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- |
+| 1     | Synthesize a typed action union for each record | `oracle`, `schemas`, `core/pkg/service`, `client/ts`, `client/py`, `client/cpp`         | -          |
+| 2     | Add the update engine to the patch libraries    | `schemas/x`, `x/go/patch`, `x/ts/src/patch`, `x/py`, `x/cpp/patch`, `x/testdata/update` | -          |
+| 3     | Generate update types and the update action     | `oracle`, `schemas`                                                                     | 1, 2       |
+| 4     | Serve every dispatch endpoint with one handler  | `core/pkg/api`                                                                          | 1          |
+| 5     | Apply updates in the Core                       | `core/pkg/service`, `core/pkg/api`                                                      | 3, 4       |
+| 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                         | 5          |
+| 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5          |
+| 8     | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 6, 7       |
+| 9     | Type the gRPC dispatch protos                   | `oracle/plugin/pb`, `core/pkg/api/grpc`, `client/cpp`                                   | 8          |
 
 ## 7 Resolved decisions
 
