@@ -18,6 +18,7 @@ const (
 	PathGroupRename             = "/group/rename"
 	PathGroupDelete             = "/group/delete"
 	PathGroupSetParent          = "/group/set-parent"
+	PathGroupUngroup            = "/group/ungroup"
 	PathChannelSetGroup         = "/channel/set-group"
 	PathDeviceSetGroup          = "/device/set-group"
 	PathRackSetGroup            = "/rack/set-group"
@@ -47,6 +48,7 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathGroupRename:             batch.Route(l.Group.Rename),
 		PathGroupDelete:             batch.Route(l.Group.Delete),
 		PathGroupSetParent:          batch.Route(l.Group.SetParent),
+		PathGroupUngroup:            batch.Route(l.Group.Ungroup),
 		PathChannelSetGroup:         batch.Route(l.Channel.SetGroup),
 		PathDeviceSetGroup:          batch.Route(l.Device.SetGroup),
 		PathRackSetGroup:            batch.Route(l.Rack.SetGroup),

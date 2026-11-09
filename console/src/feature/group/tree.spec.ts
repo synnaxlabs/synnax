@@ -206,12 +206,12 @@ describe("group tree item", () => {
       stateOverrides: { nodes, expanded: [nodeKey(parent), nodeKey(child)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
-    await waitFor(async () =>
+    await waitFor(async () => {
       expect(
         await retrieveChildGroupKeys(client, group.resourceID(parent.key)),
-      ).toEqual([grandchild.key]),
-    );
-    expect((await client.channels.retrieve(ch.key)).group).toBe(parent.key);
+      ).toEqual([grandchild.key]);
+      expect((await client.channels.retrieve(ch.key)).group).toBe(parent.key);
+    });
   });
 
   it("should move every child of an ungrouped group, not only the shown ones", async () => {
@@ -284,10 +284,10 @@ describe("group tree item", () => {
       stateOverrides: { nodes, expanded: [nodeKey(parent)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
-    await waitFor(async () =>
-      expect((await client.groups.retrieve({ key: child.key })).parent).toBeUndefined(),
-    );
-    expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
+    await waitFor(async () => {
+      expect((await client.groups.retrieve({ key: child.key })).parent).toBeUndefined();
+      expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
+    });
   });
 
   it("should label ungroup as delete for an open, childless nested group", async () => {

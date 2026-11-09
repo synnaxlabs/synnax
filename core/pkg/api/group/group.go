@@ -199,6 +199,21 @@ func (s *Service) Rename(
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
+// UngroupRequest ungroups the groups with Keys.
+type UngroupRequest struct {
+	Keys []group.Key `json:"keys" msgpack:"keys"`
+}
+
+// Ungroup deletes the groups with the given keys and moves what each one holds into its
+// parent.
+func (s *Service) Ungroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UngroupRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).Ungroup(ctx, req.Keys...)
+}
+
 // SetParentRequest moves groups under Parent, or to the top level when Parent is nil.
 type SetParentRequest struct {
 	Parent *resource.ID `json:"parent" msgpack:"parent"`

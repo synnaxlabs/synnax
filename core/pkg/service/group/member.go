@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -216,6 +217,64 @@ func (w Writer) moveMembers(ctx context.Context, keys []Key, top *resource.ID) e
 		}
 	}
 	return w.onMove(ctx, w.tx, groups, top)
+}
+
+// Ungroup deletes the groups with keys and moves what each one holds into its parent. A
+// group under it takes the parent as its parent. A member joins the parent when the
+// parent is a group, and leaves its group when it is not. It returns a validation error
+// when a group does not exist, and an error when no setter moves the type of a member.
+func (w Writer) Ungroup(ctx context.Context, keys ...Key) error {
+	for _, key := range lo.Uniq(keys) {
+		g, err := retrieveGroup(ctx, w.tx, key)
+		if err != nil {
+			return err
+		}
+		deps, err := resource.Dependents(ctx, w.tx, w.table, key)
+		if err != nil {
+			return err
+		}
+		var (
+			children []Key
+			members  = make(map[resource.Type][]resource.ID)
+		)
+		for _, id := range deps {
+			if id.Type != resource.TypeGroup {
+				members[id.Type] = append(members[id.Type], id)
+				continue
+			}
+			child, err := KeyFromResourceID(id)
+			if err != nil {
+				return err
+			}
+			children = append(children, child)
+		}
+		if len(children) > 0 {
+			if err = w.SetParent(ctx, g.Parent, children...); err != nil {
+				return err
+			}
+		}
+		var to *Key
+		if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
+			parent, err := KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return err
+			}
+			to = &parent
+		}
+		for t, ids := range members {
+			set, ok := w.setMembers[t]
+			if !ok {
+				return errors.Newf("no setter moves a %s out of a group", t)
+			}
+			if err = set(ctx, w.tx, to, ids); err != nil {
+				return err
+			}
+		}
+		if err = w.Delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // TopParent returns the parent of the group at the top of the chain that holds the

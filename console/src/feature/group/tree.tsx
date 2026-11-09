@@ -24,12 +24,6 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
-const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID => {
-  if (parentID == null)
-    throw new Error("Cannot ungroup groups that sit under more than one parent");
-  return parentID;
-};
-
 /**
  * Returns the tree items of groups. A group lists its child groups and the members of
  * its scope.
@@ -47,16 +41,6 @@ export const createTreeItems = (
     ...membersOf(root).map((m) => m.children(client, id.key)),
   ];
 
-  const retrieveChildren = async (
-    props: Tree.ChildrenProps,
-  ): Promise<resource.ID[]> => {
-    const windows = await Promise.all(
-      children(props).map(async (source) => await source.retrieve()),
-    );
-    return windows.flatMap(({ resources }) => resources.map(({ id }) => id));
-  };
-
-  // Ungroup reads children from the Core, since the tree holds only loaded ones.
   const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
     name: "resources",
     verbs: {
@@ -65,22 +49,7 @@ export const createTreeItems = (
       participle: "ungrouping",
     },
     update: async ({ client, data }) => {
-      const { selection } = data;
-      const { ids, rootID } = selection;
-      const parentID = parentOf(selection);
-      const selected = new Set(resource.idToString(ids));
-      const childIDs = (
-        await Promise.all(
-          ids.map(async (id) => await retrieveChildren({ client, id, root: rootID })),
-        )
-      )
-        .flat()
-        .filter((id) => !selected.has(resource.idToString(id)));
-      const parent = resource.idsEqual(parentID, rootID) ? undefined : parentID;
-      await client.batch.send([
-        ...PlatformGroup.moveRequests(client, childIDs, parent),
-        client.groups.deleteRequest(ids.map(({ key }) => key)),
-      ]);
+      await client.groups.ungroup(data.selection.ids.map(({ key }) => key));
       return data;
     },
   });

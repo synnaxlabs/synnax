@@ -47,6 +47,10 @@ class _DeleteReq(BaseModel):
     keys: list[Key]
 
 
+class _UngroupReq(BaseModel):
+    keys: list[Key]
+
+
 class _SetParentReq(BaseModel):
     keys: list[Key]
     parent: ID | None = None
@@ -201,6 +205,17 @@ class Client:
 
     def delete(self, keys: list[Key]) -> Empty:
         return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
+
+    def ungroup(self, keys: list[Key]) -> Empty:
+        """Deletes groups and moves what each one holds into its parent.
+
+        Each group under an ungrouped group moves to that group's parent. A record joins
+        the parent when the parent is a group, and leaves its group when it is not.
+
+        :param keys: The keys of the groups to ungroup.
+        :raises ValidationError: If a group does not exist.
+        """
+        return self._client.send("/group/ungroup", _UngroupReq(keys=keys), Empty)
 
     def set_parent(self, keys: list[Key], parent: CrudeID | None = None) -> Empty:
         """Moves groups under a parent, or to the top level when the parent is None.

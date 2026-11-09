@@ -77,14 +77,39 @@ func rackID(key string) resource.ID {
 
 var _ = Describe("Member", func() {
 	var (
-		db  *gorp.DB
-		svc *group.Service
+		db         *gorp.DB
+		svc        *group.Service
+		setMembers map[resource.Type]group.SetMembers
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		setMembers = map[resource.Type]group.SetMembers{
+			resource.TypeRack: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				to *group.Key,
+				ids []resource.ID,
+			) error {
+				keys := make([]string, len(ids))
+				for i, id := range ids {
+					keys[i] = id.Key
+				}
+				return gorp.NewUpdate[string, rack]().
+					Where(gorp.MatchKeys[string, rack](keys...)).
+					Change(func(_ gorp.Context, r rack) rack {
+						r.Group = to
+						return r
+					}).
+					Exec(ctx, tx)
+			},
+		}
+	})
+
+	JustBeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			DB:         db,
+			SetMembers: setMembers,
 		}))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, rack]{
 			DB:   db,
@@ -296,6 +321,103 @@ var _ = Describe("Member", func() {
 				})).To(Succeed())
 			},
 		)
+	})
+
+	Describe("Ungroup", func() {
+		ungroup := func(ctx context.Context, keys ...group.Key) error {
+			return db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Ungroup(ctx, keys...)
+			})
+		}
+
+		groupOf := func(ctx context.Context, key string) *group.Key {
+			GinkgoHelper()
+			var r rack
+			Expect(gorp.NewRetrieve[string, rack]().
+				Where(gorp.MatchKeys[string, rack](key)).
+				Entry(&r).
+				Exec(ctx, db)).To(Succeed())
+			return r.Group
+		}
+
+		parentOf := func(ctx context.Context, g group.Group) *resource.ID {
+			GinkgoHelper()
+			var stored group.Group
+			Expect(svc.NewRetrieve().
+				Where(group.MatchKeys(g.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			return stored.Parent
+		}
+
+		exists := func(ctx context.Context, g group.Group) bool {
+			GinkgoHelper()
+			return MustSucceed(svc.NewRetrieve().
+				Where(group.MatchKeys(g.Key)).
+				Exists(ctx, db))
+		}
+
+		It(
+			"Should move what a group holds into its parent group",
+			func(ctx SpecContext) {
+				top := create(ctx, resource.TypeDevice, nil)
+				mid := create(ctx, resource.TypeDevice, new(top.ResourceID()))
+				child := create(ctx, resource.TypeDevice, new(mid.ResourceID()))
+				place(ctx, "r3", mid)
+				Expect(ungroup(ctx, mid.Key)).To(Succeed())
+				Expect(exists(ctx, mid)).To(BeFalse())
+				Expect(parentOf(ctx, child)).To(Equal(new(top.ResourceID())))
+				Expect(groupOf(ctx, "r3")).To(Equal(&top.Key))
+			},
+		)
+
+		It(
+			"Should move a group under it to a parent that is not a group",
+			func(ctx SpecContext) {
+				g := create(ctx, resource.TypeDevice, new(rackID("r1")))
+				child := create(ctx, resource.TypeDevice, new(g.ResourceID()))
+				Expect(ungroup(ctx, g.Key)).To(Succeed())
+				Expect(parentOf(ctx, child)).To(Equal(new(rackID("r1"))))
+			},
+		)
+
+		It("Should ungroup a group named twice", func(ctx SpecContext) {
+			top := create(ctx, resource.TypeDevice, nil)
+			mid := create(ctx, resource.TypeDevice, new(top.ResourceID()))
+			place(ctx, "r3", mid)
+			Expect(ungroup(ctx, mid.Key, mid.Key)).To(Succeed())
+			Expect(exists(ctx, mid)).To(BeFalse())
+			Expect(groupOf(ctx, "r3")).To(Equal(&top.Key))
+		})
+
+		It("Should ungroup a group and a group under it", func(ctx SpecContext) {
+			top := create(ctx, resource.TypeDevice, nil)
+			mid := create(ctx, resource.TypeDevice, new(top.ResourceID()))
+			place(ctx, "r3", mid)
+			Expect(ungroup(ctx, top.Key, mid.Key)).To(Succeed())
+			Expect(exists(ctx, top)).To(BeFalse())
+			Expect(exists(ctx, mid)).To(BeFalse())
+			Expect(groupOf(ctx, "r3")).To(BeNil())
+		})
+
+		It("Should reject a group that does not exist", func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(ungroup(ctx, key)).To(MatchError(
+				"group " + key.String() + " does not exist: validation error",
+			))
+		})
+
+		Context("With no setter for a type", func() {
+			BeforeEach(func() { setMembers = nil })
+
+			It("Should reject a member of that type", func(ctx SpecContext) {
+				g := create(ctx, resource.TypeDevice, nil)
+				place(ctx, "r3", g)
+				Expect(ungroup(ctx, g.Key)).
+					To(MatchError("no setter moves a rack out of a group"))
+				Expect(exists(ctx, g)).To(BeTrue())
+			})
+		})
 	})
 
 	Describe("CreateObjects", func() {

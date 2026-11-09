@@ -123,6 +123,16 @@ class TestGroupClient:
         client.groups.set_parent([g.key])
         assert client.groups.retrieve(g.key).parent is None
 
+    def test_ungroup(self, client: sy.Synnax) -> None:
+        """Should move what a group holds into its parent and delete the group."""
+        root = client.groups.create(str(uuid4()), scope="channel")
+        mid = client.groups.create(str(uuid4()), parent=sy.group.resource_id(root.key))
+        leaf = client.groups.create(str(uuid4()), parent=sy.group.resource_id(mid.key))
+        client.groups.ungroup([mid.key])
+        with pytest.raises(sy.NotFoundError):
+            client.groups.retrieve(mid.key)
+        assert client.groups.retrieve(leaf.key).parent == sy.group.resource_id(root.key)
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a group."""
         g = client.groups.create(str(uuid4()), scope="channel")

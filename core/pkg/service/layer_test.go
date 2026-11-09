@@ -10,6 +10,7 @@
 package service_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"uuid"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
@@ -40,9 +42,11 @@ import (
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
@@ -481,12 +485,13 @@ var _ = Describe("Resource search", Ordered, func() {
 
 var _ = Describe("Group moves", Ordered, func() {
 	var (
-		l      *service.Layer
-		db     *gorp.DB
-		src    project.Project
-		dest   project.Project
-		g      group.Group
-		owners func(ctx SpecContext) []*project.Key
+		l        *service.Layer
+		db       *gorp.DB
+		src      project.Project
+		dest     project.Project
+		g        group.Group
+		owners   func(ctx SpecContext) []*project.Key
+		groupsOf func(ctx SpecContext) []*group.Key
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -551,6 +556,11 @@ var _ = Describe("Group moves", Ordered, func() {
 				pn.Project,
 			}
 		}
+		groupsOf = func(ctx SpecContext) []*group.Key {
+			GinkgoHelper()
+			owners(ctx)
+			return []*group.Key{sch.Group, lp.Group, lg.Group, tb.Group, pn.Group}
+		}
 	})
 
 	It(
@@ -579,5 +589,178 @@ var _ = Describe("Group moves", Ordered, func() {
 			))
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
 		},
+	)
+
+	It(
+		"Should keep the visualizations of an ungrouped group in its project",
+		func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return l.Group.NewWriter(tx).Ungroup(ctx, g.Key)
+			})).To(Succeed())
+			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
+			Expect(groupsOf(ctx)).To(HaveEach(BeNil()))
+		},
+	)
+})
+
+var _ = Describe("Ungroup", Ordered, func() {
+	var (
+		l  *service.Layer
+		db *gorp.DB
+		p  project.Project
+	)
+
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		l = MustOpen(svctestutil.OpenLayer(ctx, node))
+		p = project.Project{Name: "Project"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Project.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
+	})
+
+	none := func() *resource.ID { return nil }
+	inProject := func() *resource.ID { return new(p.ResourceID()) }
+	inRack := func() *resource.ID { return new(l.Rack.EmbeddedKey.ResourceID()) }
+
+	DescribeTable(
+		"Should move a record into the parent group of its group",
+		func(
+			ctx SpecContext,
+			parent func() *resource.ID,
+			scope resource.Type,
+			place func(context.Context, gorp.Tx, *group.Key) (resource.ID, error),
+		) {
+			var (
+				top    = group.Group{Name: "Top", Scope: scope, Parent: parent()}
+				nested group.Group
+				id     resource.ID
+			)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				w := l.Group.NewWriter(tx)
+				if err = w.Create(ctx, &top); err != nil {
+					return err
+				}
+				nested = group.Group{Name: "Nested", Parent: new(top.ResourceID())}
+				if err = w.Create(ctx, &nested); err != nil {
+					return err
+				}
+				id, err = place(ctx, tx, &nested.Key)
+				return err
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return l.Group.NewWriter(tx).Ungroup(ctx, nested.Key)
+			})).To(Succeed())
+			Expect(l.Group.Children(ctx, db, top.Key)).To(ConsistOf(id))
+		},
+		Entry("Channel", none, resource.TypeChannel, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+				Group:    g,
+			}
+			err := l.Channel.NewWriter(tx).Create(ctx, &ch)
+			return ch.ResourceID(), err
+		}),
+		Entry("Rack", none, resource.TypeDevice, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			r := rack.Rack{Name: "Rack", Group: g}
+			err := l.Rack.NewWriter(tx).Create(ctx, &r)
+			return r.ResourceID(), err
+		}),
+		Entry("Device", inRack, resource.TypeDevice, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			d := device.Device{
+				Key:      uuid.New().String(),
+				Rack:     l.Rack.EmbeddedKey,
+				Name:     "Device",
+				Make:     "make",
+				Model:    "model",
+				Location: "dev1",
+				Group:    g,
+			}
+			err := l.Device.NewWriter(tx).Create(ctx, &d)
+			return d.ResourceID(), err
+		}),
+		Entry("Project", none, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			pr := project.Project{Name: "Member", Group: g}
+			err := l.Project.NewWriter(tx).Create(ctx, &pr)
+			return pr.ResourceID(), err
+		}),
+		Entry("Schematic", inProject, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			s := schematic.Schematic{Name: "Schematic", Group: g}
+			err := l.Schematic.NewWriter(tx).Create(ctx, &s)
+			return s.ResourceID(), err
+		}),
+		Entry("Schematic symbol", none, resource.TypeSchematicSymbol, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			s := symbol.Symbol{
+				Name:  "Symbol",
+				Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Group: g,
+			}
+			err := l.Schematic.Symbol.NewWriter(tx).Create(ctx, &s)
+			return s.ResourceID(), err
+		}),
+		Entry("Line plot", inProject, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			lp := lineplot.LinePlot{Name: "Plot", Group: g}
+			err := l.LinePlot.NewWriter(tx).Create(ctx, &lp)
+			return lp.ResourceID(), err
+		}),
+		Entry("Log", inProject, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			lg := log.Log{Name: "Log", Group: g}
+			err := l.Log.NewWriter(tx).Create(ctx, &lg)
+			return lg.ResourceID(), err
+		}),
+		Entry("Table", inProject, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			tb := table.Table{Name: "Table", Group: g}
+			err := l.Table.NewWriter(tx).Create(ctx, &tb)
+			return tb.ResourceID(), err
+		}),
+		Entry("Panel", inProject, resource.TypeProject, func(
+			ctx context.Context,
+			tx gorp.Tx,
+			g *group.Key,
+		) (resource.ID, error) {
+			pn := panel.Panel{Name: "Panel", Group: g}
+			err := l.Panel.NewWriter(tx).Create(ctx, &pn)
+			return pn.ResourceID(), err
+		}),
 	)
 })

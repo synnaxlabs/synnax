@@ -85,6 +85,12 @@ describe("Group", () => {
         payload: { keys: [KEY] },
       });
     });
+    it("should build an ungroup request from a single key", () => {
+      expect(client.groups.ungroupRequest(KEY)).toMatchObject({
+        endpoint: "/group/ungroup",
+        payload: { keys: [KEY] },
+      });
+    });
     it("should build a set-parent request that moves groups to the top level", () => {
       expect(client.groups.setParentRequest([KEY], null)).toMatchObject({
         endpoint: "/group/set-parent",
@@ -314,6 +320,41 @@ describe("Group", () => {
       await expect(client.groups.delete(parent.key)).rejects.toThrow(
         "because it is not empty",
       );
+    });
+  });
+  describe("ungroup", () => {
+    it("should move what a group holds into its parent and delete it", async () => {
+      const [root, mid, leaf] = await createChain();
+      const ch = await client.channels.create({
+        name: `ungroup_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+        group: mid.key,
+      });
+      await client.groups.ungroup(mid.key);
+      await expect(client.groups.retrieve({ key: mid.key })).rejects.toThrow(
+        NotFoundError,
+      );
+      // The moves reach the cache through the Core's changes, after the call returns.
+      await expect
+        .poll(async () => (await client.groups.retrieve({ key: leaf.key })).parent)
+        .toEqual(group.resourceID(root.key));
+      await expect
+        .poll(async () => (await client.channels.retrieve(ch.key)).group)
+        .toEqual(root.key);
+    });
+    it("should move members out of their group when the group is at the top", async () => {
+      const g = await createTopLevel();
+      const ch = await client.channels.create({
+        name: `ungroup_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+        group: g.key,
+      });
+      await client.groups.ungroup(g.key);
+      await expect
+        .poll(async () => (await client.channels.retrieve(ch.key)).group)
+        .toBeUndefined();
     });
   });
   describe("batch", () => {

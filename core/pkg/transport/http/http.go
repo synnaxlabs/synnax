@@ -245,6 +245,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathGroupSetParent,
 		),
+		GroupUngroup: unary[group.UngroupRequest, struct{}](
+			router,
+			"/api/v1"+api.PathGroupUngroup,
+		),
 		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
 			router,
 			"/api/v1"+api.PathChannelSetGroup,

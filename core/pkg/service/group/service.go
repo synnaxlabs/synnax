@@ -39,12 +39,19 @@ type MoveMembers func(
 	top *resource.ID,
 ) error
 
+// SetMembers moves the records with ids, all of one type, into the group to, or out of
+// their group when to is nil, in tx.
+type SetMembers func(ctx context.Context, tx gorp.Tx, to *Key, ids []resource.ID) error
+
 type ServiceConfig struct {
 	alamos.Instrumentation
 	DB *gorp.DB
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
+	// SetMembers holds the setter of each type that can sit in a group. Ungroup fails
+	// on a member whose type has no setter.
+	SetMembers map[resource.Type]SetMembers
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -54,6 +61,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.MoveMembers = override.Nil(c.MoveMembers, other.MoveMembers)
+	c.SetMembers = override.Nil(c.SetMembers, other.SetMembers)
 	return c
 }
 
@@ -152,6 +160,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		table:      s.table,
 		onMove:     s.cfg.MoveMembers,
+		setMembers: s.cfg.SetMembers,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
@@ -231,6 +240,7 @@ type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Group]
 	onMove     MoveMembers
+	setMembers map[resource.Type]SetMembers
 	dispatcher actions.Dispatcher[Key, Action]
 }
 

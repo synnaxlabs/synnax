@@ -258,6 +258,7 @@ type Transport struct {
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
 	// GROUP MEMBERSHIP
 	GroupSetParent          freighter.UnaryServer[group.SetParentRequest, struct{}]
+	GroupUngroup            freighter.UnaryServer[group.UngroupRequest, struct{}]
 	ChannelSetGroup         freighter.UnaryServer[channel.SetGroupRequest, struct{}]
 	DeviceSetGroup          freighter.UnaryServer[device.SetGroupRequest, struct{}]
 	RackSetGroup            freighter.UnaryServer[rack.SetGroupRequest, struct{}]
@@ -552,6 +553,7 @@ func (l *Layer) BindTo(t Transport) {
 
 		// GROUP MEMBERSHIP
 		t.GroupSetParent,
+		t.GroupUngroup,
 		t.ChannelSetGroup,
 		t.DeviceSetGroup,
 		t.RackSetGroup,
@@ -657,6 +659,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// GROUP MEMBERSHIP
 	t.GroupSetParent.BindHandler(bind.Write(l.binder, l.Group.SetParent))
+	t.GroupUngroup.BindHandler(bind.Write(l.binder, l.Group.Ungroup))
 	t.ChannelSetGroup.BindHandler(bind.Write(l.binder, l.Channel.SetGroup))
 	t.DeviceSetGroup.BindHandler(bind.Write(l.binder, l.Device.SetGroup))
 	t.RackSetGroup.BindHandler(bind.Write(l.binder, l.Rack.SetGroup))
