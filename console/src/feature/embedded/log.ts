@@ -10,7 +10,7 @@
 import { TimeStamp } from "@synnaxlabs/x";
 import z from "zod";
 
-const lineZ = z.object({
+const entryZ = z.looseObject({
   level: z.string(),
   /** Seconds since the Unix epoch. */
   ts: z.number(),
@@ -18,31 +18,56 @@ const lineZ = z.object({
   msg: z.string(),
 });
 
+// The caller and the stack trace fill the dialog without helping a reader. The export
+// keeps them.
+const HIDDEN_FIELDS = new Set(["level", "ts", "logger", "msg", "caller", "stacktrace"]);
+
 // The Core colors some messages for a terminal.
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 
-const formatLine = (line: string): string => {
-  let parsed: z.infer<typeof lineZ>;
+/** One line of the Core log. A line that is not a structured entry keeps only text. */
+export interface Entry {
+  /** The level as the Core wrote it, such as "info" or "error". */
+  level: string | null;
+  time: TimeStamp | null;
+  logger: string;
+  /** The message, then the other fields of the entry as key=value pairs. */
+  text: string;
+}
+
+const formatValue = (value: unknown): string =>
+  typeof value === "string" && /^[^\s"=]+$/.test(value) ? value : JSON.stringify(value);
+
+const parseLine = (line: string): Entry => {
+  let parsed: z.infer<typeof entryZ>;
   try {
-    parsed = lineZ.parse(JSON.parse(line));
+    parsed = entryZ.parse(JSON.parse(line));
   } catch {
     // A panic trace or a line that was cut is still worth reading as it is.
-    return line;
+    return { level: null, time: null, logger: "", text: line };
   }
-  const { level, ts, logger, msg } = parsed;
-  const time = TimeStamp.milliseconds(ts * 1000).toString("time", "local");
-  const source = logger == null ? "" : ` ${logger}`;
-  return `${time} ${level.toUpperCase()}${source} ${msg.replace(ANSI_PATTERN, "").trim()}`;
+  const { level, ts, logger = "", msg } = parsed;
+  const fields = Object.entries(parsed)
+    .filter(([key]) => !HIDDEN_FIELDS.has(key))
+    .map(([key, value]) => `${key}=${formatValue(value)}`);
+  const text = [msg.replace(ANSI_PATTERN, "").trim(), ...fields].join(" ");
+  return { level, time: TimeStamp.milliseconds(ts * 1000), logger, text };
 };
 
-/**
- * Turns the structured log of the embedded Core into lines a person can read. A line
- * that is not a structured entry stays as it is.
- */
-export const format = (log: string): string =>
+/** Splits the structured log of the embedded Core into entries a person can read. */
+export const parse = (log: string): Entry[] =>
   log
     .split("\n")
     .filter((line) => line.trim().length > 0)
-    .map(formatLine)
+    .map(parseLine);
+
+/** @returns the entries as plain text, with full UTC times for a reader elsewhere. */
+export const toText = (entries: Entry[]): string =>
+  entries
+    .map(({ level, time, logger, text }) =>
+      [time?.toString("ISO", "UTC"), level?.toUpperCase(), logger, text]
+        .filter((part) => part != null && part !== "")
+        .join(" "),
+    )
     .join("\n");

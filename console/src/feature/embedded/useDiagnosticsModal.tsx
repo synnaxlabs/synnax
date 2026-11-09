@@ -19,9 +19,16 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
-import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { format } from "@/feature/embedded/log";
+import { type Entry, parse, toText } from "@/feature/embedded/log";
 import { useStatus } from "@/feature/embedded/Provider";
 import {
   type Diagnostics,
@@ -40,6 +47,18 @@ import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const LOG_REFRESH_INTERVAL = TimeSpan.seconds(2);
+
+// How near its end a scrolled log still follows new lines, for fractional pixels.
+const END_SLACK_PX = 8;
+
+const LEVEL_MODIFIERS: Record<string, string> = {
+  debug: "debug",
+  warn: "warn",
+  error: "error",
+  dpanic: "error",
+  panic: "error",
+  fatal: "error",
+};
 
 const STATE_MESSAGES: Record<SupervisorStatus["state"], string> = {
   starting: "Starting",
@@ -102,7 +121,7 @@ const useLog = (): string => {
     let stopped = false;
     const refresh = (): void =>
       handleError(async () => {
-        const next = format(await retrieveLogTail());
+        const next = await retrieveLogTail();
         if (!stopped) setLog(next);
       }, "Failed to read log");
     refresh();
@@ -115,23 +134,116 @@ const useLog = (): string => {
   return log;
 };
 
-const Log = (): ReactElement => {
-  const log = useLog();
-  const ref = useRef<HTMLPreElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (el != null) el.scrollTop = el.scrollHeight;
-  }, [log]);
+const Line = ({ level, time, logger, text }: Entry): ReactElement => {
+  const modifier = level == null ? undefined : LEVEL_MODIFIERS[level];
   return (
-    <pre ref={ref} className={CSS.BE("diagnostics", "log")} aria-label="Log">
-      {log}
-    </pre>
+    <span
+      className={CSS.cls(
+        CSS.BE("diagnostics", "line"),
+        modifier != null && CSS.BEM("diagnostics", "line", modifier),
+      )}
+    >
+      {time != null && (
+        <span className={CSS.BE("diagnostics", "time")}>
+          {time.toString("time", "local")}{" "}
+        </span>
+      )}
+      {level != null && (
+        <span className={CSS.BE("diagnostics", "level")}>{level.toUpperCase()} </span>
+      )}
+      {logger !== "" && (
+        <span className={CSS.BE("diagnostics", "logger")}>{logger} </span>
+      )}
+      {text}
+    </span>
+  );
+};
+
+const isAtEnd = (el: HTMLElement): boolean =>
+  el.scrollHeight - el.scrollTop - el.clientHeight <= END_SLACK_PX;
+
+const holdsSelection = (el: HTMLElement): boolean => {
+  const selection = getSelection();
+  return (
+    selection != null && !selection.isCollapsed && el.contains(selection.anchorNode)
+  );
+};
+
+interface LogProps {
+  log: string;
+}
+
+/**
+ * Follows new lines while the view sits at the end of the log. A scroll up or a text
+ * selection holds the lines still until the person comes back to the end.
+ */
+const Log = ({ log }: LogProps): ReactElement => {
+  const ref = useRef<HTMLPreElement>(null);
+  const [held, setHeld] = useState<string | null>(null);
+  const shown = held ?? log;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (held == null && el != null) el.scrollTop = el.scrollHeight;
+  }, [shown, held]);
+  useEffect(() => {
+    const handleSelectionChange = (): void => {
+      const el = ref.current;
+      if (el == null) return;
+      if (holdsSelection(el)) setHeld((prev) => prev ?? log);
+      else if (isAtEnd(el)) setHeld(null);
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, [log]);
+  const handleScroll = (): void => {
+    const el = ref.current;
+    if (el == null) return;
+    if (isAtEnd(el) && !holdsSelection(el)) setHeld(null);
+    else setHeld((prev) => prev ?? log);
+  };
+  return (
+    <div className={CSS.BE("diagnostics", "log-frame")}>
+      <pre
+        ref={ref}
+        className={CSS.BE("diagnostics", "log")}
+        aria-label="Log"
+        onScroll={handleScroll}
+      >
+        {parse(shown).map((entry, i) => (
+          <Line key={i} {...entry} />
+        ))}
+      </pre>
+      {held != null && (
+        <Button.Button
+          className={CSS.BE("diagnostics", "latest")}
+          variant="filled"
+          size="small"
+          onClick={() => {
+            getSelection()?.removeAllRanges();
+            setHeld(null);
+          }}
+        >
+          <Icon.Arrow.Down />
+          Jump to latest
+        </Button.Button>
+      )}
+    </div>
   );
 };
 
 const DiagnosticsModal = () => {
   const status = useStatus();
   const diagnostics = useDiagnostics(status.state);
+  const log = useLog();
+  const getCopyText = (): string =>
+    [
+      "Synnax Desktop diagnostics",
+      ...(diagnostics == null ? [] : [`Version: ${diagnostics.version}`]),
+      `State: ${STATE_MESSAGES[status.state]}`,
+      `Copied: ${TimeStamp.now().toString("ISO", "UTC")}`,
+      "",
+      toText(parse(log)),
+    ].join("\n");
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const restart = useRestart();
@@ -187,7 +299,7 @@ const DiagnosticsModal = () => {
             </Description.List>
           )}
         </Flex.Box>
-        <Log />
+        <Log log={log} />
       </Modal.Body>
       <Modal.Footer>
         <Flex.Box
@@ -215,6 +327,13 @@ const DiagnosticsModal = () => {
             <Icon.Log />
             Show logs
           </Button.Button>
+          <Button.Copy
+            variant="outlined"
+            text={getCopyText}
+            tooltip="Copy the recent log"
+          >
+            Copy logs
+          </Button.Copy>
           <Button.Button variant="outlined" onClick={handleExport}>
             <Icon.Export />
             Export

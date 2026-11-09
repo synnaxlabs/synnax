@@ -388,6 +388,17 @@ says why in a sentence, then gives the raw error.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
 
+### Logs
+
+- A log follows new lines only while its view is at the end. A scroll up or a text
+  selection holds the lines, and "Jump to latest" goes back to the end.
+- An error or a warning tints its line and colors its level word with
+  `--pluto-error-text` or `--pluto-warning-text`. Times, logger names, and debug lines
+  are gray l9.
+- Long lines wrap with a hanging indent. A log never scrolls sideways.
+- "Copy logs" copies a short header (product, version, state, time), then the lines as
+  plain text with UTC ISO times.
+
 ### Plot ranges
 
 - Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,

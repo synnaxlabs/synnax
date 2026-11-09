@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Status as LyraStatus } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { save } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -75,14 +76,44 @@ const LOG = [
     logger: "storage",
     msg: "\u001b[32mopened the store\u001b[0m",
   }),
+  JSON.stringify({ level: "warn", ts: 1790014510, msg: "slow write", took: "2.1s" }),
+  JSON.stringify({
+    level: "error",
+    ts: 1790014512,
+    logger: "api",
+    caller: "api/open.go:42",
+    msg: "failed to open the store",
+    error: "permission denied",
+    stacktrace: "main.open\n\tapi/open.go:42",
+  }),
   "panic: not a structured line",
 ].join("\n");
+
+const NEW_LINE = JSON.stringify({ level: "info", ts: 1790014520, msg: "a new line" });
 
 const LINK = {
   secret: "shh",
   email: "ada@example.com",
   user: "user_a",
   analyticsAllowed: true,
+};
+
+const findLines = async (): Promise<HTMLElement[]> => {
+  const log = await screen.findByLabelText("Log");
+  await waitFor(() => expect(log.children).toHaveLength(4));
+  return Array.from(log.children) as HTMLElement[];
+};
+
+/** Gives the log the scroll metrics of a box that holds less than its lines. */
+const stubScrolling = (log: HTMLElement): void => {
+  let top = 0;
+  Object.defineProperty(log, "scrollHeight", { configurable: true, value: 1000 });
+  Object.defineProperty(log, "clientHeight", { configurable: true, value: 100 });
+  Object.defineProperty(log, "scrollTop", {
+    configurable: true,
+    get: () => top,
+    set: (next: number) => (top = next),
+  });
 };
 
 const openDiagnostics = async (
@@ -139,10 +170,105 @@ describe("Embedded diagnostics", () => {
     expect(await screen.findByText("2 in this session")).toBeTruthy();
     expect(screen.getByText("exited with 3")).toBeTruthy();
     expect(screen.getByText("3.0 MB in /data/synnax")).toBeTruthy();
-    const log = await screen.findByLabelText("Log");
-    await waitFor(() => {
-      expect(log.textContent).toMatch(/INFO storage opened the store$/m);
-      expect(log.textContent).toContain("panic: not a structured line");
+    const [info, , , panic] = await findLines();
+    expect(info.textContent).toMatch(/INFO storage opened the store$/);
+    expect(panic.textContent).toBe("panic: not a structured line");
+  });
+
+  it("should show the fields of an entry, but not its caller or stack trace", async () => {
+    await openDiagnostics(RUNNING);
+    const [, warn, error] = await findLines();
+    expect(warn.textContent).toMatch(/WARN slow write took=2.1s$/);
+    expect(error.textContent).toMatch(
+      /ERROR api failed to open the store error="permission denied"$/,
+    );
+  });
+
+  it("should mark warnings and errors", async () => {
+    await openDiagnostics(RUNNING);
+    const [info, warn, error, panic] = await findLines();
+    expect(warn.classList).toContain("console-diagnostics__line--warn");
+    expect(error.classList).toContain("console-diagnostics__line--error");
+    for (const line of [info, panic])
+      expect(line.className).toBe("console-diagnostics__line");
+  });
+
+  it("should copy a header and the recent log with full times", async () => {
+    const writeText = stubClipboardWriteText();
+    await openDiagnostics(RUNNING);
+    await screen.findByText("2 in this session");
+    await findLines();
+    fireEvent.click(screen.getByRole("button", { name: "Copy logs" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const [text] = writeText.mock.calls[0] as [string];
+    const [header, body] = text.split("\n\n");
+    expect(header).toMatch(
+      /^Synnax Desktop diagnostics\nVersion: 0.58.0\nState: Running\nCopied: \S+Z$/,
+    );
+    expect(body).toBe(
+      [
+        "2026-09-21T18:15:09.900Z INFO storage opened the store",
+        "2026-09-21T18:15:10.000Z WARN slow write took=2.1s",
+        '2026-09-21T18:15:12.000Z ERROR api failed to open the store error="permission denied"',
+        "panic: not a structured line",
+      ].join("\n"),
+    );
+  });
+
+  describe("following new lines", () => {
+    const openGrowingLog = async () => {
+      let tail = LOG;
+      const supervisor = await openDiagnostics(RUNNING, {
+        supervisor_log_tail: () => tail,
+      });
+      await findLines();
+      const log = screen.getByLabelText("Log");
+      stubScrolling(log);
+      const grow = async (): Promise<void> => {
+        tail = `${LOG}\n${NEW_LINE}`;
+        const reads = supervisor.commands.mock.calls.length;
+        await waitFor(
+          () =>
+            expect(supervisor.commands.mock.calls.length).toBeGreaterThan(reads + 1),
+          { timeout: 5000 },
+        );
+      };
+      return { log, grow };
+    };
+
+    it("should hold the lines while the person reads above the end", async () => {
+      const { log, grow } = await openGrowingLog();
+      log.scrollTop = 0;
+      fireEvent.scroll(log);
+      const latest = await screen.findByRole("button", { name: "Jump to latest" });
+      await grow();
+      expect(log.textContent).not.toContain("a new line");
+      fireEvent.click(latest);
+      await waitFor(() => expect(log.textContent).toContain("a new line"));
+      expect(log.scrollTop).toBe(1000);
+      expect(screen.queryByRole("button", { name: "Jump to latest" })).toBeNull();
+    });
+
+    it("should hold the lines while the person selects text in them", async () => {
+      const { log, grow } = await openGrowingLog();
+      const range = document.createRange();
+      range.selectNodeContents(log.children[0]);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      onTestFinished(() => getSelection()?.removeAllRanges());
+      act(() => {
+        document.dispatchEvent(new Event("selectionchange"));
+      });
+      await screen.findByRole("button", { name: "Jump to latest" });
+      await grow();
+      expect(log.textContent).not.toContain("a new line");
+    });
+
+    it("should show new lines at the end while the view is there", async () => {
+      const { log, grow } = await openGrowingLog();
+      await grow();
+      await waitFor(() => expect(log.textContent).toContain("a new line"));
+      expect(log.scrollTop).toBe(1000);
     });
   });
 
