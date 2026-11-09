@@ -108,10 +108,12 @@ TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
     constexpr std::uintptr_t LARGE = std::uintptr_t{256} * 1024 * 1024;
     const auto before = mappings();
     const auto module = ASSERT_NIL_P(Module::open({.program = mod}));
-    for (const auto &[start, end]: mappings()) {
-        if (std::ranges::find(before, std::pair{start, end}) == before.end()) {
-            EXPECT_LT(end - start, LARGE);
-        }
+    for (const auto &now: mappings()) {
+        // ASan's allocator carves its reservations, so old mappings can shrink.
+        const auto is_new = std::ranges::none_of(before, [&now](const auto &earlier) {
+            return earlier.first <= now.first && now.second <= earlier.second;
+        });
+        if (is_new) { EXPECT_LT(now.second - now.first, LARGE); }
     }
 }
 #endif
