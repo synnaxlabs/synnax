@@ -10,6 +10,7 @@
 import { capture } from "@/index";
 
 import { kindButton, selectItem } from "./common/channel-dialog";
+import { openProject } from "./common/desktop";
 import { controls, editor } from "./common/sample";
 
 export const desktop = true;
@@ -35,20 +36,6 @@ const type = async (session: capture.CaptureSession, text: string): Promise<void
   session.setSpeed(TYPE_SPEED);
   await session.type(text);
   session.setSpeed(1);
-};
-
-/** openProject creates an empty project from the projects screen of Synnax Desktop. */
-const openProject = async (session: capture.CaptureSession): Promise<void> => {
-  const { page } = session;
-  const create = page.getByText("New project").first();
-  await session.waitFor(create, 1800);
-  await create.click();
-  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
-  await session.waitFor(name);
-  await name.fill("My project");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await session.waitFor(page.locator(".console-palette button"), 1800);
-  await capture.clearPanel(session);
 };
 
 /**
@@ -142,10 +129,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
   await capture.zoomCenter(session, drawer, 1.4);
   await capture.addChannels(session, "Y1", ["ramp"], { search: "ramp" });
-  // A new plot starts on Rolling 30s, so the tutorial only checks it.
-  await session.moveTo(drawer.getByText("Rolling 30s", { exact: true }).first(), {
-    text: true,
-  });
+  // A new plot starts on a rolling 30s window, so the tutorial only checks it.
+  const rolling = drawer
+    .locator(".lyra-tag")
+    .filter({ has: page.locator(".console-range-select__live-icon") })
+    .first();
+  await session.moveTo(rolling.getByText("30s", { exact: true }), { text: true });
   await session.hold(1200);
   session.endZoom();
   await session.moveTo(capture.PARK);
