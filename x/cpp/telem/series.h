@@ -144,15 +144,14 @@ public:
     Alignment alignment;
 
 private:
-    /// @brief validates the input index is within the bounds of the series. If the
-    /// write size is provided, it will also validate that the write does not exceed
-    /// the capacity of the series.
-
+    /// @brief validates that the count samples from index are within the series. A
+    /// negative index counts from the end.
+    /// @returns the index as an offset from the start.
     [[nodiscard]] size_t
-    validate_bounds(const int &index, const size_t write_size = 0) const {
+    validate_bounds(const int &index, const size_t count = 1) const {
         auto adjusted = index;
         if (index < 0) adjusted = static_cast<int>(this->size()) + index;
-        if (adjusted + write_size > this->size() || adjusted < 0)
+        if (adjusted < 0 || adjusted + count > this->size())
             throw std::runtime_error(
                 "index " + std::to_string(index) +
                 " out of bounds for series of size " + std::to_string(this->size())
@@ -1147,7 +1146,7 @@ public:
             std::array<std::uint8_t, 16> bytes{};
             std::memcpy(
                 bytes.data(),
-                this->buffer.get() + this->validate_bounds(index, 1) * bytes.size(),
+                this->buffer.get() + this->validate_bounds(index) * bytes.size(),
                 bytes.size()
             );
             return x::uuid::UUID(bytes);

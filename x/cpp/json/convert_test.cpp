@@ -409,7 +409,7 @@ TEST(ToSampleValue, StringToJSON) {
 
 /// @brief it should convert UUID text to the 16 bytes of the UUID.
 TEST(ToSampleValue, StringToUUID) {
-    const auto text = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+    const std::string text = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
     const auto sv = ASSERT_NIL_P(
         x::json::to_sample_value(json(text), x::telem::UUID_T)
     );
@@ -1927,6 +1927,14 @@ TEST(FromSeries, Bytes) {
     );
     ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 0)), json("AP8BAg=="));
     ASSERT_EQ(ASSERT_NIL_P(x::json::from_series(s, 1)), json(""));
+}
+
+/// @brief it should throw on an index past the last sample.
+TEST(FromSeries, OutOfBounds) {
+    const x::telem::Series bytes(std::vector<std::string>{}, x::telem::BYTES_T);
+    ASSERT_THROW((void) x::json::from_series(bytes, 0), std::runtime_error);
+    const x::telem::Series text(std::string("1"), x::telem::JSON_T);
+    ASSERT_THROW((void) x::json::from_series(text, 1), std::runtime_error);
 }
 
 /// @brief it should reject a series of another data type.

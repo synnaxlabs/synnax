@@ -228,6 +228,18 @@ TEST(TestSeries, testSampleValueConstructionMismatch) {
     ASSERT_THROW(Series(SampleValue(std::string("1")), FLOAT64_T), std::runtime_error);
 }
 
+/// @brief it should reject a read at an index equal to the size of the series.
+TEST(TestSeries, testAtIndexEqualToSize) {
+    const Series f(std::vector<float>{1, 2});
+    ASSERT_THROW((void) f.at<float>(2), std::runtime_error);
+    const Series s(std::vector<std::string>{"a"});
+    ASSERT_THROW((void) s.at<std::string>(1), std::runtime_error);
+    ASSERT_THROW(
+        (void) Series(std::vector<std::string>{}, BYTES_T).at<std::string>(0),
+        std::runtime_error
+    );
+}
+
 /// @brief it should read each UUID of a uuid series by index.
 TEST(TestSeries, testAtUUID) {
     const auto a = x::uuid::create();
