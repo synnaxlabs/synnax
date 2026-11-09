@@ -38,25 +38,39 @@ var headerYear = regexp.MustCompile(`Copyright (\d{4}) Synnax Labs`)
 type License struct {
 	template string
 	year     string
+	prior    map[string]string
 }
 
 // NewLicense reads the template at <repoRoot>/licenses/headers/template.txt and
-// returns a License formatter that gives new files the header for year.
-func NewLicense(repoRoot string, year int) (*License, error) {
+// returns a License formatter that gives new files the header for year. It reads the
+// header years of the absolute paths in prior now, so Format keeps them after a tool
+// such as buf rewrites those files without a header.
+func NewLicense(repoRoot string, year int, prior []string) (*License, error) {
 	tmplPath := filepath.Join(repoRoot, licenseTemplatePath)
 	raw, err := os.ReadFile(tmplPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read license template %s", tmplPath)
 	}
-	return &License{
+	l := &License{
 		template: strings.TrimRight(string(raw), "\n"),
 		year:     strconv.Itoa(year),
-	}, nil
+		prior:    make(map[string]string, len(prior)),
+	}
+	for _, p := range prior {
+		ext := filepath.Ext(p)
+		if _, ok := renderers[ext]; !ok {
+			continue
+		}
+		if l.prior[p], err = l.diskYear(p, ext); err != nil {
+			return nil, err
+		}
+	}
+	return l, nil
 }
 
 // Format prepends or refreshes the license header on content. Files with extensions
 // outside the supported set pass through unchanged. Format reads the file at absPath,
-// if one exists, to find the year to keep.
+// if one exists and NewLicense did not read it, to find the year to keep.
 func (l *License) Format(
 	_ context.Context,
 	content []byte,
@@ -66,9 +80,12 @@ func (l *License) Format(
 	if _, ok := renderers[ext]; !ok {
 		return content, nil
 	}
-	year, err := l.existingYear(absPath, ext)
-	if err != nil {
-		return nil, err
+	year, ok := l.prior[absPath]
+	if !ok {
+		var err error
+		if year, err = l.diskYear(absPath, ext); err != nil {
+			return nil, err
+		}
 	}
 	header := l.render(ext, year)
 	if bytes.HasPrefix(content, []byte(header)) {
@@ -81,9 +98,9 @@ func (l *License) Format(
 	return out, nil
 }
 
-// existingYear returns the year of the valid header at the start of the file at
-// absPath, or l.year when the file does not exist or has no valid header.
-func (l *License) existingYear(absPath, ext string) (string, error) {
+// diskYear returns the year of the valid header at the start of the file at absPath,
+// or l.year when the file does not exist or has no valid header.
+func (l *License) diskYear(absPath, ext string) (string, error) {
 	existing, err := os.ReadFile(absPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return l.year, nil

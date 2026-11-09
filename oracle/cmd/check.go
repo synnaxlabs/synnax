@@ -194,7 +194,7 @@ func buildCheckers(
 }
 
 func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
-	return format.Default(repoRoot, time.Now().Year())
+	return format.Default(repoRoot, time.Now().Year(), nil)
 }
 
 func loadCheckCache(repoRoot string) *format.Cache {

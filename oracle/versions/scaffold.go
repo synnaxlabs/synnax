@@ -97,7 +97,7 @@ func fileImports(f *File) []string {
 // license prepends the repository's license header, the same one every other checked-in
 // file carries. It keeps the year of the existing file at the repo-relative path rel.
 func license(ctx context.Context, repoRoot, rel, content string) (string, error) {
-	l, err := format.NewLicense(repoRoot, time.Now().Year())
+	l, err := format.NewLicense(repoRoot, time.Now().Year(), nil)
 	if err != nil {
 		return "", err
 	}

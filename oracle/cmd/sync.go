@@ -84,7 +84,12 @@ func runSync(cmd *cobra.Command) error {
 		printPluginDone(name, len(files))
 	}
 
-	formatters, err := format.Default(repoRoot, time.Now().Year())
+	// buf generate rewrites these without a header before they are formatted.
+	pbFiles, err := codegen.FindPbGoFiles(repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "find buf outputs")
+	}
+	formatters, err := format.Default(repoRoot, time.Now().Year(), pbFiles)
 	if err != nil {
 		return errors.Wrap(err, "build formatter registry")
 	}
