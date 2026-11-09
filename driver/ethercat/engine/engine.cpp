@@ -68,7 +68,7 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
     uint64_t base = 1;
     for (const auto &rate: reads) {
         const auto mhz = millihertz(rate);
-        // Allow the rounding error of the float a Rate holds.
+        // Allow the rounding error of the double a Rate holds.
         const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
         if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
             return {
