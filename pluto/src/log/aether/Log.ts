@@ -73,8 +73,10 @@ export const logStateZ = log.logZ
     position: z.string().default(""),
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
-    visibleStart: z.number().default(0),
-    computedLineHeight: z.number().default(0),
+    // The characters of the start and end lines where a selection starts and ends. A
+    // negative character selects the whole lines.
+    selectionStartChar: z.number().default(-1),
+    selectionEndChar: z.number().default(-1),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
   });
@@ -84,9 +86,16 @@ const lineZ = z.object({ text: z.string(), color: z.string() });
 /** A selected line as a copy writes it. An empty color follows the theme. */
 export interface Line extends z.infer<typeof lineZ> {}
 
+const pointZ = z.object({ entry: z.number(), char: z.number() });
+
+/** A character of the line of an entry, as prefix and value show it. */
+export interface Point extends z.infer<typeof pointZ> {}
+
 export const methodsZ = {
   /** Returns the selected lines at the time of the call. */
   selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+  /** Returns the character nearest a position in the log's region. */
+  hit: z.function({ input: z.tuple([xy.xyZ]), output: pointZ }),
 };
 
 /**
@@ -660,6 +669,14 @@ export class Log
     return rows.reverse();
   }
 
+  // Returns the rows of the view over the current entries.
+  private viewRows(): Row[] {
+    const { scrolling } = this.state;
+    const end = scrolling ? this.scrollState.offset : this.entries.length;
+    const tail = scrolling ? this.scrollState.tail : 0;
+    return this.layoutRows(end, tail, this.internal.lineHeight);
+  }
+
   // The top row always names the day of the rows below it.
   private layoutRows(end: number, tail: number, lh: number): Row[] {
     const capacity = this.calcRowCapacity(lh);
@@ -678,30 +695,24 @@ export class Log
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;
-    const tail = this.state.scrolling ? this.scrollState.tail : 0;
-    const rows = this.layoutRows(end, tail, lh);
-    const sliceStart = rows.length > 0 ? rows[0].entry : end;
+    const rows = this.viewRows();
     const rowEntries = rows.map((row) => row.entry);
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
     if (
       this.state.position !== position ||
-      this.state.visibleStart !== sliceStart ||
-      this.state.computedLineHeight !== lh ||
       !sameEntries(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
         position,
-        visibleStart: sliceStart,
-        computedLineHeight: lh,
         rowEntries,
       }));
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderSelection(draw2d, rowEntries, lh);
+    this.renderSelection(draw2d, rows, lh);
     this.renderMatches(draw2d, rows);
     this.renderElements(draw2d, rows, lh);
     this.renderScrollbar(draw2d, rows);
@@ -828,7 +839,8 @@ export class Log
       this.moveView(0, this.internal.lineHeight);
       this.anchors.scroll = this.entries[this.scrollState.offset - 1];
     }
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart, selectionEnd, selectionStartChar, selectionEndChar } =
+      this.state;
     if (selectionStart < 0 || selectionEnd < 0 || (start == null && end == null))
       return;
     const newStart = start == null ? selectionStart : this.locate(start);
@@ -840,8 +852,27 @@ export class Log
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
-    if (nextStart === selectionStart && nextEnd === selectionEnd) return;
-    this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
+    // An evicted point moves to the start of the oldest line.
+    const charOf = (located: number, char: number): number =>
+      located < 0 && char > 0 ? 0 : char;
+    const [startChar, endChar] = [
+      charOf(newStart, selectionStartChar),
+      charOf(newEnd, selectionEndChar),
+    ];
+    if (
+      nextStart === selectionStart &&
+      nextEnd === selectionEnd &&
+      startChar === selectionStartChar &&
+      endChar === selectionEndChar
+    )
+      return;
+    this.setState((s) => ({
+      ...s,
+      selectionStart: nextStart,
+      selectionEnd: nextEnd,
+      selectionStartChar: startChar,
+      selectionEndChar: endChar,
+    }));
   }
 
   // Waits at the oldest entry while older pages can still reach the time. When no
@@ -869,28 +900,58 @@ export class Log
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 
-  private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
-    const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0 || selectionEnd < 0) return;
-    const selMin = Math.min(selectionStart, selectionEnd);
-    const selMax = Math.max(selectionStart, selectionEnd);
-    const selected = (entry: number) => entry >= selMin && entry <= selMax;
-    const highlightStart = rowEntries.findIndex(selected);
-    if (highlightStart === -1) return;
-    const highlightEnd = rowEntries.findLastIndex(selected);
+  // Returns the selection as ordered points. A selection of whole lines runs from the
+  // first character of its first line to past the last character of its last line.
+  private selection(): { start: Point; end: Point } | null {
+    const { selectionStart, selectionEnd, selectionStartChar, selectionEndChar } =
+      this.state;
+    if (selectionStart < 0 || selectionEnd < 0) return null;
+    if (selectionStartChar < 0 || selectionEndChar < 0)
+      return {
+        start: { entry: Math.min(selectionStart, selectionEnd), char: 0 },
+        end: { entry: Math.max(selectionStart, selectionEnd), char: Infinity },
+      };
+    const start = { entry: selectionStart, char: selectionStartChar };
+    const end = { entry: selectionEnd, char: selectionEndChar };
+    const reversed =
+      end.entry < start.entry || (end.entry === start.entry && end.char < start.char);
+    return reversed ? { start: end, end: start } : { start, end };
+  }
+
+  private renderSelection(draw2d: Draw2D, rows: Row[], lh: number): void {
+    const selection = this.selection();
+    if (selection == null) return;
+    const { start, end } = selection;
+    const { selectionColor, selectionOffsetY } = this.internal;
     const reg = this.state.region;
-    const rowCount = highlightEnd - highlightStart + 1;
-    draw2d.container({
-      region: box.construct(
-        xy.translate(box.topLeft(reg), {
-          x: 0,
-          y: highlightStart * lh + CONTENT_PADDING + this.internal.selectionOffsetY,
-        }),
-        { width: box.width(reg), height: rowCount * lh },
-      ),
-      bordered: false,
-      rounded: false,
-      backgroundColor: this.internal.selectionColor,
+    rows.forEach((row, index) => {
+      if (row.entry < start.entry || row.entry > end.entry) return;
+      const from = row.entry === start.entry ? start.char : 0;
+      const to = row.entry === end.entry ? end.char : Infinity;
+      if (from === 0 && to === Infinity) {
+        draw2d.container({
+          region: box.construct(
+            xy.translate(box.topLeft(reg), {
+              x: 0,
+              y: index * lh + CONTENT_PADDING + selectionOffsetY,
+            }),
+            { width: box.width(reg), height: lh },
+          ),
+          bordered: false,
+          rounded: false,
+          backgroundColor: selectionColor,
+        });
+        return;
+      }
+      if (row.day === true) return;
+      const { prefix } = this.formatEntry(this.entries[row.entry]);
+      const valueStart = prefix.length + row.start;
+      const a = Math.max(from, row.first ? 0 : valueStart);
+      const b = Math.min(to, valueStart + row.value.length);
+      if (a >= b) return;
+      const column = (char: number): number =>
+        char < valueStart ? char : this.column(row, char - valueStart);
+      this.drawSpan(draw2d, index, column(a), column(b), selectionColor);
     });
   }
 
@@ -990,17 +1051,56 @@ export class Log
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
+  // A line cut at its start leaves out the date that a copy adds. A line the selection
+  // holds no character of is left out.
   selectedLines(): Line[] {
-    const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0 || selectionEnd < 0) return [];
-    const selMin = Math.min(selectionStart, selectionEnd);
-    const selMax = Math.max(selectionStart, selectionEnd);
+    const selection = this.selection();
+    if (selection == null) return [];
+    const { start, end } = selection;
     const { valueColors } = this.internal;
-    return this.entries.slice(selMin, selMax + 1).map((entry) => {
-      const { line, channelKey } = this.formatEntry(entry, true);
-      const lineColor = valueColors[channelKey];
-      return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
+    return this.entries.slice(start.entry, end.entry + 1).flatMap((entry, i) => {
+      const from = i === 0 ? start.char : 0;
+      const to = start.entry + i === end.entry ? end.char : Infinity;
+      const dated = this.formatEntry(entry, true);
+      // A cut that starts at or past the end of its line holds no character.
+      if (to <= from || (from > 0 && from >= this.formatEntry(entry).line.length))
+        return [];
+      let text = dated.line;
+      if (from > 0) text = this.formatEntry(entry).line.slice(from, to);
+      else if (to !== Infinity)
+        text = text.slice(
+          0,
+          to + dated.prefix.length - this.formatEntry(entry).prefix.length,
+        );
+      const lineColor = valueColors[dated.channelKey];
+      return [{ text, color: lineColor == null ? "" : color.hex(lineColor) }];
     });
+  }
+
+  // Lays the rows out again, since the entries can change between renders.
+  hit({ x, y }: xy.XY): Point {
+    const rows = this.viewRows();
+    const { lineHeight, charWidth } = this.internal;
+    const reg = this.state.region;
+    if (rows.length === 0) return { entry: 0, char: 0 };
+    const index = Math.floor((y - box.top(reg) - CONTENT_PADDING) / lineHeight);
+    const row = rows[bounds.clamp({ lower: 0, upper: rows.length - 1 }, index)];
+    if (row.day === true) return { entry: row.entry, char: 0 };
+    const column = (x - box.left(reg) - CONTENT_PADDING) / charWidth;
+    const { prefix } = this.formatEntry(this.entries[row.entry]);
+    let at = this.column(row, 0);
+    if (row.first && column < at)
+      return { entry: row.entry, char: Math.max(0, Math.round(column)) };
+    let i = 0;
+    for (; i < row.value.length; i++) {
+      const width = WIDE.test(row.value[i]) ? 2 : 1;
+      if (column < at + width / 2) break;
+      at += width;
+    }
+    return {
+      entry: row.entry,
+      char: prefix.length + row.start + wrapPoint(row.value, i),
+    };
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

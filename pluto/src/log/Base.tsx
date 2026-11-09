@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings, TimeStamp } from "@synnaxlabs/x";
+import { strings, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -122,9 +122,6 @@ export const Base = ({
     blank,
     selectionStart,
     selectionEnd,
-    region,
-    visibleStart,
-    computedLineHeight,
     rowEntries,
     searchedTo,
   } = state;
@@ -138,41 +135,83 @@ export const Base = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
-  const draggingRef = useRef(false);
-
-  const mouseYToEntryIndex = (clientY: number): number => {
-    if (computedLineHeight <= 0) return 0;
-    const localY = clientY - box.top(region);
-    const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
-    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const idx = mouseYToEntryIndex(e.clientY);
-    draggingRef.current = true;
-    if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
-    else
-      setState((s) => {
-        if (s.selectionStart === idx && s.selectionEnd === idx)
-          return { ...s, selectionStart: -1, selectionEnd: -1 };
-        return { ...s, selectionStart: idx, selectionEnd: idx };
-      });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingRef.current) return;
-    const idx = mouseYToEntryIndex(e.clientY);
-    setState((s) => ({ ...s, selectionEnd: idx }));
-  };
-
-  const handleMouseUp = () => {
-    draggingRef.current = false;
-  };
+  // The character the pointer went down on, while it drags.
+  const downRef = useRef<log.Point | null>(null);
+  // Counts presses and releases, so a hit that resolves after its release starts no
+  // drag.
+  const gestureRef = useRef(0);
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
+
+  // A click selects its whole line, or clears it when it alone is selected. A
+  // shift-click extends the selection by whole lines. Neither a shift-click nor a click
+  // that clears starts a drag.
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const { clientX: x, clientY: y, shiftKey } = e;
+    downRef.current = null;
+    const gesture = ++gestureRef.current;
+    handleError(async () => {
+      const point = await methods.hit({ x, y });
+      const press = !shiftKey && gesture === gestureRef.current ? point : null;
+      if (press != null) downRef.current = press;
+      const { entry } = point;
+      setState((s) => {
+        const whole = { selectionStartChar: -1, selectionEndChar: -1 };
+        if (shiftKey) return { ...s, ...whole, selectionEnd: entry };
+        const alone =
+          s.selectionStart === entry &&
+          s.selectionEnd === entry &&
+          s.selectionStartChar < 0;
+        if (alone && press != null && downRef.current === press) downRef.current = null;
+        if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
+        return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
+      });
+    }, "Failed to select log lines");
+  };
+
+  // A drag selects from the character it started on to the one under the pointer.
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (downRef.current == null) return;
+    const { clientX: x, clientY: y } = e;
+    handleError(async () => {
+      const point = await methods.hit({ x, y });
+      const down = downRef.current;
+      if (down == null) return;
+      setState((s) => {
+        // The press selected its line, and the worker keeps that start on its entry as
+        // entries shift, so the drag reads the start from the state. A start the worker
+        // cleared ends the drag.
+        const start = s.selectionStart;
+        if (start < 0) {
+          if (downRef.current === down) downRef.current = null;
+          return s;
+        }
+        const startChar = s.selectionStartChar >= 0 ? s.selectionStartChar : down.char;
+        // A drag back to its start returns to the line the press selected.
+        if (point.entry === start && point.char === startChar)
+          return {
+            ...s,
+            selectionEnd: start,
+            selectionStartChar: -1,
+            selectionEndChar: -1,
+          };
+        return {
+          ...s,
+          selectionStart: start,
+          selectionStartChar: startChar,
+          selectionEnd: point.entry,
+          selectionEndChar: point.char,
+        };
+      });
+    }, "Failed to select log lines");
+  };
+
+  const handleMouseUp = () => {
+    downRef.current = null;
+    gestureRef.current++;
+  };
 
   // The worker formats the lines only now, so a large selection costs nothing until a
   // copy. The write must start inside the user gesture, so the item holds promises. An
@@ -209,6 +248,8 @@ export const Base = ({
           ...s,
           selectionStart: 0,
           selectionEnd: log.SELECT_ALL_END,
+          selectionStartChar: -1,
+          selectionEndChar: -1,
         }));
       else if (mode === "clearSelection")
         setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));

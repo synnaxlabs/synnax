@@ -337,7 +337,6 @@ describe("log/aether/Log", () => {
       });
       expect(parsed.selectionStart).toBe(-1);
       expect(parsed.selectionEnd).toBe(-1);
-      expect(parsed.computedLineHeight).toBe(0);
     });
 
     it("should provide defaults for channel-related fields", () => {
@@ -1140,21 +1139,6 @@ describe("log/aether/Log", () => {
       const result = log.render();
       expect(result).toBeTypeOf("function");
     });
-
-    it("should update visibleStart state during render", () => {
-      const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      log.render();
-      const expectedStart = entries.length - log.visibleLineCount + 1;
-      expect(log.state.visibleStart).toBe(expectedStart);
-    });
-
-    it("should update computedLineHeight state during render", () => {
-      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      log.render();
-      expect(log.state.computedLineHeight).toBe(log.lineHeight);
-    });
   });
 
   describe("render with scrollback", () => {
@@ -1198,7 +1182,7 @@ describe("log/aether/Log", () => {
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
-      expect(log.state.visibleStart).toBeLessThan(entries.length);
+      expect(log.state.rowEntries[0]).toBeLessThan(entries.length);
     });
   });
 
@@ -1904,6 +1888,218 @@ describe("log/aether/Log", () => {
         return reads.count;
       };
       expect(frameReads(large)).toBe(frameReads(small));
+    });
+  });
+
+  describe("part of a line", () => {
+    // The recorder measures each character 8 pixels wide.
+    const CHAR = 8;
+    const PADDING = 6;
+    const BARE = { timestampsHidden: true, channelNamesHidden: true };
+    // 20 columns of text fit in the region.
+    const NARROW = box.construct(
+      { x: 0, y: 0 },
+      { width: PADDING * 2 + 6 + 20 * CHAR, height: 500 },
+    );
+
+    const valued = (...values: string[]): LogEntry[] =>
+      values.map((value, i) => ({ ...makeEntry(i), value }));
+
+    // Returns the character under the middle of a row, at a fractional column.
+    const hitAt = (
+      values: string[],
+      row: number,
+      column: number,
+      overrides: Record<string, unknown> = BARE,
+    ) => {
+      const { log } = setup(valued(...values), NARROW, overrides);
+      log.render();
+      return log.hit({
+        x: PADDING + column * CHAR,
+        y: PADDING + (row + 0.5) * log.lineHeight,
+      });
+    };
+
+    it("should hit the character nearest the pointer", () => {
+      expect(hitAt(["abcdef"], 0, 2.4)).toEqual({ entry: 0, char: 2 });
+      expect(hitAt(["abcdef"], 0, 2.6)).toEqual({ entry: 0, char: 3 });
+    });
+
+    it("should hit past the last character of a line", () => {
+      expect(hitAt(["abc"], 0, 15)).toEqual({ entry: 0, char: 3 });
+    });
+
+    it("should hit a character of the prefix", () => {
+      const names = { timestampsHidden: true, channelNamesHidden: false };
+      // The prefix is the channel's name and three spaces.
+      expect(hitAt(["abc"], 0, 1.2, names)).toEqual({ entry: 0, char: 1 });
+      expect(hitAt(["abc"], 0, 5.2, names)).toEqual({ entry: 0, char: 5 });
+    });
+
+    it("should give a wide character two columns", () => {
+      expect(hitAt(["日本ab"], 0, 4.2)).toEqual({ entry: 0, char: 2 });
+    });
+
+    it("should hit the characters of a wrapped row", () => {
+      expect(hitAt(["a".repeat(25)], 1, 2.2)).toEqual({ entry: 0, char: 22 });
+    });
+
+    it("should hit a digit after the sign of a negative number", () => {
+      expect(hitAt(["-123"], 0, 0.2)).toEqual({ entry: 0, char: 1 });
+    });
+
+    it("should hit the last row for a pointer below it", () => {
+      expect(hitAt(["abc", "def"], 30, 1.2)).toEqual({ entry: 1, char: 1 });
+    });
+
+    it("should hit the start of the entry under a day row", () => {
+      const dated = { timestampsHidden: false, channelNamesHidden: true };
+      expect(hitAt(["abc"], 0, 4, dated)).toEqual({ entry: 0, char: 0 });
+    });
+
+    it("should hit the entries that arrived since the last render", () => {
+      const { log, source } = setup(valued("abc", "def"), NARROW, BARE);
+      log.render();
+      source.setEntries(valued("ghi"));
+      source.notify();
+      const point = log.hit({
+        x: PADDING + 1.2 * CHAR,
+        y: PADDING + 1.5 * log.lineHeight,
+      });
+      expect(point).toEqual({ entry: 0, char: 1 });
+    });
+
+    it("should start a selection at the oldest line when its start is evicted", () => {
+      const entries = valued("abcdef", "ghijkl", "mnopqr");
+      const { log, source } = setup(entries, NARROW, {
+        ...BARE,
+        selectionStart: 0,
+        selectionStartChar: 4,
+        selectionEnd: 2,
+        selectionEndChar: 2,
+      });
+      source.setEntries(entries.slice(1));
+      source.notify();
+      expect(log.state).toMatchObject({
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 1,
+        selectionEndChar: 2,
+      });
+      expect(log.selectedLines().map(({ text }) => text)).toEqual(["ghijkl", "mn"]);
+    });
+
+    const copied = (
+      values: string[],
+      selection: Record<string, number>,
+      overrides: Record<string, unknown> = BARE,
+    ): string[] => {
+      const { log } = setup(valued(...values), NARROW, { ...overrides, ...selection });
+      return log.selectedLines().map(({ text }) => text);
+    };
+
+    it("should copy part of a line", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 0,
+        selectionEndChar: 4,
+      };
+      expect(copied(["abcdef"], selection)).toEqual(["cd"]);
+    });
+
+    it("should cut the first and last lines of a selection", () => {
+      const selection = {
+        selectionStart: 2,
+        selectionStartChar: 2,
+        selectionEnd: 0,
+        selectionEndChar: 4,
+      };
+      expect(copied(["abcdef", "ghij", "klmnop"], selection)).toEqual([
+        "ef",
+        "ghij",
+        "kl",
+      ]);
+    });
+
+    it("should leave out a last line the selection ends at the start of", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 1,
+        selectionEndChar: 0,
+      };
+      const shown = { timestampsHidden: false, channelNamesHidden: true };
+      expect(copied(["abcdef", "ghij"], selection, shown)).toHaveLength(1);
+      expect(copied(["abcdef", "ghij"], selection)).toEqual(["cdef"]);
+    });
+
+    it("should leave out a first line the selection starts past the end of", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 3,
+        selectionEnd: 1,
+        selectionEndChar: 2,
+      };
+      expect(copied(["abc", "defg"], selection)).toEqual(["de"]);
+    });
+
+    it("should keep a blank line of a whole-line selection", () => {
+      expect(copied(["a", "", "b"], { selectionStart: 0, selectionEnd: 2 })).toEqual([
+        "a",
+        "",
+        "b",
+      ]);
+    });
+
+    it("should copy nothing for an empty cut", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 0,
+        selectionEndChar: 0,
+      };
+      expect(copied(["abc"], selection)).toEqual([]);
+    });
+
+    it("should keep the date of a line cut only at its end", () => {
+      const shown = { timestampsHidden: false, channelNamesHidden: true };
+      const whole = copied(["abc"], { selectionStart: 0, selectionEnd: 0 }, shown);
+      const cut = copied(
+        ["abc"],
+        {
+          selectionStart: 0,
+          selectionStartChar: 0,
+          selectionEnd: 0,
+          // The time takes eight characters and three spaces.
+          selectionEndChar: 13,
+        },
+        shown,
+      );
+      expect(cut).toEqual([whole[0].slice(0, -1)]);
+    });
+
+    it("should draw a selection box behind the selected characters", () => {
+      const { log, recorder } = setup(valued("abcdef", "ghij", "klmnop"), NARROW, {
+        ...BARE,
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 2,
+        selectionEndChar: 3,
+      });
+      recorder.clear();
+      log.render();
+      const boxes = recorder.lower2d.calls
+        .filter(({ op }) => op === "rect")
+        .map(({ args }) => {
+          const [x, , width] = args as number[];
+          return [x, width];
+        });
+      expect(boxes).toEqual([
+        [PADDING + 2 * CHAR, 4 * CHAR],
+        [0, box.width(NARROW)],
+        [PADDING, 3 * CHAR],
+      ]);
     });
   });
 
