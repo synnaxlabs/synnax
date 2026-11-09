@@ -24,7 +24,7 @@ import (
 
 // Reader is used to retrieve aliases.
 type Reader struct {
-	tx              gorp.Tx
+	snap            gorp.Snapshot
 	parentRetriever ParentRetriever
 	table           *gorp.Table[string, Alias]
 }
@@ -41,12 +41,12 @@ func (r Reader) Retrieve(
 	err := r.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
 		Entry(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return res.Alias, err
 		}
-		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 		if errors.Is(pErr, query.ErrNotFound) {
 			return res.Alias, err
 		}
@@ -79,12 +79,12 @@ func (r Reader) Resolve(
 	err = r.table.NewRetrieve().
 		Where(gorp.Match(matcher)).
 		Entry(&res).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.snap)
 	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return 0, err
 		}
-		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 		if errors.Is(pErr, query.ErrNotFound) {
 			return 0, err
 		}
@@ -124,7 +124,7 @@ func (r Reader) listAliases(
 			return a.Range == rng, nil
 		})).
 		Entries(&aliases).
-		Exec(ctx, r.tx); err != nil {
+		Exec(ctx, r.snap); err != nil {
 		return err
 	}
 	for _, a := range aliases {
@@ -133,7 +133,7 @@ func (r Reader) listAliases(
 	if r.parentRetriever == nil {
 		return nil
 	}
-	parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
+	parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.snap)
 	if errors.Is(pErr, query.ErrNotFound) {
 		return nil
 	} else if pErr != nil {
@@ -143,37 +143,43 @@ func (r Reader) listAliases(
 }
 
 // Search returns the channels whose alias on the specified range matches term, closest
-// match first. It does not search the aliases of parent ranges.
+// match first. It searches only the aliases of the channels that visible accepts, and
+// not the aliases of parent ranges.
 func (r Reader) Search(
 	ctx context.Context,
 	rng ranger.Key,
 	term string,
+	visible func(channel.Key) bool,
 ) ([]channel.Key, error) {
 	var aliases []Alias
 	if err := r.table.NewRetrieve().
 		WherePrefix([]byte(rng.String()+keySeparator)).
 		Entries(&aliases).
-		Exec(ctx, r.tx); err != nil {
+		Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	idx := search.New[channel.Key]()
 	for _, a := range aliases {
-		idx.Set(a.Channel, a.Alias)
+		if visible(a.Channel) {
+			idx.Set(a.Channel, a.Alias)
+		}
 	}
 	return idx.Search(search.Query[channel.Key]{Term: term}).Keys, nil
 }
 
 // SearchChannels returns the channels that q selects and that match term by name or by
 // their alias on rng. Alias matches come first, then name matches, each closest match
-// first. A positive limit and the offset page the merged list.
+// first. It matches only the aliases of the channels that visible accepts. A positive
+// limit and the offset page the merged list.
 func (r Reader) SearchChannels(
 	ctx context.Context,
 	q channel.Retrieve,
 	rng ranger.Key,
 	term string,
+	visible func(channel.Key) bool,
 	limit, offset int,
 ) ([]channel.Channel, error) {
-	keys, err := r.Search(ctx, rng, term)
+	keys, err := r.Search(ctx, rng, term, visible)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +189,7 @@ func (r Reader) SearchChannels(
 		if err := q.SkipMissingKeys().
 			Where(channel.MatchKeys(keys...)).
 			Entries(&aliased).
-			Exec(ctx, r.tx); err != nil {
+			Exec(ctx, r.snap); err != nil {
 			return nil, err
 		}
 	}
@@ -195,7 +201,7 @@ func (r Reader) SearchChannels(
 		named = named.Limit(limit + offset)
 	}
 	var byName []channel.Channel
-	if err := named.Entries(&byName).Exec(ctx, r.tx); err != nil {
+	if err := named.Entries(&byName).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	merged := lo.FilterMap(keys, func(k channel.Key, _ int) (channel.Channel, bool) {

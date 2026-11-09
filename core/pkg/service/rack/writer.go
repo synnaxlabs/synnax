@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -25,7 +26,6 @@ import (
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
 type Writer struct {
-	svc *Service
 	// tx is the underlying gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
@@ -39,16 +39,15 @@ type Writer struct {
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key
+	// dispatcher attaches the actions of each write to tx.
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// inTx calls f with w, or with a Writer on a transaction of its own when w has no
-// transaction.
-func (w Writer) inTx(ctx context.Context, f func(Writer) error) error {
-	db, ok := w.tx.(*gorp.DB)
-	if !ok {
-		return f(w)
-	}
-	return db.WithTx(ctx, func(tx gorp.Tx) error { return f(w.svc.NewWriter(tx)) })
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // resolveStatus returns the status to persist for r. The owner selects the status, so a
@@ -70,41 +69,51 @@ func resolveStatus(r *Rack) *Status {
 	return &stat
 }
 
-// writeStatus writes the status provided on r. With none, it keeps the stored status
-// and changes only its name. The default status is written only if the rack holds no
-// status, because a stored status may be a live status from the Driver.
+// writeStatus sets r.Status to the status that r now holds in the DB. A status provided
+// on r replaces the stored status. With none, the stored status stays and takes the
+// rack's name. The default status is written only if the rack holds no status, because
+// a stored status may be a live status from the Driver.
 func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
-	stat := resolveStatus(r)
 	if r.Status != nil {
-		return w.status.Set(ctx, stat)
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
 	}
 	// A stored status can hold any details, so they do not decode as StatusDetails.
 	var held []status.Status[any]
 	if err := w.statuses.NewRetrieve[any]().
-		Where(status.MatchOwners[any](*stat.Owner)).
+		Where(status.MatchOwners[any](r.ResourceID())).
 		Entries(&held).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if len(held) == 0 {
-		return w.status.Set(ctx, stat)
+		r.Status = resolveStatus(r)
+		return w.status.Set(ctx, r.Status)
 	}
-	if held[0].Name == r.Name {
+	h := held[0]
+	r.Status = &Status{
+		Key:         h.Key,
+		Name:        r.Name,
+		Variant:     h.Variant,
+		Message:     h.Message,
+		Description: h.Description,
+		Time:        h.Time,
+		Labels:      h.Labels,
+		Owner:       h.Owner,
+	}
+	if h.Name == r.Name {
 		return nil
 	}
-	return w.status.Rename(ctx, held[0].Key, r.Name)
+	return w.status.Rename(ctx, h.Key, r.Name)
 }
 
-// Create creates or updates a rack. If the rack key is zero or a rack with the key does
-// not exist, a new rack will be created with the Driver role. An existing rack keeps
-// its group and role. A status provided on the rack replaces the stored status. With
-// no provided status, the stored status stays and takes the rack's name, and only a
-// rack with no stored status gets the default "unknown" status.
+// Create creates or updates a rack and attaches a create action that holds it. If the
+// rack key is zero or a rack with the key does not exist, a new rack will be created
+// with the Driver role. An existing rack keeps its group and role. A status provided on
+// the rack replaces the stored status. With no provided status, the stored status stays
+// and takes the rack's name, and only a rack with no stored status gets the default
+// "unknown" status. Create sets r.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
-	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, r) })
-}
-
-func (w Writer) create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey(ctx)
@@ -144,17 +153,20 @@ func (w Writer) create(ctx context.Context, r *Rack) error {
 	if err = w.writeStatus(ctx, r); err != nil {
 		return err
 	}
+	w.dispatcher.Attach(w.tx, r.Key, NewCreateAction(CreatePayload{Rack: *r}))
 	return nil
 }
 
-// SetGroup moves the racks with keys into g, or out of their group when g is nil.
+// SetGroup applies a set of the group to each rack with keys, moving it into g, or out
+// of its group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	return w.inTx(ctx, func(w Writer) error {
-		if err := group.CheckMember(ctx, w.tx, g, resource.TypeRack, nil); err != nil {
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if err := w.Apply(ctx, k, set); err != nil {
 			return err
 		}
-		return setGroup(w.table, g, keys...).Exec(ctx, w.tx)
-	})
+	}
+	return nil
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they
@@ -168,27 +180,56 @@ func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
 	return nil
 }
 
-// Rename renames the rack with the given key and its status, keeping every other field.
-// It returns query.ErrNotFound if no rack with the key exists and a validation error if
-// name is empty.
+// Rename applies a set of the name to the rack with the given key. It returns
+// query.ErrNotFound if no rack with the key exists and a validation error if name is
+// empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	if err := w.table.NewUpdate().
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
+}
+
+// Apply applies the actions to the rack with the given key and attaches them to the
+// transaction of w. A change of name also renames the rack's status. Apply returns an
+// error wrapping validate.ErrValidation when an action is a create, the result fails to
+// validate, or the rack's group cannot hold racks, and an error wrapping
+// query.ErrNotFound when no rack has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	var prev Rack
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](key)).
-		ChangeErr(func(_ gorp.Context, r Rack) (Rack, error) {
-			r.Name = name
-			if err := r.Validate(); err != nil {
-				return Rack{}, err
-			}
-			return r, nil
-		}).
+		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(
-		w.status.RenameOwned(ctx, key.ResourceID(), name),
-		query.ErrNotFound,
-	)
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return err
+	}
+	if err = next.Validate(); err != nil {
+		return err
+	}
+	if err = group.CheckMember(
+		ctx,
+		w.tx,
+		next.Group,
+		resource.TypeRack,
+		nil,
+	); err != nil {
+		return err
+	}
+	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if next.Name != prev.Name {
+		if err = w.writeStatus(ctx, &next); err != nil {
+			return err
+		}
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // Delete deletes the racks with keys, their statuses, and every task they hold. It

@@ -155,7 +155,8 @@ var _ = Describe("View", func() {
 						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(Equal(s.WithName("After")))
+					s.SetBase(view.Base{Key: s.GorpKey(), Name: "After"})
+					Expect(res).To(Equal(s))
 				},
 			)
 			It(
@@ -314,7 +315,9 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.GorpKey()
 					}
-					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, keys...)
+					})).To(Succeed())
 				})
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),

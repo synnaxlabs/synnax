@@ -30,7 +30,7 @@ type provider struct{ svc *Service }
 // Search implements resource.Provider.
 func (p provider) Search(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	q search.Query[resource.ID],
 ) (search.Result[resource.ID], error) {
 	idx := search.New[Key]()
@@ -46,7 +46,7 @@ func (p provider) Search(
 // Retrieve implements resource.Provider.
 func (p provider) Retrieve(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	ids []resource.ID,
 ) ([]resource.Resource, error) {
 	resources := make([]resource.Resource, 0, len(ids))
@@ -73,7 +73,7 @@ func (p provider) Retrieve(
 // List implements resource.Provider. It lists the host node.
 func (p provider) List(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	limit int,
 	except func(resource.ID) bool,
 ) ([]resource.Resource, error) {

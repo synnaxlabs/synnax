@@ -34,10 +34,8 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/telem",
-        "//x/cpp/thread",
         "//x/cpp/thread/rt",
         "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/log:check",
     ],
 )
 
@@ -69,6 +67,7 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
+        "//x/cpp/thread/rt",
         "@googletest//:gtest_main",
     ],
 )

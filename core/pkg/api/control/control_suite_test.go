@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -40,16 +42,23 @@ func TestAPIControl(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
 	apiSvc     *apicontrol.Service
+	// retrieve runs the Retrieve route as the API layer binds it.
+	retrieve freighter.UnaryHandler[
+		apicontrol.RetrieveRequest,
+		apicontrol.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist := testutil.NewNode(ctx)
+	db = dist.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
 		DB: dist.DB,
 	}))
@@ -87,7 +96,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      dist.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  dist.Framer,
 	}))
 	controlSvc := MustOpen(control.OpenService(ctx, control.ServiceConfig{
 		Control: dist.Control,
@@ -95,8 +104,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	apiSvc = MustSucceed(apicontrol.NewService(apicontrol.ServiceConfig{
 		Control: controlSvc,
-		RBAC:    rbacSvc,
 	}))
+	binder := MustSucceed(
+		bind.NewService(bind.ServiceConfig{DB: dist.DB, RBAC: rbacSvc}),
+	)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -114,6 +126,7 @@ func newUser(ctx SpecContext) user.User {
 	return MustSucceed(
 		rbactestutil.CreateUser(
 			ctx,
+			db,
 			rbacSvc,
 			userSvc,
 			user.User{Name: "user-" + uuid.New().String()},
@@ -130,5 +143,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

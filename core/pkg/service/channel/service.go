@@ -20,10 +20,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -107,6 +110,7 @@ type Service struct {
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
+	state   *actions.State[Key, Action]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -124,7 +128,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), index: indexReference()}
+	s = &Service{
+		cfg:     cfg,
+		db:      cfg.DB,
+		indexes: newIndexes(),
+		index:   indexReference(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -162,7 +172,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // on, and they check the limit at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
-		baseTX:  s.db,
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
@@ -171,6 +180,14 @@ func (s *Service) newRetrieve() Retrieve {
 // Observe returns an observable that notifies callers of changes to channels.
 func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
+}
+
+// Changes returns the changes that c made to channels.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Channel] {
+	return s.table.Changes(ctx, c)
 }
 
 // NewRetrieve opens a retrieve query that fails when a retrieved external channel is
@@ -204,9 +221,80 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
 // numeric key, for analyzing and compiling Arc expressions such as calculated channels.
-// tx scopes channel lookups; nil consults the service DB directly.
-func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return &symbolResolver{svc: s, tx: tx}
+// The resolver looks up channels in snap and sees only the channels that every filter
+// matches.
+func (s *Service) NewArcSymbolResolver(
+	snap gorp.Snapshot,
+	filters ...Filter,
+) arc.SymbolResolver {
+	return &symbolResolver{svc: s, snap: snap, filters: filters}
+}
+
+// CalculationInputs returns the stored channels that the calculated channels among
+// channels read, directly or through other calculated channels, including the channels
+// that reset their operations. The channels need not be stored yet. A calculation whose
+// expression fails analysis adds nothing, since it cannot run. A failed read returns
+// its error. CalculationInputs reads through snap.
+func (s *Service) CalculationInputs(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []Channel,
+) (Keys, error) {
+	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(snap), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
+	var (
+		inputs  Keys
+		visited = set.New[Key]()
+	)
+	// A write replaces only the stored form of a calculated channel, so the walk still
+	// reads the stored form of every other channel among channels.
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			visited.Add(ch.Key())
+		}
+	}
+	for len(channels) > 0 {
+		var next Keys
+		for _, ch := range channels {
+			if !ch.IsCalculated() {
+				continue
+			}
+			result, err := analyzer.Analyze(ctx, ch)
+			if errors.As(err, new(*diagnostics.Diagnostics)) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			reads := result.Deps
+			for _, op := range ch.Operations {
+				if op.ResetChannel != 0 {
+					reads = append(reads, op.ResetChannel)
+				}
+			}
+			for _, k := range reads {
+				// A channel among channels that is not stored yet has no local key.
+				if k.LocalKey() == 0 {
+					continue
+				}
+				inputs = append(inputs, k)
+				if !visited.Contains(k) {
+					visited.Add(k)
+					next = append(next, k)
+				}
+			}
+		}
+		channels = nil
+		if err := s.NewRetrieve().
+			Where(MatchKeys(next...)).
+			Where(MatchCalculated()).
+			Entries(&channels).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+	}
+	return inputs.Unique(), nil
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's
@@ -218,10 +306,12 @@ func (r freeIndexResolver) ResolveFreeIndexes(
 	keys Keys,
 ) (map[Key]Key, error) {
 	var channels []Channel
-	if err := r.svc.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := r.svc.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return r.svc.NewRetrieve().
+			Where(MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	indexes := make(map[Key]Key)
@@ -239,18 +329,20 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 	return freeIndexResolver{svc: s}
 }
 
-// NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
-// the service DB).
+// NewWriter returns a Writer scoped to tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = s.db.OverrideTx(tx)
 	return Writer{
 		svc: s,
 		tx:  tx,
 		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 			AllowDashedNames: !s.ShouldValidateNames(),
 		}),
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // ShouldValidateNames reports whether channel-name validation is enabled.
 func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }
