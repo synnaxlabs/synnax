@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -44,6 +46,11 @@ var (
 	apiSvc     *apilicense.Service
 	userSvc    *user.Service
 	signer     svctestutil.Signer
+	// retrieve runs the Retrieve route as the API layer binds it.
+	retrieve freighter.UnaryHandler[
+		apilicense.RetrieveRequest,
+		apilicense.RetrieveResponse,
+	]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -67,21 +74,29 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
 	apiSvc = MustSucceed(apilicense.NewService(apilicense.ServiceConfig{
+		DB:      db,
 		RBAC:    rbacSvc,
 		License: licenseSvc,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
-// freshUser creates a user with no role assignments.
+// freshUser creates a user that can do nothing.
 func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
-		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
+		rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "anon-" + uuid.New().String()},
+		),
 	)
 }
 
-// grantOn grants the actions on the objects to the subject through a new role.
+// grantOn grants the actions on the objects to the subject.
 func grantOn(
 	ctx SpecContext,
 	subject resource.ID,
@@ -90,5 +105,5 @@ func grantOn(
 ) {
 	GinkgoHelper()
 	key := MustSucceed(user.KeyFromResourceID(subject))
-	MustSucceed(rbactestutil.Grant(ctx, rbacSvc, userSvc, key, actions, objects...))
+	MustSucceed(rbactestutil.Grant(ctx, db, rbacSvc, userSvc, key, actions, objects...))
 }

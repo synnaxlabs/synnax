@@ -20,7 +20,6 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
@@ -38,18 +37,13 @@ const (
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
+	FlagNoUpdateBackup               = "no-update-backup"
 )
 
 // AddFlags adds the start flags to the given command.
 func AddFlags(cmd *cobra.Command) {
 	cert.AddFlags(cmd)
 	listener.AddFlags(cmd)
-	cmd.Flags().StringSliceP(
-		FlagPeers,
-		"p",
-		nil,
-		"Addresses of additional peers in the cluster",
-	)
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,
@@ -81,6 +75,12 @@ func AddFlags(cmd *cobra.Command) {
 		"Automatically generate self-signed certificates",
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
+	cmd.Flags().Bool(
+		FlagNoUpdateBackup,
+		false,
+		"Skip the backup before a new version first opens the data, so a failed "+
+			"update cannot be undone",
+	)
 	cmd.Flags().Bool(
 		FlagStopOnStdinClose,
 		false,

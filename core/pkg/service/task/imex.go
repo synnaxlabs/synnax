@@ -28,15 +28,19 @@ var _ imex.Exporter = (*Service)(nil)
 // Type implements imex.Exporter.
 func (s *Service) Type() resource.Type { return resource.TypeTask }
 
-// Export retrieves the task identified by id and serializes it as an imex.Envelope. The
-// task's type-specific config is merged flat into the envelope body — the driver reads
-// a task file directly as its config, so the config is not nested under a `config`
-// field; version, the fine-grained task type (e.g. "opc_read"), and name are stamped on
-// top. The version is the config type's own number line, taken from its config store.
-// Routing to this exporter still happens under the coarse "task" resource type via
-// Type. It returns query.ErrNotFound if no task exists for id.Key, and a validation
-// error if the task's type has no file form.
-func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
+// Export retrieves the task identified by id from snap and serializes it as an
+// imex.Envelope. The task's type-specific config is merged flat into the envelope body
+// — the driver reads a task file directly as its config, so the config is not nested
+// under a `config` field; version, the fine-grained task type (e.g. "opc_read"), and
+// name are stamped on top. The version is the config type's own number line, taken from
+// its config store. Routing to this exporter still happens under the coarse "task"
+// resource type via Type. It returns query.ErrNotFound if no task exists for id.Key,
+// and a validation error if the task's type has no file form.
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -45,7 +49,7 @@ func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&t).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	if slices.Contains(s.cfg.ImExExcluded, t.Type) {
@@ -90,7 +94,7 @@ func (*Service) Match(map[string]any) bool { return false }
 // Console export at version zero.
 //
 // opts.Parent is ignored: a task always parents under its config record and the task
-// group. The API layer still enforces update access on the parent the caller declared.
+// group.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

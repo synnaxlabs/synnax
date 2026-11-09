@@ -54,10 +54,10 @@ func openDevices(
 		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
@@ -109,7 +109,9 @@ func openDevices(
 			Properties: msgpack.EncodedJSON{"pdos": "garbage"},
 		},
 	}
-	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return devices.NewWriter(tx).CreateMany(ctx, &slaves)
+	})).To(Succeed())
 	return devices, tasktestutil.TasksConfig{
 		DB:     db,
 		Status: statusSvc,
@@ -124,16 +126,18 @@ var _ = Describe("Service", func() {
 		devices    *device.Service
 		channelSvc *channel.Service
 		tasks      *tasktestutil.Tasks
+		db         *gorp.DB
 	)
 	BeforeEach(func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
+		db = node.DB
 		var tasksCfg tasktestutil.TasksConfig
 		devices, tasksCfg = openDevices(ctx, node.DB)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Status:       tasksCfg.Status,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  tasksCfg.Status,
 		}))
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 			DB:     node.DB,
@@ -189,7 +193,7 @@ var _ = Describe("Service", func() {
 				DB:     db,
 				Device: devices,
 			}))
-			readData := MustSucceed(svc.Read.Read(ctx, nil, read.Key))
+			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
 			Expect(readData["channels"]).To(Equal([]any{
 				map[string]any{
 					"type":      "entry",
@@ -213,7 +217,7 @@ var _ = Describe("Service", func() {
 					"pdo":      "Input",
 				},
 			}))
-			writeData := MustSucceed(svc.Write.Read(ctx, nil, write.Key))
+			writeData := MustSucceed(svc.Write.Read(ctx, db, write.Key))
 			channels := writeData["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
@@ -284,7 +288,7 @@ var _ = Describe("Service", func() {
 				DB:     db,
 				Device: devices,
 			}))
-			readData := MustSucceed(svc.Read.Read(ctx, nil, read.Key))
+			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
 			channels := readData["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x6000)))
@@ -311,13 +315,13 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": channels,
 			}))
-			return MustSucceed(svc.Read.Read(ctx, nil, key))["channels"].([]any)
+			return MustSucceed(svc.Read.Read(ctx, db, key))["channels"].([]any)
 		}
 
 		It("Should store a decoded read config under the given key", func(
 			ctx SpecContext,
 		) {
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -330,7 +334,7 @@ var _ = Describe("Service", func() {
 					"data_type": "int16",
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
 		})
@@ -378,7 +382,7 @@ var _ = Describe("Service", func() {
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
@@ -402,7 +406,7 @@ var _ = Describe("Service", func() {
 					"pdo":    "Output",
 				}},
 			}))
-			channels := MustSucceed(svc.Write.Read(ctx, nil, key))["channels"].([]any)
+			channels := MustSucceed(svc.Write.Read(ctx, db, key))["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
 		})
@@ -411,7 +415,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
 		})
@@ -420,7 +424,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
 		})
@@ -429,7 +433,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 	})

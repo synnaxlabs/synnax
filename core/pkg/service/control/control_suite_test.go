@@ -47,10 +47,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: dist.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostProvider: dist.Cluster,
-		Status:       statusSvc,
+		Channel: dist.Channel,
+		DB:      dist.DB,
+		HostKey: dist.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      dist.DB,
@@ -66,7 +66,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	sigs := MustSucceed(signals.New(signals.Config{
 		DB:      dist.DB,
 		Channel: channelSvc,
-		Framer:  framerSvc,
+		Framer:  dist.Framer,
 	}))
 	controlSvc = MustOpen(control.OpenService(ctx, control.ServiceConfig{
 		Control: dist.Control,

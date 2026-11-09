@@ -28,10 +28,9 @@ func TestWriter(t *testing.T) {
 }
 
 var (
-	mockNode      testutil.Node
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
-	writerSvc     *writer.Service
+	mockNode   testutil.Node
+	channelSvc *channel.Service
+	writerSvc  *writer.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -45,13 +44,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: mockNode.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      mockNode.Channel,
-		DB:           mockNode.DB,
-		HostProvider: mockNode.Cluster,
-		Status:       statusSvc,
+		Channel: mockNode.Channel,
+		DB:      mockNode.DB,
+		HostKey: mockNode.Identity.HostKey,
+		Status:  statusSvc,
 	}))
-	channelWriter = channelSvc.NewWriter(nil)
 	writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
+		DB:      mockNode.DB,
 		Framer:  mockNode.Framer,
 		Channel: channelSvc,
 	}))

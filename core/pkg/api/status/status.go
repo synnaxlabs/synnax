@@ -15,10 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -35,10 +32,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -50,7 +43,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -58,12 +50,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *status.Service
 }
 
@@ -74,16 +64,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Status,
-		access:   cfg.RBAC,
 	}, nil
-}
-
-func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
-	ids := make([]resource.ID, len(statuses))
-	for i, s := range statuses {
-		ids[i] = s.ResourceID()
-	}
-	return ids
 }
 
 func decodeDetails[D any](details any) error {
@@ -128,27 +109,18 @@ type SetResponse struct {
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates the statuses in order, and checks each one against the state
-// that its write sees. It returns a validation error if a status carries details that
-// its resolved owner cannot decode. On error, tx keeps the writes of earlier statuses.
+// Set creates or updates the statuses in order. It returns a validation error if a
+// status carries details that its resolved owner cannot decode. On error, tx keeps the
+// writes of earlier statuses.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	enforcer := s.access.NewEnforcer(tx)
 	for i := range req.Statuses {
 		st := &req.Statuses[i]
-		labelIDs := label.ResourceIDs(st.Labels)
 		if err := w.Resolve(ctx, st); err != nil {
-			return SetResponse{}, err
-		}
-		if err := enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: append([]resource.ID{st.ResourceID()}, labelIDs...),
-		}); err != nil {
 			return SetResponse{}, err
 		}
 		if err := validateDetails(*st); err != nil {
@@ -198,17 +170,6 @@ func (s *Service) SetByKeyOrName(
 		return SetByKeyOrNameResponse{}, err
 	}
 	st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
-	action := access.ActionUpdate
-	if len(matches) == 0 {
-		action = access.ActionCreate
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  action,
-		Objects: []resource.ID{st.ResourceID()},
-	}); err != nil {
-		return SetByKeyOrNameResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -218,24 +179,29 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the statuses that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, status.ResourceID)
+}
+
+// Retrieve returns the statuses that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	res := RetrieveResponse{Statuses: []status.Status[any]{}}
-	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	// A status holds only the keys of its labels, so a read needs no label access.
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: statusAccessResourceIDs(res.Statuses),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, status.Match[any])).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -249,19 +215,12 @@ type RenameRequest struct {
 	Key status.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the status. It requires update access on it.
+// Rename renames the status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{status.ResourceID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -275,12 +234,5 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: status.ResourceIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

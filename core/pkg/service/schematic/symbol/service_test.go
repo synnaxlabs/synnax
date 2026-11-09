@@ -69,11 +69,6 @@ var _ = Describe("Service", func() {
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
 		})
-
-		It("Should create a writer without transaction", func(ctx SpecContext) {
-			writer := svc.NewWriter(nil)
-			Expect(writer).ToNot(BeNil())
-		})
 	})
 
 	Describe("NewRetrieve", func() {
@@ -114,10 +109,12 @@ var _ = Describe("Service", func() {
 						Name: "concurrent-write",
 						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &sym),
-					).To(Succeed())
-					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &sym)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, sym.Key)
+					})).To(Succeed())
 				}
 				done <- true
 			}()
@@ -127,7 +124,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
+					).To(Succeed())
 				}
 				done <- true
 			}()
@@ -137,7 +136,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
+					).To(Succeed())
 				}
 				done <- true
 			}()

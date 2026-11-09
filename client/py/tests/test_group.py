@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -37,6 +37,16 @@ class TestGroupClient:
         assert child.scope == "channel"
         assert child.parent == sy.group.resource_id(parent.key)
 
+    def test_create_with_key(self, client: sy.Synnax) -> None:
+        """Should update the group with the given key and keep its scope."""
+        g = client.groups.create(str(uuid4()), scope="channel")
+        name = str(uuid4())
+        updated = client.groups.create(name, key=g.key)
+        assert updated.key == g.key
+        assert updated.name == name
+        assert updated.scope == "channel"
+        assert client.groups.retrieve(g.key).name == name
+
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""
         g = client.groups.create(str(uuid4()), scope="channel")
@@ -49,11 +59,26 @@ class TestGroupClient:
         groups = client.groups.retrieve(keys=[g1.key, g2.key])
         assert sorted(g.name for g in groups) == sorted([g1.name, g2.name])
 
+    def test_retrieve_by_parent(self, client: sy.Synnax) -> None:
+        """Should keep the groups in a parent, and split them by whether they nest."""
+        top = client.groups.create(str(uuid4()), scope="channel")
+        parent = sy.group.resource_id(top.key)
+        child = client.groups.create(str(uuid4()), parent=parent)
+        assert [g.key for g in client.groups.retrieve(parents=parent)] == [child.key]
+        keys = [top.key, child.key]
+        nested = client.groups.retrieve(key=keys, nested=True)
+        assert [g.key for g in nested] == [child.key]
+        assert [g.key for g in client.groups.retrieve(key=keys, nested=False)] == [
+            top.key
+        ]
+
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should keep groups that match a filter tree and the given keys."""
         g1 = client.groups.create(str(uuid4()), scope="channel")
         g2 = client.groups.create(str(uuid4()), scope="channel")
-        where = sy.group.Where(not_=sy.group.Where(key=filter.Set[UUID](eq=g1.key)))
+        where = sy.group.Where(
+            not_=sy.group.Where(key=filter.Set[sy.group.Key](eq=g1.key))
+        )
         groups = client.groups.retrieve(where=where, keys=[g1.key, g2.key, uuid4()])
         assert [g.key for g in groups] == [g2.key]
 

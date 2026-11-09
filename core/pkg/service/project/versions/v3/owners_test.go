@@ -39,8 +39,6 @@ type vis struct {
 
 func (v vis) GorpKey() uuid.UUID { return v.Key }
 
-func (vis) SetOptions() []any { return nil }
-
 func parentOf(from, to resource.ID) ontology.Relationship {
 	return ontology.Relationship{
 		From: from,

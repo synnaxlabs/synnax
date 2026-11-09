@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/view/actions.gen";
 export * from "@/view/client";
 export * from "@/view/types.gen";
 export { type WhereInput } from "@/view/where.gen";

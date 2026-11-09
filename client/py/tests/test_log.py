@@ -154,6 +154,15 @@ class TestClient:
         )
         assert client.logs.retrieve(ranges=[rng.key]) == []
 
+    def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should filter the logs by group."""
+        made = client.logs.create(name="Ungrouped", project=project.key)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project.key))
+        assert client.logs.retrieve(groups=g.key) == []
+        ungrouped = client.logs.retrieve(projects=project.key, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.logs.retrieve(projects=project.key, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the logs that match the where and the other filters."""
         a, b = client.logs.create(

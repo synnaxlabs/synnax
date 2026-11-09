@@ -11,7 +11,6 @@ package v0_test
 
 import (
 	"context"
-	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,20 +31,27 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-func userHasRole(
+func roleOf(
 	ctx context.Context,
 	tx gorp.Tx,
 	users *user.Service,
 	key user.Key,
-	roleKey role.Key,
-) bool {
+) role.Key {
 	GinkgoHelper()
 	var u user.User
 	Expect(users.NewRetrieve().
 		Where(user.MatchKeys(key)).
 		Entry(&u).
 		Exec(ctx, tx)).To(Succeed())
-	return slices.Contains(u.Roles, roleKey)
+	return u.Role
+}
+
+// storeLegacyUser writes u raw, as a Core before roles stored it: with no role.
+func storeLegacyUser(ctx context.Context, db *gorp.DB, u user.User) user.User {
+	GinkgoHelper()
+	u.Key = uuid.New()
+	Expect(gorp.WrapWriter[user.Key, user.User](db).Set(ctx, u)).To(Succeed())
+	return u
 }
 
 var _ = Describe("Legacy Permission Migration", func() {
@@ -65,28 +71,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 				DB:       db,
 				Password: passwordSvc,
 			}))
-			MustSucceed2(
-				user.ProvisionRoot(
-					ctx,
-					userSvc,
-					passwordSvc,
-					auth.Credentials{Username: "root", Password: "p"},
-				),
+			rootUser := storeLegacyUser(
+				ctx,
+				db,
+				user.User{Name: "root", RootUser: true},
 			)
-
-			// Create test users
-			tx := DeferClose(db.OpenTx())
-			w := userSvc.NewWriter(tx)
-			var rootUser user.User
-			Expect(userSvc.NewRetrieve().
-				Where(user.MatchRootUser(true)).
-				Entry(&rootUser).
-				Exec(ctx, tx)).To(Succeed())
-			adminUser := MustSucceed(w.Create(ctx, user.User{Name: "admin"}))
-			schematicUser := MustSucceed(w.Create(ctx, user.User{
-				Name: "schematicuser",
-			}))
-			regularUser := MustSucceed(w.Create(ctx, user.User{Name: "regular"}))
+			adminUser := storeLegacyUser(ctx, db, user.User{Name: "admin"})
+			schematicUser := storeLegacyUser(ctx, db, user.User{Name: "schematicuser"})
+			regularUser := storeLegacyUser(ctx, db, user.User{Name: "regular"})
 
 			// Seed legacy policies with Subjects field
 			adminPolicy := policyv0.Policy{
@@ -104,7 +96,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Objects:  []resource.ID{{Type: "schematic"}},
 				Actions:  []access.Action{"all"},
 			}
-			Expect(tx.Commit(ctx)).To(Succeed())
 			writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](legacyDB)
 			Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
 			Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
@@ -153,22 +144,12 @@ var _ = Describe("Legacy Permission Migration", func() {
 					Exec(ctx, tx2),
 			).To(Succeed())
 
-			// Root user -> Owner
-			Expect(
-				userHasRole(ctx, tx2, userSvc, rootUser.Key, ownerRole.Key),
-			).To(BeTrue())
-			// Admin policy user -> Owner
-			Expect(
-				userHasRole(ctx, tx2, userSvc, adminUser.Key, ownerRole.Key),
-			).To(BeTrue())
-			// Schematic policy user -> Engineer
-			Expect(
-				userHasRole(ctx, tx2, userSvc, schematicUser.Key, engineerRole.Key),
-			).To(BeTrue())
-			// Regular user -> Operator
-			Expect(
-				userHasRole(ctx, tx2, userSvc, regularUser.Key, operatorRole.Key),
-			).To(BeTrue())
+			Expect(roleOf(ctx, tx2, userSvc, rootUser.Key)).To(Equal(ownerRole.Key))
+			Expect(roleOf(ctx, tx2, userSvc, adminUser.Key)).To(Equal(ownerRole.Key))
+			Expect(roleOf(ctx, tx2, userSvc, schematicUser.Key)).
+				To(Equal(engineerRole.Key))
+			Expect(roleOf(ctx, tx2, userSvc, regularUser.Key)).
+				To(Equal(operatorRole.Key))
 
 			// Legacy policies should be deleted
 			reader := gorp.WrapReader[uuid.UUID, policyv0.Policy](tx2)
@@ -193,15 +174,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Password: passwordSvc,
 		}))
-		MustSucceed2(
-			user.ProvisionRoot(
-				ctx,
-				userSvc,
-				passwordSvc,
-				auth.Credentials{Username: "suite-root", Password: "p"},
-			),
-		)
-
+		root := storeLegacyUser(ctx, db, user.User{Name: "root", RootUser: true})
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))
@@ -227,6 +200,12 @@ var _ = Describe("Legacy Permission Migration", func() {
 		}
 		Expect(run()).To(Succeed())
 		Expect(run()).To(Succeed())
+		var owner role.Role
+		Expect(roleSvc.NewRetrieve().
+			Where(role.MatchNames("Owner")).
+			Entry(&owner).
+			Exec(ctx, db)).To(Succeed())
+		Expect(roleOf(ctx, db, userSvc, root.Key)).To(Equal(owner.Key))
 	})
 
 	It("Should keep the roles of a store that already converted to roles", func(
@@ -240,14 +219,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Password: passwordSvc,
 		}))
-		MustSucceed2(
-			user.ProvisionRoot(
-				ctx,
-				userSvc,
-				passwordSvc,
-				auth.Credentials{Username: "root", Password: "p"},
-			),
-		)
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))
@@ -256,19 +227,24 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Role: roleSvc,
 		}))
 		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
+		MustSucceed2(user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "root", Password: "p"},
+			builtinRoles.OwnerKey,
+		))
 		// Cores up to v0.53 converted permissions to roles and set this flag.
 		Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), []byte{1})).
 			To(Succeed())
-		tx := DeferClose(db.OpenTx())
-		viewer := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
-			Name: "viewer",
-		}))
-		Expect(userSvc.NewWriter(tx).AssignRole(
-			ctx,
-			builtinRoles.ViewerKey,
-			viewer.Key,
-		)).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
+		var viewer user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			viewer, err = userSvc.NewWriter(tx).Create(ctx, user.User{
+				Name: "viewer",
+				Role: builtinRoles.ViewerKey,
+			})
+			return err
+		})).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "RBAC",
@@ -277,10 +253,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Roles: builtinRoles,
 			})},
 		})).To(Succeed())
-		check := DeferClose(db.OpenTx())
-		Expect(userHasRole(ctx, check, userSvc, viewer.Key, builtinRoles.ViewerKey)).
-			To(BeTrue())
-		Expect(userHasRole(ctx, check, userSvc, viewer.Key, builtinRoles.OperatorKey)).
-			To(BeFalse())
+		Expect(roleOf(ctx, db, userSvc, viewer.Key)).To(Equal(builtinRoles.ViewerKey))
 	})
 })
