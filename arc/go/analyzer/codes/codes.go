@@ -13,6 +13,7 @@
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
 //   - Category 5xxx: Import errors
+//   - Category 6xxx: Constant expression errors
 package codes
 
 import "github.com/synnaxlabs/x/diagnostics"
@@ -44,4 +45,10 @@ const (
 
 	// UnusedImport indicates an imported module that is never referenced.
 	UnusedImport diagnostics.ErrorCode = "ARC5001"
+
+	// ConstantOverflow indicates a constant integer expression whose value does not fit
+	// its type.
+	ConstantOverflow diagnostics.ErrorCode = "ARC6001"
+	// DivisionByZero indicates a constant integer division or modulo by zero.
+	DivisionByZero diagnostics.ErrorCode = "ARC6002"
 )

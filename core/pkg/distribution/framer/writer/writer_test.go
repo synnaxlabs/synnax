@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
@@ -69,7 +69,7 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
 				))).To(BeTrue())
-				MustSucceed(writer.Commit())
+				MustCommit(writer)
 			})
 		}
 	})
@@ -115,7 +115,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("hello", "world", "foo"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: telem.TimeRangeMax,
@@ -149,7 +149,7 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV("a", "b", "c"),
 				},
 			))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
@@ -341,10 +341,10 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
 				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
@@ -352,7 +352,7 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
-				MustSucceed(fill.Commit())
+				MustCommit(fill)
 				Expect(fill.Close()).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			},
@@ -388,6 +388,47 @@ var _ = Describe("Writer", func() {
 				))).To(BeTrue())
 				Expect(w.EndDomain(keys)).To(BeFalse())
 				Expect(holder.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should report a commit without control",
+			func(ctx SpecContext) {
+				host := testutil.NewNode(ctx)
+				keys := channel.KeysFromChannels(
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{
+						{Name: "held_time", IsIndex: true, DataType: telem.TimestampT},
+						{Name: "free_time", IsIndex: true, DataType: telem.TimestampT},
+					})),
+				)
+				frameAt := func(second telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(second),
+						telem.NewSeriesSecondsTSV(second),
+					})
+				}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject:   control.Subject{Key: "low"},
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Authorities:      []control.Authority{1},
+					EnableAutoCommit: new(false),
+					Sync:             new(true),
+				}))
+				Expect(w.Write(frameAt(10))).To(BeTrue())
+				holder := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "high"},
+					Keys:           channel.Keys{keys[0]},
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{control.AuthorityAbsolute},
+					Sync:           new(true),
+				}))
+				end, authorized := MustSucceed2(w.Commit())
+				Expect(authorized).To(BeFalse())
+				Expect(end).To(BeZero())
+				Expect(holder.Close()).To(Succeed())
+				Expect(w.Write(frameAt(11))).To(BeTrue())
+				Expect(MustCommit(w)).To(Equal(11*telem.SecondTS + 1))
 				Expect(w.Close()).To(Succeed())
 			},
 		)
@@ -464,7 +505,7 @@ var _ = Describe("Writer", func() {
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
 				))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
 

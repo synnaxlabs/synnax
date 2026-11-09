@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
-import { type Menu } from "@synnaxlabs/lyra/menu";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
@@ -18,6 +18,7 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
+import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
 import { type Item } from "@/platform/tree/item";
 import { isMoreKey, type Store } from "@/platform/tree/store";
 import {
@@ -31,6 +32,18 @@ import { type Action, type State } from "@/session/store";
 /** A menu that holds only the reload of the Console. */
 export const FallbackContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
+    <ContextMenu.ReloadConsoleItem />
+  </ContextMenu.Menu>
+);
+
+/**
+ * A menu that holds Copy and the reload of the Console, for a selection with no menu of
+ * its own. Cmd+C copies a resource of any type.
+ */
+export const CopyContextMenu = (props: ContextMenuProps): ReactElement => (
+  <ContextMenu.Menu>
+    <CopyContextMenuItem {...props} />
+    <Menu.Divider />
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
 );
@@ -112,8 +125,9 @@ export const useMenu = ({
       handleError,
     };
     const allSameType = ids.every((id) => id.type === ids[0].type);
-    const M = allSameType ? resolveItem(ids[0].type).ContextMenu : mixedContextMenu;
-    if (M == null) return <FallbackContextMenu />;
+    const M = allSameType
+      ? (resolveItem(ids[0].type).ContextMenu ?? CopyContextMenu)
+      : mixedContextMenu;
     return <SelectionContextMenu menu={M} {...props} />;
   };
 
