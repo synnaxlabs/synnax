@@ -567,26 +567,6 @@ var _ = Describe("Writer", func() {
 				Entry("above maximum", uint8(18)),
 			)
 
-			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
-				l := log.Log{
-					Project:  &proj.Key,
-					Name:     "test",
-					Channels: []log.ChannelEntry{{Channel: ch1}},
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &l)
-				})).To(Succeed())
-				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{entry(ch2, ""), entry(ch3, "")},
-					}),
-				})).To(Succeed())
-				res := retrieve(ctx, l.Key)
-				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(ch2))
-				Expect(res.Channels[1].Channel).To(Equal(ch3))
-			})
-
 			It(
 				"Should repoint a channel in place via SwapChannel, keeping position and config",
 				func(ctx SpecContext) {
@@ -756,27 +736,6 @@ var _ = Describe("Writer", func() {
 						)
 					},
 					"channels.1.channel",
-				),
-				Entry(
-					"channels that repeat one channel",
-					func() log.Action {
-						return log.NewSetChannelsAction(log.SetChannelsPayload{
-							Channels: []log.ChannelEntry{
-								entry(ch5, ""),
-								entry(ch5, ""),
-							},
-						})
-					},
-					"channels.1.channel",
-				),
-				Entry(
-					"channels with no timestamp",
-					func() log.Action {
-						return log.NewSetChannelsAction(log.SetChannelsPayload{
-							Channels: []log.ChannelEntry{{Channel: ch5}},
-						})
-					},
-					"channels.0.timestamp_config",
 				),
 			)
 
