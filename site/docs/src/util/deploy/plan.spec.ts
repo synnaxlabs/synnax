@@ -34,7 +34,7 @@ describe("plan", () => {
     ]);
   });
 
-  it("should build a train from a release branch that holds its newest tag", async () => {
+  it("should build a train from a branch that holds its newest tag", async () => {
     const branches = { "release/core-0.60": ["core/v0.60.0", "core/v0.60.1"] };
     expect(await plan(["0.60"], {}, lookups(["0.61", "0.60"], branches))).toEqual([
       {
