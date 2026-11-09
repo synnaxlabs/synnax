@@ -43,6 +43,8 @@ export interface UseProps
         | "channelDataTypes"
         | "position"
         | "searchedTo"
+        | "jump"
+        | "jumpStatus"
       >,
       "visible"
     >,

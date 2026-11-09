@@ -10,6 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
+import { context } from "@synnaxlabs/lyra/context";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -56,6 +57,20 @@ const toHTMLBlob = (lines: log.Line[]): Blob => {
   const html = `<pre style="font-family: monospace">${body.join("\n")}</pre>`;
   return new Blob([html], { type: "text/html" });
 };
+
+export interface JumpContextValue {
+  /** Pauses the log and moves its view to the next match in direction. */
+  jump: (direction: log.Direction) => void;
+  status: log.JumpStatus;
+}
+
+const [JumpContext, useJumpContext] = context.create<JumpContextValue>({
+  displayName: "Log.JumpContext",
+  providerName: "Log.Base",
+});
+
+/** Returns how to jump between the search matches of the surrounding log. */
+export const useJump = (): JumpContextValue => useJumpContext("Log.useJump");
 
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
@@ -124,11 +139,22 @@ export const Base = ({
     selectionEnd,
     rowEntries,
     searchedTo,
+    jumpStatus,
   } = state;
 
   const setHold = (hold: boolean) => {
     setState((s) => ({ ...s, scrolling: hold }));
     onHold?.(hold);
+  };
+
+  // The pause and the request go in one update, so the worker pauses before it jumps.
+  const jump = (direction: log.Direction) => {
+    setState((s) => ({
+      ...s,
+      scrolling: true,
+      jump: { direction, request: s.jump.request + 1 },
+    }));
+    if (!scrolling) onHold?.(true);
   };
 
   const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
@@ -303,7 +329,9 @@ export const Base = ({
             {new TimeStamp(BigInt(searchedTo)).toString("dateTime", timeZone)}
           </Text.Text>
         )}
-        {empty ? emptyContent : children}
+        <JumpContext value={{ jump, status: jumpStatus }}>
+          {empty ? emptyContent : children}
+        </JumpContext>
       </div>
     </Menu.ContextMenu>
   );

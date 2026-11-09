@@ -38,6 +38,16 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
+const directionZ = z.enum(["next", "previous"]);
+
+/** Where a jump moves through the matches of a search. */
+export type Direction = z.infer<typeof directionZ>;
+
+const jumpStatusZ = z.enum(["", "reading", "none"]);
+
+/** How a jump between matches stands. */
+export type JumpStatus = z.infer<typeof jumpStatusZ>;
+
 export const logStateZ = log.logZ
   .pick({
     channels: true,
@@ -65,6 +75,12 @@ export const logStateZ = log.logZ
     // The oldest time a filtered log has read back to, as position holds a time. Empty
     // when no filter runs or the reads hold every stored sample.
     searchedTo: z.string().default(""),
+    // A change of request jumps to the next match in direction.
+    jump: z
+      .object({ direction: directionZ, request: z.number() })
+      .default({ direction: "next", request: 0 }),
+    // reading while a jump reads stored samples, none when no match is left.
+    jumpStatus: jumpStatusZ.default(""),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -315,6 +331,10 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
+  // The match of the last jump.
+  private cursor: LogEntry | null = null;
+  // The direction of a jump that waits for reads.
+  private jumping: Direction | null = null;
   // The rows of the last render, top to bottom.
   private rows: Row[] = [];
   private readonly wideRows = new WeakMap<
@@ -338,6 +358,8 @@ export class Log
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
+    const jumped = this.state.jump.request !== this.prevState.jump.request;
+    if (!deep.equal(this.state.search, this.prevState.search)) this.cursor = null;
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {
@@ -464,6 +486,10 @@ export class Log
       }
     }
 
+    if (jumped && this.state.jump.request > 0) {
+      this.jumping = this.state.jump.direction;
+      this.jump();
+    }
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
@@ -471,6 +497,7 @@ export class Log
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
+      this.jump();
       this.syncStatus(status);
       this.loadNearEdges();
       if (this.state.visible) this.requestRender();
@@ -479,6 +506,57 @@ export class Log
     this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();
+  }
+
+  // Moves the view to the next match of a pending jump. With no match in the entries,
+  // it reads more in the jump's direction until the stored samples run out.
+  private jump(): void {
+    const direction = this.jumping;
+    const { pattern, telem, lineHeight } = this.internal;
+    if (direction == null) return;
+    if (pattern == null) return this.endJump("");
+    const { entries } = this;
+    const located = this.cursor == null ? -1 : this.locate(this.cursor);
+    const from =
+      located >= 0
+        ? located
+        : this.state.scrolling
+          ? this.scrollState.offset - (direction === "next" ? 1 : 0)
+          : entries.length;
+    const matches = (i: number): boolean => {
+      pattern.lastIndex = 0;
+      return pattern.test(this.formatEntry(entries[i]).value);
+    };
+    const step = direction === "next" ? 1 : -1;
+    let i = from + step;
+    while (i >= 0 && i < entries.length && !matches(i)) i += step;
+    if (i < 0 || i >= entries.length) {
+      const { wrapped } = telem;
+      const ended =
+        direction === "next" ? wrapped.live !== false : wrapped.exhausted !== false;
+      if (ended) return this.endJump("none");
+      if (direction === "next") wrapped.loadNewer?.();
+      else wrapped.loadOlder?.();
+      if (this.state.jumpStatus !== "reading")
+        this.setState((s) => ({ ...s, jumpStatus: "reading" }));
+      return;
+    }
+    this.cursor = entries[i];
+    const half = Math.floor(this.calcRowCapacity(lineHeight) / 2);
+    this.seeking = null;
+    this.scrollState.offset = Math.min(entries.length, i + 1 + half);
+    this.scrollState.tail = 0;
+    this.moveView(0, lineHeight);
+    this.scrollState.awayFromEnd = true;
+    this.anchors.scroll = entries[this.scrollState.offset - 1];
+    this.endJump("");
+    this.requestRender();
+  }
+
+  private endJump(status: JumpStatus): void {
+    this.jumping = null;
+    if (this.state.jumpStatus !== status)
+      this.setState((s) => ({ ...s, jumpStatus: status }));
   }
 
   private loadNearEdges(): void {
