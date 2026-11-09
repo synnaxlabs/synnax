@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Status } from "@/session/status";
 
@@ -97,6 +98,30 @@ describe("status slice", () => {
       state = Status.reducer(state, Status.toggleFavorite("a"));
       state = Status.reducer(state, Status.toggleFavorite("a"));
       expect(state.favorites).toEqual(["b"]);
+    });
+  });
+
+  describe("sliceStateZ", () => {
+    it("should move a favorite to the key the Core gives its owner's status", () => {
+      const state = Status.sliceStateZ.parse({ version: 0, favorites: ["rack:1"] });
+      expect(state.favorites).toEqual(["5decc7ad-b3cc-5bde-8216-0d1df8f0ac55"]);
+    });
+
+    it.each(["task:0f6a4f7e-3f1b-4a51-9b0e-2b8f3c6d1e2a", "device:dev-1", "channel:5"])(
+      "should move the favorite %s to a UUID",
+      (key) => {
+        const state = Status.sliceStateZ.parse({ version: 0, favorites: [key] });
+        expect(z.uuid().safeParse(state.favorites[0]).success).toBe(true);
+      },
+    );
+
+    it.each([
+      "pressure-alarm",
+      "5decc7ad-b3cc-5bde-8216-0d1df8f0ac55",
+      "label:0f6a4f7e-3f1b-4a51-9b0e-2b8f3c6d1e2a",
+    ])("should keep the favorite %s", (key) => {
+      const state = Status.sliceStateZ.parse({ version: 0, favorites: [key] });
+      expect(state.favorites).toEqual([key]);
     });
   });
 });

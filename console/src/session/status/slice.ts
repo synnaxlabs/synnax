@@ -9,14 +9,28 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { status } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, uuid } from "@synnaxlabs/x";
 import z from "zod";
 
 export const SLICE_NAME = "status";
 
+// Core v0.61 moved the status of each of these owners from the key "<type>:<key>" to
+// the UUIDv5 of that key in this namespace.
+const MOVED_OWNERS = new Set(["rack", "task", "device", "channel"]);
+const MOVED_NAMESPACE = "4a3c5e0e-6d0b-5f43-9a51-3c7e1f2b8d64";
+
+const migrateKey = (key: status.Key): status.Key => {
+  const sep = key.indexOf(":");
+  if (sep <= 0 || !MOVED_OWNERS.has(key.slice(0, sep))) return key;
+  return uuid.fromName(key, MOVED_NAMESPACE);
+};
+
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  favorites: status.keyZ.array().default([]),
+  favorites: status.keyZ
+    .array()
+    .default([])
+    .transform((keys) => keys.map(migrateKey)),
 });
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
