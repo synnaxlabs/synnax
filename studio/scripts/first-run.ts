@@ -46,7 +46,6 @@ const type = async (session: capture.CaptureSession, text: string): Promise<void
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await openProject(session);
-  await capture.clearPanel(session);
   // V toggles the toolbar, so it starts closed.
   await capture.hideBottomToolbar(session);
   await session.moveTo({ x: 800, y: 450 });
