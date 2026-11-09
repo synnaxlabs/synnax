@@ -168,9 +168,10 @@ as `after`:
 ```python
 order = sy.ranger.Order(field="time_range_start")
 page = client.ranges.retrieve(order=order, limit=100)
-last = page[-1]
-after = sy.ranger.Cursor(key=last.key, time_range_start=last.time_range.start)
-next_page = client.ranges.retrieve(order=order, after=after, limit=100)
+if len(page) == 100:
+    last = page[-1]
+    after = sy.ranger.Cursor(key=last.key, time_range_start=last.time_range.start)
+    next_page = client.ranges.retrieve(order=order, after=after, limit=100)
 ```
 
   </Fragment>
@@ -208,9 +209,11 @@ as `after`:
 ```typescript
 const order = { field: "time_range_start" } as const;
 const page = await client.ranges.retrieve({ order, limit: 100 });
-const last = page[page.length - 1];
-const after = { key: last.key, timeRangeStart: last.timeRange.start };
-const nextPage = await client.ranges.retrieve({ order, after, limit: 100 });
+if (page.length === 100) {
+  const last = page[page.length - 1];
+  const after = { key: last.key, timeRangeStart: last.timeRange.start };
+  const nextPage = await client.ranges.retrieve({ order, after, limit: 100 });
+}
 ```
 
   </Fragment>
