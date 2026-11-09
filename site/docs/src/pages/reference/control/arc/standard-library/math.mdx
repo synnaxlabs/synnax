@@ -149,8 +149,9 @@ sequence main {
 - `inf` -> the positive infinity value. `-math.inf` is negative infinity.
 
 A constant fits `f32` or `f64`, and it defaults to `f64`. It does not fit an integer
-type. Use a constant anywhere a float value fits, such as `limit := math.inf * 2.0`, a
-`$=` initializer, or a function input.
+type, and a cast of one to an integer type is a compile error. Use a constant in an
+expression, such as `limit := math.inf * 2.0`, a `$=` initializer, or a function input.
+In a flow, write it in parentheses: `x -> (math.nan) -> y`.
 
 ```arc bodies="lowest"
 import math
