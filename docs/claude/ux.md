@@ -274,6 +274,8 @@ bound, a log precision, or the line plot X channel.
 - Context menus use 12 px text in 24 px items.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
@@ -283,8 +285,6 @@ bound, a log precision, or the line plot X channel.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
-- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
-  calls a duplicate "Copy".
 
 ### Lists with checkboxes
 
