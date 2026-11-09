@@ -162,20 +162,32 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Limits", func() {
-		It("Should panic with ErrLimit past MaxHandles", func() {
-			for range stlstrings.MaxHandles {
-				s.Create("a")
+		It("Should hold one small string for each of 100,000 samples", func() {
+			for range 100_000 {
+				s.Create("ab")
 			}
-			Expect(func() { s.Create("a") }).To(PanicWith(stlstrings.ErrLimit))
 		})
 
+		It(
+			"Should panic with ErrLimit when a loop grows a string past MaxBytes",
+			func() {
+				Expect(func() {
+					str := ""
+					for range 100_000 {
+						str += "x"
+						s.Create(str)
+					}
+				}).To(PanicWith(stlstrings.ErrLimit))
+			},
+		)
+
 		It("Should panic with ErrLimit past MaxBytes", func() {
-			s.Create(strings.Repeat("a", stlstrings.MaxBytes))
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes-stlstrings.HandleBytes))
 			Expect(func() { s.Create("a") }).To(PanicWith(stlstrings.ErrLimit))
 		})
 
 		It("Should accept strings again after Clear", func() {
-			s.Create(strings.Repeat("a", stlstrings.MaxBytes))
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes-stlstrings.HandleBytes))
 			s.Clear()
 			Expect(s.Create("a")).To(Equal(uint32(1)))
 		})

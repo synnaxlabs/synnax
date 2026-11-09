@@ -135,16 +135,31 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Limits", func() {
-		It("Should panic with ErrLimit past MaxHandles", func() {
+		It("Should hold one small series for each of 100,000 samples", func() {
 			ser := telem.NewSeriesV[uint8](1)
-			for range series.MaxHandles {
+			for range 100_000 {
 				s.Store(ser)
 			}
-			Expect(func() { s.Store(ser) }).To(PanicWith(series.ErrLimit))
+		})
+
+		It("Should count only the handle of a view", func() {
+			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2-series.HandleBytes)
+			for range 100 {
+				s.StoreView(half)
+			}
+		})
+
+		It("Should panic with ErrLimit when views pass MaxBytes", func() {
+			ser := telem.NewSeriesV[uint8](1)
+			Expect(func() {
+				for range series.MaxBytes/series.HandleBytes + 1 {
+					s.StoreView(ser)
+				}
+			}).To(PanicWith(series.ErrLimit))
 		})
 
 		It("Should panic with ErrLimit past MaxBytes", func() {
-			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2)
+			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2-series.HandleBytes)
 			s.Store(half)
 			s.Store(half)
 			Expect(func() { s.Store(telem.NewSeriesV[uint8](1)) }).
@@ -152,7 +167,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should accept series again after Clear", func() {
-			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2)
+			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2-series.HandleBytes)
 			s.Store(half)
 			s.Store(half)
 			s.Clear()

@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	// MaxHandles is the most series a ProgramState holds between two calls to Clear.
-	MaxHandles = 1 << 16
-	// MaxBytes is the most bytes of series data a ProgramState holds between two calls
-	// to Clear.
+	// MaxBytes is the most bytes of series a ProgramState holds between two calls to
+	// Clear. Each handle also counts HandleBytes.
 	MaxBytes = 64 << 20
+	// HandleBytes is the cost that each handle adds to MaxBytes.
+	HandleBytes = 64
 )
 
-// ErrLimit is the panic value of Store when a series would pass MaxHandles or
+// ErrLimit is the panic value of Store and StoreView when a series would pass
 // MaxBytes. A host function that panics traps the guest call that made it.
 var ErrLimit = errors.New("program made too many series in one cycle")
 
@@ -43,16 +43,25 @@ func NewProgramState() *ProgramState {
 	}
 }
 
-// Store stores a series and returns a handle for later retrieval. It panics with
-// ErrLimit when the series would pass MaxHandles or MaxBytes.
+// Store stores a series that the caller allocated for it and returns a handle for
+// later retrieval. It panics with ErrLimit when the series would pass MaxBytes.
 func (s *ProgramState) Store(series telem.Series) uint32 {
-	size := int64(series.Size())
-	if s.counter > MaxHandles || s.bytes+size > MaxBytes {
+	return s.store(series, HandleBytes+int64(series.Size()))
+}
+
+// StoreView stores a series that shares its data with memory held elsewhere, such as
+// a slice of another series. Only its handle counts toward MaxBytes.
+func (s *ProgramState) StoreView(series telem.Series) uint32 {
+	return s.store(series, HandleBytes)
+}
+
+func (s *ProgramState) store(series telem.Series, cost int64) uint32 {
+	if s.bytes+cost > MaxBytes {
 		panic(ErrLimit)
 	}
 	handle := s.counter
 	s.counter++
-	s.bytes += size
+	s.bytes += cost
 	s.series[handle] = series
 	return handle
 }

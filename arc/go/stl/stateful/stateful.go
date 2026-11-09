@@ -379,7 +379,7 @@ func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 				h.stateSeries[key] = inner
 			}
 			if s, ok := inner[varID]; ok {
-				return h.series.Store(s)
+				return h.series.StoreView(s)
 			}
 			if initS, ok := h.series.Get(initHandle); ok {
 				inner[varID] = initS.DeepCopy()
