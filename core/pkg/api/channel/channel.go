@@ -364,7 +364,7 @@ func (s *Service) match(
 			"after",
 		)
 	}
-	// The alias search pages the merged list, so the query carries only the where.
+	// The alias search limits the merged list, so the query carries only the where.
 	q, err := ApplyRetrieve(RetrieveRequest{Where: r.Where}, s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
@@ -388,7 +388,6 @@ func (s *Service) match(
 		r.SearchTerm,
 		func(ch channel.Key) bool { return snap.Allowed(alias.ResourceID(rng, ch)) },
 		limit,
-		int(r.Offset),
 	)
 }
 

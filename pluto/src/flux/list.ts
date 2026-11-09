@@ -7,718 +7,237 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query } from "@synnaxlabs/client";
+import { NotFoundError, query, type Synnax as Client } from "@synnaxlabs/client";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
-  useCombinedStateAndRef,
-  useDebouncedCallback,
-  useInitializerRef,
-  useSyncedRef,
-} from "@synnaxlabs/lyra/hooks";
-import {
-  compare,
   type CrudeTimeSpan,
-  deep,
   type destructor,
-  errors,
   primitive,
   type record,
-  state,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { useEffect, useRef, useSyncExternalStore } from "react";
-import { z } from "zod";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   errorResult,
   loadingResult,
+  noQueryResult,
   nullClientResult,
   type Result,
   successResult,
 } from "@/flux/result";
-import { type CreateRetrieveParams, type RetrieveParams } from "@/flux/retrieve";
 import { Synnax } from "@/synnax";
 
-// Bound at module scope: hooks bind `query` to the caller's params object.
-const { Deleted, isLive } = query;
-
-/** Reads one entry, or many at once, out of a list query's results. */
+/** Reads one record, or many at once, by key. */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
   (keys: K[]): E[];
 }
 
-/** Options for a list retrieval. Append for paging, replace for a new search. */
-export interface AsyncListOptions extends query.FetchOptions {
-  mode?: "append" | "replace";
+/**
+ * The read surface of a domain client that a list reads. The types come from `list`
+ * alone, since a client's other reads are overloaded.
+ */
+export interface ListSource<Q, E extends record.Keyed<record.Key>, I> {
+  list: (query: Q) => query.List<E, unknown>;
+  retrieve: (item: NoInfer<I>) => Promise<NoInfer<E>>;
+  onChange: (
+    item: NoInfer<I>,
+    handler: query.ChangeHandler<NoInfer<E>>,
+  ) => destructor.Destructor;
+  getCached: (item: NoInfer<I>) => query.Cached<NoInfer<E>> | undefined;
 }
 
-/** Return value for a list hook. Spread it into a {@link List.Frame}. */
-export type UseListReturn<
-  Query extends query.Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = Omit<Result<K[]>, "data"> & {
+export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key"]> {
+  /** The plural noun for the records in status text, such as "ranges". */
+  name: string;
   /**
-   * Retrieves once the debounce ends. Query changes made while it waits apply in order,
-   * then one append runs after them. A second append made while one waits does nothing.
+   * The query, apart from its search term and its limit. A search lists in relevance
+   * order, so it drops the query's `order`. Null disables the list.
    */
-  retrieve: (
-    query: state.SetArg<Query, Partial<Query>>,
-    options?: AsyncListOptions,
-  ) => void;
-  /**
-   * Retrieves now. An append waits for the newest replace to answer, and does nothing
-   * when that replace fails.
-   */
-  retrieveAsync: (
-    query: state.SetArg<Query, Partial<Query>>,
-    options?: AsyncListOptions,
-  ) => Promise<void>;
+  query?: Q | null;
+  /** Hides the records it rejects. */
+  filter?: (item: E) => boolean;
+  /** How many records each call to `more` reads. */
+  pageSize?: number;
+  /** How many records the list reads at first. Defaults to `pageSize`. */
+  initialSize?: number;
+  /** How long a search term waits before the list reads it. */
+  searchDebounce?: CrudeTimeSpan;
+  /** Maps a key to the read of a record outside the list. Defaults to the key. */
+  itemQuery?: (key: E["key"]) => I;
+}
+
+/** Return value for a list hook. Spread it into a `List.Frame`. */
+export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omit<
+  Result<K[]>,
+  "data"
+> & {
+  /** The keys of the records in the list, in list order. */
   data: K[];
   /**
    * Whether the list has an answer. An unanswered list has the same empty data as a
-   * genuinely empty one, so anything that speaks for the absence of items (empty
-   * content, an empty-state action) must wait for this.
+   * genuinely empty one, so anything that speaks for the absence of records must wait
+   * for this.
    */
   answered: boolean;
+  /** Whether the list holds every record that matches. */
+  complete: boolean;
+  /** Reads a record of the list, or any other record of the domain that is cached. */
   getItem: GetItem<K, E>;
+  /**
+   * Calls the callback when the record changes, and fetches a record outside the list.
+   * Returns a destructor that unsubscribes.
+   */
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
-};
-
-export interface RetrieveByKeyParams<
-  Query extends query.Params,
-  K extends record.Key,
-> extends Omit<RetrieveParams<Query>, "query"> {
-  query: Partial<Query>;
-  key: K;
-}
-
-export interface CreateListParams<
-  Query extends query.Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends CreateRetrieveParams<Query, E[]> {
-  sort?: compare.Comparator<E>;
-  retrieveByKey: (params: RetrieveByKeyParams<Query, K>) => Promise<E | undefined>;
   /**
-   * Live updates for an item outside any page: a lookup through retrieveByKey, or a
-   * read item that a page let go. Page members get their updates from `onChange`.
+   * Reads the first page, then the next one on each later call. Does nothing while a
+   * read runs or once the list holds every record.
    */
-  onChangeByKey?: (
-    params: RetrieveByKeyParams<Query, K>,
-    handler: query.ChangeHandler<E>,
-  ) => destructor.Destructor;
-}
-
-export interface UseListParams<
-  Query extends query.Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> {
-  /**
-   * The query that retrieves build on. When it changes by deep equality, it replaces
-   * the list's query and the list reads it from the first page. Only the search term
-   * and page size of the old query stay, unless the new query names them. A list that
-   * has not retrieved waits for its first retrieve. Removing it changes nothing.
-   */
-  query?: Query;
-  filter?: (item: E) => boolean;
-  sort?: compare.Comparator<E>;
-  retrieveDebounce?: CrudeTimeSpan;
-  useCachedList?: boolean;
-}
-
-export interface UseList<
-  Query extends query.Params,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> {
-  (params?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
-}
-
-const defaultFilter = () => true;
-const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
-
-/** A retrieve that waits for the debounce to end. */
-interface Retrieve<Query extends query.Params> {
-  query: state.SetArg<Query, Query | {}>;
-  options: AsyncListOptions;
-}
-
-/** The retrieves a list runs when its debounce ends: the replace, then the append. */
-interface PendingRetrieves<Query extends query.Params> {
-  replace?: Retrieve<Query>;
-  append?: Retrieve<Query>;
-}
-
-/** @returns a setter that applies first, then second. */
-const chainSetters =
-  <Query extends query.Params>(
-    first: state.SetArg<Query, Query | {}>,
-    second: state.SetArg<Query, Query | {}>,
-  ): state.SetFunc<Query, Query | {}> =>
-  (prev) =>
-    state.executeSetter(second, state.executeSetter(first, prev));
-
-const pagerZ = z.object({
-  searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
-});
-
-/** @returns the new query, with the old query's pager state, on its first page. */
-const rebaseQuery = <Query extends query.Params>(
-  current: Query | {},
-  to: Query,
-): Query => {
-  const { offset, ...pager } = pagerZ.parse(current);
-  return Object.assign(pager, to, offset == null ? {} : { offset: 0 });
+  more: () => void;
+  /** Lists the records that match the term. An empty term ends the search. */
+  search: (term: string) => void;
 };
 
-/** One retrieved page: its query, answer keys, and live subscription. */
-interface Page<K extends record.Key, D> {
-  hash: string;
-  keys: K[];
-  unsubscribe: destructor.Destructor;
-  /** Set when the client cache answered the page. The next retrieve replaces it. */
-  cached?: boolean;
-  /** Set while the retrieve that opened the page runs. The page holds answers until
-   *  the retrieve lands. */
-  pending?: boolean;
-  /** The newest answer that arrived while the page was pending. */
-  held?: D[];
-}
+const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
+const noop = () => {};
+const keyItem = <I>(key: record.Key): I => key as I;
 
-export const createList = <
-  Query extends query.Params,
-  Key extends record.Key,
-  Data extends record.Keyed<Key>,
->({
-  name,
-  retrieve,
-  retrieveByKey,
-  onChange: subscribeToQuery,
-  onChangeByKey,
-  getCached,
-  sort: defaultSort,
-  normalizeQuery,
-}: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> => {
-  const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
-  const useList = (
-    params: UseListParams<Query, Key, Data> = {},
-  ): UseListReturn<Query, Key, Data> => {
-    const {
-      filter = defaultFilter,
-      sort,
-      query: callerQuery,
-      retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
-      useCachedList = true,
-    } = params;
-    const filterRef = useSyncedRef(filter);
-    const sortRef = useSyncedRef(sort ?? defaultSort);
-    const client = Synnax.use();
-    const dataRef = useRef<Map<Key, Data | null>>(new Map());
-    const listItemListenersRef = useInitializerRef<Map<Key, Set<() => void>>>(
-      () => new Map(),
-    );
-    const queryRef = useRef<Query | null>(
-      callerQuery != null ? normalized(callerQuery) : null,
-    );
-    const callerQueryRef = useRef(callerQuery);
-    const retrievedRef = useRef(false);
-    const recordsStaleRef = useRef(false);
-    const callerQueryChangesRef = useRef(0);
-    const pagesRef = useRef<Page<Key, Data>[]>([]);
-    const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
-      () => new Map(),
-    );
-
-    const notifyListeners = (changed: Key) =>
-      listItemListenersRef.current.get(changed)?.forEach((notify) => notify());
-
-    const readCache = (query: Query): Key[] | undefined => {
-      if (!useCachedList || getCached == null || client == null) return undefined;
-      const cached = getCached({ client, query });
-      if (!isLive(cached)) return undefined;
-      let items = cached.filter(filterRef.current);
-      if (sortRef.current != null) items = [...items].sort(sortRef.current);
-      items.forEach((v) => dataRef.current.set(v.key, v));
-      return items.map((v) => v.key);
-    };
-
-    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
-      loadingResult<Key[]>(
-        `retrieving ${name}`,
-        readCache(queryRef.current ?? normalized({} as Query)),
-      ),
-    );
-    const hasMoreRef = useRef(true);
-    const pendingRef = useRef<PendingRetrieves<Query> | null>(null);
-    /** The newest replace. It resolves to whether its answer reached the list. */
-    const latestReplaceRef = useInitializerRef(() => Promise.resolve(true));
-
-    const recomputeKeys = () => {
-      const seen = new Set<Key>();
-      const keys: Key[] = [];
-      pagesRef.current.forEach((page) =>
-        page.keys.forEach((k) => {
-          if (seen.has(k)) return;
-          seen.add(k);
-          keys.push(k);
-        }),
-      );
-      if (sortRef.current != null) {
-        const items = keys
-          .map((k) => dataRef.current.get(k))
-          .filter((item): item is Data => item != null);
-        items.sort(sortRef.current);
-        return items.map((item) => item.key);
-      }
-      return keys;
-    };
-
-    const handleItemChange = (key: Key, cached: query.Cached<Data> | undefined) => {
-      if (cached === undefined) return;
-      if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
-      else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
-      notifyListeners(key);
-    };
-
-    // Declared above its callers. The compiler caches neither function when a hook call
-    // sits between a caller and a callee declared below it.
-    const openItemSub = (key: Key): void => {
-      if (onChangeByKey == null || client == null) return;
-      if (itemSubsRef.current.has(key)) return;
-      itemSubsRef.current.set(
-        key,
-        onChangeByKey(
-          {
-            client,
-            key,
-            query: queryRef.current ?? {},
-          },
-          (cached) => handleItemChange(key, cached),
-        ),
-      );
-    };
-
-    /** Applies a page answer: updates items, notifies, recomputes keys. */
-    const applyPageAnswer = (page: Page<Key, Data>, items: Data[]) => {
-      const filtered = items.filter(filterRef.current);
-      filtered.forEach((item) => {
-        const prev = dataRef.current.get(item.key);
-        if (prev === item) return;
-        dataRef.current.set(item.key, item);
-        notifyListeners(item.key);
-      });
-      const nextKeys = new Set(filtered.map((item) => item.key));
-      const dropped = page.keys.filter((k) => !nextKeys.has(k));
-      page.keys = filtered.map((item) => item.key);
-      dropped.forEach((k) => {
-        if (pagesRef.current.some((p) => p.keys.includes(k))) return;
-        // The item may only have left the query, so an item a consumer reads keeps a
-        // feed of its own, which reports a deletion.
-        if (itemSubsRef.current.has(k)) return;
-        if (listItemListenersRef.current.has(k)) return openItemSub(k);
-        dataRef.current.set(k, null);
-        notifyListeners(k);
-      });
-      setResult((p) => {
-        if (p.data == null) return p;
-        const next = recomputeKeys();
-        if (compare.primitiveArrays(p.data, next) === compare.EQUAL) return p;
-        return { ...p, data: next };
-      });
-    };
-
-    const closePages = (closes: (page: Page<Key, Data>) => boolean) => {
-      pagesRef.current = pagesRef.current.filter((page) => {
-        if (!closes(page)) return true;
-        page.unsubscribe();
-        return false;
-      });
-    };
-    const clearPages = () => closePages(() => true);
-    useEffect(() => clearPages, [clearPages]);
-
-    const clearItemSubs = () => {
-      itemSubsRef.current.forEach((unsub) => unsub());
-      itemSubsRef.current.clear();
-    };
-    useEffect(() => clearItemSubs, [clearItemSubs]);
-
-    const closeItemSub = (key: Key) => {
-      itemSubsRef.current.get(key)?.();
-      itemSubsRef.current.delete(key);
-    };
-
-    /**
-     * Gives each record that no page holds its own feed while a consumer reads it, such
-     * as a selection, and drops the rest. Without a feed the copy goes stale.
-     */
-    const coverRecords = () => {
-      const paged = new Set(pagesRef.current.flatMap((page) => page.keys));
-      dataRef.current.forEach((item, key) => {
-        if (item == null || paged.has(key) || itemSubsRef.current.has(key)) return;
-        if (listItemListenersRef.current.has(key)) openItemSub(key);
-        else dataRef.current.delete(key);
-      });
-    };
-
-    const retrieveSingle = async (
-      key: Key,
-      options: query.FetchOptions = {},
-    ): Promise<void> => {
-      const { signal } = options;
-      const changes = callerQueryChangesRef.current;
-      const outdated = () =>
-        signal?.aborted === true || callerQueryChangesRef.current !== changes;
-      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<void> => {
-        if (client == null || primitive.isZero(key)) return;
-        const item = await retrieveByKey({
-          client,
-          key,
-          query: queryRef.current ?? {},
-        });
-        if (outdated() || item == null) return;
-        openItemSub(key);
-        if (!filterRef.current(item)) {
-          dataRef.current.set(key, null);
-          return;
-        }
-        dataRef.current.set(key, item);
-        notifyListeners(key);
-      };
-      try {
-        await apply();
-      } catch (error) {
-        if (outdated()) return;
-        dataRef.current.set(key, null);
-        setResult(errorResult(`retrieve ${name}`, error));
-      }
-    };
-
-    /**
-     * Reads each record that no page holds under the current query, on a new feed. A
-     * record can depend on the query, such as a channel's alias on its range.
-     */
-    const refreshRecords = () => {
-      clearItemSubs();
-      coverRecords();
-      const paged = new Set(pagesRef.current.flatMap((page) => page.keys));
-      listItemListenersRef.current.forEach((_, key) => {
-        if (!paged.has(key)) void retrieveSingle(key);
-      });
-    };
-
-    const subscribePage = (page: Page<Key, Data>, q: Query): Page<Key, Data> => {
-      if (subscribeToQuery != null && client != null)
-        page.unsubscribe = subscribeToQuery(
-          {
-            client,
-            query: q,
-          },
-          (answer: query.Cached<Data[]> | undefined) => {
-            if (!isLive(answer)) return;
-            if (page.pending === true) page.held = answer;
-            else applyPageAnswer(page, answer);
-          },
-        );
-      pagesRef.current.push(page);
-      return page;
-    };
-
-    const openPage = (q: Query, keys: Key[], cached = false): void => {
-      const hash = query.hash(q);
-      const existing = pagesRef.current.find((p) => p.hash === hash);
-      if (existing != null) {
-        existing.keys = keys;
-        return;
-      }
-      subscribePage({ hash, keys, unsubscribe: () => {}, cached }, q);
-    };
-
-    /**
-     * Opens the page for a retrieve before it fetches, so the client cache keeps the
-     * answer maintained while it settles and need not fetch it again for the page.
-     */
-    const openPendingPage = (q: Query): Page<Key, Data> =>
-      subscribePage(
-        { hash: query.hash(q), keys: [], unsubscribe: () => {}, pending: true },
-        q,
-      );
-
-    /** @returns whether the answer reached the list. */
-    const retrievePage = async (
-      paramsSetter: state.SetArg<Query, Query | {}>,
-      options: AsyncListOptions,
-    ): Promise<boolean> => {
-      const { signal, mode = "replace" } = options;
-      retrievedRef.current = true;
-
-      const query = normalized(
-        state.executeSetter(paramsSetter, queryRef.current ?? {}),
-      );
-      queryRef.current = query;
-
-      // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<boolean> => {
-        if (client == null) {
-          setResult(nullClientResult<Key[]>(`retrieve ${name}`));
-          return false;
-        }
-        setResult((p) => loadingResult(`retrieving ${name}`, p.data));
-
-        // If we're in replace mode, we're 'resetting' the infinite scroll position
-        // of the query, so we start from the top again.
-        if (mode === "replace") hasMoreRef.current = true;
-        else if (mode === "append" && !hasMoreRef.current) {
-          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
-          return true;
-        }
-
-        const page = openPendingPage(query);
-        let value: Data[];
-        try {
-          value = await retrieve({ client, query });
-        } catch (error) {
-          closePages((p) => p === page);
-          throw errors.fromUnknown(error);
-        }
-        if (signal?.aborted || queryRef.current !== query) {
-          closePages((p) => p === page);
-          return false;
-        }
-        value = value.filter(filterRef.current);
-        if (sortRef.current != null) value = [...value].sort(sortRef.current);
-
-        if (value.length === 0) hasMoreRef.current = false;
-        const keys = value.map((v) => v.key);
-
-        // An answer replaces a page the cache answered in either mode, and any older
-        // page for the same query. A pending page belongs to a retrieve in flight,
-        // which closes or keeps it.
-        closePages(
-          (p) =>
-            p !== page &&
-            p.pending !== true &&
-            (mode === "replace" || p.cached === true || p.hash === page.hash),
-        );
-        value.forEach((v) => dataRef.current.set(v.key, v));
-        page.keys = keys;
-        page.pending = false;
-        keys.forEach(notifyListeners);
-        if (recordsStaleRef.current) refreshRecords();
-        else coverRecords();
-        recordsStaleRef.current = false;
-
-        // If we've already retrieved the initial data, and it's the same as the
-        // data we just retrieved, then don't notify listeners.
-        if (
-          resultRef.current.data != null &&
-          compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
-        )
-          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
-        else setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
-        // An answer that arrived while the retrieve ran is at least as new as its
-        // value.
-        const { held } = page;
-        page.held = undefined;
-        if (held != null) applyPageAnswer(page, held);
-        return true;
-      };
-      try {
-        return await apply();
-      } catch (error) {
-        if (signal?.aborted || queryRef.current !== query) return false;
-        setResult(errorResult(`retrieve ${name}`, error));
-        return false;
-      }
-    };
-    const retrievePageRef = useSyncedRef(retrievePage);
-
-    const retrieveAsync = async (
-      paramsSetter: state.SetArg<Query, Query | {}>,
-      options: AsyncListOptions = {},
-    ): Promise<void> => {
-      if (options.mode !== "append") {
-        latestReplaceRef.current = retrievePage(paramsSetter, options);
-        await latestReplaceRef.current;
-        return;
-      }
-      // An append pages from the answer to the newest replace. Started earlier, it
-      // would become the newest retrieve and discard that answer.
-      let replace: Promise<boolean>;
-      let answered: boolean;
-      do {
-        replace = latestReplaceRef.current;
-        answered = await replace;
-      } while (replace !== latestReplaceRef.current);
-      // The wait can span a client change, so the append runs in the newest render.
-      if (answered) await retrievePageRef.current(paramsSetter, options);
-    };
-
-    /**
-     * Fills the list from the cached answer to the query, behind a page that keeps the
-     * answer live until a retrieve answers. Does nothing when the cache has no answer.
-     */
-    const createCachedPage = (query: Query) => {
-      const keys = readCache(query);
-      if (keys == null) return;
-      openPage(query, keys, true);
-      keys.forEach(notifyListeners);
-      setResult((p) =>
-        p.data != null && compare.primitiveArrays(p.data, keys) === compare.EQUAL
-          ? p
-          : loadingResult(`retrieving ${name}`, keys),
-      );
-    };
-
-    // The initial state fills the list from the cache in render, where no feed can
-    // open, so the mount fills it again with one. When the client is swapped, an active
-    // hook must re-point itself at the new client's cache. A non-null query means a
-    // list retrieve ran: refetch (retrieveAsync re-subscribes as it goes). Item
-    // subscriptions re-open against the new client without refetching.
-    const retrieveAsyncRef = useSyncedRef(retrieveAsync);
-    const firstMountRef = useRef(true);
-    useEffect(() => {
-      if (firstMountRef.current) {
-        firstMountRef.current = false;
-        if (resultRef.current.data != null && pagesRef.current.length === 0)
-          createCachedPage(queryRef.current ?? normalized({} as Query));
-        return;
-      }
-      clearPages();
-      const itemKeys = [...itemSubsRef.current.keys()];
-      clearItemSubs();
-      itemKeys.forEach(openItemSub);
-      coverRecords();
-      const query = queryRef.current;
-      if (query != null) void retrieveAsyncRef.current(query);
-    }, [client]);
-
-    const getOne = (key?: Key) => {
-      // Zero-value keys that are not null or undefined are common as initialized
-      // fields in various data structures ("", 0, etc.). A 'zero-value' is never
-      // valid as a key in Synnax, and a simple null check would result in excessive
-      // server refetches for keys we already know are invalid, so we do a full check
-      // for a zero-value instead.
-      if (primitive.isZero(key)) return undefined;
-      const res = dataRef.current.get(key);
-      if (res === undefined) void retrieveSingle(key);
-      return res;
-    };
-    const getItem = ((key?: Key | Key[]) =>
-      Array.isArray(key)
-        ? key.map((k) => getOne(k)).filter((v) => v != null)
-        : getOne(key)) as GetItem<Key, Data>;
-
-    const subscribe = (callback: () => void, key?: Key) => {
-      if (key == null) return () => {};
-      const listeners = listItemListenersRef.current;
-      let callbacks = listeners.get(key);
-      if (callbacks == null) {
-        callbacks = new Set();
-        listeners.set(key, callbacks);
-      }
-      callbacks.add(callback);
-      return () => {
-        callbacks.delete(callback);
-        if (callbacks.size > 0) return;
-        listeners.delete(key);
-        if (!itemSubsRef.current.has(key)) return;
-        closeItemSub(key);
-        // Without a feed the copy goes stale, so the next read fetches it again.
-        if (!pagesRef.current.some((p) => p.keys.includes(key)))
-          dataRef.current.delete(key);
-      };
-    };
-
-    const debouncedRetrieve = useDebouncedCallback(
-      () => {
-        const pending = pendingRef.current;
-        if (pending == null) return;
-        pendingRef.current = null;
-        const { replace, append } = pending;
-        if (replace != null)
-          void retrieveAsyncRef.current(replace.query, replace.options);
-        if (append != null) void retrieveAsyncRef.current(append.query, append.options);
-      },
-      retrieveDebounce,
-      [],
-    );
-
-    const retrieveSync = (
-      query: state.SetArg<Query, Query | {}>,
-      options: AsyncListOptions = {},
-    ) => {
-      const { replace, append } = pendingRef.current ?? {};
-      // A frame waits for the answer to each fetch for more, so an append made while a
-      // replace waits must still run.
-      if (options.mode === "append") {
-        if (append != null) return;
-        pendingRef.current = { replace, append: { query, options } };
-      } else {
-        const next = replace == null ? query : chainSetters(replace.query, query);
-        pendingRef.current = { replace: { query: next, options }, append };
-      }
-      // A cold list fills from the cached answer to the exact query the debounced
-      // retrieve will fetch first, so a remount paints before the network round trip.
-      // Setters must be pure: the debounced retrieve executes the setter again.
-      const first = pendingRef.current.replace?.query ?? query;
-      if (resultRef.current.data == null)
-        createCachedPage(
-          normalized(state.executeSetter(first, queryRef.current ?? {})),
-        );
-      debouncedRetrieve();
-    };
-
-    useEffect(() => {
-      if (callerQuery == null || deep.equal(callerQueryRef.current, callerQuery))
-        return;
-      callerQueryRef.current = callerQuery;
-      callerQueryChangesRef.current += 1;
-      const rebase = (current: Query | {}) => rebaseQuery(current, callerQuery);
-      const next = normalized(rebase(queryRef.current ?? {}));
-      queryRef.current = next;
-      if (retrievedRef.current) {
-        recordsStaleRef.current = true;
-        return retrieveSync(rebase);
-      }
-      clearPages();
-      setResult(loadingResult<Key[]>(`retrieving ${name}`));
-      createCachedPage(next);
-      refreshRecords();
-    }, [callerQuery]);
-
-    return {
-      retrieve: retrieveSync,
-      retrieveAsync,
-      subscribe,
-      getItem,
-      ...result,
-      data: result.data ?? [],
-      answered: result.data != null,
-    };
-  };
-  return useList;
-};
-
-export interface UseListItemParams<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends Pick<UseListReturn<query.Params, K, E>, "subscribe" | "getItem"> {
-  key: K;
-}
-
-export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
-  key,
-  subscribe,
-  getItem,
-}: UseListItemParams<K, E>) =>
-  useSyncExternalStore(
-    (callback) => subscribe(callback, key),
-    () => getItem(key),
-    () => undefined,
+/**
+ * Reads a live list of the records of a domain client: a filter, the client's declared
+ * order, and a window that grows by pages. The client cache keeps the window current,
+ * so the hook holds no records of its own. The list reads nothing until the first call
+ * to `more` or `search`, so a closed select costs no fetch.
+ *
+ * @param source - Selects the domain client, e.g. `(client) => client.ranges`.
+ */
+export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
+  source: (client: Client) => ListSource<Q, E, I>,
+  {
+    name,
+    query: q = {} as Q,
+    filter,
+    pageSize = DEFAULT_PAGE_SIZE,
+    initialSize = pageSize,
+    searchDebounce = DEFAULT_SEARCH_DEBOUNCE,
+    itemQuery = keyItem,
+  }: UseListParams<NoInfer<Q>, E, I>,
+): UseListReturn<E["key"], E> => {
+  type K = E["key"];
+  const op = `retrieve ${name}`;
+  const client = Synnax.use();
+  const [started, setStarted] = useState(false);
+  const [term, setTerm] = useState("");
+  // The list starts with the term, so the first search reads no unsearched page.
+  const debouncedSearch = useDebouncedCallback(
+    (next: string) => {
+      setTerm(next);
+      setStarted(true);
+    },
+    searchDebounce,
+    [],
   );
+  // Q is left open so it can match each client's overloaded request input.
+  const base = q as { order?: unknown } | null;
+  let next: Q | null = null;
+  if (base != null && term === "") next = { ...base, limit: initialSize } as Q;
+  else if (base != null) {
+    const { order: _, ...unordered } = base;
+    next = { ...unordered, searchTerm: term, limit: initialSize } as Q;
+  }
+  const listQuery = useMemoDeepEqual(next);
+  const retriever = client == null ? null : source(client);
+  const list =
+    retriever == null || listQuery == null ? null : retriever.list(listQuery);
+  const current = useSyncExternalStore(
+    (callback) => (list == null ? noop : list.onChange(callback)),
+    () => list?.getCached(),
+  );
+  // A new query, such as a new search term, shows the last answer until its own lands.
+  const [last, setLast] = useState(current);
+  if (current != null && current !== last) setLast(current);
+  const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
+  // A failed read shows no records from an earlier query.
+  const window =
+    list == null ? undefined : status.variant === "error" ? current : (current ?? last);
+  const reading = useRef<object | null>(null);
+
+  const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
+    const token = {};
+    reading.current = token;
+    setStatus(loadingResult<null>(step));
+    let next: Result<null> = successResult<null>(step, null);
+    try {
+      await run();
+    } catch (error) {
+      next = errorResult(step, error);
+    }
+    if (reading.current !== token) return;
+    reading.current = null;
+    setStatus(next);
+  };
+
+  useEffect(() => {
+    if (list == null || !started) return;
+    void read(op, async () => await list.retrieve());
+    return () => {
+      reading.current = null;
+    };
+  }, [list, started]);
+
+  const more = () => {
+    if (!started) return setStarted(true);
+    if (list == null || reading.current != null || current?.end == null) return;
+    void read(`retrieve more ${name}`, async () => await list.more(pageSize));
+  };
+
+  const search = (next: string) => debouncedSearch(next);
+
+  const records = window?.records;
+  const members = new Map<K, E>(records?.map((r) => [r.key, r]));
+  const keep = (record: E | undefined): E | undefined =>
+    record == null || (filter != null && !filter(record)) ? undefined : record;
+  // A select with no value reads its zero key.
+  const getOne = (key: K): E | undefined => {
+    const member = members.get(key);
+    if (member != null) return keep(member);
+    if (retriever == null || primitive.isZero(key)) return undefined;
+    const cached = retriever.getCached(itemQuery(key));
+    return keep(query.isLive(cached) ? cached : undefined);
+  };
+  const getItem = ((keys: K | K[]) => {
+    if (!Array.isArray(keys)) return getOne(keys);
+    return keys.map(getOne).filter((r): r is E => r != null);
+  }) as GetItem<K, E>;
+
+  const subscribe = (callback: () => void, key: K): destructor.Destructor => {
+    if (retriever == null || primitive.isZero(key)) return noop;
+    const params = itemQuery(key);
+    const release = retriever.onChange(params, () => callback());
+    if (retriever.getCached(params) === undefined)
+      retriever.retrieve(params).then(callback, (error: unknown) => {
+        // The subscriber reads a missing record from getItem.
+        if (!NotFoundError.matches(error)) console.error(error);
+      });
+    return release;
+  };
+
+  const data = useMemoArray(
+    (records ?? []).filter((r) => filter == null || filter(r)).map((r) => r.key),
+  ) as K[];
+
+  const rest = {
+    data,
+    answered: window != null,
+    complete: window != null && window.end == null,
+    getItem,
+    subscribe,
+    more,
+    search,
+  };
+  if (client == null) return { ...nullClientResult<K[]>(op), ...rest };
+  if (listQuery == null) return { ...noQueryResult<K[]>(op), ...rest };
+  return { ...status, ...rest };
+};

@@ -992,7 +992,7 @@ describe("cached reads", () => {
       }
     });
 
-    it("pages children with limit and offset in a stable order", async () => {
+    it("pages children with a limit and a cursor in a stable order", async () => {
       const parent = await createRange();
       await Promise.all(
         Array.from({ length: 5 }, () => createRange(client, { parent: parent.key })),
@@ -1000,8 +1000,12 @@ describe("cached reads", () => {
       const parents = [parent.key];
       const all = await client.ranges.retrieve({ parents });
       expect(all).toHaveLength(5);
-      const first = await client.ranges.retrieve({ parents, limit: 3, offset: 0 });
-      const second = await client.ranges.retrieve({ parents, limit: 3, offset: 3 });
+      const first = await client.ranges.retrieve({ parents, limit: 3 });
+      const second = await client.ranges.retrieve({
+        parents,
+        limit: 3,
+        after: { key: first[2].key },
+      });
       expect(first).toHaveLength(3);
       expect(second).toHaveLength(2);
       const paged = [...first, ...second].map((r) => r.key).sort();

@@ -57,15 +57,6 @@ describe("Resource", () => {
         .toEqual([l]);
     });
 
-    it("should page through the matches with a limit and an offset", async () => {
-      const token = randomToken();
-      for (const suffix of ["a", "b", "c"]) await createGroup(`${token} ${suffix}`);
-      const page = async (offset: number): Promise<number> =>
-        (await client.resources.search({ searchTerm: token, limit: 2, offset })).length;
-      await expect.poll(async () => await page(0)).toEqual(2);
-      expect(await page(2)).toEqual(1);
-    });
-
     it("should list the resources of the given types for an empty term", async () => {
       await createLabel(randomToken());
       await createLabel(randomToken());
@@ -78,12 +69,9 @@ describe("Resource", () => {
       expect(page.every((r) => r.id.type === "label")).toBe(true);
     });
 
-    it.each([
-      ["limit", { limit: -1 }],
-      ["offset", { offset: -1 }],
-    ])("should refuse a negative %s", async (_, bounds) => {
+    it("should refuse a negative limit", async () => {
       await expect(
-        client.resources.search({ searchTerm: "pump", ...bounds }),
+        client.resources.search({ searchTerm: "pump", limit: -1 }),
       ).rejects.toSatisfy(ValidationError.matches);
     });
 

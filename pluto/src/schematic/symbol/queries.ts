@@ -14,7 +14,6 @@ import type z from "zod";
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "schematic symbol";
-const PLURAL_RESOURCE_NAME = "schematic symbols";
 const GROUP_RESOURCE_NAME = "schematic symbol group";
 
 export type RetrieveQuery = {
@@ -62,19 +61,19 @@ export const GROUP_QUERY = {
 
 export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
-  sort: (a, b) => a.name.localeCompare(b.name),
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.schematics.symbols.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.schematics.symbols.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.schematics.symbols.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.schematics.symbols.onChange(key, handler),
-  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
-});
+/** Lists symbols by name, unless the query sets an order. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, schematic.symbol.Symbol>,
+  "name"
+> = {}): Flux.UseListReturn<schematic.symbol.Key, schematic.symbol.Symbol> =>
+  Flux.useList((client) => client.schematics.symbols, {
+    ...rest,
+    name: "symbols",
+    query: query === null ? null : { order: { field: "name" }, ...query },
+  });
 
 export type FormQuery = {
   key: string;

@@ -462,11 +462,10 @@ describe("Task", async () => {
         expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
-      it("should support pagination with limit and offset", async () => {
+      it("should page with a limit and a cursor", async () => {
         const firstPage = await client.tasks.retrieve({
           rack: testRack.key,
           limit: 2,
-          offset: 0,
         });
         expect(firstPage.length).toBeLessThanOrEqual(2);
 
@@ -474,7 +473,7 @@ describe("Task", async () => {
           const secondPage = await client.tasks.retrieve({
             rack: testRack.key,
             limit: 2,
-            offset: 2,
+            after: { key: firstPage[1].key },
           });
 
           const firstPageKeys = firstPage.map((t) => t.key);
@@ -529,7 +528,7 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
       });
 
-      it("should handle limit without offset", async () => {
+      it("should handle a limit", async () => {
         const result = await client.tasks.retrieve({
           limit: 1,
         });

@@ -149,7 +149,6 @@ class RetrieveRequest(BaseModel):
         order: Sorts the racks. An absent order sorts them by key.
         after: Starts the racks strictly past this position in their order.
         limit: Is the most racks to return.
-        offset: Is the number of matching racks to skip.
         include_status: Includes the status of each record.
     """
 
@@ -160,7 +159,6 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
 
 

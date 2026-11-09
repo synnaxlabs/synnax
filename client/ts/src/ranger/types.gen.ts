@@ -168,8 +168,6 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most ranges to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching ranges to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

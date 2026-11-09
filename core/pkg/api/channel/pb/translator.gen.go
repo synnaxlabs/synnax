@@ -243,7 +243,6 @@ func OrdersFromPB(pbs []*Order) ([]channel.Order, error) {
 func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
 		IncludeStatus: r.IncludeStatus,
 	}
 	if r.Where != nil {
@@ -280,7 +279,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 		return r, nil
 	}
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := channelpb.WhereFromPB(pb.Where)

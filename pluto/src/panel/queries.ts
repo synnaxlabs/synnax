@@ -227,17 +227,6 @@ export const useTabResource = bindTabHook(
   }, deep.equal),
 );
 
-export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
-
-export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
-  onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
-  getCached: ({ client, query }) => client.panels.getCached(query),
-});
-
 export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({

@@ -519,7 +519,7 @@ var _ = Describe("Filter definitions", func() {
 			req := table.MustGet("test.RetrieveRequest")
 			form := req.Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
-				"where", "search_term", "after", "limit", "offset", "include_labels",
+				"where", "search_term", "after", "limit", "include_labels",
 			}))
 			types := fieldTypes(form)
 			Expect(types["where"]).To(Equal(resolution.TypeRef{Name: "test.Where"}))
@@ -541,7 +541,6 @@ var _ = Describe("Filter definitions", func() {
 			)
 			Expect(defaults).To(Equal(map[string]resolution.ExpressionValue{
 				"search_term":    {Kind: resolution.ValueKindString},
-				"offset":         {Kind: resolution.ValueKindInt},
 				"include_labels": {Kind: resolution.ValueKindBool},
 			}))
 			Expect(req.Domains).To(HaveKey("go"))
@@ -581,7 +580,7 @@ var _ = Describe("Filter definitions", func() {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 				Expect(fieldNames(req)).To(Equal([]string{
-					"where", "after", "limit", "offset", "include_program",
+					"where", "after", "limit", "include_program",
 				}))
 			},
 		)
@@ -614,7 +613,7 @@ var _ = Describe("Filter definitions", func() {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 				Expect(fieldNames(req)).To(Equal([]string{
-					"where", "after", "limit", "offset", "include_program",
+					"where", "after", "limit", "include_program",
 				}))
 			},
 		)
@@ -665,9 +664,7 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
-			Expect(
-				fieldNames(form),
-			).To(Equal([]string{"where", "after", "limit", "offset"}))
+			Expect(fieldNames(form)).To(Equal([]string{"where", "after", "limit"}))
 		})
 
 		It("Should derive an order from sorted fields", func(ctx SpecContext) {
@@ -690,7 +687,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 			Expect(fieldNames(form)).
-				To(Equal([]string{"where", "order", "after", "limit", "offset"}))
+				To(Equal([]string{"where", "order", "after", "limit"}))
 			field := table.MustGet("test.OrderField").Form.(resolution.EnumForm)
 			Expect(lo.Map(field.Values, func(v resolution.EnumValue, _ int) string {
 				return v.StringValue()
@@ -735,7 +732,7 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
-			Expect(fieldNames(form)).To(Equal([]string{"where", "limit", "offset"}))
+			Expect(fieldNames(form)).To(Equal([]string{"where", "limit"}))
 		})
 
 		DescribeTable("Should reject a sort mark",
@@ -893,7 +890,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 			Expect(fieldNames(req)).To(Equal([]string{
-				"where", "after", "limit", "offset", "include_status",
+				"where", "after", "limit", "include_status",
 			}))
 		})
 

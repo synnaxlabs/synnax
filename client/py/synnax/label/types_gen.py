@@ -124,7 +124,6 @@ class RetrieveRequest(BaseModel):
         order: Sorts the labels. An absent order sorts them by key.
         after: Starts the labels strictly past this position in their order.
         limit: Is the most labels to return.
-        offset: Is the number of matching labels to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -134,7 +133,6 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 Where.model_rebuild()

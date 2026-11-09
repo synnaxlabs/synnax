@@ -385,12 +385,12 @@ var _ = Describe("Go Filter Plugin", func() {
 					"if *r.Limit == 0 {",
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
-					"return q.Offset(int(r.Offset)), nil",
+					"return q, nil",
 					`"a search cannot resume after a position",`,
 					"q = q.After(r.After.Key)",
 				).
 				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit", "r.Offset")
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit")
 		})
 
 		It(

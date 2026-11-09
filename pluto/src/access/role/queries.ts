@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { access, query, type Synnax, user } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 import { deep, type destructor, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "role";
-const PLURAL_RESOURCE_NAME = "roles";
 
 export type RetrieveQuery = {
   key: string;
@@ -88,19 +86,6 @@ export const { useResult: useResultForUser } = Flux.createRetrieve<
     };
   },
   getCached: ({ client, query: { user: key } }) => getCachedForUser(client, key),
-});
-
-export type ListQuery = List.PagerParams;
-
-export const useList = Flux.createList<ListQuery, access.role.Key, access.role.Role>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.access.roles.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.access.roles.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.access.roles.onChange(key, handler),
-  getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
 
 export type DeleteParams = access.role.Key | access.role.Key[];

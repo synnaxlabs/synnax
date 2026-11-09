@@ -18,17 +18,6 @@ import { Synnax } from "@/synnax";
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
 
-export type ListParams = status.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, status.Key, status.Status>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
-  onChange: ({ client, query }, handler) => client.statuses.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.statuses.onChange(key, handler),
-  getCached: ({ client, query }) => client.statuses.getCached(query),
-});
-
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
@@ -36,20 +25,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
     await client.statuses.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
-    return data;
-  },
-});
-
-export interface SetParams {
-  statuses: status.New | status.New[];
-}
-
-export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SET,
-  update: async ({ client, data, data: { statuses }, onOptimisticComplete }) => {
-    const onOptimistic = async () => await onOptimisticComplete(data);
-    await client.statuses.set(statuses, { onOptimistic });
     return data;
   },
 });

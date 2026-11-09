@@ -88,20 +88,30 @@ export const useRange = createSelector(({ range }) => range);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({
-    ...BASE_QUERY,
-    ...query,
-    where: { internal: { eq: false }, ...query.where },
-  }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
-});
+/**
+ * Lists tasks with their statuses, also for a task outside the list. The list leaves
+ * out internal tasks unless the query sets `where.internal`.
+ */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, task.Task>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<task.Key, task.Task> =>
+  Flux.useList((client) => client.tasks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query:
+      query === null
+        ? null
+        : {
+            ...BASE_QUERY,
+            ...query,
+            where: { internal: { eq: false }, ...query?.where },
+          },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   ListQuery,

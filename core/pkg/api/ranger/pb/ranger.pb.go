@@ -212,9 +212,7 @@ type RetrieveRequest struct {
 	// after starts the ranges strictly past this position in their order.
 	After *Cursor `protobuf:"bytes,4,opt,name=after,proto3,oneof" json:"after,omitempty"`
 	// limit is the most ranges to return.
-	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching ranges to skip.
-	Offset        uint32 `protobuf:"varint,6,opt,name=offset,proto3" json:"offset,omitempty"`
+	Limit         *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -284,13 +282,6 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 	return 0
 }
 
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
 // RetrieveResponse holds the ranges a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -352,15 +343,14 @@ const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x19.api.ranger.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xa5\x02\n" +
+	"descending\"\x8d\x02\n" +
 	"\x0fRetrieveRequest\x123\n" +
 	"\x05where\x18\x01 \x01(\v2\x18.service.ranger.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12/\n" +
 	"\x05order\x18\x03 \x01(\v2\x14.api.ranger.pb.OrderH\x01R\x05order\x88\x01\x01\x120\n" +
 	"\x05after\x18\x04 \x01(\v2\x15.api.ranger.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x06 \x01(\rR\x06offsetB\b\n" +
+	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01B\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +

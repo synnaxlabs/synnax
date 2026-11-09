@@ -754,7 +754,7 @@ func ApplyRetrieve(r RetrieveRequest, q {{$.Service}}Retrieve{{$.Args}}) ({{$.Se
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
+	return q, nil
 }
 
 {{- if .Orders}}

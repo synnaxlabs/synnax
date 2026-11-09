@@ -406,7 +406,7 @@ describe("schematic queries", () => {
     });
   });
 
-  describe("useList", () => {
+  describe("list", () => {
     it("should list the snapshots of a range", async () => {
       const rng = await client.ranges.create({
         name: "list_range",
@@ -422,12 +422,19 @@ describe("schematic queries", () => {
         snapshot: true,
         range: rng.key,
       });
-      const { result } = renderHook(() => Schematic.useList(), { wrapper: Wrapper });
-      act(() => {
-        result.current.retrieve({ ranges: [rng.key] });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.schematics, {
+            name: "schematics",
+            query: { ranges: [rng.key] },
+          }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => {
+        expect(result.current.variant).toBe("success");
+        expect(result.current.data).toEqual([snapshot.key]);
       });
-      await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(result.current.data).toEqual([snapshot.key]);
       expect(result.current.getItem(snapshot.key)?.name).toBe("list_snapshot");
     });
   });

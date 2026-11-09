@@ -27,7 +27,6 @@ type Cursor = { key: string; name?: string };
 type Q = {
   min?: number;
   limit?: number;
-  offset?: number;
   order?: Order;
   after?: Cursor;
   searchTerm?: string;
@@ -117,12 +116,6 @@ describe("Lists", () => {
       );
     });
 
-    it("should drop the offset of the query", async () => {
-      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b")]);
-      await lists.list({ order: byName, limit: 1, offset: 1 }).retrieve();
-      expect(fetch).toHaveBeenCalledWith({ order: byName, limit: 1 }, undefined);
-    });
-
     it("should reject a limit that is not positive", () => {
       const { lists } = setup([]);
       expect(() => lists.list({ order: byName, limit: 0 })).toThrow(
@@ -166,6 +159,25 @@ describe("Lists", () => {
       await list.retrieve();
       await list.retrieve();
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should refetch the windows the predicate selects", async () => {
+      const { lists, fetch } = setup([rec("a", "a")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      const before = fetch.mock.calls.length;
+      lists.refetchMatching(() => false);
+      lists.refetchMatching((q) => q.order?.field === "name");
+      await expect.poll(() => fetch.mock.calls.length).toBe(before + 1);
+      release();
+    });
+
+    it("should return the same list for equal queries", () => {
+      const { lists } = setup([]);
+      const list = lists.list({ order: byName, limit: 2 });
+      expect(lists.list({ limit: 2, order: { field: "name" } })).toBe(list);
+      expect(lists.list({ order: byName, limit: 3 })).not.toBe(list);
     });
 
     it("should return undefined from getCached before a fetch", () => {
@@ -413,6 +425,90 @@ describe("Lists", () => {
         { order: byName, limit: undefined },
         undefined,
       );
+    });
+  });
+
+  describe("watched tables", () => {
+    const setupWatched = (records: Rec[], contentOnly = false) => {
+      const statuses = new query.Table<string, { key: string; variant: string }>({
+        onError: () => {},
+      });
+      const table = new query.Table<string, Rec>({ onError: () => {} });
+      const { fetch } = createCore(records);
+      const lists = new Lists<
+        Q,
+        Rec & { variant?: string },
+        string,
+        Rec,
+        Cursor,
+        Order
+      >(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (r) => ({ ...r, variant: statuses.get(r.key)?.variant }),
+          matches,
+          cursor,
+          compare: compareCursors,
+          watch: [query.watch(statuses, ({ key }) => [key], { contentOnly })],
+        },
+        { teardownGrace: TimeSpan.ZERO },
+      );
+      return { statuses, fetch, lists };
+    };
+
+    it("should compose a member again when a watched table changes it", async () => {
+      const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const handler = vi.fn();
+      const release = list.onChange(handler);
+      await list.retrieve();
+      handler.mockClear();
+      statuses.set("3", { key: "3", variant: "error" });
+      expect(handler).not.toHaveBeenCalled();
+      statuses.set("1", { key: "1", variant: "error" });
+      expect(list.getCached()?.records.map((r) => r.variant)).toEqual([
+        "error",
+        undefined,
+      ]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      release();
+    });
+
+    it("should fetch a search again when a watched change can change its matches", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      statuses.set("1", { key: "1", variant: "error" });
+      await list.retrieve();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should compose a search again without a fetch on a content-only change", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "ab")], true);
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      statuses.set("1", { key: "1", variant: "error" });
+      expect(list.getCached()?.records[0].variant).toEqual("error");
+      await list.retrieve();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should fetch a window again when a watched table changed while unwatched", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      release();
+      statuses.set("1", { key: "1", variant: "error" });
+      const before = fetch.mock.calls.length;
+      const again = list.onChange(() => {});
+      await expect.poll(() => fetch.mock.calls.length).toBe(before + 1);
+      expect(list.getCached()?.records[0].variant).toEqual("error");
+      again();
     });
   });
 

@@ -488,20 +488,11 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			),
 		))
 	}
-	request = append(
-		request,
-		optionalField(
-			"limit",
-			resolution.TypeRef{Name: "uint32"},
-			fmt.Sprintf("is the most %s to return.", words),
-		),
-		defaultField(
-			"offset",
-			resolution.TypeRef{Name: "uint32"},
-			fmt.Sprintf("is the number of matching %s to skip.", words),
-			resolution.ExpressionValue{Kind: resolution.ValueKindInt},
-		),
-	)
+	request = append(request, optionalField(
+		"limit",
+		resolution.TypeRef{Name: "uint32"},
+		fmt.Sprintf("is the most %s to return.", words),
+	))
 	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
 	if !ok {
 		return

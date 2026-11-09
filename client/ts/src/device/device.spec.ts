@@ -752,18 +752,17 @@ describe("Device", async () => {
           .toMatchObject({ name: "sensor1", key: sensor1.key });
       });
 
-      it("should support pagination with limit and offset", async () => {
+      it("should page with a limit and a cursor", async () => {
         const firstPage = await client.devices.retrieve({
           rack: testRack.key,
           limit: 2,
-          offset: 0,
         });
         expect(firstPage).toHaveLength(2);
 
         const secondPage = await client.devices.retrieve({
           rack: testRack.key,
           limit: 2,
-          offset: 2,
+          after: { key: firstPage[1].key },
         });
         expect(secondPage).toHaveLength(2);
 

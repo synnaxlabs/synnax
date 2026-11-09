@@ -24,7 +24,7 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
-const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -104,7 +104,7 @@ export type RequestInput<Z extends z.ZodType> =
 /**
  * The query objects a request schema accepts that return one record: those with a plain
  * `key` or `name` value beside any other fields, and those that set `one`. Neither
- * takes a limit or an offset, since a page could hide a second match.
+ * takes a limit or a cursor, since a page could hide a second match.
  */
 export type OneInput<Z extends z.ZodType> =
   | (z.input<Z> extends infer I
@@ -113,17 +113,17 @@ export type OneInput<Z extends z.ZodType> =
         : "where" extends keyof I
           ? never
           : {
-              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "offset"> & {
+              [F in ("key" | "name") & keyof I]: Omit<I, F | "limit" | "after"> & {
                 [P in F]: Extract<I[P], P extends "key" ? record.Key : string>;
-              } & { limit?: never; offset?: never };
+              } & { limit?: never; after?: never };
             }[("key" | "name") & keyof I]
       : never)
   | (RequestInput<Z> extends infer R
       ? R extends unknown
-        ? Omit<R, "one" | "limit" | "offset"> & {
+        ? Omit<R, "one" | "limit" | "after"> & {
             one: true;
             limit?: never;
-            offset?: never;
+            after?: never;
           }
         : never
       : never);
@@ -158,13 +158,13 @@ export const addressesOne = (params: unknown): boolean =>
 
 /**
  * @returns params without the `one` option.
- * @throws {ValidationError} if params return one record beside a limit or an offset.
+ * @throws {ValidationError} if params return one record beside a limit or a cursor.
  */
 export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
   if (!isObject(params)) return params as P extends unknown ? Omit<P, "one"> : never;
-  if (addressesOne(params) && (params.limit != null || params.offset != null))
+  if (addressesOne(params) && (params.limit != null || params.after != null))
     throw new ValidationError(
-      "a query for one record takes no limit or offset, since a page could hide a " +
+      "a query for one record takes no limit or cursor, since a page could hide a " +
         "second match",
     );
   if (!("one" in params)) return params as P extends unknown ? Omit<P, "one"> : never;
@@ -338,6 +338,7 @@ export abstract class Retriever<
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
   private readonly readShortcut: ((params: unknown) => Params) | null;
   private readonly routes = new WeakMap<object, [Retrieves<Params, D | D[]>, Params]>();
+  private readonly listed = new WeakMap<object, List<D, CursorOf<z.output<Z>>>>();
 
   constructor(
     cache: Cache,
@@ -402,6 +403,11 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
+            watch: watch?.map(({ attach, version, contentOnly }) => ({
+              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+              version,
+              contentOnly,
+            })),
             compare: list.compare,
           });
     const oneSpace: Retrieves<z.output<Z>, D> = cache.queries<z.output<Z>, D, K, V>({
@@ -528,7 +534,7 @@ export abstract class Retriever<
    * @throws {NotFoundError} if a single-record query matches nothing, the record was
    * deleted, or a key in a bare key list has no record.
    * @throws {MultipleFoundError} if a single-record query matches more than one record.
-   * @throws {ValidationError} if params set `one` beside a limit or an offset.
+   * @throws {ValidationError} if params set `one` beside a limit or a cursor.
    * @throws {zod.ParseError} if no schema of the domain accepts the params.
    */
   retrieve(
@@ -567,7 +573,12 @@ export abstract class Retriever<
    */
   list(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>> {
     if (this.lists == null) throw new Error(`${this.name} has no lists`);
-    return this.lists.list(this.normalizeRequest(params) as never);
+    // Params are readonly, so a repeat read of one object skips validation.
+    const held = this.listed.get(params);
+    if (held != null) return held;
+    const list = this.lists.list(this.normalizeRequest(params) as never);
+    this.listed.set(params, list);
+    return list;
   }
 
   /**

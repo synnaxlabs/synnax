@@ -208,8 +208,6 @@ struct RetrieveOptions {
     std::optional<Cursor> after;
     /// @brief limit is the most statuses to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching statuses to skip.
-    std::uint32_t offset = 0;
 };
 
 /// @brief RetrieveRequest is a request to retrieve statuses.
@@ -225,8 +223,6 @@ struct RetrieveRequest {
     std::optional<Cursor> after;
     /// @brief limit is the most statuses to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching statuses to skip.
-    std::uint32_t offset = 0;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -236,7 +232,6 @@ struct RetrieveRequest {
             .order = options.order,
             .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
         };
     }
 

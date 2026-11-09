@@ -190,8 +190,6 @@ struct RetrieveOptions {
     std::optional<Cursor> after;
     /// @brief limit is the most racks to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 };
@@ -208,8 +206,6 @@ struct RetrieveRequest {
     std::optional<Cursor> after;
     /// @brief limit is the most racks to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 
@@ -221,7 +217,6 @@ struct RetrieveRequest {
             .order = options.order,
             .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
             .include_status = options.include_status,
         };
     }

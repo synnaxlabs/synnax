@@ -16,18 +16,6 @@ import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "view";
-const PLURAL_RESOURCE_NAME = "views";
-
-export type ListQuery = view.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, view.Key, view.View>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
-  onChange: ({ client, query }, handler) => client.views.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
-  getCached: ({ client, query }) => client.views.getCached(query),
-});
 
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,

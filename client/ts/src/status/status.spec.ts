@@ -507,7 +507,7 @@ describe("Status", () => {
         .toBe(true);
     });
 
-    it("should paginate results", async () => {
+    it("should page with a limit and a cursor", async () => {
       const keys = [];
       for (let i = 0; i < 5; i++) {
         const key = `paginate-${i}-${Date.now()}`;
@@ -521,9 +521,13 @@ describe("Status", () => {
         });
       }
 
-      const page1 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 0 });
+      const page1 = await client.statuses.retrieve({ key: keys, limit: 2 });
 
-      const page2 = await client.statuses.retrieve({ key: keys, limit: 2, offset: 2 });
+      const page2 = await client.statuses.retrieve({
+        key: keys,
+        limit: 2,
+        after: { key: page1[1].key },
+      });
 
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);

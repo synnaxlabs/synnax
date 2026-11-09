@@ -22,6 +22,7 @@ import {
   hash,
   type SpaceHooks,
   startStreaming,
+  type Watch,
 } from "@/query/query";
 import { type Keyed, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -119,6 +120,15 @@ export interface ListsConfig<
   cursor: (record: V, order?: O) => C;
   /** Orders two positions as the Core walks them. */
   compare: (a: C, b: C, order?: O) => number;
+  /** Foreign tables whose changes reach the records of the windows. */
+  watch?: Array<Watch<Q, K>>;
+}
+
+interface Seen {
+  /** The versions of the table and of each watched table. */
+  versions: number[];
+  /** Null while the stream does not maintain the tables. */
+  epoch: number | null;
 }
 
 interface Entry<Q, K extends record.Key, D extends Data, V, C> {
@@ -135,6 +145,8 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The limit of the ranked fetch behind the window. */
   searchLimit?: number;
   handlers: Set<WindowHandler<D, C>>;
+  /** The list handles of the window, by the limit they ask for. */
+  lists: Map<number | undefined, List<D, C>>;
   /** Present exactly while the window is maintained. */
   teardown?: destructor.Destructor;
   idleSince?: TimeStamp;
@@ -148,7 +160,7 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   ingesting: boolean;
   /** Set when the window may have missed a change. The next read fetches it. */
   stale: boolean;
-  /** The table version and epoch when the window stopped seeing changes. */
+  /** The table versions and epoch when the window stopped seeing changes. */
   seen?: Seen;
   refetchTimer?: ReturnType<typeof setTimeout>;
   composed?: { records: V[]; end: C | null; value: Window<D, C> };
@@ -195,21 +207,29 @@ export class Lists<
     });
   }
 
-  /** Returns the list of the records that match the query. */
+  /**
+   * Returns the list of the records that match the query. Equal queries return the same
+   * list, so a reader can key a subscription on it.
+   */
   list(query: Q): List<D, C> {
-    const { limit, after: _after, offset: _offset, ...rest } = query;
+    const { limit, after: _after, ...rest } = query;
     if (limit != null && limit <= 0)
       throw new ValidationError(`a ${this.config.name} list needs a positive limit`);
     const base = (
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
     const entry = this.ensure(base);
-    return {
-      retrieve: async (options) => await this.retrieve(entry, limit, options),
-      more: async (n, options) => await this.more(entry, n, options),
-      getCached: () => this.cachedOf(entry),
-      onChange: (handler) => this.subscribe(entry, handler),
-    };
+    let list = entry.lists.get(limit);
+    if (list == null) {
+      list = {
+        retrieve: async (options) => await this.retrieve(entry, limit, options),
+        more: async (n, options) => await this.more(entry, n, options),
+        getCached: () => this.cachedOf(entry),
+        onChange: (handler) => this.subscribe(entry, handler),
+      };
+      entry.lists.set(limit, list);
+    }
+    return list;
   }
 
   /**
@@ -228,6 +248,16 @@ export class Lists<
       entry.stale = false;
       entry.composed = undefined;
       this.deliver(entry);
+    });
+  }
+
+  /**
+   * Fetches again, after a short wait, each window whose query the predicate accepts.
+   * For changes the table cannot see, such as a record the caller may not read.
+   */
+  refetchMatching(predicate: (query: Q) => boolean): void {
+    this.entries.forEach((entry) => {
+      if (predicate(entry.query)) this.scheduleRefetch(entry);
     });
   }
 
@@ -278,6 +308,7 @@ export class Lists<
         fetched: false,
         limit: 0,
         handlers: new Set(),
+        lists: new Map(),
         queue: Promise.resolve(),
         generation: 0,
         ingesting: false,
@@ -536,15 +567,41 @@ export class Lists<
     };
   }
 
+  /**
+   * Handles a change to a watched table. The window's records are the same objects, so
+   * a change to a member composes the window again.
+   */
+  private onWatch(
+    entry: Entry<Q, K, D, V, C>,
+    watch: Watch<Q, K>,
+    result: K[] | "refetch",
+  ): void {
+    if (entry.ingesting || !entry.fetched) return;
+    if (result === "refetch") return this.scheduleRefetch(entry);
+    if (watch.contentOnly !== true)
+      if (entry.ranked) this.scheduleRefetch(entry);
+      else this.admit(entry, result);
+    const members = new Set(entry.keys);
+    if (!result.some((key) => members.has(key))) return;
+    entry.composed = undefined;
+    this.deliver(entry);
+  }
+
   private maintain(entry: Entry<Q, K, D, V, C>): void {
-    entry.teardown = this.config.table.subscribeBatch((events) =>
-      this.onEvents(entry, events),
-    );
+    const { table, watch = [] } = this.config;
+    const releases = [
+      table.subscribeBatch((events) => this.onEvents(entry, events)),
+      ...watch.map((w) =>
+        w.attach(entry.query, (result) => this.onWatch(entry, w, result)),
+      ),
+    ];
+    entry.teardown = () => releases.forEach((release) => release());
     if (entry.fetched && !unchanged(entry.seen, this.seen())) entry.stale = true;
     if (!entry.stale || !entry.fetched) return;
     // A record deleted while unmaintained leaves its key until the refetch lands.
-    const { table } = this.config;
     entry.keys = entry.keys.filter((key) => table.get(key) != null);
+    // A watched change leaves the records as they were, so the window composes again.
+    entry.composed = undefined;
     this.scheduleRefetch(entry);
   }
 
@@ -557,10 +614,11 @@ export class Lists<
   }
 
   private seen(): Seen {
+    const { table, watch = [] } = this.config;
     const maintained = this.hooks.maintained?.() !== false;
     const epoch = this.hooks.epoch?.() ?? 1;
     return {
-      version: this.config.table.version(),
+      versions: [table.version(), ...watch.map((w) => w.version())],
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
   }
@@ -652,15 +710,11 @@ export class Lists<
   }
 }
 
-interface Seen {
-  version: number;
-  /** Null while the stream does not maintain the table. */
-  epoch: number | null;
-}
-
-/** Whether the table took no change between the two snapshots. */
+/** Whether the tables took no change between the two snapshots. */
 const unchanged = (before: Seen | undefined, now: Seen): boolean =>
-  before?.epoch != null && before.version === now.version && before.epoch === now.epoch;
+  before?.epoch != null &&
+  compare.arraysEqual(before.versions, now.versions) &&
+  before.epoch === now.epoch;
 
 /** Returns the limit to send the Core: undefined for every record. */
 const finite = (limit: number): number | undefined =>

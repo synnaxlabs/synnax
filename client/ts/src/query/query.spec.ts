@@ -1858,7 +1858,7 @@ describe("Answers", () => {
   });
 
   describe("limited queries (rule 2)", () => {
-    type LimitQ = { min: number; limit?: number; offset?: number };
+    type LimitQ = { min: number; limit?: number; searchTerm?: string };
     const limitSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: LimitQ) => Promise<string[]>,
@@ -1869,7 +1869,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        serverFields: ["limit", "offset"],
+        serverFields: ["limit", "searchTerm"],
       });
     const fetchOf = (table: query.Table<string, Rec>, members: Rec[]) =>
       vi.fn(async () => {
@@ -1888,17 +1888,6 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
       await wait(150);
       expect(fetch).toHaveBeenCalledTimes(1);
-    });
-
-    it("refetches a full page with a zero offset on a new match", async () => {
-      const table = newTable();
-      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
-      const answers = limitSpace(table, fetch);
-      answers.onChange({ min: 3, limit: 2, offset: 0 }, vi.fn());
-      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
-      table.set("c", rec("c", 6));
-      await wait(150);
-      expect(fetch).toHaveBeenCalledTimes(2);
     });
 
     it("admits matches only up to the limit", async () => {
@@ -2049,8 +2038,8 @@ describe("Answers", () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
       const answers = limitSpace(table, fetch);
-      answers.onChange({ min: 3, limit: 2, offset: 1 }, vi.fn());
-      await answers.retrieve({ min: 3, limit: 2, offset: 1 });
+      answers.onChange({ min: 3, limit: 2, searchTerm: "a" }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, searchTerm: "a" });
       table.set("z", rec("z", 1));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
@@ -2296,6 +2285,28 @@ describe("Answers", () => {
     interface Rel extends record.Keyed<string> {
       key: string;
     }
+
+    it("notifies a server-computed answer of a content-only change without a fetch", async () => {
+      const primary = new query.Table<string, Rec>({ onError: () => {} });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      primary.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>({
+        name: "things",
+        table: primary,
+        fetch,
+        compose: (records) => records,
+        watch: [query.watch(foreign, (event) => [event.key], { contentOnly: true })],
+      });
+      const handler = vi.fn();
+      answers.onChange({ tag: "t" }, handler);
+      await answers.retrieve({ tag: "t" });
+      handler.mockClear();
+      foreign.set("a", { key: "a" });
+      expect(handler).toHaveBeenCalled();
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
 
     it("rechecks and backfills keys surfaced by a foreign-table projection", async () => {
       const primary = new query.Table<string, Rec>({

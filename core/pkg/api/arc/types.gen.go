@@ -69,8 +69,6 @@ type RetrieveRequest struct {
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most arcs to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching arcs to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeProgram includes the program of each record.
 	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
 }

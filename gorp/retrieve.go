@@ -42,8 +42,6 @@ type Retrieve[K Key, E Entry[K]] struct {
 	entries Entries[K, E]
 	// limit caps the number of returned entries; 0 means unbounded.
 	limit int
-	// offset is the number of matched entries to skip before collecting.
-	offset int
 	// prefix narrows the underlying scan to keys starting with this
 	// byte prefix; nil scans the whole table.
 	prefix []byte
@@ -88,9 +86,6 @@ func (r Retrieve[K, E]) Where(filter Filter[K, E]) Retrieve[K, E] {
 // HasLimit returns true if a limit was set on the query.
 func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 
-// HasOffset returns true if an offset was set on the query.
-func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
-
 // IsBareKeys returns true if the filter is exactly Where(MatchKeys(...)), with no eval,
 // raw, or resolver filter layered on top.
 func (r Retrieve[K, E]) IsBareKeys() bool {
@@ -124,12 +119,6 @@ func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
 // any results beyond the limit.
 func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
 	r.limit = limit
-	return r
-}
-
-// Offset sets the number of results that the query will skip before returning results.
-func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
-	r.offset = offset
 	return r
 }
 
@@ -431,12 +420,12 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 	// An index returns its keys in no fixed order, so a page follows storage order.
 	if r.after != nil {
 		keys = storageOrder(keys, r.after)
-	} else if (r.limit > 0 || r.offset > 0) && !r.IsBareKeys() && !r.filter.keys.Ranked() {
+	} else if r.limit > 0 && !r.IsBareKeys() && !r.filter.keys.Ranked() {
 		keys = storageOrder(keys, nil)
 	}
 	r.entries.ensureCap(capacity)
 	for _, k := range keys {
-		if stops && validCount == r.offset+r.limit {
+		if stops && validCount == r.limit {
 			break
 		}
 		e = zero
@@ -455,8 +444,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			}
 			if match {
 				validCount++
-				if validCount > r.offset &&
-					(r.limit == 0 || validCount <= r.limit+r.offset) {
+				if r.limit == 0 || validCount <= r.limit {
 					r.entries.add(e)
 				}
 			}
@@ -550,8 +538,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 		}
 		if match {
 			validCount += 1
-			if (validCount > r.offset) &&
-				(r.limit == 0 || validCount <= r.limit+r.offset) {
+			if r.limit == 0 || validCount <= r.limit {
 				r.entries.add(*v)
 			}
 		}
@@ -581,7 +568,7 @@ const minWalkBatch = 128
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 	var (
 		reader  = wrapReader[K, E](snap, r.keyPrefix)
-		matched = make([]E, 0, min(r.offset+r.limit, minWalkBatch))
+		matched = make([]E, 0, min(r.limit, minWalkBatch))
 		counted = set.New[K]()
 		moved   = make(map[K]E)
 		gorpCtx = newContext(ctx, snap)
@@ -592,7 +579,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 		bounded = r.filter.keys.Keys()
 	}
 	if r.limit > 0 {
-		batch = max(r.offset+r.limit, minWalkBatch)
+		batch = max(r.limit, minWalkBatch)
 	}
 	// One snapshot of the index finds each key once, so the walk keeps an entry that
 	// moved after the snapshot and sorts it into place at the end.
@@ -630,14 +617,13 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 		counted.Add(k)
 		delete(moved, k)
 		matched = append(matched, e)
-		if r.limit > 0 && len(matched) == r.offset+r.limit {
+		if r.limit > 0 && len(matched) == r.limit {
 			break
 		}
 	}
 	if snapshot || len(moved) > 0 {
 		matched = r.orderBy.sort(append(matched, slices.Collect(maps.Values(moved))...))
 	}
-	matched = matched[min(r.offset, len(matched)):]
 	if r.limit > 0 {
 		matched = matched[:min(r.limit, len(matched))]
 	}

@@ -8,21 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { label, ranger } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
 const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
-const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
 export type RetrieveQuery = {
@@ -38,31 +35,6 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   const client = Synnax.use();
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
-
-export type ListChildrenQuery = List.PagerParams & {
-  key?: ranger.Key;
-};
-
-export const useListChildren = Flux.createList<
-  ListChildrenQuery,
-  ranger.Key,
-  ranger.Range
->({
-  name: PLURAL_CHILDREN_RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return [];
-    return await client.ranges.retrieve({ parents: [key], limit, offset });
-  },
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key, limit, offset } }, handler) => {
-    if (key == null) return () => {};
-    return client.ranges.onChange({ parents: [key], limit, offset }, handler);
-  },
-  getCached: ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return undefined;
-    return client.ranges.getCached({ parents: [key], limit, offset });
-  },
-});
 
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
   RetrieveQuery,
@@ -168,36 +140,21 @@ export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => 
   return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
 };
 
-export { type ListQuery } from "@/ranger/aether/queries";
-
-export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  ...listDefinition,
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
-});
-
 export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
-export type ListMetaDataQuery = {
+export type MetaDataQuery = {
   rangeKey: ranger.Key;
 };
 
-export const useListMetaData = Flux.createList<
-  ListMetaDataQuery,
-  string,
-  ranger.kv.Pair
+export const { useResult: useResultMetaData } = Flux.createRetrieve<
+  MetaDataQuery,
+  ranger.kv.Pair[]
 >({
   name: PLURAL_KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) =>
     await client.ranges.kv.retrieve(rangeKey),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) => {
-    if (rangeKey == null) return undefined;
-    const kv = client.ranges.getKV(rangeKey);
-    const value = await kv.get(key);
-    return { key, value, range: rangeKey };
-  },
   onChange: ({ client, query: { rangeKey } }, handler) =>
     client.ranges.kv.onChange(rangeKey, handler),
   getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
@@ -224,7 +181,7 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   },
 });
 
-export interface DeleteKVParams extends ListMetaDataQuery {
+export interface DeleteKVParams extends MetaDataQuery {
   key: string;
 }
 
@@ -240,7 +197,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   },
 });
 
-export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
+export interface SetKVParams extends MetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,

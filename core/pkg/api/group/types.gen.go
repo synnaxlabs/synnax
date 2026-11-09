@@ -71,8 +71,6 @@ type RetrieveRequest struct {
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most groups to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching groups to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -131,7 +131,6 @@ func OrdersFromPB(pbs []*Order) ([]task.Order, error) {
 func RetrieveRequestToPB(r task.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
 		IncludeStatus: r.IncludeStatus,
 	}
 	if r.Where != nil {
@@ -168,7 +167,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (task.RetrieveRequest, error) {
 		return r, nil
 	}
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := taskpb.WhereFromPB(pb.Where)

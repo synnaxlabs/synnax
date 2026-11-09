@@ -132,8 +132,6 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most arcs to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching arcs to skip. */
-  offset: z.uint32().optional(),
   /** includeProgram includes the program of each record. */
   includeProgram: z.boolean().optional(),
 });

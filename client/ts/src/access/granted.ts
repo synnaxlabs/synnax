@@ -13,7 +13,8 @@ import { type Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
 import { query } from "@/query";
-import { resource } from "@/resource";
+import { type resource } from "@/resource";
+import { user } from "@/user";
 
 /** A permission question: may the subject apply the action to the objects? */
 export interface GrantedQuery {
@@ -21,15 +22,13 @@ export interface GrantedQuery {
   action: Action;
 }
 
+/** The user a question asks about. Its role selects the policies that answer it. */
+export interface Grantee extends Pick<user.User, "key" | "role"> {}
+
 interface Verdict {
-  subject: string;
+  role: string;
   policies: policy.Policy[];
   verdict: boolean;
-}
-
-interface SubjectEntry {
-  key: string;
-  query: policy.RetrieveMultipleParams;
 }
 
 export interface GrantedConfig {
@@ -38,35 +37,42 @@ export interface GrantedConfig {
 
 /**
  * The cached read surface for permission checks, answering {@link GrantedQuery}
- * questions against the subject's cached policies. Snapshot reads memoize the
- * verdict per query object, so render-hot callers pay a policy evaluation only
- * when the policies actually change.
+ * questions against the cached policies of the grantee's role. Snapshot reads memoize
+ * the verdict per query object, so render-hot callers pay a policy evaluation only when
+ * the policies actually change.
  */
 export class Granted {
   private readonly policies: policy.Client;
-  private readonly subjects = new Map<string, SubjectEntry>();
+  private readonly queries = new Map<string, policy.RetrieveMultipleParams>();
   private readonly verdicts = new WeakMap<GrantedQuery, Verdict>();
 
   constructor(cfg: GrantedConfig) {
     this.policies = cfg.policies;
   }
 
-  // A subject's entry holds its canonical key and a stable `{ for }` query, so
-  // repeat reads stringify once and stay on the retriever's normalization memo.
-  private subjectFor(subject: resource.ID): SubjectEntry {
-    const key = resource.idToString(subject);
-    let held = this.subjects.get(key);
+  // A stable query per role keeps repeat reads on the retriever's memo.
+  private queryFor({ role }: Grantee): policy.RetrieveMultipleParams {
+    let held = this.queries.get(role);
     if (held == null) {
-      held = { key, query: { where: { subjects: [subject] } } };
-      this.subjects.set(key, held);
+      held = { roles: [role] };
+      this.queries.set(role, held);
     }
     return held;
   }
 
-  /** Fetches the subject's policies and answers the question. */
-  async retrieve(subject: resource.ID, q: GrantedQuery): Promise<boolean> {
-    const policies = await this.policies.retrieve(this.subjectFor(subject).query);
+  private evaluate(
+    grantee: Grantee,
+    q: GrantedQuery,
+    policies: policy.Policy[],
+  ): boolean {
+    const subject: resource.ID = user.resourceID(grantee.key);
     return allowRequest({ subject, objects: q.objects, action: q.action }, policies);
+  }
+
+  /** Fetches the policies of the grantee's role and answers the question. */
+  async retrieve(grantee: Grantee, q: GrantedQuery): Promise<boolean> {
+    const policies = await this.policies.retrieve(this.queryFor(grantee));
+    return this.evaluate(grantee, q, policies);
   }
 
   /**
@@ -74,13 +80,13 @@ export class Granted {
    * cannot change the answer never reaches the handler.
    */
   onChange(
-    subject: resource.ID,
+    grantee: Grantee,
     q: GrantedQuery,
     handler: (granted: boolean) => void,
   ): destructor.Destructor {
-    const { query: policiesQuery } = this.subjectFor(subject);
+    const policiesQuery = this.queryFor(grantee);
     const evaluate = (policies: policy.Policy[]): boolean =>
-      allowRequest({ subject, objects: q.objects, action: q.action }, policies);
+      this.evaluate(grantee, q, policies);
     const cached = this.policies.getCached(policiesQuery);
     let prev = query.isLive(cached) ? evaluate(cached) : undefined;
     return this.policies.onChange(policiesQuery, (result) => {
@@ -93,22 +99,19 @@ export class Granted {
   }
 
   /**
-   * Returns the cached verdict, or undefined when the subject's policies are
-   * not cached. Repeat calls with the same query object skip the policy
-   * evaluation until the cached policies change.
+   * Returns the cached verdict, or undefined when the policies of the grantee's role
+   * are not cached. Repeat calls with the same query object skip the policy evaluation
+   * until the cached policies change.
    */
-  getCached(subject: resource.ID, q: GrantedQuery): boolean | undefined {
-    const { key: subjectKey, query: policiesQuery } = this.subjectFor(subject);
-    const cached = this.policies.getCached(policiesQuery);
+  getCached(grantee: Grantee, q: GrantedQuery): boolean | undefined {
+    const { role } = grantee;
+    const cached = this.policies.getCached(this.queryFor(grantee));
     if (!query.isLive(cached)) return undefined;
     const held = this.verdicts.get(q);
-    if (held != null && held.policies === cached && held.subject === subjectKey)
+    if (held != null && held.policies === cached && held.role === role)
       return held.verdict;
-    const verdict = allowRequest(
-      { subject, objects: q.objects, action: q.action },
-      cached,
-    );
-    this.verdicts.set(q, { subject: subjectKey, policies: cached, verdict });
+    const verdict = this.evaluate(grantee, q, cached);
+    this.verdicts.set(q, { role, policies: cached, verdict });
     return verdict;
   }
 }

@@ -50,8 +50,6 @@ message RetrieveRequest {
   optional Cursor after = 4;
   // limit is the most statuses to return.
   optional uint32 limit = 5;
-  // offset is the number of matching statuses to skip.
-  uint32 offset = 6;
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

@@ -131,7 +131,6 @@ func OrdersFromPB(pbs []*Order) ([]arc.Order, error) {
 func RetrieveRequestToPB(r arc.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:     r.SearchTerm,
-		Offset:         r.Offset,
 		IncludeProgram: r.IncludeProgram,
 	}
 	if r.Where != nil {
@@ -168,7 +167,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 		return r, nil
 	}
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeProgram = pb.IncludeProgram
 	if pb.Where != nil {
 		val, err := arcpb.WhereFromPB(pb.Where)

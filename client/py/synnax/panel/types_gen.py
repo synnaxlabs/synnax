@@ -164,7 +164,6 @@ class RetrieveRequest(BaseModel):
         order: Sorts the panels. An absent order sorts them by key.
         after: Starts the panels strictly past this position in their order.
         limit: Is the most panels to return.
-        offset: Is the number of matching panels to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -174,7 +173,6 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class LeafNode(BaseModel):

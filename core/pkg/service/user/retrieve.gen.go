@@ -214,13 +214,6 @@ func (r Retrieve) Entries(es *[]User) Retrieve {
 // Limit sets the maximum number of users to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the users to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
 // After starts the query strictly past key in key order. It panics on a query with an
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {

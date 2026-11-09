@@ -663,23 +663,11 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
 					svc.NewRetrieve[any]().Limit(2).Entries(&statuses).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(statuses).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(
-					svc.NewRetrieve[any]().
-						Offset(1).
-						Limit(2).
-						Entries(&statuses).
-						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})

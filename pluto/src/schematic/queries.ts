@@ -18,7 +18,6 @@ import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "schematic";
-const PLURAL_RESOURCE_NAME = "schematics";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
@@ -33,17 +32,6 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
     client.schematics.onChange(query.key, handler),
   getCached: ({ client, query }) => client.schematics.getCached(query.key),
   awaitCreation: true,
-});
-
-export type ListQuery = schematic.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, schematic.Key, schematic.Schematic>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.schematics.retrieve(key),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.schematics.onChange(key, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
 });
 
 export interface KeyParams {

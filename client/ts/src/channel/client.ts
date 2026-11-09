@@ -398,8 +398,11 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
-          query.watch(statusStore, (event, query: RetrieveMultipleParams) =>
-            query.includeStatus === true ? affectedChannelKeys(event) : null,
+          query.watch(
+            statusStore,
+            (event, query: RetrieveMultipleParams) =>
+              query.includeStatus === true ? affectedChannelKeys(event) : null,
+            { contentOnly: true },
           ),
         ],
       },
