@@ -426,7 +426,7 @@ Where filter Channel {
 `)).Error().To(MatchError(ContainSubstring("Channel.name, Channel.uses")))
 		})
 
-		It("Should keep a doc on a declaration the chain removed", func(
+		It("Should drop a removed declaration and its doc without an error", func(
 			ctx SpecContext,
 		) {
 			r, chain := resolver()
