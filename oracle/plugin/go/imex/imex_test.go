@@ -673,6 +673,52 @@ ScanConfig struct {
 			})
 
 			It(
+				"Should keep a frozen version file when the current version adds a type",
+				func(ctx SpecContext) {
+					const (
+						readOnly = "ReadConfig struct {\n\tkey uuid @key\n\n" +
+							"\t@go imex body\n}\n"
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+						v2Path = "core/pkg/service/modbus/versions/v2/imex.gen.go"
+					)
+					before := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead,
+						map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n",
+						},
+					)))
+					after := MustSucceed(p.Generate(configRequest(
+						ctx, GinkgoT().TempDir(), map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n\n" +
+								"ScanConfig struct {\n\tkey uuid @key\n\n" +
+								"\t@go imex body\n}\n",
+						},
+					)))
+					ExpectContent(before, v1Path).ToContain(
+						"// Version is the portable schema version of the ReadConfig " +
+							"shape this package defines.",
+					)
+					Expect(MustContentOf(after, v1Path)).To(
+						Equal(MustContentOf(before, v1Path)),
+					)
+					ExpectContent(after, v2Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+				},
+			)
+
+			It(
 				"Should error when a bare marker shares a package with a body type",
 				func(
 					ctx SpecContext,

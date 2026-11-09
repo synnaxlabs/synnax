@@ -144,7 +144,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	for _, outputPath := range paths {
 		if err := p.generatePackage(
-			req, resp, outputPath, packages[outputPath],
+			ctx, req, resp, outputPath, packages[outputPath],
 		); err != nil {
 			return nil, err
 		}
@@ -231,6 +231,7 @@ func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 const bodyMarker = "body"
 
 func (p *Plugin) generatePackage(
+	ctx context.Context,
 	req *plugin.Request,
 	resp *plugin.Response,
 	outputPath string,
@@ -238,21 +239,19 @@ func (p *Plugin) generatePackage(
 ) error {
 	var (
 		exported = make(set.Set[int])
-		names    = make([]string, 0, len(targets))
 		floor    = targets[0].floor
 	)
 	for _, t := range targets {
 		exported.Add(t.exported...)
-		names = append(names, t.goName)
 		floor = min(floor, t.floor)
-	}
-	subject := "the shapes"
-	if len(names) == 1 {
-		subject = "the " + names[0] + " shape"
 	}
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
 		path := versioning.VersionedPath(outputPath, k)
+		subject, err := versionSubject(ctx, req, targets, k)
+		if err != nil {
+			return err
+		}
 		var buf bytes.Buffer
 		if err := versionTemplate.Execute(&buf, &versionData{
 			Package: naming.DerivePackageName(path),
@@ -336,6 +335,38 @@ func (p *Plugin) generatePackage(
 		Content: exportBuf.Bytes(),
 	})
 	return nil
+}
+
+// versionSubject names the shapes version k exports, read from k's version file, so a
+// frozen package's output does not change when a later version adds or renames a type.
+func versionSubject(
+	ctx context.Context,
+	req *plugin.Request,
+	targets []target,
+	k int,
+) (string, error) {
+	var names []string
+	for _, t := range targets {
+		if !slices.Contains(t.exported, k) {
+			continue
+		}
+		surf, err := req.Versions.Surface(ctx, t.livePath, k)
+		if err != nil {
+			return "", err
+		}
+		def, ok := surf[t.typ.Name]
+		if !ok {
+			return "", errors.Newf(
+				"version %d of %s does not declare %s",
+				k, t.livePath, t.typ.QualifiedName,
+			)
+		}
+		names = append(names, naming.GetGoName(def.Type))
+	}
+	if len(names) == 1 {
+		return "the " + names[0] + " shape", nil
+	}
+	return "the shapes", nil
 }
 
 func (p *Plugin) executeChain(buf *bytes.Buffer, t target, imports []string) error {
