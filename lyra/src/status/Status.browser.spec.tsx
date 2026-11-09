@@ -13,7 +13,7 @@ import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Status } from "@/status";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, selectedByTripleClick } from "@/styletest";
 
 const MESSAGE = "Failed to start the task because the device did not answer in time";
 
@@ -66,6 +66,15 @@ describe("Status", () => {
         card.getBoundingClientRect().right,
       );
     });
+
+    it.each(["name", "message", "description"])(
+      "should let a user select its %s",
+      async (element) => {
+        const card = await renderNotification();
+        const text = card.querySelector(`.${CSS.BE("notification", element)}`)!;
+        expect(await selectedByTripleClick(text)).toContain(text.textContent);
+      },
+    );
 
     it("should swap its time for its controls on hover", async () => {
       const card = await renderNotification();

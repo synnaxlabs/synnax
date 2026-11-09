@@ -75,3 +75,19 @@ export const computed = (el: Element, property: string): string =>
 
 /** @returns the rendered height of the element in pixels. */
 export const height = (el: Element): number => el.getBoundingClientRect().height;
+
+/**
+ * @returns the text that a triple click on the element selects while the body turns
+ * selection off, as the Console does.
+ */
+export const selectedByTripleClick = async (el: Element): Promise<string> => {
+  const { style } = document.body;
+  style.setProperty("-webkit-user-select", "none");
+  style.setProperty("user-select", "none");
+  getSelection()?.removeAllRanges();
+  await userEvent.tripleClick(el);
+  const text = getSelection()?.toString() ?? "";
+  style.removeProperty("-webkit-user-select");
+  style.removeProperty("user-select");
+  return text;
+};

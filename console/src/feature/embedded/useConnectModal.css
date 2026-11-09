@@ -33,6 +33,7 @@
 
             /* Centers the first line on the copy button. */
             padding-block: calc((var(--pluto-height-small) - 1.6em) / 2);
+            -webkit-user-select: text;
             user-select: text;
         }
     }
