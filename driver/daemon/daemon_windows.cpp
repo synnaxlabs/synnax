@@ -103,9 +103,32 @@ const auto NOT_INSTALLED = x::errors::Error(
     "the Driver service is not installed. Run synnax-driver install"
 );
 
-/// @brief stops the service and waits until it stops. Returns NIL when the service is
-/// not running.
+/// @brief a process handle that closes itself.
+struct Process {
+    HANDLE h = nullptr;
+    ~Process() {
+        if (this->h != nullptr) CloseHandle(this->h);
+    }
+};
+
+/// @brief stops the service and waits until its process exits. Returns NIL when the
+/// service is not running.
 x::errors::Error stop_and_wait(const Handle &service) {
+    SERVICE_STATUS_PROCESS info{};
+    DWORD size = 0;
+    if (QueryServiceStatusEx(
+            service.h,
+            SC_STATUS_PROCESS_INFO,
+            reinterpret_cast<LPBYTE>(&info),
+            sizeof(info),
+            &size
+        ) == 0)
+        return windows_error("failed to read the Driver service status");
+    // The service reports SERVICE_STOPPED before its process exits and releases the
+    // binary.
+    Process process;
+    if (info.dwProcessId != 0)
+        process.h = OpenProcess(SYNCHRONIZE, FALSE, info.dwProcessId);
     SERVICE_STATUS status{};
     if (ControlService(service.h, SERVICE_CONTROL_STOP, &status) == 0) {
         const auto code = GetLastError();
@@ -113,13 +136,21 @@ x::errors::Error stop_and_wait(const Handle &service) {
         return windows_error("failed to stop the Driver service", code);
     }
     const auto deadline = std::chrono::steady_clock::now() + STOP_TIMEOUT;
+    const auto timed_out = x::errors::Error(
+        "timed out waiting for the Driver service to stop"
+    );
     while (status.dwCurrentState != SERVICE_STOPPED) {
-        if (std::chrono::steady_clock::now() > deadline)
-            return x::errors::Error("timed out waiting for the Driver service to stop");
+        if (std::chrono::steady_clock::now() > deadline) return timed_out;
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
         if (QueryServiceStatus(service.h, &status) == 0)
             return windows_error("failed to read the Driver service status");
     }
+    if (process.h == nullptr) return x::errors::NIL;
+    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - std::chrono::steady_clock::now()
+    );
+    const DWORD wait = left.count() > 0 ? static_cast<DWORD>(left.count()) : 0;
+    if (WaitForSingleObject(process.h, wait) != WAIT_OBJECT_0) return timed_out;
     return x::errors::NIL;
 }
 
