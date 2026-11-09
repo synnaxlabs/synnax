@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.log.types_gen import (
     Key,
     Log,
@@ -22,7 +22,7 @@ from synnax.log.types_gen import (
     WhereInput,
 )
 from synnax.util import request_where, returns_one, sole
-from x import filter
+from x import color as color_, filter, notation as notation_
 from x.lists import normalize
 
 
@@ -48,14 +48,79 @@ class _SetAction(BaseModel):
     set: _SetPayload
 
 
+class _ChannelPayload(BaseModel):
+    channel: channel_.Key
+
+
+class _AddChannelAction(BaseModel):
+    type: Literal["add_channel"] = "add_channel"
+    add_channel: _ChannelPayload
+
+
+class _RemoveChannelAction(BaseModel):
+    type: Literal["remove_channel"] = "remove_channel"
+    remove_channel: _ChannelPayload
+
+
+class _ColorPayload(BaseModel):
+    channel: channel_.Key
+    color: color_.Color
+
+
+class _SetChannelColorAction(BaseModel):
+    type: Literal["set_channel_color"] = "set_channel_color"
+    set_channel_color: _ColorPayload
+
+
+class _AliasPayload(BaseModel):
+    channel: channel_.Key
+    alias: str
+
+
+class _SetChannelAliasAction(BaseModel):
+    type: Literal["set_channel_alias"] = "set_channel_alias"
+    set_channel_alias: _AliasPayload
+
+
+class _NotationPayload(BaseModel):
+    channel: channel_.Key
+    notation: notation_.Notation
+
+
+class _SetChannelNotationAction(BaseModel):
+    type: Literal["set_channel_notation"] = "set_channel_notation"
+    set_channel_notation: _NotationPayload
+
+
+class _PrecisionPayload(BaseModel):
+    channel: channel_.Key
+    precision: int | None
+
+
+class _SetChannelPrecisionAction(BaseModel):
+    type: Literal["set_channel_precision"] = "set_channel_precision"
+    set_channel_precision: _PrecisionPayload
+
+
+_Action = (
+    _SetAction
+    | _AddChannelAction
+    | _RemoveChannelAction
+    | _SetChannelColorAction
+    | _SetChannelAliasAction
+    | _SetChannelNotationAction
+    | _SetChannelPrecisionAction
+)
+
+
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_SetAction]
+    actions: list[_Action]
 
 
 class Client:
-    """Client for creating, retrieving, renaming, and deleting logs in a Synnax Core.
+    """Client for creating, retrieving, editing, and deleting logs in a Synnax Core.
 
     A log is a Console visualization that displays the samples of a set of channels as
     timestamped rows.
@@ -196,7 +261,82 @@ class Client:
         :param key: The key of the log to rename.
         :param name: The new name for the log.
         """
-        action = _SetAction(set=_SetPayload(path=["name"], value=name))
+        self._dispatch(key, _SetAction(set=_SetPayload(path=["name"], value=name)))
+
+    def add_channel(self, key: Key, channel: channel_.Key) -> None:
+        """Add a channel to a log with the default display configuration. Does
+        nothing when the log already shows the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel to add.
+        """
+        payload = _ChannelPayload(channel=channel)
+        self._dispatch(key, _AddChannelAction(add_channel=payload))
+
+    def remove_channel(self, key: Key, channel: channel_.Key) -> None:
+        """Remove a channel from a log. Does nothing when the log does not show the
+        channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel to remove.
+        """
+        payload = _ChannelPayload(channel=channel)
+        self._dispatch(key, _RemoveChannelAction(remove_channel=payload))
+
+    def set_channel_color(
+        self, key: Key, channel: channel_.Key, color: color_.Color | str
+    ) -> None:
+        """Set the display color of a channel in a log. A zero color shows the
+        channel in the text color of the log. Does nothing when the log does not show
+        the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel.
+        :param color: The color, as a ``Color`` or a hex string such as ``"#FF0000"``.
+        """
+        payload = _ColorPayload(channel=channel, color=color_.Color(color))
+        self._dispatch(key, _SetChannelColorAction(set_channel_color=payload))
+
+    def set_channel_alias(self, key: Key, channel: channel_.Key, alias: str) -> None:
+        """Set the name a log shows for a channel. An empty alias shows the channel
+        name. Does nothing when the log does not show the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel.
+        :param alias: The name to show, at most 64 characters.
+        """
+        payload = _AliasPayload(channel=channel, alias=alias)
+        self._dispatch(key, _SetChannelAliasAction(set_channel_alias=payload))
+
+    def set_channel_notation(
+        self, key: Key, channel: channel_.Key, notation: notation_.Notation
+    ) -> None:
+        """Set the numeric notation of a channel in a log. Does nothing when the log
+        does not show the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel.
+        :param notation: One of ``"standard"``, ``"scientific"``, or
+            ``"engineering"``.
+        """
+        payload = _NotationPayload(channel=channel, notation=notation)
+        self._dispatch(key, _SetChannelNotationAction(set_channel_notation=payload))
+
+    def set_channel_precision(
+        self, key: Key, channel: channel_.Key, precision: int | None
+    ) -> None:
+        """Set the number of digits after the decimal point of a channel in a log.
+        Does nothing when the log does not show the channel.
+
+        :param key: The key of the log.
+        :param channel: The key of the channel.
+        :param precision: A number of digits from 0 to 17, or None to show each sample
+            as it arrives.
+        """
+        payload = _PrecisionPayload(channel=channel, precision=precision)
+        self._dispatch(key, _SetChannelPrecisionAction(set_channel_precision=payload))
+
+    def _dispatch(self, key: Key, action: _Action) -> None:
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/log/dispatch", req, Empty)
 

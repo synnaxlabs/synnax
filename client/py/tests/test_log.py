@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax import log
-from synnax.exceptions import NotFoundError
+from synnax.exceptions import NotFoundError, ValidationError as CoreValidationError
 
 
 class TestLog:
@@ -211,6 +211,70 @@ class TestClient:
         log = client.logs.create(sy.Log(name="Before", project=project.key))
         client.logs.rename(log.key, "After")
         assert client.logs.retrieve(key=log.key).name == "After"
+
+    def test_add_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should add a channel once with the default display configuration."""
+        log = client.logs.create(name="Add", project=project.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        assert client.logs.retrieve(key=log.key).channels == [
+            sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
+        ]
+
+    def test_remove_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should remove a channel from a log."""
+        log = client.logs.create(name="Remove", project=project.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        client.logs.remove_channel(log.key, virtual_channel.key)
+        assert client.logs.retrieve(key=log.key).channels == []
+
+    def test_set_channel_fields(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should set the color, alias, notation, and precision of a channel."""
+        log = client.logs.create(name="Edit", project=project.key)
+        ch = virtual_channel.key
+        client.logs.add_channel(log.key, ch)
+        client.logs.set_channel_color(log.key, ch, "#FF0000")
+        client.logs.set_channel_alias(log.key, ch, "pressure")
+        client.logs.set_channel_notation(log.key, ch, "scientific")
+        client.logs.set_channel_precision(log.key, ch, 3)
+        entry = client.logs.retrieve(key=log.key).channels[0]
+        assert entry.color == "#FF0000"
+        assert entry.alias == "pressure"
+        assert entry.notation == "scientific"
+        assert entry.precision == 3
+
+    def test_clear_channel_precision(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should clear the precision of a channel when given None."""
+        log = client.logs.create(name="Clear", project=project.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        client.logs.set_channel_precision(log.key, virtual_channel.key, 2)
+        client.logs.set_channel_precision(log.key, virtual_channel.key, None)
+        assert client.logs.retrieve(key=log.key).channels[0].precision is None
+
+    def test_set_channel_precision_out_of_bounds(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should reject a precision above 17."""
+        log = client.logs.create(name="Bounds", project=project.key)
+        client.logs.add_channel(log.key, virtual_channel.key)
+        with pytest.raises(CoreValidationError):
+            client.logs.set_channel_precision(log.key, virtual_channel.key, 18)
+
+    def test_set_missing_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should leave a log unchanged when it does not show the channel."""
+        log = client.logs.create(name="Missing", project=project.key)
+        client.logs.set_channel_alias(log.key, virtual_channel.key, "ignored")
+        assert client.logs.retrieve(key=log.key).channels == []
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a log."""
