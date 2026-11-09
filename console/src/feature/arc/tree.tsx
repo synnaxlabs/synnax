@@ -180,6 +180,35 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** The menu for a right-click on empty space in a tree of Arcs. */
+export const RootContextMenu = ({
+  root,
+  state,
+}: Tree.RootContextMenuProps): ReactElement => {
+  const createArc = PlatformArc.useCreate();
+  const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  return (
+    <ContextMenu.Menu>
+      {canCreateArc && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create arc
+        </Menu.Item>
+      )}
+      {canCreateDirectory && (
+        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
+          <Icon.Group />
+          New directory
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
 const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 
 const DirectoryItem = Tree.createItem({
