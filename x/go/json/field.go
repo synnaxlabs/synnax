@@ -72,49 +72,46 @@ func (t *Type) UnmarshalText(text []byte) (err error) {
 	return err
 }
 
-// Enum pairs a JSON string label with a sample.
+// Enum pairs a JSON string label with one sample. A numeric or boolean sample converts
+// to an integer or boolean data type that holds it exactly, or to the nearest value of
+// a float data type, failing past its range. A string sample converts only to a
+// string.
 type Enum struct {
-	Label string
-	// Value holds one sample. A numeric or boolean sample converts to an integer or
-	// boolean data type that holds it exactly, or to the nearest value of a float data
-	// type, failing past its range. A string sample converts only to a string.
-	Value telem.Series
-}
-
-// enum is an Enum with its sample in the data type of a Field.
-type enum struct {
-	label string
+	label    string
+	dataType telem.DataType
 	// sample has no length prefix.
 	sample []byte
 }
 
-func encodeEnums(enums []Enum, dt telem.DataType) ([]enum, error) {
-	out := make([]enum, len(enums))
+// NewEnum returns an Enum that labels v.
+func NewEnum[T telem.Sample](label string, v T) Enum {
+	s := telem.NewSeriesV(v)
+	sample := s.Data
+	if s.DataType.IsVariable() {
+		sample, _ = telem.UnmarshalVariableSample(s.Data)
+	}
+	return Enum{label: label, dataType: s.DataType, sample: sample}
+}
+
+func encodeEnums(enums []Enum, dt telem.DataType) ([]Enum, error) {
+	out := make([]Enum, len(enums))
 	for i, en := range enums {
-		sample, err := encodeEnum(en.Value, dt)
+		sample, err := encodeEnum(en, dt)
 		if err != nil {
-			return nil, errors.Wrapf(err, "enum label %q", en.Label)
+			return nil, errors.Wrapf(err, "enum label %q", en.label)
 		}
-		out[i] = enum{label: en.Label, sample: sample}
+		out[i] = Enum{label: en.label, dataType: dt, sample: sample}
 	}
 	return out, nil
 }
 
-func encodeEnum(value telem.Series, dt telem.DataType) ([]byte, error) {
-	from := value.DataType
-	if n := value.Len(); n != 1 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"expected one sample, got %d",
-			n,
-		)
-	}
+func encodeEnum(en Enum, dt telem.DataType) ([]byte, error) {
+	from := en.dataType
 	switch {
 	case dt == telem.StringT && from == telem.StringT:
-		sample, _ := telem.UnmarshalVariableSample(value.Data)
-		return sample, nil
+		return en.sample, nil
 	case numeric(dt) && numeric(from):
-		n := sampleNumber(from, value.Data)
+		n := sampleNumber(from, en.sample)
 		if err := checkFits(n, dt); err != nil {
 			return nil, err
 		}
@@ -159,7 +156,7 @@ var rejectDuplicateNames = []jsontext.Options{jsontext.AllowDuplicateNames(false
 // not safe for concurrent use.
 type Decoder struct {
 	field Field
-	enums []enum
+	enums []Enum
 	// text is scratch space for a string that is not stored as text.
 	text []byte
 }
@@ -390,7 +387,7 @@ func kindName(raw jsontext.Value) string {
 type Encoder struct {
 	field Field
 	// enums hold each label as a JSON string.
-	enums []enum
+	enums []Enum
 }
 
 // NewEncoder returns an Encoder for f. It returns an error wrapping
