@@ -36,8 +36,10 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	markExports(ctx)
-	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
+	statement.PromoteChannelReadLocals(ctx)
+	statement.CheckStatefulInitializers(ctx)
+	liftReassignedVarReads(ctx)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {

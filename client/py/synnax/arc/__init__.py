@@ -15,9 +15,11 @@ from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     GraphSource,
     Key,
     Mode,
+    Order,
     Payload,
     Source,
     TextSource,
@@ -32,6 +34,7 @@ __all__ = [
     "Arc",
     "Automation",
     "Client",
+    "Cursor",
     "Edge",
     "Graph",
     "GraphEdge",
@@ -41,6 +44,7 @@ __all__ = [
     "Key",
     "Mode",
     "Module",
+    "Order",
     "Payload",
     "Position",
     "Source",

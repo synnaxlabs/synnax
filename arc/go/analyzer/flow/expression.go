@@ -113,6 +113,25 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	expression.Analyze(ctx.WithScope(blockScope))
 }
 
+// AnalyzeComputedArgs registers a synthetic function for each instance argument
+// that is neither a literal nor a bare name, so lowering can sample it per fire.
+func AnalyzeComputedArgs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	args []symbol.Argument,
+) {
+	for _, arg := range args {
+		if head, _ := parser.ExpressionNameParts(
+			arg.Expr,
+		); parser.IsLiteral(
+			arg.Expr,
+		) ||
+			head != "" {
+			continue
+		}
+		AnalyzeSingleExpression(ctx.Child(arg.Expr))
+	}
+}
+
 // analyzeWASMCall registers a WASM-only call in a flow as a synthetic expression node.
 func analyzeWASMCall(
 	ctx acontext.Context[parser.IFunctionContext],
@@ -189,7 +208,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
-		if !sym.Reassigned && !exprRead {
+		if !sym.Reassigned && !exprRead && !sym.IsComputed() {
 			continue
 		}
 		// A channel-coupled var lifts as its value type; a node feeds it data.

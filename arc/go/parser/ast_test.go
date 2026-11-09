@@ -276,9 +276,13 @@ var _ = Describe("AST Utilities", func() {
 			Entry("bare name", "x", "x", ""),
 			Entry("qualified name", "m.doubled", "m", "doubled"),
 			Entry("operator", "x + 1", "", ""),
-			Entry("call", "m.f()", "", ""),
+			Entry("call", "foo()", "", ""),
+			Entry("call with arguments", `len("abc")`, "", ""),
+			Entry("qualified call", "m.f()", "", ""),
 			Entry("index", "x[0]", "", ""),
+			Entry("parenthesized", "(x)", "", ""),
 			Entry("literal", "42", "", ""),
+			Entry("negation", "-x", "", ""),
 		)
 	})
 

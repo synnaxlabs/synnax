@@ -609,8 +609,11 @@ var _ = Describe("Service", func() {
 								arc.NewSetNodeAction(
 									arc.SetNodePayload{Node: graph.Node{Key: "n2"}},
 								),
-								arc.NewRenameAction(
-									arc.RenamePayload{Name: "renamed-multi"},
+								arc.NewSetAction(
+									arc.SetPayload{
+										Path:  []string{"name"},
+										Value: "renamed-multi",
+									},
 								),
 							},
 						},
@@ -634,9 +637,12 @@ var _ = Describe("Service", func() {
 							Key:         missing,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
-								arc.NewRenameAction(arc.RenamePayload{
-									Name: "ghost",
-								}),
+								arc.NewSetAction(
+									arc.SetPayload{
+										Path:  []string{"name"},
+										Value: "ghost",
+									},
+								),
 							},
 						},
 					)).Error().To(MatchError(query.ErrNotFound))
