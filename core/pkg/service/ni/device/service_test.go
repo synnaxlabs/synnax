@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -34,11 +35,12 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		stat    *status.Service
-		rackSvc *rack.Service
-		svc     *device.Service
-		tx      gorp.Tx
-		rackKey rack.Key
+		stat     *status.Service
+		rackSvc  *rack.Service
+		chassisT *gorp.Table[chassis.Key, chassis.Chassis]
+		svc      *device.Service
+		tx       gorp.Tx
+		rackKey  rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -52,6 +54,12 @@ var _ = Describe("Service", func() {
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
+		chassisT = MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[chassis.Key, chassis.Chassis]{
+				DB:   db,
+				Name: "ni_chassis",
+			}),
+		)
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
 			Status: stat,
@@ -70,6 +78,12 @@ var _ = Describe("Service", func() {
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
+	}
+	createChassis := func(ctx context.Context) chassis.Key {
+		GinkgoHelper()
+		c := chassis.Chassis{Key: uuid.New(), Rack: rackKey, Name: "PXIe-1071"}
+		Expect(chassisT.NewCreate().Entry(&c).Exec(ctx, tx)).To(Succeed())
+		return c.Key
 	}
 	retrieve := func(ctx context.Context, key device.Key) device.Device {
 		GinkgoHelper()
@@ -101,6 +115,15 @@ var _ = Describe("Service", func() {
 			Entry("db", "db", func(c *device.ServiceConfig) { c.DB = nil }),
 			Entry("status", "status", func(c *device.ServiceConfig) { c.Status = nil }),
 		)
+
+		It("Should let a later config override an earlier one", func() {
+			cfg := device.ServiceConfig{DB: db}.Override(
+				device.ServiceConfig{Status: stat},
+			)
+			Expect(cfg.DB).To(BeIdenticalTo(db))
+			Expect(cfg.Status).To(BeIdenticalTo(stat))
+			Expect(cfg.Validate()).To(Succeed())
+		})
 	})
 
 	Describe("Create", func() {
@@ -121,6 +144,17 @@ var _ = Describe("Service", func() {
 			d := device.Device{Rack: rackKey}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).
 				To(MatchError(ContainSubstring("name: required")))
+		})
+
+		It("Should refuse a device in a chassis that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := uuid.New()
+			d := device.Device{Rack: rackKey, Name: "PXI-6255", Chassis: &missing}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
+				"chassis: ni_chassis %s does not exist: validation error",
+				missing,
+			)))
 		})
 
 		It("Should write an unknown status", func(ctx SpecContext) {
@@ -344,6 +378,41 @@ var _ = Describe("Service", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(1))
 			Expect(got[0].Key).To(Equal(d.Key))
+		})
+	})
+
+	Describe("Chassis", func() {
+		It("Should match devices by chassis", func(ctx SpecContext) {
+			key := createChassis(ctx)
+			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			create(ctx)
+			var got []device.Device
+			Expect(svc.NewRetrieve().
+				Where(device.MatchChassises(key)).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(HaveLen(1))
+			Expect(got[0].Key).To(Equal(d.Key))
+		})
+
+		It("Should delete a device and its status with its chassis", func(
+			ctx SpecContext,
+		) {
+			key := createChassis(ctx)
+			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(chassisT.NewDelete().
+				Where(gorp.MatchKeys[chassis.Key, chassis.Chassis](key)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+			var s device.Status
+			Expect(stat.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+				Entry(&s).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
