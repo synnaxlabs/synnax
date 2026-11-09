@@ -179,15 +179,15 @@ streams, and exports.
 
 ### 3.4 References
 
-Each field that names an item is a Gorp reference (RFC 0100) with `@ref kind use` and
-`@ref on_delete restrict`, such as PagerDuty's `routing_key` and a certificate's
-`private_key`. Gorp refuses a write that names a missing item, and keeps a reverse
-index. A delete of an item in use fails with a `gorp.RestrictError`, which
-`core/pkg/api/restrict.go` rewrites to name the task or device. A task config lives in
-its own table, so the API maps it to its task with `config.TaskOf`
-(`core/pkg/service/task/config/config.go`). The Console's "Used by" list and the rack
-rule (§3.3) read the index through `resource.Dependents`. A certificate is a union on
-its source, so Oracle reads `@ref` inside a union variant.
+Each field that names an item is a Gorp reference (RFC 0100, on `main` in
+`gorp/table_references.go`) with `@ref kind use` and `@ref on_delete restrict`, such as
+PagerDuty's `routing_key` and a certificate's `private_key`. Gorp refuses a write that
+names a missing item, and keeps a reverse index. A delete of an item in use fails with a
+`gorp.RestrictError`, which `core/pkg/api/restrict.go` rewrites to name the task or
+device. A task config lives in its own table, so the API maps it to its task with
+`config.TaskOf` (`core/pkg/service/task/config/config.go`). The Console's "Used by" list
+and the rack rule (§3.3) read the index through `resource.Dependents`. A certificate is
+a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 ### 3.5 File items and the file integration
 
