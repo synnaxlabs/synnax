@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -111,7 +112,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
 		Schematic: schematicSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)

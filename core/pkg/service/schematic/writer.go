@@ -150,19 +150,21 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 		w.dispatcher.Attach(
 			w.tx,
 			k,
-			NewSetProjectAction(SetProjectPayload{Project: p}),
+			NewSetAction(SetPayload{Path: []string{"project"}, Value: p}),
 		)
 	}
 	return nil
 }
 
+// attachGroup attaches a set of the group of each schematic with keys, or a remove of
+// the group when g is nil.
 func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	for _, k := range keys {
-		w.dispatcher.Attach(
-			w.tx,
-			k,
-			NewSetGroupAction(SetGroupPayload{Group: g}),
-		)
+		a := NewRemoveAction(RemovePayload{Key: "group"})
+		if g != nil {
+			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
+		}
+		w.dispatcher.Attach(w.tx, k, a)
 	}
 }
 
@@ -217,15 +219,16 @@ func (w Writer) Delete(
 
 // Apply applies a sequence of actions to the schematic with the given key and attaches
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. Snapshots are immutable except for Rename: returns validate.ErrValidation if the
-// target is a snapshot and any action other than Rename is included. Also returns a
-// validation error, and stores nothing, if the actions leave the schematic invalid.
+// w. Snapshots are immutable except for their name: returns validate.ErrValidation if
+// the target is a snapshot and any action other than a set of the name is included.
+// Also returns a validation error, and stores nothing, if the actions leave the
+// schematic invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
 			if sch.Snapshot {
 				for _, a := range acts {
-					if a.Type != ActionTypeRename {
+					if !setsName(a) {
 						return sch, errors.Wrapf(
 							validate.ErrValidation,
 							"[Schematic] - cannot dispatch %s on snapshot %s:%s",

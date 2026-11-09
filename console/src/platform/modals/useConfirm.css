@@ -12,3 +12,8 @@
 .console-confirm {
     width: 110rem;
 }
+
+.console-confirm__body {
+    -webkit-user-select: text;
+    user-select: text;
+}

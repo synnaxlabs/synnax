@@ -220,7 +220,10 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(
 					dispatch(ctx, s.Key, "session-1", []schematic.Action{
-						schematic.NewRenameAction(schematic.RenamePayload{}),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path:  []string{"name"},
+							Value: "",
+						}),
 					}),
 				).To(MatchError(ContainSubstring("name: required")))
 				var res schematic.Schematic
@@ -250,7 +253,10 @@ var _ = Describe("Writer", func() {
 
 			It("Should accept an unrelated dispatch", func(ctx SpecContext) {
 				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
-					schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed"}),
+					schematic.NewSetAction(schematic.SetPayload{
+						Path:  []string{"name"},
+						Value: "renamed",
+					}),
 				})).To(Succeed())
 			})
 
@@ -355,7 +361,7 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(
 				dispatch(ctx, s.Key, "session-1", []schematic.Action{
-					{Type: schematic.ActionTypeRename},
+					{Type: schematic.ActionTypeSet},
 				}),
 			).To(MatchError(union.ErrMissingPayload))
 		})
@@ -484,7 +490,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should allow Rename Dispatch on a snapshot schematic",
+			"Should allow a set of the name on a snapshot schematic",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -496,9 +502,10 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(
 					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewRenameAction(
-							schematic.RenamePayload{Name: "renamed-snap"},
-						),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path:  []string{"name"},
+							Value: "renamed-snap",
+						}),
 					}),
 				).To(Succeed())
 				var res schematic.Schematic
@@ -512,7 +519,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should reject Dispatch on a snapshot when any action is not a Rename",
+			"Should reject Dispatch on a snapshot when an action does not set the name",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -524,14 +531,19 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(
 					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewRenameAction(
-							schematic.RenamePayload{Name: "renamed-snap"},
-						),
-						schematic.NewRemoveNodeAction(
-							schematic.RemoveNodePayload{Key: "n1"},
-						),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path:  []string{"name"},
+							Value: "renamed-snap",
+						}),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path:  []string{"configs", "n1"},
+							Value: map[string]any{"variant": "valve"},
+						}),
 					}),
-				).To(MatchError(validate.ErrValidation))
+				).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot dispatch set on snapshot")),
+				))
 				var res schematic.Schematic
 				Expect(
 					svc.NewRetrieve().

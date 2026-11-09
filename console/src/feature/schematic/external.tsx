@@ -43,7 +43,9 @@ const TAB: Panel.Tab = {
     <Icon.Schematic />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
+    const corpse = query.requireCorpse(
+      client.schematics.watch(resource.key).getCached(),
+    );
     // A restored record comes back in the project, as its range or group may be gone.
     await client.schematics.create({
       ...corpse,

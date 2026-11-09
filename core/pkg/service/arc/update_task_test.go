@@ -484,7 +484,9 @@ var _ = Describe("Task sync", func() {
 		createArc(ctx, arc.ModeText)
 		tsk := updateTask(ctx)
 		Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "renamed_by_dispatch"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "renamed_by_dispatch"},
+			),
 		})).To(Succeed())
 		Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_by_dispatch"))
 	})
@@ -495,7 +497,10 @@ var _ = Describe("Task sync", func() {
 			createArc(ctx, arc.ModeText)
 			tsk := updateTask(ctx)
 			Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
-				arc.NewRenameAction(arc.RenamePayload{Name: "renamed_before_rollback"}),
+				arc.NewSetAction(arc.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed_before_rollback",
+				}),
 			})).To(Succeed())
 			rollback := errors.New("rolled back")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -10,8 +10,10 @@
 package ranger_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"strings"
 	"uuid"
 
@@ -600,7 +602,7 @@ var _ = Describe("Delete", func() {
 		},
 	)
 	It(
-		"Should need update on the range to delete its key-value pairs with it",
+		"Should not need update on the range to delete its key-value pairs with it",
 		func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
@@ -609,9 +611,8 @@ var _ = Describe("Delete", func() {
 			})).To(Succeed())
 			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
-			Expect(deleteChild(ctx)).Error().
-				To(denied(u, access.ActionUpdate, childID()))
-			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
+			MustSucceed(deleteChild(ctx))
+			Expect(rangeExists(ctx, child.Key)).To(BeFalse())
 		},
 	)
 })
@@ -810,5 +811,147 @@ var _ = Describe("Retrieve", func() {
 			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},
 		}))
 		Expect(keysOf(res.Ranges)).To(ConsistOf(withA.Key, withB.Key))
+	})
+
+	Describe("Order", func() {
+		var (
+			parent ranger.Range
+			// byName holds the children in name order, with the tie in key order.
+			byName []ranger.Key
+			// byStart holds the children from the latest start to the earliest.
+			byStart []ranger.Key
+		)
+		BeforeEach(func(ctx SpecContext) {
+			parent = createRange(ctx)
+			child := func(name string, start telem.TimeStamp) ranger.Key {
+				GinkgoHelper()
+				r := ranger.Range{
+					Name:      name,
+					TimeRange: telem.TimeRange{Start: start, End: start + 1},
+					Parent:    &parent.Key,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
+				return r.Key
+			}
+			beta := child("beta", 30)
+			upper := child("Alpha", 10)
+			gamma := child("Gamma", 20)
+			lower := child("alpha", 40)
+			tie := []ranger.Key{upper, lower}
+			// Gorp orders equal names by the trailing bytes of the key.
+			slices.SortFunc(tie, func(a, b ranger.Key) int {
+				slices.Reverse(a[:])
+				slices.Reverse(b[:])
+				return bytes.Compare(a[:], b[:])
+			})
+			byName = append(tie, beta, gamma)
+			byStart = []ranger.Key{lower, beta, gamma, upper}
+		})
+		page := func(
+			ctx context.Context,
+			order apiranger.Order,
+			limit uint32,
+		) []ranger.Key {
+			GinkgoHelper()
+			var (
+				keys  []ranger.Key
+				after *apiranger.Cursor
+			)
+			for {
+				res := MustSucceed(retrieve(ctx, apiranger.RetrieveRequest{
+					Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+					Order: &order,
+					After: after,
+					Limit: &limit,
+				}))
+				if len(res.Ranges) == 0 {
+					return keys
+				}
+				keys = append(keys, keysOf(res.Ranges)...)
+				last := res.Ranges[len(res.Ranges)-1]
+				after = &apiranger.Cursor{
+					Key:            last.Key,
+					Name:           &last.Name,
+					TimeRangeStart: &last.TimeRange.Start,
+				}
+			}
+		}
+
+		It("Should page ranges by name, ignoring case", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldName}
+			Expect(page(authed(ctx), order, 3)).To(Equal(byName))
+		})
+
+		It("Should page ranges by name in descending order", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldName, Descending: true}
+			desc := slices.Clone(byName)
+			slices.Reverse(desc)
+			Expect(page(authed(ctx), order, 1)).To(Equal(desc))
+		})
+
+		It("Should page ranges by start time in descending order", func(
+			ctx SpecContext,
+		) {
+			order := apiranger.Order{
+				Field:      apiranger.OrderFieldTimeRangeStart,
+				Descending: true,
+			}
+			Expect(page(authed(ctx), order, 2)).To(Equal(byStart))
+		})
+
+		It("Should page ranges by key with no order", func(ctx SpecContext) {
+			authedCtx := authed(ctx)
+			all := MustSucceed(retrieve(authedCtx, apiranger.RetrieveRequest{
+				Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+				Limit: new(uint32(2)),
+			}))
+			Expect(all.Ranges).To(HaveLen(2))
+			rest := MustSucceed(retrieve(authedCtx, apiranger.RetrieveRequest{
+				Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+				After: &apiranger.Cursor{Key: all.Ranges[1].Key},
+			}))
+			Expect(append(keysOf(all.Ranges), keysOf(rest.Ranges)...)).
+				To(ConsistOf(byName))
+		})
+
+		DescribeTable("Should reject a request",
+			func(ctx SpecContext, req apiranger.RetrieveRequest, message string) {
+				Expect(retrieve(authed(ctx), req)).Error().To(SatisfyAll(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(message),
+				))
+			},
+			Entry(
+				"that resumes an order without the order's value",
+				apiranger.RetrieveRequest{
+					Order: &apiranger.Order{Field: apiranger.OrderFieldName},
+					After: &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that sorts a search",
+				apiranger.RetrieveRequest{
+					SearchTerm: "fire",
+					Order:      &apiranger.Order{Field: apiranger.OrderFieldName},
+				},
+				"order: a search sorts by relevance: validation error",
+			),
+			Entry(
+				"that resumes a search",
+				apiranger.RetrieveRequest{
+					SearchTerm: "fire",
+					After:      &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after: a search cannot resume after a position: validation error",
+			),
+			Entry(
+				"that sorts by an unknown field",
+				apiranger.RetrieveRequest{Order: &apiranger.Order{Field: "color"}},
+				`order.field: "color" is not a field to sort by: validation error`,
+			),
+		)
 	})
 })
