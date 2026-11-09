@@ -99,15 +99,14 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   retrieve: async ({ client, query: { key } }) =>
     await client.access.policies.retrieve(key),
-  update: async ({ client, value, set }) => {
+  update: async ({ client, value, set, stored }) => {
     const values = value();
     if (values.key == null) {
       const created = await client.access.policies.create(values);
       set(formPath.key, created.key);
       return;
     }
-    const prev = await client.access.policies.retrieve(values.key);
-    const edits = actions.diffFields(formSchema, prev, values, [
+    const edits = actions.diffFields(formSchema, stored, values, [
       "name",
       "objects",
       "actions",

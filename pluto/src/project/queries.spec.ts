@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, NotFoundError, project, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeRange } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -324,6 +324,23 @@ describe("queries", () => {
       await waitFor(async () =>
         expect((await client.projects.retrieve(proj.key)).name).toEqual(newName),
       );
+    });
+
+    it("should save a name that the client cache still holds", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      const proj = await client.projects.create({ name: `testProject-${id.create()}` });
+      const { result } = await renderHookSuspended(
+        () => Project.useForm({ query: { key: proj.key } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: proxied }) },
+      );
+      // The cache stops hearing the Core, so it keeps the name it read.
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      act(() => result.current.form.set(Project.formPath.name, "renamed"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      act(() => result.current.form.set(Project.formPath.name, proj.name));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().projects.retrieve(proj.key);
+      expect(stored.name).toEqual(proj.name);
     });
   });
 
