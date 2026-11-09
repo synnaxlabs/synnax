@@ -243,6 +243,11 @@ class ArcClient(ResourceClient):
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         return stop_btn.count() > 0 and stop_btn.is_visible()
 
+    def is_drifted(self) -> bool:
+        """Check if the Arc's controls show the Redeploy button."""
+        controls = self.layout.page.locator(self.CONTROLS_CLASS)
+        return controls.locator(".console-task-redeploy--visible").count() > 0
+
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an Arc via context menu inline edit.
 
