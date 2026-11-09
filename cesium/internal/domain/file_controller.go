@@ -253,6 +253,12 @@ func (fc *fileController) newWriter(
 		return w, size, span.Error(err)
 	}
 
+	if fc.counter.Value() >= math.MaxUint16 {
+		return nil, 0, span.Error(errors.Newf(
+			"domain DB already holds the maximum of %d files",
+			math.MaxUint16,
+		))
+	}
 	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
