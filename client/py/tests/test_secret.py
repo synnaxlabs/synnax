@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import secret
+from synnax import rack, secret
 from x import filter
 from x.testutil import assert_eventually
 
@@ -115,6 +115,26 @@ class TestSecret:
 
         assert_eventually(check)
 
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one secret for a plain name."""
+        name = f"named-secret-{uuid4()}"
+        created = client.secrets.create(secret.NewStored(name=name, value="abc"))
+        assert client.secrets.retrieve(name=name) == created
+
+    def test_order_and_after(self, client: sy.Synnax) -> None:
+        """Should page through the matching secrets in name order from a cursor."""
+        prefix = uuid4()
+        created = client.secrets.create(
+            [secret.NewStored(name=f"{prefix} {n}", value="v") for n in "CAB"]
+        )
+        keys = [s.key for s in created]
+        order = secret.Order(field="name")
+        first = client.secrets.retrieve(key=keys, order=order, limit=2)
+        assert [s.name for s in first] == [f"{prefix} A", f"{prefix} B"]
+        after = secret.Cursor(key=first[-1].key, name=first[-1].name)
+        second = client.secrets.retrieve(key=keys, order=order, after=after)
+        assert [s.name for s in second] == [f"{prefix} C"]
+
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no secret has the key."""
         key = uuid4()
@@ -150,3 +170,18 @@ class TestSecret:
             sy.NotFoundError, match=f'Found no secret where key = "{key}"'
         ):
             client.secrets.retrieve(key)
+
+    def test_grant(self, client: sy.Synnax) -> None:
+        """Should return the key of a new grant each time."""
+        r = client.racks.create(name="Grant rack")
+        s = client.secrets.create(secret.NewStored(name="Grant", value="abc"))
+        first = client.secrets.grant(rack.resource_id(r.key), s.key)
+        second = client.secrets.grant(rack.resource_id(r.key), [s.key])
+        assert first != second
+
+    def test_grant_missing(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when no secret has a key."""
+        r = client.racks.create(name="Grant rack")
+        key = uuid4()
+        with pytest.raises(sy.NotFoundError, match=f"Secrets with keys \\[{key}\\]"):
+            client.secrets.grant(rack.resource_id(r.key), key)

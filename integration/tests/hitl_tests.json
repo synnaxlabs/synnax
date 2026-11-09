@@ -7,7 +7,7 @@
     },
     {
       "sequence_name": "EtherCAT",
-      "tests": [{ "case": "hitl/ethercat" }]
+      "tests": [{ "case": "hitl/ethercat" }, { "case": "hitl/ethercat_arc" }]
     },
     {
       "sequence_name": "cRIO",

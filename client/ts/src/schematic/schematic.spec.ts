@@ -593,9 +593,11 @@ describe("store", () => {
     });
     await client.schematics.delete(created.key);
     await expect
-      .poll(() => query.Deleted.matches(client.schematics.getCached(created.key)))
+      .poll(() =>
+        query.Deleted.matches(client.schematics.watch(created.key).getCached()),
+      )
       .toBe(true);
-    const cached = expectDeleted(client.schematics.getCached(created.key));
+    const cached = expectDeleted(client.schematics.watch(created.key).getCached());
     expect(cached.corpse.name).toEqual(created.name);
   });
 });

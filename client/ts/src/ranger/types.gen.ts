@@ -15,6 +15,19 @@ import { z } from "zod";
 import { label } from "@/label";
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name", "time_range_start"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of ranges. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -83,6 +96,22 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   parents: zod.nullToUndefined(keyZ.array()),
 });
 
+/**
+ * Cursor is a position in an order of ranges: the sort value and the key of a range.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the range at the position. */
+  key: keyZ,
+  /** name is the name of the range at the position, when the order sorts by it. */
+  name: z.string().optional(),
+  /**
+   * timeRangeStart is the time range start of the range at the position, when the order
+   * sorts by it.
+   */
+  timeRangeStart: telem.timeStampZ.optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /** KeyRef is a range saved in the Core. */
 export const keyRefZ = z.object({
   variant: z.literal("key"),
@@ -133,10 +162,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the ranges that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the ranges. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the ranges strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most ranges to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching ranges to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

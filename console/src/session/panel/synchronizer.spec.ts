@@ -263,7 +263,7 @@ describe("reconcile panel order and selection", () => {
     const unsubscribe = store.subscribe(() => {
       const selected = selectedPanel(store);
       if (selected == null) return;
-      if (query.Deleted.matches(client.panels.getCached(selected)))
+      if (query.Deleted.matches(client.panels.watch(selected).getCached()))
         violations.push(selected);
     });
     await act(async () => {
