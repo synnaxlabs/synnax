@@ -55,6 +55,14 @@ type XY struct {
 	Y float64 `json:"y" msgpack:"y"`
 }
 
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
+}
+
 // Direction is a 2D axis direction.
 type Direction string
 
@@ -239,14 +247,6 @@ func (s StickyXY) Validate() error {
 	return v.Error()
 }
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
 // Viewport is the camera state of a viewport.
 type Viewport struct {
 	// Zoom is the zoom level where 1.0 equals 100%.
@@ -286,6 +286,20 @@ func (vi *Viewport) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(vi))
 }
 
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = float64
+
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+type Bounds struct {
+	// Lower is the inclusive lower bound.
+	Lower float64 `json:"lower" msgpack:"lower"`
+	// Upper is the exclusive upper bound.
+	Upper float64 `json:"upper" msgpack:"upper"`
+}
+
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
 type Location string
@@ -308,6 +322,23 @@ const (
 func (l Location) IsValid() bool {
 	switch l {
 	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// CenterLocation is a location at the center of a container.
+type CenterLocation string
+
+// CenterLocationCenter is the center of the container.
+const CenterLocationCenter CenterLocation = "center"
+
+// IsValid reports whether c is one of the defined CenterLocation
+// values.
+func (c CenterLocation) IsValid() bool {
+	switch c {
+	case CenterLocationCenter:
 		return true
 	default:
 		return false
@@ -375,18 +406,4 @@ func (l LocationXY) Validate() error {
 	v.Ternaryf("x", !l.X.IsValid(), "invalid x: %v", l.X)
 	v.Ternaryf("y", !l.Y.IsValid(), "invalid y: %v", l.Y)
 	return v.Error()
-}
-
-// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
-// such as a container's extent.
-type Decimal = float64
-
-// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
-// The TypeScript binding is generic over T so callers can express bounds over either
-// number or bigint values; other languages emit a concrete float64-based type.
-type Bounds struct {
-	// Lower is the inclusive lower bound.
-	Lower float64 `json:"lower" msgpack:"lower"`
-	// Upper is the exclusive upper bound.
-	Upper float64 `json:"upper" msgpack:"upper"`
 }

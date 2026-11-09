@@ -125,30 +125,19 @@ func importCtx(ctx SpecContext, u user.User) freighter.Context {
 }
 
 var _ = Describe("Import", func() {
-	It(
-		"Should import the bundle with create on every kind and update on projects",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
-			res := MustSucceed(importBundle(importCtx(ctx, u), newBundle("Imported")))
-			Expect(res.Project.Name).To(Equal("Imported"))
-		},
-	)
-	It("Should reject the request without update on the new project", func(
+	It("Should import the bundle with create on every kind alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
-			To(deniedOnType(u, access.ActionUpdate, resource.TypeProject))
+		res := MustSucceed(importBundle(importCtx(ctx, u), newBundle("Imported")))
+		Expect(res.Project.Name).To(Equal("Imported"))
 	})
 	It("Should reject the request when create is not granted on the project", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, logType)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
 		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
 			To(deniedOnType(u, access.ActionCreate, resource.TypeProject))
 	})
@@ -157,44 +146,27 @@ var _ = Describe("Import", func() {
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
 		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
 			To(deniedOnType(u, access.ActionCreate, resource.TypeLog))
 	})
-	Context("With a member in a folder", func() {
+	It("Should import a member into a new folder with create on every kind", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
 		groupType := resource.ID{Type: resource.TypeGroup}
-		var u user.User
-		BeforeEach(func(ctx SpecContext) {
-			u = createUser(ctx)
-			grantOn(
-				ctx,
-				u.ResourceID(),
-				access.ActionCreate,
-				projectType,
-				logType,
-				groupType,
-			)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
-		})
-		bundle := func() apiproject.ImportRequest {
-			files := newBundle("Foldered")
-			files["Folder/Metrics.json"] = files["Metrics.json"]
-			delete(files, "Metrics.json")
-			return files
-		}
-		It("Should reject the request without update on the new group", func(
-			ctx SpecContext,
-		) {
-			Expect(importBundle(importCtx(ctx, u), bundle())).Error().
-				To(deniedOnType(u, access.ActionUpdate, resource.TypeGroup))
-		})
-		It("Should import the member into the group with update on groups", func(
-			ctx SpecContext,
-		) {
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, groupType)
-			res := MustSucceed(importBundle(importCtx(ctx, u), bundle()))
-			Expect(res.Project.Name).To(Equal("Foldered"))
-		})
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionCreate,
+			projectType,
+			logType,
+			groupType,
+		)
+		files := newBundle("Foldered")
+		files["Folder/Metrics.json"] = files["Metrics.json"]
+		delete(files, "Metrics.json")
+		res := MustSucceed(importBundle(importCtx(ctx, u), files))
+		Expect(res.Project.Name).To(Equal("Foldered"))
 	})
 	It("Should reject a request with no params", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -277,7 +249,6 @@ var _ = Describe("Delete", func() {
 		ctx SpecContext,
 	) {
 		grantOn(ctx, u.ResourceID(), access.ActionDelete, l.ResourceID())
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 		Expect(deleteAs(ctx)).Error().
 			To(denied(u, access.ActionDelete, p.ResourceID()))
 		Expect(projectExists(ctx, p.Key)).To(BeTrue())
@@ -286,27 +257,12 @@ var _ = Describe("Delete", func() {
 		ctx SpecContext,
 	) {
 		grantOn(ctx, u.ResourceID(), access.ActionDelete, p.ResourceID())
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 		Expect(deleteAs(ctx)).Error().
 			To(denied(u, access.ActionDelete, l.ResourceID()))
 		Expect(projectExists(ctx, p.Key)).To(BeTrue())
 	})
-	It("Should refuse the delete without update on the project it empties", func(
-		ctx SpecContext,
-	) {
-		grantOn(
-			ctx,
-			u.ResourceID(),
-			access.ActionDelete,
-			p.ResourceID(),
-			l.ResourceID(),
-		)
-		Expect(deleteAs(ctx)).Error().
-			To(denied(u, access.ActionUpdate, p.ResourceID()))
-		Expect(projectExists(ctx, p.Key)).To(BeTrue())
-	})
 	It(
-		"Should delete the project and its log with delete on both",
+		"Should delete the project and its log with delete on both alone",
 		func(ctx SpecContext) {
 			grantOn(
 				ctx,
@@ -315,7 +271,6 @@ var _ = Describe("Delete", func() {
 				p.ResourceID(),
 				l.ResourceID(),
 			)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 			MustSucceed(deleteAs(ctx))
 			Expect(projectExists(ctx, p.Key)).To(BeFalse())
 			Expect(logSvc.NewRetrieve().

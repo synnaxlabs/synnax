@@ -65,13 +65,12 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 }
 
 // newDeviceNeeds returns what a create of a new device d on the embedded rack needs:
-// create on d and its status, and update on d and the rack, which the status and d
-// sit in. d is the device, or the device type for any device.
+// create on d and its status, and update on the rack, which d sits in. d is the device,
+// or the device type for any device.
 func newDeviceNeeds(d resource.ID) []need {
 	return []need{
 		{access.ActionCreate, d},
 		{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-		{access.ActionUpdate, d},
 		{access.ActionUpdate, svc.Rack.EmbeddedKey.ResourceID()},
 	}
 }
@@ -196,12 +195,7 @@ var _ = Describe("Create", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the device", 0, "create-denied-device"),
-		Entry(
-			"without update on the device, which its status sits in",
-			2,
-			"create-denied-status",
-		),
-		Entry("without update on its rack", 3, "create-denied-rack"),
+		Entry("without update on its rack", 2, "create-denied-rack"),
 	)
 	It("Should check read access on each device in a batch", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -227,6 +221,7 @@ var _ = Describe("Create", func() {
 		GinkgoHelper()
 		u := createUser(ctx)
 		grantAll(ctx, u, newDeviceNeeds(deviceType)...)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), deviceType)
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), deviceType)
 		return AuthedCtx(ctx, u)
 	}
@@ -340,13 +335,12 @@ var _ = Describe("Rename", func() {
 
 var _ = Describe("Delete", func() {
 	// deleteNeeds returns what a delete of d needs: delete on d and its status, and
-	// update on d and its rack, which the status and d leave.
+	// update on the rack that d leaves.
 	deleteNeeds := func(ctx SpecContext, d device.Device) []need {
 		GinkgoHelper()
 		return []need{
 			{access.ActionDelete, d.ResourceID()},
 			{access.ActionDelete, statusOf(ctx, d)},
-			{access.ActionUpdate, d.ResourceID()},
 			{access.ActionUpdate, d.Rack.ResourceID()},
 		}
 	}
@@ -385,7 +379,7 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("without delete on the device", 0, "delete-denied-device"),
 		Entry("without delete on its status", 1, "delete-denied-status"),
-		Entry("without update on its rack", 3, "delete-denied-rack"),
+		Entry("without update on its rack", 2, "delete-denied-rack"),
 	)
 })
 

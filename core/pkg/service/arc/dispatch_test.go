@@ -452,6 +452,56 @@ var _ = Describe("Collaborative text", func() {
 	)
 
 	It(
+		"Should not move the edit time of a text edit that rolls back",
+		func(ctx SpecContext) {
+			base := telem.Now()
+			arcClock = func() telem.TimeStamp { return base }
+			DeferCleanup(func() { arcClock = telem.Now })
+			a := newAutomation(arc.Base{
+				Name: "collab-sweep-denied",
+				Source: arc.Source{
+					Variant: arc.TextSource{Text: text.Text{Raw: "hello world"}},
+				},
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
+			load := func() *crdt.Text {
+				GinkgoHelper()
+				c := crdt.New(2)
+				doc := textOf(fetch(ctx, a.Base().Key).Base()).Doc
+				c.Load(doc.Inserts, doc.Deletes)
+				return c
+			}
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toDeleteActions(load().Delete(6, 5)),
+			)).To(Succeed())
+			base = base.Add(10 * telem.Second)
+			rollback := errors.New("rolled back")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Apply(
+					ctx,
+					a.Base().Key,
+					toInsertActions(load().Insert(0, "Z"))...,
+				); err != nil {
+					return err
+				}
+				return rollback
+			})).To(MatchError(rollback))
+			Expect(dispatch(
+				ctx,
+				a.Base().Key,
+				"dk",
+				toInsertActions(load().Insert(0, "X")),
+			)).To(Succeed())
+			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(BeEmpty())
+		},
+	)
+
+	It(
 		"Should attach the sweep after the edit in the same commit",
 		func(ctx SpecContext) {
 			base := telem.Now()
