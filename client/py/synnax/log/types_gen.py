@@ -166,7 +166,7 @@ class Log(BaseModel):
         key: Is the unique identifier for this log.
         name: Is a human-readable name for the log.
         channels: Are the channels displayed in this log.
-        timestamp_precision: Is the precision of displayed timestamps (0-3).
+        timestamp_precision: Is the precision of displayed timestamps (0-9).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
         time_zone: Is the time zone of the line times and day rows of the log.
@@ -180,7 +180,7 @@ class Log(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     channels: list[ChannelEntry] = Field(default_factory=list)
-    timestamp_precision: int = Field(default=0, ge=0, le=3)
+    timestamp_precision: int = Field(default=0, ge=0, le=9)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
     time_zone: telem.TimeZone = "local"

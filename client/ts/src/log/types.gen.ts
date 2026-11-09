@@ -125,8 +125,8 @@ export const logZ = z.object({
   name: z.string().min(1, "name is required"),
   /** channels are the channels displayed in this log. */
   channels: channelEntryZ.array().default(() => []),
-  /** timestampPrecision is the precision of displayed timestamps (0-3). */
-  timestampPrecision: zod.uint8.max(3).default(0),
+  /** timestampPrecision is the precision of displayed timestamps (0-9). */
+  timestampPrecision: zod.uint8.max(9).default(0),
   /** channelNamesHidden is true when channel names are hidden. */
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */

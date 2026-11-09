@@ -143,7 +143,7 @@ export const swapChannelPayloadZ = z.object({
 
 export type SwapChannelPayload = z.infer<typeof swapChannelPayloadZ>;
 
-/** SetTimestampPrecision sets the precision of displayed timestamps (0-3). */
+/** SetTimestampPrecision sets the precision of displayed timestamps (0-9). */
 export const setTimestampPrecisionPayloadZ = z.object({
   timestampPrecision: zod.uint8,
 });

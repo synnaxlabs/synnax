@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
+const TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 9 };
 
 export const Properties = (): ReactElement => {
   const key = Log.useKey();

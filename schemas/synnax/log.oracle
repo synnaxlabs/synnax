@@ -88,8 +88,8 @@ Log struct {
         @doc value "are the channels displayed in this log."
     }
     timestamp_precision  uint8 = 0 {
-        @doc value    "is the precision of displayed timestamps (0-3)."
-        @validate max 3
+        @doc value    "is the precision of displayed timestamps (0-9)."
+        @validate max 9
     }
     channel_names_hidden bool = false {
         @doc value "is true when channel names are hidden."
@@ -238,7 +238,7 @@ Log struct {
     action SetTimestampPrecision {
         timestamp_precision uint8
 
-        @doc value "sets the precision of displayed timestamps (0-3)."
+        @doc value "sets the precision of displayed timestamps (0-9)."
     }
 
     action SetChannelNamesHidden {
