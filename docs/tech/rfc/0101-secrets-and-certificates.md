@@ -65,7 +65,8 @@ Secret struct {
     key     uuid = create
     name    string
     source  Source = stored     // stored | file
-    path    string = ""         // file: a path on the computer that uses it
+    path    string = ""         // file: a path on the rack's computer
+    rack    rack.Key = 0        // file: the rack that reads the path
     value   bytes               // stored: ciphertext
     updated telem.TimeStamp
 }
@@ -102,6 +103,7 @@ Certificate struct {
     private_key      secret.Key = ""  // stored: optional
     certificate_path string = ""      // file
     private_key_path string = ""      // file: optional
+    rack             rack.Key = 0     // file: the rack that reads the paths
     subject          string
     issuer           string
     not_before       telem.TimeStamp
@@ -119,7 +121,7 @@ to create secrets. A `pem` that holds a private key is refused, so a key never l
 the public record. For a file certificate, the details come from the file browser and
 from the reader (§3.5). Certificates are public: anyone who can retrieve one can
 download it as PEM or DER. The endpoints match the secret endpoints, without grants and
-resolve.
+resolve, and add `certificate/refresh` (§3.5).
 
 ### 3.2 Encryption key
 
@@ -191,9 +193,11 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 ### 3.5 File items and the file integration
 
-A file item names a path on the computer that uses it: the Driver's computer for OPC UA
-and HTTP, the Core's for Kafka and MQTT. The reader opens the file at each connect, and
-the value never enters the store.
+A file item names a path and the rack that reads it: a Driver's rack for OPC UA and
+HTTP, or the Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka and
+MQTT. Each integration's Core service refuses a device or task that names a file item of
+another rack, so an item has one file and one set of details. The reader opens the file
+at each connect, and the value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
@@ -203,12 +207,12 @@ and modified time. For a certificate file it adds the subject, issuer, expiry, a
 fingerprints, which the Console saves with a file certificate so expiry warnings work
 for files too. At each connect, the reader compares the file's SHA-256 fingerprint with
 the saved one. When they differ, it saves the new details. A Core reader saves them in
-process. A rack calls `certificate/refresh`, which changes only the details, and only of
-a file certificate that a device or task on that rack uses. So a replaced file gets new
-details at its next connect, and a typed path gets its first details there, with or
-without the file browser. For a key file it gives the name only. The whole disk is
-visible, as it is to a path typed by hand. A site that does not want browsing leaves
-`file` out of the Driver's integrations.
+process. A rack calls `certificate/refresh`, which changes only the details. Like
+`secret/resolve`, it skips the write binder: the Core checks that the caller is the rack
+that the certificate names. So a replaced file gets new details at its next connect, and
+a typed path gets its first details there, with or without the file browser. For a key
+file it gives the name only. The whole disk is visible, as it is to a path typed by
+hand. A site that does not want browsing leaves `file` out of the Driver's integrations.
 
 ### 3.6 Integrations
 
@@ -246,9 +250,10 @@ Replace, and Delete. Every connect form uses two shared fields:
   (`console/src/platform/fs/DropZone.tsx`), pasted PEM, or the file browser on the
   device's rack, with an optional key file.
 
-A new item is named after its device and field, such as "Plant OPC UA password". The
-dialog saves it before its first test, and Cancel deletes the items it made that nothing
-uses. OPC UA's Trust button saves the offered certificate as an item.
+Both fields list only the file items of the device's rack. A new item is named after its
+device and field, such as "Plant OPC UA password". The dialog saves it before its first
+test, and Cancel deletes the items it made that nothing uses. OPC UA's Trust button
+saves the offered certificate as an item.
 
 ### 3.8 Expiry
 
@@ -291,7 +296,7 @@ the Driver change, so they are separate phases.
 | 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                                                         | 1          |
 | 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                                               | 2          |
 | 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                                                                                    | 3          |
-| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                                                                                                   | 4          |
+| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                      | 4          |
 | 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                        | 4          |
 | 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/api/certificate`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
 | 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                            | 3          |
@@ -334,7 +339,8 @@ the Driver change, so they are separate phases.
    Ignition's MQTT modules take uploads. The trade is real: a key lives in the Core too,
    against OPC UA Part 4 §6.1.2.
 10. **Paths as items, not fields**: A site whose keys never leave their computer still
-    works. The trade is real: a file item works on one computer.
+    works. The trade is real: a file item works on one rack, so two racks that hold the
+    same file need two items.
 11. **The file browser is its own integration**: A site can turn it off. Its reply is a
     task status, as OPC UA browse replies are. The trade is real: a Viewer can see file
     names in a reply, and an Operator can list folders, as with any command.
