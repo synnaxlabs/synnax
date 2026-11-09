@@ -213,11 +213,11 @@ TEST(RangerTests, testRetrieveOneWhereMultipleFound) {
     );
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one range.
+/// @brief it should reject a limit or a cursor on a retrieve of one range.
 TEST(RangerTests, testRetrieveRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.ranges.retrieve("range", options).second,
               client.ranges.retrieve({.name = "range"}, x::filter::one, options)
@@ -225,11 +225,10 @@ TEST(RangerTests, testRetrieveRejectsPage) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should page a retrieve of ranges by keys, by names, or by filter.
@@ -246,15 +245,14 @@ TEST(RangerTests, testRetrieveListPage) {
         keys.push_back(ASSERT_NIL_P(client.ranges.create(name, tr)).key);
     const auto by_key = ASSERT_NIL_P(client.ranges.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
-    const auto by_name = ASSERT_NIL_P(
-        client.ranges.retrieve(std::vector{name}, {.offset = 1})
-    );
-    ASSERT_EQ(by_name.size(), 2);
     const auto where = Where{.name = name};
     const auto first = ASSERT_NIL_P(client.ranges.retrieve(where, {.limit = 2}));
     ASSERT_EQ(first.size(), 2);
-    const auto rest = ASSERT_NIL_P(client.ranges.retrieve(where, {.offset = 1}));
-    ASSERT_EQ(rest.size(), 2);
+    const auto after = RetrieveOptions{.after = Cursor{.key = first[1].key}};
+    const auto rest = ASSERT_NIL_P(client.ranges.retrieve(where, after));
+    ASSERT_EQ(rest.size(), 1);
+    const auto by_name = ASSERT_NIL_P(client.ranges.retrieve(std::vector{name}, after));
+    ASSERT_EQ(by_name.size(), 1);
 }
 
 /// @brief it should keep only the ranges that match a search term.

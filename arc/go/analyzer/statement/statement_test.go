@@ -346,6 +346,7 @@ var _ = Describe("Statement", func() {
 			DescribeTable("reject an invalid stateful initializer",
 				func(bCtx SpecContext, code string) {
 					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					statement.CheckStatefulInitializers(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
 						ContainSubstring("cannot be assigned to stateful"),
@@ -365,6 +366,63 @@ var _ = Describe("Statement", func() {
 				).To(BeTrue())
 			})
 
+			It("promotes a local that reads a reactive local", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "s := sensor * 2.0")
+				ctx := declareIn(bCtx, root, "z := s + 1.0")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				z := MustSucceed(ctx.Scope.Resolve(ctx, "z"))
+				Expect(z.IsComputed()).To(BeTrue())
+				statement.PromoteChannelReadLocals(ctx)
+				Expect(z.IsReactive()).To(BeTrue())
+			})
+
+			It("promotes a copy of a promoted local", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "s := sensor * 2.0")
+				declareIn(bCtx, root, "z := s + 1.0")
+				ctx := declareIn(bCtx, root, "w := z")
+				statement.PromoteChannelReadLocals(ctx)
+				Expect(
+					MustSucceed(ctx.Scope.Resolve(ctx, "w")).IsReactive(),
+				).To(BeTrue())
+			})
+
+			It(
+				"rejects a stateful that reads a reactive local",
+				func(bCtx SpecContext) {
+					root := NewRoot(nil, sensorChan...)
+					declareIn(bCtx, root, "s := sensor * 2.0")
+					ctx := declareIn(bCtx, root, "bad $= s + 1.0")
+					statement.CheckStatefulInitializers(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(
+						ContainSubstring("cannot be assigned to stateful"),
+					)
+				},
+			)
+
+			It("classifies a bare call as computed", func(bCtx SpecContext) {
+				root := NewRoot(nil, symbol.Symbol{
+					Name: "one",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					}),
+				})
+				ctx := declareIn(bCtx, root, "x := one()")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(
+					MustSucceed(ctx.Scope.Resolve(ctx, "x")).IsComputed(),
+				).To(BeTrue())
+				expr := ctx.AST.LocalVariable().Expression()
+				Expect(MustSucceed(root.GetChildByParserRule(expr)).Kind).To(
+					Equal(symbol.KindFunction),
+				)
+			})
+
 			It("rejects a stateful bound to a ':=' variable", func(bCtx SpecContext) {
 				root := NewRoot(nil)
 				declareIn(bCtx, root, "s $= 0")
@@ -376,27 +434,21 @@ var _ = Describe("Statement", func() {
 			})
 
 			It(
-				"rejects a stateful initialized from a non-literal value",
+				"accepts a stateful initialized from a variable",
 				func(bCtx SpecContext) {
 					root := NewRoot(nil)
 					declareIn(bCtx, root, "base i64 := 5")
 					ctx := declareIn(bCtx, root, "total i64 $= base")
-					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"),
-					)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
 			)
 
 			It(
-				"rejects a stateful initialized from a constant expression",
+				"accepts a stateful initialized from a computed expression",
 				func(bCtx SpecContext) {
 					root := NewRoot(nil)
 					ctx := declareIn(bCtx, root, "total i64 $= 2 + 3")
-					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"),
-					)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
 			)
 
@@ -3004,15 +3056,12 @@ var _ = Describe("Flow variables from module constants", func() {
 			}
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
 		},
-		Entry(
-			"a constant",
-			"limit := math.inf",
-			"'limit' cannot be initialized from math.inf outside a function",
-		),
+		Entry("a constant", "limit := math.inf", ""),
+		Entry("an expression on a constant", "limit := math.inf * 2.0", ""),
 		Entry(
 			"a sequence variable",
 			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
-			"'limit' cannot be initialized from math.nan outside a function",
+			"",
 		),
 		Entry("a channel read", "limit := x * math.inf", ""),
 		Entry(

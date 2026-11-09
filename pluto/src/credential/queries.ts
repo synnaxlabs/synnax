@@ -16,19 +16,25 @@ export type SubjectQuery = {
   subject: resource.ID;
 };
 
-export const { useResult: useResultKeys, useInvalidate: useInvalidateKeys } =
-  Flux.createRetrieve<SubjectQuery, auth.APIKey[]>({
-    name: "API keys",
-    retrieve: async ({ client, query: { subject } }) =>
-      await client.auth.retrieveKeys([subject]),
-  });
+export const {
+  useResult: useResultKeys,
+  useInvalidate: useInvalidateKeys,
+  useRefresh: useRefreshKeys,
+} = Flux.createRetrieve<SubjectQuery, auth.APIKey[]>({
+  name: "API keys",
+  retrieve: async ({ client, query: { subject } }) =>
+    await client.auth.retrieveKeys([subject]),
+});
 
-export const { useResult: useResultSessions, useInvalidate: useInvalidateSessions } =
-  Flux.createRetrieve<SubjectQuery, auth.Session[]>({
-    name: "sessions",
-    retrieve: async ({ client, query: { subject } }) =>
-      await client.auth.retrieveSessions([subject]),
-  });
+export const {
+  useResult: useResultSessions,
+  useInvalidate: useInvalidateSessions,
+  useRefresh: useRefreshSessions,
+} = Flux.createRetrieve<SubjectQuery, auth.Session[]>({
+  name: "sessions",
+  retrieve: async ({ client, query: { subject } }) =>
+    await client.auth.retrieveSessions([subject]),
+});
 
 export interface CreateKeyParams {
   subject: resource.ID;

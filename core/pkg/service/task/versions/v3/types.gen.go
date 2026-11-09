@@ -12,10 +12,9 @@
 package v3
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
@@ -51,7 +50,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').

@@ -20,6 +20,10 @@ import { status } from "@/status";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /** Where is a filter that selects racks. */
 export type Where = {
   and?: Where[];
@@ -59,6 +63,24 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   grouped: z.boolean().optional(),
 });
 
+/** Cursor is a position in an order of racks: the sort value and the key of a rack. */
+export const cursorZ = z.object({
+  /** key is the key of the rack at the position. */
+  key: keyZ,
+  /** name is the name of the rack at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/** Order is a sort of racks. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
@@ -68,10 +90,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the racks that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the racks. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the racks strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most racks to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching racks to skip. */
-  offset: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
 });

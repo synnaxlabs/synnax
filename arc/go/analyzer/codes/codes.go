@@ -36,6 +36,8 @@ const (
 	// DeprecatedSymbol indicates a reference to a symbol whose canonical
 	// replacement is recorded on Symbol.Deprecated.
 	DeprecatedSymbol diagnostics.ErrorCode = "ARC4003"
+	// DeclarationAfterStep indicates a variable declared after a step of its scope.
+	DeclarationAfterStep diagnostics.ErrorCode = "ARC4004"
 
 	// UnusedImport indicates an imported module that is never referenced.
 	UnusedImport diagnostics.ErrorCode = "ARC5001"

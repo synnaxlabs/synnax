@@ -22,7 +22,9 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    Cursor,
     Operation,
+    Order,
     Payload,
     RetrieveRequest,
     Status,
@@ -480,7 +482,8 @@ class Client:
         search_term: str = ...,
         range_key: ranger.Key | None = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -496,7 +499,8 @@ class Client:
         search_term: str = "",
         range_key: ranger.Key | None = None,
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -532,7 +536,9 @@ class Client:
             whose alias in the range matches come first.
         :param range_key: Sets each channel's alias from this range.
         :param limit: The maximum number of channels to retrieve.
-        :param offset: The number of channels to skip.
+        :param order: The order of the channels. Defaults to key order.
+        :param after: Retrieves the channels past this position in the order: the key of
+            the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -542,14 +548,14 @@ class Client:
         :raises MultipleFoundError: If one channel is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one channel is
-            wanted beside a limit or an offset.
+            wanted beside a limit or a cursor.
         """
         selected = Where()
         positional = False
         if channel is not None:
             selected = params_where(channel)
             positional = normalize_params(channel).single
-        single = returns_one(fields, one or positional, limit, offset)
+        single = returns_one(fields, one or positional, limit=limit, after=after)
         flat = Where(
             key=selected.key,
             name=selected.name,
@@ -573,7 +579,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._retriever.filter(req, range_key)
