@@ -120,8 +120,8 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
- * Removes the status of a device. Use it to send a retrieved device or a create reply
- * back to {@link Client.create} without replacing the status the Core holds.
+ * Removes the status of a device. A create of the result stores the default status of a
+ * new device, not a status read from the Core.
  */
 export const toUpdate = <D extends Pick<Device, "status">>({
   status: _,
