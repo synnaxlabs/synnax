@@ -11,7 +11,6 @@
 
 #include <cstdint>
 #include <functional>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -33,16 +32,6 @@ x::errors::Error read_error(uint16_t index, uint8_t sub_index, uint32_t abort_co
 /// one slave. Returns read_error() when the read fails.
 using Read = std::function<
     std::pair<uint32_t, x::errors::Error>(uint16_t index, uint8_t sub_index)>;
-
-/// @brief reads a whole object from the object dictionary of one slave with complete
-/// access. Returns its bytes from sub-index 0, or nullopt when the read fails.
-using ReadAll = std::function<std::optional<std::vector<uint8_t>>(uint16_t index)>;
-
-/// @brief returns a Read for read_layout that reads the sync manager type, PDO assign,
-/// and PDO mapping objects with one read_all call each, as SOEM reads them. It uses
-/// read for any other object, and for an object that read_all fails or that is too
-/// short for its count.
-Read with_complete_access(Read read, ReadAll read_all);
 
 /// @brief what read_layout does after a failed read.
 enum class OnError {

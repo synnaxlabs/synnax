@@ -71,7 +71,8 @@ class Master final : public master::Master {
     bool initialized = false;
 
     /// @brief what the object dictionary and SII of one slave model describe. They do
-    /// not change for a model, so the master keeps them across scans.
+    /// not change for a model, so the master keeps them across scans. A modular slave's
+    /// model includes the modules it detects.
     struct Description {
         /// @brief the names of the CoE objects, keyed by index.
         std::map<uint16_t, std::string> object_names;
@@ -83,9 +84,11 @@ class Master final : public master::Master {
         /// them.
         std::vector<dc::OpMode> op_modes;
     };
-    /// @brief the description of each slave model, keyed by vendor ID, product code,
-    /// and revision, as ESI files key them.
-    std::map<std::tuple<uint32_t, uint32_t, uint32_t>, Description> descriptions;
+    /// @brief a slave model: its vendor ID, product code, revision, and the identities
+    /// of the modules that it detects.
+    using Model = std::tuple<uint32_t, uint32_t, uint32_t, std::vector<uint32_t>>;
+    /// @brief the description of each slave model.
+    std::map<Model, Description> descriptions;
     /// @brief the frames that came back to the master.
     std::atomic<uint64_t> frames{0};
     /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
@@ -197,21 +200,18 @@ private:
     /// @brief returns the process data of the mapped enabled slaves.
     master::Image image();
 
-    /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(slave::DiscoveryResult &slave);
+    /// @brief discovers PDO entries for a slave and populates its PDO lists, reading
+    /// names and data types that description does not hold yet.
+    void discover_slave_pdos(slave::DiscoveryResult &slave, Description &description);
 
     /// @brief reads an unsigned value of at most four bytes from the object dictionary
     /// of the slave at pos.
     std::pair<uint32_t, x::errors::Error>
     read_sdo(uint16_t pos, uint16_t index, uint8_t sub_index);
 
-    /// @brief reads a whole object from the object dictionary of the slave at pos with
-    /// complete access. Returns its bytes from sub-index 0, or nullopt when the read
-    /// fails.
-    std::optional<std::vector<uint8_t>> read_object(uint16_t pos, uint16_t index);
-
-    /// @brief returns the description of the model of the slave at pos.
-    Description &description(uint16_t pos);
+    /// @brief returns the model of the slave at pos, or nullopt when the slave does not
+    /// give the modules it detects.
+    std::optional<Model> read_model(uint16_t pos);
 
     /// @brief reads an SII category of the slave at pos, without its length word.
     /// Returns no bytes when the SII has no such category.
@@ -231,19 +231,24 @@ private:
         const std::function<bool(uint8_t sync)> &keep
     );
 
-    /// @brief returns the synchronization modes that the model of the slave at the
-    /// given position lists in its SII, read once for each model. Returns an empty list
-    /// when the SII has no DC category.
-    std::vector<dc::OpMode> read_op_modes(uint16_t position);
+    /// @brief returns the synchronization modes that the SII of the slave at the given
+    /// position lists, from description when it holds them. Returns an empty list when
+    /// the SII has no DC category.
+    std::vector<dc::OpMode> read_op_modes(uint16_t position, Description &description);
 
-    /// @brief returns the name of a CoE object, read once for each slave model, or
+    /// @brief returns the name of a CoE object, from description when it holds it, or
     /// nullopt when the slave has none.
-    std::optional<std::string> read_object_name(uint16_t slave_pos, uint16_t index);
+    std::optional<std::string>
+    read_object_name(uint16_t slave_pos, uint16_t index, Description &description);
 
     /// @brief returns the name and CoE data type of a PDO entry from the object
-    /// dictionary, read once for each slave model.
-    std::pair<std::string, telem::DataType>
-    read_object_entry(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
+    /// dictionary, from description when it holds them.
+    std::pair<std::string, telem::DataType> read_object_entry(
+        uint16_t slave_pos,
+        uint16_t index,
+        uint8_t sub_index,
+        Description &description
+    );
 
     /// @brief writes value to the DC register of a slave at address. The register is
     /// as wide as T.

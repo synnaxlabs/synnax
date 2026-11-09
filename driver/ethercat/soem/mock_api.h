@@ -70,11 +70,6 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
     /// sub-index.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
-    /// @brief whether the slave lists complete access in its CoE details.
-    bool complete_access = false;
-    /// @brief the bytes that a complete access read of each object returns, keyed by
-    /// index. A complete access read of any other object fails.
-    std::map<uint16_t, std::vector<uint8_t>> complete_objects;
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
@@ -278,7 +273,6 @@ public:
             slave.eep_ser = info.eep_ser;
             std::strncpy(slave.name, info.name.c_str(), EC_MAXNAME);
             slave.mbx_proto = info.mbx_proto;
-            slave.CoEdetails = info.complete_access ? ECT_COEDET_SDOCA : 0;
             slave.hasdc = info.hasdc ? 1 : 0;
             slave.pdelay = info.pdelay;
             for (int sm = 2; sm < EC_MAXSM; ++sm)
@@ -503,7 +497,7 @@ public:
         uint16_t slave,
         uint16_t index,
         uint8_t sub_index,
-        int complete_access,
+        int,
         int *psize,
         void *p,
         int
@@ -512,16 +506,6 @@ public:
         // PRE-OP.
         if ((this->context.slavelist[slave].state & 0x0F) < EC_STATE_PRE_OP) return 0;
         const auto &info = this->slave_infos.at(slave - 1);
-        if (complete_access != 0) {
-            const auto it = info.complete_objects.find(index);
-            if (it == info.complete_objects.end()) {
-                this->push_sdo_abort(slave, index, sub_index, 0x06010000);
-                return 0;
-            }
-            *psize = std::min(*psize, static_cast<int>(it->second.size()));
-            std::memcpy(p, it->second.data(), *psize);
-            return 1;
-        }
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
             this->push_sdo_abort(slave, index, sub_index, abort->second);
