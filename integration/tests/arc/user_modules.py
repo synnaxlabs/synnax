@@ -156,15 +156,6 @@ class UserModules(ArcCase):
         self._verify_automation_edit(source)
 
     def _verify_module_edit(self, library: str) -> None:
-        self.log("Waiting for the Core to stamp the automation's compiled hash")
-        task_key = self.task_key(self.arc_name)
-        self.wait_for_config_hash_change(
-            task_key,
-            self.client.tasks.retrieve(task_key).config_hash,
-            10 * sy.TimeSpan.SECOND,
-        )
-        self.log("Redeploying so the Driver runs the stamped config")
-        self.start_arc_task(self.client.tasks.retrieve(task_key))
         self.log("Editing the library module so seven() returns 8")
         self._edit_and_redeploy(
             library,

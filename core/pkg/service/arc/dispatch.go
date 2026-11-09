@@ -83,7 +83,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
 	w.resyncs.Add(w.tx, key)
-	if renamed {
+	if module && renamed {
 		return w.resyncImporting(ctx)
 	}
 	if module && containsTextEdit(acts) {

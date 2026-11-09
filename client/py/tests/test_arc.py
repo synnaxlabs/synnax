@@ -433,6 +433,38 @@ class TestArcTask:
         assert arc_task.config.arc_key == arc.key
         assert arc_task.config.auto_start is False
 
+    def test_update_task_binds_to_rack(self, client: sy.Synnax) -> None:
+        """Should create the automation's task on the rack with its compiled hash."""
+        arc = client.arcs.create(
+            name=f"test-arc-bind-{uuid4()}", mode="text", text=sy.Text(raw="x := 1")
+        )
+        rack = client.racks.create(name=f"test-arc-bind-{uuid4()}")
+        task = client.arcs.update_task(arc.key, rack=rack.key)
+        assert task is not None
+        assert task.rack == rack.key
+        config = sy.arc.Task(internal=task).config
+        assert config.arc_key == arc.key
+        assert config.hash != ""
+
+    def test_update_task_unbinds(self, client: sy.Synnax) -> None:
+        """Should delete the task and return None for a rack of 0."""
+        arc = client.arcs.create(name=f"test-arc-unbind-{uuid4()}", mode="text")
+        rack = client.racks.create(name=f"test-arc-unbind-{uuid4()}")
+        task = client.arcs.update_task(arc.key, rack=rack.key)
+        assert task is not None
+        assert client.arcs.update_task(arc.key, rack=0) is None
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(key=task.key)
+
+    def test_update_task_rejects_module(self, client: sy.Synnax) -> None:
+        """Should raise ValidationError when binding a module to a rack."""
+        module = client.arcs.create(
+            name=f"test_arc_bind_module_{uuid4().hex}", type="module", mode="text"
+        )
+        rack = client.racks.create(name=f"test-arc-bind-{uuid4()}")
+        with pytest.raises(sy.ValidationError):
+            client.arcs.update_task(module.key, rack=rack.key)
+
     def test_performance_defaults_to_auto(self) -> None:
         """Should default the performance level to auto."""
         task = sy.arc.Task(name="Test", arc_key=uuid4())

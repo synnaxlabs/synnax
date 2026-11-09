@@ -33,7 +33,6 @@ from synnax.status import Variant
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
 
-ARC_TASK_TYPE = sy.arc.Task.TYPE
 START_TIMEOUT_SECONDS = 30
 
 
@@ -122,23 +121,17 @@ class ArcCase(SimDaqCase, TestCase):
         start: bool = True,
         trigger: str | None = None,
     ) -> str:
-        """Create an Arc, save its task on the selected rack, and return its name.
+        """Create an Arc, bind it to the selected rack, and return its name.
 
-        The task row is saved against ``self.rack``; when ``start`` is True, a
-        start command deploys it and this blocks until the runtime reports it
-        running.
+        When ``start`` is True, a start command deploys it and this blocks until the
+        runtime reports it running.
         """
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")
-        task = sy.task.Task(
-            rack=self.rack.key,
-            name=name,
-            type=ARC_TASK_TYPE,
-            config={"arc_key": str(arc.key)},
-        )
+        task = self.client.arcs.update_task(arc.key, rack=self.rack.key)
+        assert task is not None
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
-        self.client.tasks.configure(task)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
@@ -297,18 +290,13 @@ class ArcCase(SimDaqCase, TestCase):
         self.verify_sequence_execution()
 
     def teardown(self) -> None:
-        """Delete all tracked arcs and their tasks, then stop the simulator.
+        """Delete all tracked arcs, which deletes their tasks, then stop the simulator.
 
         Cleanup runs even on failure, and SimDaqCase.teardown always runs so the
-        simulator is stopped even when a cleanup step raises. Tasks are deleted
-        explicitly rather than relying on the arc-to-task cascade, since a
-        rejected configuration never links the two.
+        simulator is stopped even when a cleanup step raises.
         """
         try:
             for handle in reversed(self._arcs):
-                if handle.task.key is not None:
-                    with self._try_to(f"delete task {handle.name}"):
-                        self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):
                     self.client.arcs.delete(handle.arc_key)
             for module in reversed(self._modules):

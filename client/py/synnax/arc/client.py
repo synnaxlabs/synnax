@@ -16,8 +16,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import rack as rack_, task as task_
 from synnax.arc import directory
 from synnax.arc.graph import Graph
+from synnax.arc.task import Performance
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     AutomationPayload,
@@ -53,6 +55,16 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
+
+
+class _UpdateTaskRequest(BaseModel):
+    key: Key
+    rack: rack_.Key | None = None
+    performance: Performance | None = None
+
+
+class _UpdateTaskResponse(BaseModel):
+    task: task_.Payload | None = None
 
 
 class Automation(AutomationPayload):
@@ -101,11 +113,13 @@ class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
+    _tasks: task_.Client
     directories: directory.Client
     """Creates, renames, deletes, and moves the directories of Arcs."""
 
-    def __init__(self, client: UnaryClient) -> None:
+    def __init__(self, client: UnaryClient, tasks: task_.Client) -> None:
         self._client = client
+        self._tasks = tasks
         self.directories = directory.Client(client)
 
     @overload
@@ -298,6 +312,31 @@ class Client:
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
+
+    def update_task(
+        self,
+        key: Key,
+        *,
+        rack: rack_.Key | None = None,
+        performance: Performance | None = None,
+    ) -> task_.Task | None:
+        """Changes the task of the automation with key. A field left as None stays as
+        it is.
+
+        :param key: The key of the automation.
+        :param rack: Binds the automation to the rack, creating its task or moving the
+            existing one. A rack of 0 unbinds it and deletes its task.
+        :param performance: Sets how closely the task's runtime holds timer deadlines.
+        :returns: The task, or None after an unbind.
+        :raises ValidationError: When unbinding while the task is running, or when
+            setting the performance of an automation with no rack.
+        """
+        res = self._client.send(
+            "/arc/update-task",
+            _UpdateTaskRequest(key=key, rack=rack, performance=performance),
+            _UpdateTaskResponse,
+        )
+        return None if res.task is None else self._tasks.sugar([res.task])[0]
 
     def _sugar(self, payloads: list[Payload]) -> list[Arc]:
         return [_ARCS[p.type].model_validate(p, from_attributes=True) for p in payloads]

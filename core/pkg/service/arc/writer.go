@@ -148,7 +148,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if !exists || existing.Base().Name != b.Name {
+	if module && (!exists || existing.Base().Name != b.Name) {
 		if err = w.resyncImporting(ctx); err != nil {
 			return err
 		}

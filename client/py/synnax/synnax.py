@@ -264,7 +264,7 @@ class Synnax(framer.Client):
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
         self.license = license_.Client(self._transport.unary)
-        self.arcs = arc.Client(self._transport.unary)
+        self.arcs = arc.Client(self._transport.unary, tasks=self.tasks)
         self.access = access_.Client(self._transport.unary)
 
     def close(self) -> None:
