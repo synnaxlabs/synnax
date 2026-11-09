@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 // MigrateLinePlot lifts a v6 line plot to v7, migrating each of its lines.
@@ -32,8 +33,8 @@ func MigrateLine(ctx context.Context, old v6.Line) (Line, error) {
 	if old.DownsampleMode == v6.DownsampleModeAverage && old.Downsample > 1 {
 		l.Aggregation = AggregationAverage
 	}
-	l.ApplyDefaults()
-	return l, nil
+	// Stored v6 lines cannot tell an absent field from a zero one.
+	return defaults.Fill(l), nil
 }
 
 // Migration lifts stored v6 line plots to v7.
