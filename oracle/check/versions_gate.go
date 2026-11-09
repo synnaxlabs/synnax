@@ -103,7 +103,7 @@ func checkChain(
 		}
 	}
 
-	// Import placement: stored references pin, resolved references float.
+	// Import placement: every versioned dependency is pinned.
 	for _, k := range chain.Numbers {
 		fk, err := resolver.File(ctx, livePath, k)
 		if err != nil {
@@ -114,7 +114,14 @@ func checkChain(
 			})
 			return
 		}
-		checkImportPlacement(r, resolver, chain, fk)
+		if err := checkImportPlacement(ctx, r, resolver, chain, fk); err != nil {
+			r.fail(Finding{
+				Path:     chain.FilePath(k) + ".oracle",
+				Severity: SeverityError,
+				Message:  err.Error(),
+			})
+			return
+		}
 	}
 
 	// Pin currency: every pin the current surface's stored reference graph crosses must
@@ -250,71 +257,55 @@ func (r *GateReport) fail(f Finding) {
 	r.Status = StatusFail
 }
 
-// checkImportPlacement verifies one version file's imports against the persistence
-// boundary: a dependency reached by any stored reference must be pinned; a dependency
-// reached only by resolved references must float on its live schema.
+// checkImportPlacement verifies that one version file pins every versioned dependency
+// it references. A version package renders each reference against the pinned version,
+// so a live import would let the dependency's next version move the package.
 func checkImportPlacement(
+	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
 	f *versions.File,
-) {
-	stored, referenced := classifyDeps(f)
+) error {
+	_, referenced := classifyDeps(f)
 	path := chain.FilePath(f.N) + ".oracle"
 	live := make(map[string]string, len(f.Live))
 	for i, ns := range f.Live {
 		live[ns] = f.LivePaths[i]
 	}
-	pinned := make(map[string]string, len(f.Pins))
-	for depLive := range f.Pins {
-		pinned[filepath.Base(depLive)] = depLive
-	}
-	for _, ns := range slices.Sorted(maps.Keys(stored)) {
+	for _, ns := range slices.Sorted(maps.Keys(referenced)) {
 		depLive, isLive := live[ns]
 		if !isLive {
 			continue
 		}
-		// A chainless dependency has no version file to pin: its live schema is the one
-		// shape, and the stored reference rides it (arc v0's Program). The exposure is
-		// the dependency's, not this file's.
+		// A chainless dependency has no version file to pin, and an ended chain's live
+		// schema is hand-owned: either way the live schema is the one shape (arc's
+		// Program).
 		if _, versioned := resolver.Chains()[depLive]; !versioned {
+			continue
+		}
+		ended, err := resolver.Ended(ctx, depLive)
+		if err != nil {
+			return err
+		}
+		if ended {
 			continue
 		}
 		r.fail(Finding{
 			Path:     path,
 			Severity: SeverityError,
 			Message: fmt.Sprintf(
-				"%s v%d stores %s but imports its live schema",
+				"%s v%d references %s but imports its live schema",
 				chain.LivePath(), f.N, ns,
 			),
 			FixHint: fmt.Sprintf(
-				"stored references resolve against the dependency's shape at "+
-					"a fixed version; import a %s/%s version file",
+				"a version package resolves every reference at a fixed version; "+
+					"import a %s/%s version file",
 				depLive, "versions",
 			),
 		})
 	}
-	for _, ns := range slices.Sorted(maps.Keys(referenced)) {
-		if stored.Contains(ns) {
-			continue
-		}
-		depLive, isPinned := pinned[ns]
-		if !isPinned {
-			continue
-		}
-		r.fail(Finding{
-			Path:     path,
-			Severity: SeverityError,
-			Message: fmt.Sprintf(
-				"%s v%d only resolves %s at read time but pins it",
-				chain.LivePath(), f.N, ns,
-			),
-			FixHint: fmt.Sprintf(
-				"resolved references always materialize the current shape; "+
-					"import the live schema %q", depLive,
-			),
-		})
-	}
+	return nil
 }
 
 // classifyDeps splits a version file's foreign dependency namespaces along the
@@ -363,9 +354,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			walkValue(sf.Value, into)
 		}
 	}
-	// walkDecl visits one declaration's references. Omit fields are resolved contexts:
-	// their targets never enter the stored set, and local types reached only through
-	// them stay outside the stored closure.
+	// walkDecl visits one declaration's references. Omit fields never reach the stored
+	// bytes: their targets stay out of the stored set, and so do local types reached
+	// only through them.
 	walkDecl := func(t resolution.Type, into set.Set[string], skipOmit bool) []string {
 		var locals []string
 		visit := func(ref resolution.TypeRef) {
@@ -431,9 +422,6 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 	}
 
 	for _, t := range f.Defined {
-		if t.Synthetic {
-			continue
-		}
 		walkDecl(t, referenced, false)
 	}
 	visited := make(set.Set[string])
@@ -452,8 +440,7 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 		}
 	}
 	// Membership marks a type persisted, so every declaration is a stored root except
-	// the omit-transient ones — a transient type tracks the live schema and resolves
-	// its references there.
+	// the omit-transient ones, which never reach the stored bytes.
 	transient := f.Transient()
 	for _, t := range f.Defined {
 		if t.Synthetic || transient.Contains(t.Name) {
@@ -547,7 +534,7 @@ func checkPinCurrency(
 				if pv != depChain.Current() &&
 					!pinAliasCurrent(
 						ctx, resolver, depLive, pv, depChain.Current(),
-						membersOf(f, ns),
+						membersOf(f, ns, false),
 					) {
 					r.fail(Finding{
 						Path:     chain.FilePath(chain.Current()) + ".oracle",
@@ -565,7 +552,7 @@ func checkPinCurrency(
 						),
 					})
 				}
-				for _, member := range membersOf(f, ns) {
+				for _, member := range membersOf(f, ns, false) {
 					visit(depLive, pv, member)
 				}
 			}
@@ -573,6 +560,90 @@ func checkPinCurrency(
 	}
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		visit(livePath, surf[name].Version, name)
+	}
+	checkOmittedPinCurrency(ctx, r, resolver, chain)
+}
+
+// checkOmittedPinCurrency fails a pin that an omitted field of a current-surface member
+// uses when it lags its dependency's current version. The member may be declared in an
+// earlier version file that the current one aliases. The current package types those
+// fields at the pin, and the Core assigns the dependency's root type to them.
+func checkOmittedPinCurrency(
+	ctx context.Context,
+	r *GateReport,
+	resolver *versions.Resolver,
+	chain versions.Chain,
+) {
+	path := chain.FilePath(chain.Current()) + ".oracle"
+	surf, err := resolver.Surface(ctx, chain.LivePath(), chain.Current())
+	if err != nil {
+		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+		return
+	}
+	byVersion := make(map[int][]string)
+	for name, def := range surf {
+		byVersion[def.Version] = append(byVersion[def.Version], name)
+	}
+	for _, n := range slices.Sorted(maps.Keys(byVersion)) {
+		f, err := resolver.File(ctx, chain.LivePath(), n)
+		if err != nil {
+			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
+			return
+		}
+		members := &versions.File{Chain: f.Chain, N: f.N, Pins: f.Pins}
+		for _, name := range byVersion[n] {
+			t, ok := versions.DefinedType(f, name)
+			if !ok {
+				continue
+			}
+			members.Defined = append(members.Defined, t)
+			// An inline variant's payload is a synthetic declaration the surface leaves
+			// out, so its fields join through the union.
+			if u, isUnion := t.Form.(resolution.UnionForm); isUnion {
+				for _, v := range u.Variants {
+					name := v.Type.Name[strings.LastIndex(v.Type.Name, ".")+1:]
+					if p, ok := versions.DefinedType(f, name); ok && v.Inline {
+						members.Defined = append(members.Defined, p)
+					}
+				}
+			}
+		}
+		for _, depLive := range slices.Sorted(maps.Keys(f.Pins)) {
+			ns := filepath.Base(depLive)
+			depChain, ok := resolver.Chains()[depLive]
+			// The stored check covers stored members, so this one checks only the
+			// members that omitted fields alone reach.
+			stored := set.New(membersOf(members, ns, false)...)
+			var omitted []string
+			for _, m := range membersOf(members, ns, true) {
+				if !stored.Contains(m) {
+					omitted = append(omitted, m)
+				}
+			}
+			if !ok || len(omitted) == 0 {
+				continue
+			}
+			pv := f.Pins[depLive]
+			if pv == depChain.Current() || pinAliasCurrent(
+				ctx, resolver, depLive, pv, depChain.Current(), omitted,
+			) {
+				continue
+			}
+			r.fail(Finding{
+				Path:     path,
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"%s's current surface resolves %s at v%d for omitted fields, "+
+						"but %s's current version is v%d",
+					chain.LivePath(), ns, pv, depLive, depChain.Current(),
+				),
+				FixHint: fmt.Sprintf(
+					"omitted fields leave the stored bytes alone: bump the pin in "+
+						"v%d in place, redeclaring any member it aliases",
+					chain.Current(),
+				),
+			})
+		}
 	}
 }
 
@@ -663,7 +734,9 @@ func pinAliasCurrent(
 	return true
 }
 
-func membersOf(f *versions.File, ns string) []string {
+// membersOf returns the names in ns that f's declarations reference. Omitted fields
+// count only when omitted is set.
+func membersOf(f *versions.File, ns string, omitted bool) []string {
 	found := make(set.Set[string])
 	for _, t := range f.Defined {
 		var walkRef func(ref resolution.TypeRef)
@@ -680,7 +753,8 @@ func membersOf(f *versions.File, ns string) []string {
 		switch form := t.Form.(type) {
 		case resolution.StructForm:
 			for _, fd := range form.Fields {
-				if domain.GetStringFromField(fd, "go", "marshal") == "omit" {
+				if !omitted &&
+					domain.GetStringFromField(fd, "go", "marshal") == "omit" {
 					continue
 				}
 				walkRef(fd.Type)

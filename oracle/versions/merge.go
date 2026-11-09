@@ -187,7 +187,7 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to format merged %s.oracle", livePath)
 	}
-	return license(ctx, r.RepoRoot(), formatted)
+	return license(ctx, r.RepoRoot(), livePath+".oracle", formatted)
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files can

@@ -20,24 +20,20 @@
 #include "driver/common/write_task.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
-#include "driver/ethercat/topology/topology.h"
+#include "driver/ethercat/slaves.h"
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT write tasks.
 struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
-    /// @brief network interface name for the EtherCAT master.
-    /// Dynamically populated from device properties.
-    std::string interface_name;
+    /// @brief the slaves that the channels name.
+    Slaves slaves;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> outputs;
-    /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::ethercat::WriteConfig(std::move(other)),
-        interface_name(std::move(other.interface_name)),
-        outputs(std::move(other.outputs)),
-        device_cache(std::move(other.device_cache)) {}
+        slaves(std::move(other.slaves)),
+        outputs(std::move(other.outputs)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
@@ -48,52 +44,25 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
     ):
         ::synnax::ethercat::WriteConfig(::synnax::ethercat::WriteConfig::parse(cfg)) {
         if (cfg.error()) return;
-        std::unordered_map<std::string, slave::Properties> slave_cache;
-        std::string first_network;
-
         channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
+            const auto &base = ::synnax::ethercat::base(this->channels[i]);
+            if (base.disabled) continue;
             const auto path = "channels." + std::to_string(i) + ".";
-            const auto &slave_key = ::synnax::ethercat::base(this->channels[i]).device;
-            if (!slave_cache.contains(slave_key)) {
-                auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
-                if (slave_err) {
-                    cfg.field_err(path + "device", slave_err.data);
-                    continue;
-                }
-                auto props_parser = x::json::Parser(slave_dev.properties);
-                auto props = slave::Properties::parse(props_parser);
-                if (props_parser.error()) {
-                    cfg.field_err(
-                        path + "device",
-                        common::config_err_description(props_parser.error())
-                    );
-                    continue;
-                }
-                slave_cache.emplace(slave_key, std::move(props));
-                const auto &network = slave_cache.at(slave_key).network;
-                if (first_network.empty())
-                    first_network = network;
-                else if (network != first_network) {
-                    cfg.field_err(
-                        path + "device",
-                        "all slaves must be on the same network"
-                    );
-                    continue;
-                }
-            }
-
-            const auto &slave = slave_cache.at(slave_key);
-            auto output = channel::make_output(this->channels[i], slave, cfg, path);
-            if (!output->enabled) continue;
-            claims.claim(*output, slave, cfg, path);
+            const auto *slave = this->slaves.resolve(*client, base.device, cfg, path);
+            if (slave == nullptr) continue;
+            auto output = channel::make_output(this->channels[i], *slave, cfg, path);
+            if (output == nullptr) continue;
+            claims.claim(output->entry, *slave, cfg, path);
             this->outputs.push_back(std::move(output));
         }
 
         if (cfg.error()) return;
 
-        this->interface_name = first_network;
-        this->device_cache = std::move(slave_cache);
+        if (this->outputs.empty()) {
+            cfg.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
 
         channel::sort_by_position(this->outputs);
         std::vector<synnax::channel::Key> state_keys;
@@ -146,17 +115,14 @@ public:
         engine(std::move(eng)) {}
 
     x::errors::Error start() override {
-        if (auto err = this->engine->ensure_initialized(); err) return err;
-        const auto slaves = slave::discovered_properties(this->engine->slaves());
-        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
-            return err;
+        const auto [slaves, discover_err] = this->engine->discover();
+        if (discover_err) return discover_err;
+        if (auto err = this->cfg.slaves.validate(slaves)) return err;
 
         std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
-        for (const auto &ch: this->cfg.outputs) {
-            const pdo::Entry &entry = *ch;
-            entries.push_back({.entry = entry, .stop_value = ch->stop_value});
-        }
+        for (const auto &ch: this->cfg.outputs)
+            entries.push_back({.entry = ch->entry, .stop_value = ch->stop_value});
         auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);

@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -234,9 +235,10 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			"a read cannot take latest or earliest with a reduction",
 		)
 	}
+	subject := auth.GetSubject(ctx)
 	var channels, indexes []channel.Channel
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if err = s.enforceRetrieve(ctx, snap, req.Keys); err != nil {
+		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
 			return err
 		}
 		if err = s.channel.NewRetrieve().
@@ -254,7 +256,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		// An encoder writes every index it receives, so an index the caller never named
 		// still needs its own check.
 		if indexKeys := channel.KeysFromChannels(indexes); len(indexKeys) > 0 {
-			return s.enforceRetrieve(ctx, snap, indexKeys)
+			return s.enforceRetrieve(ctx, snap, subject, indexKeys)
 		}
 		return nil
 	}); err != nil {
@@ -282,17 +284,30 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	}, nil
 }
 
-// enforceRetrieve reports whether the request's subject may retrieve every given
-// channel.
+// enforceRetrieve reports whether subject may retrieve every given channel and every
+// channel the calculated ones among them read. It reads through snap.
 func (s *Service) enforceRetrieve(
 	ctx context.Context,
 	snap gorp.Snapshot,
+	subject resource.ID,
 	keys channel.Keys,
 ) error {
+	var calculated []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Where(channel.MatchCalculated()).
+		Entries(&calculated).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	inputs, err := s.channel.CalculationInputs(ctx, snap, calculated)
+	if err != nil {
+		return err
+	}
 	return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: framer.ResourceIDs(keys),
+		Objects: framer.ResourceIDs(append(slices.Clone(keys), inputs...)),
 	})
 }
 
@@ -406,7 +421,7 @@ func (s *Service) openIterator(
 		return nil, err
 	}
 	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.enforceRetrieve(ctx, snap, req.Keys)
+		return s.enforceRetrieve(ctx, snap, auth.GetSubject(ctx), req.Keys)
 	}); err != nil {
 		return nil, err
 	}
@@ -454,8 +469,21 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		return err
 	}
 	var (
-		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
-		sender   = &freightfluence.Sender[StreamerResponse]{
+		receiver = &freightfluence.TransformReceiver[StreamerRequest, StreamerRequest]{
+			Receiver: stream,
+			Transform: func(
+				ctx context.Context,
+				req StreamerRequest,
+			) (StreamerRequest, bool, error) {
+				return req, true, s.db.WithSnapshot(
+					ctx,
+					func(snap gorp.Snapshot) error {
+						return s.enforceRetrieve(ctx, snap, subject, req.Keys)
+					},
+				)
+			},
+		}
+		sender = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
 				StreamSender: records,
 			},
@@ -494,11 +522,7 @@ func (s *Service) openStreamer(
 		return nil, req, err
 	}
 	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: framer.ResourceIDs(req.Keys),
-		})
+		return s.enforceRetrieve(ctx, snap, subject, req.Keys)
 	}); err != nil {
 		return nil, req, err
 	}
