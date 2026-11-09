@@ -1211,8 +1211,10 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
         "on eth0 with different settings. Give them the same settings, or delete the "
         "device that is no longer on the bus."
     );
-    replacement.properties["enabled"] = false;
-    ASSERT_NIL(this->client->devices.create(replacement));
+    ASSERT_NIL(this->client->devices.dispatch(
+        replacement.key,
+        {synnax::device::set({.path = {"properties", "enabled"}, .value = false})}
+    ));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_FALSE(this->mock_master->slave_enabled(1));

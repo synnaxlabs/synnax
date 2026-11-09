@@ -500,9 +500,13 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
     ASSERT_TRUE(moved_server.wait_until_ready());
     auto moved_cfg = conn_cfg;
     moved_cfg.endpoint = "opc.tcp://localhost:4858";
-    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        "abc123",
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     server->stop();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 

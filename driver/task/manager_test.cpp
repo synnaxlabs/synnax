@@ -1710,9 +1710,10 @@ TEST_F(TaskManagerTest, RackRenameUpdatesContext) {
     start_manager(std::move(factory));
     ASSERT_NE(f->captured_ctx, nullptr);
     ASSERT_EQ(f->captured_ctx->rack_name(), "test_rack");
-    auto renamed = rack;
-    renamed.name = "renamed_rack";
-    ASSERT_NIL(client->racks.create(renamed));
+    ASSERT_NIL(client->racks.dispatch(
+        rack.key,
+        {synnax::rack::set({.path = {"name"}, .value = "renamed_rack"})}
+    ));
     ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "renamed_rack");
 }
 
