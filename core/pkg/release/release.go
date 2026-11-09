@@ -75,9 +75,13 @@ const (
 type Platform string
 
 const (
-	Linux     Platform = "linux"
-	MacOS     Platform = "macos"
-	Windows   Platform = "windows"
+	// Linux is Linux on x86-64.
+	Linux Platform = "linux"
+	// MacOS is macOS.
+	MacOS Platform = "macos"
+	// Windows is Windows on x86-64.
+	Windows Platform = "windows"
+	// NILinuxRT is NI Linux Real-Time.
 	NILinuxRT Platform = "nilinuxrt"
 )
 
