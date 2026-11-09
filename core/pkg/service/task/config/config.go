@@ -149,8 +149,9 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
+	// ApplyEntryDefaults replaces each zero field of an entry with its default, an
+	// explicit zero included, before the entry is stored.
+	// [OPTIONAL] - nil when the entry type has no defaults or its decode fills them.
 	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// snap, before the entry is validated and stored.
