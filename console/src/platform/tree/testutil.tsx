@@ -12,10 +12,11 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { array } from "@synnaxlabs/x";
+import { array, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
+  getConfig,
   type Matcher,
   type MatcherFunction,
   render,
@@ -337,19 +338,19 @@ const SCROLL_STEP = 200;
 const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";
 const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
 
-/**
- * Finds the tree label matching text, scrolling the tree when the row sits outside the
- * window. The tree keeps only the rows near the window mounted, so a label further down
- * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
- * label was found, and back at the top when there is none.
- */
-// Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
+const SWEEP_INTERVAL = TimeSpan.milliseconds(50);
+
+// Sweeps from the top: a previous lookup can leave the tree scrolled past the row. Rows
+// can land during the sweep, so it reads the height at each step.
 const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
   const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
   const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
   if (tree == null || rows == null) return null;
-  const total = parseInt(rows.style.minHeight, 10);
-  for (let offset = 0; offset <= total; offset += SCROLL_STEP) {
+  for (
+    let offset = 0;
+    offset <= parseInt(rows.style.minHeight, 10);
+    offset += SCROLL_STEP
+  ) {
     await act(async () => {
       tree.scrollTop = offset;
       fireEvent.scroll(tree);
@@ -360,19 +361,20 @@ const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
   return null;
 };
 
+/**
+ * Finds the tree label matching text, scrolling the tree when the row sits outside the
+ * window. The tree keeps only the rows near the window mounted, so a label further down
+ * reaches the DOM the same way a user reaches it. Sweeps again until the label loads or
+ * the async util timeout passes. Leaves the tree scrolled where the label was found.
+ */
 const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
-  const mounted = screen.queryByText(text, QUERY_OPTIONS);
-  if (mounted != null) return mounted;
-  const swept = await sweepTree(text);
-  if (swept != null) return swept;
-  // Absent from the data rather than the window: wait for it to load, then sweep again.
-  try {
-    return await screen.findByText(text, QUERY_OPTIONS);
-  } catch (err) {
-    const retried = await sweepTree(text);
-    if (retried != null) return retried;
-    throw err instanceof Error ? err : new Error(String(err), { cause: err });
+  const deadline = performance.now() + getConfig().asyncUtilTimeout;
+  let label = screen.queryByText(text, QUERY_OPTIONS) ?? (await sweepTree(text));
+  while (label == null && performance.now() < deadline) {
+    await act(async () => await sleep.sleep(SWEEP_INTERVAL));
+    label = await sweepTree(text);
   }
+  return label ?? screen.getByText(text, QUERY_OPTIONS);
 };
 
 /**
