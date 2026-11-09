@@ -148,7 +148,7 @@ var _ = Describe("Dispatch", func() {
 		rec := record()
 		created := symbol.Symbol{
 			Name: "Created",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static"},
+			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &created)
