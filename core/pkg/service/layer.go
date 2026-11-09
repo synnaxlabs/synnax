@@ -753,12 +753,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
 	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -791,6 +793,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
