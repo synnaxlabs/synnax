@@ -183,19 +183,19 @@ describe("arc", () => {
       const res = await client.arcs.task.retrieve(created.key);
       expect(res?.key).toEqual(tsk.key);
       expect(res?.config).toMatchObject({ key: expect.any(String) });
-      const cached = client.arcs.task.getCached(created.key);
+      const cached = client.arcs.task.watch(created.key).getCached();
       expect(expectLive(cached)?.key).toEqual(tsk.key);
     });
 
     it("delivers a task attached while subscribed", async () => {
       const created = await client.arcs.create(newTextArc(`task-sub-${id.create()}`));
-      const off = client.arcs.task.onChange(created.key, vi.fn());
+      const off = client.arcs.task.watch(created.key).onChange(vi.fn());
       try {
         expect(await client.arcs.task.retrieve(created.key)).toBeNull();
         const tsk = await attachTask(created.key);
         await expect
           .poll(() => {
-            const cached = client.arcs.task.getCached(created.key);
+            const cached = client.arcs.task.watch(created.key).getCached();
             return query.isLive(cached) && cached?.key === tsk.key;
           })
           .toBe(true);
@@ -209,7 +209,7 @@ describe("arc", () => {
         newTextArc(`task-status-${id.create()}`),
       );
       const tsk = await attachTask(created.key);
-      const off = client.arcs.task.onChange(created.key, vi.fn());
+      const off = client.arcs.task.watch(created.key).onChange(vi.fn());
       try {
         const res = await client.arcs.task.retrieve(created.key);
         expect(res?.key).toEqual(tsk.key);
@@ -229,7 +229,7 @@ describe("arc", () => {
         );
         await expect
           .poll(() => {
-            const cached = client.arcs.task.getCached(created.key);
+            const cached = client.arcs.task.watch(created.key).getCached();
             return (
               query.isLive(cached) &&
               cached?.status?.variant === "error" &&

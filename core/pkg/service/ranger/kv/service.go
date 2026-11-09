@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -55,6 +56,7 @@ type Service struct {
 	cfg     ServiceConfig
 	table   *gorp.Table[string, Pair]
 	indexes indexes
+	state   *actions.State[string, Action]
 }
 
 // OpenService opens a new kv.Service with the provided configuration.
@@ -63,7 +65,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[string, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Pair]{
@@ -84,6 +90,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[string, Action]{
+			Name:     "sy_range_kv_action_set",
+			Actions:  s.state,
+			Resource: rangeOf,
+		}); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -96,9 +109,12 @@ func rangeOf(key string) resource.ID {
 	return resource.ID{Type: resource.TypeRange, Key: Pair{}.GorpKeyRange(key)}
 }
 
-// NewWriter opens a new Writer to create and delete key-value pairs.
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[string, Action] { return s.state }
+
+// NewWriter opens a new Writer to create, change, and delete key-value pairs.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, table: s.table}
+	return Writer{tx: tx, table: s.table, dispatcher: s.state.Dispatcher()}
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.

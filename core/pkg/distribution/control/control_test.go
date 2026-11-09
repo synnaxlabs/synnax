@@ -32,7 +32,7 @@ func createChannel(
 	leaseholder node.Key,
 ) channel.Channel {
 	GinkgoHelper()
-	return MustSucceed(n.Channel.Create(ctx, []channel.Channel{{
+	return MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
 		Name:        name,
 		DataType:    telem.Float64T,
 		Virtual:     true,

@@ -16,8 +16,10 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_, rack as rack_
 from synnax.device.types_gen import (
+    Cursor,
     Device,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
@@ -333,7 +335,8 @@ class Client:
         racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Device]: ...
@@ -350,7 +353,8 @@ class Client:
         racks: list[rack_.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         ignore_not_found: bool = False,
@@ -385,7 +389,9 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to retrieve.
-        :param offset: The number of devices to skip.
+        :param order: The order of the devices. Defaults to key order.
+        :param after: Retrieves the devices past this position in the order: the key of
+            the last device of the page before, and its value of the order field.
         :param include_status: Whether to populate each device's status.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
@@ -397,9 +403,9 @@ class Client:
         :raises MultipleFoundError: If one device is wanted and more than one matches,
             even when ``ignore_not_found`` is set.
         :raises ValidationError: If a filter field is None, or if one device is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -412,7 +418,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)

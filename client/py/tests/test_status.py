@@ -129,8 +129,8 @@ class TestStatusClient:
 
         assert_eventually(check)
 
-    def test_retrieve_with_pagination(self, client: sy.Synnax) -> None:
-        """Should paginate results."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the matching statuses."""
         statuses: list[sy.Status[None]] = [
             sy.Status(variant=sy.status.VARIANT_INFO, message=f"Paginated status {i}")
             for i in range(5)
@@ -138,15 +138,7 @@ class TestStatusClient:
         created = client.statuses.set(statuses)
         keys = [s.key for s in created]
 
-        page1 = client.statuses.retrieve(keys=keys, limit=2, offset=0)
-        assert len(page1) == 2
-
-        page2 = client.statuses.retrieve(keys=keys, limit=2, offset=2)
-        assert len(page2) == 2
-
-        page1_keys = {s.key for s in page1}
-        page2_keys = {s.key for s in page2}
-        assert page1_keys.isdisjoint(page2_keys)
+        assert len(client.statuses.retrieve(keys=keys, limit=2)) == 2
 
     def test_delete_single_status(self, client: sy.Synnax) -> None:
         """Should delete a status by key."""
@@ -330,10 +322,10 @@ class TestStatusClient:
         )
         assert found.key == created[1].key
 
-    def test_one_with_offset(self, client: sy.Synnax) -> None:
-        """Should reject one beside an offset, since a page could hide a match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
-            client.statuses.retrieve(key="a", offset=1)  # type: ignore[call-overload]
+    def test_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match."""
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
+            client.statuses.retrieve(key="a", limit=1)  # type: ignore[call-overload]
 
     def test_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every status."""
