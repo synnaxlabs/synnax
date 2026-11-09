@@ -199,6 +199,17 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
+// variable declared at the top level of its program or module.
+func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {
+	if !sym.IsValueVariable() || sym.Parent != sym.Root() {
+		return false
+	}
+	c.Diagnostics.Add(diagnostics.Errorf(c.AST,
+		"cannot reassign top-level variable '%s'", name))
+	return true
+}
+
 // FloatConstant returns the value of the float module constant that node reduces to,
 // such as math.nan, with parentheses, f32 and f64 casts, and negation applied.
 func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {

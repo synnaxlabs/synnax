@@ -291,8 +291,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     std::string failures;
     for (const auto &[pos, failure]: session.startup_failures)
         failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
-                    std::to_string(pos) + " (" + this->record(pos).name + ") " +
-                    failure;
+                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " + failure;
     if (!failures.empty())
         return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
 
@@ -513,7 +512,7 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.product_code = this->record(pos).eep_id;
     result.properties.revision = this->record(pos).eep_rev;
     result.properties.serial = this->record(pos).eep_ser;
-    result.properties.name = this->record(pos).name;
+    result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
     Description unshared;
     const auto model = this->read_model(pos);
@@ -842,7 +841,7 @@ Master::write_dc_register(const uint16_t pos, const uint16_t address, const T va
         std::format(
             "slave {} ({}) did not take a write to DC register 0x{:04X}",
             pos,
-            this->record(pos).name,
+            this->slave_name(pos),
             address
         )
     );
@@ -861,7 +860,7 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
             std::format(
                 "slave {} ({}) did not answer a read of DC register 0x{:04X}",
                 pos,
-                this->record(pos).name,
+                this->slave_name(pos),
                 address
             )
         )
@@ -1009,7 +1008,7 @@ x::errors::Error Master::wait_for_dc_settle(
                     "the clock of slave {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
-                    this->record(worst_pos).name,
+                    this->slave_name(worst_pos),
                     worst.to_string(),
                     this->cfg.dc_settle_timeout.to_string(),
                     DC_SETTLED_DIFF.to_string()
@@ -1062,7 +1061,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
         "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
         "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
         pos,
-        this->record(pos).name,
+        this->slave_name(pos),
         regs.assign_activate,
         regs.sync0_cycle,
         regs.sync1_cycle,
@@ -1200,7 +1199,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->record(pos).name +
+        msg += "slave " + std::to_string(pos) + " (" + this->slave_name(pos) +
                ") is in " +
                slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;

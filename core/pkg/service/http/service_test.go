@@ -28,10 +28,12 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB: db,
+			DB:      db,
+			Channel: channelSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
+			Status: statusSvc,
 			Stores: svc.Stores(),
 		}))
 	})
@@ -40,6 +42,11 @@ var _ = Describe("Service", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
 			Expect(http.OpenService(ctx, http.ServiceConfig{})).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+
+		It("Should reject a config missing the channel service", func(ctx SpecContext) {
+			Expect(http.OpenService(ctx, http.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 	})
 
