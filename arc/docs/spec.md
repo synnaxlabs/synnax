@@ -317,9 +317,11 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, default to `f64`, and do not fit an integer type. `x != math.nan` is always
-`true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so each
-fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+`f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
+error. In a flow, a constant sends its value: `x -> math.nan -> y`.
+`x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is
+always `false`, so each fails with error ARC2004: test with `math.is_nan(x)` or
+`not math.is_nan(x)`.
 
 ```arc
 import math

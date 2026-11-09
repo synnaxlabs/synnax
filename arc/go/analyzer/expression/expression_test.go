@@ -2035,6 +2035,12 @@ var _ = Describe("Expressions", func() {
 			Entry("i64 constant", "a i64 := -math.nan", "not compatible with i64"),
 			Entry("i32 comparison", "a := n < math.inf", "not compatible with i32"),
 			Entry("a call", "a := math.inf()", "cannot call non-function"),
+			Entry(
+				"an i32 cast",
+				"a := i32(math.nan)",
+				"cannot cast math.nan to i32: NaN and infinity have no integer value",
+			),
+			Entry("a negated i64 cast", "a := i64(-math.inf)", "no integer value"),
 			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
 		)
 
