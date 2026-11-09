@@ -194,10 +194,11 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 ### 3.5 File items and the file integration
 
 A file item names a path and the rack that reads it: a Driver's rack for OPC UA and
-HTTP, or the Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka and
-MQTT. Each integration's Core service refuses a device or task that names a file item of
-another rack, so an item has one file and one set of details. The reader opens the file
-at each connect, and the value never enters the store.
+HTTP, or the Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT,
+and PagerDuty. Each integration's Core service refuses a device or task that names a
+file item of another rack. A replace of an item in use keeps its source and rack, or
+fails as a delete does. So an item has one file and one set of details. The reader opens
+the file at each connect, and the value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
@@ -296,8 +297,8 @@ the Driver change, so they are separate phases.
 | 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                                                         | 1          |
 | 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                                               | 2          |
 | 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                                                                                    | 3          |
-| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                      | 4          |
-| 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                        | 4          |
+| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `core/pkg/service/pagerduty`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`                        | 4          |
+| 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                        | 5          |
 | 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/api/certificate`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
 | 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                            | 3          |
 
