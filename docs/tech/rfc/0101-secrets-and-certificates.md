@@ -81,13 +81,15 @@ can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <
 | `secret/create`       | Can create secrets, and update each it replaces | Saves a value or path, or replaces it      |
 | `secret/retrieve`     | Can retrieve secrets                            | Returns records without values             |
 | `secret/rename`       | Can update secrets                              | Renames a secret                           |
+| `secret/dispatch`     | Can update secrets                              | Applies edits as actions, such as a rename |
 | `secret/delete`       | Can delete secrets                              | Refuses while anything uses the secret     |
 | `secret/grant/create` | Can create devices and retrieve the secrets     | Stores a one-time grant (§3.3)             |
 | `secret/resolve`      | A rack only                                     | Returns stored values; refuses file values |
 
-Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
-retrieve them. The Driver role also retrieves secrets, and retrieves and creates
-certificates, for pins (§3.6).
+The write binder (`core/pkg/api/bind/write.go`) makes the create, update, and delete
+checks on each record that a write changes. Owner and Engineer get every action on
+`secret` and `certificate`. Operator and Viewer retrieve them. The Driver role also
+retrieves secrets, and retrieves and creates certificates, for pins (§3.6).
 
 ### 3.1 Certificates
 
@@ -114,9 +116,10 @@ The package is `core/pkg/service/certificate`. For a stored certificate, the Cor
 certificate. A write may carry a private key as PEM: the Core checks that it matches the
 leaf and saves it as a secret in the same transaction, so the caller must also be able
 to create secrets. A `pem` that holds a private key is refused, so a key never lands in
-the public record. For a file certificate, the details come from the file browser
-(§3.5). Certificates are public: anyone who can retrieve one can download it as PEM or
-DER. The endpoints match the secret endpoints, without grants and resolve.
+the public record. For a file certificate, the details come from the file browser and
+from the reader (§3.5). Certificates are public: anyone who can retrieve one can
+download it as PEM or DER. The endpoints match the secret endpoints, without grants and
+resolve.
 
 ### 3.2 Encryption key
 
@@ -152,23 +155,23 @@ rule, with the first Driver integration.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
-calls `secret/grant/create` with a subject, a task, and secrets, and the Core checks
-that the caller can create devices and retrieve each secret. Only a rack can be a
-subject for now, and the task must be on that rack. For a certificate, the Console sends
-the secret in its `private_key`. The Core stores the grant with the subject, the task,
-the secrets, and an expiry one minute away, and returns its key. The Console sends the
-key with its command to that task.
+calls `secret/grant/create` with a subject, a task, the secrets, and the command to run,
+and the Core checks that the caller can create devices and retrieve each secret. Only a
+rack can be a subject for now, and the task must be on that rack. For a certificate, the
+Console sends the secret in its `private_key`. The Core stores the grant with an expiry
+one minute away and returns its key. The Console then sends that task a command that
+carries only the key.
 
-The first resolve that carries the key deletes the grant, and reads only the secrets
-that the grant names. The Driver sends the task of the command, and the Core refuses a
-grant for a different task. A grant that no resolve uses ends at its expiry. The key
-travels on `sy_task_cmd`, where an Operator can read and write any command
-(`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key can reach only
-the same task, and the Driver runs the commands of one task in order
-(`driver/task/manager.cpp:271-292`, `driver/task/manager.cpp:420-475`). So the Console's
-command spends the grant first, and a copied key reads nothing. The Driver spends the
-grant before any other check on the command, so a command that fails still spends it.
-Without grants, an Operator could send a saved password to a server of their choice.
+The Driver resolves the key with the task of the command. The Core refuses a grant for a
+different task, deletes the grant, and returns the stored command with the values of its
+secrets. The Driver runs the stored command, never the arguments on the stream. A grant
+that no resolve uses ends at its expiry. The key travels on `sy_task_cmd`, where an
+Operator can read and write any command
+(`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs only the
+Console's own command, against the Console's server, even when the Driver drops or never
+sees the Console's command. At worst, a copied key spends the grant first and the
+Console's test fails. Without grants, an Operator could send a saved password to a
+server of their choice.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -181,10 +184,10 @@ Each field that names an item is a Gorp reference (RFC 0100) with `@ref kind use
 `private_key`. Gorp refuses a write that names a missing item, and keeps a reverse
 index. A delete of an item in use fails with a `gorp.RestrictError`, which
 `core/pkg/api/restrict.go` rewrites to name the task or device. A task config lives in
-its own table, so the API maps it to its task with `task.Service.ConfigTask`. The
-Console's "Used by" list and the rack rule (§3.3) read the index through
-`resource.Dependents`. A certificate is a union on its source, so Oracle reads `@ref`
-inside a union variant.
+its own table, so the API maps it to its task with `config.TaskOf`
+(`core/pkg/service/task/config/config.go`). The Console's "Used by" list and the rack
+rule (§3.3) read the index through `resource.Dependents`. A certificate is a union on
+its source, so Oracle reads `@ref` inside a union variant.
 
 ### 3.5 File items and the file integration
 
@@ -198,9 +201,14 @@ A new integration, `file`, gives every rack one internal task, "File Browser", t
 nothing for the roots and home folder. The reply gives each entry's name, kind, size,
 and modified time. For a certificate file it adds the subject, issuer, expiry, and
 fingerprints, which the Console saves with a file certificate so expiry warnings work
-for files too. For a key file it gives the name only. The whole disk is visible, as it
-is to a path typed by hand. A site that does not want browsing leaves `file` out of the
-Driver's integrations.
+for files too. At each connect, the reader compares the file's SHA-256 fingerprint with
+the saved one. When they differ, it saves the new details. A Core reader saves them in
+process. A rack calls `certificate/refresh`, which changes only the details, and only of
+a file certificate that a device or task on that rack uses. So a replaced file gets new
+details at its next connect, and a typed path gets its first details there, with or
+without the file browser. For a key file it gives the name only. The whole disk is
+visible, as it is to a path typed by hand. A site that does not want browsing leaves
+`file` out of the Driver's integrations.
 
 ### 3.6 Integrations
 
@@ -277,16 +285,16 @@ Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first
 Kafka and MQTT have not shipped, while OPC UA and HTTP need a migration that ships with
 the Driver change, so they are separate phases.
 
-| Phase | Scope                                                  | Touches                                                                                                                                                                                                              | Depends on |
-| ----- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Add RFC 0101 for secrets and certificates              | `docs/tech/rfc`                                                                                                                                                                                                      | -          |
-| 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                             | 1          |
-| 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                   | 2          |
-| 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                                                        | 3          |
-| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                                                                       | 4          |
-| 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                            | 4          |
-| 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
-| 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                | 3          |
+| Phase | Scope                                                  | Touches                                                                                                                                                                                                                                          | Depends on |
+| ----- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| 1     | Add RFC 0101 for secrets and certificates              | `docs/tech/rfc`                                                                                                                                                                                                                                  | -          |
+| 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                                                         | 1          |
+| 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                                               | 2          |
+| 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                                                                                    | 3          |
+| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                                                                                                   | 4          |
+| 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                        | 4          |
+| 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/api/certificate`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
+| 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                            | 3          |
 
 ## 5 Resolved decisions
 
@@ -305,18 +313,22 @@ the Driver change, so they are separate phases.
    Core and must decrypt anyway, and the Core mints rack credentials, so sealing to each
    rack would protect nothing more. The default needs no setup, as in n8n and Grafana.
    The trade is real: a copy of the data folder with its key reads every secret.
-7. **A rack reads only what its rack uses**: This is narrower than the Driver role's
-   device access (`core/pkg/service/access/rbac/builtin/builtin.go:136-155`), so a
-   stolen test-stand computer reads only its own secrets.
+7. **A rack reads what its devices and tasks use**: A rack needs no grant for its own
+   saved work. The trade is real: the Driver role can save any device and retrieve any
+   secret (`core/pkg/service/access/rbac/builtin/builtin.go:136-155`), so a stolen rack
+   key can name any secret in a device on its rack and then read it. SY-5597 limits each
+   rack to its own devices and tasks.
 8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
    the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
-   when its work is done, and for one task, so a copied key reads nothing. A hash of the
-   connection settings would also bind it, but the Console and the Driver would have to
-   hash the same fields the same way in two languages. A grant names a subject, not a
-   session or a connection, so other subjects can use grants later. Unlike the sessions
-   of RFC 0073 §4.4, a grant has a clock, because no person ends a grant that no test
-   uses. The trade is real: a stored write for each test, and an Operator can see a key
-   for up to a minute.
+   when its work is done, and holds its command, so a copied key can only rerun the
+   Console's command. A hash of the connection settings would also bind it, but the
+   Console and the Driver would have to hash the same fields the same way in two
+   languages. A Console that deletes the grant when its command gets no reply leaves the
+   key open while it waits. A grant names a subject, not a session or a connection, so
+   other subjects can use grants later. Unlike the sessions of RFC 0073 §4.4, a grant
+   has a clock, because no person ends a grant that no test uses. The trade is real: a
+   stored write for each test, and an Operator who copies a key can spend it first and
+   fail the Console's test.
 9. **Uploaded private keys**: This replaces RFC 0089 principle 1 and decision 2, whose
    reason, commands that leak to every Viewer, is gone. Grafana, HighByte, and
    Ignition's MQTT modules take uploads. The trade is real: a key lives in the Core too,
