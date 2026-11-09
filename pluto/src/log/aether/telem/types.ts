@@ -10,6 +10,7 @@
 import { channel, type TimeRange, type TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { formatZ } from "@/log/aether/format";
 import { searchZ } from "@/log/aether/search";
 import { type Source, sourceSpecZ } from "@/telem/aether/telem";
 
@@ -27,6 +28,8 @@ const filterZ = z.object({
   hiddenChannels: z.array(channel.keyZ).default([]),
   /** Keeps only the lines that match, when set. */
   search: searchZ.nullable().default(null),
+  /** The format of each channel, which a search matches against. */
+  formats: z.record(z.string(), formatZ).default({}),
 });
 
 /** Which entries a log holds. An entry the filter rejects takes no space. */

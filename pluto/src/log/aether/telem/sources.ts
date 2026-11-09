@@ -27,7 +27,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { compile } from "@/log/aether/search";
+import { textOf } from "@/log/aether/format";
+import { compile, find } from "@/log/aether/search";
 import {
   type Filter,
   type LogEntry,
@@ -245,7 +246,7 @@ export class StreamMultiChannelLog
     if (deep.equal(this.filter, filter)) return;
     this.filter = filter;
     this.hidden = new Set(filter.hiddenChannels);
-    this.pattern = filter.search == null ? null : compile(filter.search);
+    this.pattern = filter.search == null ? null : compile(filter.search, "g");
     this.cancelPage();
     this.reload();
   }
@@ -853,14 +854,18 @@ export class StreamMultiChannelLog
     this.entries = merged;
   }
 
-  // Returns the lines that match the search, testing each line of a sample alone. The
-  // reads count every sample, so a search changes only what the entries hold.
+  // Returns the lines whose drawn text matches the search, testing each line of a
+  // sample alone. The reads count every sample, so a search changes only what the
+  // entries hold.
   private filtered(groups: LogEntry[][]): LogEntry[][] {
-    const { pattern } = this;
+    const { pattern, filter } = this;
     if (pattern == null) return groups;
     const kept: LogEntry[][] = [];
     for (const group of groups) {
-      const matched = group.filter(({ value }) => pattern.test(value));
+      const matched = group.filter(
+        ({ channelKey, value }) =>
+          find(pattern, textOf(value, filter.formats[channelKey])).length > 0,
+      );
       if (matched.length === 0) continue;
       // A matched line that continues a sample leads the sample's kept lines.
       if (matched[0].continuation === true)

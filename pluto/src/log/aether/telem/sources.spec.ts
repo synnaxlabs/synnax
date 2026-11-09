@@ -20,6 +20,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import { formatZ, textOf as drawnTextOf } from "@/log/aether/format";
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
@@ -565,6 +566,25 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, HISTORY);
       log.setFilter({ ...ZERO_FILTER, search: { text: "^ok \\d*5$", mode: "regex" } });
       const matches = textOf(core, a, HISTORY).filter((v) => /^ok \d*5$/.test(v));
+      await settle(log, matches.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(matches);
+    });
+
+    it("should match the number as the log draws it at its precision", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      const format = formatZ.parse({ precision: 2, dataType: "float32" });
+      log.setFilter({
+        ...ZERO_FILTER,
+        search: { text: "\\.91$", mode: "regex" },
+        formats: { [a]: format },
+      });
+      const raw = textOf(core, a, HISTORY);
+      const matches = raw.filter((v) => /\.91$/.test(drawnTextOf(v, format)));
+      expect(matches.length).toBeGreaterThan(0);
+      expect(raw.some((v) => /\.91$/.test(v))).toBe(false);
       await settle(log, matches.length);
       expect(valuesOf(entriesOf(log), a)).toEqual(matches);
     });

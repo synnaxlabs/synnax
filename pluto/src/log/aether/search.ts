@@ -37,3 +37,12 @@ export const compile = ({ text, mode }: Search, flags: string = ""): RegExp | nu
 /** Returns whether the search is a regex that does not compile. */
 export const invalid = (search: Search): boolean =>
   search.text !== "" && compile(search) == null;
+
+/**
+ * Returns the start and end of each match of the pattern in the text a log draws for a
+ * line. An empty match does not count. The pattern must have the global flag.
+ */
+export const find = (pattern: RegExp, text: string): Array<[number, number]> =>
+  [...text.matchAll(pattern)]
+    .filter((m) => m[0].length > 0)
+    .map((m) => [m.index, m.index + m[0].length]);
