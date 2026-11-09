@@ -130,21 +130,13 @@ Task struct<
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the task."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value "removes an entry from a list or a field from an object in the task."
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the task."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the task."
-    }
+    action Move = patch.Move
 
     @create
     @doc value               """
