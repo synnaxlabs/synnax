@@ -49,14 +49,14 @@ var (
 
 func findSlaves(
 	_ context.Context,
-	_ gorp.Tx,
+	_ gorp.Snapshot,
 	keys []string,
 ) (map[string]v2.Slave, error) {
 	slaves := map[string]v2.Slave{"el3102": el3102, "el2008": el2008}
 	return lo.PickByKeys(slaves, keys), nil
 }
 
-func failLookup(context.Context, gorp.Tx, []string) (map[string]v2.Slave, error) {
+func failLookup(context.Context, gorp.Snapshot, []string) (map[string]v2.Slave, error) {
 	return nil, errors.New("lookup failed")
 }
 
@@ -168,7 +168,7 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			cfg := v3.ReadConfig{Channels: []v3.ReadChannel{unresolvedRead("Value")}}
-			Expect(v3.ResolveReadConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(v3.ResolveReadConfig(ctx, db, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0].Variant).To(Equal(v3.EntryReadChannel{
 				BaseReadChannel: readBase,
 				Index:           0x6000,
@@ -182,13 +182,13 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			cfg := v3.ReadConfig{Channels: []v3.ReadChannel{unresolvedRead("Repeated")}}
-			Expect(v3.ResolveReadConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(v3.ResolveReadConfig(ctx, db, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0]).To(Equal(unresolvedRead("Repeated")))
 		})
 
 		It("Should return the error of the device lookup", func(ctx SpecContext) {
 			cfg := v3.ReadConfig{Channels: []v3.ReadChannel{unresolvedRead("Value")}}
-			Expect(v3.ResolveReadConfig(ctx, nil, failLookup, &cfg)).
+			Expect(v3.ResolveReadConfig(ctx, db, failLookup, &cfg)).
 				To(MatchError("lookup failed"))
 		})
 	})
@@ -266,7 +266,7 @@ var _ = Describe("Migrate", func() {
 			cfg := v3.WriteConfig{
 				Channels: []v3.WriteChannel{unresolvedWrite("Output")},
 			}
-			Expect(v3.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(v3.ResolveWriteConfig(ctx, db, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0].Variant).To(Equal(v3.EntryWriteChannel{
 				BaseWriteChannel: writeBase,
 				Index:            0x7000,
@@ -281,7 +281,7 @@ var _ = Describe("Migrate", func() {
 			cfg := v3.WriteConfig{
 				Channels: []v3.WriteChannel{unresolvedWrite("Repeated")},
 			}
-			Expect(v3.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(v3.ResolveWriteConfig(ctx, db, findSlaves, &cfg)).To(Succeed())
 			Expect(cfg.Channels[0]).To(Equal(unresolvedWrite("Repeated")))
 		})
 
@@ -289,7 +289,7 @@ var _ = Describe("Migrate", func() {
 			cfg := v3.WriteConfig{
 				Channels: []v3.WriteChannel{unresolvedWrite("Output")},
 			}
-			Expect(v3.ResolveWriteConfig(ctx, nil, failLookup, &cfg)).
+			Expect(v3.ResolveWriteConfig(ctx, db, failLookup, &cfg)).
 				To(MatchError("lookup failed"))
 		})
 	})

@@ -293,14 +293,15 @@ var _ = Describe("Retrieve", func() {
 
 var _ = Describe("Search", func() {
 	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
-		w := svc.NewWriter(nil, true)
 		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
-		Expect(w.Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx, true).Create(ctx, &r)
+		})).To(Succeed())
 		var rs []role.Role
 		Expect(svc.NewRetrieve().
 			Search("quasar").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
 
@@ -309,7 +310,7 @@ var _ = Describe("Search", func() {
 		Expect(svc.NewRetrieve().
 			Search("zzz-no-such-role").
 			Entries(&rs).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(rs).To(BeEmpty())
 	})
 })

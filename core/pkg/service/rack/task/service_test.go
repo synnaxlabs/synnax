@@ -52,14 +52,14 @@ var _ = Describe("Service", func() {
 
 	Describe("Normalize", func() {
 		It("Should import a config released Cores stamped at 1", func(ctx SpecContext) {
-			MustSucceed(svc.Status.Normalize(ctx, nil, 1, msgpack.EncodedJSON{}))
+			MustSucceed(svc.Status.Normalize(ctx, db, 1, msgpack.EncodedJSON{}))
 		})
 	})
 
 	Describe("Write", func() {
 		It("Should store an empty config under the given key", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.Status, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Status.Read(ctx, nil, key))
+			data := MustSucceed(svc.Status.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 		})
 	})

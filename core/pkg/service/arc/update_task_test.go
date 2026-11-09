@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -393,10 +394,14 @@ var _ = Describe("Task sync", func() {
 			src.Variant = arc.GraphSource{}
 		}
 		a = newAutomation(arc.Base{Name: "syncable", Source: src})
-		Expect(writer.Create(ctx, &a)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
 		key := a.Base().Key
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(writer.Delete(ctx, key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, key)
+			})).To(Succeed())
 		})
 	}
 
@@ -418,7 +423,7 @@ var _ = Describe("Task sync", func() {
 			if err := taskSvc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&tsk).
-				Exec(ctx, nil); err != nil {
+				Exec(ctx, db); err != nil {
 				return ""
 			}
 			return tsk.ConfigHash
@@ -452,13 +457,23 @@ var _ = Describe("Task sync", func() {
 		})}
 	}
 
+	updateTask := func(ctx SpecContext) *task.Task {
+		GinkgoHelper()
+		var tsk *task.Task
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			tsk, err = svc.NewWriter(tx).
+				UpdateTask(ctx, a.Base().Key, arc.TaskUpdate{Rack: new(testRack.Key)})
+			return err
+		})).To(Succeed())
+		return tsk
+	}
 	taskName := func(ctx SpecContext, key task.Key) func() string {
 		return func() string {
 			var tsk task.Task
 			if err := taskSvc.NewRetrieve().
 				Where(task.MatchKeys(key)).
 				Entry(&tsk).
-				Exec(ctx, nil); err != nil {
+				Exec(ctx, db); err != nil {
 				return ""
 			}
 			return tsk.Name
@@ -467,14 +482,8 @@ var _ = Describe("Task sync", func() {
 
 	It("Should rename the task when a dispatch renames the Arc", func(ctx SpecContext) {
 		createArc(ctx, arc.ModeText)
-		tsk := MustSucceed(
-			writer.UpdateTask(
-				ctx,
-				a.Base().Key,
-				arc.TaskUpdate{Rack: new(testRack.Key)},
-			),
-		)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
+		tsk := updateTask(ctx)
+		Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
 			arc.NewSetAction(
 				arc.SetPayload{Path: []string{"name"}, Value: "renamed_by_dispatch"},
 			),
@@ -483,20 +492,38 @@ var _ = Describe("Task sync", func() {
 	})
 
 	It(
+		"Should keep the pending task rename when a delete of the Arc rolls back",
+		func(ctx SpecContext) {
+			createArc(ctx, arc.ModeText)
+			tsk := updateTask(ctx)
+			Expect(dispatch(ctx, a.Base().Key, "", []arc.Action{
+				arc.NewSetAction(arc.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed_before_rollback",
+				}),
+			})).To(Succeed())
+			rollback := errors.New("rolled back")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Delete(ctx, a.Base().Key); err != nil {
+					return err
+				}
+				return rollback
+			})).To(MatchError(rollback))
+			Eventually(taskName(ctx, tsk.Key)).Should(Equal("renamed_before_rollback"))
+		},
+	)
+
+	It(
 		"Should rename the task when an overwrite renames the Arc",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			tsk := MustSucceed(
-				writer.UpdateTask(
-					ctx,
-					a.Base().Key,
-					arc.TaskUpdate{Rack: new(testRack.Key)},
-				),
-			)
+			tsk := updateTask(ctx)
 			b := a.Base()
 			b.Name = "renamed_by_overwrite"
 			a.SetBase(b)
-			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			Expect(taskName(ctx, tsk.Key)()).To(Equal("renamed_by_overwrite"))
 		},
 	)
@@ -505,17 +532,11 @@ var _ = Describe("Task sync", func() {
 		"Should rewrite the task config when an edit changes the content",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			tsk := MustSucceed(
-				writer.UpdateTask(
-					ctx,
-					a.Base().Key,
-					arc.TaskUpdate{Rack: new(testRack.Key)},
-				),
-			)
+			tsk := updateTask(ctx)
 			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -534,10 +555,12 @@ var _ = Describe("Task sync", func() {
 		unbound := newAutomation(
 			arc.Base{Name: "unbound", Source: arc.Source{Variant: arc.TextSource{}}},
 		)
-		Expect(writer.Create(ctx, &unbound)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &unbound)
+		})).To(Succeed())
 		client := crdt.New(2)
 		Expect(
-			svc.Dispatch(
+			dispatch(
 				ctx,
 				unbound.Base().Key,
 				"dk",
@@ -550,7 +573,7 @@ var _ = Describe("Task sync", func() {
 			g.Expect(taskSvc.NewRetrieve().
 				Where(task.MatchNames(unbound.Base().Name)).
 				Entries(&tasks).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			g.Expect(tasks).To(BeEmpty())
 		}
 		Consistently(
@@ -562,16 +585,10 @@ var _ = Describe("Task sync", func() {
 
 	It("Should leave the task config on a layout-only edit", func(ctx SpecContext) {
 		createArc(ctx, arc.ModeGraph)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "dk", setNode(0))).To(Succeed())
-		tsk := MustSucceed(
-			writer.UpdateTask(
-				ctx,
-				a.Base().Key,
-				arc.TaskUpdate{Rack: new(testRack.Key)},
-			),
-		)
+		Expect(dispatch(ctx, a.Base().Key, "dk", setNode(0))).To(Succeed())
+		tsk := updateTask(ctx)
 		before := retrieveTask(ctx, db, tsk.Key)
-		Expect(svc.Dispatch(ctx, a.Base().Key, "dk", setNode(9))).To(Succeed())
+		Expect(dispatch(ctx, a.Base().Key, "dk", setNode(9))).To(Succeed())
 		Consistently(
 			taskConfigHash(ctx, tsk.Key),
 			time.Millisecond*100,
@@ -640,17 +657,11 @@ var _ = Describe("Task sync", func() {
 		"Should restore the deployed config when an edit is undone",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			tsk := MustSucceed(
-				writer.UpdateTask(
-					ctx,
-					a.Base().Key,
-					arc.TaskUpdate{Rack: new(testRack.Key)},
-				),
-			)
+			tsk := updateTask(ctx)
 			before := retrieveTask(ctx, db, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",
@@ -663,7 +674,7 @@ var _ = Describe("Task sync", func() {
 			Eventually(taskConfigHash(ctx, tsk.Key)).
 				ShouldNot(Equal(before.ConfigHash))
 			Expect(
-				svc.Dispatch(
+				dispatch(
 					ctx,
 					a.Base().Key,
 					"dk",

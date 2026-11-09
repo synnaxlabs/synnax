@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 
 import { device } from "@/device";
 import { AccessDeniedError, NotFoundError } from "@/index";
+import { rack } from "@/rack";
+import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -65,17 +67,21 @@ describe("device", () => {
     });
 
     it("should allow the caller to create devices with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [device.resourceID("")],
-        actions: ["create"],
-      });
-      const rack = await client.racks.create({
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [device.resourceID("")],
+          actions: ["create"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
+        { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
+      const rck = await client.racks.create({
         name: "test",
       });
       await userClient.devices.create({
         key: id.create(),
-        rack: rack.key,
+        rack: rck.key,
         location: "Dev1",
         name: "test",
         make: "ni",
@@ -107,17 +113,21 @@ describe("device", () => {
     });
 
     it("should allow the caller to delete devices with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [device.resourceID("")],
-        actions: ["delete", "retrieve"],
-      });
-      const rack = await client.racks.create({
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [device.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
+        { name: "test", objects: [rack.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
+      const rck = await client.racks.create({
         name: "test",
       });
       const randomDevice = await client.devices.create({
         key: id.create(),
-        rack: rack.key,
+        rack: rck.key,
         location: "Dev1",
         name: "test",
         make: "ni",

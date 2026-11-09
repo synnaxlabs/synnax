@@ -85,11 +85,14 @@ describe("lineplot", () => {
     });
 
     it("should allow the caller to delete lineplots with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [lineplot.resourceID("")],
-        actions: ["delete", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [lineplot.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [project.TYPE_RESOURCE_ID], actions: ["update"] },
+      ]);
       const proj = await client.projects.create({ name: "test" });
       const randomLinePlot = await client.lineplots.create({
         project: proj.key,
@@ -98,6 +101,22 @@ describe("lineplot", () => {
       await userClient.lineplots.delete(randomLinePlot.key);
       await expect(userClient.lineplots.retrieve(randomLinePlot.key)).rejects.toThrow(
         NotFoundError,
+      );
+    });
+
+    it("should deny deleting a line plot from a project the caller cannot update", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [lineplot.resourceID("")],
+        actions: ["delete"],
+      });
+      const proj = await client.projects.create({ name: "test" });
+      const randomLinePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "test",
+      });
+      await expect(userClient.lineplots.delete(randomLinePlot.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 

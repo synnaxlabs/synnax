@@ -40,6 +40,7 @@ TimestampConfig struct {
 ChannelEntry struct {
     channel   channel.Key       {
         @doc value         "is the channel this entry references."
+        @ref kind          use
         @ref on_delete     detach
         @validate required
     }
@@ -99,6 +100,7 @@ Log struct {
     }
     group                group.Key?     {
         @doc value     "is the group the log sits in, if any."
+        @ref kind      place
         @ref on_delete detach
     }
     project              project.Key?   {
@@ -106,6 +108,7 @@ Log struct {
             is the project that owns the log, if any. Exactly one of project and range
             is set.
         """
+        @ref kind      place
         @ref on_delete cascade
     }
     range                ranger.Key?    {
@@ -113,6 +116,7 @@ Log struct {
             is the range that owns the log, if any. Exactly one of project and range is
             set.
         """
+        @ref kind      place
         @ref on_delete cascade
     }
 

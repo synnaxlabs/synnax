@@ -94,7 +94,9 @@ var _ = Describe("StatusHandler", func() {
 
 	deleteStored := func(ctx SpecContext) {
 		GinkgoHelper()
-		Expect(statusSvc.NewWriter(nil).DeleteOwned(ctx, t.ResourceID())).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).DeleteOwned(ctx, t.ResourceID())
+		})).To(Succeed())
 	}
 
 	retrieve := func(ctx SpecContext) task.Status {
@@ -102,7 +104,7 @@ var _ = Describe("StatusHandler", func() {
 		var stat task.Status
 		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-			Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Entry(&stat).Exec(ctx, db)).To(Succeed())
 		return stat
 	}
 
@@ -188,9 +190,10 @@ var _ = Describe("StatusHandler", func() {
 				"Started task",
 				"",
 			)).To(Succeed())
-			Expect(
-				statusSvc.NewWriter(nil).RenameOwned(ctx, t.ResourceID(), "renamed"),
-			).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).
+					RenameOwned(ctx, t.ResourceID(), "renamed")
+			})).
 				To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
 			Expect(retrieve(ctx).Name).To(Equal("renamed"))
@@ -572,7 +575,7 @@ var _ = Describe("StatusHandler", func() {
 				Expect(statusSvc.NewRetrieve[any]().
 					Where(status.MatchOwners[any](t.ResourceID())).
 					Entry(new(status.Status[any])).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})

@@ -26,6 +26,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -43,6 +44,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Name:     "entries.fields.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Entries {
@@ -75,6 +77,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Name:     "entries.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Entries {
@@ -109,6 +112,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *WriteConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -126,6 +130,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Name:     "targets.channel.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Targets {
@@ -154,6 +159,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Name:     "targets.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Targets {
@@ -188,6 +194,7 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 			Name:     "device",
 			Table:    "device",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *EdgeConfig) []device.Key {
 				var targets []device.Key
 				if e.Device != "" {
@@ -205,6 +212,7 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 			Name:     "tags.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *EdgeConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Tags {
@@ -226,6 +234,7 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 			Name:     "tags.command_channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
 			Targets: func(e *EdgeConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Tags {

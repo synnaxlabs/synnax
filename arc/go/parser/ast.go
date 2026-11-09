@@ -252,6 +252,29 @@ func CollectIdentifiers(expr IExpressionContext) []string {
 // GetPrimaryExpression extracts the primary expression from an expression that has no
 // operators. Returns nil if the expression contains any binary or unary operators.
 func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil {
+		return nil
+	}
+	return postfix.PrimaryExpression()
+}
+
+// BareIdentifier returns the identifier when expr is a lone name, else nil.
+func BareIdentifier(expr IExpressionContext) antlr.TerminalNode {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
+		len(postfix.AllIndexOrSlice()) > 0 {
+		return nil
+	}
+	primary := postfix.PrimaryExpression()
+	if primary == nil {
+		return nil
+	}
+	return primary.IDENTIFIER()
+}
+
+// getPostfixExpression descends an operator-free expr to its postfix expression.
+func getPostfixExpression(expr IExpressionContext) IPostfixExpressionContext {
 	if expr == nil {
 		return nil
 	}
@@ -284,11 +307,7 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	if pow == nil || pow.CARET() != nil {
 		return nil
 	}
-	postfix := pow.PostfixExpression()
-	if postfix == nil {
-		return nil
-	}
-	return postfix.PrimaryExpression()
+	return pow.PostfixExpression()
 }
 
 // QualifiedNameParts returns the head and tail of a qualified identifier
