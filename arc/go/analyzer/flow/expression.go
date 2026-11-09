@@ -50,7 +50,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 					return
 				}
 				if flags.Format {
-					segs, err := literal.FmtStrParse(body)
+					segs, err := literal.FmtStrSplit(body, flags)
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 						return
@@ -113,6 +113,20 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	expression.Analyze(ctx.WithScope(blockScope))
 }
 
+// AnalyzeComputedArgs registers a synthetic function for each instance argument
+// that is neither a literal nor a bare name, so lowering can sample it per fire.
+func AnalyzeComputedArgs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	args []symbol.Argument,
+) {
+	for _, arg := range args {
+		if parser.IsLiteral(arg.Expr) || parser.BareIdentifier(arg.Expr) != nil {
+			continue
+		}
+		AnalyzeSingleExpression(ctx.Child(arg.Expr))
+	}
+}
+
 // analyzeWASMCall registers a WASM-only call in a flow as a synthetic expression node.
 func analyzeWASMCall(
 	ctx acontext.Context[parser.IFunctionContext],
@@ -164,23 +178,10 @@ func LiftFmtStrVarReads[T antlr.ParserRuleContext](
 	if strTerm == nil {
 		return
 	}
-	body, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok || !flags.Format {
-		return
-	}
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		return
-	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder || seg.Text == "" {
-			continue
+	for _, seg := range ctx.FmtStrings[strTerm] {
+		if seg.Expr != nil {
+			LiftVarReads(ctx, fn, seg.Expr)
 		}
-		phExpr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-		if diags != nil && !diags.Ok() {
-			continue
-		}
-		LiftVarReads(ctx, fn, phExpr)
 	}
 }
 
@@ -200,7 +201,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
-		if !sym.Reassigned && !exprRead {
+		if !sym.Reassigned && !exprRead && !sym.IsComputed() {
 			continue
 		}
 		// A channel-coupled var lifts as its value type; a node feeds it data.

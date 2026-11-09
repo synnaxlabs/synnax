@@ -83,7 +83,7 @@ describe("channel", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [channel.resourceID(0)],
-        actions: ["delete"],
+        actions: ["delete", "retrieve"],
       });
       const randomChannel = await client.channels.create({
         name: id.create(),

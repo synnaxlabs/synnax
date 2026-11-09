@@ -43,7 +43,9 @@ var _ = Describe("Resources", func() {
 			Variant: status.VariantInfo,
 			Time:    telem.Now(),
 		}
-		Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, &s)
+		})).To(Succeed())
 		return s
 	}
 

@@ -120,7 +120,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					},
 				)
 				It("Should skip free channels", func(ctx SpecContext) {
-					free := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+					free := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 						Name:        "free",
 						DataType:    telem.Float32T,
 						Leaseholder: node.KeyFree,
@@ -197,7 +197,7 @@ func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{

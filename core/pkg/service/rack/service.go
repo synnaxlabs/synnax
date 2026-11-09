@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -107,6 +108,7 @@ type Service struct {
 	localKeyCounter *kv.AtomicInt64Counter
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
+	state           *actions.State[Key, Action]
 	indexes         indexes
 	ServiceConfig
 	EmbeddedKey Key
@@ -120,7 +122,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, indexes: newIndexes()}
+	s = &Service{
+		ServiceConfig: cfg,
+		indexes:       newIndexes(),
+		state:         actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
@@ -164,10 +170,13 @@ func OpenService(
 	return s, nil
 }
 
-// Observe returns an observable that notifies callers of changes to rack entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
-	return s.table.Observe()
+// Changes returns the changes that c made to racks.
+func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(ctx, c)
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for
 // each outage. A handler that returns an error is called again on the next health check
@@ -241,15 +250,14 @@ func (s *Service) RetrieveOrCreateEmbedded(
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		svc:        s,
 		tx:         tx,
 		newKey:     s.newKey,
 		status:     s.Status.NewWriter(tx),
 		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -261,7 +269,6 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }

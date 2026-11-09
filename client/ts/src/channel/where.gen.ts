@@ -161,6 +161,16 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ]),
     );
 
+/** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
+export const LIST_FIELDS: readonly string[] = [
+  "name",
+  "leaseholder",
+  "data_type",
+  "is_index",
+  "internal",
+  "group",
+];
+
 const compareNumbers = (a: number | bigint, b: number | bigint): number =>
   a < b ? -1 : a > b ? 1 : 0;
 

@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -1008,7 +1009,9 @@ var _ = Describe("Edge task", func() {
 						Model:      "daq",
 						Properties: msgpack.EncodedJSON{},
 					}
-					Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return deviceSvc.NewWriter(tx).Create(ctx, &other)
+					})).To(Succeed())
 					cfg := valid(ctx)
 					cfg["device"] = other.Key
 					return cfg, "device: DAQ is not an MQTT broker"

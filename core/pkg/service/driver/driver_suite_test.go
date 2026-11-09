@@ -51,7 +51,6 @@ var (
 	rackService *rack.Service
 	deviceSvc   *device.Service
 	taskService *task.Service
-	taskWriter  task.Writer
 	channelSvc  *channel.Service
 	framerSvc   *framer.Service
 	statusSvc   *status.Service
@@ -85,7 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:         node.DB,
 		HostKey:    1,
 		Status:     statusSvc,
-		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		// No Driver reports for the rack, so a check would overwrite task statuses.
 		HealthCheckInterval: telem.Hour,
 	}))
@@ -121,7 +120,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:    imex.NewService(),
 		Configs: configs,
 	}))
-	taskWriter = taskService.NewWriter(nil)
 })
 
 // createTask stores t so that it can own a status. It skips task.Writer, which writes
@@ -131,7 +129,9 @@ func createTask(ctx context.Context, t task.Task) {
 	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 		To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskService.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
 	})
 }
 
@@ -144,7 +144,7 @@ func retrieveStatus[D any](ctx context.Context, owner resource.ID) status.Status
 		statusSvc.NewRetrieve[D]().
 			Where(status.MatchOwners[D](owner)).
 			Entry(&stat).
-			Exec(ctx, nil),
+			Exec(ctx, db),
 		query.ErrNotFound,
 	)).To(Succeed())
 	return stat

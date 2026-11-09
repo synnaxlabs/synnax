@@ -14,8 +14,8 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )

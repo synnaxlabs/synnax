@@ -558,21 +558,25 @@ var _ = Describe("Resources", func() {
 	})
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should not overwrite a policy that moves to a built-in role at once",
 		func(ctx SpecContext) {
 			custom := role.Role{Name: "custom"}
 			builtin := role.Role{Name: "built-in", Internal: true}
-			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &custom)).To(Succeed())
-			Expect(roleSvc.NewWriter(nil, true).Create(ctx, &builtin)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &custom)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return roleSvc.NewWriter(tx, true).Create(ctx, &builtin)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(
-					roleSvc.NewWriter(nil, true).Delete(ctx, custom.Key),
-				).To(Succeed())
-				Expect(
-					roleSvc.NewWriter(nil, true).Delete(ctx, builtin.Key),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, custom.Key)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return roleSvc.NewWriter(tx, true).Delete(ctx, builtin.Key)
+				})).To(Succeed())
 			})
 			for range 30 {
 				key := uuid.New()
@@ -586,7 +590,9 @@ var _ = Describe("Writer with no transaction", func() {
 					}
 				}
 				p := newPolicy(custom.Key)
-				Expect(svc.NewWriter(nil, false).Create(ctx, &p)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx, false).Create(ctx, &p)
+				})).To(Succeed())
 				var (
 					wg      sync.WaitGroup
 					userErr error
@@ -594,13 +600,15 @@ var _ = Describe("Writer with no transaction", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					internal := newPolicy(builtin.Key)
-					Expect(
-						svc.NewWriter(nil, true).Create(ctx, &internal),
-					).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, true).Create(ctx, &internal)
+					})).To(Succeed())
 				})
 				wg.Go(func() {
 					user := newPolicy(custom.Key)
-					userErr = svc.NewWriter(nil, false).Create(ctx, &user)
+					userErr = db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx, false).Create(ctx, &user)
+					})
 				})
 				wg.Wait()
 				Expect(userErr).To(Or(
@@ -613,7 +621,7 @@ var _ = Describe("Writer with no transaction", func() {
 				Expect(svc.NewRetrieve().
 					Where(policy.MatchKeys(key)).
 					Entry(&stored).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(stored.Role).To(Equal(builtin.Key))
 			}
 		},
@@ -652,7 +660,7 @@ var _ = Describe("ResolveRolesWith", func() {
 		subject = resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
 		rolesOf = func(
 			_ context.Context,
-			_ gorp.Tx,
+			_ gorp.Snapshot,
 			subjects ...resource.ID,
 		) ([]role.Key, error) {
 			if subjects[0] != subject {
@@ -684,11 +692,44 @@ var _ = Describe("ResolveRolesWith", func() {
 	})
 
 	It("Should return any other error of the role lookup", func(ctx SpecContext) {
-		rolesOf = func(context.Context, gorp.Tx, ...resource.ID) ([]role.Key, error) {
+		rolesOf = func(
+			context.Context,
+			gorp.Snapshot,
+			...resource.ID,
+		) ([]role.Key, error) {
 			return nil, errors.New("lookup failed")
 		}
 		Expect(retrieve(ctx, policy.MatchSubjects(subject))).Error().
 			To(MatchError(ContainSubstring("lookup failed")))
+	})
+
+	It("Should look up roles through the snapshot of the query", func(
+		ctx SpecContext,
+	) {
+		Expect(tx.Commit(ctx)).To(Succeed())
+		var (
+			looked gorp.Snapshot
+			lookup = rolesOf
+			ps     []policy.Policy
+		)
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return svc.NewRetrieve().
+				ResolveRolesWith(func(
+					ctx context.Context,
+					snap gorp.Snapshot,
+					subjects ...resource.ID,
+				) ([]role.Key, error) {
+					looked = snap
+					return lookup(ctx, snap, subjects...)
+				}).
+				Where(policy.MatchSubjects(subject)).
+				Entries(&ps).
+				Exec(ctx, snap)
+		})).To(Succeed())
+		Expect(looked).ToNot(BeNil())
+		_, isTx := looked.(gorp.Tx)
+		Expect(isTx).To(BeFalse())
+		Expect(ps).To(ConsistOf(heldPolicy))
 	})
 
 	It("Should fail to filter by subject without a role lookup", func(ctx SpecContext) {

@@ -49,6 +49,6 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 		w := c.table.writer(tx, true)
 		return w.Set(ctx, c.entries.All()...)
 	}
-	w := wrapWriter[K, E](tx, c.keyPrefix, nil)
+	w := wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	return w.Set(ctx, c.entries.All()...)
 }

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -40,7 +41,9 @@ func createIndexed(
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &index)
+	})).To(Succeed())
 	channels := make([]svcchannel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		channels[i] = svcchannel.Channel{
@@ -48,7 +51,9 @@ func createIndexed(
 			DataType:   dt,
 			LocalIndex: index.LocalKey,
 		}
-		Expect(channelWriter.Create(ctx, &channels[i])).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &channels[i])
+		})).To(Succeed())
 	}
 	return index, channels
 }
