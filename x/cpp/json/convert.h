@@ -58,8 +58,9 @@ using ReverseEnumMap = std::vector<std::pair<telem::SampleValue, std::string>>;
 /// when the target type is not TIMESTAMP_T.
 /// @param enum_values optional mapping of labels to samples. When non-null and the
 /// JSON value is a string targeting a numeric or string type, the map is checked
-/// first. A found label converts its sample to target: exactly to an integer, or
-/// failing, and to the nearest value of a float. Otherwise normal conversion applies.
+/// first. A found label converts its sample to target: exactly to an integer, and to
+/// the nearest value of a float. Past the range of target, it fails. Otherwise normal
+/// conversion applies.
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
 /// CONVERSION_ERROR if an issue occurred while trying to convert the value.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(

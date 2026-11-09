@@ -76,7 +76,7 @@ type Enum struct {
 	Label string
 	// Value holds one sample. A numeric or boolean sample converts to an integer or
 	// boolean data type that holds it exactly, or to the nearest value of a float data
-	// type. A string sample converts only to a string.
+	// type, failing past its range. A string sample converts only to a string.
 	Value telem.Series
 }
 
