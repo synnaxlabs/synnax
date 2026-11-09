@@ -91,7 +91,7 @@ describe("queries", () => {
         name: "Uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKey,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const { privateKey } = cert;
@@ -152,7 +152,7 @@ describe("queries", () => {
         name: "Multiple uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKey,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const unused = await createSecret("multiple unused");
@@ -208,7 +208,7 @@ describe("queries", () => {
         name: "All uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKey,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const deleted = await createSecret("all uses deleted");

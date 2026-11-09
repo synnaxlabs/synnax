@@ -126,10 +126,10 @@ var _ = Describe("Service", func() {
 				certPEM, keyPEM := newPair()
 				res := MustSucceed(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
-						Source:     secret.SourceStored,
-						Name:       "Plant",
-						Pem:        certPEM,
-						PrivateKey: keyPEM,
+						Source:        secret.SourceStored,
+						Name:          "Plant",
+						Pem:           certPEM,
+						PrivateKeyPem: keyPEM,
 					}}},
 				))
 				stored := res.Certificates[0].Variant.(certificate.StoredCertificate)
@@ -174,10 +174,10 @@ var _ = Describe("Service", func() {
 				certPEM, keyPEM := newPair()
 				Expect(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
-						Source:     secret.SourceStored,
-						Name:       "Plant",
-						Pem:        certPEM,
-						PrivateKey: keyPEM,
+						Source:        secret.SourceStored,
+						Name:          "Plant",
+						Pem:           certPEM,
+						PrivateKeyPem: keyPEM,
 					}}},
 				)).Error().To(MatchError(access.ErrDenied))
 			},
@@ -471,10 +471,10 @@ var _ = Describe("Service", func() {
 				certPEM, keyPEM := newPair()
 				res := MustSucceed(create(AuthedCtx(ctx, owner),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
-						Source:     secret.SourceStored,
-						Name:       "Plant",
-						Pem:        certPEM,
-						PrivateKey: keyPEM,
+						Source:        secret.SourceStored,
+						Name:          "Plant",
+						Pem:           certPEM,
+						PrivateKeyPem: keyPEM,
 					}}},
 				))
 				c := res.Certificates[0]

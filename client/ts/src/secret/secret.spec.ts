@@ -157,7 +157,7 @@ describe("Secret", () => {
         name: "Gap",
         source: "stored",
         pem: PEM,
-        privateKey: PRIVATE_KEY,
+        privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
