@@ -204,19 +204,22 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(retrieve(ctx)).To(Equal("Before"))
 		})
 
-		It("Should move an alias that the edit gives to the channel", func(
-			ctx SpecContext,
-		) {
-			other := createChannel(ctx)
-			Expect(write(ctx, func(w alias.Writer) error {
-				return w.Set(ctx, r.Key, other.Key(), "After")
-			})).To(Succeed())
-			Expect(apply(ctx, key, set("alias", "After"))).To(Succeed())
-			Expect(aliasSvc.NewReader(db).Resolve(ctx, r.Key, "After")).
-				To(Equal(ch.Key()))
-			Expect(aliasSvc.NewReader(db).Retrieve(ctx, r.Key, other.Key())).Error().
-				To(MatchError(query.ErrNotFound))
-		})
+		It("Should keep the alias of another channel through each step of an edit",
+			func(ctx SpecContext) {
+				other := createChannel(ctx)
+				Expect(write(ctx, func(w alias.Writer) error {
+					return w.Set(ctx, r.Key, other.Key(), "temp")
+				})).To(Succeed())
+				for _, text := range []string{"", "t", "te", "tem", "temp"} {
+					Expect(apply(ctx, key, set("alias", text))).To(Succeed())
+				}
+				reader := aliasSvc.NewReader(db)
+				Expect(reader.Retrieve(ctx, r.Key, other.Key())).To(Equal("temp"))
+				Expect(reader.Retrieve(ctx, r.Key, ch.Key())).To(Equal("temp"))
+				Expect(reader.Resolve(ctx, r.Key, "temp")).Error().
+					To(MatchError(alias.ErrAmbiguous))
+			},
+		)
 
 		It("Should refuse an alias that does not exist", func(ctx SpecContext) {
 			other := alias.Alias{Range: r.Key, Channel: createChannel(ctx).Key()}

@@ -28,6 +28,13 @@ const maxAncestors = 64
 // a range without reaching the root.
 var ErrAncestorLimit = errors.New("range has too many ancestors")
 
+// ErrAmbiguous is returned when Resolve finds more than one channel that holds an alias
+// on a range.
+var ErrAmbiguous = errors.Wrap(
+	query.ErrUniqueViolation,
+	"alias names more than one channel",
+)
+
 // Reader is used to retrieve aliases.
 type Reader struct {
 	snap            gorp.Snapshot
@@ -89,7 +96,8 @@ func (r Reader) Retrieve(
 
 // Resolve returns the channel that holds the alias on the specified range. The alias
 // must match exactly. If the alias is not found on the range, it checks the ancestors
-// of the range.
+// of the range. It returns ErrAmbiguous when more than one channel holds the alias on
+// the nearest range that has it.
 func (r Reader) Resolve(
 	ctx context.Context,
 	rng ranger.Key,
@@ -110,6 +118,9 @@ func (r Reader) Resolve(
 	}
 	if len(res) == 0 {
 		return 0, errors.Wrapf(query.ErrNotFound, "no channel with alias %q", alias)
+	}
+	if len(res) > 1 {
+		return 0, errors.Wrapf(ErrAmbiguous, "alias %q", alias)
 	}
 	return res[0].Channel, nil
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createRange(ctx SpecContext) ranger.Range {
@@ -116,6 +117,25 @@ var _ = Describe("Set", func() {
 			Expect(retrieveAlias(ctx, r, ch)).To(Equal("alias"))
 		},
 	)
+	It("Should refuse a request that gives one alias to two channels", func(
+		ctx SpecContext,
+	) {
+		other := createChannel(ctx)
+		grant(
+			ctx,
+			u,
+			access.ActionCreate,
+			aliasID(),
+			alias.ResourceID(r.Key, other.Key()),
+		)
+		grant(ctx, u, access.ActionUpdate, rangeID())
+		Expect(set(AuthedCtx(ctx, u), apialias.SetRequest{
+			Range:   r.Key,
+			Aliases: map[channel.Key]string{ch.Key(): "x", other.Key(): "x"},
+		})).Error().To(MatchError(validate.ErrValidation))
+		Expect(retrieveAlias(ctx, r, ch)).Error().To(MatchError(query.ErrNotFound))
+		Expect(retrieveAlias(ctx, r, other)).Error().To(MatchError(query.ErrNotFound))
+	})
 	It("Should refuse to change an alias without update on it", func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")

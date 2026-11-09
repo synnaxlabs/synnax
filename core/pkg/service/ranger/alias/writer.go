@@ -68,21 +68,15 @@ func (w Writer) Set(
 }
 
 // Apply applies acts to the alias with the given Gorp key and attaches them to the
-// transaction of w. It removes the resulting alias from any other channel that holds
-// it on the range.
+// transaction of w. Apply leaves the aliases of other channels in place, even when the
+// edited alias matches one of them.
 func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
-	var next Alias
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[string, Alias](key)).
 		ChangeErr(func(_ gorp.Context, a Alias) (Alias, error) {
-			var err error
-			next, err = Reduce(a, acts...)
-			return next, err
+			return Reduce(a, acts...)
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.release(ctx, next); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)

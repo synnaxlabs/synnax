@@ -74,12 +74,26 @@ type SetRequest struct {
 }
 
 // Set creates or updates the aliases of the channels on the range. It returns an error
-// wrapping query.ErrNotFound when a channel does not exist.
+// wrapping query.ErrNotFound when a channel does not exist, and an error wrapping
+// validate.ErrValidation when the request gives one alias to two channels.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (struct{}, error) {
+	held := make(map[string]channel.Key, len(req.Aliases))
+	for ch, a := range req.Aliases {
+		if other, ok := held[a]; ok {
+			return struct{}{}, errors.Wrapf(
+				validate.ErrValidation,
+				"alias %q is given to channels %s and %s",
+				a,
+				other,
+				ch,
+			)
+		}
+		held[a] = ch
+	}
 	w := s.alias.NewWriter(tx)
 	for k, v := range req.Aliases {
 		if err := w.Set(ctx, req.Range, k, v); err != nil {
