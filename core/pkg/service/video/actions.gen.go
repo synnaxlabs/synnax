@@ -97,53 +97,53 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Video: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Video, actions ...Action) (Video, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeSetChannel:
 			if a.SetChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannel.Handle(state)
 		case ActionTypeSetPlaybackRange:
 			if a.SetPlaybackRange == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetPlaybackRange.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Video{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Video{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Video{}, err
 		}
 	}
 	return state, nil

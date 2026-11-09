@@ -12,6 +12,7 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/bluenviron/gortsplib/v5 v5.6.7
