@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -222,7 +223,48 @@ var _ = Describe("Service", func() {
 				granted.ResourceID(),
 			))
 			res := MustSucceed(retrieve(fctx, apiuser.RetrieveRequest{}))
-			Expect(res.Users).To(HaveExactElements(HaveField("Key", granted.Key)))
+			Expect(res.Users).To(ConsistOf(
+				HaveField("Key", granted.Key),
+				HaveField("Key", u.Key),
+			))
+		})
+
+		Context("With no retrieve on users", func() {
+			var (
+				username, otherUsername string
+				u, other                user.User
+			)
+			BeforeEach(func(ctx SpecContext) {
+				username = "own-" + uuid.New().String()
+				otherUsername = "other-" + uuid.New().String()
+				u = createUser(ctx, username)
+				other = createUser(ctx, otherUsername)
+			})
+			It("Should retrieve the subject's own user by key", func(ctx SpecContext) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
+			It("Should retrieve the subject's own user by filter", func(
+				ctx SpecContext,
+			) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Usernames: []string{username}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
+			It("Should deny another user by key", func(ctx SpecContext) {
+				Expect(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &other.Key}},
+				})).Error().To(denied(u, access.ActionRetrieve, other.ResourceID()))
+			})
+			It("Should leave out another user by filter", func(ctx SpecContext) {
+				res := MustSucceed(retrieve(AuthedCtx(ctx, u), apiuser.RetrieveRequest{
+					Where: &user.Where{Usernames: []string{username, otherUsername}},
+				}))
+				Expect(res.Users).To(ConsistOf(u))
+			})
 		})
 
 		It(
@@ -817,16 +859,23 @@ var _ = Describe("Service", func() {
 					To(BeTrue())
 			},
 		)
-		It("Should require update on the user and on its role", func(ctx SpecContext) {
+		It("Should require delete on the user and update on its role", func(
+			ctx SpecContext,
+		) {
 			u := createUser(ctx, "delete-role-"+uuid.New().String())
 			fctx, subject := nonRootCtx(ctx)
 			grantOnUsers(ctx, subject, access.ActionDelete)
 			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
-				Error().To(denied(subject, access.ActionUpdate, u.ResourceID()))
-			grantRoleChange(ctx, subject)
-			Expect(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
 				Error().To(beDeniedUpdateOn(roleOf(ctx, u.Key)))
-			grantRoleChange(ctx, subject, roleOf(ctx, u.Key))
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				subject.Key,
+				[]access.Action{access.ActionUpdate},
+				role.ResourceID(roleOf(ctx, u.Key)),
+			))
 			MustSucceed(del(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}}))
 			Expect(login(ctx, u.Name, "p")).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
