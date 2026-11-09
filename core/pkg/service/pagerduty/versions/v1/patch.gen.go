@@ -61,7 +61,7 @@ func (tc *TaskConfig) Patch(c patch.Cursor) error {
 	case "routing_key":
 		return patch.Value(&tc.RoutingKey, c.Next())
 	case "alerts":
-		return patch.List(&tc.Alerts, c.Next())
+		return patch.Entries(&tc.Alerts, c.Next())
 	default:
 		return c.UnknownField()
 	}

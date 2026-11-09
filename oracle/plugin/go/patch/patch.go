@@ -1076,7 +1076,7 @@ func ({{$r}} *{{.GoName}}) Patch(c patch.Cursor) error {
 		{{$r}}.{{.Selector}} = &next
 		return nil
 {{- else if eq .Kind "list"}}
-		return patch.List(&{{$r}}.{{.Selector}}, c.Next())
+		return patch.Entries(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "any"}}
 		return patch.Any(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "optionalAny"}}

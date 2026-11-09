@@ -28,7 +28,7 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.WriteConfig.Device, c.Next())
 	case "channels":
-		return patch.List(&wc.Channels, c.Next())
+		return patch.Entries(&wc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}

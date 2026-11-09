@@ -30,7 +30,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "stream_rate":
 		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
 	case "channels":
-		return patch.List(&rc.Channels, c.Next())
+		return patch.Entries(&rc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -62,7 +62,7 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "execution_rate":
 		return patch.Value(&wc.ExecutionRate, c.Next())
 	case "channels":
-		return patch.List(&wc.Channels, c.Next())
+		return patch.Entries(&wc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}

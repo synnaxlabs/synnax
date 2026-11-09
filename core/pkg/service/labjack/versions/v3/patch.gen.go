@@ -32,7 +32,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
-		return patch.List(&rc.Channels, c.Next())
+		return patch.Entries(&rc.Channels, c.Next())
 	case "device_scan_backlog_warn_on_count":
 		return patch.OptionalValue(&rc.DeviceScanBacklogWarnOnCount, c.Next())
 	case "ljm_scan_backlog_warn_on_count":

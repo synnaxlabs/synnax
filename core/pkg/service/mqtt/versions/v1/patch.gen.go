@@ -73,7 +73,7 @@ func (ec *EdgeConfig) Patch(c patch.Cursor) error {
 	case "authority":
 		return patch.Value(&ec.Authority, c.Next())
 	case "tags":
-		return patch.List(&ec.Tags, c.Next())
+		return patch.Entries(&ec.Tags, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -150,7 +150,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "entries":
-		return patch.List(&rc.Entries, c.Next())
+		return patch.Entries(&rc.Entries, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -243,7 +243,7 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.Device, c.Next())
 	case "targets":
-		return patch.List(&wc.Targets, c.Next())
+		return patch.Entries(&wc.Targets, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -332,7 +332,7 @@ func (pre *PlainReadEntry) Patch(c patch.Cursor) error {
 	case "retained_ignored":
 		return patch.Value(&pre.RetainedIgnored, c.Next())
 	case "fields":
-		return patch.List(&pre.Fields, c.Next())
+		return patch.Entries(&pre.Fields, c.Next())
 	case "index":
 		return patch.Value(&pre.Index, c.Next())
 	default:
@@ -579,7 +579,7 @@ func (pwt *PlainWriteTarget) Patch(c patch.Cursor) error {
 		}
 		return pwt.Channel.Patch(c)
 	case "fields":
-		return patch.List(&pwt.Fields, c.Next())
+		return patch.Entries(&pwt.Fields, c.Next())
 	default:
 		return c.UnknownField()
 	}

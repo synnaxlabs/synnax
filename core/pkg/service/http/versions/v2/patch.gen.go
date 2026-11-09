@@ -105,7 +105,7 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.Device, c.Next())
 	case "endpoints":
-		return patch.List(&wc.Endpoints, c.Next())
+		return patch.Entries(&wc.Endpoints, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -142,7 +142,7 @@ func (we *WriteEndpoint) Patch(c patch.Cursor) error {
 		}
 		return we.Channel.Patch(c)
 	case "fields":
-		return patch.List(&we.Fields, c.Next())
+		return patch.Entries(&we.Fields, c.Next())
 	default:
 		return c.UnknownField()
 	}

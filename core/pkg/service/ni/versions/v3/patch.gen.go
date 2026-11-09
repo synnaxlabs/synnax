@@ -30,7 +30,7 @@ func (arc *AnalogReadConfig) Patch(c patch.Cursor) error {
 	case "stream_rate":
 		return patch.Value(&arc.ReadConfig.StreamRate, c.Next())
 	case "channels":
-		return patch.List(&arc.Channels, c.Next())
+		return patch.Entries(&arc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -62,7 +62,7 @@ func (awc *AnalogWriteConfig) Patch(c patch.Cursor) error {
 	case "state_rate":
 		return patch.Value(&awc.WriteConfig.StateRate, c.Next())
 	case "channels":
-		return patch.List(&awc.Channels, c.Next())
+		return patch.Entries(&awc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -94,7 +94,7 @@ func (crc *CounterReadConfig) Patch(c patch.Cursor) error {
 	case "stream_rate":
 		return patch.Value(&crc.ReadConfig.StreamRate, c.Next())
 	case "channels":
-		return patch.List(&crc.Channels, c.Next())
+		return patch.Entries(&crc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -198,7 +198,7 @@ func (drc *DigitalReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&drc.Device, c.Next())
 	case "channels":
-		return patch.List(&drc.Channels, c.Next())
+		return patch.Entries(&drc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -231,7 +231,7 @@ func (dwc *DigitalWriteConfig) Patch(c patch.Cursor) error {
 	case "state_rate":
 		return patch.Value(&dwc.WriteConfig.StateRate, c.Next())
 	case "channels":
-		return patch.List(&dwc.Channels, c.Next())
+		return patch.Entries(&dwc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}

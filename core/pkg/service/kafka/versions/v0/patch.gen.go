@@ -34,7 +34,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "start_offset":
 		return patch.Value(&rc.StartOffset, c.Next())
 	case "records":
-		return patch.List(&rc.Records, c.Next())
+		return patch.Entries(&rc.Records, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -110,7 +110,7 @@ func (rr *ReadRecord) Patch(c patch.Cursor) error {
 	case "index":
 		return patch.Value(&rr.Index, c.Next())
 	case "fields":
-		return patch.List(&rr.Fields, c.Next())
+		return patch.Entries(&rr.Fields, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -141,7 +141,7 @@ func (r *Record) Patch(c patch.Cursor) error {
 	case "time_format":
 		return patch.Value(&r.TimeFormat, c.Next())
 	case "fields":
-		return patch.List(&r.Fields, c.Next())
+		return patch.Entries(&r.Fields, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -248,7 +248,7 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 		}
 		return wc.Record.Patch(c)
 	case "channels":
-		return patch.List(&wc.Channels, c.Next())
+		return patch.Entries(&wc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}

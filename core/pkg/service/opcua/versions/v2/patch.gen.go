@@ -77,7 +77,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "array_size":
 		return patch.Value(&rc.ArraySize, c.Next())
 	case "channels":
-		return patch.List(&rc.Channels, c.Next())
+		return patch.Entries(&rc.Channels, c.Next())
 	case "nan_fill_enabled":
 		return patch.Value(&rc.NanFillEnabled, c.Next())
 	default:

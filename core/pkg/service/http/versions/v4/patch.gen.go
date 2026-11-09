@@ -30,7 +30,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "rate":
 		return patch.Value(&rc.Rate, c.Next())
 	case "endpoints":
-		return patch.List(&rc.Endpoints, c.Next())
+		return patch.Entries(&rc.Endpoints, c.Next())
 	case "nan_fill_enabled":
 		return patch.Value(&rc.NanFillEnabled, c.Next())
 	default:
@@ -67,7 +67,7 @@ func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	case "body":
 		return patch.Value(&re.Body, c.Next())
 	case "fields":
-		return patch.List(&re.Fields, c.Next())
+		return patch.Entries(&re.Fields, c.Next())
 	case "index":
 		return patch.Value(&re.Index, c.Next())
 	default:

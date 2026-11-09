@@ -264,9 +264,9 @@ type config struct {
 func (cv *config) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "entries":
-		return patch.List(&cv.Entries, c.Next())
+		return patch.Entries(&cv.Entries, c.Next())
 	case "channels":
-		return patch.List(&cv.Channels, c.Next())
+		return patch.Entries(&cv.Channels, c.Next())
 	case "scale":
 		if c = c.Next(); c.Done() {
 			return patch.Value(&cv.Scale, c)

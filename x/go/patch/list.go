@@ -23,10 +23,10 @@ type Entry[T any] interface {
 	PatchKey() string
 }
 
-// List applies the action at c to a list of entries that paths name by key. It copies
-// the list before it changes, and does nothing when the path goes through a missing
-// entry.
-func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
+// Entries applies the action at c to a list of entries that paths name by key. It
+// copies the list before it changes, and does nothing when the path goes through a
+// missing entry.
+func Entries[T any, P Entry[T]](dst *[]T, c Cursor) error {
 	if c.Done() {
 		switch c.kind {
 		case kindInsert:

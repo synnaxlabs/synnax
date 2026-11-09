@@ -32,7 +32,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
-		return patch.List(&rc.Channels, c.Next())
+		return patch.Entries(&rc.Channels, c.Next())
 	default:
 		return c.UnknownField()
 	}
