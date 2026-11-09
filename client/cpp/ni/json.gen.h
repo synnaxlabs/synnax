@@ -222,7 +222,7 @@ inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint32_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -265,7 +265,7 @@ inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint32_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -295,7 +295,7 @@ inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
         ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
-        .port = parser.field<std::int32_t>("port", 0),
+        .port = parser.field<std::uint32_t>("port", 0),
     };
 }
 
@@ -320,8 +320,8 @@ inline DIChannel DIChannel::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .port = parser.field<std::int32_t>("port", 0),
-        .line = parser.field<std::int32_t>("line", 0),
+        .port = parser.field<std::uint32_t>("port", 0),
+        .line = parser.field<std::uint8_t>("line", 0),
     };
 }
 
@@ -350,8 +350,8 @@ inline DOChannel DOChannel::parse(x::json::Parser parser) {
         ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
-        .port = parser.field<std::int32_t>("port", 0),
-        .line = parser.field<std::int32_t>("line", 0),
+        .port = parser.field<std::uint32_t>("port", 0),
+        .line = parser.field<std::uint8_t>("line", 0),
     };
 }
 
@@ -530,7 +530,7 @@ inline x::json::json ScanConfig::to_json() const {
 
 inline AnalogInputPort AnalogInputPort::parse(x::json::Parser parser) {
     return AnalogInputPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint32_t>("port"),
         .terminal_configs = parser.field<std::vector<std::string>>(
             "terminal_configs",
             std::vector<std::string>{}
@@ -542,7 +542,7 @@ inline AnalogInputPort AnalogInputPort::parse(x::json::Parser parser) {
             "types",
             std::vector<std::string>{}
         ),
-        .negative = parser.field<std::optional<std::int32_t>>("negative"),
+        .negative = parser.field<std::optional<std::uint32_t>>("negative"),
     };
 }
 
@@ -559,7 +559,7 @@ inline x::json::json AnalogInputPort::to_json() const {
 
 inline AnalogOutputPort AnalogOutputPort::parse(x::json::Parser parser) {
     return AnalogOutputPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint32_t>("port"),
         .terminal_configs = parser.field<std::vector<std::string>>(
             "terminal_configs",
             std::vector<std::string>{}
@@ -581,7 +581,7 @@ inline x::json::json AnalogOutputPort::to_json() const {
 
 inline CounterPort CounterPort::parse(x::json::Parser parser) {
     return CounterPort{
-        .port = parser.field<std::int32_t>("port"),
+        .port = parser.field<std::uint32_t>("port"),
         .types = parser.field<std::vector<std::string>>(
             "types",
             std::vector<std::string>{}
@@ -598,8 +598,8 @@ inline x::json::json CounterPort::to_json() const {
 
 inline DigitalPort DigitalPort::parse(x::json::Parser parser) {
     return DigitalPort{
-        .port = parser.field<std::int32_t>("port"),
-        .lines = parser.field<std::int32_t>("lines"),
+        .port = parser.field<std::uint32_t>("port"),
+        .lines = parser.field<std::uint8_t>("lines"),
         .input = parser.field<bool>("input", false),
         .output = parser.field<bool>("output", false),
     };
@@ -720,7 +720,7 @@ inline x::json::json ConstValCJC::to_json() const {
 
 inline ChanCJC ChanCJC::parse(x::json::Parser parser) {
     ChanCJC result;
-    result.port = parser.field<std::int32_t>("port", 0);
+    result.port = parser.field<std::uint32_t>("port", 0);
     result.source = parser.field<std::string>("source");
     return result;
 }
@@ -1763,7 +1763,7 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     result.edge = parser.field<std::string>("edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
     result.meas_time = parser.field<double>("meas_time", 0.000006);
-    result.divisor = parser.field<std::int32_t>("divisor", 4);
+    result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
@@ -1793,7 +1793,7 @@ inline CIEdgeCountChannel CIEdgeCountChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     result.active_edge = parser.field<std::string>("active_edge", "Rising");
     result.count_direction = parser.field<std::string>("count_direction", "CountUp");
-    result.initial_count = parser.field<double>("initial_count", 0);
+    result.initial_count = parser.field<std::uint32_t>("initial_count", 0);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
@@ -1822,7 +1822,7 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     result.starting_edge = parser.field<std::string>("starting_edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
     result.meas_time = parser.field<double>("meas_time", 0.001000);
-    result.divisor = parser.field<std::int32_t>("divisor", 4);
+    result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
@@ -1983,7 +1983,7 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "RPM");
     result.decoding_type = parser.field<std::string>("decoding_type", "X4");
-    result.pulses_per_rev = parser.field<double>("pulses_per_rev", 24);
+    result.pulses_per_rev = parser.field<std::uint32_t>("pulses_per_rev", 24);
     result.terminal_a = parser.field<std::string>("terminal_a", "");
     result.terminal_b = parser.field<std::string>("terminal_b", "");
     result.type = parser.field<std::string>("type");
@@ -2048,7 +2048,7 @@ CIPositionAngularChannel::parse(x::json::Parser parser) {
     static_cast<ZIndex &>(result) = ZIndex::parse(parser);
     result.units = parser.field<std::string>("units", "Degrees");
     result.decoding_type = parser.field<std::string>("decoding_type", "X4");
-    result.pulses_per_rev = parser.field<double>("pulses_per_rev", 24);
+    result.pulses_per_rev = parser.field<std::uint32_t>("pulses_per_rev", 24);
     result.initial_angle = parser.field<double>("initial_angle", 0);
     result.terminal_a = parser.field<std::string>("terminal_a", "");
     result.terminal_b = parser.field<std::string>("terminal_b", "");

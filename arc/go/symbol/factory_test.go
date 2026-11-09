@@ -101,6 +101,19 @@ var _ = Describe("Factories", func() {
 			lonely := &symbol.Symbol{Name: "orphan"}
 			Expect(lonely.QualifiedName()).To(Equal("orphan"))
 		})
+
+		It(
+			"Should prefix the path for a member of a user module under analysis",
+			func(bCtx SpecContext) {
+				rootScope := symbol.NewRoot(nil, nil)
+				rootScope.Name, rootScope.UserDefined = "lib.m", true
+				sym := MustSucceed(rootScope.Add(
+					bCtx,
+					symbol.Symbol{Name: "f", Kind: symbol.KindFunction},
+				))
+				Expect(sym.QualifiedName()).To(Equal("lib.m.f"))
+			},
+		)
 	})
 
 	Describe("AutoImportModules", func() {
