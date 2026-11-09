@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -24,7 +24,14 @@ import {
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/secret/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/secret/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
@@ -55,11 +62,10 @@ const grantCreateReqZ = z.object({ subject: resource.idZ, secrets: keyZ.array() 
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
@@ -86,7 +92,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     super(cache, {
       name: "secret",
       table: store,
+      shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (secret, req) => matches(secret, req.where),

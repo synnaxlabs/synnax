@@ -8,14 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, Literal, overload
+from uuid import UUID
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
+from synnax.resource import ID, CrudeID
 from synnax.secret.payload import New, NewFile, NewStored
 from synnax.secret.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Secret,
@@ -42,6 +46,15 @@ class _RenameRequest(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
+
+
+class _GrantCreateRequest(BaseModel):
+    subject: ID
+    secrets: list[Key]
+
+
+class _GrantCreateResponse(BaseModel):
+    grant: UUID
 
 
 class Client:
@@ -121,6 +134,22 @@ class Client:
         """
         self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
 
+    def grant(self, subject: CrudeID, secrets: Key | list[Key]) -> UUID:
+        """Lets a subject read secrets once, within a minute, such as for a rack to
+        test a connection before the device that uses them is saved.
+
+        :param subject: The resource ID of the subject. Only racks can be subjects.
+        :param secrets: The keys of the secrets that the subject may read.
+        :returns: The key of the grant to send to the subject with the command.
+        :raises NotFoundError: If no secret has one of the keys.
+        :raises AccessDenied: If the caller cannot create devices or cannot retrieve
+            one of the secrets.
+        """
+        req = _GrantCreateRequest(subject=ID(subject), secrets=normalize(secrets))
+        return self._client.send(
+            "/secret/grant/create", req, _GrantCreateResponse
+        ).grant
+
     @overload
     def retrieve(self, key: Key) -> Secret: ...
 
@@ -129,6 +158,7 @@ class Client:
         self,
         *,
         key: Key,
+        name: filter.StringInput = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -142,6 +172,21 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        name: str,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        one: bool = ...,
+    ) -> Secret: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -156,6 +201,7 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -163,7 +209,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Secret]: ...
 
@@ -175,7 +222,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Secret | list[Secret]:
@@ -183,10 +231,11 @@ class Client:
         secret.
 
         Each filter field takes a value, a list of values, or an operator, and a secret
-        must match every field. A plain ``key``, by position or by keyword, returns one
-        secret.
+        must match every field. A plain ``key``, by position or by keyword, or a plain
+        ``name`` returns one secret.
 
         :param key: Keeps secrets with this key.
+        :param name: Keeps secrets with this name.
         :param and_: Keeps secrets that match every filter in the list.
         :param or_: Keeps secrets that match any filter in the list.
         :param not_: Keeps secrets that do not match the filter.
@@ -194,25 +243,28 @@ class Client:
         :param keys: Keeps secrets with one of these keys.
         :param search_term: Keeps the secrets whose names match, closest match first.
         :param limit: The most secrets to return.
-        :param offset: The number of matching secrets to skip.
+        :param order: The order of the secrets. Defaults to key order.
+        :param after: Retrieves the secrets past this position in the order: the key of
+            the last secret of the page before, and its value of the order field.
         :param one: Returns one secret for any filter.
-        :returns: One secret for a plain ``key`` or when ``one`` is set, otherwise a
-            list of secrets. The list leaves out keys that no secret has.
+        :returns: One secret for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of secrets. The list leaves out keys that no secret has.
         :raises NotFoundError: If one secret is wanted and none matches.
         :raises MultipleFoundError: If one secret is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one secret is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/secret/retrieve", req, RetrieveResponse)
         return sole("secret", req, res.secrets) if single else res.secrets

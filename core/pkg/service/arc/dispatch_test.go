@@ -167,7 +167,9 @@ var _ = Describe("Dispatch", func() {
 				arc.NewSetNodeAction(
 					arc.SetNodePayload{Node: graph.Node{Key: "n1"}},
 				),
-				arc.NewRenameAction(arc.RenamePayload{Name: "observed-renamed"}),
+				arc.NewSetAction(
+					arc.SetPayload{Path: []string{"name"}, Value: "observed-renamed"},
+				),
 			}
 			Expect(
 				dispatch(ctx, a.Base().Key, "client-xyz", actions),
@@ -179,7 +181,7 @@ var _ = Describe("Dispatch", func() {
 			Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
 			Expect(seen[0].Actions).To(HaveLen(2))
 			Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeSetNode))
-			Expect(seen[0].Actions[1].Type).To(Equal(arc.ActionTypeRename))
+			Expect(seen[0].Actions[1].Type).To(Equal(arc.ActionTypeSet))
 		},
 	)
 
@@ -221,7 +223,9 @@ var _ = Describe("Dispatch", func() {
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(
 				dispatch(ctx, uuid.New(), "client-xyz", []arc.Action{
-					arc.NewRenameAction(arc.RenamePayload{Name: "ghost"}),
+					arc.NewSetAction(
+						arc.SetPayload{Path: []string{"name"}, Value: "ghost"},
+					),
 				}),
 			).To(MatchError(query.ErrNotFound))
 			Expect(rec.Snapshot()).To(BeEmpty())

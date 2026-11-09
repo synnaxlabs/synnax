@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -22,7 +22,14 @@ import {
   retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/certificate/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/certificate/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_certificate_set";
@@ -49,11 +56,10 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
@@ -84,7 +90,9 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "certificate",
       table: store,
+      shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (certificate, req) => matches(certificate, req.where),
@@ -100,7 +108,8 @@ export class Client extends query.Retriever<
    * @throws {PathError} if a certificate has no name, a PEM does not parse, or a
    * private key does not match its certificate.
    * @throws {AccessDeniedError} if the caller may not create certificates, create
-   * secrets for private keys, or update a certificate it replaces.
+   * secrets for private keys, or update a certificate it replaces and the secret of its
+   * private key.
    */
   async create(certificate: New): Promise<Certificate>;
   async create(certificates: New[]): Promise<Certificate[]>;
@@ -120,7 +129,8 @@ export class Client extends query.Retriever<
    * Renames a certificate.
    * @throws {PathError} if the name is empty.
    * @throws {NotFoundError} if no certificate has the key.
-   * @throws {AccessDeniedError} if the caller may not update the certificate.
+   * @throws {AccessDeniedError} if the caller may not update the certificate, or the
+   * secret of its private key, which takes the new name.
    */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [query.partialUpdate(this.store, key, { name })];
@@ -140,7 +150,8 @@ export class Client extends query.Retriever<
 
   /**
    * Deletes certificates and the secrets that hold their private keys.
-   * @throws {AccessDeniedError} if the caller may not delete a certificate.
+   * @throws {AccessDeniedError} if the caller may not delete a certificate or the
+   * secret of its private key.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);

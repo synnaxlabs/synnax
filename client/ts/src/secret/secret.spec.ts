@@ -121,6 +121,60 @@ describe("Secret", () => {
         .toContainEqual(created);
     });
 
+    it("should retrieve a secret by name", async () => {
+      const name = `${id.create()} token`;
+      const created = await createTestClient().secrets.create({
+        name,
+        source: "stored",
+        value: "abc",
+      });
+      expect(await createTestClient().secrets.retrieve(name)).toEqual(created);
+    });
+
+    it("should page secrets in name order with a cursor", async () => {
+      const prefix = id.create();
+      const created = await createTestClient().secrets.create(
+        ["C", "A", "B"].map((n) => ({
+          name: `${prefix} ${n}`,
+          source: "stored" as const,
+          value: "v",
+        })),
+      );
+      const keys = created.map((s) => s.key);
+      const order = { field: "name" as const };
+      const client = createTestClient();
+      const first = await client.secrets.retrieve({ key: keys, order, limit: 2 });
+      expect(first.map((s) => s.name)).toEqual([`${prefix} A`, `${prefix} B`]);
+      const last = first[1];
+      const second = await client.secrets.retrieve({
+        key: keys,
+        order,
+        after: { key: last.key, name: last.name },
+      });
+      expect(second.map((s) => s.name)).toEqual([`${prefix} C`]);
+    });
+
+    it("should add a new secret to a watched list", async () => {
+      const prefix = id.create();
+      const client = createTestClient();
+      const list = client.secrets.watch({ searchTerm: prefix });
+      await list.retrieve();
+      const seen: string[][] = [];
+      const stop = list.onChange((w) => {
+        if (w != null) seen.push(w.records.map((s) => s.name));
+      });
+      try {
+        await createTestClient().secrets.create({
+          name: `${prefix} watched`,
+          source: "stored",
+          value: "v",
+        });
+        await expect.poll(() => seen.at(-1)).toContain(`${prefix} watched`);
+      } finally {
+        stop();
+      }
+    });
+
     it("should throw a NotFoundError for a missing key", async () => {
       const key = uuid.create();
       const res = createTestClient().secrets.retrieve(key);

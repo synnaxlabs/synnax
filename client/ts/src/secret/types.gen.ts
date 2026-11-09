@@ -14,9 +14,22 @@ import { z } from "zod";
 
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 export const SOURCES = ["stored", "file"] as const;
 export const sourceZ = z.enum(SOURCES);
 export type Source = z.infer<typeof sourceZ>;
+
+/** Order is a sort of secrets. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -38,6 +51,7 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  name?: filter.String;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -54,7 +68,20 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** name selects by name. */
+  name: filter.stringZ.optional(),
 });
+
+/**
+ * Cursor is a position in an order of secrets: the sort value and the key of a secret.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the secret at the position. */
+  key: keyZ,
+  /** name is the name of the secret at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /** StoredSecret is a secret whose value the Core stores. */
 export const storedSecretZ = baseZ.extend({
@@ -90,10 +117,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the secrets that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the secrets. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the secrets strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most secrets to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching secrets to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
