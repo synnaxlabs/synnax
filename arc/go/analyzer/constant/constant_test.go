@@ -194,6 +194,30 @@ ch -> g(a=%s)`),
 		Entry("return value", "func f() i8 {\n    return %s\n}"),
 	)
 
+	It("Should check format string placeholders", func(bCtx SpecContext) {
+		expectDiagnostic(
+			analyze(bCtx, inFunc(`s := f"{i8(100) + i8(100)}"`)),
+			codes.ConstantOverflow,
+			"constant 200 overflows i8",
+		)
+		expectDiagnostic(
+			analyze(bCtx, inFunc(`s := f"{1 / 0}"`)),
+			codes.DivisionByZero,
+			"integer division by zero",
+		)
+	})
+
+	It("Should report each failed operation in one expression", func(bCtx SpecContext) {
+		diags := analyze(bCtx, "func g(a i64) i64 {\n    return a\n}\n"+
+			inFunc("x := (1 / 0) + g(2 % 0) + -(100 * 100000000000000000)"))
+		Expect(diags).To(HaveLen(3), diags.String())
+		Expect(diags[0].Message).To(Equal("integer division by zero"))
+		Expect(diags[1].Message).To(Equal("integer modulo by zero"))
+		Expect(diags[2].Message).To(Equal(
+			"constant 10000000000000000000 overflows i64",
+		))
+	})
+
 	DescribeTable("nested parentheses",
 		func(bCtx SpecContext, body string, code diagnostics.ErrorCode, msg string) {
 			expectDiagnostic(analyze(bCtx, inFunc(body)), code, msg)
@@ -217,6 +241,8 @@ ch -> g(a=%s)`),
 		Entry("integer literals with a float type", "x f32 := 1 / 0"),
 		Entry("a large float power", "x := 2.0 ^ 2000.0"),
 		Entry("a narrowing cast", "x := u8(300)"),
+		Entry("a literal above i64 in a u64 cast", "x := u64(18446744073709551615)"),
+		Entry("a negated literal in a cast", "x := i8(-128)"),
 		Entry("a channel read divided by zero", "x := ich / 0"),
 		Entry("a channel read that can overflow", "x i32 := ich + 2147483647"),
 		Entry("a variable divisor of zero", "y := 0\nx := 1 / y"),

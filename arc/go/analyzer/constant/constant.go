@@ -23,46 +23,84 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// Check adds a diagnostic for each constant integer expression in ctx.AST that
-// overflows its type or divides by zero. It reads types from ctx.TypeMap, so run it
-// after type unification. It only reports: the runtime computes every value.
+// Check adds a diagnostic for each constant integer operation in ctx.AST, format
+// string placeholders included, that overflows its type or divides by zero. It reads
+// types from ctx.TypeMap, so run it after type unification. It only reports: the
+// runtime computes every value.
 func Check[T antlr.ParserRuleContext](ctx context.Context[T]) {
-	e := evaluator{typeMap: ctx.TypeMap}
-	walk(ctx.Diagnostics, e, ctx.AST)
+	w := walker{
+		diags:      ctx.Diagnostics,
+		fmtStrings: ctx.FmtStrings,
+		e: evaluator{
+			typeMap: ctx.TypeMap,
+			results: make(map[antlr.Tree]result),
+		},
+	}
+	w.walk(ctx.AST)
 }
 
-func walk(diags *diagnostics.Diagnostics, e evaluator, node antlr.Tree) {
-	r := e.eval(node)
+type walker struct {
+	e          evaluator
+	diags      *diagnostics.Diagnostics
+	fmtStrings parser.FmtStrings
+}
+
+// walk reports each operation that fails on its own operands, once, and descends
+// into every subexpression that is not a valid constant.
+func (w walker) walk(node antlr.Tree) {
+	if term, ok := node.(antlr.TerminalNode); ok {
+		for _, seg := range w.fmtStrings[term] {
+			if seg.Expr != nil {
+				w.walk(seg.Expr)
+			}
+		}
+		return
+	}
+	r := w.e.eval(node)
 	if r.diag != nil {
-		diags.Add(*r.diag)
+		w.diags.Add(*r.diag)
 		return
 	}
 	if r.constant() {
 		return
 	}
 	for _, child := range node.GetChildren() {
-		walk(diags, e, child)
+		w.walk(child)
 	}
 }
 
-// result is a constant value, a diagnostic, or neither when the expression is not a
-// constant integer expression.
+// result is a constant value, a failure, or neither when the expression is not a
+// constant integer expression. diag is set only on the node whose operation failed;
+// its ancestors carry failed alone.
 type result struct {
-	value *big.Int
-	typ   types.Type
-	diag  *diagnostics.Diagnostic
+	value  *big.Int
+	typ    types.Type
+	diag   *diagnostics.Diagnostic
+	failed bool
 }
 
 func (r result) constant() bool { return r.value != nil }
 
+var propagated = result{failed: true}
+
 type evaluator struct {
 	typeMap map[antlr.ParserRuleContext]types.Type
+	results map[antlr.Tree]result
 }
 
 func (e evaluator) eval(node antlr.Tree) result {
+	if r, ok := e.results[node]; ok {
+		return r
+	}
+	r := e.evalNode(node)
+	e.results[node] = r
+	return r
+}
+
+func (e evaluator) evalNode(node antlr.Tree) result {
 	switch n := node.(type) {
 	case parser.IExpressionContext:
-		return e.eval(n.LogicalOrExpression())
+		return e.forward(n.LogicalOrExpression())
 	case parser.ILogicalOrExpressionContext:
 		return single(e, n.AllLogicalAndExpression())
 	case parser.ILogicalAndExpressionContext:
@@ -83,26 +121,37 @@ func (e evaluator) eval(node antlr.Tree) result {
 		if n.GetChildCount() != 1 {
 			return result{}
 		}
-		return e.eval(n.PrimaryExpression())
+		return e.forward(n.PrimaryExpression())
 	case parser.IPrimaryExpressionContext:
 		return e.primary(n)
 	}
 	return result{}
 }
 
-// single evaluates the only operand of an operator level, or reports nothing for a
-// comparison or logical operation.
+// forward evaluates node as the value of its parent, so a failure in node does not
+// fail the parent a second time.
+func (e evaluator) forward(node antlr.Tree) result {
+	r := e.eval(node)
+	if r.failed {
+		return propagated
+	}
+	return r
+}
+
+// single evaluates the only operand of an operator level. A comparison or logical
+// operation is not a constant integer expression.
 func single[N antlr.Tree](e evaluator, operands []N) result {
 	if len(operands) != 1 {
 		return result{}
 	}
-	return e.eval(operands[0])
+	return e.forward(operands[0])
 }
 
 func (e evaluator) binary(node antlr.ParserRuleContext) result {
 	var (
 		operands []result
 		ops      []int
+		failed   bool
 	)
 	for _, child := range node.GetChildren() {
 		if term, ok := child.(antlr.TerminalNode); ok {
@@ -110,10 +159,11 @@ func (e evaluator) binary(node antlr.ParserRuleContext) result {
 			continue
 		}
 		r := e.eval(child)
-		if r.diag != nil {
-			return r
-		}
+		failed = failed || r.failed
 		operands = append(operands, r)
+	}
+	if failed {
+		return propagated
 	}
 	if len(ops) != len(operands)-1 {
 		return result{}
@@ -159,7 +209,7 @@ func (e evaluator) binary(node antlr.ParserRuleContext) result {
 
 func (e evaluator) unary(node parser.IUnaryExpressionContext) result {
 	if power := node.PowerExpression(); power != nil {
-		return e.eval(power)
+		return e.forward(power)
 	}
 	operand := node.UnaryExpression()
 	// A negated literal is one signed literal, so the minimum of each type fits.
@@ -169,8 +219,11 @@ func (e evaluator) unary(node parser.IUnaryExpressionContext) result {
 		}
 	}
 	inner := e.eval(operand)
-	if inner.diag != nil || !inner.constant() || node.MINUS() == nil {
-		return result{diag: inner.diag}
+	if inner.failed {
+		return propagated
+	}
+	if !inner.constant() || node.MINUS() == nil {
+		return result{}
 	}
 	v := new(big.Int).Neg(inner.value)
 	if !fits(v, inner.typ) {
@@ -184,13 +237,12 @@ func (e evaluator) unary(node parser.IUnaryExpressionContext) result {
 const maxExponent = 64
 
 func (e evaluator) power(node parser.IPowerExpressionContext) result {
-	base := e.eval(node.PostfixExpression())
-	if node.CARET() == nil || base.diag != nil {
-		return base
+	if node.CARET() == nil {
+		return e.forward(node.PostfixExpression())
 	}
-	exp := e.eval(node.UnaryExpression())
-	if exp.diag != nil {
-		return exp
+	base, exp := e.eval(node.PostfixExpression()), e.eval(node.UnaryExpression())
+	if base.failed || exp.failed {
+		return propagated
 	}
 	if !base.constant() || !exp.constant() || exp.value.Sign() < 0 {
 		return result{}
@@ -208,7 +260,7 @@ func (e evaluator) power(node parser.IPowerExpressionContext) result {
 
 func (e evaluator) primary(node parser.IPrimaryExpressionContext) result {
 	if expr := node.Expression(); expr != nil {
-		return e.eval(expr)
+		return e.forward(expr)
 	}
 	if cast := node.TypeCast(); cast != nil {
 		return e.cast(cast)
@@ -220,15 +272,21 @@ func (e evaluator) primary(node parser.IPrimaryExpressionContext) result {
 }
 
 // cast passes an inner constant through a cast only when the target type holds it
-// unchanged. Other casts convert at runtime and end the constant expression.
+// unchanged. Other casts convert at runtime and end the constant expression. A bare
+// literal that fits the target type is read as that type, as the runtime does.
 func (e evaluator) cast(node parser.ITypeCastContext) result {
-	inner := e.eval(node.Expression())
-	if inner.diag != nil || !inner.constant() {
-		return result{diag: inner.diag}
-	}
+	expr := node.Expression()
 	t, err := atypes.InferFromTypeContext(node.Type_())
-	if err != nil || !isInteger(t) || !fits(inner.value, t) {
-		return result{}
+	integer := err == nil && isInteger(t)
+	if lit := parser.GetLiteral(expr); integer && lit != nil {
+		v, ok := literalValue(lit, parser.IsNegatedLiteral(expr))
+		if ok && fits(v, t) {
+			return result{value: v, typ: t}
+		}
+	}
+	inner := e.eval(expr)
+	if !integer || !inner.constant() || !fits(inner.value, t) {
+		return result{failed: inner.failed}
 	}
 	return result{value: inner.value, typ: t}
 }
@@ -239,25 +297,34 @@ func (e evaluator) literal(
 	lit parser.ILiteralContext,
 	negate bool,
 ) result {
-	num := lit.NumericLiteral()
-	if num == nil || num.INTEGER_LITERAL() == nil || num.IDENTIFIER() != nil {
-		return result{}
-	}
 	t, ok := e.typeMap[lit]
 	if !ok || !isInteger(t) {
 		return result{}
 	}
-	v, ok := new(big.Int).SetString(num.INTEGER_LITERAL().GetText(), 10)
+	v, ok := literalValue(lit, negate)
 	if !ok {
 		return result{}
-	}
-	if (num.MINUS() != nil) != negate {
-		v.Neg(v)
 	}
 	if !fits(v, t) {
 		return overflow(node, v.String(), t)
 	}
 	return result{value: v, typ: t}
+}
+
+// literalValue returns the value of an integer literal without a unit.
+func literalValue(lit parser.ILiteralContext, negate bool) (*big.Int, bool) {
+	num := lit.NumericLiteral()
+	if num == nil || num.INTEGER_LITERAL() == nil || num.IDENTIFIER() != nil {
+		return nil, false
+	}
+	v, ok := new(big.Int).SetString(num.INTEGER_LITERAL().GetText(), 10)
+	if !ok {
+		return nil, false
+	}
+	if (num.MINUS() != nil) != negate {
+		v.Neg(v)
+	}
+	return v, true
 }
 
 func isInteger(t types.Type) bool {
@@ -279,7 +346,7 @@ func fits(v *big.Int, t types.Type) bool {
 func overflow(node antlr.ParserRuleContext, value string, t types.Type) result {
 	d := diagnostics.Errorf(node, "constant %s overflows %s", value, t).
 		WithCode(codes.ConstantOverflow)
-	return result{diag: &d}
+	return result{diag: &d, failed: true}
 }
 
 func divisionByZero(node antlr.ParserRuleContext, op int) result {
@@ -289,5 +356,5 @@ func divisionByZero(node antlr.ParserRuleContext, op int) result {
 	}
 	d := diagnostics.Errorf(node, "integer %s by zero", name).
 		WithCode(codes.DivisionByZero)
-	return result{diag: &d}
+	return result{diag: &d, failed: true}
 }
