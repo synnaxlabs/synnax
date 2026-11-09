@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
 from synnax.table.types_gen import Cell, CellConfig, Table
 from x import patch
@@ -145,66 +145,20 @@ class EraseCellsPayload(BaseModel):
     template: CellConfig
 
 
-class SetPayload(BaseModel):
-    """Replaces the value at a path in the table.
-
-    Attributes:
-        path: Is the path to the value. A segment into a list names the key of an entry.
-        value: Is the new value.
-        guards: Are the variant guards for the path.
-    """
-
-    path: list[str] = Field(default_factory=list)
-    value: JsonValue | None = None
-    guards: list[patch.Guard] = Field(default_factory=list)
+# Replaces the value at a path in the table.
+SetPayload = patch.Set
 
 
-class RemovePayload(BaseModel):
-    """Removes an entry from a list or a field from an object in the table.
-
-    Attributes:
-        path: Is the path to the list or object.
-        key: Is the key of the list entry or the name of the object field.
-        guards: Are the variant guards for the path.
-    """
-
-    path: list[str] = Field(default_factory=list)
-    key: str
-    guards: list[patch.Guard] = Field(default_factory=list)
+# Removes an entry from a list or a field from an object in the table.
+RemovePayload = patch.Remove
 
 
-class InsertPayload(BaseModel):
-    """Adds an entry to a list in the table's cells.
-
-    Attributes:
-        path: Is the path to the list.
-        value: Is the new entry. It is an object with a string key.
-        after: Is the key of the entry that the new entry goes after. The entry goes
-            first when absent, and last when no entry has the key.
-        guards: Are the variant guards for the path.
-    """
-
-    path: list[str] = Field(default_factory=list)
-    value: JsonValue | None = None
-    after: str | None = None
-    guards: list[patch.Guard] = Field(default_factory=list)
+# Adds an entry to a list in the table's cells.
+InsertPayload = patch.Insert
 
 
-class MovePayload(BaseModel):
-    """Moves an entry in a list in the table's cells.
-
-    Attributes:
-        path: Is the path to the list.
-        key: Is the key of the entry to move.
-        after: Is the key of the entry that the moved entry goes after. The entry goes
-            first when absent, and last when no other entry has the key.
-        guards: Are the variant guards for the path.
-    """
-
-    path: list[str] = Field(default_factory=list)
-    key: str
-    after: str | None = None
-    guards: list[patch.Guard] = Field(default_factory=list)
+# Moves an entry in a list in the table's cells.
+MovePayload = patch.Move
 
 
 class CreateAction(BaseModel):

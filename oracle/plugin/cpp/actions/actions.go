@@ -124,6 +124,11 @@ func (p *Plugin) generateFile(
 		}
 		// The payload is not in the resolution table, so no field refers to it.
 		parent := resolution.Type{Name: a.Payload, Namespace: typ.Namespace}
+		if action.IsAlias() {
+			target := resolution.Field{Type: action.Alias}
+			a.Target = types.ProcessField(target, parent).CppType
+			codecs.ProcessField(target, parent)
+		}
 		for _, field := range action.Fields {
 			a.Fields = append(a.Fields, fieldData{
 				Decl:  types.ProcessField(field, parent),
@@ -155,7 +160,9 @@ type actionData struct {
 	// Builder is the name of the function that wraps a payload in an Action.
 	Builder string
 	Doc     string
-	Fields  []fieldData
+	// Target is the C++ type of the struct that an action alias uses as its payload.
+	Target string
+	Fields []fieldData
 }
 
 type fieldData struct {
@@ -167,7 +174,7 @@ var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatCpp,
 	"actionDoc": func(target string) string {
 		return "is a discriminated union for all " + target + " mutations. Its JSON " +
-			`form is {"type": t, t: payload}, where t is the TYPE of the payload.`
+			`form is {"type": t, t: payload}, where t is the type of the action.`
 	},
 }
 
@@ -189,9 +196,10 @@ namespace {{.Namespace}} {
 
 {{if .Doc}}{{formatDoc .Payload .Doc}}
 {{end -}}
+{{if .Target -}}
+using {{.Payload}} = {{.Target}};
+{{- else -}}
 struct {{.Payload}} {
-    /// @brief TYPE is the type of the Action that carries the payload.
-    static constexpr auto TYPE = "{{.Type}}";
 {{- range .Fields}}
 {{- if .Decl.Doc}}
     {{formatDoc .Decl.Name .Decl.Doc 4}}
@@ -202,6 +210,7 @@ struct {{.Payload}} {
     static {{.Payload}} parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+{{- end}}
 {{- end}}
 
 {{formatDoc "Action" (actionDoc .TargetName)}}
@@ -219,6 +228,7 @@ inline Action {{.Builder}}({{.Payload}} payload) {
 }
 {{- end}}
 {{- range .Actions}}
+{{- if not .Target}}
 
 inline {{.Payload}} {{.Payload}}::parse(x::json::Parser{{if .Fields}} parser{{end}}) {
     return {{.Payload}}{
@@ -236,11 +246,12 @@ inline x::json::json {{.Payload}}::to_json() const {
     return j;
 }
 {{- end}}
+{{- end}}
 
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
 {{- range .Actions}}
-    if (type == {{.Payload}}::TYPE) return {{.Payload}}::parse(parser.child({{.Payload}}::TYPE));
+    if (type == "{{.Type}}") return {{.Payload}}::parse(parser.child("{{.Type}}"));
 {{- end}}
     parser.field_err("type", "unknown Action type: " + type);
     return {};
@@ -250,9 +261,13 @@ inline x::json::json to_json(const Action &value) {
     return std::visit(
         [](const auto &payload) {
             using Payload = std::decay_t<decltype(payload)>;
+            std::string type;
+{{- range $i, $a := .Actions}}
+            {{if $i}}else {{end}}if constexpr (std::is_same_v<Payload, {{$a.Payload}}>) type = "{{$a.Type}}";
+{{- end}}
             x::json::json j = x::json::json::object();
-            j["type"] = Payload::TYPE;
-            j[Payload::TYPE] = payload.to_json();
+            j["type"] = type;
+            j[type] = payload.to_json();
             return j;
         },
         value
