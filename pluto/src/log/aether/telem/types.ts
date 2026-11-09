@@ -22,7 +22,7 @@ export interface LogEntry {
   alignment?: bigint;
 }
 
-export const filterZ = z.object({
+const filterZ = z.object({
   hiddenChannels: z.array(channel.keyZ).default([]),
 });
 

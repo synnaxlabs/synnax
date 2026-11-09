@@ -247,6 +247,11 @@ export class StreamMultiChannelLog
     this.reload();
   }
 
+  // The metas of the channels the filter keeps. No read asks for a hidden channel.
+  private shownMetas(): Array<[channel.Key, Meta]> {
+    return [...this.metas].filter(([key]) => !this.hidden.has(key));
+  }
+
   /** The times the channels store, or null until the oldest is known. */
   get timeRange(): TimeRange | null {
     const end = this.unread.at(-1)?.end ?? this.entries.at(-1)?.timestamp.valueOf();
@@ -256,9 +261,9 @@ export class StreamMultiChannelLog
     return new TimeRange(start, new TimeStamp(end));
   }
 
-  /** Whether the entries hold the oldest stored sample of each channel. */
+  /** Whether the entries hold the oldest stored sample of each shown channel. */
   get exhausted(): boolean {
-    const metas = [...this.metas.values()];
+    const metas = this.shownMetas().map(([, m]) => m);
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
     );
@@ -317,7 +322,7 @@ export class StreamMultiChannelLog
   loadOlder(): void {
     const { client } = this;
     if (this.paging || client == null) return;
-    const metas = [...this.metas].filter(
+    const metas = this.shownMetas().filter(
       ([, m]) => !m.exhausted && m.oldest != null && m.stored,
     );
     if (metas.length > 0) void this.readOlder(client, metas);
@@ -356,7 +361,7 @@ export class StreamMultiChannelLog
     // fills its count may hide samples, so the span splits, and one time reads more.
     const middle = (span.start + span.end) / 2n;
     const limit = middle > span.start ? PAGE_SIZE : Number.MAX_SAFE_INTEGER;
-    const counts = [...this.metas]
+    const counts = this.shownMetas()
       .filter(([, { stored }]) => stored)
       .map(([key]): [channel.Key, number] => [
         key,
@@ -654,7 +659,7 @@ export class StreamMultiChannelLog
       worst = cstatus.worst(worst, snapshot.status)!;
       // Asking opens the stream of the channel's index before its first live sample.
       subscription.timeAt(key, 0n);
-      if (snapshot.status.variant === "loading") return;
+      if (snapshot.status.variant === "loading" || this.hidden.has(key)) return;
       this.append(key, meta, snapshot, receivedAt);
       this.drain(key, meta, subscription, groups, receivedAt);
       if (meta.pending.length > 0) waiting = true;
@@ -805,9 +810,7 @@ export class StreamMultiChannelLog
   // Inserts each group of entries at its place in time order: after the entries that
   // share its time, or before them when prepended from an older page. groups holds the
   // entries of one sample per group.
-  private insert(all: LogEntry[][], prepended = false): void {
-    const groups = this.filtered(all);
-    if (groups.length === 0) return;
+  private insert(groups: LogEntry[][], prepended = false): void {
     groups.sort((a, b) => compareTimes(a[0], b[0]));
     const first = groups[0][0].timestamp.valueOf();
     const last = this.entries.at(-1)?.timestamp.valueOf();
@@ -827,13 +830,6 @@ export class StreamMultiChannelLog
     }
     for (; i < this.entries.length; i++) merged.push(this.entries[i]);
     this.entries = merged;
-  }
-
-  // Returns the groups the filter keeps. The reads count every sample, so a filter
-  // changes only what the entries hold.
-  private filtered(groups: LogEntry[][]): LogEntry[][] {
-    if (this.hidden.size === 0) return groups;
-    return groups.filter(([{ channelKey }]) => !this.hidden.has(channelKey));
   }
 
   // Evicts the newest entries past maxEntries, which a later read finds again. The cut

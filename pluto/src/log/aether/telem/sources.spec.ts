@@ -750,6 +750,21 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), b)).toEqual([]);
     });
 
+    it("should read no older pages of a hidden channel", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.setFilter({ hiddenChannels: [b] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(log.exhausted).toBe(true);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+    });
+
     it("should page every channel back together", async () => {
       const core = deep();
       const [a, b] = core.data.map((c) => c.key);
