@@ -18,6 +18,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/testutil/testutil.h"
@@ -568,6 +569,83 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
         );
 }
 
+/// @brief it should keep the samples of a reader exactly one sample period apart when a
+/// writer raises the bus rate between two of them.
+TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
+    this->master->stall();
+    // The writer starts the bus, so the reader joins a running bus at a known cycle.
+    const auto slow = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    // Destroyed before the reader and writers, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    this->master->wait_until_stalled();
+    // The stalled cycle samples, and the rate rises in the cycle after it.
+    const auto fast = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(200))
+    );
+    this->master->resume();
+    const auto times = this->read_times(*reader, 3);
+    ASSERT_EQ(times.size(), 3);
+    for (size_t i = 1; i < times.size(); ++i)
+        EXPECT_EQ(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            x::telem::MILLISECOND * 100
+        );
+}
+
+/// @brief it should decode each sample of reads that cross the end of the sample
+/// buffer, for entries of different widths.
+TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
+    // 210 samples pass through a buffer that holds 200, so the last read crosses its
+    // end.
+    constexpr size_t SAMPLES = 30;
+    constexpr size_t READS = 7;
+    // The writer runs the bus at the rate of the reader, so the reader joins a running
+    // bus at a known cycle.
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16, IN_I24, IN_U4}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t r = 0; r < READS; ++r) {
+        for (size_t s = 0; s < SAMPLES; ++s) {
+            const auto k = static_cast<int32_t>(r * SAMPLES + s);
+            this->master->wait_until_stalled();
+            this->master->set_input<int16_t>(I16_BYTE, static_cast<int16_t>(k));
+            this->master->set_input<int32_t>(I24_BYTE, -k);
+            this->master->set_input<uint8_t>(U4_BYTE, static_cast<uint8_t>(k % 16));
+            this->master->step();
+        }
+        auto frame = frame_of(
+            {x::telem::INT16_T, x::telem::INT32_T, x::telem::UINT8_T},
+            SAMPLES
+        );
+        x::telem::Series times(x::telem::TIMESTAMP_T, SAMPLES);
+        ASSERT_NIL(reader->read(this->brk, frame, times));
+        ASSERT_EQ(frame.series->at(0).size(), SAMPLES);
+        for (size_t s = 0; s < SAMPLES; ++s) {
+            const auto k = static_cast<int32_t>(r * SAMPLES + s);
+            EXPECT_EQ(frame.series->at(0).at<int16_t>(s), k);
+            EXPECT_EQ(frame.series->at(1).at<int32_t>(s), -k);
+            EXPECT_EQ(frame.series->at(2).at<uint8_t>(s), k % 16);
+        }
+    }
+}
+
 /// @brief it should reject a reader with a sample rate below 0.001 Hz and not start the
 /// bus.
 TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
@@ -985,8 +1063,28 @@ TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
     this->master->add_slave({.position = 1, .name = "Coupler"});
     this->master->refuse(0, REFUSAL);
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings"
+    );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should tell the user how to fix the DC settings of a left-out slave that
+/// refused its DC sync configuration.
+TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
+        "configuration. Fix the device, then stop every task on the network to try it "
+        "again. " +
+            std::string(slave::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
 
 /// @brief it should fail a reader on a slave that the bus started without, and stop the

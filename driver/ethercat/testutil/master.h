@@ -35,6 +35,8 @@ namespace driver::ethercat::testutil {
 /// would on a real bus.
 class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
+    /// @brief what scan() found, which it returns again until deactivate().
+    std::vector<slave::DiscoveryResult> scanned;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
@@ -79,6 +81,10 @@ class Master final : public master::Master {
     std::mutex stall_mu;
     std::condition_variable stall_cv;
     bool stalled{false};
+    /// @brief whether a receive() waits for resume().
+    bool blocked{false};
+    /// @brief whether the next receive() stalls, set by step().
+    bool stall_next{false};
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
     /// @brief how many more frames record_dc() asked for.
@@ -190,11 +196,30 @@ public:
         this->stalled = true;
     }
 
+    /// @brief waits until a receive() blocks after stall().
+    void wait_until_stalled() {
+        std::unique_lock lock(this->stall_mu);
+        this->stall_cv.wait(lock, [this] { return this->blocked; });
+    }
+
     /// @brief unblocks receive() after stall().
     void resume() {
         {
             std::lock_guard lock(this->stall_mu);
             this->stalled = false;
+            this->blocked = false;
+            this->stall_next = false;
+        }
+        this->stall_cv.notify_all();
+    }
+
+    /// @brief lets the receive() that a stall blocks return, and stalls the next one.
+    void step() {
+        {
+            std::lock_guard lock(this->stall_mu);
+            this->stalled = false;
+            this->blocked = false;
+            this->stall_next = true;
         }
         this->stall_cv.notify_all();
     }
@@ -279,8 +304,9 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
+        if (!this->initialized) this->scanned = this->slave_list;
         this->initialized = true;
-        return {this->slave_list, x::errors::NIL};
+        return {this->scanned, x::errors::NIL};
     }
 
     std::pair<size_t, x::errors::Error> count_slaves() override {
@@ -419,7 +445,12 @@ public:
     x::errors::Error receive() override {
         {
             std::unique_lock lock(this->stall_mu);
-            this->stall_cv.wait(lock, [this] { return !this->stalled; });
+            if (std::exchange(this->stall_next, false)) this->stalled = true;
+            if (this->stalled) {
+                this->blocked = true;
+                this->stall_cv.notify_all();
+                this->stall_cv.wait(lock, [this] { return !this->stalled; });
+            }
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");

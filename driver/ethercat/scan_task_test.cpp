@@ -105,6 +105,7 @@ protected:
     }
 };
 
+/// @brief it should report a test command that has no interface.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -127,6 +128,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     EXPECT_EQ(ctx->statuses.back().description, "interface: This field is required");
 }
 
+/// @brief it should leave a command it does not know to another handler.
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     synnax::task::Task task{
         .rack = rack.key,
@@ -145,6 +147,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     EXPECT_FALSE(handled);
 }
 
+/// @brief it should report how many slaves a test command finds.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto mock_master = std::make_shared<testutil::Master>();
     mock_master->add_slave(
@@ -220,6 +223,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
+/// @brief it should report an interface that fails to open.
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto mock_master = std::make_shared<testutil::Master>();
     mock_master->inject_scan_error(
@@ -338,6 +342,16 @@ TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
     EXPECT_TRUE(status.details.connected);
+}
+
+/// @brief it should key a slave with a serial number by its vendor, product, and
+/// serial, not by its position.
+TEST_F(EtherCATScanStatusTest, KeysASlaveBySerialNumber) {
+    const auto devices = ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 1})
+    );
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries

@@ -64,6 +64,7 @@ cc_test(
     deps = [
         "//driver/ethercat/engine",
         "//driver/ethercat/testutil",
+        "//x/cpp/defer",
         "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "//x/cpp/thread/rt",

@@ -12,6 +12,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/testutil/master.h"
 #include "driver/ethercat/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -26,7 +27,6 @@ protected:
     std::shared_ptr<engine::Engine> engine;
     synnax::channel::Channel index_channel;
     synnax::rack::Rack rack;
-    synnax::device::Device network_device;
     synnax::device::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
@@ -45,7 +45,6 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        network_device = create_network_device(NETWORK_INTERFACE);
         slave_device = create_slave_device(
             SLAVE_SERIAL,
             x::json::json::array(),
@@ -88,22 +87,6 @@ protected:
             }
         );
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
-    }
-
-    synnax::device::Device create_network_device(const std::string &interface) {
-        x::json::json props = {{"interface", interface}, {"rate", 100.0}};
-        synnax::device::Device dev{
-            .key = "ecat_network_" + interface,
-            .rack = rack.key,
-            .location = interface,
-            .make = "EtherCAT",
-            .model = "Network",
-            .name = "Test Network",
-            .properties = props,
-        };
-        const auto err = client->devices.create(dev);
-        EXPECT_NIL(err);
-        return dev;
     }
 
     [[nodiscard]] synnax::device::Device create_slave_device(
@@ -371,6 +354,36 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     );
 }
 
+/// @brief it should start a write task that the Factory configures, with the bus at the
+/// execution rate of the task.
+TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["execution_rate"] = 250;
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "write",
+        .type = WRITE_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [write_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(write_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    write_task->exec(start);
+    ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
+    EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
+    EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    write_task->exec(stop);
+}
+
 /// @brief it should reject a write task whose channels are all disabled.
 TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
     const auto ch = create_command_channel("cmd", x::telem::INT16_T);
@@ -411,8 +424,7 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
 }
 
-/// @brief when a frame contains multiple samples for a channel, only the last
-/// sample should be written to hardware.
+/// @brief it should write only the last sample of a channel in a frame.
 TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -501,6 +513,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should accept a frame that has no command for a channel.
 TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -527,6 +540,8 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief it should refuse to start when a slave on the bus is not the device that
+/// the task names.
 TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),
@@ -560,7 +575,12 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
-    ASSERT_OCCURRED_AS(sink.start(), errors::TOPOLOGY_MISMATCH);
+    const auto err = sink.start();
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
+    );
 }
 
 }

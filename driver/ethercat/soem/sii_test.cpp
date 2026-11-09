@@ -99,6 +99,18 @@ TEST(ParsePDOsTest, LeavesOutAPDOOnARejectedSyncManager) {
     EXPECT_TRUE(parse_pdos(data, below_eight, lookup({})).empty());
 }
 
+/// @brief it should read the PDO after one that it leaves out.
+TEST(ParsePDOsTest, ReadsThePDOAfterOneItLeavesOut) {
+    const std::vector<uint8_t> data = {
+        0x00, 0x1A, 1, 8, 0, 0, 0, 0, 0x00, 0x60, 1, 0, 0x03, 16, 0, 0,
+        0x01, 0x1A, 1, 3, 0, 0, 0, 0, 0x10, 0x60, 1, 0, 0x08, 32, 0, 0,
+    };
+    const auto pdos = parse_pdos(data, below_eight, lookup({}));
+    ASSERT_EQ(pdos.size(), 1);
+    EXPECT_EQ(pdos[0].index, 0x1A01);
+    EXPECT_EQ(pdos[0].entries[0].index, 0x6010);
+}
+
 /// @brief it should leave out a PDO that counts more objects than the category holds.
 TEST(ParsePDOsTest, LeavesOutAPDOThatRunsPastTheCategory) {
     const std::vector<uint8_t> data = {

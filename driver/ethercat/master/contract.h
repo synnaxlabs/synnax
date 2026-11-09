@@ -96,6 +96,22 @@ TYPED_TEST_P(Contract, CountSlavesFailsBeforeScan) {
     ASSERT_OCCURRED_AS_P(this->bus.master().count_slaves(), errors::MASTER_INIT_ERROR);
 }
 
+/// @brief it should count the slaves on the bus after a scan.
+TYPED_TEST_P(Contract, CountSlavesAfterScan) {
+    this->bus.add_slave();
+    this->bus.add_slave();
+    ASSERT_NIL(this->bus.master().scan().second);
+    EXPECT_EQ(ASSERT_NIL_P(this->bus.master().count_slaves()), 2);
+}
+
+/// @brief it should return the slaves of the first scan until deactivate().
+TYPED_TEST_P(Contract, ScanReturnsTheSlavesItFoundUntilDeactivate) {
+    this->bus.add_slave();
+    ASSERT_NIL(this->bus.master().scan().second);
+    this->bus.add_slave();
+    EXPECT_EQ(ASSERT_NIL_P(this->bus.master().scan()).size(), 1);
+}
+
 /// @brief it should fail activation before a scan.
 TYPED_TEST_P(Contract, ActivateFailsBeforeScan) {
     this->bus.add_slave();
@@ -175,6 +191,20 @@ TYPED_TEST_P(Contract, ActivateReturnsTheRefusalOfASlave) {
     EXPECT_EQ(refused, std::set<uint16_t>{2});
 }
 
+/// @brief it should fail receive(), send(), and activate() after deactivate() until the
+/// next scan.
+TYPED_TEST_P(Contract, CycleAndActivateFailAfterDeactivate) {
+    this->bus.add_slave();
+    ASSERT_NIL(this->bus.master().scan().second);
+    ASSERT_NIL(this->activate().err);
+    this->stop_cycle();
+    this->bus.master().deactivate();
+    ASSERT_OCCURRED_AS(this->bus.master().receive(), errors::CYCLIC_ERROR);
+    ASSERT_OCCURRED_AS(this->bus.master().send(), errors::CYCLIC_ERROR);
+    ASSERT_OCCURRED_AS(this->activate().err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(this->cycles, 1);
+}
+
 /// @brief it should discover and start the bus again after deactivate().
 TYPED_TEST_P(Contract, ScanAndActivateAgainAfterDeactivate) {
     this->bus.add_slave();
@@ -190,12 +220,15 @@ TYPED_TEST_P(Contract, ScanAndActivateAgainAfterDeactivate) {
 REGISTER_TYPED_TEST_SUITE_P(
     Contract,
     CountSlavesFailsBeforeScan,
+    CountSlavesAfterScan,
+    ScanReturnsTheSlavesItFoundUntilDeactivate,
     ActivateFailsBeforeScan,
     ReceiveAndSendFailBeforeActivation,
     ActivateRunsEachEnabledSlave,
     ActivateMapsEachEntryInsideTheImage,
     ActivateFailsTwice,
     ActivateReturnsTheRefusalOfASlave,
+    CycleAndActivateFailAfterDeactivate,
     ScanAndActivateAgainAfterDeactivate
 );
 }

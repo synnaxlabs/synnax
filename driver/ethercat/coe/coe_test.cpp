@@ -263,4 +263,37 @@ TEST(ReadLayoutTest, SkipsAnEmptyAssignment) {
     ));
     ASSERT_EQ(syncs[1].pdos.size(), 1);
 }
+
+/// @brief it should skip a sync manager that carries neither inputs nor outputs.
+TEST(ReadLayoutTest, SkipsASyncManagerOfAnotherType) {
+    const auto syncs = ASSERT_NIL_P(
+        read_layout(reader(with(LAYOUT, {{{0x1C00, 4}, 1}})), 8, OnError::FAIL)
+    );
+    ASSERT_EQ(syncs.size(), 1);
+    EXPECT_EQ(syncs[0].index, 2);
+}
+
+/// @brief it should fail when an assign object counts more PDOs than a sub-index can
+/// address.
+TEST(ReadLayoutTest, FailsOnTooManyAssignedPDOs) {
+    const auto res = read_layout(
+        reader(with(LAYOUT, {{{0x1C13, 0}, 255}})),
+        8,
+        OnError::FAIL
+    );
+    ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
+    EXPECT_EQ(
+        res.second.data,
+        "0x1C13:00 counts 255 entries, above the maximum of 254"
+    );
+}
+
+/// @brief it should report a read that got no answer as a read error, not as a missing
+/// object.
+TEST(ReadErrorTest, ReportsNoAnswerAsAReadError) {
+    const auto err = read_error(0x1C00, 0, 0);
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(OBJECT_MISSING));
+    EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
+}
 }

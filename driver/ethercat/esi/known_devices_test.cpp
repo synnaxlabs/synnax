@@ -44,6 +44,54 @@ TEST(DewesoftDevices, LookupFillsTheEntriesOfAnIOLITE6xSTG) {
     EXPECT_TRUE(slave.output_pdos.empty());
 }
 
+/// @brief it should give a known device whose discovery found no entries the layout of
+/// the registry, and clear its discovery error.
+TEST(Fill, GivesAKnownDeviceWithNoEntriesTheRegistryLayout) {
+    slave::DiscoveryResult result{};
+    result.properties = {
+        .vendor_id = DEWESOFT_VENDOR_ID,
+        .product_code = IOLITE_6XSTG,
+        .revision = 0x10001,
+    };
+    result.status.pdo_discovery_error = "failed to read 0x1C00:00: no response";
+    fill(result);
+    EXPECT_EQ(result.properties.input_pdos.size(), 6);
+    EXPECT_TRUE(result.status.pdo_discovery_error.empty());
+}
+
+/// @brief it should keep the entries that discovery found on a known device.
+TEST(Fill, KeepsTheEntriesThatDiscoveryFound) {
+    slave::DiscoveryResult result{};
+    result.properties = {
+        .vendor_id = DEWESOFT_VENDOR_ID,
+        .product_code = IOLITE_6XSTG,
+        .revision = 0x10001,
+        .input_pdos = {{
+            .index = 0x7FFF,
+            .sub_index = 1,
+            .bit_length = 8,
+            .is_input = true,
+            .name = "Status",
+        }},
+    };
+    fill(result);
+    ASSERT_EQ(result.properties.input_pdos.size(), 1);
+    EXPECT_EQ(result.properties.input_pdos[0].name, "Status");
+}
+
+/// @brief it should keep the discovery error of a device that is not in the registry.
+TEST(Fill, KeepsTheDiscoveryErrorOfAnUnknownDevice) {
+    slave::DiscoveryResult result{};
+    result.properties = {.vendor_id = 0xDEADBEEF, .product_code = 0x12345678};
+    result.status.pdo_discovery_error = "failed to read 0x1C00:00: no response";
+    fill(result);
+    EXPECT_TRUE(result.properties.input_pdos.empty());
+    EXPECT_EQ(
+        result.status.pdo_discovery_error,
+        "failed to read 0x1C00:00: no response"
+    );
+}
+
 /// @brief it should use a listed revision of the device when the slave's revision is
 /// not listed.
 TEST(DewesoftDevices, LookupFallsBackToAListedRevision) {
