@@ -1970,6 +1970,71 @@ var _ = Describe("Driver", func() {
 			Expect(driver.Close()).To(Succeed())
 			Expect(driver.Close()).To(Succeed())
 		})
+
+		It(
+			"should not leave a task running from a start in flight",
+			func(ctx SpecContext) {
+				var (
+					running   task.Task
+					inFlight  task.Task
+					live      sync.Map
+					started   = make(chan struct{})
+					deploying = make(chan struct{})
+					released  = make(chan struct{})
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						ctx context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == inFlight.Key {
+							close(deploying)
+							select {
+							case <-released:
+							case <-ctx.Done():
+								return nil, ctx.Err()
+							}
+						}
+						live.Store(t.Key, true)
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(context.Context, task.Command) error {
+								if t.Key == running.Key {
+									close(started)
+								}
+								return nil
+							},
+							stopFunc: func(bool) error {
+								live.Delete(t.Key)
+								if t.Key == running.Key {
+									close(released)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				d := openDriver(ctx, factory)
+				rackKey := embeddedRackKey(ctx)
+				running, inFlight = newTask(rackKey), newTask(rackKey)
+				createTask(ctx, running)
+				createTask(ctx, inFlight)
+				writeCommand(
+					ctx,
+					task.Command{Task: running.Key, Type: "start", Key: "a"},
+				)
+				Eventually(started).Should(BeClosed())
+				writeCommand(
+					ctx,
+					task.Command{Task: inFlight.Key, Type: "start", Key: "b"},
+				)
+				Eventually(deploying).Should(BeClosed())
+				Expect(d.Close()).To(Succeed())
+				_, leaked := live.Load(inFlight.Key)
+				Expect(leaked).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Heartbeat", func() {
