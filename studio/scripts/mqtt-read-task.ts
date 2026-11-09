@@ -35,6 +35,6 @@ export default serverTaskScript(MQTT, {
       { text: true },
     );
     await session.hold(800);
-    await choose(session, form, "Data type", "float32");
+    await choose(session, form, "Data type", "float32", { search: true });
   },
 });

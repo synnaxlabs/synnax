@@ -11,33 +11,28 @@ import { capture } from "@/index";
 
 export const viewport = { width: 1280, height: 800 };
 
-/** The older minor version that the check of the Core reports. */
-const lowerMinor = (version: string): string => {
-  const [major, minor, ...rest] = version.split(".");
-  return [major, String(Number(minor) - 1).padStart(minor.length, "0"), ...rest].join(
-    ".",
-  );
-};
-
 const HEADING = "Console 0.61.0 cannot work with Core 0.60.1";
 
 /**
  * Still for the updates section of the v0.61 release notes: the screen that a Console
- * shows when the Core runs another minor version. The Core answers its connectivity
- * check with an older version. The heading names the versions in the release notes,
+ * shows when the Core runs another minor version. The page reads an old version from the
+ * connectivity check of the Core. The heading names the versions in the release notes,
  * because the build under capture may carry another number.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  await page.route("**/connectivity/check*", async (route) => {
-    const response = await route.fetch();
-    const body = (await response.body())
-      .toString("latin1")
-      .replace(
-        /(node_?[vV]ersion[^0-9]{0,3})(\d+\.\d+\.\d+)/,
-        (_, key: string, version: string) => `${key}${lowerMinor(version)}`,
+  await page.evaluate(() => {
+    const { fetch } = window;
+    window.fetch = async (input, init) => {
+      const response = await fetch(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (!url.includes("/connectivity/check")) return response;
+      const body = await response.text();
+      return new Response(
+        body.replace(/("node_version":\s*")[^"]+/, "$10.1.0"),
+        response,
       );
-    await route.fulfill({ response, body: Buffer.from(body, "latin1") });
+    };
   });
   const username = page.locator(".lyra-field__username input").first();
   await session.waitFor(username);

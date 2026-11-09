@@ -133,6 +133,8 @@ export interface TaskShot {
   rates?: Record<string, string>;
   /** Adds and sets the channels of the task. */
   channels: (session: capture.CaptureSession, form: Locator) => Promise<void>;
+  /** The shot ends on the channels, with the task not started. */
+  unstarted?: boolean;
 }
 
 /**
@@ -143,7 +145,15 @@ export interface TaskShot {
  */
 export const recordTask = async (
   session: capture.CaptureSession,
-  { device, rack = DRIVER, item, properties, rates = {}, channels }: TaskShot,
+  {
+    device,
+    rack = DRIVER,
+    item,
+    properties,
+    rates = {},
+    channels,
+    unstarted = false,
+  }: TaskShot,
 ): Promise<void> => {
   const { page } = session;
   await capture.openToolbar(session, "device");
@@ -183,6 +193,12 @@ export const recordTask = async (
   await session.hold(400);
   await channels(session, form);
   await session.hold(500);
+  if (unstarted) {
+    session.endZoom();
+    await session.moveTo({ x: 1100, y: 120 });
+    await session.hold(3000);
+    return;
+  }
 
   await session.click(form.locator("button:has(svg.lyra-icon--play)").first());
   session.endZoom();

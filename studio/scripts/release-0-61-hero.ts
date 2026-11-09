@@ -42,6 +42,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(form);
     const dialog = await openDiscover(session, form, "Add data");
     session.endZoom();
+    // The Core listens on wall time. Off camera, ticks pass too fast for it to answer.
+    await session.settleWall(6000);
     const topic = dialog.getByRole("treeitem").getByText("sensors", { exact: true });
     await session.waitFor(topic);
     await session.click(topic, { text: true, zoom: false });

@@ -11,6 +11,9 @@ import { capture } from "@/index";
 
 import { choose, fieldItem } from "./common/task";
 
+export const driver = true;
+export const integrations = ["modbus"];
+
 /**
  * Docs `reference/alarms/statuses` (Set a status): click the add button in the statuses
  * toolbar, enter a name, select a variant, enter a message, and create the status. The

@@ -16,10 +16,12 @@ export const integrations = ["opc"];
 
 /**
  * Docs `reference/hardware/opc-ua/read-task` (Add a folder): drag a folder of the
- * simulated server into Channels, confirm the count of variables, and start the task.
+ * simulated server into Channels and confirm the count of variables.
  */
 export default serverTaskScript(OPCUA, {
   item: "Create read task",
+  // The folder holds arrays, which a scalar task reports as bad values.
+  unstarted: true,
   channels: async (session, form) => {
     const { page } = session;
     const folder = form

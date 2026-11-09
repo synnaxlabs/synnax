@@ -45,13 +45,18 @@ export default serverTaskScript(MQTT, {
     await setText(session, form, "Pointer", "/position");
     await choose(session, form, "JSON type", "Number");
     await session.click(
-      form.getByRole("button", { name: "Add static field", exact: true }).first(),
+      form.getByRole("button", { name: "Static", exact: true }).first(),
     );
     await session.hold(600);
-    const value = form.getByPlaceholder("value", { exact: true }).first();
-    await session.waitFor(value);
-    await session.click(value);
+    const pointer = form.getByPlaceholder("/field", { exact: true }).first();
+    await session.waitFor(pointer);
+    await pointer.scrollIntoViewIfNeeded();
+    await session.settle(300);
+    await session.click(pointer);
+    await session.type("/source");
+    await session.hold(300);
+    await session.click(form.getByPlaceholder("value", { exact: true }).first());
     await session.type("synnax");
-    await session.hold(400);
+    await session.hold(600);
   },
 });

@@ -30,6 +30,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await setText(0, 1, "Pressure");
     await setText(1, 0, "Tank");
     await setValue(1, 1, fixture.channels[0]);
+    // A selected cell holds the toolbar open.
+    await session.click({ x: 900, y: 600 }, { zoom: false });
     await capture.hideBottomToolbar(session);
     await session.settleWall(2000);
     await session.moveTo({ x: 900, y: 600 });
@@ -40,9 +42,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const value = page.locator(".pluto-table__cell").nth(3);
     await session.click(value, { zoom: false });
     await session.hold(600);
-    await session.press("v");
     const toolbar = drawer(page);
     const tab = toolbar.getByText("Redline", { exact: true }).first();
+    if (!(await tab.isVisible())) await session.press("v");
     await session.waitFor(tab);
     await session.hold(800);
     await capture.zoomCenter(session, toolbar, 1.4);
