@@ -52,7 +52,7 @@ const createHarness = (send: SendFn): Harness => {
     kindOf: schematic.kindOf,
     send: async (_, actions) => {
       await send(actions);
-      return [];
+      return actions;
     },
   });
   const domain: Domain = {

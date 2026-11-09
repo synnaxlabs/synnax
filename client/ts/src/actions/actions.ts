@@ -256,8 +256,8 @@ export interface DispatchPayload<K, A> {
 
 /**
  * dispatchResZ builds the response body schema for the per-service dispatch endpoint:
- * the actions the Core added after the dispatched ones, such as a set of a field that
- * only the Core computes. A service that adds none sends an empty body.
+ * the actions the Core applied. These are the dispatched actions, then the actions that
+ * only the Core computes, such as a set of a derived field.
  */
 export const dispatchResZ = <A extends z.ZodType>(actionZ: A) =>
-  z.object({ actions: actionZ.array().default([]) });
+  z.object({ actions: actionZ.array() });
