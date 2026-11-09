@@ -16,7 +16,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, useJump } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -67,6 +67,8 @@ const DEFAULT_STATE = {
   selectionEnd: -1,
   rowEntries: [],
   searchedTo: "",
+  jump: { direction: "next", request: 0 },
+  jumpStatus: "",
 };
 
 const LINES = [
@@ -584,6 +586,47 @@ describe("log/Base", () => {
           ...WHOLE,
         }),
       );
+    });
+  });
+
+  describe("jump", () => {
+    const Jumper = (): ReactElement => {
+      const { jump, status } = useJump();
+      return <button onClick={() => jump("previous")}>{`Jump ${status}`}</button>;
+    };
+
+    it("should pause the log and request a jump in one update", () => {
+      const { setState } = setupAether({ empty: false });
+      const onHold = vi.fn();
+      renderLog({ children: <Jumper />, hold: false, onHold, search: { text: "err" } });
+      fireEvent.click(screen.getByRole("button", { name: "Jump" }));
+      const update = setState.mock.calls.at(-1)?.[0];
+      expect(update(DEFAULT_STATE)).toMatchObject({
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should neither pause nor jump for a search with no pattern", () => {
+      const { setState } = setupAether({ empty: false });
+      const onHold = vi.fn();
+      renderLog({
+        children: <Jumper />,
+        hold: false,
+        onHold,
+        search: { text: "(", mode: "regex" },
+      });
+      setState.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Jump" }));
+      expect(setState).not.toHaveBeenCalled();
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should give children the status of the jump", () => {
+      setupAether({ empty: false, jumpStatus: "none" });
+      renderLog({ children: <Jumper /> });
+      expect(screen.getByText("Jump none")).toBeDefined();
     });
   });
 

@@ -624,6 +624,319 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("jump", () => {
+    const SEARCH = {
+      timestampsHidden: true,
+      channelNamesHidden: true,
+      search: { text: "err" },
+    };
+
+    // Returns count entries, of which the ones at matches match the search.
+    const lines = (count: number, matches: number[]): LogEntry[] =>
+      Array.from({ length: count }, (_, i) => ({
+        ...makeEntry(i),
+        value: matches.includes(i) ? `err ${i}` : `ok ${i}`,
+      }));
+
+    const jumpTo = (
+      updateState: (overrides: Record<string, unknown>) => void,
+      direction: string,
+      request: number,
+    ): void =>
+      updateState({ ...SEARCH, scrolling: true, jump: { direction, request } });
+
+    it("should move the view to the newest match before it", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should move from the last match in either direction", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      log.render();
+      expect(log.state.rowEntries).toContain(20);
+      expect(log.state.rowEntries).not.toContain(150);
+      jumpTo(updateState, "next", 3);
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+    });
+
+    it("should match the number as the log draws it at its precision", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 150 ? "3.14159" : "2.71828",
+      }));
+      const drawn = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.ZERO,
+            precision: 2,
+          }),
+        ],
+        channelDataTypes: { "1": "float64" },
+      };
+      const { log, updateState } = setup(numbers, REGION_500, drawn);
+      updateState({
+        ...drawn,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should scan each held line once while it reads", () => {
+      let reads = 0;
+      const counted = lines(1_000, []).map((entry) => {
+        const { value } = entry;
+        return Object.defineProperty({ ...entry }, "value", {
+          get: () => {
+            reads++;
+            return value;
+          },
+        });
+      });
+      const { log, source, updateState } = setup(counted, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      reads = 0;
+      source.notify();
+      source.notify();
+      // The view lays out a screen of lines, far fewer than a scan of all of them.
+      expect(reads).toBeLessThan(500);
+    });
+
+    it("should find a match that a read inserts among the held lines", () => {
+      const held = lines(1_000, []);
+      const { log, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      // Another channel's older page lands between the oldest held line and the view.
+      const inserted = { ...makeEntry(500.5), value: "err inserted" };
+      source.setEntries([...held.slice(0, 501), inserted, ...held.slice(501)]);
+      source.notify();
+      expect(log.state.jumpStatus).toBe("");
+      log.render();
+      expect(log.state.rowEntries).toContain(501);
+    });
+
+    it("should match held lines again when their format changes", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 900 ? "3.14159" : "2.71828",
+      }));
+      const entry = (precision: number) =>
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision });
+      const base = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channelDataTypes: { "1": "float64" },
+        channels: [entry(4)],
+      };
+      const { log, source, updateState } = setup(numbers, REGION_500, base);
+      const jumping = {
+        ...base,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState(jumping);
+      expect(log.state.jumpStatus).toBe("reading");
+      updateState({ ...jumping, channels: [entry(2)], jumpStatus: "reading" });
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(900);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should stay paused after a scroll down and a jump to the newest lines", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 998]), REGION_500, SEARCH);
+      const at = (wheelPos: number, request: number, direction = "previous") =>
+        updateState({
+          ...SEARCH,
+          wheelPos,
+          scrolling: true,
+          jump: { direction, request },
+        });
+      at(0, 1);
+      at(0, 2);
+      // A scroll down by a few rows leaves the view far above the newest line.
+      at(-60, 2);
+      at(-60, 3, "next");
+      at(-60, 4, "next");
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should read older lines until it finds a match", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      expect(log.state.jumpStatus).toBe("reading");
+      const older = { ...makeEntry(-5), value: "err older" };
+      source.setEntries([older, ...lines(1_000, [])]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(0);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should report no more matches once the stored lines run out", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      jumpTo(updateState, "next", 2);
+      expect(log.state.jumpStatus).toBe("none");
+    });
+
+    it("should read newer lines until it finds a match", () => {
+      const { log, source, updateState } = setup(
+        lines(1_000, [20]),
+        REGION_500,
+        SEARCH,
+      );
+      source.live = false;
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "next", 2);
+      expect(source.loadNewerCalls).toBeGreaterThan(0);
+      expect(log.state.jumpStatus).toBe("reading");
+      source.setEntries([...lines(1_000, [20]), { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(1_000);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should stay paused after a jump to a match near the newest line", () => {
+      const { log, updateState } = setup(lines(1_000, [998]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should end a jump that reads when the log resumes", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("reading");
+      updateState({
+        ...SEARCH,
+        scrolling: false,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("");
+      const calls = source.loadOlderCalls;
+      source.notify();
+      expect(source.loadOlderCalls).toBe(calls);
+    });
+
+    it("should start again from the view when the search changes", () => {
+      const { log, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      const changed = { ...SEARCH, search: { text: "ERR" } };
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 2 },
+      });
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 3 },
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(20);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should start again from the view after the log resumes", () => {
+      const entries = lines(1_000, [20]);
+      const { log, source, updateState } = setup(entries, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      const live = { ...SEARCH, jump: { direction: "previous", request: 1 } };
+      updateState({ ...live, scrolling: false });
+      // The same entries, with a newer match that arrived live.
+      source.setEntries([...entries, { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      jumpTo(updateState, "previous", 2);
+      expect(log.state.jumpStatus).toBe("");
+      log.render();
+      expect(log.state.rowEntries).toContain(1_000);
+    });
+
+    it("should resume the source when the log resumes with a jump status", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      const live = {
+        ...SEARCH,
+        empty: false,
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState({ ...live, scrolling: false });
+      expect(source.resumeCalls).toBe(1);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
+    it("should return a paused view to its time when a filtered search changes", () => {
+      const entries = lines(400, []);
+      const filtered = { ...SEARCH, search: { text: "ok", filtered: true } };
+      const { log, source, updateState } = setup(entries, REGION_500, filtered);
+      const base = { ...filtered, region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      source.exhausted = true;
+      updateState({
+        ...base,
+        wheelPos: 2000,
+        scrolling: true,
+        search: { text: "err", filtered: true },
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("none");
+      const time = log.entries[log.scrollState.offset - 1].timestamp.valueOf();
+      source.exhausted = false;
+      // The source reloads only its newest entries when the filter changes.
+      source.setEntries(entries.slice(350));
+      const changed = { ...base, wheelPos: 2000, scrolling: true };
+      updateState({
+        ...changed,
+        search: { text: "o", filtered: true },
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries(entries);
+      source.notify();
+      const shown = log.entries.filter((e) => e.timestamp.valueOf() <= time);
+      expect(log.scrollState.offset).toBe(shown.length);
+    });
+
+    it("should clear the jump status when the search changes", () => {
+      const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(log.state.jumpStatus).toBe("none");
+      updateState({
+        ...SEARCH,
+        search: { text: "ok" },
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(log.state.jumpStatus).toBe("");
+    });
+  });
+
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { log } = setup([makeEntry(0)]);

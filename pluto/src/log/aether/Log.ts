@@ -37,6 +37,16 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
+const directionZ = z.enum(["next", "previous"]);
+
+/** Where a jump moves through the matches of a search. */
+export type Direction = z.infer<typeof directionZ>;
+
+const jumpStatusZ = z.enum(["", "reading", "none"]);
+
+/** How a jump between matches stands. */
+export type JumpStatus = z.infer<typeof jumpStatusZ>;
+
 export const logStateZ = log.logZ
   .pick({
     channels: true,
@@ -64,6 +74,12 @@ export const logStateZ = log.logZ
     // The oldest time a filtered log has read back to, as position holds a time. Empty
     // when no filter runs or the reads hold every stored sample.
     searchedTo: z.string().default(""),
+    // A change of request jumps to the next match in direction.
+    jump: z
+      .object({ direction: directionZ, request: z.number() })
+      .default({ direction: "next", request: 0 }),
+    // reading while a jump reads stored samples, none when no match is left.
+    jumpStatus: jumpStatusZ.default(""),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -296,6 +312,13 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
+  // The match of the last jump.
+  private cursor: LogEntry | null = null;
+  // The direction of a jump that waits for reads.
+  private jumping: Direction | null = null;
+  // The lines a jump that waits for reads found no match in. Reads can insert lines
+  // anywhere, so each change walks every line but matches only the new ones.
+  private unmatched = new WeakSet<LogEntry>();
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -317,6 +340,11 @@ export class Log
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
+    const jumped = this.state.jump.request !== this.prevState.jump.request;
+    const searchChanged = !deep.equal(this.state.search, this.prevState.search);
+    if (searchChanged) this.cursor = null;
+    // A new pause starts its jumps from the view, past the matches that arrived live.
+    if (!this.prevState.scrolling) this.cursor = null;
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {
@@ -358,7 +386,10 @@ export class Log
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
-    i.formats = formatsOf(channelEntries, this.state.channelDataTypes);
+    const formats = formatsOf(channelEntries, this.state.channelDataTypes);
+    // A new format changes the text a jump matches, so its verdicts go stale.
+    if (!deep.equal(formats, i.formats)) this.unmatched = new WeakSet();
+    i.formats = formats;
 
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
     i.matchColor = color.setAlpha(i.theme.colors.warning.z, 0.4);
@@ -452,14 +483,79 @@ export class Log
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
+      this.jump();
       this.syncStatus(status);
       this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
     if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume?.();
+    // A jump sets state, which overwrites prevState, so it runs after the last read of
+    // prevState. A live log has no jump to run or report.
+    if (!this.state.scrolling || searchChanged) this.endJump("");
+    if (this.state.scrolling && jumped && this.state.jump.request > 0) {
+      this.jumping = this.state.jump.direction;
+      this.unmatched = new WeakSet();
+      this.jump();
+    }
     this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();
+  }
+
+  // Moves the view to the next match of a pending jump. With no match in the entries,
+  // it reads more in the jump's direction until the stored samples run out.
+  private jump(): void {
+    const direction = this.jumping;
+    const { pattern, telem, lineHeight } = this.internal;
+    if (direction == null) return;
+    if (!this.state.scrolling) return this.endJump("");
+    if (pattern == null) return this.endJump("");
+    const { entries } = this;
+    const { formats } = this.internal;
+    const { unmatched } = this;
+    const located = this.cursor == null ? -1 : this.locate(this.cursor);
+    const from =
+      located >= 0 ? located : this.scrollState.offset - (direction === "next" ? 1 : 0);
+    const matches = (entry: LogEntry): boolean => {
+      if (unmatched.has(entry)) return false;
+      if (find(pattern, textOf(entry.value, formats[entry.channelKey])).length > 0)
+        return true;
+      unmatched.add(entry);
+      return false;
+    };
+    const step = direction === "next" ? 1 : -1;
+    let i = from + step;
+    while (i >= 0 && i < entries.length && !matches(entries[i])) i += step;
+    if (i < 0 || i >= entries.length) {
+      const { wrapped } = telem;
+      const ended =
+        direction === "next" ? wrapped.live !== false : wrapped.exhausted !== false;
+      if (ended) return this.endJump("none");
+      if (direction === "next") wrapped.loadNewer?.();
+      else wrapped.loadOlder?.();
+      if (this.state.jumpStatus !== "reading")
+        this.setState((s) => ({ ...s, jumpStatus: "reading" }));
+      return;
+    }
+    this.cursor = entries[i];
+    const half = Math.floor(this.calcRowCapacity(lineHeight) / 2);
+    this.seeking = null;
+    this.scrollState.offset = Math.min(entries.length, i + 1 + half);
+    this.scrollState.tail = 0;
+    // Only a scroll after the jump counts toward resuming.
+    this.scrollState.scrollRef = this.state.wheelPos;
+    this.scrollState.moved = 0;
+    this.moveView(0, lineHeight);
+    this.scrollState.awayFromEnd = this.scrollState.offset < entries.length;
+    this.anchors.scroll = entries[this.scrollState.offset - 1];
+    this.endJump("");
+    this.requestRender();
+  }
+
+  private endJump(status: JumpStatus): void {
+    this.jumping = null;
+    if (this.state.jumpStatus !== status)
+      this.setState((s) => ({ ...s, jumpStatus: status }));
   }
 
   private loadNearEdges(): void {

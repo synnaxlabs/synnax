@@ -10,6 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
+import { context } from "@synnaxlabs/lyra/context";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,7 +22,7 @@ import { strings, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
-import { log } from "@/log/aether";
+import { log, search } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
@@ -57,6 +58,20 @@ const toHTMLBlob = (lines: log.Line[]): Blob => {
   return new Blob([html], { type: "text/html" });
 };
 
+export interface JumpContextValue {
+  /** Pauses the log and moves its view to the next match in direction. */
+  jump: (direction: log.Direction) => void;
+  status: log.JumpStatus;
+}
+
+const [JumpContext, useJumpContext] = context.create<JumpContextValue>({
+  displayName: "Log.JumpContext",
+  providerName: "Log.Base",
+});
+
+/** Returns how to jump between the search matches of the surrounding log. */
+export const useJump = (): JumpContextValue => useJumpContext("Log.useJump");
+
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
     No log entries
@@ -82,7 +97,7 @@ export const Base = ({
   timeZone,
   channels,
   hiddenChannels,
-  search,
+  search: query,
   emptyContent = EMPTY_CONTENT,
   color,
   telem,
@@ -106,7 +121,7 @@ export const Base = ({
     timeZone,
     channels,
     hiddenChannels,
-    search,
+    search: query,
     color,
     telem,
     hold,
@@ -124,11 +139,28 @@ export const Base = ({
     selectionEnd,
     rowEntries,
     searchedTo,
+    jumpStatus,
   } = state;
 
   const setHold = (hold: boolean) => {
     setState((s) => ({ ...s, scrolling: hold }));
     onHold?.(hold);
+  };
+
+  // The pause and the request go in one update, so the worker pauses before it jumps.
+  // A search with no pattern has no match to jump to, so the log stays as it is.
+  const jump = (direction: log.Direction) => {
+    const pattern = search.compile({
+      text: query?.text ?? "",
+      mode: query?.mode ?? "text",
+    });
+    if (pattern == null) return;
+    setState((s) => ({
+      ...s,
+      scrolling: true,
+      jump: { direction, request: s.jump.request + 1 },
+    }));
+    if (!scrolling) onHold?.(true);
   };
 
   const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
@@ -331,7 +363,7 @@ export const Base = ({
           </Text.Text>
         )}
         {empty && emptyContent}
-        {children}
+        <JumpContext value={{ jump, status: jumpStatus }}>{children}</JumpContext>
       </div>
     </Menu.ContextMenu>
   );
