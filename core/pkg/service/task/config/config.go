@@ -314,7 +314,7 @@ func (s *Service[E]) Edit(
 		if err != nil {
 			return Record{}, false, err
 		}
-		if e, err = s.refill(e, r.Emptied); err != nil {
+		if e, err = refill(e, r.Emptied); err != nil {
 			return Record{}, false, err
 		}
 		filled = filled || r.Filled
@@ -329,7 +329,7 @@ func (s *Service[E]) Edit(
 
 // refill drops the members at paths from the JSON form of e and decodes the result, so
 // a removed or nulled value takes its default. An empty path drops the whole config.
-func (s *Service[E]) refill(e E, paths [][]string) (E, error) {
+func refill[E any](e E, paths [][]string) (E, error) {
 	var next E
 	if len(paths) == 0 {
 		return e, nil
@@ -353,9 +353,7 @@ func (s *Service[E]) refill(e E, paths [][]string) (E, error) {
 		return next, err
 	}
 	if err = json.Unmarshal(b, &next); err != nil {
-		return *new(E), errors.Wrapf(
-			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
-		)
+		return *new(E), err
 	}
 	return next, nil
 }
