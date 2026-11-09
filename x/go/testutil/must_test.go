@@ -52,6 +52,36 @@ var _ = Describe("MustOpen", func() {
 	})
 })
 
+type fakeCommitter struct {
+	end        int
+	authorized bool
+	err        error
+}
+
+func (c fakeCommitter) Commit() (int, bool, error) {
+	return c.end, c.authorized, c.err
+}
+
+var _ = Describe("MustCommit", func() {
+	It("should return the end of an authorized commit", func() {
+		Expect(MustCommit(fakeCommitter{end: 42, authorized: true})).To(Equal(42))
+	})
+
+	It("should fail the assertion when the commit is not authorized", func() {
+		failures := InterceptGomegaFailures(func() {
+			MustCommit(fakeCommitter{})
+		})
+		Expect(failures).ToNot(BeEmpty())
+	})
+
+	It("should fail the assertion when the error is non-nil", func() {
+		failures := InterceptGomegaFailures(func() {
+			MustCommit(fakeCommitter{authorized: true, err: errors.New("boom")})
+		})
+		Expect(failures).ToNot(BeEmpty())
+	})
+})
+
 var _ = Describe("MustBeOk", func() {
 	It("should return the value when ok is true", func() {
 		Expect(MustBeOk(42, true)).To(Equal(42))

@@ -39,7 +39,7 @@ var _ = Describe("OnHistoryChange", func() {
 			}))
 			series := telem.NewSeriesSecondsTSV(stamps...)
 			Expect(w.Write(frame.NewUnary(key, series))).To(BeTrue())
-			MustSucceed(w.Commit())
+			MustCommit(w)
 			Expect(w.Close()).To(Succeed())
 		}
 		var changes []framer.HistoryChange
