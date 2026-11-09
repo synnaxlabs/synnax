@@ -22,6 +22,7 @@ import { array, state as xstate, unique } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type FC,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -298,9 +299,15 @@ const Internal = ({
   });
   const menuProps = Menu.useContextMenu();
   const { intoEvent } = useCopy();
+  // Chromium keeps a text selection elsewhere after a click on a row, and sends Cmd+C
+  // to that selection. Dropping it sends Cmd+C to the tree.
+  const handleFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const text = window.getSelection();
+    if (text == null || text.isCollapsed) return;
+    if (!text.getRangeAt(0).intersectsNode(e.currentTarget)) text.removeAllRanges();
+  };
   const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
-    // A text selection in the tree, such as part of a name being renamed, copies as
-    // text. A selection elsewhere stays behind after a click on a row.
+    // Text selected in the tree, such as part of a name being renamed, copies as text.
     const text = window.getSelection();
     if (
       text != null &&
@@ -333,6 +340,7 @@ const Internal = ({
         // the editable then scrolls the row into view.
         pinned={shape.keys.filter(store.isDraft)}
         onContextMenu={menuProps.open}
+        onFocus={handleFocus}
         onCopy={handleCopy}
         ref={ref}
         onKeyDown={onKeyDown}

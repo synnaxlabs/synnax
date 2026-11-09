@@ -953,9 +953,8 @@ describe("Tree.Tree", () => {
       );
     });
 
-    it("should copy the selected names while text outside the tree is selected", async () => {
+    it("should drop a text selection outside the tree when the tree takes focus", async () => {
       const { a } = await renderCopyTree(GROUP_ITEMS);
-      fireEvent.click(getTreeRow(a.name));
       const outside = document.createElement("p");
       outside.textContent = "a line of a log";
       document.body.append(outside);
@@ -964,6 +963,10 @@ describe("Tree.Tree", () => {
       getSelection()?.removeAllRanges();
       getSelection()?.addRange(range);
       try {
+        fireEvent.click(getTreeRow(a.name));
+        // focus() in jsdom collapses the selection, which a click in Chromium does not.
+        fireEvent.focusIn(screen.getByRole("tree"));
+        expect(getSelection()?.rangeCount).toBe(0);
         const { setData, allowed } = copy(getTreeRow(a.name));
         expect(allowed).toBe(false);
         expect(setData).toHaveBeenCalledWith("text/plain", a.name);
