@@ -121,7 +121,7 @@ const readAt = (doc: unknown, path: string[]): unknown =>
 
 const checkGuards = (doc: unknown, guards: Guard[]): void =>
   guards.forEach(({ path, value }) => {
-    if (path.length === 0) throw new Error("A guard needs a path");
+    if (path.length === 0) throw new Error("a guard needs a path");
     if (readAt(doc, path) !== value)
       throw new StaleError(`${formatPath(path)} is not ${value}`);
   });
@@ -276,20 +276,15 @@ export interface AppliedUpdate<U extends z.ZodType, T extends z.ZodType> {
 }
 
 /**
- * Applies an update to a record, and never changes the record. A scalar field takes the
- * value given, or is cleared by null. A struct field merges a partial, or is replaced
- * by `{ set }`. A list field takes operators in the order remove, update, insert, then
- * move. A union field that changes its discriminator keeps the fields that every
- * variant holds, takes the fields given, and fills the rest with the defaults of the
- * new variant.
+ * Applies an update to a record without changing the record. A union that changes its
+ * discriminator keeps the fields that every variant holds, and fills absent variant
+ * fields with their defaults.
  *
- * @param schemas - The schema of the update value, and the schema of the record, which
- * gives the defaults of a new variant.
- * @throws {StaleError} if a guard does not hold in state, the update names a list entry
- * that is missing, or the update merges into an absent struct.
+ * @param schemas - The schema of the update value, and the record schema for defaults.
+ * @throws {StaleError} if a guard does not hold, a list key is missing, or a merge
+ * goes into an absent struct.
  * @throws {Error} if the update clears a required field, combines set with another
- * list operator, inserts a key that exists, or leaves out a field of a new variant
- * that has no default.
+ * operator, inserts a key that exists, or leaves out a variant field with no default.
  */
 export const applyUpdate = <U extends z.ZodType, T extends z.ZodType>(
   { u, t }: StructSchemas<U, T>,
@@ -467,10 +462,9 @@ const longestIncreasing = (values: number[]): number[] => {
 
 /**
  * Builds the update that turns base into next and touches only what differs, so a
- * concurrent edit to another field survives. A struct merges its changed fields, and
- * a list changes by operators. A union that keeps its discriminator merges, with a
- * guard that holds the discriminator of base. A union that changes it takes every
- * variant field of next.
+ * concurrent edit to another field survives. A union that keeps its discriminator
+ * merges under a guard on it. A union that changes it takes every variant field of
+ * next.
  *
  * @param u - The schema of the update value.
  * @throws {Error} if the schema does not hold a field that differs.
