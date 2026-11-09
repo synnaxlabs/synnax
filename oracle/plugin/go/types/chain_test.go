@@ -1446,6 +1446,108 @@ Doc struct {
 	)
 })
 
+var _ = Describe("Renamed predecessor aliases", func() {
+	It(
+		"Should alias the frozen names of a renamed enum and union",
+		func(ctx SpecContext) {
+			const livePath = "schemas/synnax/doc.oracle"
+			resp := chainGenerate(
+				ctx,
+				gotypes.New(gotypes.DefaultOptions()),
+				map[string]string{
+					"schemas/synnax/versions/doc/v0.oracle": `
+Mode enum {
+	light = "light"
+	dark  = "dark"
+}
+
+Shape union on kind {
+	circle {
+		radius int32
+	}
+	square {
+		side int32
+	}
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	mode Mode
+	shape Shape
+
+	@go marshal
+}
+`,
+					"schemas/synnax/versions/doc/v1.oracle": `
+Mode = v0.Mode
+
+Shape = v0.Shape
+
+Doc struct {
+	key uuid @key
+	mode Mode
+	shape Shape
+	name string
+
+	@go marshal
+}
+`,
+					livePath: `
+@go output "core/doc"
+
+Mode enum {
+	light = "light"
+	dark  = "dark"
+
+	@go name "Tone"
+}
+
+Shape union on kind {
+	circle {
+		radius int32
+	}
+	square {
+		side int32
+	}
+
+	@go name "Form"
+}
+
+Doc struct {
+	key uuid @key
+	mode Mode
+	shape Shape
+	name string
+}
+`,
+				},
+				livePath,
+				"doc",
+			)
+			frozen := generatedFile(resp, "core/doc/versions/v0/types.gen.go")
+			Expect(frozen).To(ContainSubstring("type Mode string"))
+			Expect(frozen).To(ContainSubstring("type Shape struct"))
+			current := generatedFile(resp, "core/doc/versions/v1/types.gen.go")
+			for _, line := range []string{
+				"type Tone = v0.Mode",
+				"ToneLight Tone = v0.ModeLight",
+				"ToneDark Tone = v0.ModeDark",
+				"type Form = v0.Shape",
+				"type FormVariant = v0.ShapeVariant",
+				"type FormType = v0.ShapeType",
+				"CircleFormType FormType = v0.CircleShapeType",
+				"SquareFormType FormType = v0.SquareShapeType",
+				"type CircleForm = v0.CircleShape",
+				"type SquareForm = v0.SquareShape",
+			} {
+				Expect(current).To(ContainSubstring(line))
+			}
+		},
+	)
+})
+
 var _ = Describe("Pinned dependency Go names", func() {
 	const colorPkg = `"github.com/synnaxlabs/synnax/x/go/color/versions/`
 	generate := func(liveColor string) *plugin.Response {
