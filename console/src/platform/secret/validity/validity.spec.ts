@@ -11,7 +11,7 @@ import { type certificate, type secret } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Validity } from "@/feature/secret/validity";
+import { Validity } from "@/platform/secret/validity";
 
 // Noon UTC keeps the date the same in every time zone within eleven hours of UTC.
 const NOON = TimeSpan.hours(12);

@@ -29,9 +29,9 @@ import {
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { Secret } from "@/feature/secret";
-import { createSecret } from "@/feature/secret/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { createSecret } from "@/platform/secret/testutil";
 import { Tree } from "@/platform/tree";
 import {
   assertDefined,

@@ -13,9 +13,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCreateModal } from "@/feature/secret/useCreateModal";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
+import { Secret as PlatformSecret } from "@/platform/secret";
 
 type Named = Pick<secret.Secret, "key" | "name">;
 
@@ -58,7 +58,7 @@ export const SecretMenu = ({
   const canDelete = Access.useDeleteGranted(id);
   // The Core replaces a value as a create that overwrites the secret.
   const canReplace = Access.useCreateGranted(secret.TYPE_RESOURCE_ID) && canUpdate;
-  const openReplace = useCreateModal();
+  const openReplace = PlatformSecret.useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
