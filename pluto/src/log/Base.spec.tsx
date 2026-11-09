@@ -11,7 +11,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, TimeStamp } from "@synnaxlabs/x";
+import { box, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -382,6 +382,38 @@ describe("log/Base", () => {
       fireEvent.click(screen.getByText("Seek"));
       expect(onHold).not.toHaveBeenCalled();
       expect(seek).toHaveBeenCalledWith(TIME.valueOf().toString());
+    });
+  });
+
+  describe("range", () => {
+    const RANGE = new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20));
+
+    it("should open a live log paused at the range start", () => {
+      const { seek } = setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      renderLog({ range: RANGE, onHold });
+      expect(onHold).toHaveBeenCalledWith(true);
+      expect(seek).toHaveBeenCalledTimes(1);
+      expect(seek).toHaveBeenCalledWith(RANGE.start.valueOf().toString());
+    });
+
+    it("should leave a log that mounts paused at its position", () => {
+      const { seek } = setupAether({ empty: false, scrolling: true });
+      renderLog({ range: RANGE });
+      expect(seek).not.toHaveBeenCalled();
+    });
+
+    it("should send the range to the worker, open-ended ranges included", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: true });
+      const open = new TimeRange(TimeStamp.seconds(10), TimeStamp.MAX);
+      renderLog({ range: open });
+      const ranges = setState.mock.calls.map(
+        ([updater]) => (typeof updater === "function" ? updater(state) : updater).range,
+      );
+      expect(ranges).toContainEqual({
+        start: open.start.valueOf().toString(),
+        end: TimeStamp.MAX.valueOf().toString(),
+      });
     });
   });
 

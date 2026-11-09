@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { bounds, box, strings, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
@@ -115,6 +115,7 @@ export const Base = ({
   onHold,
   position,
   onLeave,
+  range,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -133,6 +134,7 @@ export const Base = ({
     onHold,
     position,
     onLeave,
+    range,
   });
 
   const {
@@ -157,6 +159,13 @@ export const Base = ({
     if (!scrolling) setHold(true);
     methods.seek(time.valueOf().toString());
   };
+
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (openedRef.current) return;
+    openedRef.current = true;
+    if (range != null && !scrolling) seek(range.start);
+  });
 
   const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
   const containerRef = useRef<HTMLDivElement>(null);

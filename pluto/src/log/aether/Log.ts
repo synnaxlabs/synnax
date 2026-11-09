@@ -79,6 +79,8 @@ export const logStateZ = log.logZ
     thumb: thumbZ.nullable().default(null),
     // Where a dragged thumb sits on its track, from 0 at the top to 1, or -1.
     dragProgress: z.number().default(-1),
+    // The times of the range that owns the log, as decimal counts of nanoseconds.
+    range: z.object({ start: z.string(), end: z.string() }).nullable().default(null),
   });
 
 const lineZ = z.object({ text: z.string(), color: z.string() });
@@ -758,6 +760,7 @@ export class Log
 
   // Draws the thumb at progress down its track, or where the user drags it.
   private drawThumb(draw2d: Draw2D, progress: number, height: number): Thumb {
+    this.drawRange(draw2d, height);
     const reg = this.state.region;
     const { dragProgress } = this.state;
     const at = dragProgress >= 0 ? dragProgress : progress;
@@ -772,6 +775,31 @@ export class Log
     });
     if (dragProgress >= 0) this.drawDragTime(draw2d, top, height);
     return { top, height };
+  }
+
+  // Shades the range on the track where the middle of a thumb of height seeks into it.
+  private drawRange(draw2d: Draw2D, height: number): void {
+    const { range, region: reg } = this.state;
+    const stored = this.internal.telem.wrapped.timeRange;
+    if (range == null || stored == null) return;
+    const start = stored.start.valueOf();
+    const total = Number(stored.end.valueOf() - start);
+    if (total <= 0) return;
+    const y = (time: string): number =>
+      box.top(reg) +
+      height / 2 +
+      bounds.clamp({ lower: 0, upper: 1 }, Number(BigInt(time) - start) / total) *
+        (box.height(reg) - height);
+    const top = y(range.start);
+    draw2d.container({
+      region: box.construct(
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y: top },
+        { width: SCROLLBAR_WIDTH, height: Math.max(y(range.end) - top, 2) },
+      ),
+      bordered: false,
+      rounded: false,
+      backgroundColor: (t: theme.Theme) => color.setAlpha(t.colors.primary.z, 0.4),
+    });
   }
 
   // Shows the time under a dragged thumb, beside it.
@@ -874,14 +902,18 @@ export class Log
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
-  // Waits at the oldest entry while older pages can still reach the time. When no
-  // stored sample does, the view stays there. Entries that share the time all show.
+  // Moves the source to a time older than its entries, and waits at the oldest entry
+  // while stored samples can still reach the time. When none does, the view stays
+  // there. Entries that share the time all show.
   private reach(time: bigint): void {
     const { lineHeight, telem } = this.internal;
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
-    if (!reached && telem.wrapped.exhausted === false) return;
+    if (!reached && telem.wrapped.exhausted === false) {
+      telem.wrapped.seek?.(new TimeStamp(time));
+      return;
+    }
     if (reached) {
       let [lo, hi] = [0, this.entries.length];
       while (lo < hi) {

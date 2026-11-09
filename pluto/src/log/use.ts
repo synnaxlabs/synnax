@@ -10,7 +10,7 @@
 import { type log as clientLog } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { box, type optional, TimeSpan } from "@synnaxlabs/x";
+import { box, type optional, type TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { type z } from "zod";
 
@@ -44,11 +44,15 @@ export interface UseProps
         | "position"
         | "thumb"
         | "dragProgress"
+        | "range"
       >,
       "visible"
     >,
     Aether.ComponentProps {
   channels?: clientLog.ChannelEntry[];
+  /** The range that owns the log. The scrollbar shades it, and a log that mounts
+   * live opens paused at its start. */
+  range?: TimeRange;
   /** Controlled pause state. When set, the log pauses scrolling while true. */
   hold?: boolean;
   /** Called when the pause state changes from inside the log: a scroll up or the H
@@ -89,6 +93,7 @@ export const use = ({
   onHold,
   position,
   onLeave,
+  range,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
   const { data: retrievedChannels } = Channel.useResultMultiple({
@@ -115,6 +120,13 @@ export const use = ({
     channelNames,
     channelDataTypes,
     channels,
+    range:
+      range == null
+        ? null
+        : {
+            start: range.start.valueOf().toString(),
+            end: range.end.valueOf().toString(),
+          },
     ...(hold != null && { scrolling: hold }),
   });
 

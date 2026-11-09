@@ -910,6 +910,20 @@ describe("log/aether/Log", () => {
       expect(log.scrollState.offset).toBe(101);
     });
 
+    it("should move the source to a time older than its entries once they arrive", () => {
+      const { log, source } = paused([]);
+      log.seek(timeOf(100));
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(source.seeks.map((t) => t.valueOf().toString())).toEqual([
+        timeOf(100),
+        timeOf(100),
+      ]);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
     it("should go to the oldest entry for a time before the first sample", () => {
       const { log, source } = paused();
       source.exhausted = true;
@@ -1529,6 +1543,50 @@ describe("log/aether/Log", () => {
       log.render();
       expect(findThumb(recorder)?.y).toBe(0);
       expect(log.state.thumb?.top).toBe(0);
+    });
+
+    describe("range", () => {
+      const shading = (recorder: ReturnType<typeof canvasTest.record>) => {
+        const call = recorder.lower2d.calls.findLast(
+          ({ op, args }) => op === "rect" && args[2] === SCROLLBAR_WIDTH,
+        );
+        if (call == null) return null;
+        const [, y, , height] = call.args as number[];
+        return { y, height };
+      };
+
+      const shaded = (start: TimeStamp, end: TimeStamp) => {
+        const { h, log, recorder } = paused();
+        h.setState((s) => ({
+          ...s,
+          range: { start: start.valueOf().toString(), end: end.valueOf().toString() },
+        }));
+        recorder.clear();
+        log.render();
+        assert(log.state.thumb != null);
+        return { found: shading(recorder), thumb: log.state.thumb };
+      };
+
+      it("should shade the range where the track seeks into it", () => {
+        const { found, thumb } = shaded(TimeStamp.seconds(0), TimeStamp.seconds(99.5));
+        const travel = box.height(REGION_500) - thumb.height;
+        expect(found?.y).toBeCloseTo(thumb.height / 2, 0);
+        expect(found?.height).toBeCloseTo(travel / 2, 0);
+      });
+
+      it("should shade an open-ended range to the end of the track", () => {
+        const { found, thumb } = shaded(TimeStamp.seconds(99.5), TimeStamp.MAX);
+        const travel = box.height(REGION_500) - thumb.height;
+        expect(found?.y).toBeCloseTo(thumb.height / 2 + travel / 2, 0);
+        expect(found?.height).toBeCloseTo(travel / 2, 0);
+      });
+
+      it("should shade nothing for a log with no range", () => {
+        const { log, recorder } = paused();
+        recorder.clear();
+        log.render();
+        expect(shading(recorder)).toBeNull();
+      });
     });
 
     it("should seek to the time at a progress down the track", () => {
