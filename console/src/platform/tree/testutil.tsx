@@ -9,6 +9,8 @@
 
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
@@ -32,10 +34,13 @@ import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 import {
+  CaptureStatuses,
+  type ConsolePreloadedState,
   createConsoleWrapper,
   createTestStore,
   getIconButton,
   renderSuspended,
+  renderWithConsole,
   selectTestProject,
   type TestStore,
   uniqueName,
@@ -268,6 +273,43 @@ export const createBaseProps = ({
   ...overrides,
 });
 
+export interface RenderCopyContextMenuItemOptions {
+  /** Resources backing the tree state. */
+  resources: Tree.Resource[];
+  /** The selected ids; defaults to every resource. */
+  selected?: resource.ID[];
+  items?: Tree.Items;
+  preloadedState?: ConsolePreloadedState;
+}
+
+/**
+ * Renders Tree.CopyContextMenuItem in a menu. Returns a getter for the statuses it
+ * raises.
+ */
+export const renderCopyContextMenuItem = async ({
+  resources,
+  selected,
+  items = {},
+  preloadedState,
+}: RenderCopyContextMenuItemOptions): Promise<() => Status.NotificationSpec[]> => {
+  const store = await createTestStore({ preloadedState });
+  const props: Tree.CopyContextMenuItemProps = {
+    selection: createSelection({ ids: selected ?? resources.map(({ id }) => id) }),
+    state: createState(resources),
+  };
+  let statuses: Status.NotificationSpec[] = [];
+  await renderWithConsole(
+    <Tree.Provider items={items}>
+      <Menu.Menu>
+        <Tree.CopyContextMenuItem {...props} />
+      </Menu.Menu>
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+    </Tree.Provider>,
+    { store },
+  );
+  return () => statuses;
+};
+
 export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Synnax;
   root: resource.ID | null;
@@ -280,6 +322,7 @@ export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtErro
   projectClient?: Synnax;
   /** Renders a search action and field above the tree. */
   search?: Tree.UseSearch;
+  preloadedState?: ConsolePreloadedState;
   contextMenus?: Tree.ContextMenus;
 }
 
@@ -325,8 +368,9 @@ export const renderLiveTree = async ({
   search,
   contextMenus,
   onCaughtError,
+  preloadedState,
 }: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   await selectTestProject(store, projectClient);
   const SearchableTree = search == null ? null : createSearchableTree(search);
   const rendered = render(
@@ -498,6 +542,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   stateOverrides?: StateOptions;
   /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** The tree items the menu reads, as the tree provides them. */
+  items?: Tree.Items;
 }
 
 export interface TreeContextMenuHandle {
@@ -523,6 +569,7 @@ export const renderTreeContextMenu = async (
     stateOverrides = {},
     onCaughtError,
     extra,
+    items = {},
   }: RenderTreeContextMenuOptions,
 ): Promise<TreeContextMenuHandle> => {
   const resolvedStore = store ?? (await createTestStore());
@@ -541,13 +588,13 @@ export const renderTreeContextMenu = async (
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   await renderSuspended(
-    <>
+    <Tree.Provider items={items}>
       <Errors.SuspenseBoundary loading={null}>
         <TreeContextMenu {...props} />
       </Errors.SuspenseBoundary>
       <Modals.Stack />
       {extra}
-    </>,
+    </Tree.Provider>,
     { wrapper, onCaughtError },
   );
   return { store: resolvedStore, props };
