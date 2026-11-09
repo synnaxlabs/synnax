@@ -214,16 +214,18 @@ The rest are correct: MQTT `authority uint8` is `control.Authority`, EtherCAT
 Console and the clients. The Driver drops each check that a type or bound now makes. The
 probe writes NI `Hardware` from DAQmx, so it needs no migration.
 
-Migration clamps a stored magnitude, so a task the user wrote keeps running: below the
-minimum becomes the minimum, or 0 with none, above the maximum becomes the maximum, and
-a fraction truncates, as the Driver's cast does. It logs the task, channel, field, old
-value, and new value. An out-of-range identifier (NI `port` and `line`, LabJack
-`neg_chan`) clamps the same way, so it names a real channel and passes `@validate`, and
-its channel also becomes disabled. The clamped value may not be the wiring the user
-meant, so re-enabling is the user's explicit choice. Every migration path (the store
-migration, `Normalize`, and imports) applies both rules. A `neg_chan` of 199 and a
-backlog count of 0 become absent. Each migration phase tests a clamp at both bounds and
-a clamped-and-disabled identifier.
+Migration first maps the sentinels: a LabJack `neg_chan` of 199 and a backlog count of 0
+become absent, so a single-ended channel stays enabled. It then clamps a stored
+magnitude, so a task the user wrote keeps running: below the minimum becomes the
+minimum, or 0 with none, above the maximum becomes the maximum, and a fraction
+truncates, as the Driver's cast does. It logs the task, channel, field, old value, and
+new value. An out-of-range identifier (NI `port` and `line`, LabJack `neg_chan`) clamps
+the same way, so it names a real channel and passes `@validate`, and its channel also
+becomes disabled. The clamped value may not be the wiring the user meant, so re-enabling
+is the user's explicit choice. Every migration path (the store migration, `Normalize`,
+and imports) applies these rules in this order. Each migration phase tests a clamp at
+both bounds, a clamped-and-disabled identifier, and that a stored 199 becomes absent and
+the channel stays enabled.
 
 LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
 if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
