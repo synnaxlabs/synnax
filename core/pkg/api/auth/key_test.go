@@ -125,22 +125,32 @@ var _ = Describe("API keys", func() {
 			Expect(create(ctx, engToken, bob.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
-		It("Should let a caller that may update a user create a key for it", func(
-			ctx SpecContext,
-		) {
-			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
-			res := MustSucceed(create(ctx, bobToken, eng.ResourceID()))
-			Expect(res.Key.Subject).To(Equal(eng.ResourceID()))
-		})
-		It("Should deny a key for a user the caller may only create", func(
+		It("Should let a caller that may create on a user create a key for it", func(
 			ctx SpecContext,
 		) {
 			grant(ctx, bob.Key, access.ActionCreate, eng.ResourceID())
+			res := MustSucceed(create(ctx, bobToken, eng.ResourceID()))
+			Expect(res.Key.Subject).To(Equal(eng.ResourceID()))
+		})
+		It("Should deny a key for a user the caller may only update", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
 			Expect(create(ctx, bobToken, eng.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should deny a user without a role a key for a rack", func(ctx SpecContext) {
 			Expect(create(ctx, bobToken, rackID)).Error().
+				To(MatchError(access.ErrDenied))
+		})
+		It("Should deny a rack a key for another rack", func(ctx SpecContext) {
+			own := MustSucceed(create(ctx, rootToken, rackID))
+			rackToken := login(ctx, keyProof(own.Token))
+			other := rack.Rack{Name: "rack-" + uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			Expect(create(ctx, rackToken, other.ResourceID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should let the Owner create a key for another user", func(ctx SpecContext) {
@@ -232,11 +242,21 @@ var _ = Describe("API keys", func() {
 				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
 			))
 		})
-		It("Should let a caller that may update a subject delete its key", func(
+		It("Should deny a rack deleting another rack's key", func(ctx SpecContext) {
+			own := MustSucceed(create(ctx, rootToken, rackID))
+			rackToken := login(ctx, keyProof(own.Token))
+			other := rack.Rack{Name: "rack-" + uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			res := MustSucceed(create(ctx, rootToken, other.ResourceID()))
+			Expect(del(ctx, rackToken, res.Key.Key)).To(MatchError(access.ErrDenied))
+		})
+		It("Should let a caller that may delete on a subject delete its key", func(
 			ctx SpecContext,
 		) {
 			res := MustSucceed(create(ctx, rootToken, eng.ResourceID()))
-			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
 			Expect(del(ctx, bobToken, res.Key.Key)).To(Succeed())
 			Expect(apiSvc.CreateSession(
 				requestCtx(ctx),
