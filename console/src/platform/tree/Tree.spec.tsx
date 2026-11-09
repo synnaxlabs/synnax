@@ -18,6 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Channel } from "@synnaxlabs/pluto";
@@ -817,6 +818,20 @@ describe("Tree.Tree", () => {
       } finally {
         getSelection()?.removeAllRanges();
       }
+    });
+
+    it("should offer Copy in the menu of a type with no menu of its own", async () => {
+      const { a, statuses } = await renderCopyTree(GROUP_ITEMS);
+      const writeText = stubClipboardWriteText();
+      fireEvent.contextMenu(getTreeRow(a.name));
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+      fireEvent.click(screen.getByText("Copy"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(a.name));
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({ message: "Copied name to clipboard" }),
+        ),
+      );
     });
 
     it("should leave the copy to the browser when nothing is selected", async () => {
