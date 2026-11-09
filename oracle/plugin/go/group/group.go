@@ -68,19 +68,20 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	mgr := imports.NewManager()
 	td := templateData{Manager: mgr, Package: naming.DerivePackageName(outputPath)}
-	typesPath := enum.FindOutputPath(data.Types, req.Resolutions, "go")
-	if typesPath != outputPath {
-		alias := naming.DerivePackageName(typesPath)
+	enumPath := enum.FindOutputPath(data.Enum, req.Resolutions, "go")
+	var qualifier string
+	if enumPath != outputPath {
+		alias := naming.DerivePackageName(enumPath)
 		mgr.AddInternal(alias, gomod.ResolveImportPath(
-			typesPath,
+			enumPath,
 			req.RepoRoot,
 			gomod.DefaultModulePrefix,
 		))
-		td.Qualifier = alias + "."
+		qualifier = alias + "."
 	}
-	td.Types = td.Qualifier + naming.GetGoName(data.Types)
+	td.Enum = qualifier + naming.GetGoName(data.Enum)
 	constant := func(v resolution.EnumValue) string {
-		return td.Types + naming.ToPascalCase(v.Name)
+		return td.Enum + naming.ToPascalCase(v.Name)
 	}
 	for _, m := range data.Members {
 		td.Members = append(td.Members, memberData{
@@ -104,10 +105,8 @@ type templateData struct {
 	*imports.Manager
 	// Package is the Go package of the generated file.
 	Package string
-	// Qualifier prefixes the names of the resource type package, such as "resource.".
-	Qualifier string
-	// Types is the Go type of a resource type, such as resource.Type.
-	Types string
+	// Enum is the Go type of a resource type, such as resource.Type.
+	Enum string
 	// Members are the record types that can sit in a group.
 	Members []memberData
 }
@@ -141,14 +140,14 @@ import (
 // memberRule says which groups can hold a record of one type.
 type memberRule struct {
 	// scope is the scope of the groups that hold the type.
-	scope {{.Types}}
+	scope {{.Enum}}
 	// pinned is true when the top parent of the group must be the record's holder, or
 	// none when the record has no holder.
 	pinned bool
 }
 
 // memberRules holds the rule of each type that can sit in a group.
-var memberRules = map[{{.Types}}]memberRule{
+var memberRules = map[{{.Enum}}]memberRule{
 {{- range .Members}}
 	{{.Type}}: {scope: {{.Scope}}{{if .Pinned}}, pinned: true{{end}}},
 {{- end}}

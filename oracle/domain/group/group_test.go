@@ -47,6 +47,7 @@ var _ = Describe("Extract", func() {
 	})
 
 	extract := func(ctx SpecContext, records string) (*group.Data, error) {
+		GinkgoHelper()
 		table, diag := Analyze(ctx, `
 			import "schemas/group"
 		`+records, "records", loader)
@@ -90,7 +91,7 @@ var _ = Describe("Extract", func() {
 			}
 		`))
 		Expect(data.Record.Name).To(Equal("Group"))
-		Expect(data.Types.Name).To(Equal("Type"))
+		Expect(data.Enum.Name).To(Equal("Type"))
 		Expect(data.Members).To(HaveLen(2))
 		values := func(m group.Member) []any {
 			return []any{m.Type.StringValue(), m.Scope.StringValue(), m.Pinned}
@@ -217,6 +218,52 @@ var _ = Describe("Extract", func() {
 		`)
 		Expect(extract(ctx, rack("@group scope device"))).Error().To(MatchError(
 			"records.Rack.group: @group needs group.Group to have a scope field",
+		))
+	})
+
+	It("Should reject a group scope that is not an enum", func(ctx SpecContext) {
+		loader.Add("schemas/group", `
+			Key = uuid
+
+			Group struct {
+				key   Key {
+					@key
+				}
+				scope string
+
+				@resource type "group"
+			}
+		`)
+		Expect(extract(ctx, rack("@group scope device"))).Error().To(MatchError(
+			"records.Rack.group: @group needs the scope of group.Group to be an enum",
+		))
+	})
+
+	It("Should reject a field holding another record's key", func(ctx SpecContext) {
+		Expect(extract(ctx, rack("@group scope device")+`
+			ShelfKey = uuid
+
+			Shelf struct {
+				key   ShelfKey {
+					@key
+				}
+
+				@resource type "label"
+			}
+
+			Channel struct {
+				key   uint32 {
+					@key
+				}
+				group ShelfKey? {
+					@group scope channel
+				}
+
+				@resource type "channel"
+			}
+		`)).Error().To(MatchError(
+			"records.Channel.group: @group holds records.ShelfKey, not the key of " +
+				"group.Group",
 		))
 	})
 
