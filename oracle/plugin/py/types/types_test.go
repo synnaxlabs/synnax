@@ -720,7 +720,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"dict[str, JsonValue] = Field(default_factory=dict)",
 				),
 				Entry("bytes", "bytes", "Bytes"),
-				Entry("any", "any", "JsonValue = None"),
+				Entry("any", "any", "JsonValue"),
 			)
 
 			It(
@@ -786,30 +786,17 @@ var _ = Describe("Python Types Plugin", func() {
 				},
 			)
 
-			It(
-				"Should read an absent any field as null",
-				func(ctx SpecContext) {
-					source := `
+			It("Should require a bare any field", func(ctx SpecContext) {
+				source := `
 					@py output "out"
 
-					Value = any
-
 					Test struct {
-						required any
-						optional any?
-						aliased Value
-						values any[]
+						value any
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-					ExpectContent(resp, "types_gen.py").ToContain(
-						`required: JsonValue = None`,
-						`optional: JsonValue | None = None`,
-						`aliased: Value = None`,
-						`values: list[JsonValue] = Field(default_factory=list)`,
-					)
-				},
-			)
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain("    value: JsonValue\n")
+			})
 		})
 
 		It("Should handle optional key and password fields", func(ctx SpecContext) {
