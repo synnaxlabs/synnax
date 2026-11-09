@@ -12,6 +12,8 @@
 package v4
 
 import (
+	"strconv"
+
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
@@ -109,6 +111,12 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
+	for i := range t.Rows {
+		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
+	}
+	for i := range t.Columns {
+		v.Exec(func() error { return validate.PathedError(t.Columns[i].Validate(), "columns", strconv.Itoa(i)) })
+	}
 	for key, value := range t.Cells {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}

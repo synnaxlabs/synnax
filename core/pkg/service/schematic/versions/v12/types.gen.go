@@ -404,6 +404,30 @@ type LabelConfig = v11.LabelConfig
 // LabeledConfig is the base configuration for any symbol that carries a label.
 type LabeledConfig = v11.LabeledConfig
 
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = v11.ScaledConfig
+
+// StalenessConfig is the staleness detection shared by every symbol that reads a
+// channel.
+type StalenessConfig struct {
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StalenessConfig) ApplyDefaults() {
+	if s.StalenessTimeout == 0 {
+		s.StalenessTimeout = 5
+	}
+}
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig = v11.NumericTelemConfig
+
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
 type ControlStateConfig = v11.ControlStateConfig
@@ -516,6 +540,65 @@ func (d DummyToggleSymbolConfig) Validate() error {
 	return v.Error()
 }
 
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
+// symbols that show a level against a numeric range.
+type ScaleIndicatorConfig struct {
+	NumericTelemConfig
+	StalenessConfig
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units string `json:"units" msgpack:"units"`
+	// LevelHidden hides the filled portion.
+	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
+	// CaretHidden hides the caret marking the current value.
+	CaretHidden bool `json:"caret_hidden" msgpack:"caret_hidden"`
+	// ScaleHidden hides the axis and its tick labels.
+	ScaleHidden bool `json:"scale_hidden" msgpack:"scale_hidden"`
+	// Side is the edge the axis is drawn along.
+	Side spatial.OuterLocation `json:"side" msgpack:"side"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
+	// Level is the typography level of the tick labels.
+	Level text.Level `json:"level" msgpack:"level"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScaleIndicatorConfig) ApplyDefaults() {
+	if s.Bounds.Upper == 0 {
+		s.Bounds.Upper = 100
+	}
+	if s.Side == "" {
+		s.Side = spatial.OuterLocationRight
+	}
+	if s.CaretSide == "" {
+		s.CaretSide = spatial.OuterLocationRight
+	}
+	if s.Level == "" {
+		s.Level = text.LevelSmall
+	}
+	s.NumericTelemConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScaleIndicatorConfig) Validate() error {
+	v := validate.New("ScaleIndicatorConfig")
+	v.Ternaryf("side", !s.Side.IsValid(), "invalid side: %v", s.Side)
+	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.Exec(s.NumericTelemConfig.Validate)
+	return v.Error()
+}
+
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping struct {
 	// Key is the unique identifier for the mapping entry.
@@ -527,6 +610,23 @@ type StateMapping struct {
 	// Color is the display color associated with this state.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType = v11.PageType
+
+const (
+	// PageTypeSchematic is a schematic page.
+	PageTypeSchematic PageType = v11.PageTypeSchematic
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = v11.PageTypeLineplot
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = v11.PageTypeLog
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = v11.PageTypeTable
+)
+
+// Page identifies a page an off-page reference links to.
+type Page = v11.Page
 
 // NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType string
@@ -10356,103 +10456,3 @@ func (s Schematic) Validate() error {
 	}
 	return v.Error()
 }
-
-// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
-// symbols that show a level against a numeric range.
-type ScaleIndicatorConfig struct {
-	NumericTelemConfig
-	StalenessConfig
-	// Bounds is the numeric range the indicator maps onto its extent.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// LevelColor is the color of the filled portion, the caret, and the value readout
-	// border.
-	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// AxisColor is the color of the axis and its ticks.
-	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
-	// TextColor is the color of the tick labels.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// Units is the unit suffix displayed after each tick label.
-	Units string `json:"units" msgpack:"units"`
-	// LevelHidden hides the filled portion.
-	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
-	// CaretHidden hides the caret marking the current value.
-	CaretHidden bool `json:"caret_hidden" msgpack:"caret_hidden"`
-	// ScaleHidden hides the axis and its tick labels.
-	ScaleHidden bool `json:"scale_hidden" msgpack:"scale_hidden"`
-	// Side is the edge the axis is drawn along.
-	Side spatial.OuterLocation `json:"side" msgpack:"side"`
-	// CaretSide is the edge the value readout sits on.
-	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
-	// Level is the typography level of the tick labels.
-	Level text.Level `json:"level" msgpack:"level"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleIndicatorConfig) ApplyDefaults() {
-	if s.Bounds.Upper == 0 {
-		s.Bounds.Upper = 100
-	}
-	if s.Side == "" {
-		s.Side = spatial.OuterLocationRight
-	}
-	if s.CaretSide == "" {
-		s.CaretSide = spatial.OuterLocationRight
-	}
-	if s.Level == "" {
-		s.Level = text.LevelSmall
-	}
-	s.NumericTelemConfig.ApplyDefaults()
-	s.StalenessConfig.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s ScaleIndicatorConfig) Validate() error {
-	v := validate.New("ScaleIndicatorConfig")
-	v.Ternaryf("side", !s.Side.IsValid(), "invalid side: %v", s.Side)
-	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
-	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
-	v.Exec(s.NumericTelemConfig.Validate)
-	return v.Error()
-}
-
-// PageType names the kinds of page an off-page reference can link to.
-type PageType = v11.PageType
-
-const (
-	// PageTypeSchematic is a schematic page.
-	PageTypeSchematic PageType = v11.PageTypeSchematic
-	// PageTypeLineplot is a line plot page.
-	PageTypeLineplot PageType = v11.PageTypeLineplot
-	// PageTypeLog is a log page.
-	PageTypeLog PageType = v11.PageTypeLog
-	// PageTypeTable is a table page.
-	PageTypeTable PageType = v11.PageTypeTable
-)
-
-// Page identifies a page an off-page reference links to.
-type Page = v11.Page
-
-// StalenessConfig is the staleness detection shared by every symbol that reads a
-// channel.
-type StalenessConfig struct {
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StalenessConfig) ApplyDefaults() {
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
-}
-
-// NumericTelemConfig is the numeric read and formatting shared by symbols that display
-// a channel's value as a number.
-type NumericTelemConfig = v11.NumericTelemConfig
-
-// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
-type ScaledConfig = v11.ScaledConfig
