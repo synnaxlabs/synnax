@@ -138,17 +138,21 @@ export class Client extends query.Retriever<
           await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
         ).map(toUses),
     });
-    // The Core announces no change to uses. The cache handles frames at the same time,
-    // so refetches run one at a time to keep an older reply from overwriting a newer
-    // one. A change that arrives while a refetch waits joins it.
+    // The Core announces no change to uses. Refetches run outside the change stream and
+    // one at a time, so an older reply cannot overwrite a newer one. A change that
+    // arrives while a refetch waits joins it.
     const refetchMu = sync.newMutex({ waiting: false });
-    const refetchUses = async () => {
+    const refetchUses = () => {
       if (refetchMu.waiting) return;
       refetchMu.waiting = true;
-      await refetchMu.runExclusive(async () => {
-        refetchMu.waiting = false;
-        await usesStore.reconcile();
-      });
+      refetchMu
+        .runExclusive(async () => {
+          refetchMu.waiting = false;
+          await usesStore.reconcile();
+        })
+        .catch((exc: unknown) =>
+          cache.onError(new Error("failed to refetch secret uses", { cause: exc })),
+        );
     };
     cfg.usesChannels.forEach((channel) =>
       cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),

@@ -314,6 +314,38 @@ describe("Secret", () => {
       }
     });
 
+    it("should apply other changes while it refetches uses", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Waiting routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const offUses = client.secrets.watch(q).onChange(() => {});
+      const off = client.secrets.watch(s.key).onChange(() => {});
+      try {
+        await client.secrets.retrieve(q);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Waiting uses" });
+        await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await createTestClient().secrets.rename(s.key, "Renamed routing key");
+        await expect
+          .poll(() => expectLive(client.secrets.watch(s.key).getCached()).name)
+          .toBe("Renamed routing key");
+        held.release();
+      } finally {
+        off();
+        offUses();
+      }
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
