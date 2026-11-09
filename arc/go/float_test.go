@@ -668,6 +668,26 @@ var _ = Describe("NaN and infinity", func() {
 		)
 	})
 
+	DescribeTable("Should widen an integer argument to a float upstream",
+		func(ctx SpecContext, source string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}, &symbol.Symbol{
+				Name: "alarm",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   2,
+			}))
+			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+		},
+		Entry("a constant", "import math\nmath.inf -> gt(b=1) -> alarm"),
+		Entry("a float variable", "v := 2.5\nv -> gt(b=1) -> alarm"),
+		Entry("a float channel", "x -> gt(b=1) -> alarm"),
+	)
+
 	Describe("Equality of two NaN channels", func() {
 		compare := func(
 			ctx SpecContext,
