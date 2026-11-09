@@ -155,11 +155,14 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					err = w.accumulatedErr
 					return err
 				}
-				var commitEnd telem.TimeStamp
+				var (
+					commitEnd  telem.TimeStamp
+					authorized = true
+				)
 				if w.accumulatedErr == nil {
-					commitEnd, w.accumulatedErr = w.process(ctx, req)
+					commitEnd, authorized, w.accumulatedErr = w.process(ctx, req)
 				}
-				if err := w.maybeSendRes(ctx, req, commitEnd); err != nil {
+				if err := w.maybeSendRes(ctx, req, commitEnd, authorized); err != nil {
 					return err
 				}
 			}
@@ -170,24 +173,24 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 func (w *streamWriter) process(
 	ctx context.Context,
 	req WriterRequest,
-) (commitEnd telem.TimeStamp, err error) {
+) (commitEnd telem.TimeStamp, authorized bool, err error) {
 	if err = validateWriterCommand(req.Command); err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	if req.Command == WriterCommandSetAuthority {
+	switch req.Command {
+	case WriterCommandCommit:
+		return w.commit(ctx)
+	case WriterCommandSetAuthority:
 		err = w.setAuthority(ctx, req.Config)
-		return commitEnd, err
-	}
-	if req.Command == WriterCommandCommit {
-		commitEnd, err = w.commit(ctx)
-		return commitEnd, err
-	}
-	if req.Command == WriterCommandEndDomain {
+	case WriterCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
-		return commitEnd, err
+	default:
+		err = w.write(ctx, req)
 	}
-	err = w.write(ctx, req)
-	return commitEnd, err
+	if err != nil {
+		return 0, false, err
+	}
+	return 0, true, nil
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -241,12 +244,13 @@ func (w *streamWriter) maybeSendRes(
 	ctx context.Context,
 	req WriterRequest,
 	end telem.TimeStamp,
+	authorized bool,
 ) error {
 	res := WriterResponse{
 		Command:    req.Command,
 		SeqNum:     req.SeqNum,
 		End:        end,
-		Authorized: true,
+		Authorized: authorized,
 	}
 	if w.accumulatedErr != nil &&
 		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -416,37 +420,32 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	return cfg
 }
 
-func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
+func (w *streamWriter) commit(
+	ctx context.Context,
+) (end telem.TimeStamp, authorized bool, err error) {
 	var (
 		maxTS        = telem.TimeStampMin
-		unauthorized error
+		lacksControl bool
 	)
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
-		if err != nil {
-			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return 0, err
-			}
-			unauthorized = err
+		if errors.Is(err, xcontrol.ErrUnauthorized) {
+			lacksControl = true
 			continue
+		}
+		if err != nil {
+			return 0, false, err
 		}
 		if ts > maxTS {
 			maxTS = ts
 		}
 	}
-	if unauthorized != nil {
-		w.writeRefused = false
-		return 0, unauthorized
+	authorized = !w.writeRefused
+	w.writeRefused = false
+	if lacksControl {
+		return 0, false, nil
 	}
-	if w.writeRefused {
-		w.writeRefused = false
-		// The commit applied, so it keeps its end.
-		return maxTS, errors.Wrap(
-			xcontrol.ErrUnauthorized,
-			"a write since the last commit had no control",
-		)
-	}
-	return maxTS, nil
+	return maxTS, authorized, nil
 }
 
 func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) error {
