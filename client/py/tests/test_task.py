@@ -291,6 +291,83 @@ class TestTaskClient:
             stop.set()
             t.join()
 
+    def test_execute_command_sync_ends_when_the_driver_goes_down(
+        self, client: sy.Synnax
+    ) -> None:
+        """A down Driver never replies, so the status of its rack ends the wait."""
+        rack = client.racks.create(name=f"dying-{uuid4()}")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                client.statuses.set(
+                    sy.rack.Status(
+                        variant=sy.status.VARIANT_WARNING,
+                        message="Driver not running",
+                        description="The Core has not heard from the Driver.",
+                        details={},
+                        owner=sy.rack.resource_id(rack.key),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        timer = sy.Timer()
+        with pytest.raises(RuntimeError) as err:
+            tsk.execute_command_sync("test", timeout=60)
+        assert str(err.value) == (
+            "Driver not running: The Core has not heard from the Driver."
+        )
+        assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
+        t.join()
+
+    @pytest.mark.parametrize(
+        "variant", [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_ERROR]
+    )
+    def test_execute_command_sync_waits_through_a_live_rack(
+        self, client: sy.Synnax, variant: sy.status.Variant
+    ) -> None:
+        """A rack status from a live Driver, an error included, does not end the
+        wait."""
+        rack = client.racks.create(name=f"alive-{uuid4()}")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                client.statuses.set(
+                    sy.rack.Status(
+                        variant=variant,
+                        message="Driver is running",
+                        details={},
+                        owner=sy.rack.resource_id(rack.key),
+                    )
+                )
+                client.statuses.set(
+                    sy.task.Status(
+                        variant=sy.status.VARIANT_SUCCESS,
+                        message="Command executed.",
+                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                        owner=sy.task.resource_id(cmd.task),
+                    )
+                )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        status = tsk.execute_command_sync("test", timeout=60)
+        assert status.message == "Command executed."
+        t.join()
+
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
     ) -> None:
