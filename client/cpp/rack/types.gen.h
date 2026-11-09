@@ -60,9 +60,6 @@ struct Where {
     ::x::filter::Field<::x::filter::Bool> embedded;
     /// @brief integrations selects by integrations.
     ::x::filter::Field<::x::filter::Contains<std::string>> integrations;
-    /// @brief host_is_node matches racks on the Core that serves the request, or racks
-    /// on other Cores when false.
-    std::optional<bool> host_is_node;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {

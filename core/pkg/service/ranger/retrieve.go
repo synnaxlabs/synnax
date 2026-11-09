@@ -16,7 +16,6 @@ import (
 
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Range]
 	indexes indexes
 }

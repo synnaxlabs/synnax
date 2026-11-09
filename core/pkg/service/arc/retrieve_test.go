@@ -144,7 +144,7 @@ var _ = Describe("Retrieve", func() {
 				svc.NewRetrieve().
 					Where(arc.MatchKeys(a.Base().Key)).
 					Entry(&retrievedArc).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(retrievedArc.Base().Name).To(Equal("no-tx-arc"))
 		})

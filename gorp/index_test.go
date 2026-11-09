@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"context"
-	"iter"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -22,11 +21,9 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap/zapcore"
@@ -44,8 +41,7 @@ type indexedEntry struct {
 	Flag     bool
 }
 
-func (e indexedEntry) GorpKey() int32    { return e.ID }
-func (e indexedEntry) SetOptions() []any { return nil }
+func (e indexedEntry) GorpKey() int32 { return e.ID }
 
 // relationEntry is a composite-string-keyed test entry. Its gorp key is the
 // "<from>-><to>" string.
@@ -55,8 +51,7 @@ type relationEntry struct {
 	Label string
 }
 
-func (e relationEntry) GorpKey() string   { return e.From + "->" + e.To }
-func (e relationEntry) SetOptions() []any { return nil }
+func (e relationEntry) GorpKey() string { return e.From + "->" + e.To }
 
 func idsOf(res []indexedEntry) []int32 {
 	out := make([]int32, len(res))
@@ -154,23 +149,14 @@ func (t failingCommitTx) Commit(ctx context.Context, opts ...any) error {
 	return t.db.fail
 }
 
-// openHostIndexedDB returns a DB whose indexes take local writes only from the commit
-// that makes them, as they do on a Core.
-func openHostIndexedDB(kvDB kv.DB) *gorp.DB {
-	return gorp.Wrap(
-		kvDB,
-		gorp.WithCodec(msgpack.Codec),
-		gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
-	)
+func wrapMsgpack(kvDB kv.DB) *gorp.DB {
+	return gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 }
 
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenGorpMsgpackDB()
-	})
-	AfterEach(func() {
-		Expect(idxDB.Close()).To(Succeed())
+		idxDB = DeferClose(OpenGorpMsgpackDB())
 	})
 
 	Describe("Filter from an observer of a commit", func() {
@@ -183,7 +169,7 @@ var _ = Describe("Index", func() {
 			byScore  []int32
 		)
 		BeforeEach(func(ctx SpecContext) {
-			db = DeferClose(openHostIndexedDB(memkv.New()))
+			db = DeferClose(wrapMsgpack(memkv.New()))
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -197,7 +183,7 @@ var _ = Describe("Index", func() {
 			byName, byScore = nil, nil
 			disconnect := table.Observe().OnChange(func(
 				ctx context.Context,
-				_ iter.Seq[change.Change[int32, indexedEntry]],
+				_ gorp.TxReader[int32, indexedEntry],
 			) {
 				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
 					GinkgoHelper()
@@ -248,7 +234,7 @@ var _ = Describe("Index", func() {
 
 	It("Should not find an entry through a commit that fails", func(ctx SpecContext) {
 		failing := &failingCommitDB{DB: memkv.New()}
-		db := openHostIndexedDB(failing)
+		db := wrapMsgpack(failing)
 		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
 		nameIdx := gorp.NewLookupIndex(
 			"name", func(e *indexedEntry) string { return e.Name },
@@ -280,7 +266,7 @@ var _ = Describe("Index", func() {
 	})
 
 	It("Should finish a write through the DB of a NaN value", func(ctx SpecContext) {
-		db := DeferClose(openHostIndexedDB(memkv.New()))
+		db := DeferClose(wrapMsgpack(memkv.New()))
 		ratioIdx := gorp.NewSortedIndex(
 			"ratio", func(*indexedEntry) float64 { return math.NaN() },
 		)
@@ -294,7 +280,7 @@ var _ = Describe("Index", func() {
 		"Should find an entry only by its stored value during a commit that updates it",
 		func(ctx SpecContext) {
 			store := &failingCommitDB{DB: memkv.New()}
-			db := DeferClose(openHostIndexedDB(store))
+			db := DeferClose(wrapMsgpack(store))
 			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -387,18 +373,31 @@ var _ = Describe("Index", func() {
 			})
 		})
 
-		Describe("Observer maintenance", func() {
-			var (
-				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-			)
+		Describe("Maintenance", func() {
+			var nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			BeforeEach(func(ctx SpecContext) {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+			It(
+				"Should index writes through another open table of the type",
+				func(ctx SpecContext) {
+					other := DeferClose(openIndexedTable(
+						ctx,
+						idxDB,
+						gorp.NewLookupIndex(
+							"other", func(e *indexedEntry) string { return e.Name },
+						),
+					))
+					Expect(other.NewCreate().
+						Entry(&indexedEntry{ID: 20, Name: "delta"}).
+						Exec(ctx, idxDB)).To(Succeed())
+					Expect(nameIdx.Get(ctx, nil, "delta")).To(Equal([]int32{20}))
+				},
+			)
 
 			It("Should index newly created entries", func(ctx SpecContext) {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
@@ -460,7 +459,7 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a"},
 					{ID: 2, Name: "b"},
@@ -471,7 +470,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should return matching entries via Where", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -530,7 +528,7 @@ var _ = Describe("Index", func() {
 				categoryIdx = gorp.NewLookupIndex(
 					"category", func(e *indexedEntry) string { return e.Category },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx, categoryIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx, categoryIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "a", Category: "x"},
 					{ID: 2, Name: "a", Category: "y"},
@@ -541,7 +539,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should intersect two indexed filters via And", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -598,7 +595,7 @@ var _ = Describe("Index", func() {
 
 		Describe("Concurrency", func() {
 			It(
-				"Should permit concurrent Filter calls while the observer processes writes",
+				"Should permit concurrent Filter calls while writes commit",
 				func(ctx SpecContext) {
 					nameIdx := gorp.NewLookupIndex(
 						"name", func(e *indexedEntry) string { return e.Name },
@@ -608,22 +605,23 @@ var _ = Describe("Index", func() {
 
 					var wg sync.WaitGroup
 					wg.Go(func() {
+						defer GinkgoRecover()
 						for i := range int32(100) {
-							_ = gorp.NewCreate[int32, indexedEntry]().
+							Expect(table.NewCreate().
 								Entry(&indexedEntry{ID: i, Name: "shared"}).
-								Exec(ctx, idxDB)
+								Exec(ctx, idxDB)).To(Succeed())
 						}
 					})
 					wg.Go(func() {
+						defer GinkgoRecover()
 						for range 200 {
-							_, _ = nameIdx.Get(ctx, nil, "shared")
+							MustSucceed(nameIdx.Get(ctx, nil, "shared"))
 						}
 					})
 					wg.Wait()
-					Eventually(func() int {
-						keys, _ := nameIdx.Get(ctx, nil, "shared")
-						return len(keys)
-					}).Should(Equal(100))
+					Eventually(func() ([]int32, error) {
+						return nameIdx.Get(ctx, nil, "shared")
+					}).Should(HaveLen(100))
 				},
 			)
 
@@ -710,19 +708,9 @@ var _ = Describe("Index", func() {
 			)
 		})
 
-		// Tx delta visibility exercises the per-tx index overlay: a
-		// Retrieve via idx.Filter(...) inside an open write tx must
-		// see mutations staged earlier in the same tx. Without the
-		// overlay, the Filter would only see committed index state
-		// (the observer fires on commit) and would return stale
-		// results inside the tx.
-		//
-		// Each case opens a tx, performs a write through a
-		// table-bound query (which wires the writer through
-		// wrapTableWriter so the index observer sees the stage call),
-		// and then retrieves via the same tx. Rollback cases close
-		// the tx without committing and assert the global index was
-		// never touched.
+		// Each case writes through a table-bound query in an open transaction, then
+		// filters through the index in the same transaction, which must see the staged
+		// write. Rollback cases check that the committed index never changed.
 		Describe("Tx delta visibility", func() {
 			var (
 				table   *gorp.Table[int32, indexedEntry]
@@ -732,7 +720,7 @@ var _ = Describe("Index", func() {
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				table = openIndexedTable(ctx, idxDB, nameIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
 				seed := []indexedEntry{
 					{ID: 1, Name: "alpha"},
 					{ID: 2, Name: "beta"},
@@ -740,7 +728,6 @@ var _ = Describe("Index", func() {
 				Expect(table.NewCreate().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should see an insert staged in the same tx", func(ctx SpecContext) {
 				tx := idxDB.OpenTx()
@@ -867,8 +854,6 @@ var _ = Describe("Index", func() {
 					Expect(tx.Commit(ctx)).To(Succeed())
 					Expect(tx.Close()).To(Succeed())
 
-					// Committed observer should have fired, updating the
-					// global index.
 					Expect(
 						nameIdx.Get(ctx, nil, "alpha"),
 					).To(ConsistOf(int32(1), int32(50)))
@@ -932,7 +917,7 @@ var _ = Describe("Index", func() {
 				scoreIdx = gorp.NewSortedIndex(
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
-				table = openIndexedTable(ctx, idxDB, scoreIdx)
+				table = DeferClose(openIndexedTable(ctx, idxDB, scoreIdx))
 				seed := make([]indexedEntry, 20)
 				for i := range 20 {
 					seed[i] = indexedEntry{ID: int32(i), Score: int64(i * 10)}
@@ -940,7 +925,6 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 			It("Should walk ascending order with a limit", func(ctx SpecContext) {
 				var res []indexedEntry
@@ -1125,38 +1109,24 @@ var _ = Describe("Index", func() {
 		)
 	})
 
-	Describe("WithIndexObservable", func() {
-		// These tests prove that the index stays consistent even when the
-		// observer that would otherwise feed it never fires. This is the
-		// configuration used in multi-node Aspen deployments where the
-		// observer is filtered to remote-only writes via
-		// IgnoreHostLeaseholder, leaving local writes to be applied via
-		// the per-tx delta flush (real tx) or the inline path (DB-as-tx).
+	Describe("Commit maintenance", func() {
 		var (
-			noopDB  *gorp.DB
-			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-			table   *gorp.Table[int32, indexedEntry]
+			commitDB *gorp.DB
+			nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
+			table    *gorp.Table[int32, indexedEntry]
 		)
 		BeforeEach(func(ctx SpecContext) {
-			noopDB = gorp.Wrap(
-				memkv.New(),
-				gorp.WithCodec(msgpack.Codec),
-				gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
-			)
+			commitDB = DeferClose(wrapMsgpack(memkv.New()))
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			table = openIndexedTable(ctx, noopDB, nameIdx)
-		})
-		AfterEach(func() {
-			Expect(table.Close()).To(Succeed())
-			Expect(noopDB.Close()).To(Succeed())
+			table = DeferClose(openIndexedTable(ctx, commitDB, nameIdx))
 		})
 
 		It(
 			"Should update the index via per-tx delta flush on commit",
 			func(ctx SpecContext) {
-				tx := noopDB.OpenTx()
+				tx := commitDB.OpenTx()
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 1, Name: "alpha"}).
 					Exec(ctx, tx)).To(Succeed())
@@ -1170,7 +1140,7 @@ var _ = Describe("Index", func() {
 		It(
 			"Should leave the index untouched when the tx is closed without commit",
 			func(ctx SpecContext) {
-				tx := noopDB.OpenTx()
+				tx := commitDB.OpenTx()
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 2, Name: "beta"}).
 					Exec(ctx, tx)).To(Succeed())
@@ -1183,7 +1153,7 @@ var _ = Describe("Index", func() {
 		It("Should update the index inline for DB-as-tx writes", func(ctx SpecContext) {
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 3, Name: "gamma"}).
-				Exec(ctx, noopDB)).To(Succeed())
+				Exec(ctx, commitDB)).To(Succeed())
 
 			Expect(nameIdx.Get(ctx, nil, "gamma")).To(ConsistOf(int32(3)))
 		})
@@ -1193,10 +1163,10 @@ var _ = Describe("Index", func() {
 			func(ctx SpecContext) {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 4, Name: "delta"}).
-					Exec(ctx, noopDB)).To(Succeed())
+					Exec(ctx, commitDB)).To(Succeed())
 				Expect(nameIdx.Get(ctx, nil, "delta")).To(ConsistOf(int32(4)))
 
-				tx := noopDB.OpenTx()
+				tx := commitDB.OpenTx()
 				Expect(
 					table.NewDelete().
 						Where(gorp.MatchKeys[int32, indexedEntry](4)).
@@ -1214,9 +1184,9 @@ var _ = Describe("Index", func() {
 			func(ctx SpecContext) {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 5, Name: "epsilon"}).
-					Exec(ctx, noopDB)).To(Succeed())
+					Exec(ctx, commitDB)).To(Succeed())
 
-				tx := noopDB.OpenTx()
+				tx := commitDB.OpenTx()
 				Expect(
 					table.NewDelete().
 						Where(gorp.MatchKeys[int32, indexedEntry](5)).
@@ -1233,20 +1203,20 @@ var _ = Describe("Index", func() {
 			func(ctx SpecContext) {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 6, Name: "zeta"}).
-					Exec(ctx, noopDB)).To(Succeed())
+					Exec(ctx, commitDB)).To(Succeed())
 				Expect(nameIdx.Get(ctx, nil, "zeta")).To(ConsistOf(int32(6)))
 
 				Expect(
 					table.NewDelete().
 						Where(gorp.MatchKeys[int32, indexedEntry](6)).
-						Exec(ctx, noopDB),
+						Exec(ctx, commitDB),
 				).To(Succeed())
 				Expect(nameIdx.Get(ctx, nil, "zeta")).To(BeEmpty())
 			},
 		)
 
 		It("Should index the sets of a raw writer on commit", func(ctx SpecContext) {
-			tx := noopDB.OpenTx()
+			tx := commitDB.OpenTx()
 			Expect(gorp.WrapWriter[int32, indexedEntry](tx).
 				Set(ctx, indexedEntry{ID: 7, Name: "eta"})).To(Succeed())
 			Expect(nameIdx.Get(ctx, nil, "eta")).To(BeEmpty())
@@ -1258,8 +1228,8 @@ var _ = Describe("Index", func() {
 		It("Should drop the deletes of a raw writer on commit", func(ctx SpecContext) {
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 8, Name: "theta"}).
-				Exec(ctx, noopDB)).To(Succeed())
-			tx := noopDB.OpenTx()
+				Exec(ctx, commitDB)).To(Succeed())
+			tx := commitDB.OpenTx()
 			Expect(gorp.WrapWriter[int32, indexedEntry](tx).Delete(ctx, 8)).
 				To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -1272,10 +1242,10 @@ var _ = Describe("Index", func() {
 			func(ctx SpecContext) {
 				Expect(table.NewCreate().
 					Entry(&indexedEntry{ID: 9, Name: "iota"}).
-					Exec(ctx, noopDB)).To(Succeed())
+					Exec(ctx, commitDB)).To(Succeed())
 				Expect(gorp.NewDelete[int32, indexedEntry]().
 					Where(gorp.MatchKeys[int32, indexedEntry](9)).
-					Exec(ctx, noopDB)).To(Succeed())
+					Exec(ctx, commitDB)).To(Succeed())
 				Expect(nameIdx.Get(ctx, nil, "iota")).To(BeEmpty())
 			},
 		)
@@ -1284,7 +1254,7 @@ var _ = Describe("Index", func() {
 			"Should stop indexing raw writes once the table closes",
 			func(ctx SpecContext) {
 				Expect(table.Close()).To(Succeed())
-				Expect(gorp.WrapWriter[int32, indexedEntry](noopDB).
+				Expect(gorp.WrapWriter[int32, indexedEntry](commitDB).
 					Set(ctx, indexedEntry{ID: 10, Name: "kappa"})).To(Succeed())
 				Expect(nameIdx.Get(ctx, nil, "kappa")).To(BeEmpty())
 			},
@@ -1295,10 +1265,7 @@ var _ = Describe("Index", func() {
 var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenGorpMsgpackDB()
-	})
-	AfterEach(func() {
-		Expect(idxDB.Close()).To(Succeed())
+		idxDB = DeferClose(OpenGorpMsgpackDB())
 	})
 
 	Describe("Population at OpenTable", func() {
@@ -1325,18 +1292,14 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 		})
 	})
 
-	Describe("Observer maintenance", func() {
-		var (
-			table *gorp.Table[string, relationEntry]
-			toIdx *gorp.LookupIndex[string, relationEntry, string]
-		)
+	Describe("Maintenance", func() {
+		var toIdx *gorp.LookupIndex[string, relationEntry, string]
 		BeforeEach(func(ctx SpecContext) {
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
-			table = openIndexedTable(ctx, idxDB, toIdx)
+			DeferClose(openIndexedTable(ctx, idxDB, toIdx))
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		It("Should index newly created entries", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[string, relationEntry]().
@@ -1423,7 +1386,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
-			table = openIndexedTable(ctx, idxDB, toIdx)
+			table = DeferClose(openIndexedTable(ctx, idxDB, toIdx))
 			seed := []relationEntry{
 				{From: "a", To: "x"},
 				{From: "b", To: "y"},
@@ -1431,7 +1394,6 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(table.NewCreate().
 				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		It("Should see an insert staged in the same tx", func(ctx SpecContext) {
 			tx := idxDB.OpenTx()

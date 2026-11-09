@@ -1947,6 +1947,33 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("cannot be a channel"))
 		})
 
+		DescribeTable(
+			"Should reject a flow on a variable with a non-constant initializer",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"cannot use 'y' in a flow: its initializer is not a compile-time constant",
+				))
+			},
+			Entry("top-level source", "y := 1 + 2\ny -> out_ch"),
+			Entry("stage source",
+				"sequence main {\nstage a {\ny := 1 + 2\ny -> out_ch\n}\n}"),
+			Entry("stage sink",
+				"sequence main {\nstage a {\ny := 1 + 2\ncount_ch -> y\n}\n}"),
+			Entry("derived from a reactive variable",
+				"sequence main {\na i64 := count_ch + 1\ny i64 := a + 2\n"+
+					"stage s {\ny -> sink_ch\n}\n}"),
+			Entry("written and read in a sequence",
+				"sequence main {\ny := 1 + 2\nstage a {\ncount_ch -> y\n"+
+					"y -> out_ch\n}\n}"),
+		)
+
 		DescribeTable("Should lower reactive re-expression and alias rebind",
 			func(ctx SpecContext, source string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -2080,15 +2107,6 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						count_ch -> v
 						w = v
-					}
-				}`),
-			Entry("value variable initialized from a reactive variable", `
-				sequence main {
-					a i64 := count_ch + 1
-					b i64 := a + 2
-					stage s1 {
-						a -> out_ch
-						b -> sink_ch
 					}
 				}`),
 			Entry("alias read in an expression in a later stage", `

@@ -209,7 +209,8 @@ var _ = Describe("Factories", func() {
 			func(bCtx SpecContext) {
 				resolver := &recordingResolver{}
 				root := symbol.NewRoot(resolver, nil)
-				_, _ = root.Resolve(bCtx, "missing")
+				Expect(root.Resolve(bCtx, "missing")).Error().
+					To(MatchError("undefined symbol: missing"))
 				Expect(resolver.resolveCalls).To(Equal(1))
 			},
 		)

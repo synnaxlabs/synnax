@@ -165,7 +165,10 @@ func migrateConfigsToRecords(
 			removed = append(removed, id)
 			continue
 		}
-		stored := rec.Data()
+		stored, err := rec.Data()
+		if err != nil {
+			return err
+		}
 		hash, err := hashConfig(configContent(stored))
 		if err != nil {
 			return err

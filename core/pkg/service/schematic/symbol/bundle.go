@@ -34,13 +34,14 @@ const (
 	manifestType          = "symbol_group"
 )
 
-// ExportGroup serializes every symbol in the group identified by key into a flat file
-// namespace: one envelope per symbol, encoded by encoder, beside a manifest naming the
-// group. File names are sanitized and deduplicated. It also returns the sorted resource
-// IDs of the exported symbols so a caller can enforce access on them. It returns
-// query.ErrNotFound if no group has key.
+// ExportGroup serializes every symbol in the group identified by key, as snap holds it,
+// into a flat file namespace: one envelope per symbol, encoded by encoder, beside a
+// manifest naming the group. File names are sanitized and deduplicated. It also returns
+// the sorted resource IDs of the exported symbols so a caller can enforce access on
+// them. It returns query.ErrNotFound if no group has key.
 func (s *Service) ExportGroup(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	key group.Key,
 	encoder encoding.FileEncoder,
 ) (zip.Files, []resource.ID, error) {
@@ -51,13 +52,13 @@ func (s *Service) ExportGroup(
 	if err := s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(key)).
 		Entry(&g).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, nil, err
 	}
 	if err := s.NewRetrieve().
 		Where(MatchGroups(key)).
 		Entries(&symbols).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, nil, err
 	}
 	slices.SortFunc(symbols, func(a, b Symbol) int {
@@ -81,7 +82,7 @@ func (s *Service) ExportGroup(
 			return nil, nil, err
 		}
 		fileName = claims.Claim(fileName, ext)
-		env, err := s.Export(ctx, sym.ResourceID())
+		env, err := s.Export(ctx, snap, sym.ResourceID())
 		if err != nil {
 			return nil, nil, err
 		}

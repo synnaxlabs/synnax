@@ -12,11 +12,10 @@ Series modules."""
 
 import time
 
-import numpy as np
-
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.wait_accuracy_samples import _WaitSamples
+from tests.hitl import latency
 from tests.hitl.crio_arc import _ArcOnCRIO
 
 ECHO_SOURCE = """
@@ -58,25 +57,18 @@ class CRIORoundTrip(_ArcOnCRIO):
             for value in range(_WARMUP + _ROUND_TRIPS):
                 start = time.perf_counter()
                 writer.write("crio_rt_in", float(value))
-                while True:
-                    frame = streamer.read(timeout=_REPLY_TIMEOUT_S)
-                    if frame is None:
-                        self.fail(f"No reply to {value} in {_REPLY_TIMEOUT_S} s")
-                    if frame["crio_rt_out"].to_numpy()[-1] == value:
-                        break
+                if not latency.wait_for(
+                    streamer, "crio_rt_out", value, timeout_s=_REPLY_TIMEOUT_S
+                ):
+                    self.fail(f"No reply to {value} in {_REPLY_TIMEOUT_S} s")
                 round_trips_ms.append((time.perf_counter() - start) * 1000)
-        measured = np.array(round_trips_ms[_WARMUP:])
-        median = float(np.median(measured))
-        p99 = float(np.percentile(measured, 99))
-        self.metrics["round_trip_median_ms"] = median
-        self.metrics["round_trip_p99_ms"] = p99
-        self.metrics["round_trip_max_ms"] = float(measured.max())
-        self.log(f"round trip in ms: {self.metrics}")
-        if median > _MAX_MEDIAN_MS or p99 > _MAX_P99_MS:
-            self.fail(
-                f"The round trip took {median:.2f} ms at the median and {p99:.2f} ms "
-                f"at p99. The limits are {_MAX_MEDIAN_MS} ms and {_MAX_P99_MS} ms."
-            )
+        latency.check(
+            self,
+            "round_trip",
+            round_trips_ms[_WARMUP:],
+            max_median_ms=_MAX_MEDIAN_MS,
+            max_p99_ms=_MAX_P99_MS,
+        )
 
 
 class CRIOWaitSamples(_ArcOnCRIO, _WaitSamples):

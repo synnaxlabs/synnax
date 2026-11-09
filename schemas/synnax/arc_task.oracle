@@ -37,6 +37,7 @@ Performance enum {
 Config struct extends task.PersistConfig {
     arc_key     arc.Key     {
         @doc value     "is the key of the Arc module the task executes."
+        @ref kind      use
         @ref on_delete restrict
     }
     hash        string = "" {
@@ -50,5 +51,6 @@ Config struct extends task.PersistConfig {
     @go imex          body
     @go marshal
     @go migrate
+    @patch
     @retrieve indexes
 }

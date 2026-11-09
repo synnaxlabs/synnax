@@ -521,7 +521,8 @@ export const createList = <
         )
           setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
         else setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
-        // An answer that arrived while the retrieve ran is at least as new as its value.
+        // An answer that arrived while the retrieve ran is at least as new as its
+        // value.
         const { held } = page;
         page.held = undefined;
         if (held != null) applyPageAnswer(page, held);

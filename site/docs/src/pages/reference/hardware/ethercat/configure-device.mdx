@@ -18,7 +18,8 @@ export const components = mdxOverrides;
 [EtherCAT](https://www.ethercat.org/) is a fieldbus that runs on a standard Ethernet
 port. The Driver is the EtherCAT master: it finds each module on the network and reads
 and writes the process data of the module, which EtherCAT calls PDOs. Before a task can
-use a module, you configure it.
+use a module, you configure it. For Dewesoft IOLITE and SIRIUS devices, also see
+[Dewesoft devices](/reference/hardware/ethercat/dewesoft).
 
 <Divider.Divider x />
 
@@ -381,7 +382,7 @@ await client.devices.create(module);
 | `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.                                                                         |
 | `revision`, `serial`          | The revision and serial number of the module, as numbers.                                                               |
 | `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.                                                               |
-| `position`                    | The position on the network. Starts at 1, or at 0 with IgH.                                                             |
+| `position`                    | The position on the network. Starts at 1.                                                                               |
 | `enabled`                     | `false` when the module is [disabled](#disable-a-device).                                                               |
 | `startup_parameters`          | CoE values that the Driver writes to the module when the network starts. See [startup parameters](#startup-parameters). |
 | `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                                                                               |
@@ -523,7 +524,7 @@ does not give wrong values.
 [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver) to scan
 again. If the error stays, the module is not supported yet.
 
-### "device ... expected at position ... not found on bus"
+### "slave ... is not on the bus" or "slave ...: expected ..., found ..."
 
 The network changed after you created the task. A module moved, or the Driver does not
 find it. Check the cables, then edit the channels of the task to use the modules that
