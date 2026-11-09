@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, type patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
   type Action,
   addChannel,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   removeChannel,
-  rename,
   setChannelAlias,
   setChannelColor,
   setChannelEntry,
@@ -31,22 +32,19 @@ import {
   setTimeZone,
   swapChannel,
 } from "@/log/actions.gen";
-import { channelEntryZ } from "@/log/types.gen";
+import { channelEntryZ, type Log, logZ } from "@/log/types.gen";
+
+const applyPath = (state: Draft<Log>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, logZ);
 
 // Handlers report the narrowest resource each action touches as its target. Log-level
-// config (name, timestamp precision, display flags) targets the log key itself; channel
-// mutations target the specific channel so concurrent edits to distinct channels
-// neither coalesce nor invalidate each other's undoables.
+// config (timestamp precision, display flags) targets the log key itself, and a path
+// action targets its path. Channel mutations target the specific channel so concurrent
+// edits to distinct channels neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.log);
     return { inverse: [], targets: [payload.log.key] };
-  },
-
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
   addChannel: (state, payload) => {
@@ -211,6 +209,7 @@ const handlers: Handlers = {
       targets: [state.key],
     };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

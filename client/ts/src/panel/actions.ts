@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type spatial } from "@synnaxlabs/x";
+import { type patch, type spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
+import { actions } from "@/actions";
 import {
   type Action,
   createReduceAll,
@@ -26,9 +27,18 @@ import {
   ROOT_NODE_KEY,
   tabLeafPath,
 } from "@/panel/tree";
-import { type LeafNode, type Node, type Panel, type Tab } from "@/panel/types.gen";
+import {
+  type LeafNode,
+  type Node,
+  type Panel,
+  panelZ,
+  type Tab,
+} from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
+
+const applyPath = (state: Draft<Panel>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, panelZ);
 
 const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<LeafNode> | null => {
   const n = findNode(root, pathKey);
@@ -172,11 +182,6 @@ const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.panel);
     return { inverse: [], targets: [payload.panel.key] };
-  },
-
-  rename: (state, payload) => {
-    state.name = payload.name;
-    return { inverse: [], targets: [state.key] };
   },
 
   setIcon: (state, payload) => {
@@ -346,6 +351,7 @@ const handlers: Handlers = {
     if (!replaceTab(state.root, payload.key, next)) return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

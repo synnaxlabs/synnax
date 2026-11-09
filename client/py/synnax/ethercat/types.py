@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.ethercat.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -150,7 +150,7 @@ class Device(device.Device):
 
     :param name: Human-readable name for the device.
     :param network: Network interface name (e.g. "eth0", "enp3s0").
-    :param position: Position of the slave on the EtherCAT bus, 0-indexed.
+    :param position: Position of the slave on the EtherCAT bus, counting from 1.
     :param vendor_id: EtherCAT vendor ID from device EEPROM.
     :param product_code: Product code identifying the device model.
     :param revision: Hardware/firmware revision number.
@@ -168,15 +168,15 @@ class Device(device.Device):
         *,
         name: str = "",
         network: str = "",
-        position: int = 0,
+        position: int = 1,
         vendor_id: int = 0,
         product_code: int = 0,
         revision: int = 0,
         serial: int = 0,
-        rack: int = 0,
+        rack: rack_.Key = 0,
         input_pdos: list[PDOEntry] | None = None,
         output_pdos: list[PDOEntry] | None = None,
-        key: str = "",
+        key: device.Key = "",
         configured: bool = False,
         enabled: bool = True,
     ):

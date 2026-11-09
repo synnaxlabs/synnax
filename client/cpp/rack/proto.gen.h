@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "client/cpp/rack/json.gen.h"
@@ -26,6 +28,27 @@
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
+
+inline std::pair<::api::rack::pb::OrderField, x::errors::Error>
+order_field_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::api::rack::pb::OrderField> kMap = {
+        {ORDER_FIELD_NAME, ::api::rack::pb::ORDER_FIELD_NAME},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OrderField value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+order_field_from_pb(::api::rack::pb::OrderField pb) {
+    switch (pb) {
+        case ::api::rack::pb::ORDER_FIELD_NAME:
+            return {ORDER_FIELD_NAME, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized OrderField protobuf value")};
+    }
+}
 
 inline std::pair<::service::rack::pb::KeySet, x::errors::Error>
 key_set_to_proto(const ::x::filter::Set<Key> &self);
@@ -83,20 +106,6 @@ string_contains_from_proto(const ::service::rack::pb::StringContains &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
-StatusDetails::to_proto() const {
-    ::service::rack::pb::StatusDetails pb;
-    pb.set_rack(this->rack);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
-    StatusDetails cpp;
-    cpp.rack = pb.rack();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() const {
     ::service::rack::pb::Rack pb;
     pb.set_key(this->key);
@@ -109,6 +118,7 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
     }
     for (const auto &item: this->integrations)
         pb.add_integrations(item);
+    if (this->version.has_value()) pb.set_version(*this->version);
     return {pb, x::errors::NIL};
 }
 
@@ -125,6 +135,7 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     }
     for (const auto &item: pb.integrations())
         cpp.integrations.push_back(item);
+    if (pb.has_version()) cpp.version = pb.version();
     return {cpp, x::errors::NIL};
 }
 
@@ -171,7 +182,6 @@ inline std::pair<::service::rack::pb::Where, x::errors::Error> Where::to_proto()
         if (err) return {{}, err};
         *pb.mutable_integrations() = v;
     }
-    if (this->host_is_node.has_value()) pb.set_host_is_node(*this->host_is_node);
     return {pb, x::errors::NIL};
 }
 
@@ -213,7 +223,44 @@ Where::from_proto(const ::service::rack::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.integrations = v;
     }
-    if (pb.has_host_is_node()) cpp.host_is_node = pb.host_is_node();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::rack::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
+    ::api::rack::pb::Cursor pb;
+    pb.set_key(this->key);
+    if (this->name.has_value()) pb.set_name(*this->name);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Cursor, x::errors::Error>
+Cursor::from_proto(const ::api::rack::pb::Cursor &pb) {
+    Cursor cpp;
+    cpp.key = pb.key();
+    if (pb.has_name()) cpp.name = pb.name();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::rack::pb::Order, x::errors::Error> Order::to_proto() const {
+    ::api::rack::pb::Order pb;
+    {
+        auto [v, err] = order_field_to_pb(this->field);
+        if (err) return {{}, err};
+        pb.set_field(v);
+    }
+    pb.set_descending(this->descending);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Order, x::errors::Error>
+Order::from_proto(const ::api::rack::pb::Order &pb) {
+    Order cpp;
+    {
+        auto [v, err] = order_field_from_pb(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.descending = pb.descending();
     return {cpp, x::errors::NIL};
 }
 
@@ -226,8 +273,17 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_where() = v;
     }
     pb.set_search_term(this->search_term);
+    if (this->order.has_value()) {
+        auto [v, err] = this->order->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_order() = v;
+    }
+    if (this->after.has_value()) {
+        auto [v, err] = this->after->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_after() = v;
+    }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    pb.set_offset(this->offset);
     pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
@@ -241,8 +297,17 @@ RetrieveRequest::from_proto(const ::api::rack::pb::RetrieveRequest &pb) {
         cpp.where = v;
     }
     cpp.search_term = pb.search_term();
+    if (pb.has_order()) {
+        auto [v, err] = Order::from_proto(pb.order());
+        if (err) return {{}, err};
+        cpp.order = v;
+    }
+    if (pb.has_after()) {
+        auto [v, err] = Cursor::from_proto(pb.after());
+        if (err) return {{}, err};
+        cpp.after = v;
+    }
     if (pb.has_limit()) cpp.limit = pb.limit();
-    cpp.offset = pb.offset();
     cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }

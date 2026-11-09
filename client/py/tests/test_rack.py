@@ -25,6 +25,12 @@ class TestRackClient:
         rack = client.racks.create(name="test")
         assert rack.key != 0
 
+    def test_create_driver_role(self, client: sy.Synnax) -> None:
+        """Should give a new rack the Driver role."""
+        driver = client.access.roles.retrieve(name="Driver")
+        rack = client.racks.create(name="test")
+        assert client.racks.retrieve(key=rack.key).role == driver.key
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple racks"""
         r1 = sy.Rack(name="test1")
@@ -81,7 +87,7 @@ class TestRackClient:
         client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=rf"Expected one Rack matching .*{name}.*, but found 2",
+            match=rf"Expected one rack where .*{name}.*, but found 2",
         ):
             client.racks.retrieve(name=name)
 
@@ -106,7 +112,7 @@ class TestRackClient:
         )
         with pytest.raises(
             sy.ValidationError,
-            match="cannot delete rack when devices are still attached",
+            match="cannot delete rack test because device test uses it as its rack",
         ):
             client.racks.delete([rack.key])
 
@@ -119,7 +125,7 @@ class TestRackClient:
             type="pagerduty_alert",
             config={"routing_key": "rk"},
         )
-        with pytest.raises(sy.ValidationError, match="tasks are still attached"):
+        with pytest.raises(sy.ValidationError, match="still holds tasks"):
             client.racks.delete([rack.key])
 
     def test_create_with_integrations(self, client: sy.Synnax) -> None:
@@ -193,17 +199,15 @@ class TestRackClient:
         assert client.racks.retrieve(key=rack.key).status is None
         res = client.racks.retrieve(key=rack.key, include_status=True)
         assert res.status is not None
-        assert res.status.details is not None
-        assert res.status.details.rack == rack.key
+        assert res.status.owner == sy.rack.resource_id(rack.key)
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the matching racks."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the matching racks."""
         racks = client.racks.create(
             racks=[sy.Rack(name=str(uuid4())) for _ in range(3)]
         )
         keys = [r.key for r in racks]
         assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
-        assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
 
     def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
         """Should return a list when names are combined with a limit."""
@@ -240,7 +244,7 @@ class TestRackClient:
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject a plain name beside a limit, since a page could hide a
         match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
@@ -268,3 +272,23 @@ class TestRackClient:
             assert rack.key in {r.key for r in res}
 
         assert_eventually(check)
+
+
+@pytest.mark.rack
+class TestRackGroup:
+    def test_create_in_group(self, client: sy.Synnax) -> None:
+        """Should create a rack in a group and retrieve it by that group."""
+        g = client.groups.create(str(uuid4()), scope="device")
+        rack = client.racks.create(name=str(uuid4()), group=g.key)
+        assert rack.group == g.key
+        assert [r.key for r in client.racks.retrieve(groups=[g.key])] == [rack.key]
+
+    def test_set_group(self, client: sy.Synnax) -> None:
+        """Should move a rack into a group and back out of it."""
+        g = client.groups.create(str(uuid4()), scope="device")
+        rack = client.racks.create(name=str(uuid4()))
+        assert rack.group is None
+        client.racks.set_group([rack.key], g.key)
+        assert client.racks.retrieve(rack.key).group == g.key
+        client.racks.set_group(rack.key)
+        assert client.racks.retrieve(rack.key).group is None

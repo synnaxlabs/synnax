@@ -19,6 +19,7 @@
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/program/json.gen.h"
@@ -32,6 +33,7 @@ inline Base Base::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .source = parser.has("source") ? parse_source(parser.child("source"))
                                        : Source{TextSource{}},
+        .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),
     };
 }
 
@@ -40,6 +42,7 @@ inline x::json::json Base::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["source"] = ::synnax::arc::to_json(this->source);
+    if (this->directory.has_value()) j["directory"] = this->directory->to_json();
     return j;
 }
 
@@ -50,6 +53,9 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .directories = parser.field<std::optional<std::vector<x::uuid::UUID>>>(
+            "directories"
+        ),
     };
 }
 
@@ -60,6 +66,40 @@ inline x::json::json Where::to_json() const {
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->directories.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->directories)
+            arr.push_back(item.to_json());
+        j["directories"] = arr;
+    }
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
     return j;
 }
 
@@ -67,8 +107,9 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
         .include_program = parser.field<bool>("include_program", false),
     };
 }
@@ -77,8 +118,9 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
     j["include_program"] = this->include_program;
     return j;
 }

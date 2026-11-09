@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
 import { channel } from "@/channel";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   type BuiltInRole,
@@ -23,7 +23,6 @@ import {
   expectLive,
   RoleClients,
 } from "@/testutil";
-import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -68,16 +67,12 @@ describe("role", () => {
       });
 
       // Retrieve only internal roles (built-in system roles)
-      const internalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: true } },
-      });
+      const internalRoles = await client.access.roles.retrieve({ internal: true });
       expect(internalRoles.length).toBeGreaterThan(0);
       expect(internalRoles.every((r) => r.internal === true)).toBe(true);
       expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
 
-      const nonInternalRoles = await client.access.roles.retrieve({
-        where: { internal: { eq: false } },
-      });
+      const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
     });
@@ -106,24 +101,44 @@ describe("role", () => {
         NotFoundError,
       );
     });
-  });
 
-  describe("assign", () => {
-    it("should allow the caller to assign a role to a user", async () => {
-      const role = await client.access.roles.create({
-        name: "test",
-        description: "test",
+    it("should delete the role's policies", async () => {
+      const doomed = await client.access.roles.create({
+        name: `doomed-${id.create()}`,
       });
-      const username = id.create();
+      const p = await client.access.policies.create({
+        role: doomed.key,
+        name: "doomed",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      await client.access.roles.delete(doomed.key);
+      // A client with an empty cache reads what the Core stores.
+      const fresh = createTestClient();
+      await expect(fresh.access.policies.retrieve(p.key)).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should refuse to delete a role that a user holds", async () => {
+      const held = await client.access.roles.create({ name: `held-${id.create()}` });
       const u = await client.users.create({
-        username,
+        username: id.create(),
         password: "test",
-        name: "test",
+        role: held.key,
       });
-      await client.access.roles.assign({
-        user: u.key,
-        role: role.key,
-      });
+      await expect(client.access.roles.delete(held.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete role ${held.name} because user ${u.name} ` +
+            "uses it as its role: validation error",
+        ),
+      );
+      expect(expectLive(client.access.roles.watch(held.key).getCached()).key).toEqual(
+        held.key,
+      );
+      const fresh = createTestClient();
+      expect((await fresh.access.roles.retrieve(held.key)).key).toEqual(held.key);
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(held.key);
     });
   });
 
@@ -131,11 +146,10 @@ describe("role", () => {
     it("should connect a client holding a built-in role's permissions", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
-      const { key } = await viewer.users.current.retrieve();
-      const subject = user.ontologyID(key);
+      const grantee = await viewer.users.current.retrieve();
       const granted = async (action: Action) =>
-        await viewer.access.granted.retrieve(subject, {
-          objects: channel.TYPE_ONTOLOGY_ID,
+        await viewer.access.granted.retrieve(grantee, {
+          objects: channel.TYPE_RESOURCE_ID,
           action,
         });
       await expect(granted("create")).resolves.toBe(false);
@@ -198,7 +212,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const r = await createRole();
-      const cached = expectLive(client.access.roles.getCached(r.key));
+      const cached = expectLive(client.access.roles.watch(r.key).getCached());
       expect(cached.name).toEqual(r.name);
     });
   });
@@ -207,14 +221,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const r = await createRole();
       const handler = vi.fn();
-      const off = client.access.roles.onChange(r.key, handler);
+      const off = client.access.roles.watch(r.key).onChange(handler);
       try {
         await client.access.roles.retrieve(r.key);
         const renamed = `qry-renamed-${id.create()}`;
         await remote.access.roles.create({ ...r, name: renamed });
         await expect
           .poll(() => {
-            const cached = client.access.roles.getCached(r.key);
+            const cached = client.access.roles.watch(r.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -227,12 +241,14 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const r = await createRole();
       const results: Array<query.Cached<role.Role> | undefined> = [];
-      const off = client.access.roles.onChange(r.key, (res) => results.push(res));
+      const off = client.access.roles.watch(r.key).onChange((res) => results.push(res));
       try {
         await client.access.roles.retrieve(r.key);
         await remote.access.roles.delete(r.key);
         await expect
-          .poll(() => query.Deleted.matches(client.access.roles.getCached(r.key)))
+          .poll(() =>
+            query.Deleted.matches(client.access.roles.watch(r.key).getCached()),
+          )
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(r.name);

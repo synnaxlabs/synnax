@@ -103,9 +103,7 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
-        {/* The select reads its query once, so the key refreshes it. */}
         <Channel.SelectSingle
-          key={otherChannels.join()}
           value={channel}
           onChange={handleChannelChange}
           allowNone
@@ -138,7 +136,7 @@ const ChannelRow = ({
               value={precision}
               onChange={handlePrecisionChange}
               onClear={() => handlePrecisionChange()}
-              endContent={precision == null ? <Input.AutoChip /> : undefined}
+              endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
@@ -224,7 +222,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 export const Channels = (): ReactElement => {
   const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
-  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(log.resourceID(key));
   return (
     <Flex.Box
       y

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, type Synnax } from "@synnaxlabs/client";
+import { device, type resource, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,10 +18,10 @@ import { createSelection } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
-const idFor = (key: string) => device.ontologyID(key);
+const idFor = (key: string) => device.resourceID(key);
 
 const renderItem = async (
-  ids: ontology.ID[],
+  ids: resource.ID[],
   itemClient: Synnax | null = client,
   onConfigure = vi.fn(),
 ) => {

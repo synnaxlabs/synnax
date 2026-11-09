@@ -197,7 +197,7 @@ func MergeLive(
 	if err := checkErasedDocs(chain, surf, lc, merged); err != nil {
 		return "", err
 	}
-	return license(ctx, r.RepoRoot(), formatted)
+	return license(ctx, r.RepoRoot(), livePath+".oracle", formatted)
 }
 
 // checkErasedDocs fails when the merge dropped a live doc from a declaration that it

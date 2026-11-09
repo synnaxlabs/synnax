@@ -56,6 +56,7 @@ PRODUCTS = [
 JOBS: dict[str, tuple[str, str, list[str]]] = {
     "core": ("core", "go", ["core"]),
     "cesium": ("core", "go", ["cesium"]),
+    # Runs of older commits, such as on a release branch, still have an Aspen job.
     "aspen": ("core", "go", ["aspen"]),
     "gorp": ("core", "go", ["gorp"]),
     "x-go": ("core", "go", ["x/go"]),

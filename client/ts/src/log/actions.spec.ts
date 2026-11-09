@@ -29,23 +29,20 @@ const roundTrip = (state: log.Log, ...actions: log.Action[]): log.Log => {
   return log.reduceAll(next, inverse).next;
 };
 
+const setName = (name: string): log.Action => log.set({ path: ["name"], value: name });
+
 describe("log reducer", () => {
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should set the log name", () => {
-      expect(
-        apply(createEmpty({ name: "old" }), log.rename({ name: "new" })).name,
-      ).toEqual("new");
+      expect(apply(createEmpty({ name: "old" }), setName("new")).name).toEqual("new");
     });
     it("should round-trip the previous name through its inverse", () => {
-      expect(
-        roundTrip(createEmpty({ name: "before" }), log.rename({ name: "after" })).name,
-      ).toEqual("before");
+      expect(roundTrip(createEmpty({ name: "before" }), setName("after")).name).toEqual(
+        "before",
+      );
     });
-    it("should target the log key", () => {
-      const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
-      expect(log.reduceAll(state, [log.rename({ name: "x" })]).targets).toEqual([
-        state.key,
-      ]);
+    it("should target the name", () => {
+      expect(log.reduceAll(createEmpty(), [setName("x")]).targets).toEqual(["name"]);
     });
   });
 
@@ -380,25 +377,25 @@ describe("log reducer", () => {
         createEmpty(),
         log.addChannel({ channel: 1 }),
         log.addChannel({ channel: 2 }),
-        log.rename({ name: "n" }),
+        setName("n"),
       );
       expect(out.channels.map((e) => e.channel)).toEqual([1, 2]);
       expect(out.name).toEqual("n");
     });
     it("should collect inverses in reverse application order", () => {
       const { inverse } = log.reduceAll(createEmpty(), [
-        log.rename({ name: "a" }),
+        setName("a"),
         log.addChannel({ channel: 1 }),
       ]);
       expect(inverse[0].type).toEqual("remove_channel");
-      expect(inverse[1].type).toEqual("rename");
+      expect(inverse[1].type).toEqual("set");
     });
     it("should fully invert a multi-action batch", () => {
       const state = createEmpty({ name: "orig", channels: [createChannelEntry(9)] });
       expect(
         roundTrip(
           state,
-          log.rename({ name: "next" }),
+          setName("next"),
           log.addChannel({ channel: 1 }),
           log.setChannelNamesHidden({ channelNamesHidden: false }),
         ),
@@ -408,7 +405,7 @@ describe("log reducer", () => {
 
   describe("wire format", () => {
     it("should parse a known action", () => {
-      expect(log.actionZ.parse(log.rename({ name: "x" })).type).toEqual("rename");
+      expect(log.actionZ.parse(setName("x")).type).toEqual("set");
     });
     it("should reject an unknown action type", () => {
       expect(() => log.actionZ.parse({ type: "nope" })).toThrow();
@@ -417,10 +414,40 @@ describe("log reducer", () => {
       const parsed = log.scopedActionZ.parse({
         key: "00000000-0000-0000-0000-000000000000",
         dispatchKey: "abc",
-        actions: [log.rename({ name: "x" })],
+        actions: [setName("x")],
       });
       expect(parsed.seq).toEqual(0);
-      expect(parsed.actions[0].type).toEqual("rename");
+      expect(parsed.actions[0].type).toEqual("set");
     });
+  });
+});
+
+describe("group and project patches", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = createEmpty();
+    expect(
+      log.reduceAll(doc, [log.set({ path: ["group"], value: G1 })]).next.group,
+    ).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = createEmpty({ group: G1 });
+    expect(
+      log.reduceAll(doc, [log.remove({ key: "group" })]).next.group,
+    ).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = createEmpty({ group: G1 });
+    const { next, inverse } = log.reduceAll(doc, [
+      log.set({ path: ["group"], value: G2 }),
+    ]);
+    expect(log.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should move the document into the project", () => {
+    const doc = createEmpty({ project: G1 });
+    expect(
+      log.reduceAll(doc, [log.set({ path: ["project"], value: G2 })]).next.project,
+    ).toEqual(G2);
   });
 });

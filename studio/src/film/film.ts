@@ -20,7 +20,9 @@ export const SIZES: Record<Format, { width: number; height: number }> = {
 };
 /** Output and capture frame rate. */
 export const FPS = 60;
-/** Capture device scale factor, which sets how far a shot can magnify and stay sharp. */
+/**
+ * Capture device scale factor, which sets how far a shot can magnify and stay sharp.
+ */
 export const DSF = 3;
 
 /** Plane rotation in degrees: X tips the top away, Z turns the plane clockwise. */

@@ -11,9 +11,9 @@ import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-An Arc automation holds Arc code or a graph of blocks, and the Driver that runs it. You
-create, start, and edit automations in the Console. The Arcs toolbar lists them all. To
-learn what Arc is and where it can run, see the [Arc overview](/reference/control/arc).
+An Arc automation holds Arc code and the Driver that runs it. You create, start, and
+edit automations in the Console. The Arcs toolbar lists them all. To learn what Arc is
+and where it can run, see the [Arc overview](/reference/control/arc).
 
 <Edition.Enterprise>
 
@@ -34,15 +34,9 @@ See [users and roles](/reference/enterprise/users#roles).
 
 1. In the left nav, click **Arcs** (<Icon.Arc />), or press **A**.
 2. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
-3. Type a name, and select an **Editor mode**:
-   - **Text** -> Write Arc code. Use it for sequences and for automations with many
-     conditions.
-   - **Graph** -> Connect blocks. See
-     [graph editor](/reference/control/arc/graph-editor).
-4. Click **Create**.
+3. Type a name, and click **Create**.
 
-The editor opens. You cannot change the editor mode later. You can also run the "Create
-Arc automation" command from the
+The editor opens. You can also run the "Create Arc automation" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
 <Video id="control/arc/get-started/create-automation" />
@@ -89,7 +83,7 @@ You can also start and stop an automation from its entry in the Arcs toolbar.
 The editor saves each change as you type, and other users see it at once. A running
 automation keeps the code it started with until you redeploy it:
 
-1. Edit the code or the graph. A **Redeploy** button shows in the controls bar.
+1. Edit the code. A **Redeploy** button shows in the controls bar.
 2. Click **Redeploy**.
 
 The automation starts again with the new code. Its variables go back to their first

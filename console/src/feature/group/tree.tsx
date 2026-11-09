@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Flux, Group } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -21,174 +20,167 @@ import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
   useUpdate: Group.useRename,
-  ontologyID: group.ontologyID,
+  resourceID: group.resourceID,
   convertKey: String,
 });
 
-const TreeContextMenu: Tree.ContextMenu = (props) => {
-  const {
-    selection: { ids, rootID, parentID },
-    state,
-  } = props;
-  const { getResource, nodes, shape } = state;
-  const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const hasDeletePermission = Access.useDeleteGranted(ids);
-  const ungroup = useUngroupSelection();
-  const createEmptyGroup = PlatformGroup.useCreateEmpty({
-    parent: ids[0],
-    state,
-    root: rootID,
-  });
-  const createFromSelection = PlatformGroup.useCreateFromSelection();
-  const handleLink = Core.useCopyLinkToClipboard();
-  const firstID = ids[0];
-  const rename = useRename(props);
-  const isSingle = ids.length === 1;
-  const isZeroDepth =
-    PTree.getDepth(ontology.idToString(firstID), shape) === 0 &&
-    ontology.idsEqual(rootID, ontology.ROOT_ID);
-  const isDelete = ids.every((id) => {
-    const node = PTree.findNode({ tree: nodes, key: ontology.idToString(id) });
-    return node?.children == null || node?.children.length === 0;
-  });
-  const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
-  return (
-    <ContextMenu.Menu>
-      {isSingle && hasUpdatePermission && !isZeroDepth && (
-        <ContextMenu.RenameItem onClick={rename} />
-      )}
-      <Menu.Divider />
-      {isSingle && hasUpdatePermission && (
-        <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
-          <Icon.Group />
-          New group
-        </Menu.Item>
-      )}
-      {hasUpdatePermission && (
-        <PlatformGroup.ContextMenuItem
-          ids={ids}
-          shape={shape}
-          rootID={rootID}
-          parentID={parentID}
-          onClick={() => createFromSelection(props)}
-        />
-      )}
-      <Menu.Divider />
-      {isSingle && (
-        <>
-          <Link.CopyContextMenuItem
-            onClick={() =>
-              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
-            }
-          />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
-        </>
-      )}
-      <Menu.Divider />
-      {hasDeletePermission && !isZeroDepth && parentID != null && (
-        <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
-          {ungroupIcon}
-          {isDelete ? "Delete" : "Ungroup"}
-        </Menu.Item>
-      )}
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
-  );
-};
-
-const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): ontology.ID => {
+const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID => {
   if (parentID == null)
     throw new Error("Cannot ungroup groups that sit under more than one parent");
   return parentID;
 };
 
-interface UngroupParams extends Tree.ContextMenuProps {
-  prevNodes?: PTree.Node<string>[];
-}
+const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
 
-const baseUngroup = Flux.createUpdate<UngroupParams>({
-  name: "resources",
-  verbs: {
-    present: "ungroup",
-    past: "ungrouped",
-    participle: "ungrouping",
-  },
-  update: async ({ client, data: args }) => {
-    const { selection, prevNodes } = args;
-    if (prevNodes == null) return args;
-    const parentID = parentOf(selection);
-    const resourceIDStrings = new Set(
-      selection.ids.map((id) => ontology.idToString(id)),
-    );
-    for (const id of selection.ids) {
-      // The tree can hold only some of the children: a search shows only the matches,
-      // and a folded group loads none.
-      const children = await client.ontology.children.retrieve({ ids: id });
-      const childIDs = children
-        .map((child) => child.id)
-        .filter((child) => !resourceIDStrings.has(ontology.idToString(child)));
-      await client.ontology.moveChildren(id, parentID, ...childIDs);
-    }
-    await client.groups.delete(selection.ids.map((id) => id.key));
-    return args;
-  },
-});
+/**
+ * Returns the tree items of groups. A group lists its child groups and the members of
+ * its scope.
+ */
+export const createTreeItems = (
+  members: PlatformGroup.Members,
+): { group: Tree.Item } => {
+  const membersOf = ({ type }: resource.ID): PlatformGroup.Member[] => {
+    if (!PlatformGroup.isScope(type)) throw new Error(`no tree holds ${type} groups`);
+    return members[type];
+  };
 
-const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) => {
-  const {
-    selection,
-    state: { shape, nodes, setNodes },
-  } = data;
-  const parentKey = ontology.idToString(parentOf(selection));
-  // Flat search results do not show the real parent, so the children move to the top.
-  const destination =
-    PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
-  // Sort the groups by depth that way deeper nested groups are ungrouped first.
-  const byDepth = PTree.compareDepth(shape);
-  selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
-  const prevNodes = PTree.deepCopy(nodes);
-  const nextNodes = [
-    ...selection.ids.reduce(
-      (acc, id) => {
-        const key = ontology.idToString(id);
-        const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
-        acc = PTree.moveNode({
-          tree: acc,
-          destination,
-          keys: children.map((c) => c.key),
-        });
-        acc = PTree.removeNode({ tree: acc, keys: key });
-        return [...acc];
-      },
-      [...nodes],
-    ),
+  const children: Tree.Children = ({ client, id, root }) => [
+    Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+    ...membersOf(root).map((m) => m.children(client, id.key)),
   ];
-  setNodes(nextNodes);
-  return { ...data, prevNodes };
-};
 
-const afterUngroupFailure = async ({
-  data: {
-    prevNodes,
-    state: { setNodes },
-  },
-}: Flux.AfterFailureParams<UngroupParams>) => {
-  if (prevNodes != null) setNodes(prevNodes);
-};
+  const retrieveChildren = async (
+    props: Tree.ChildrenProps,
+  ): Promise<resource.ID[]> => {
+    const resources = await Promise.all(
+      children(props).map(async (source) => await source.retrieveAll()),
+    );
+    return resources.flat().map(({ id }) => id);
+  };
 
-const useUngroupSelection = () =>
-  baseUngroup.useUpdate({
-    beforeUpdate: beforeUngroup,
-    afterFailure: afterUngroupFailure,
+  // Ungroup reads children from the Core, since the tree holds only the pages it shows.
+  const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
+    name: "resources",
+    verbs: {
+      present: "ungroup",
+      past: "ungrouped",
+      participle: "ungrouping",
+    },
+    update: async ({ client, data }) => {
+      const { selection } = data;
+      const { ids, rootID } = selection;
+      const parentID = parentOf(selection);
+      const selected = new Set(resource.idToString(ids));
+      const childIDs = (
+        await Promise.all(
+          ids.map(async (id) => await retrieveChildren({ client, id, root: rootID })),
+        )
+      )
+        .flat()
+        .filter((id) => !selected.has(resource.idToString(id)));
+      const parent = resource.idsEqual(parentID, rootID) ? undefined : parentID;
+      await client.batch.send([
+        ...PlatformGroup.moveRequests(client, childIDs, parent),
+        client.groups.deleteRequest(ids.map(({ key }) => key)),
+      ]);
+      return data;
+    },
   });
 
-const TreeItem = Tree.createItem({
-  type: "group",
-  icon: <Icon.Group />,
-  canDrop: () => true,
-  haulItems: ({ id }) => [id],
-  ContextMenu: TreeContextMenu,
-});
+  const TreeContextMenu: Tree.ContextMenu = (props) => {
+    const {
+      selection: { ids, rootID, parentID },
+      state,
+    } = props;
+    const { getResource, getChildren, shape } = state;
+    const hasUpdatePermission = Access.useUpdateGranted(ids);
+    const hasDeletePermission = Access.useDeleteGranted(ids);
+    const { update: handleUngroup } = ungroup.useUpdate();
+    const createEmptyGroup = PlatformGroup.useCreateEmpty({
+      parent: ids[0],
+      state,
+      root: rootID,
+    });
+    const createFromSelection = PlatformGroup.useCreateFromSelection();
+    const handleLink = Core.useCopyLinkToClipboard();
+    const firstID = ids[0];
+    const rename = useRename(props);
+    const isSingle = ids.length === 1;
+    // A closed group has unknown children, so it shows "Ungroup".
+    const isDelete = ids.every(
+      (id) => getChildren(resource.idToString(id))?.length === 0,
+    );
+    const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+    return (
+      <ContextMenu.Menu>
+        {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
+        <Menu.Divider />
+        {isSingle && hasUpdatePermission && (
+          <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
+            <Icon.Group />
+            New group
+          </Menu.Item>
+        )}
+        {hasUpdatePermission && (
+          <PlatformGroup.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            parentID={parentID}
+            onClick={() => createFromSelection(props)}
+          />
+        )}
+        <Menu.Divider />
+        <Tree.CopyContextMenuItem {...props} />
+        {isSingle && (
+          <>
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({ name: getResource(firstID).name, resourceID: firstID })
+              }
+            />
+            <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+          </>
+        )}
+        <Menu.Divider />
+        {hasDeletePermission && parentID != null && (
+          <Menu.Item itemKey="ungroup" onClick={() => handleUngroup(props)}>
+            {ungroupIcon}
+            {isDelete ? "Delete" : "Ungroup"}
+          </Menu.Item>
+        )}
+        <Menu.Divider />
+        <ContextMenu.ReloadConsoleItem />
+      </ContextMenu.Menu>
+    );
+  };
 
-export const TREE_ITEMS = { group: TreeItem } satisfies Tree.Items;
+  const TreeItem = Tree.createItem({
+    icon: <Icon.Group />,
+    children,
+    folder: true,
+    canDrop: (props) => {
+      const types = new Set<resource.Type>([
+        "group",
+        ...membersOf(props.root).map(({ type }) => type),
+      ]);
+      return (
+        props.moved.every(({ id }) => types.has(id.type)) &&
+        PlatformGroup.canMove(props)
+      );
+    },
+    drop: async ({ client, destination, items }) => {
+      await client.batch.send(
+        PlatformGroup.moveRequests(
+          client,
+          items.map(({ id }) => id),
+          destination.id,
+        ),
+      );
+    },
+    haulItems: ({ id }) => [id],
+    ContextMenu: TreeContextMenu,
+  });
+
+  return { group: TreeItem };
+};

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -27,17 +27,11 @@ var _ = Describe("LinePlot", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v8.LinePlot{}.SetOptions()).To(BeNil())
-		})
-	})
-
-	Describe("OntologyID", func() {
-		It("Should return the line plot ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the line plot resource identifier", func() {
 			k := uuid.New()
-			Expect(v8.LinePlot{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLineplot, Key: k.String(),
+			Expect(v8.LinePlot{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLineplot, Key: k.String(),
 			}))
 		})
 	})

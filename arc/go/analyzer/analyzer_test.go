@@ -14,12 +14,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // chResolver is the most common resolver used across tests: a single float32 channel
@@ -1556,4 +1558,124 @@ sequence main {
 			Expect(fn.FindChild("s").Internal).To(BeTrue())
 		},
 	)
+})
+
+var _ = Describe("Declaration order", func() {
+	It(
+		"Should warn on a declaration after a step in a sequence",
+		func(bCtx SpecContext) {
+			ctx := analyzeAndExpect(bCtx, `
+			import time
+			sequence main {
+			    stage a {
+			        true => next
+			    }
+			    t0 := time.now()
+			    stage b {
+			        time.wait(1s)
+			    }
+			}
+			true => main`)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.DeclarationAfterStep))
+			Expect((*ctx.Diagnostics)[0].Severity).To(
+				Equal(protocol.DiagnosticSeverityWarning),
+			)
+		},
+	)
+
+	It("Should warn on a declaration after a flow in a stage", func(bCtx SpecContext) {
+		ctx := analyzeAndExpect(bCtx, `
+			import time
+			stage main {
+			    time.wait(1s)
+			    x := 1
+			}
+			true => main`)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.DeclarationAfterStep))
+	})
+
+	It("Should warn once per late declaration", func(bCtx SpecContext) {
+		ctx := analyzeAndExpect(bCtx, `
+			import time
+			sequence main {
+			    base := 1
+			    stage a {
+			        true => next
+			    }
+			    t0 := time.now()
+			    stage b {
+			        time.wait(1s)
+			        n := 2
+			        true => next
+			    }
+			    count $= 0
+			    stage c {
+			        time.wait(1s)
+			    }
+			}
+			true => main`)
+		Expect(*ctx.Diagnostics).To(HaveLen(3))
+		for _, d := range *ctx.Diagnostics {
+			Expect(d.Code).To(Equal(codes.DeclarationAfterStep))
+		}
+	})
+
+	It("Should accept declarations before the steps", func(bCtx SpecContext) {
+		ctx := analyzeAndExpect(bCtx, `
+			import time
+			sequence main {
+			    t0 := time.now()
+			    count $= 0
+			    stage a {
+			        x := 1
+			        true => next
+			    }
+			    stage b {
+			        time.wait(1s)
+			    }
+			}
+			true => main`)
+		Expect(*ctx.Diagnostics).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Channel reads through later declarations", func() {
+	rawResolver := []symbol.Symbol{
+		{Name: "raw", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+	}
+
+	It(
+		"Should classify a local reactive through a later callee",
+		func(bCtx SpecContext) {
+			ctx := analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).IsReactive()).To(BeTrue())
+		},
+	)
+
+	It("Should classify a copy of a promoted local reactive", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			y := x
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
+		Expect(MustSucceed(ctx.Scope.Resolve(ctx, "y")).IsReactive()).To(BeTrue())
+	})
+
+	It("Should reject a stateful that reads a reactive local", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			s := raw * 2.0
+			sequence main {
+			    y $= s + 1.0
+			}`, rawResolver)
+		Expect(ctx.Diagnostics.String()).To(
+			ContainSubstring("cannot be assigned to stateful"),
+		)
+	})
 })
