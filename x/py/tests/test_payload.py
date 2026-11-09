@@ -72,7 +72,9 @@ class TestInteger:
         read = payload.IntegerRead.model_validate({"fill": "-12"})
         assert read.model_dump()["fill"] == -12
 
-    @pytest.mark.parametrize("value", ["9223372036854775808", "1.5", "1_000", True])
+    @pytest.mark.parametrize(
+        "value", ["9223372036854775808", "1.5", "1_000", "+1", True]
+    )
     def test_invalid(self, value: str | bool) -> None:
         """Should reject a value that is not a signed 64-bit integer."""
         with pytest.raises(ValidationError):
@@ -85,7 +87,7 @@ class TestUnsigned:
         read = payload.UnsignedRead.model_validate({"fill": 2**64 - 1})
         assert '"fill":"18446744073709551615"' in read.model_dump_json()
 
-    @pytest.mark.parametrize("value", ["-1", "18446744073709551616"])
+    @pytest.mark.parametrize("value", ["-1", "-0", "+1", "18446744073709551616"])
     def test_invalid(self, value: str) -> None:
         """Should reject a value that is not an unsigned 64-bit integer."""
         with pytest.raises(ValidationError):

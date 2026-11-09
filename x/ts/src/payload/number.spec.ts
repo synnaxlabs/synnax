@@ -58,7 +58,7 @@ describe("payload", () => {
       },
     );
 
-    it.each(["abc", "1.5", "", " 1", "9223372036854775808", 1])(
+    it.each(["abc", "1.5", "", " 1", "+1", "9223372036854775808", 1])(
       "should reject %s",
       (input) => {
         expect(payload.integerZ.safeParse(input).success).toBe(false);
@@ -71,8 +71,11 @@ describe("payload", () => {
       expect(payload.unsignedZ.parse(input)).toBe(input);
     });
 
-    it.each(["-1", "18446744073709551616", "1e3"])("should reject %s", (input) => {
-      expect(payload.unsignedZ.safeParse(input).success).toBe(false);
-    });
+    it.each(["-1", "-0", "+1", "18446744073709551616", "1e3"])(
+      "should reject %s",
+      (input) => {
+        expect(payload.unsignedZ.safeParse(input).success).toBe(false);
+      },
+    );
   });
 });

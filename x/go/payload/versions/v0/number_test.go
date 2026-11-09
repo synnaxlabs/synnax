@@ -83,6 +83,7 @@ var _ = Describe("Number", func() {
 					To(MatchError(validate.ErrValidation))
 			},
 			Entry("out of range", `"9223372036854775808"`),
+			Entry("plus sign", `"+1"`),
 			Entry("boolean", "true"),
 		)
 		It("Should return a decoder error as is", func() {
@@ -98,16 +99,32 @@ var _ = Describe("Number", func() {
 			Expect(string(MustSucceed(json.Marshal(v0.Unsigned(math.MaxUint64))))).
 				To(Equal(`"18446744073709551615"`))
 		})
-		It("Should decode an unsigned integer from a string", func() {
+		DescribeTable("Should decode an unsigned integer from a string or a number",
+			func(data string, expected v0.Unsigned) {
+				var u v0.Unsigned
+				Expect(json.Unmarshal([]byte(data), &u)).To(Succeed())
+				Expect(u).To(Equal(expected))
+			},
+			Entry("string", `"18446744073709551615"`, v0.Unsigned(math.MaxUint64)),
+			Entry("number", "12", v0.Unsigned(12)),
+		)
+		DescribeTable("Should reject a value that is not an unsigned 64-bit integer",
+			func(data string) {
+				var u v0.Unsigned
+				Expect(json.Unmarshal([]byte(data), &u)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("negative", `"-1"`),
+			Entry("negative zero", `"-0"`),
+			Entry("plus sign", `"+1"`),
+			Entry("out of range", `"18446744073709551616"`),
+			Entry("boolean", "true"),
+		)
+		It("Should return a decoder error as is", func() {
 			var u v0.Unsigned
-			Expect(json.Unmarshal([]byte(`"18446744073709551615"`), &u)).To(Succeed())
-			Expect(u).To(Equal(v0.Unsigned(math.MaxUint64)))
-		})
-		It("Should reject a negative value", func() {
-			var u v0.Unsigned
-			Expect(
-				json.Unmarshal([]byte(`"-1"`), &u),
-			).To(MatchError(validate.ErrValidation))
+			err := u.UnmarshalJSONFrom(jsontext.NewDecoder(strings.NewReader("")))
+			Expect(err).To(MatchError(io.EOF))
+			Expect(err).ToNot(MatchError(validate.ErrValidation))
 		})
 	})
 

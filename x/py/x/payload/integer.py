@@ -15,17 +15,16 @@ from typing import Any, ClassVar
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 
-_DIGITS = re.compile(r"-?[0-9]+")
-
 
 class _Decimal(int):
     """_Decimal is a bounded integer that is a JSON string of decimal digits."""
 
     min: ClassVar[int]
     max: ClassVar[int]
+    digits: ClassVar[re.Pattern[str]]
 
     def __new__(cls, value: int | str) -> _Decimal:
-        valid_str = isinstance(value, str) and _DIGITS.fullmatch(value) is not None
+        valid_str = isinstance(value, str) and cls.digits.fullmatch(value) is not None
         if not valid_str and (isinstance(value, bool) or not isinstance(value, int)):
             raise ValueError(f"cannot parse {cls.__name__} from {value!r}")
         n = int(value)
@@ -53,6 +52,7 @@ class Integer(_Decimal):
 
     min = -(2**63)
     max = 2**63 - 1
+    digits = re.compile(r"-?[0-9]+")
 
 
 class Unsigned(_Decimal):
@@ -62,3 +62,4 @@ class Unsigned(_Decimal):
 
     min = 0
     max = 2**64 - 1
+    digits = re.compile(r"[0-9]+")

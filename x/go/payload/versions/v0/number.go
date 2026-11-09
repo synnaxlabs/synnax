@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"math"
 	"strconv"
+	"strings"
 
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -149,5 +150,14 @@ func readDigits(dec *jsontext.Decoder, name string) (string, error) {
 			k.String(),
 		)
 	}
-	return tok.String(), nil
+	digits := tok.String()
+	if strings.HasPrefix(digits, "+") {
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"cannot decode %s from %q",
+			name,
+			digits,
+		)
+	}
+	return digits, nil
 }

@@ -83,6 +83,7 @@ TEST(PayloadInteger, Parse) {
 TEST(PayloadInteger, ParseInvalid) {
     for (const auto &fill: std::vector<x::json::json>{
              "9223372036854775808",
+             "+1",
              "1.5",
              " 1",
              "",
