@@ -21,7 +21,8 @@ import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-const stopPropagation = (e: React.MouseEvent): void => e.stopPropagation();
+// Keeps a press or a copy in the search box from reaching the log around it.
+const stopPropagation = (e: React.SyntheticEvent): void => e.stopPropagation();
 
 // A button that opens a box to find and filter the lines of a log.
 const Search = (): ReactElement => {
@@ -56,6 +57,7 @@ const Search = (): ReactElement => {
       gap="tiny"
       className={CSS.BE("log", "search")}
       onMouseDown={stopPropagation}
+      onCopy={stopPropagation}
     >
       <Flex.Box x gap="tiny" align="center">
         <Input.Text

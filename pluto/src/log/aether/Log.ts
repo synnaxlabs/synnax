@@ -1000,7 +1000,8 @@ export class Log
       }
       const end = row.start + row.value.length;
       for (const [from, to] of held) {
-        if (to <= row.start || from >= end) continue;
+        // An empty match has nothing to draw.
+        if (from === to || to <= row.start || from >= end) continue;
         const [a, b] = [Math.max(from, row.start), Math.min(to, end)];
         this.drawSpan(
           draw2d,
