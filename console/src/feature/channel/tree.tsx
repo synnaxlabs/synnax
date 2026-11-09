@@ -276,7 +276,6 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
 ];
 
 const TreeItem = Tree.createItem({
-  type: "channel",
   icon: <Icon.Channel />,
   useOnSelect: useOpen,
   haulItems,

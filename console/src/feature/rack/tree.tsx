@@ -199,7 +199,6 @@ export const GROUP_MEMBER: Group.Member = {
 const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
 
 const TreeItem = Tree.createItem({
-  type: "rack",
   icon: <Icon.Rack />,
   children: ({ client, id }) => [
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),

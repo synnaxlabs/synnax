@@ -9,7 +9,7 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { unique } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -23,7 +23,7 @@ import { type DefaultContextMenuProps } from "@/platform/tree/DefaultContextMenu
 import { type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { type ResultNodes } from "@/platform/tree/search";
-import { type Store } from "@/platform/tree/store";
+import { isMoreKey, type Store } from "@/platform/tree/store";
 import { type ContextMenuProps, type TreeState } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
@@ -72,17 +72,19 @@ export const useMenu = ({
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
-  const addStatus = Status.useAdder();
   const session = useStore<State, Action>();
 
-  const render = ({ keys: clicked }: Menu.ContextMenuMenuProps): ReactElement => {
+  const render = ({ keys: targets }: Menu.ContextMenuMenuProps): ReactElement => {
+    // The node that loads more names no resource, so it opens the root menu.
+    const clicked = targets.filter((key) => !isMoreKey(key));
+    const chosen = selected.filter((key) => !isMoreKey(key));
     if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    const rightClickedButNotSelected = clicked.find((v) => !chosen.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise
     // the selection state gives the keys, since the virtual tree can lack the DOM
     // elements.
     const keys =
-      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : chosen;
     const ids = keys.map((key) => resource.parseID(key));
     // A selected node's own children do not count, since an action on the node carries
     // them along. Flat search results show both at the same depth.
@@ -105,7 +107,6 @@ export const useMenu = ({
       client,
       store: session,
       openTab,
-      addStatus,
       handleError,
     };
     const allSameType = ids.every((id) => id.type === ids[0].type);

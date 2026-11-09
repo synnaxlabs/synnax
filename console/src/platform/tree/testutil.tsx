@@ -9,7 +9,6 @@
 
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
@@ -112,27 +111,6 @@ export const createResource = (
   ...(data != null ? { data } : {}),
 });
 
-/**
- * Builds a {@link Status.ErrorHandler} that actually runs the wrapped operation, so
- * handlers like Tree.HandleSelect (which route their async work through
- * handleError) execute in tests. Failures are reported to onError with the handler's
- * heading.
- */
-export const createExecutingHandleError =
-  (
-    onError: (heading: Status.Heading, exc: unknown) => void = () => {},
-  ): Status.ErrorHandler =>
-  (excOrFunc, heading = "error") => {
-    if (typeof excOrFunc !== "function") return onError(heading, excOrFunc);
-    void (async () => {
-      try {
-        await excOrFunc();
-      } catch (exc) {
-        onError(heading, exc);
-      }
-    })();
-  };
-
 /** Lists the groups whose parent is the node. */
 const listChildGroups: Tree.Children = ({ client, id }) => [
   Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
@@ -146,7 +124,6 @@ export const createGroupItem = (
   params: Partial<Tree.CreateItemParams> = {},
 ): Tree.Item =>
   Tree.createItem({
-    type: "group",
     children: listChildGroups,
     drop: async ({ client, destination, items }) =>
       await client.groups.setParent(
@@ -201,7 +178,6 @@ export const createHostItems = (
   children: (client: Synnax) => Tree.Source[],
 ): Tree.Items => ({
   [HOST_ID.type]: Tree.createItem({
-    type: HOST_ID.type,
     children: ({ client }) => children(client),
   }),
 });
@@ -238,9 +214,8 @@ export interface CreateBasePropsParams {
 }
 
 /**
- * Builds {@link Tree.BaseProps} with the given client and store. The tab and
- * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
- * observe them.
+ * Builds {@link Tree.BaseProps} with the given client and store. The tab and error
+ * callbacks default to no-ops. Pass overrides, such as vi.fn() spies, to observe them.
  */
 export const createBaseProps = ({
   client,
@@ -250,7 +225,6 @@ export const createBaseProps = ({
   client,
   store,
   openTab: () => undefined,
-  addStatus: () => undefined,
   handleError: () => undefined,
   ...overrides,
 });
@@ -340,17 +314,19 @@ const QUERY_OPTIONS = { ignore: "script, style, .console-tree--hidden *" };
 
 const SWEEP_INTERVAL = TimeSpan.milliseconds(50);
 
-// Sweeps from the top: a previous lookup can leave the tree scrolled past the row. Rows
-// can land during the sweep, so it reads the height at each step.
-const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
+const rowsHeight = (): number => {
+  const rows = document.querySelector<HTMLElement>(
+    `${VISIBLE_TREE} .lyra-list__virtualizer`,
+  );
+  return rows == null ? 0 : parseInt(rows.style.minHeight, 10);
+};
+
+// Sweeps from the top by default: a previous lookup can leave the tree scrolled past
+// the row. Rows can land during the sweep, so it reads the height at each step.
+const sweepTree = async (text: Matcher, from = 0): Promise<HTMLElement | null> => {
   const tree = document.querySelector<HTMLElement>(VISIBLE_TREE);
-  const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
-  if (tree == null || rows == null) return null;
-  for (
-    let offset = 0;
-    offset <= parseInt(rows.style.minHeight, 10);
-    offset += SCROLL_STEP
-  ) {
+  if (tree == null) return null;
+  for (let offset = from; offset <= rowsHeight(); offset += SCROLL_STEP) {
     await act(async () => {
       tree.scrollTop = offset;
       fireEvent.scroll(tree);
@@ -361,18 +337,47 @@ const sweepTree = async (text: Matcher): Promise<HTMLElement | null> => {
   return null;
 };
 
+const SHOW_MORE = "Show more";
+const MAX_PAGES = 20;
+const BOTTOM_SPAN = 5 * SCROLL_STEP;
+
+// Loads the next page of a folder, as a user does, until the label shows. A page that
+// lands where the show more node was, so the label sweep starts there. The last folder
+// pages near the bottom, so the node sweep starts there.
+const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const height = rowsHeight();
+    const bottom = Math.max(0, height - BOTTOM_SPAN);
+    const more = (await sweepTree(SHOW_MORE, bottom)) ?? (await sweepTree(SHOW_MORE));
+    if (more == null) return null;
+    const at = document.querySelector<HTMLElement>(VISIBLE_TREE)?.scrollTop ?? 0;
+    await act(async () => {
+      fireEvent.click(more);
+    });
+    await waitFor(() => {
+      if (more.isConnected && rowsHeight() === height)
+        throw new Error("the next page has not landed");
+    });
+    const found = await sweepTree(text, at);
+    if (found != null) return found;
+  }
+  return null;
+};
+
 /**
  * Finds the tree label matching text, scrolling the tree when the row sits outside the
- * window. The tree keeps only the rows near the window mounted, so a label further down
- * reaches the DOM the same way a user reaches it. Sweeps again until the label loads or
- * the async util timeout passes. Leaves the tree scrolled where the label was found.
+ * window and loading the next pages of a folder. The tree keeps only the rows near the
+ * window mounted, so a label further down reaches the DOM the same way a user reaches
+ * it. Tries again until the label loads or the async util timeout passes. Leaves the
+ * tree scrolled where the label was found.
  */
 const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
   const deadline = performance.now() + getConfig().asyncUtilTimeout;
-  let label = screen.queryByText(text, QUERY_OPTIONS) ?? (await sweepTree(text));
+  const attempt = async () => (await sweepTree(text)) ?? (await pageTo(text));
+  let label = screen.queryByText(text, QUERY_OPTIONS) ?? (await attempt());
   while (label == null && performance.now() < deadline) {
     await act(async () => await sleep.sleep(SWEEP_INTERVAL));
-    label = await sweepTree(text);
+    label = await attempt();
   }
   return label ?? screen.getByText(text, QUERY_OPTIONS);
 };

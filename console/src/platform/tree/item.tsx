@@ -72,19 +72,17 @@ export interface Drop {
 }
 
 /**
- * Item renders a single resource row in the resource tree. The component carries the
- * static, render-independent behavior for its resource type (children, drag, context
- * menu, visibility) as properties, read imperatively by the Tree.
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, drag, context menu) as properties, which the
+ * Tree reads imperatively.
  */
 export interface Item extends FC<ItemProps> {
-  type: resource.Type;
   hasChildren: boolean;
   children?: Children;
   canDrop: CanDrop;
   drop?: Drop;
   haulItems: (resource: Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
-  visible?: (resource: Resource) => boolean;
 }
 
 export interface Items extends Partial<Record<resource.Type, Item>> {}
@@ -117,7 +115,6 @@ const DefaultRow = ({
 const noop = (): void => {};
 
 export interface CreateItemParams {
-  type: resource.Type;
   icon?: Icon.ReactElement | ((resource: Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: Resource) => void;
   /** Lists the children of a node of this type. */
@@ -129,12 +126,10 @@ export interface CreateItemParams {
   drop?: Drop;
   haulItems?: (resource: Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
-  visible?: (resource: Resource) => boolean;
   Content?: Content;
 }
 
 export const createItem = ({
-  type,
   icon,
   useOnSelect = () => noop,
   children,
@@ -143,7 +138,6 @@ export const createItem = ({
   drop,
   haulItems = () => [],
   ContextMenu,
-  visible,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -156,17 +150,15 @@ export const createItem = ({
     return <Row {...props} icon={resolvedIcon} onDoubleClick={handleDoubleClick} />;
   };
   const item = Component as Item;
-  item.type = type;
   item.hasChildren = hasChildren;
   item.children = children;
   item.canDrop = canDrop;
   item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
-  item.visible = visible;
   return item;
 };
 
 // DefaultItem is the fallback used for resource types with no registered Item: an
 // unadorned name row with no children and no drag or drop behavior.
-export const DefaultItem: Item = createItem({ type: "builtin" });
+export const DefaultItem: Item = createItem({});

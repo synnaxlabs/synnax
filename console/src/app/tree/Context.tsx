@@ -14,18 +14,13 @@ import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
-import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Node } from "@/feature/node";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
-import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
-import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
-import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
 import { Tree } from "@/platform/tree";
 
@@ -49,18 +44,13 @@ const TREE_ITEMS: Tree.Items = {
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
   ...Group.createTreeItems(GROUP_MEMBERS),
-  ...Label.TREE_ITEMS,
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,
-  ...Node.TREE_ITEMS,
   ...Panel.TREE_ITEMS,
   ...Project.TREE_ITEMS,
   ...Rack.TREE_ITEMS,
-  ...Range.TREE_ITEMS,
   ...Schematic.TREE_ITEMS,
-  ...Status.TREE_ITEMS,
   ...Table.TREE_ITEMS,
-  ...Task.TREE_ITEMS,
   ...(DESKTOP ? {} : User.TREE_ITEMS),
 };
 
