@@ -11,6 +11,7 @@ package observe_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,29 +44,30 @@ var _ = Describe("Observer", func() {
 	})
 
 	It(
-		"Should allow a handler to disconnect itself during Notify",
+		"Should block a Disconnect until a running handler returns",
 		func(ctx SpecContext) {
 			obs := observe.New[int]()
-			calls := 0
-			var disconnect observe.Disconnect
-			disconnect = obs.OnChange(func(context.Context, int) {
-				calls++
-				disconnect()
+			started := make(chan struct{})
+			release := make(chan struct{})
+			disconnect := obs.OnChange(func(context.Context, int) {
+				close(started)
+				<-release
 			})
 			notified := make(chan struct{})
-			connected := make(chan struct{})
 			go func() {
 				obs.Notify(ctx, 1)
 				close(notified)
 			}()
+			Eventually(started).Should(BeClosed())
+			disconnected := make(chan struct{})
 			go func() {
-				obs.OnChange(func(context.Context, int) {})
-				close(connected)
+				disconnect()
+				close(disconnected)
 			}()
+			Consistently(disconnected, 50*time.Millisecond).ShouldNot(BeClosed())
+			close(release)
+			Eventually(disconnected).Should(BeClosed())
 			Eventually(notified).Should(BeClosed())
-			Eventually(connected).Should(BeClosed())
-			obs.Notify(ctx, 2)
-			Expect(calls).To(Equal(1))
 		},
 	)
 })

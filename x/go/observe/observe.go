@@ -31,9 +31,9 @@ type Observable[T any] interface {
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
-	// Notify notifies all subscribers of the Value. It calls each handler without
-	// holding a lock, so a handler can connect or disconnect handlers. A handler that
-	// disconnects while a Notify is in progress can still run once in that Notify.
+	// Notify notifies all subscribers of the Value. It calls the handlers while it
+	// holds a lock, so a handler must not call OnChange or a Disconnect on the same
+	// Observer: the call deadlocks.
 	Notify(context.Context, T)
 }
 
@@ -42,7 +42,8 @@ type base[T any] struct {
 	mu       sync.RWMutex
 }
 
-// New creates a new observer.
+// New creates a new observer. A Disconnect from it blocks until every running Notify
+// returns, so the handler never runs after Disconnect returns.
 func New[T any]() Observer[T] {
 	return &base[T]{handlers: set.New[*func(context.Context, T)]()}
 }
@@ -61,9 +62,8 @@ func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
 
 func (b *base[T]) Notify(ctx context.Context, v T) {
 	b.mu.RLock()
-	handlers := b.handlers.Slice()
-	b.mu.RUnlock()
-	for _, h := range handlers {
+	defer b.mu.RUnlock()
+	for h := range b.handlers {
 		(*h)(ctx, v)
 	}
 }
