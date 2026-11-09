@@ -226,15 +226,12 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 // ExpressionNameParts returns the head and tail of the name expr reads when expr is a
 // lone name, and ("", "") otherwise. A call or an index is not a lone name.
 func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
-	pe := GetPrimaryExpression(expr)
-	if pe == nil {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
+		len(postfix.AllIndexOrSlice()) > 0 || postfix.PrimaryExpression() == nil {
 		return "", ""
 	}
-	if postfix, ok := pe.GetParent().(IPostfixExpressionContext); ok &&
-		(len(postfix.AllFunctionCallSuffix()) > 0 || len(postfix.AllIndexOrSlice()) > 0) {
-		return "", ""
-	}
-	return PrimaryNameParts(pe)
+	return PrimaryNameParts(postfix.PrimaryExpression())
 }
 
 // CollectNamedPrimaries returns the primary expressions in expr that read a name,
@@ -263,6 +260,15 @@ func CollectNamedPrimaries(expr IExpressionContext) []IPrimaryExpressionContext 
 // GetPrimaryExpression extracts the primary expression from an expression that has no
 // operators. Returns nil if the expression contains any binary or unary operators.
 func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil {
+		return nil
+	}
+	return postfix.PrimaryExpression()
+}
+
+// getPostfixExpression descends an operator-free expr to its postfix expression.
+func getPostfixExpression(expr IExpressionContext) IPostfixExpressionContext {
 	if expr == nil {
 		return nil
 	}
@@ -295,11 +301,7 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	if pow == nil || pow.CARET() != nil {
 		return nil
 	}
-	postfix := pow.PostfixExpression()
-	if postfix == nil {
-		return nil
-	}
-	return postfix.PrimaryExpression()
+	return pow.PostfixExpression()
 }
 
 // QualifiedNameParts returns the head and tail of a qualified identifier

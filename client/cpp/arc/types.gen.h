@@ -36,9 +36,11 @@
 namespace synnax::arc {
 
 struct Where;
+struct Cursor;
 struct Change;
-struct RetrieveRequest;
+struct Order;
 struct Base;
+struct RetrieveRequest;
 struct RetrieveResponse;
 
 constexpr const char *TYPE_AUTOMATION = "automation";
@@ -47,6 +49,8 @@ constexpr const char *TYPE_MODULE = "module";
 constexpr const char *CHANGE_KIND_CHANGED = "changed";
 constexpr const char *CHANGE_KIND_ADDED = "added";
 constexpr const char *CHANGE_KIND_REMOVED = "removed";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
@@ -103,6 +107,23 @@ struct Where {
     to_proto() const;
     static std::pair<Where, x::errors::Error>
     from_proto(const ::service::arc::pb::Where &pb);
+};
+
+/// @brief Cursor is a position in an order of arcs: the sort value and the key of a
+/// arc.
+struct Cursor {
+    /// @brief key is the key of the arc at the position.
+    Key key;
+    /// @brief name is the name of the arc at the position, when the order sorts by it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::Cursor;
+    [[nodiscard]] std::pair<::api::arc::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::arc::pb::Cursor &pb);
 };
 
 /// @brief TextSource is Arc source code written as text.
@@ -167,60 +188,20 @@ struct Change {
     from_proto(const ::service::arc::pb::Change &pb);
 };
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the arcs that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most arcs to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching arcs to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_program includes the program of each record.
-    bool include_program = false;
-    /// @brief include_changes includes the changes of each record.
-    bool include_changes = false;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
+/// @brief Order is a sort of arcs.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveRequest is a request to retrieve arcs.
-struct RetrieveRequest {
-    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the arcs that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most arcs to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching arcs to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_program includes the program of each record.
-    bool include_program = false;
-    /// @brief include_changes includes the changes of each record.
-    bool include_changes = false;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .limit = options.limit,
-            .offset = options.offset,
-            .include_program = options.include_program,
-            .include_changes = options.include_changes,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::arc::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
+    using proto_type = ::api::arc::pb::Order;
+    [[nodiscard]] std::pair<::api::arc::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::arc::pb::Order &pb);
 };
 
 /// @brief Base carries the fields that every Arc shares.
@@ -242,6 +223,67 @@ struct Base {
     to_proto() const;
     static std::pair<Base, x::errors::Error>
     from_proto(const ::service::arc::pb::Base &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the arcs. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the arcs strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve arcs.
+struct RetrieveRequest {
+    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the arcs. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the arcs strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_program = options.include_program,
+            .include_changes = options.include_changes,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
 };
 
 /// @brief AutomationArc is an Arc that runs on a rack as a task.

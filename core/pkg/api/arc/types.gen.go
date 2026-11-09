@@ -18,22 +18,75 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Cursor is a position in an order of arcs: the sort value and the key of a arc.
+type Cursor struct {
+	// Key is the key of the arc at the position.
+	Key servicearc.Key `json:"key" msgpack:"key"`
+	// Name is the name of the arc at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that arcs can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the arcs by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of arcs.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
+
 // RetrieveRequest is a request to retrieve arcs.
 type RetrieveRequest struct {
 	// Where selects the arcs to retrieve. An absent where selects all of them.
 	Where *servicearc.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the arcs that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the arcs. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the arcs strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most arcs to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching arcs to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeProgram includes the program of each record.
 	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
 	// IncludeChanges includes the changes of each record.
 	IncludeChanges bool `json:"include_changes" msgpack:"include_changes"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

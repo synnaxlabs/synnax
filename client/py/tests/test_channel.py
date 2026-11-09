@@ -782,18 +782,15 @@ class TestChannelRetrieveFilters:
         assert self.keys(res) == {idx.key, data.key}
         assert client.channels.retrieve(names, node_key=idx.leaseholder + 1) == []
 
-    def test_limit_offset(
+    def test_limit(
         self,
         client: sy.Synnax,
         create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
-        """Should page through the matching channels"""
-        names = self.names(create_channels)
-        first = client.channels.retrieve(names, limit=2)
-        rest = client.channels.retrieve(names, limit=2, offset=2)
+        """Should return at most the limit of the matching channels"""
+        first = client.channels.retrieve(self.names(create_channels), limit=2)
         assert len(first) == 2
-        assert len(rest) == 1
-        assert self.keys(first) | self.keys(rest) == self.keys(list(create_channels))
+        assert self.keys(first) <= self.keys(list(create_channels))
 
     def test_fields(
         self,
@@ -857,7 +854,7 @@ class TestChannelRetrieveFilters:
     ) -> None:
         """Should reject a single key beside a limit, since a page could hide a
         match"""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.channels.retrieve(create_channels[0].key, limit=1)  # type: ignore[call-overload]
 
     def test_none_field(self, client: sy.Synnax) -> None:

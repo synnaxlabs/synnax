@@ -48,8 +48,8 @@ export const { use, useEnsure, useTombstone, useResult, createSelector } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
     onChange: ({ client, query: { key } }, handler) =>
-      client.arcs.onChange({ key }, handler),
-    getCached: ({ client, query: { key } }) => client.arcs.getCached({ key }),
+      client.arcs.watch({ key }).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.arcs.watch({ key }).getCached(),
     awaitCreation: true,
   });
 
@@ -172,17 +172,6 @@ export const useAddNode = (keyOverride?: arc.Key) => {
   };
 };
 
-export type ListQuery = arc.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
-  onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.arcs.onChange(key, handler),
-  getCached: ({ client, query }) => client.arcs.getCached(query),
-});
-
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
   verbs: verbs.DELETE,
@@ -266,15 +255,14 @@ export type RetrieveTaskParams = {
 };
 
 export const {
-  use: useTask,
   useResult: useResultTask,
   createResultSelector: createTaskResultSelector,
 } = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
   name: "task",
   retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
   onChange: ({ client, query }, handler) =>
-    client.arcs.task.onChange(query.arcKey, handler),
-  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
+    client.arcs.task.watch(query.arcKey).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.task.watch(query.arcKey).getCached(),
 });
 
 const useDriftedResult = createTaskResultSelector(
@@ -311,8 +299,8 @@ const { useResult: useResultModuleStatus } = Flux.createRetrieve<
   name: "Arc status",
   retrieve: async ({ client, query }) => await client.arcs.status.retrieve(query.key),
   onChange: ({ client, query }, handler) =>
-    client.arcs.status.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.arcs.status.getCached(query.key),
+    client.arcs.status.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.arcs.status.watch(query.key).getCached(),
 });
 
 /**

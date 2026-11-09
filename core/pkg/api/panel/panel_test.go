@@ -278,7 +278,7 @@ var _ = Describe("Service", func() {
 			Expect(res.Panels).To(BeEmpty())
 		})
 
-		It("Should honor the limit and offset bounds", func(ctx SpecContext) {
+		It("Should honor the limit", func(ctx SpecContext) {
 			a := createPanel(ctx, "page-a")
 			b := createPanel(ctx, "page-b")
 			grant(ctx, author.ResourceID(), access.ActionRetrieve,
@@ -288,8 +288,7 @@ var _ = Describe("Service", func() {
 					Where: &panel.Where{
 						Key: &filter.Set[panel.Key]{In: []panel.Key{a.Key, b.Key}},
 					},
-					Limit:  new(uint32(1)),
-					Offset: 1,
+					Limit: new(uint32(1)),
 				}),
 			)
 			Expect(res.Panels).To(HaveLen(1))
@@ -385,7 +384,12 @@ var _ = Describe("Service", func() {
 							Key:         p.Key,
 							DispatchKey: "sess-1",
 							Actions: []panel.Action{
-								panel.NewRenameAction(panel.RenamePayload{Name: "x"}),
+								panel.NewSetAction(
+									panel.SetPayload{
+										Path:  []string{"name"},
+										Value: "x",
+									},
+								),
 							},
 						},
 					),
@@ -406,8 +410,11 @@ var _ = Describe("Service", func() {
 							Key:         p.Key,
 							DispatchKey: "sess-1",
 							Actions: []panel.Action{
-								panel.NewRenameAction(
-									panel.RenamePayload{Name: "renamed"},
+								panel.NewSetAction(
+									panel.SetPayload{
+										Path:  []string{"name"},
+										Value: "renamed",
+									},
 								),
 							},
 						},

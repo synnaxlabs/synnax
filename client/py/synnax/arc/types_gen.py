@@ -38,6 +38,11 @@ CHANGE_KIND_REMOVED: Literal["removed"] = "removed"
 
 ChangeKind = Literal["changed", "added", "removed"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 MODE_TEXT: Literal["text"] = "text"
 
 MODE_GRAPH: Literal["graph"] = "graph"
@@ -62,6 +67,18 @@ class Change(BaseModel):
     type: Type
     path: str = ""
     kind: ChangeKind
+
+
+class Order(BaseModel):
+    """Is a sort of arcs.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TextSource(BaseModel):
@@ -128,6 +145,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of arcs: the sort value and the key of a arc.
+
+    Attributes:
+        key: Is the key of the arc at the position.
+        name: Is the name of the arc at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class Base(BaseModel):
     """Carries the fields that every Arc shares.
 
@@ -154,8 +183,9 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the arcs to retrieve. An absent where selects all of them.
         search_term: Keeps the arcs that match the term, closest match first.
+        order: Sorts the arcs. An absent order sorts them by key.
+        after: Starts the arcs strictly past this position in their order.
         limit: Is the most arcs to return.
-        offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
         include_changes: Includes the changes of each record.
         include_status: Includes the status of each record.
@@ -165,8 +195,9 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
     include_changes: bool = False
     include_status: bool = False

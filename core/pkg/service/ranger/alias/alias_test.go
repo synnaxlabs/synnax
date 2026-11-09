@@ -564,12 +564,10 @@ var _ = Describe("Alias", Ordered, func() {
 				To(Succeed())
 		})
 
-		search := func(
-			ctx SpecContext, q channel.Retrieve, limit, offset int,
-		) []channel.Key {
+		search := func(ctx SpecContext, q channel.Retrieve, limit int) []channel.Key {
 			GinkgoHelper()
 			chs := MustSucceed(aliasSvc.NewReader(db).SearchChannels(
-				ctx, q, r.Key, term, visible, limit, offset,
+				ctx, q, r.Key, term, visible, limit,
 			))
 			return lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
 				return ch.Key()
@@ -584,7 +582,7 @@ var _ = Describe("Alias", Ordered, func() {
 		It("Should rank the channels whose alias matches the term first", func(
 			ctx SpecContext,
 		) {
-			Expect(search(ctx, both(), 0, 0)).
+			Expect(search(ctx, both(), 0)).
 				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
@@ -592,7 +590,7 @@ var _ = Describe("Alias", Ordered, func() {
 			var chs []channel.Channel
 			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 				chs, err = aliasSvc.NewReader(snap).
-					SearchChannels(ctx, both(), r.Key, term, visible, 0, 0)
+					SearchChannels(ctx, both(), r.Key, term, visible, 0)
 				return err
 			})).To(Succeed())
 			Expect(lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
@@ -600,10 +598,10 @@ var _ = Describe("Alias", Ordered, func() {
 			})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
-		It("Should page the merged channels", func(ctx SpecContext) {
-			Expect(search(ctx, both(), 1, 0)).To(Equal([]channel.Key{byAlias.Key()}))
-			Expect(search(ctx, both(), 1, 1)).To(Equal([]channel.Key{byName.Key()}))
-			Expect(search(ctx, both(), 1, 2)).To(BeEmpty())
+		It("Should limit the merged channels", func(ctx SpecContext) {
+			Expect(search(ctx, both(), 1)).To(Equal([]channel.Key{byAlias.Key()}))
+			Expect(search(ctx, both(), 2)).
+				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 		})
 
 		It("Should list a channel that matches by alias and by name once", func(
@@ -625,16 +623,17 @@ var _ = Describe("Alias", Ordered, func() {
 				return channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(byName.Key(), second.Key()))
 			}
-			Expect(search(ctx, q(), 0, 0)).
+			Expect(search(ctx, q(), 0)).
 				To(Equal([]channel.Key{byName.Key(), second.Key()}))
-			Expect(search(ctx, q(), 1, 1)).To(Equal([]channel.Key{second.Key()}))
+			Expect(search(ctx, q(), 2)).
+				To(Equal([]channel.Key{byName.Key(), second.Key()}))
 		})
 
 		It("Should leave out an alias match that the query rejects", func(
 			ctx SpecContext,
 		) {
 			q := channelSvc.NewRetrieve().Where(channel.MatchKeys(byName.Key()))
-			Expect(search(ctx, q, 0, 0)).To(Equal([]channel.Key{byName.Key()}))
+			Expect(search(ctx, q, 0)).To(Equal([]channel.Key{byName.Key()}))
 		})
 
 		It("Should skip the alias of a deleted channel", func(ctx SpecContext) {
@@ -642,7 +641,7 @@ var _ = Describe("Alias", Ordered, func() {
 				return channelSvc.NewWriter(tx).Delete(ctx, byAlias.Key(), false)
 			})).
 				To(Succeed())
-			Expect(search(ctx, channelSvc.NewRetrieve(), 0, 0)).
+			Expect(search(ctx, channelSvc.NewRetrieve(), 0)).
 				To(Equal([]channel.Key{byName.Key()}))
 		})
 	})

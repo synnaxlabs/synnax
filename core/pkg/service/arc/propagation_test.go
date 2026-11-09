@@ -267,7 +267,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 			m, key := setup(ctx)
 			before := settledHash(ctx, key)
 			Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
-				arc.NewRenameAction(arc.RenamePayload{Name: "pt_renamed"}),
+				arc.NewSetAction(
+					arc.SetPayload{Path: []string{"name"}, Value: "pt_renamed"},
+				),
 			})).To(Succeed())
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
@@ -620,7 +622,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 			key := deploy(ctx, a)
 			before := settledHash(ctx, key)
 			Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
-				arc.NewRenameAction(arc.RenamePayload{Name: "pt_gone"}),
+				arc.NewSetAction(
+					arc.SetPayload{Path: []string{"name"}, Value: "pt_gone"},
+				),
 			})).To(Succeed())
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 			Expect(record(ctx, a).Stored.Modules).To(BeEmpty())
