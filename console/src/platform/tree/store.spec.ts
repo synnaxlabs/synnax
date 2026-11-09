@@ -73,6 +73,7 @@ const createStore = (
     root: ROOT,
     list: (id) => sources[resource.idToString(id)] ?? [],
     hasChildren: (type) => type === "group",
+    isFolder: (type) => type === "group",
     onError: vi.fn(),
     ...config,
   });
@@ -423,10 +424,13 @@ describe("tree store", () => {
     const results: Results = {
       nodes: [{ key: "group:a", children: [{ key: "channel:1" }] }],
       fixed: new Set(["group:a"]),
+      expanded: [],
+      paths: new Map(),
       resources: new Map([
         ["group:a", GROUP_A],
         ["channel:1", res("channel", "1", "match")],
       ]),
+      ancestors: new Map([["channel:1", new Set(["group:a"])]]),
     };
 
     it("should show the results in place of the lists of the root and fixed groups", () => {
@@ -453,6 +457,49 @@ describe("tree store", () => {
       store.setResults(results);
       expect(child.subscribers()).toBe(0);
       expect(keysOf(store, "group:a")).toEqual(["channel:1"]);
+    });
+
+    it("should expand each folder of the results once", () => {
+      const store = createStore({}, { results: { ...results, expanded: ["group:a"] } });
+      expect(store.getExpanded()).toEqual(["group:a"]);
+      expect(keysOf(store, "group:a")).toEqual(["channel:1"]);
+      store.setExpanded([]);
+      store.setResults({ ...results, expanded: ["group:a", "group:b"] });
+      expect(store.getExpanded()).toEqual(["group:b"]);
+    });
+
+    it("should give the ancestors of a match at the top through its path", () => {
+      const store = createStore(
+        {},
+        {
+          results: {
+            ...results,
+            nodes: [{ key: "channel:1" }],
+            fixed: new Set(),
+            paths: new Map([["channel:1", [GROUP_B.id, GROUP_A.id]]]),
+          },
+        },
+      );
+      expect(store.getAncestors("channel:1")).toEqual([GROUP_B.id, GROUP_A.id, ROOT]);
+    });
+
+    it("should give the ancestors of a node through the tree", () => {
+      const store = createStore({}, { results });
+      store.setExpanded(["group:a"]);
+      expect(store.getAncestors("channel:1")).toEqual([GROUP_A.id, ROOT]);
+    });
+
+    it("should find the keys inside another key in the tree or above a match", () => {
+      const flat: Results = {
+        ...results,
+        nodes: [{ key: "group:a", children: [] }, { key: "channel:1" }],
+        fixed: new Set(),
+      };
+      const store = createStore({}, { results: flat });
+      expect(store.getContained(["group:a", "channel:1"])).toEqual(
+        new Set(["channel:1"]),
+      );
+      expect(store.getContained(["channel:1"])).toEqual(new Set());
     });
 
     it("should read the lists of a group that is not fixed once it expands", async () => {

@@ -73,11 +73,13 @@ export interface Drop {
 
 /**
  * Item renders one resource in the resource tree. The component carries the static
- * behavior of its resource type (children, drag, context menu) as properties, which the
- * Tree reads imperatively.
+ * behavior of its resource type (children, order, drag, context menu) as properties,
+ * which the Tree reads imperatively.
  */
 export interface Item extends FC<ItemProps> {
   hasChildren: boolean;
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder: boolean;
   children?: Children;
   canDrop: CanDrop;
   drop?: Drop;
@@ -121,6 +123,8 @@ export interface CreateItemParams {
   children?: Children;
   /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder?: boolean;
   canDrop?: CanDrop;
   /** Moves dropped items into a node of this type. Required when canDrop can pass. */
   drop?: Drop;
@@ -134,6 +138,7 @@ export const createItem = ({
   useOnSelect = () => noop,
   children,
   hasChildren = children != null,
+  folder = false,
   canDrop = () => false,
   drop,
   haulItems = () => [],
@@ -151,6 +156,7 @@ export const createItem = ({
   };
   const item = Component as Item;
   item.hasChildren = hasChildren;
+  item.folder = folder;
   item.children = children;
   item.canDrop = canDrop;
   item.drop = drop;

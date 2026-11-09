@@ -37,6 +37,8 @@ import {
   renderSuspended,
   selectTestProject,
   type TestStore,
+  uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 export interface StateOptions extends Partial<Tree.TreeState> {
@@ -124,6 +126,7 @@ export const createGroupItem = (
 ): Tree.Item =>
   Tree.createItem({
     children: listChildGroups,
+    folder: true,
     drop: async ({ client, destination, items }) =>
       await client.groups.setParent(
         items.map(({ id }) => id.key),
@@ -165,6 +168,47 @@ export const createScopeTree = (
   },
   listRoot: (client) => listMembers(client, container),
 });
+
+/** The groups that {@link createSearchTree} makes. */
+export interface SearchTree {
+  root: resource.ID;
+  bravo: group.Key;
+  tok: string;
+  names: Record<
+    "alpha" | "bravo" | "charlie" | "delta" | "echo" | "golf" | "hotel",
+    string
+  >;
+}
+
+// root > alpha > {bravo > {charlie, hotel}, golf}, root > delta, root > echo. Only
+// alpha, charlie, and delta match the token.
+export const createSearchTree = async (client: Synnax): Promise<SearchTree> => {
+  const tok = uniqueToken();
+  const names = {
+    alpha: `${tok} alpha`,
+    bravo: uniqueName("bravo"),
+    charlie: `${tok} charlie`,
+    delta: `${tok} delta`,
+    echo: uniqueName("echo"),
+    golf: uniqueName("golf"),
+    hotel: uniqueName("hotel"),
+  };
+  const root = await client.groups.create({
+    scope: "channel",
+    name: uniqueName("root"),
+  });
+  const rootID = group.resourceID(root.key);
+  const alpha = await client.groups.create({ parent: rootID, name: names.alpha });
+  const alphaID = group.resourceID(alpha.key);
+  const bravo = await client.groups.create({ parent: alphaID, name: names.bravo });
+  const bravoID = group.resourceID(bravo.key);
+  await client.groups.create({ parent: bravoID, name: names.charlie });
+  await client.groups.create({ parent: bravoID, name: names.hotel });
+  await client.groups.create({ parent: alphaID, name: names.golf });
+  await client.groups.create({ parent: rootID, name: names.delta });
+  await client.groups.create({ parent: rootID, name: names.echo });
+  return { root: rootID, bravo: bravo.key, tok, names };
+};
 
 /** The root of a tree whose children come from {@link createHostItems}. */
 export const HOST_ID: resource.ID = { type: "builtin", key: "host" };
@@ -240,6 +284,7 @@ export interface RenderLiveTreeOptions extends Pick<RenderOptions, "onCaughtErro
   projectClient?: Synnax;
   /** Renders a search action and field above the tree. */
   search?: Tree.UseSearch;
+  contextMenus?: Tree.ContextMenus;
 }
 
 export interface LiveTreeHandle extends RenderResult {
@@ -282,6 +327,7 @@ export const renderLiveTree = async ({
   extra,
   projectClient = client,
   search,
+  contextMenus,
   onCaughtError,
 }: RenderLiveTreeOptions): Promise<LiveTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
@@ -290,7 +336,7 @@ export const renderLiveTree = async ({
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>
-        <Tree.Provider items={items}>
+        <Tree.Provider items={items} contextMenus={contextMenus}>
           {SearchableTree == null ? (
             <Tree.Tree root={root} listRoot={listRoot} />
           ) : (
@@ -305,6 +351,18 @@ export const renderLiveTree = async ({
   );
   return { ...rendered, store };
 };
+
+/** Renders a tree of groups under root that searches with search. */
+export const renderSearchableTree = async (
+  client: Synnax,
+  root: resource.ID,
+  search: Tree.UseSearch,
+): Promise<LiveTreeHandle> =>
+  await renderLiveTree({ client, root, items: { group: createGroupItem() }, search });
+
+/** Returns how many trees an open search hides. */
+export const countHiddenTrees = (): number =>
+  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
 
 const SCROLL_STEP = 200;
 // A search hides the browse tree, so the helpers skip it as a user does.

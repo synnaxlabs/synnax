@@ -155,6 +155,7 @@ export const createTreeItems = (
   const TreeItem = Tree.createItem({
     icon: <Icon.Group />,
     children,
+    folder: true,
     canDrop: (props) => {
       const types = new Set<resource.Type>([
         "group",
