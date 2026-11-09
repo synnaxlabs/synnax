@@ -35,6 +35,14 @@ func (v *Validator) Exec(fn func() error) {
 	}
 }
 
+// ruleError is a failed validation rule. It matches ErrValidation without adding the
+// text of ErrValidation to its message.
+type ruleError struct{ error }
+
+func (e ruleError) Unwrap() error { return e.error }
+
+func (ruleError) Is(target error) bool { return target == ErrValidation }
+
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
@@ -42,7 +50,7 @@ func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 		if !cond {
 			return nil
 		}
-		return PathedError(errors.New(msg), path)
+		return PathedError(ruleError{errors.New(msg)}, path)
 	})
 	return len(v.errs) > 0
 }
@@ -52,7 +60,7 @@ func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any
 		if !cond {
 			return nil
 		}
-		return PathedError(errors.Newf(format, args...), field)
+		return PathedError(ruleError{errors.Newf(format, args...)}, field)
 	})
 	return len(v.errs) > 0
 }

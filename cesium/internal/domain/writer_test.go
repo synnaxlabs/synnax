@@ -608,9 +608,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 20 * telem.SecondTS,
 							End:   10 * telem.SecondTS,
-						})).Error().To(MatchError(ContainSubstring(
-							"end timestamp must be after or equal to start",
-						)))
+						})).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("end timestamp")),
+						))
 					})
 				Context("No domain overlap", func() {
 					It("Should successfully commit", func(ctx SpecContext) {

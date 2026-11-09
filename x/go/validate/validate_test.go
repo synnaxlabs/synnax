@@ -133,6 +133,25 @@ var _ = Describe("Validate", func() {
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
+		It("Should mark the Ternary error as a validation error", func() {
+			v.Ternary("field", true, "wrong")
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		It("Should mark the Ternaryf error as a validation error", func() {
+			v.Ternaryf("field", true, "wrong: %d", 1)
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		It("Should decode a failure as a validation error", func(ctx SpecContext) {
+			v.Ternary("field", true, "wrong")
+			decoded := errors.Decode(ctx, errors.Encode(ctx, v.Error(), false))
+			Expect(decoded).To(MatchError(validate.ErrValidation))
+			Expect(decoded).To(MatchError(ContainSubstring("field: wrong")))
+		})
+
 		It("Should keep an earlier failure through a passing check", func() {
 			v.Ternary("first", true, "failed")
 			Expect(v.Ternary("second", false, "passed")).To(BeTrue())
