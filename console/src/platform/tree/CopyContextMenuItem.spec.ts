@@ -70,6 +70,26 @@ describe("CopyContextMenuItem", () => {
     );
   });
 
+  it("should copy the plain text when the clipboard refuses HTML", async () => {
+    const writeText = stubClipboardWriteText();
+    stubClipboardWrite(async () => {
+      throw new Error("Write permission denied.");
+    });
+    const statuses = await render([ch, rack]);
+    fireEvent.click(screen.getByText("Copy"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("R&D <pressure>\nmy_rack"),
+    );
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          message: "Copied 2 names to clipboard",
+        }),
+      ),
+    );
+  });
+
   it("should name the resource in the status when one is copied", async () => {
     stubClipboardWriteText();
     const statuses = await render([rack]);

@@ -33,13 +33,14 @@ export interface ClipboardItemStub {
 
 /**
  * Installs a ClipboardItem global, which jsdom lacks, and a spy in place of
- * navigator.clipboard.write. Returns the spy, which receives the written items. Remove
- * the global with vi.unstubAllGlobals.
+ * navigator.clipboard.write. A writeText from {@link stubClipboardWriteText} stays.
+ * Returns the spy, which receives the written items. Remove the global with
+ * vi.unstubAllGlobals.
  */
-export const stubClipboardWrite = (): Mock<
-  (items: ClipboardItemStub[]) => Promise<void>
-> => {
-  const write = vi.fn(async (_items: ClipboardItemStub[]) => {});
+export const stubClipboardWrite = (
+  impl: (items: ClipboardItemStub[]) => Promise<void> = async () => {},
+): Mock<(items: ClipboardItemStub[]) => Promise<void>> => {
+  const write = vi.fn(impl);
   vi.stubGlobal(
     "ClipboardItem",
     class implements ClipboardItemStub {
@@ -47,7 +48,7 @@ export const stubClipboardWrite = (): Mock<
     },
   );
   Object.defineProperty(navigator, "clipboard", {
-    value: { write },
+    value: { ...navigator.clipboard, write },
     configurable: true,
   });
   return write;

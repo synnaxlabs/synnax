@@ -18,13 +18,19 @@ import { Session } from "@/session";
 
 const write = async (text: string, html: string): Promise<void> => {
   // An insecure (http) context has no ClipboardItem.
-  if (typeof ClipboardItem === "undefined") return await clipboard.writeText(text);
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      "text/plain": new Blob([text], { type: "text/plain" }),
-      "text/html": new Blob([html], { type: "text/html" }),
-    }),
-  ]);
+  if (typeof ClipboardItem !== "undefined")
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([text], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    } catch {
+      // The plain text still copies where the rich write is refused.
+    }
+  await clipboard.writeText(text);
 };
 
 export interface Copy {
