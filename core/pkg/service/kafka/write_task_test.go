@@ -504,6 +504,9 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
+		Entry("bytes as base64",
+			telem.BytesT, telem.NewSeriesV([]byte{0x00, 0xff, 0x3f}),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "AP8/"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {

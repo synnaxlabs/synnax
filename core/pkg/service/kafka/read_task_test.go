@@ -1345,6 +1345,13 @@ var _ = Describe("Read task", func() {
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
 			telem.NewSeriesV(readUUID)),
+		Entry("bytes from base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "AP8/"},
+			telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})),
+		Entry("empty bytes from empty base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
 	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
@@ -1421,6 +1428,9 @@ var _ = Describe("Read task", func() {
 		Entry("a malformed UUID",
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
+		Entry("text that is not base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
@@ -1495,16 +1505,6 @@ var _ = Describe("Read task", func() {
 					DataType: telem.Float64T,
 				}}
 			}, `field "v": json pointer "v" must be empty or start with "/"`),
-		Entry("a bytes channel",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.BytesT)
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.BytesT,
-				}}
-			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{
