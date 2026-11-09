@@ -74,6 +74,10 @@ message WriterResponse {
   int32 counter = 3;
   errors.PBPayload error = 4;
   int64 end = 5;
+  // unauthorized is true if this commit lacked control of a channel, or if a write
+  // since the last reported commit was refused. Each refusal is reported once. A Core
+  // without this field sends no value, which reads as authorized.
+  bool unauthorized = 6;
 }
 
 message StreamerRequest {

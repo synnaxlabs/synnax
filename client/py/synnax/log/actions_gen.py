@@ -56,8 +56,7 @@ class SetChannelEntryPayload(BaseModel):
 
 class SetChannelColorPayload(BaseModel):
     """Sets the display color of the entry identified by channel. The zero color resets
-    it to a palette color assigned at render time. No-op when no entry references the
-    channel.
+    it to the text color of the log. No-op when no entry references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -74,9 +73,9 @@ class SetChannelNotationPayload(BaseModel):
 
 
 class SetChannelPrecisionPayload(BaseModel):
-    """Sets the number of decimal digits displayed for the entry identified by channel.
-    Absent clears it, so samples show as they arrive. No-op when no entry references the
-    channel.
+    """Sets the number of digits after the decimal point for the entry identified by
+    channel. Absent clears it, so samples show as they arrive. No-op when no entry
+    references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -93,29 +92,21 @@ class SetChannelAliasPayload(BaseModel):
 
 
 class SetChannelTimestampFormatPayload(BaseModel):
-    """Sets the timestamp render format of the entry identified by channel. No-op when
-    no entry references the channel.
+    """Sets the format of the values of the timestamp channel identified by channel.
+    No-op when no entry references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
     format: telem.TimestampFormat
 
 
-class SetChannelTimestampTzPayload(BaseModel):
-    """Sets the timestamp time zone of the entry identified by channel. No-op when no
-    entry references the channel.
+class SetChannelTimestampTimeZonePayload(BaseModel):
+    """Sets the time zone of the values of the timestamp channel identified by channel.
+    No-op when no entry references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
-    tz: telem.TimeZone
-
-
-class SetChannelsPayload(BaseModel):
-    """Replaces the entire ordered list of channel entries. Used for bulk channel
-    selection and reordering.
-    """
-
-    channels: list[ChannelEntry] = Field(default_factory=list)
+    time_zone: telem.TimeZone
 
 
 class SwapChannelPayload(BaseModel):
@@ -261,14 +252,9 @@ class SetChannelTimestampFormatAction(BaseModel):
     set_channel_timestamp_format: SetChannelTimestampFormatPayload
 
 
-class SetChannelTimestampTzAction(BaseModel):
-    type: Literal["set_channel_timestamp_tz"] = "set_channel_timestamp_tz"
-    set_channel_timestamp_tz: SetChannelTimestampTzPayload
-
-
-class SetChannelsAction(BaseModel):
-    type: Literal["set_channels"] = "set_channels"
-    set_channels: SetChannelsPayload
+class SetChannelTimestampTimeZoneAction(BaseModel):
+    type: Literal["set_channel_timestamp_time_zone"] = "set_channel_timestamp_time_zone"
+    set_channel_timestamp_time_zone: SetChannelTimestampTimeZonePayload
 
 
 class SwapChannelAction(BaseModel):
@@ -327,8 +313,7 @@ Action = Annotated[
     | SetChannelPrecisionAction
     | SetChannelAliasAction
     | SetChannelTimestampFormatAction
-    | SetChannelTimestampTzAction
-    | SetChannelsAction
+    | SetChannelTimestampTimeZoneAction
     | SwapChannelAction
     | SetTimestampPrecisionAction
     | SetChannelNamesHiddenAction
@@ -384,14 +369,10 @@ def set_channel_timestamp_format(
     return SetChannelTimestampFormatAction(set_channel_timestamp_format=payload)
 
 
-def set_channel_timestamp_tz(
-    payload: SetChannelTimestampTzPayload,
-) -> SetChannelTimestampTzAction:
-    return SetChannelTimestampTzAction(set_channel_timestamp_tz=payload)
-
-
-def set_channels(payload: SetChannelsPayload) -> SetChannelsAction:
-    return SetChannelsAction(set_channels=payload)
+def set_channel_timestamp_time_zone(
+    payload: SetChannelTimestampTimeZonePayload,
+) -> SetChannelTimestampTimeZoneAction:
+    return SetChannelTimestampTimeZoneAction(set_channel_timestamp_time_zone=payload)
 
 
 def swap_channel(payload: SwapChannelPayload) -> SwapChannelAction:

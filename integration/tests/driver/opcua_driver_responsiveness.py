@@ -137,13 +137,13 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             try:
                 task.start(timeout=5)
                 self.log(f"  Started {task.name}")
-            except (TimeoutError, sy.UnexpectedError) as e:
+            except (TimeoutError, RuntimeError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to start {task.name}: {e}")
 
         for task in tasks:
             try:
                 task.stop(timeout=5)
-            except (TimeoutError, sy.UnexpectedError) as e:
+            except (TimeoutError, RuntimeError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to stop {task.name}: {e}")
 
         return True

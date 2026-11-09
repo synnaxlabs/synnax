@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port int32 = 0 {
+        port uint32 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -676,7 +676,7 @@ BaseAIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
@@ -1198,7 +1198,7 @@ BaseCIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
@@ -1235,8 +1235,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor     int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor     uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1251,7 +1252,7 @@ CIChannel union on type extends BaseCIChannel {
         count_direction CICountDirection = count_up {
             @doc value "selects the direction the counter counts."
         }
-        initial_count   float64 = 0 {
+        initial_count   uint32 = 0 {
             @doc value "is the value the counter starts at."
         }
         terminal        string = "" {
@@ -1283,8 +1284,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor       int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor       uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1400,8 +1402,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         terminal_a     string = "" {
             @doc value "is the terminal for encoder channel A."
@@ -1441,8 +1444,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         initial_angle  float64 = 0 {
             @doc value "is the angle the encoder starts at."
@@ -1523,7 +1527,7 @@ BaseAOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1578,11 +1582,12 @@ DIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
-    line     int32 = 0 {
-        @doc value "is the digital line within the port the channel reads from."
+    line     uint8 = 0 {
+        @doc value    "is the digital line within the port the channel reads from."
+        @validate max 31
     }
 
     @doc value  "is a digital input channel the task acquires from."
@@ -1613,11 +1618,12 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
-    line               int32 = 0 {
-        @doc value "is the digital line within the port the channel writes to."
+    line               uint8 = 0 {
+        @doc value    "is the digital line within the port the channel writes to."
+        @validate max 31
     }
 
     @doc value  "is a digital output channel the task drives."
@@ -1731,7 +1737,7 @@ AccelChargeSensitivityUnits enum {
 }
 
 AnalogInputPort struct {
-    port                    int32            {
+    port                    uint32           {
         @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
     }
     terminal_configs        TerminalConfig[] = [] {
@@ -1747,7 +1753,7 @@ AnalogInputPort struct {
     types                   string[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
-    negative                int32?           {
+    negative                uint32?          {
         @doc value """
             is the port that a differential channel on this port uses as its negative
             input. Absent when the port has no pair.
@@ -1758,7 +1764,7 @@ AnalogInputPort struct {
 }
 
 AnalogOutputPort struct {
-    port             int32            {
+    port             uint32           {
         @doc value "is the number in the DAQmx name of the port, such as 1 for ao1."
     }
     terminal_configs TerminalConfig[] = [] {
@@ -1772,7 +1778,7 @@ AnalogOutputPort struct {
 }
 
 CounterPort struct {
-    port  int32    {
+    port  uint32   {
         @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
     }
     types string[] = [] {
@@ -1785,11 +1791,12 @@ CounterPort struct {
 }
 
 DigitalPort struct {
-    port   int32 {
+    port   uint32 {
         @doc value "is the number in the DAQmx name of the port, such as 0 for port0."
     }
-    lines  int32 {
-        @doc value "is the number of lines in the port."
+    lines  uint8  {
+        @doc value    "is the number of lines in the port."
+        @validate max 32
     }
     input  bool = false {
         @doc value "is true when the port reads digital input."

@@ -50,7 +50,10 @@ export const Item = (props: ItemProps): ReactElement | null => {
     >
       <Flex.Box x grow>
         <Text.Text level="p" weight={450}>
-          <Base.Indicator variant={variant} />
+          <Base.Indicator
+            variant={variant}
+            className={CSS.BE("status", "list-item-indicator")}
+          />
           <Text.MaybeEditable
             id={List.itemNameID(itemKey)}
             value={name}

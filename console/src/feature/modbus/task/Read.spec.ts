@@ -212,7 +212,7 @@ describe("Read", () => {
       ],
     });
     const { container } = await renderRead({ client, taskKey: draft.key });
-    await selectFromDropdown("uint16", "String");
+    await selectFromDropdown("Input register", "Input register string");
     commitFieldInput(
       await screen.findByLabelText<HTMLInputElement>("String length"),
       "6",
@@ -224,7 +224,7 @@ describe("Read", () => {
       Modbus.Task.READ_SCHEMAS,
     );
     const [str] = created.config.channels;
-    expect(str).toMatchObject({ dataType: "string", stringLength: 6 });
+    expect(str).toMatchObject({ type: "input_register_string", length: 6 });
     const ch = await client.channels.retrieve(str.channel);
     expect(ch.name).toBe(`${dev.name}_register_input_305_str`);
     expect(ch.dataType.toString()).toBe("string");
@@ -607,11 +607,10 @@ describe("Read", () => {
       },
       {
         last: "a string of seven characters",
-        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
-          type: "input_register",
+        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register_string.parse({
+          type: "input_register_string",
           address: 10,
-          dataType: "string",
-          stringLength: 7,
+          length: 7,
         }),
         next: { address: 14 },
       },
