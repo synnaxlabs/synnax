@@ -334,6 +334,19 @@ locate_existing_header() {
     OLD_HEADER_END=$end_idx
 }
 
+# Reports whether a file is generated, by name or by a "DO NOT EDIT" line in its first
+# 30 lines. Reads LINES, so call it after read_whole_file.
+is_generated() {
+    case "${1##*/}" in
+        *.gen.* | *.pb.go) return 0 ;;
+    esac
+    local i
+    for ((i = 0; i < ${#LINES[@]} && i < 30; i++)); do
+        [[ ${LINES[i]} == *"DO NOT EDIT"* ]] && return 0
+    done
+    return 1
+}
+
 # Process a single file. Prints "UPDATED\t$file" or "SKIPPED\t$file".
 process_file() {
     local file="$1"
@@ -381,6 +394,15 @@ process_file() {
     local old_header_end=$OLD_HEADER_END
     local old_copyright_year=$OLD_COPYRIGHT_YEAR
 
+    # A generated file keeps the copyright year it was generated with, because Oracle
+    # freezes the files in versions/vN packages.
+    local year="$CURRENT_YEAR"
+    if is_generated "$file" && [[ $old_copyright_year =~ ^[0-9]{4}$ ]] \
+        && [ "$old_copyright_year" -le "$CURRENT_YEAR" ]; then
+        year="$old_copyright_year"
+        new_header="${new_header//Copyright $CURRENT_YEAR /Copyright $year }"
+    fi
+
     # Detect "between" content (between scan_start_idx and old_header_start).
     # Preserves e.g. a `set -euo pipefail` line that lived between the shebang
     # and the old header. A canonical shebang+blank prefix yields a blank-only
@@ -422,7 +444,7 @@ process_file() {
     # Skip if the file already conforms to the canonical layout. A pending hoist
     # (leading line buried below the header) is never canonical.
     if [ "$has_copyright" = "1" ] \
-        && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
+        && [ "$old_copyright_year" = "$year" ] \
         && [ "$between_start" = "-1" ] \
         && [ "$hoist_idx" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx

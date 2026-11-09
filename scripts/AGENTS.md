@@ -54,7 +54,9 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   optional subdirectory; non-zero exit on missing, stale-year, malformed, or duplicate
   headers. Run before push after adding or copying files.
 
-Neither script touches `.oracle` schema files.
+Neither script touches `.oracle` schema files. A generated file (`*.gen.*`, `*.pb.go`,
+or a `DO NOT EDIT` line in its first 30 lines) keeps any past header year, because
+Oracle freezes the files in `versions/vN` packages.
 
 ## Codegen
 
