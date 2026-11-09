@@ -10,6 +10,8 @@
 package expression
 
 import (
+	"unicode/utf8"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
@@ -21,10 +23,11 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// AnalyzeFmtStrLiteral parses a format-string token (STR_LITERAL or
-// STR_LITERAL_MULTI with f/rf prefix) and analyzes its placeholders. Body
-// offsets map to source bytes so per-placeholder diagnostics anchor on the
-// offending span.
+// AnalyzeFmtStrLiteral splits a format-string token (STR_LITERAL or STR_LITERAL_MULTI
+// with f/rf prefix) into segments and analyzes its placeholders in ctx's scope. Each
+// placeholder parses at its position in the source. The segments go in ctx.FmtStrings
+// under strTerm, and a later call reuses them. Placeholder diagnostics anchor on the
+// offending `{...}` span.
 func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	strTerm antlr.TerminalNode,
@@ -40,19 +43,36 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	if !flags.Format {
 		return
 	}
-	sym := strTerm.GetSymbol()
-	bodyOff := bodyOffset(text, flags)
-	base := protocol.Position{
-		Line:      uint32(sym.GetLine() - 1),
-		Character: uint32(sym.GetColumn() + bodyOff),
+	segments, err := literal.FmtStrSplit(body, flags)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
 	}
-	AnalyzeFmtStrSegments(ctx, body, base, ctx.AST)
+	sym := strTerm.GetSymbol()
+	at := bodyPositions(protocol.Position{
+		Line:      uint32(sym.GetLine() - 1),
+		Character: uint32(sym.GetColumn() + bodyOffset(text)),
+	}, body)
+	stored, analyzed := ctx.FmtStrings[strTerm]
+	if !analyzed {
+		stored = make([]parser.FmtSegment, len(segments))
+		ctx.FmtStrings[strTerm] = stored
+	}
+	for i, seg := range segments {
+		if seg.IsPlaceholder {
+			analyzePlaceholder(ctx, at, seg, &stored[i], analyzed)
+			continue
+		}
+		if !analyzed {
+			stored[i].Text = seg.Text
+		}
+	}
 }
 
 // bodyOffset returns the column offset from the start of a string token to the
 // first byte of its body: the prefix length plus the one-character opening
 // delimiter (either " or `).
-func bodyOffset(text string, _ literal.StringFlags) int {
+func bodyOffset(text string) int {
 	prefix := 0
 	for prefix < 2 && prefix < len(text) && (text[prefix] == 'r' || text[prefix] == 'f') {
 		prefix++
@@ -60,59 +80,90 @@ func bodyOffset(text string, _ literal.StringFlags) int {
 	return prefix + 1
 }
 
-// AnalyzeFmtStrSegments parses body and analyzes each placeholder expression
-// in ctx's scope. base is the source position of body[0]; placeholder
-// diagnostics anchor on the offending `{...}` span. Returns parsed segments,
-// or nil if body is malformed.
-func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
+// analyzePlaceholder parses seg into out unless analyzed, then analyzes out's
+// expression. at holds the source position of each byte of the body.
+func analyzePlaceholder[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	body string,
-	base protocol.Position,
-	anchor antlr.ParserRuleContext,
-) []literal.FmtStrSegment {
-	segments, err := literal.FmtStrParse(body)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, anchor))
-		return nil
+	at []protocol.Position,
+	seg literal.FmtStrSegment,
+	out *parser.FmtSegment,
+	analyzed bool,
+) {
+	segStart, segEnd := at[seg.Start], at[seg.End]
+	emit := func(d diagnostics.Diagnostic) {
+		ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder {
-			continue
-		}
-		segStart := diagnostics.Advance(base, body, seg.Start)
-		segEnd := diagnostics.Advance(base, body, seg.End)
-		emit := func(d diagnostics.Diagnostic) {
-			ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
-		}
-		if seg.Text == "" {
-			emit(diagnostics.Errorf(anchor,
-				"placeholder '{}' must contain an expression"))
-			continue
-		}
-		expr, diags := parser.ParseExpression(seg.Text, ctx.Config)
+	if seg.Text == "" {
+		emit(diagnostics.Errorf(ctx.AST, "placeholder '{}' must contain an expression"))
+		return
+	}
+	if !analyzed {
+		expr, diags := parser.ParseExpressionAt(
+			seg.Text,
+			textPosition(at, seg),
+			ctx.Config,
+		)
 		if diags != nil && !diags.Ok() {
-			emit(diagnostics.Errorf(anchor,
+			emit(diagnostics.Errorf(ctx.AST,
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
-			continue
+			return
 		}
-		Analyze(ctx.Child(expr))
-		t := types.InferFromExpression(ctx.Child(expr)).UnwrapChan()
-		if !t.IsNumeric() && t.Kind != basetypes.KindString &&
-			t.Kind != basetypes.KindBool {
-			emit(diagnostics.Errorf(
-				anchor,
-				"placeholder %q has type %s; only numeric, string, and bool types are supported",
-				seg.Text,
-				t,
-			))
-			continue
+		*out = parser.FmtSegment{Text: seg.Text, Spec: seg.Spec, Expr: expr}
+	}
+	if out.Expr == nil {
+		return
+	}
+	Analyze(ctx.Child(out.Expr))
+	t := types.InferFromExpression(ctx.Child(out.Expr)).UnwrapChan()
+	if !t.IsNumeric() && t.Kind != basetypes.KindString &&
+		t.Kind != basetypes.KindBool {
+		emit(diagnostics.Errorf(
+			ctx.AST,
+			"placeholder %q has type %s; only numeric, string, and bool types are supported",
+			seg.Text,
+			t,
+		))
+		return
+	}
+	if seg.Spec == "" {
+		return
+	}
+	if err := literal.FmtStrValidateSpec(seg.Spec, t); err != nil {
+		emit(diagnostics.Error(err, ctx.AST))
+	}
+}
+
+// textPosition maps each rune of a placeholder's text to its position in the source,
+// through any escapes. at holds the position of each byte of the body.
+func textPosition(at []protocol.Position, seg literal.FmtStrSegment) parser.Position {
+	positions := make([]protocol.Position, 0, len(seg.Text)+1)
+	for i := range seg.Text {
+		positions = append(positions, at[seg.Offsets[i]])
+	}
+	positions = append(positions, at[seg.Offsets[len(seg.Text)]])
+	return func(index int) (int, int) {
+		p := positions[min(index, len(positions)-1)]
+		return int(p.Line) + 1, int(p.Character)
+	}
+}
+
+// bodyPositions returns the source position of each byte of body and of its end, with
+// columns in runes as ANTLR counts them. base is the position of body[0].
+func bodyPositions(base protocol.Position, body string) []protocol.Position {
+	at := make([]protocol.Position, len(body)+1)
+	p := base
+	for i := 0; i < len(body); {
+		r, size := utf8.DecodeRuneInString(body[i:])
+		for j := range size {
+			at[i+j] = p
 		}
-		if seg.Spec == "" {
-			continue
-		}
-		if err := literal.FmtStrValidateSpec(seg.Spec, t); err != nil {
-			emit(diagnostics.Error(err, anchor))
+		i += size
+		if r == '\n' {
+			p = protocol.Position{Line: p.Line + 1}
+		} else {
+			p.Character++
 		}
 	}
-	return segments
+	at[len(body)] = p
+	return at
 }

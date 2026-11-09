@@ -537,14 +537,13 @@ var _ = Describe("RetrieveRequest", func() {
 })
 
 var _ = Describe("Delete", func() {
-	// deleteNeeds returns what a delete of r needs: delete on r and its status, and
-	// update on r, which its API keys and sessions leave.
+	// deleteNeeds returns what a delete of r needs: delete on r, which also covers its
+	// API keys and sessions, and delete on its status.
 	deleteNeeds := func(ctx SpecContext, r rack.Rack) []need {
 		GinkgoHelper()
 		return []need{
 			{access.ActionDelete, r.ResourceID()},
 			{access.ActionDelete, statusOf(ctx, r)},
-			{access.ActionUpdate, r.ResourceID()},
 		}
 	}
 	// deleterOf returns a context for a new user allowed to delete r.
@@ -598,7 +597,6 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("without delete on the rack", 0),
 		Entry("without delete on its status", 1),
-		Entry("without update on the rack, which its sessions leave", 2),
 	)
 	exists := func(ctx SpecContext, key rack.Key) bool {
 		GinkgoHelper()
