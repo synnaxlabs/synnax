@@ -44,6 +44,7 @@ var _ = Describe("Signals", Ordered, func() {
 		svc        *device.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: node.DB}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))
