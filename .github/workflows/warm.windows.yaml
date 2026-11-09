@@ -30,10 +30,16 @@ on:
 permissions:
   contents: read
 
+# Both jobs share one concurrency group and check out the head of main. A newer pending
+# job replaces an older one in the group and does the same work, and a check waits until
+# a running warm has saved.
 jobs:
   check:
     name: Check the cache
     if: github.event_name == 'schedule'
+    concurrency:
+      group: warm-windows
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -44,6 +50,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: main
           persist-credentials: false
           sparse-checkout: |
             .github/scripts
@@ -81,8 +88,6 @@ jobs:
     if:
       ${{ !cancelled() && (needs.check.result == 'skipped' ||
       needs.check.outputs.missing == 'true') }}
-    # A pending job replaces an older one in its group. On the job, the group holds only
-    # runs that warm, so an hourly run never takes a pending warm's place and skips it.
     concurrency:
       group: warm-windows
       cancel-in-progress: false
@@ -91,6 +96,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
