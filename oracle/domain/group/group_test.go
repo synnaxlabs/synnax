@@ -118,6 +118,11 @@ var _ = Describe("Extract", func() {
 			"@group needs one value for scope, not 2",
 		),
 		Entry(
+			"with a scope on two lines",
+			"@group scope device\n@group scope rack",
+			"@group has more than one scope",
+		),
+		Entry(
 			"with a value on pinned",
 			"@group scope device\n@group pinned true",
 			"@group needs no value for pinned",
