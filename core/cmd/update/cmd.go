@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -232,8 +233,10 @@ func undo(
 	return printLines(w, run)
 }
 
-// putBackUndone puts back the binary that an undone update replaced, when binary is the
-// Core version of that update. If not, it returns undone.
+// putBackUndone puts back the binary that an undone update replaced, when that binary
+// is
+// the Core version of the newest backup. For a backup with no version, that binary must
+// be older than binary. If not, it returns undone.
 func putBackUndone(
 	ctx context.Context,
 	w io.Writer,
@@ -241,26 +244,39 @@ func putBackUndone(
 	binary string,
 	undone error,
 ) error {
-	current, err := binaryVersion(ctx, binary)
+	all, err := backups.List()
 	if err != nil {
 		return errors.Combine(undone, err)
 	}
-	state, err := backups.UpdateState(current)
-	if err != nil || state != storage.UpdateUndone {
-		return errors.Combine(undone, err)
+	want := all[len(all)-1].Version
+	if want == storage.UnknownVersion {
+		if want, err = olderVersion(ctx, binary); err != nil || want == "" {
+			return errors.Combine(undone, err)
+		}
 	}
-	old, err := oldVersion(ctx, binary)
-	if err != nil || old == "" {
+	putBack, err := putBackOld(ctx, binary, want)
+	if err != nil || !putBack {
 		return errors.Combine(undone, err)
-	}
-	if err = swapOld(binary); err != nil {
-		return errors.Wrapf(err, "failed to put back the binary at %s", binary)
 	}
 	return printLines(
 		w,
-		fmt.Sprintf("The Core already undid the update to Core %s.", current),
-		fmt.Sprintf("Put back Core %s at %s. Start the Core.", old, binary),
+		"The Core already undid the update.",
+		fmt.Sprintf("Put back Core %s at %s. Start the Core.", want, binary),
 	)
+}
+
+// olderVersion returns the Core version of the binary that an update replaced, or an
+// empty string when there is none or it is not older than binary.
+func olderVersion(ctx context.Context, binary string) (string, error) {
+	old, err := oldVersion(ctx, binary)
+	if err != nil || old == "" {
+		return "", err
+	}
+	current, err := binaryVersion(ctx, binary)
+	if err != nil || version.Compare(old, current) >= 0 {
+		return "", err
+	}
+	return old, nil
 }
 
 func history(w io.Writer, backups *storage.Backups) error {

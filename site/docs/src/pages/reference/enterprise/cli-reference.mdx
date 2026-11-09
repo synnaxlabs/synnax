@@ -552,9 +552,10 @@ synnax update undo 1793000000-0.60.1
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it
-back. Without a name, after the Core already undid the last update, the command only
-puts back the `.old` binary, and refuses when there is none. For the Linux service, run
-it with `sudo`. The command gives the restored files to the owner of the data folder.
+back. Without a name, when the last update is already undone, the command only puts back
+the `.old` binary, and refuses when that binary is not the version before the update.
+For the Linux service, run it with `sudo`. The command gives the restored files to the
+owner of the data folder.
 
 ### update history
 
