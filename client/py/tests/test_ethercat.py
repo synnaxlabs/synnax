@@ -537,6 +537,12 @@ class TestEtherCATDevice:
         )
         assert device.location == "enp3s0:5"
 
+    def test_device_default_position(self) -> None:
+        """Test that Device puts the slave at the first bus position by default."""
+        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        assert device.properties["position"] == 1
+        assert device.location == "eth0:1"
+
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
