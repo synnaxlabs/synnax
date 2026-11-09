@@ -42,8 +42,8 @@ describe("Device select", () => {
       status.create<typeof device.statusDetailsZ>({
         owner: device.resourceID(dev.key),
         variant: "error",
-        message: "Failed to reach device",
-        details: { rack: rack.key, connected: false },
+        message: "Health check failed",
+        details: { rack: rack.key, connected: true },
       }),
     );
     return dev;
@@ -54,7 +54,8 @@ describe("Device select", () => {
     const c = render(<Device.SelectSingle value={dev.key} onChange={vi.fn()} />, {
       wrapper,
     });
-    const badge = await c.findByText("Disconnected");
+    const badge = await c.findByText("Connected");
+    expect(badge.classList).toContain("lyra--status-error");
     expect(badge.closest(`.${END_CLASS}`)).not.toBeNull();
   });
 
@@ -76,7 +77,7 @@ describe("Device select", () => {
       />,
       { wrapper },
     );
-    const badge = await c.findByText("Disconnected");
+    const badge = await c.findByText("Connected");
     expect(badge.closest(".custom")).not.toBeNull();
   });
 });
