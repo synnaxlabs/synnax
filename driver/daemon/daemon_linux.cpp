@@ -19,6 +19,7 @@
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
 
+#include "x/cpp/env/env.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/common.h"
@@ -173,6 +174,10 @@ x::errors::Error install_service_binary() {
 
 bool installed() {
     return fs::exists(SYSTEMD_SERVICE_PATH);
+}
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
 }
 
 x::errors::Error install_service() {

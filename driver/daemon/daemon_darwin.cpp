@@ -21,6 +21,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "x/cpp/env/env.h"
+
 #include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
@@ -123,6 +125,12 @@ int run(const Config &config) {
 
 bool installed() {
     return fs::exists(PLIST_PATH);
+}
+
+x::errors::Error load_env() {
+    // Without the service, login saves the state of the user, which no file configures.
+    if (!installed()) return x::errors::NIL;
+    return x::env::load_file(ENV_FILE);
 }
 
 x::errors::Error install_service() {

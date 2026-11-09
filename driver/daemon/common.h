@@ -10,12 +10,16 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 #include <sys/types.h>
 
 #include "x/cpp/errors/errors.h"
 
 namespace driver::daemon {
+/// @brief the environment file of the Driver service.
+const std::string ENV_FILE = "/etc/synnax/driver.env";
+
 /// @brief creates the synnax system user the service runs as, if it does not exist.
 x::errors::Error create_system_user();
 

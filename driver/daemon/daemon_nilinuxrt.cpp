@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+#include "x/cpp/env/env.h"
+
 #include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
@@ -244,6 +246,10 @@ x::errors::Error setup_pid_file() {
 
 bool installed() {
     return fs::exists(INIT_SCRIPT_PATH);
+}
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
 }
 
 x::errors::Error install_service() {

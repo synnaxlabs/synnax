@@ -18,24 +18,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "x/cpp/env/env.h"
-
 #include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
 namespace driver::daemon {
-const std::string ENV_FILE = "/etc/synnax/driver.env";
-
-x::errors::Error load_env() {
-#ifdef __APPLE__
-    // Without the service, login saves the state of the user, which no file configures.
-    if (!installed()) return x::errors::NIL;
-#endif
-    return x::env::load_file(ENV_FILE);
-}
-
 x::errors::Error create_system_user() {
     LOG(INFO) << "creating system user";
     // NOLINTNEXTLINE(bugprone-command-processor): a fixed string.
