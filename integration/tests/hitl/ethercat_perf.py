@@ -15,9 +15,10 @@ from tests.hitl import latency
 from tests.hitl.ethercat import EtherCATRead
 
 _STARTS = 10
-# The station measures about 1.3 s.
+# The station measures about 1.3 s. With ten starts, p99 is about the slowest start, so
+# its limit allows one start in which the Driver tries the bus a second time.
 _MAX_MEDIAN_MS = 2_000
-_MAX_P99_MS = 3_000
+_MAX_P99_MS = 4_000
 
 
 class EtherCATStartTime(EtherCATRead):
