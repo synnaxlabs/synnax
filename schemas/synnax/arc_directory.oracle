@@ -26,6 +26,7 @@ Directory struct {
         @doc value         """
             is the name of the directory, one segment of an import path.
         """
+        @index sorted
         @search
         @validate required
     }

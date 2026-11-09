@@ -77,6 +77,19 @@ func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 	return c
 }
 
+func createCertificateWithKey(ctx SpecContext, name string) certificate.Certificate {
+	GinkgoHelper()
+	certPEM, keyPEM := newPair()
+	c := certificate.Certificate{Variant: certificate.StoredCertificate{
+		Base: certificate.Base{Name: name},
+		Pem:  certPEM,
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Certificate.NewWriter(tx).Create(ctx, &c, []byte(keyPEM))
+	})).To(Succeed())
+	return c
+}
+
 func retrieveCertificate(ctx SpecContext, key certificate.Key) certificate.Certificate {
 	GinkgoHelper()
 	var c certificate.Certificate
@@ -424,6 +437,55 @@ var _ = Describe("Service", func() {
 				Expect(
 					retrieveCertificate(ctx, c.Base().Key).Base().Name,
 				).To(Equal("After"))
+			},
+		)
+		It("Should deny renaming a certificate without update access on its key",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				c := createCertificateWithKey(ctx, "Before")
+				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					c.ResourceID(),
+					statusType,
+				)
+				Expect(rename(AuthedCtx(ctx, u),
+					apicertificate.RenameRequest{Key: c.Base().Key, Name: "After"},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						u.ResourceID().String()+" cannot update "+
+							secret.ResourceID(key).String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+					To(Equal("Before"))
+			},
+		)
+		It("Should rename the key secret with update access on it",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				c := createCertificateWithKey(ctx, "Before")
+				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					c.ResourceID(),
+					secret.ResourceID(key),
+					statusType,
+				)
+				MustSucceed(rename(AuthedCtx(ctx, u),
+					apicertificate.RenameRequest{Key: c.Base().Key, Name: "After"},
+				))
+				var s secret.Secret
+				Expect(svc.Secret.NewRetrieve().
+					Where(secret.MatchKeys(key)).
+					Entry(&s).
+					Exec(ctx, db)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("After private key"))
 			},
 		)
 		It("Should deny a user without update access", func(ctx SpecContext) {

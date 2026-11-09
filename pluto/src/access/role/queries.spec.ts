@@ -19,6 +19,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Role } from "@/access/role";
+import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -32,143 +33,28 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useList", () => {
-    it("should return a list of role keys", async () => {
-      const role1 = await client.access.roles.create({
-        name: "role1",
-        description: "First role",
-      });
-      const role2 = await client.access.roles.create({
-        name: "role2",
-        description: "Second role",
-      });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(role1.key);
-      expect(result.current.data).toContain(role2.key);
-    });
-
-    it("should get individual roles using getItem", async () => {
-      const testRole = await client.access.roles.create({
-        name: "testRole",
-        description: "Test role description",
-      });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedRole = result.current.getItem(testRole.key);
-      expect(retrievedRole?.key).toEqual(testRole.key);
-      expect(retrievedRole?.name).toEqual("testRole");
-      expect(retrievedRole?.description).toEqual("Test role description");
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      for (let i = 0; i < 5; i++)
-        await client.access.roles.create({
-          name: `paginationRole${i}`,
-          description: `Description ${i}`,
-        });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it("should return all roles when no pagination params provided", async () => {
-      const role1 = await client.access.roles.create({
-        name: "allRoles1",
-        description: "First",
-      });
-      const role2 = await client.access.roles.create({
-        name: "allRoles2",
-        description: "Second",
-      });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(role1.key);
-      expect(result.current.data).toContain(role2.key);
-    });
-
-    it("should update the list when a role is created", async () => {
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
-
-      const newRole = await client.access.roles.create({
-        name: "newRole",
-        description: "Newly created role",
-      });
-
+  describe("list", () => {
+    it("should list the matching roles in name order", async () => {
+      const prefix = id.create();
+      const b = await client.access.roles.create({ name: `${prefix}-b` });
+      const a = await client.access.roles.create({ name: `${prefix}-a` });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.access.roles, {
+            name: "roles",
+            query: {
+              where: { name: { in: [a.name, b.name] } },
+              order: { field: "name" },
+            },
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
       await waitFor(() => {
-        expect(result.current.data.length).toBeGreaterThanOrEqual(initialLength + 1);
-        expect(result.current.data).toContain(newRole.key);
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
-    });
-
-    it("should remove role from list when deleted", async () => {
-      const testRole = await client.access.roles.create({
-        name: "toDeleteRole",
-        description: "Will be deleted",
-      });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(testRole.key);
-
-      await client.access.roles.delete(testRole.key);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testRole.key);
-      });
-    });
-
-    it("should handle multiple role updates simultaneously", async () => {
-      const role1 = await client.access.roles.create({
-        name: "multiUpdate1",
-        description: "First",
-      });
-      const role2 = await client.access.roles.create({
-        name: "multiUpdate2",
-        description: "Second",
-      });
-
-      const { result } = renderHook(() => Role.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await Promise.all([
-        client.access.roles.create({ ...role1, name: "updated1" }),
-        client.access.roles.create({ ...role2, name: "updated2" }),
-      ]);
-
-      await waitFor(() => {
-        expect(result.current.getItem(role1.key)?.name).toEqual("updated1");
-        expect(result.current.getItem(role2.key)?.name).toEqual("updated2");
-      });
+      expect(result.current.getItem(a.key)?.name).toEqual(a.name);
     });
   });
 

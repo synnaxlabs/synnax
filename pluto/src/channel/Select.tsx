@@ -44,7 +44,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<channel.Key, channel.Channel | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
 
 const isChannel = (entry: unknown): entry is channel.Channel =>
   entry != null && typeof entry === "object" && "payload" in entry;
@@ -71,15 +71,14 @@ export const SelectMultiple = ({
   triggerProps,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Channel />}
@@ -101,7 +100,7 @@ export interface SelectSingleProps
       Select.SingleProps<channel.Key, channel.Channel | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
 
 export const SelectSingle = ({
   query,
@@ -109,14 +108,13 @@ export const SelectSingle = ({
   triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<channel.Key, channel.Channel | undefined>
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}

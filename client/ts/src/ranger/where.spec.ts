@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { compare, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ranger } from "@/ranger";
 import { LINES } from "@/ranger/where";
-import { matches, retrieveInputZ, serverComputed } from "@/ranger/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ranger/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
@@ -60,10 +66,10 @@ describe("retrieveInputZ", () => {
   });
 
   it("should split the options from the fields", () => {
-    expect(inputZ.parse({ name: "a", limit: 2, offset: 1 })).toEqual({
+    expect(inputZ.parse({ name: "a", limit: 2, searchTerm: "b" })).toEqual({
       where: { name: { eq: "a" } },
       limit: 2,
-      offset: 1,
+      searchTerm: "b",
     });
   });
 
@@ -81,5 +87,64 @@ describe("retrieveInputZ", () => {
     expect(error?.issues).toMatchObject([
       { code: "unrecognized_keys", keys: ["color"] },
     ]);
+  });
+});
+
+describe("compareCursors", () => {
+  const [low, high] = [uuid.create(), uuid.create()].sort(compare.uuids);
+  const record = (key: string, name: string, start: number): ranger.Payload =>
+    ranger.payloadZ.parse({
+      key,
+      name,
+      timeRange: { start: TimeStamp.seconds(start), end: TimeStamp.seconds(start + 1) },
+    });
+
+  it("should order names by lower case, then by key", () => {
+    const order: ranger.Order = { field: "name", descending: false };
+    const positions = [
+      record(high, "alpha", 1),
+      record(low, "Beta", 1),
+      record(low, "ALPHA", 1),
+    ].map((r) => cursor(r, order));
+    positions.sort((a, b) => compareCursors(a, b, order));
+    expect(positions).toEqual([
+      { key: low, name: "ALPHA" },
+      { key: high, name: "alpha" },
+      { key: low, name: "Beta" },
+    ]);
+  });
+
+  it("should reverse the order and the key tie when descending", () => {
+    const order: ranger.Order = { field: "time_range_start", descending: true };
+    const early = cursor(record(low, "a", 1), order);
+    const tie = cursor(record(high, "a", 1), order);
+    const late = cursor(record(low, "a", 2), order);
+    expect([early, late, tie].sort((a, b) => compareCursors(a, b, order))).toEqual([
+      late,
+      tie,
+      early,
+    ]);
+  });
+
+  it("should return 0 for the same position", () => {
+    const order: ranger.Order = { field: "name", descending: false };
+    const a = cursor(record(low, "a", 1), order);
+    expect(compareCursors(a, { ...a }, order)).toBe(0);
+  });
+
+  it("should order by key alone with no order", () => {
+    const positions = [record(high, "a", 1), record(low, "b", 2)].map((r) => cursor(r));
+    expect(positions).toEqual([{ key: high }, { key: low }]);
+    expect(positions.sort((a, b) => compareCursors(a, b))).toEqual([
+      { key: low },
+      { key: high },
+    ]);
+  });
+
+  it("should throw for a position with no value for the order's field", () => {
+    const order: ranger.Order = { field: "name", descending: false };
+    expect(() => compareCursors({ key: low }, { key: high, name: "a" }, order)).toThrow(
+      "a cursor has no name",
+    );
   });
 });

@@ -31,14 +31,6 @@ func (CreatePayload) Handle(Arc) (Arc, error) {
 	return Arc{}, actions.CoreOnlyError("an Arc create")
 }
 
-// Handle replaces the Arc module's name.
-func (p RenamePayload) Handle(state Arc) (Arc, error) {
-	b := state.Base()
-	b.Name = p.Name
-	state.SetBase(b)
-	return state, nil
-}
-
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place.
 func (p SetNodePayload) Handle(state Arc) (Arc, error) {
@@ -348,28 +340,44 @@ func containsTextEdit(actions []Action) bool {
 	return false
 }
 
-// Handle applies the set to the graph's node inputs.
+// Handle applies the set to the Arc's name or the graph's node inputs.
 func (p SetPayload) Handle(state Arc) (Arc, error) {
 	return edit(state, patch.Set(p))
 }
 
-// Handle applies the remove to the graph's node inputs.
+// Handle applies the remove to the Arc's name or the graph's node inputs.
 func (p RemovePayload) Handle(state Arc) (Arc, error) {
 	return edit(state, patch.Remove(p))
 }
 
-// Handle applies the insert to the graph's node inputs.
+// Handle applies the insert to the Arc's name or the graph's node inputs.
 func (p InsertPayload) Handle(state Arc) (Arc, error) {
 	return edit(state, patch.Insert(p))
 }
 
-// Handle applies the move to the graph's node inputs.
+// Handle applies the move to the Arc's name or the graph's node inputs.
 func (p MovePayload) Handle(state Arc) (Arc, error) {
 	return edit(state, patch.Move(p))
 }
 
-// edit applies a path action to the inputs of the node that its path names.
+// document is the part of an Arc, outside its graph, that path actions edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// edit applies a path action to the Arc's name or to the inputs of the node that its
+// path names. A path to another field is rejected.
 func edit(state Arc, a patch.Action) (Arc, error) {
+	if patch.Field(a) != "graph" {
+		b := state.Base()
+		d, err := patch.Edit(document{Name: b.Name}, a.Apply)
+		if err != nil {
+			return Arc{}, err
+		}
+		b.Name = d.Name
+		state.SetBase(b)
+		return state, nil
+	}
 	var err error
 	state, editErr := onGraph(state, func(g *graph.Graph) {
 		var inputs map[string]msgpack.EncodedJSON

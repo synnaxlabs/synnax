@@ -36,7 +36,7 @@ const TAB: Panel.Tab = {
     <Icon.Log />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.logs.getCached(resource.key));
+    const corpse = query.requireCorpse(client.logs.watch(resource.key).getCached());
     // A restored record comes back in the project, as its range or group may be gone.
     await client.logs.create({
       ...corpse,

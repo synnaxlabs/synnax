@@ -38,6 +38,10 @@ export const DETAILS = ["low", "medium", "high"] as const;
 export const detailZ = z.enum(DETAILS);
 export type Detail = z.infer<typeof detailZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 export const X_AXIS_KEYS = ["x1", "x2"] as const;
 export const xAxisKeyZ = z.enum(X_AXIS_KEYS);
 export type XAxisKey = z.infer<typeof xAxisKeyZ>;
@@ -163,6 +167,15 @@ export const ruleZ = z.object({
 });
 export interface Rule extends z.infer<typeof ruleZ> {}
 
+/** Order is a sort of line plots. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -230,6 +243,18 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
+/**
+ * Cursor is a position in an order of line plots: the sort value and the key of a line
+ * plot.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the line plot at the position. */
+  key: keyZ,
+  /** name is the name of the line plot at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /** Axes bundles configuration for all six fixed plot axes. */
 export const axesZ = z.object({
   /** x1 is the x1 axis configuration. */
@@ -253,10 +278,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the line plots that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the line plots. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the line plots strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most line plots to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching line plots to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

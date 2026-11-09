@@ -40,13 +40,23 @@ import {
   type TestStore,
 } from "@/testutil";
 
+export interface StateOptions extends Partial<Tree.TreeState> {
+  /** The nodes the state shows. Defaults to the resources, all at the top level. */
+  nodes?: PTree.Node<string>[];
+  expanded?: string[];
+}
+
 /**
- * Builds a {@link Tree.TreeState} backed by the given resources. getResource resolves
- * against the supplied resources; the mutating members are no-ops unless overridden.
+ * Builds a {@link Tree.TreeState} backed by the given resources and nodes. getResource
+ * resolves against the resources; the mutating members are no-ops unless overridden.
  */
 export const createState = (
   resources: Tree.Resource[],
-  overrides: Partial<Tree.TreeState> = {},
+  {
+    nodes = resources.map((r) => ({ key: resource.idToString(r.id) })),
+    expanded = [],
+    ...overrides
+  }: StateOptions = {},
 ): Tree.TreeState => {
   const byKey = new Map(resources.map((r) => [resource.idToString(r.id), r]));
   const lookup = (id: resource.ID | string): Tree.Resource | undefined =>
@@ -62,12 +72,24 @@ export const createState = (
     Array.isArray(id)
       ? id.map(lookup).filter((r) => r != null)
       : resolve(id)) as Tree.GetResource;
-  const nodes = resources.map((r) => ({ key: resource.idToString(r.id) }));
+  const children = new Map<string, string[]>();
+  const parents = new Map<string, string>();
+  const index = (parent: string, level: PTree.Node<string>[]) =>
+    level.forEach(({ key, children: below }) => {
+      parents.set(key, parent);
+      if (below == null) return;
+      children.set(
+        key,
+        below.map((child) => child.key),
+      );
+      index(key, below);
+    });
+  index("", nodes);
   return {
-    nodes,
-    shape: PTree.flatten({ nodes, expanded: [] }),
-    setNodes: () => {},
-    setResource: () => {},
+    shape: PTree.flatten({ nodes, expanded }),
+    getChildren: (key) => children.get(key),
+    getParent: (key) => parents.get(key),
+    addDraft: () => () => {},
     getResource,
     subscribeResource: () => () => {},
     setSelection: () => {},
@@ -413,7 +435,7 @@ export interface RenderTreeContextMenuOptions extends Pick<
   parentID?: resource.ID;
   store?: TestStore;
   baseOverrides?: Partial<Tree.BaseProps>;
-  stateOverrides?: Partial<Tree.TreeState>;
+  stateOverrides?: StateOptions;
   /** Extra siblings rendered alongside the menu, e.g. CaptureStatuses. */
   extra?: ReactNode;
 }
