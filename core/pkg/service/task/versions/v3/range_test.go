@@ -16,10 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -61,7 +62,9 @@ var _ = Describe("RangeMigration", func() {
 		}
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entries(&stored).Exec(ctx, db)).
 			To(Succeed())
-		ranges := []ranger.Range{{Key: rng, Name: "Range"}}
+		ranges := []ranger.Range{
+			{Key: rng, Name: "Range", Color: &color.Color{R: 1, A: 128}},
+		}
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
 			Entries(&ranges).
 			Exec(ctx, db)).To(Succeed())
