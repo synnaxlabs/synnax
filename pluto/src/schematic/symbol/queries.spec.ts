@@ -37,195 +37,41 @@ describe("Symbol queries", () => {
   });
 
   describe("useList", () => {
-    it("should return a list of symbols for a given parent", async () => {
+    it("should list the symbols of a group by name", async () => {
       const parent = await client.groups.create({
         scope: "schematic_symbol",
         name: "test-symbols-parent",
       });
-      const symbol1 = await client.schematics.symbols.create({
-        name: "symbol1",
+      const data: schematic.symbol.Symbol["data"] = {
+        svg: "<svg></svg>",
+        states: [],
+        handles: [],
+        variant: "static",
+        scale: 1,
+        strokeScaled: false,
+        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+      };
+      const b = await client.schematics.symbols.create({
+        name: "b",
         group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
+        data,
       });
-      const symbol2 = await client.schematics.symbols.create({
-        name: "symbol2",
+      const a = await client.schematics.symbols.create({
+        name: "a",
         group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
+        data,
       });
-
       const { result } = renderHook(
         () => Symbol.useList({ query: { groups: [parent.key] } }),
         { wrapper },
       );
-
-      act(() => {
-        result.current.retrieve({ groups: [parent.key] });
-      });
-
+      act(() => result.current.more());
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
-
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data).toContain(symbol1.key);
-      expect(result.current.data).toContain(symbol2.key);
-
-      const retrievedSymbol1 = result.current.getItem(symbol1.key);
-      expect(retrievedSymbol1?.name).toBe("symbol1");
-      const retrievedSymbol2 = result.current.getItem(symbol2.key);
-      expect(retrievedSymbol2?.name).toBe("symbol2");
-    });
-
-    it("should filter symbols by search term", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        scope: "schematic_symbol",
-        name: `test-symbols-search-${uniqueId}`,
-      });
-      await client.schematics.symbols.create({
-        name: "valve red",
-        group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
-      });
-      await client.schematics.symbols.create({
-        name: "pump blue",
-        group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
-      });
-      await client.schematics.symbols.create({
-        name: "valve purple",
-        group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          Symbol.useList({
-            query: {
-              groups: [parent.key],
-              searchTerm: "valve",
-            },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({
-          groups: [parent.key],
-          searchTerm: "valve",
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-        const names = result.current.getItem(result.current.data).map((s) => s.name);
-        expect(names).toContain("valve red");
-        expect(names).toContain("valve purple");
-      });
-    });
-
-    it("should update when a new symbol is added", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        scope: "schematic_symbol",
-        name: `test-symbols-live-${uniqueId}`,
-      });
-      await client.schematics.symbols.create({
-        name: "initial-symbol",
-        group: parent.key,
-        data: {
-          svg: "<svg></svg>",
-          states: [],
-          handles: [],
-          variant: "static",
-          scale: 1,
-          strokeScaled: false,
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          Symbol.useList({
-            query: { groups: [parent.key] },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({ groups: [parent.key] });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(1);
-      });
-
-      await act(async () => {
-        await client.schematics.symbols.create({
-          name: "new-symbol",
-          group: parent.key,
-          data: {
-            svg: "<svg></svg>",
-            states: [],
-            handles: [],
-            variant: "static",
-            scale: 1,
-            strokeScaled: false,
-            previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-          },
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(2);
-      });
-
-      const symbolItems = result.current.data.map((key) => result.current.getItem(key));
-      const names = symbolItems.map((s) => s?.name).filter(Boolean);
-      expect(names).toContain("initial-symbol");
-      expect(names).toContain("new-symbol");
+      await client.schematics.symbols.rename(a.key, "c");
+      await waitFor(() => expect(result.current.data).toEqual([b.key, a.key]));
     });
   });
 
@@ -333,7 +179,7 @@ describe("Symbol queries", () => {
       });
       // The cache answers only queries it maintains, so the read needs a live
       // subscriber before it is within reach of getCached.
-      const stopSymbol = client.schematics.symbols.onChange(symbol.key, () => {});
+      const stopSymbol = client.schematics.symbols.watch(symbol.key).onChange(() => {});
       try {
         await client.schematics.symbols.retrieve(symbol.key);
         // A plain renderHook resolves only if the read never suspends.

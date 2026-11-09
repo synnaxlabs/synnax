@@ -485,7 +485,7 @@ TEST(DeviceTests, testRetrieveMissingKey) {
     ASSERT_EQ(devices[0].key, d.key);
 }
 /// @brief it should page a retrieve of devices by filter or by keys.
-TEST(DeviceTests, testRetrieveWithLimitOffset) {
+TEST(DeviceTests, testRetrieveWithLimitAndCursor) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -510,13 +510,14 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         client.devices.retrieve(where, {.limit = 2})
     );
     ASSERT_EQ(devices_limited.size(), 2);
-    const auto devices_offset = ASSERT_NIL_P(
-        client.devices.retrieve(where, {.limit = 2, .offset = 2})
-    );
-    ASSERT_EQ(devices_offset.size(), 2);
+    const auto devices_after = ASSERT_NIL_P(client.devices.retrieve(
+        where,
+        {.after = Cursor{.key = devices_limited[1].key}, .limit = 2}
+    ));
+    ASSERT_EQ(devices_after.size(), 2);
     bool different = true;
     for (const auto &da: devices_limited)
-        for (const auto &db: devices_offset)
+        for (const auto &db: devices_after)
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
     std::vector<std::string> keys;
@@ -525,7 +526,9 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         keys.push_back(d.key);
     const auto by_key = ASSERT_NIL_P(client.devices.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
-    const auto by_key_rest = ASSERT_NIL_P(client.devices.retrieve(keys, {.offset = 4}));
+    const auto by_key_rest = ASSERT_NIL_P(
+        client.devices.retrieve(keys, {.after = Cursor{.key = keys[3]}})
+    );
     ASSERT_EQ(by_key_rest.size(), 1);
 }
 
@@ -581,11 +584,11 @@ TEST(DeviceTests, testRetrieveOneWhereNotFound) {
     ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one device.
+/// @brief it should reject a limit or a cursor on a retrieve of one device.
 TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.devices.retrieve("device", options).second,
               client.devices.retrieve(Where{.key = "device"}, x::filter::one, options)
@@ -593,11 +596,10 @@ TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should correctly create and retrieve a device with a status.

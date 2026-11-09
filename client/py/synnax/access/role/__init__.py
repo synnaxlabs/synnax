@@ -11,7 +11,9 @@
 from synnax.access.role.client import Client
 from synnax.access.role.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
+    Order,
     Role,
     Where,
     WhereInput,
@@ -21,7 +23,9 @@ from synnax.access.role.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Key",
+    "Order",
     "Role",
     "Where",
     "WhereInput",

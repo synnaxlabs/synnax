@@ -18,6 +18,10 @@ import { project } from "@/project";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 export const flexAlignmentZ = z.enum(FLEX_ALIGNMENTS);
 export type FlexAlignment = z.infer<typeof flexAlignmentZ>;
@@ -47,6 +51,15 @@ export const columnZ = z.object({
   size: z.number().min(1).default(72),
 });
 export interface Column extends z.infer<typeof columnZ> {}
+
+/** Order is a sort of tables. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -173,6 +186,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
 });
 
 /**
+ * Cursor is a position in an order of tables: the sort value and the key of a table.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the table at the position. */
+  key: keyZ,
+  /** name is the name of the table at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/**
  * Cell is a keyed cell configuration used by actions that address cells explicitly.
  * Inside the table state itself, cell configurations are stored in the cells map keyed
  * by cell key.
@@ -226,10 +250,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the tables that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the tables. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the tables strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most tables to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching tables to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof tableZ> {}

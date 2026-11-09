@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -34,21 +35,39 @@ func (CreatePayload) Handle(Log) (Log, error) {
 	return Log{}, actions.CoreOnlyError("a log create")
 }
 
-// Handle rejects a client dispatch. The Core moves a log into a group through its
-// writer and emits this action itself.
-func (SetGroupPayload) Handle(Log) (Log, error) {
-	return Log{}, actions.CoreOnlyError("a log group change")
+// Handle applies the set to the log's name.
+func (p SetPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Set(p).Apply)
 }
 
-// Handle rejects a client dispatch. The Core moves a log into a project through its
-// writer and emits this action itself.
-func (SetProjectPayload) Handle(Log) (Log, error) {
-	return Log{}, actions.CoreOnlyError("a log project change")
+// Handle applies the remove to the log's name.
+func (p RemovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Remove(p).Apply)
 }
 
-// Handle replaces the log's name.
-func (p RenamePayload) Handle(state Log) (Log, error) {
-	state.Name = p.Name
+// Handle applies the insert to the log's name.
+func (p InsertPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the log's name.
+func (p MovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a log that path actions edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// edit applies a path action to a copy of the log's document. A document that gains a
+// member it does not declare, such as a path to the log's group, is rejected.
+func edit(state Log, apply func(map[string]any) error) (Log, error) {
+	d, err := patch.Edit(document{Name: state.Name}, apply)
+	if err != nil {
+		return Log{}, err
+	}
+	state.Name = d.Name
 	return state, nil
 }
 

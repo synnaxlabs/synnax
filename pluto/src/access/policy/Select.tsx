@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access } from "@synnaxlabs/client";
+import { type access, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
-import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 
 const ListItem = ({
   itemKey,
@@ -40,22 +39,24 @@ export interface SelectMultipleProps
       Select.MultipleProps<access.policy.Key, access.policy.Policy | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, access.policy.Key, access.policy.Policy> {}
+    Omit<
+      Flux.UseListParams<access.policy.RetrieveMultipleParams, access.policy.Policy>,
+      "name"
+    > {}
 
 export const SelectMultiple = ({
   query,
   filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    query,
-    filter,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.access.policies,
+    { name: "policies", query, filter },
+  );
   return (
     <Select.Multiple<access.policy.Key, access.policy.Policy | undefined>
       haulType={HAUL_TYPE}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Policy />}
@@ -77,21 +78,23 @@ export interface SelectSingleProps
       Select.SingleProps<access.policy.Key, access.policy.Policy | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListParams<ListParams, access.policy.Key, access.policy.Policy> {}
+    Omit<
+      Flux.UseListParams<access.policy.RetrieveMultipleParams, access.policy.Policy>,
+      "name"
+    > {}
 
 export const SelectSingle = ({
   query,
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    query,
-    filter,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.access.policies,
+    { name: "policies", query, filter },
+  );
   return (
     <Select.Single<access.policy.Key, access.policy.Policy | undefined>
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}

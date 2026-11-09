@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { access, actions, resource } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "policy";
-const PLURAL_RESOURCE_NAME = "policies";
 
 export const formSchema = z.object({
   key: z.uuid().optional(),
@@ -35,25 +33,8 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.access.policies.onChange(query, handler),
-  getCached: ({ client, query }) => client.access.policies.getCached(query),
-});
-
-export type ListParams = List.PagerParams;
-
-export const useList = Flux.createList<
-  ListParams,
-  access.policy.Key,
-  access.policy.Policy
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.access.policies.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.access.policies.onChange(key, handler),
-  getCached: ({ client, query }) => client.access.policies.getCached(query),
+    client.access.policies.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.access.policies.watch(query).getCached(),
 });
 
 export type DeleteParams = access.policy.Key | access.policy.Key[];

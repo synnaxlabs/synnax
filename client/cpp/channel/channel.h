@@ -109,7 +109,7 @@ public:
     /// @param key the key of the channel.
     /// @param options the options of the retrieve.
     /// @returns the channel, and an error that matches NOT_FOUND when no channel has
-    /// the key, or VALIDATION when options set a limit or an offset.
+    /// the key, or VALIDATION when options set a limit or a cursor.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve(Key key, const RetrieveOptions &options = {}) const;
 
@@ -118,7 +118,7 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the channel, and an error that matches NOT_FOUND when no channel has
     /// the name, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit or an offset.
+    /// set a limit or a cursor.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
 
@@ -151,7 +151,7 @@ public:
     /// @param options the options of the retrieve.
     /// @returns the channel, and an error that matches NOT_FOUND when no channel
     /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit or an offset.
+    /// set a limit or a cursor.
     [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
