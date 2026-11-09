@@ -92,9 +92,6 @@ const singleQueryZ = z
   ])
   .transform(normalizeSingle);
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
-
 /** The resources that use a secret, keyed by the secret. */
 type Uses = Pick<Base, "key" | "uses">;
 
@@ -154,10 +151,12 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (secret, req) => matches(secret, req.where),
-        // Only the Core knows uses, so a change refetches a query that reads them.
-        serverComputed: (req) => req.includeUses === true || serverComputed(req.where),
-        serverFields: SERVER_FIELDS,
+        // A secret whose uses the client does not hold fetches the query again.
+        matches: (secret, req) =>
+          req.includeUses === true && usesStore.get(secret.key) == null
+            ? null
+            : matches(secret, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         triggers: [usesTrigger],
       },
       compose: (record, q) =>
