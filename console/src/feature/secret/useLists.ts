@@ -9,10 +9,6 @@
 
 import { certificate, secret } from "@synnaxlabs/client";
 import { Access, Certificate, type Flux, Secret } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
-
-const byName = (a: { name: string }, b: { name: string }): number =>
-  a.name.localeCompare(b.name);
 
 interface Retrievable {
   secrets: boolean;
@@ -28,31 +24,19 @@ export const useRetrievable = (): Retrievable => {
 
 export interface Lists {
   /** Null when the user cannot retrieve secrets. */
-  secrets: Flux.UseListReturn<Secret.ListQuery, secret.Key, secret.Secret> | null;
+  secrets: Flux.UseListReturn<secret.Key, secret.Secret> | null;
   /** Null when the user cannot retrieve certificates. */
-  certificates: Flux.UseListReturn<
-    Certificate.ListQuery,
-    certificate.Key,
-    certificate.Certificate
-  > | null;
+  certificates: Flux.UseListReturn<certificate.Key, certificate.Certificate> | null;
 }
 
 /**
- * Retrieves the secrets and certificates the user can read, sorted by name, and keeps
- * them current.
+ * Lists the secrets and certificates the user can read, by name, and keeps them
+ * current. A list reads nothing until its first call to `more`.
  */
 export const useLists = (): Lists => {
   const retrievable = useRetrievable();
-  const secrets = Secret.useList({ sort: byName });
-  const certificates = Certificate.useList({ sort: byName });
-  const { retrieve: retrieveSecrets } = secrets;
-  const { retrieve: retrieveCertificates } = certificates;
-  useEffect(() => {
-    if (retrievable.secrets) retrieveSecrets({});
-  }, [retrievable.secrets, retrieveSecrets]);
-  useEffect(() => {
-    if (retrievable.certificates) retrieveCertificates({});
-  }, [retrievable.certificates, retrieveCertificates]);
+  const secrets = Secret.useList();
+  const certificates = Certificate.useList();
   return {
     secrets: retrievable.secrets ? secrets : null,
     certificates: retrievable.certificates ? certificates : null,

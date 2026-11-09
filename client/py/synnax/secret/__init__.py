@@ -11,8 +11,10 @@ from synnax.secret.client import Client
 from synnax.secret.payload import New, NewFile, NewStored
 from synnax.secret.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     FileSecret,
     Key,
+    Order,
     Secret,
     Source,
     StoredSecret,
@@ -24,11 +26,13 @@ from synnax.secret.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "FileSecret",
     "Key",
     "New",
     "NewFile",
     "NewStored",
+    "Order",
     "Secret",
     "Source",
     "StoredSecret",

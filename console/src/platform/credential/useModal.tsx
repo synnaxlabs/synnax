@@ -106,14 +106,14 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
   const query = { subject };
   const invalidateKeys = Credential.useInvalidateKeys();
   const invalidateSessions = Credential.useInvalidateSessions();
+  const refreshKeys = Credential.useRefreshKeys();
+  const refreshSessions = Credential.useRefreshSessions();
   const [name, setName] = useState("");
   const [created, setCreated] = useState<Credential.CreateKeyResult | null>(null);
-  // These reads have no live updates, so a remount is what fetches them again.
-  const [generation, setGeneration] = useState(0);
+  // These reads have no live updates, so a change made here fetches them again.
   const refresh = () => {
-    invalidateKeys(query);
-    invalidateSessions(query);
-    setGeneration((g) => g + 1);
+    refreshKeys(query);
+    refreshSessions(query);
   };
   const handleError = Status.useErrorHandler();
   const mounted = useRef(true);
@@ -153,7 +153,6 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
       <Text.Text level="h5">API keys</Text.Text>
       <Flex.Box y className={CSS.BE("credential", "keys")}>
         <KeyList
-          key={generation}
           subject={subject}
           onDelete={canDelete ? (k) => del.update(k) : undefined}
         />

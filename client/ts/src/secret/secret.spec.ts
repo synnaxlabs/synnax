@@ -160,7 +160,7 @@ describe("Secret", () => {
       assert(c.source === "stored" && c.privateKey != null);
       const { privateKey } = c;
       const q = { key: privateKey, includeUses: true };
-      const off = client.secrets.onChange(q, () => {});
+      const off = client.secrets.watch(q).onChange(() => {});
       const before = await client.secrets.retrieve(q);
       expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
       vi.useFakeTimers({
@@ -175,17 +175,19 @@ describe("Secret", () => {
         vi.useRealTimers();
       }
       await client.certificates.delete(c.key);
-      await vi.waitFor(() => expectDeleted(client.secrets.getCached(privateKey)));
+      await vi.waitFor(() =>
+        expectDeleted(client.secrets.watch(privateKey).getCached()),
+      );
       await client.secrets.create({
         key: privateKey,
         name: "Gap",
         source: "stored",
         value: "abc",
       });
-      const offAgain = client.secrets.onChange(q, () => {});
+      const offAgain = client.secrets.watch(q).onChange(() => {});
       try {
         await vi.waitFor(() =>
-          expect(expectLive(client.secrets.getCached(q)).uses).toEqual([]),
+          expect(expectLive(client.secrets.watch(q).getCached()).uses).toEqual([]),
         );
       } finally {
         offAgain();
@@ -203,6 +205,60 @@ describe("Secret", () => {
       await expect
         .poll(async () => await client.secrets.retrieve({ searchTerm: name }))
         .toContainEqual(created);
+    });
+
+    it("should retrieve a secret by name", async () => {
+      const name = `${id.create()} token`;
+      const created = await createTestClient().secrets.create({
+        name,
+        source: "stored",
+        value: "abc",
+      });
+      expect(await createTestClient().secrets.retrieve(name)).toEqual(created);
+    });
+
+    it("should page secrets in name order with a cursor", async () => {
+      const prefix = id.create();
+      const created = await createTestClient().secrets.create(
+        ["C", "A", "B"].map((n) => ({
+          name: `${prefix} ${n}`,
+          source: "stored" as const,
+          value: "v",
+        })),
+      );
+      const keys = created.map((s) => s.key);
+      const order = { field: "name" as const };
+      const client = createTestClient();
+      const first = await client.secrets.retrieve({ key: keys, order, limit: 2 });
+      expect(first.map((s) => s.name)).toEqual([`${prefix} A`, `${prefix} B`]);
+      const last = first[1];
+      const second = await client.secrets.retrieve({
+        key: keys,
+        order,
+        after: { key: last.key, name: last.name },
+      });
+      expect(second.map((s) => s.name)).toEqual([`${prefix} C`]);
+    });
+
+    it("should add a new secret to a watched list", async () => {
+      const prefix = id.create();
+      const client = createTestClient();
+      const list = client.secrets.watch({ searchTerm: prefix });
+      await list.retrieve();
+      const seen: string[][] = [];
+      const stop = list.onChange((w) => {
+        if (w != null) seen.push(w.records.map((s) => s.name));
+      });
+      try {
+        await createTestClient().secrets.create({
+          name: `${prefix} watched`,
+          source: "stored",
+          value: "v",
+        });
+        await expect.poll(() => seen.at(-1)).toContain(`${prefix} watched`);
+      } finally {
+        stop();
+      }
     });
 
     it("should throw a NotFoundError for a missing key", async () => {
@@ -281,7 +337,7 @@ describe("Secret", () => {
       });
       const q = { key: s.key, includeUses: true };
       const results: Array<query.Cached<secret.Secret> | undefined> = [];
-      const off = client.secrets.onChange(q, (res) => results.push(res));
+      const off = client.secrets.watch(q).onChange((res) => results.push(res));
       try {
         // The read joins the fetch of the subscription, so that fetch has settled once
         // the read rejects.
