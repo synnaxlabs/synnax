@@ -71,20 +71,25 @@ export interface Drop {
   (props: DropProps): Promise<void>;
 }
 
+/** Returns what a drag of the resource carries besides the resource itself. */
+export interface HaulItems {
+  (resource: Resource, client: Synnax): Haul.Item[];
+}
+
 /**
- * Item renders a single resource row in the resource tree. The component carries the
- * static, render-independent behavior for its resource type (children, drag, context
- * menu, visibility) as properties, read imperatively by the Tree.
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, order, drag, context menu) as properties,
+ * which the Tree reads imperatively.
  */
 export interface Item extends FC<ItemProps> {
-  type: resource.Type;
   hasChildren: boolean;
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder: boolean;
   children?: Children;
   canDrop: CanDrop;
   drop?: Drop;
-  haulItems: (resource: Resource) => Haul.Item[];
+  haulItems: HaulItems;
   ContextMenu?: ContextMenu;
-  visible?: (resource: Resource) => boolean;
 }
 
 export interface Items extends Partial<Record<resource.Type, Item>> {}
@@ -117,33 +122,32 @@ const DefaultRow = ({
 const noop = (): void => {};
 
 export interface CreateItemParams {
-  type: resource.Type;
   icon?: Icon.ReactElement | ((resource: Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: Resource) => void;
   /** Lists the children of a node of this type. */
   children?: Children;
   /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder?: boolean;
   canDrop?: CanDrop;
   /** Moves dropped items into a node of this type. Required when canDrop can pass. */
   drop?: Drop;
-  haulItems?: (resource: Resource) => Haul.Item[];
+  haulItems?: HaulItems;
   ContextMenu?: ContextMenu;
-  visible?: (resource: Resource) => boolean;
   Content?: Content;
 }
 
 export const createItem = ({
-  type,
   icon,
   useOnSelect = () => noop,
   children,
   hasChildren = children != null,
+  folder = false,
   canDrop = () => false,
   drop,
   haulItems = () => [],
   ContextMenu,
-  visible,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -156,17 +160,16 @@ export const createItem = ({
     return <Row {...props} icon={resolvedIcon} onDoubleClick={handleDoubleClick} />;
   };
   const item = Component as Item;
-  item.type = type;
   item.hasChildren = hasChildren;
+  item.folder = folder;
   item.children = children;
   item.canDrop = canDrop;
   item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
-  item.visible = visible;
   return item;
 };
 
 // DefaultItem is the fallback used for resource types with no registered Item: an
 // unadorned name row with no children and no drag or drop behavior.
-export const DefaultItem: Item = createItem({ type: "builtin" });
+export const DefaultItem: Item = createItem({});
