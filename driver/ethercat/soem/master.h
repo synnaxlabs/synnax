@@ -177,6 +177,11 @@ private:
         return this->api->context.slavelist[pos];
     }
 
+    /// @brief returns the name of the slave at pos as a NUL-terminated string.
+    [[nodiscard]] const char *slave_name(const uint16_t pos) const {
+        return this->record(pos).name;
+    }
+
     /// @brief writes a slave's startup parameters in order, recording why the slave
     /// rejected the first one that fails. Returns true when the slave took them all.
     bool write_startup_parameters(
