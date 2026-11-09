@@ -29,7 +29,6 @@ class _SearchRequest(BaseModel):
     search_term: str
     types: list[Type] | None = None
     limit: int | None = None
-    offset: int | None = None
 
 
 class _RetrieveRequest(BaseModel):
@@ -54,7 +53,6 @@ class Client:
         *,
         types: list[Type] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
     ) -> list[Resource]:
         """Searches the records of every type for a term.
 
@@ -63,14 +61,10 @@ class Client:
         :param types: Limits the search to resources of these types.
         :param limit: The maximum number of resources to return, at most 1000.
             Defaults to 100.
-        :param offset: The number of closest matches to skip, at most 10000.
         :returns: The matching resources, closest match first.
-        :raises ValidationError: If a type is unknown, or the limit or offset is out of
-            bounds.
+        :raises ValidationError: If a type is unknown, or the limit is out of bounds.
         """
-        req = _SearchRequest(
-            search_term=search_term, types=types, limit=limit, offset=offset
-        )
+        req = _SearchRequest(search_term=search_term, types=types, limit=limit)
         return self._client.send("/resource/search", req, _Response).resources
 
     @overload
