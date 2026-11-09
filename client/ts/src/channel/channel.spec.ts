@@ -518,7 +518,7 @@ describe("Channel", () => {
       expect(cached?.dataType).toEqual(DataType.FLOAT64);
     });
 
-    it("should resolve and report the error when the fetch after it fails", async () => {
+    it("should resolve and report a failed fetch after the send", async () => {
       const onInternalError = vi.fn();
       const local = createTestClient({ onInternalError });
       const ch = await local.channels.create({

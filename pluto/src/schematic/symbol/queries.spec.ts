@@ -162,7 +162,7 @@ describe("Symbol queries", () => {
       expect(stored.data.svg).toBe("<svg>remote</svg>");
     });
 
-    it("should keep the typed values and show the error when the Core refuses the save", async () => {
+    it("should keep typed values and show the error on a refused save", async () => {
       const parent = await client.groups.create({
         scope: "schematic_symbol",
         name: "test-symbol-refused",

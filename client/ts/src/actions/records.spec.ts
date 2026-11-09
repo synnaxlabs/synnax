@@ -255,7 +255,7 @@ describe("record dispatch", () => {
       await expect.poll(() => rec.cachedName(client)).toBe(name);
     });
 
-    it("should read a later remote edit on a client with no change stream", async () => {
+    it("should read a later remote edit with no change stream", async () => {
       const unstreamed = createTestClient({ cache: false });
       const rec = await create(unstreamed);
       await rec.rename(unstreamed, uniqueName());

@@ -713,7 +713,7 @@ describe("actions.Controller", () => {
       expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
     });
 
-    it("rejects a queued dispatch that needs the failed one and keeps sending", async () => {
+    it("rejects a queued edit that needs the failed one and sends on", async () => {
       const send = createFailingSend(1);
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
@@ -1535,7 +1535,7 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
     });
 
-    it("settles a dispatch when its send resolves in epoch 0, which has no stream", async () => {
+    it("settles a dispatch on its send in epoch 0, which has no stream", async () => {
       const { docs, epochs, controller } = setupStore({
         send: async () => [set("h", 9)],
       });

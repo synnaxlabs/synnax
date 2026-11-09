@@ -989,7 +989,7 @@ describe("queries", () => {
         });
       });
 
-      it("should keep the typed values and show the error when the Core refuses the save", async () => {
+      it("should keep typed values and show the error on a refused save", async () => {
         const rack = await client.racks.create({ name: "test refused save rack" });
         const testDevice = await client.devices.create({
           key: id.create(),

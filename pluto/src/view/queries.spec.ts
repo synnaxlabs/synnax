@@ -174,7 +174,7 @@ describe("View queries", () => {
       const stored = await createTestClient().views.retrieve(view.key);
       expect(stored.name).toEqual("existing-view");
     });
-    it("should keep the typed values and show the error when the Core refuses the save", async () => {
+    it("should keep typed values and show the error on a refused save", async () => {
       const view = await client.views.create({ name: "refused-view", type: "range" });
       const viewer = await createTestClientWithRole(client, "Viewer");
       const { result } = await renderHookSuspended(

@@ -322,7 +322,7 @@ describe("Device", async () => {
       expect(stored.location).toBe("Dev2");
     });
 
-    it("should reject a queued dispatch that needs a refused one and keep sending", async () => {
+    it("should reject a queued dispatch that needs a refused one", async () => {
       const d = await client.devices.create({
         rack: testRack.key,
         location: "Dev1",
