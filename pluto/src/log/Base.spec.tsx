@@ -155,10 +155,12 @@ describe("log/Base", () => {
       expect(screen.getByTestId("overlay")).toBeDefined();
     });
 
-    it("should not render children when empty", () => {
+    // A filter that matches nothing empties the log, and its controls must stay.
+    it("should render children beside the empty content", () => {
       setupAether({ empty: true });
       renderLog({ children: <div data-testid="overlay" /> });
-      expect(screen.queryByTestId("overlay")).toBeNull();
+      expect(screen.getByTestId("overlay")).toBeDefined();
+      expect(screen.getByText("No log entries")).toBeDefined();
     });
 
     it("should render custom empty content when provided", () => {
