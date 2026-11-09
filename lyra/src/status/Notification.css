@@ -80,13 +80,6 @@
         opacity: 0;
     }
 
-    .lyra-notification__name,
-    .lyra-notification__message,
-    .lyra-notification__description {
-        -webkit-user-select: text;
-        user-select: text;
-    }
-
     .lyra-notification__name {
         margin-bottom: 0.5rem;
     }

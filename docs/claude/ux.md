@@ -456,8 +456,9 @@ says why in a sentence, then gives the raw error.
 - Selection is off by default. The Console's `body` turns it off. Selection inherits, so
   a component turns it back on with `-webkit-user-select: text` and `user-select: text`,
   never with `!important`. WebKit reads only the prefixed form.
-- Text that people paste somewhere else is selectable: toast and dialog messages, error
-  text, read-only values (IDs, keys, addresses, thumbprints, versions), code, and logs.
+- Text that people paste somewhere else is selectable: dialog messages, error text,
+  read-only values (IDs, keys, addresses, thumbprints, versions), code, and logs. A
+  toast is not, because its copy button copies the whole status.
 - Controls are not selectable: buttons, tabs, menu items, tree and list items, field
   labels, and toolbar titles. A record list copies through its context menu.
 - Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
