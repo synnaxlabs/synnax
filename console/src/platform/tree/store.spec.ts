@@ -51,8 +51,8 @@ const createMemorySource = (fetched: Window, pages: Window[] = []): MemorySource
     more: async () => {
       const page = pages.shift();
       if (page != null) push(page);
-      return cached ?? fetched;
     },
+    retrieveAll: async () => await Promise.reject(new Error("the store pages lists")),
     getCached: () => cached,
     onChange: (handler) => {
       handlers.add(handler);
@@ -198,8 +198,8 @@ describe("tree store", () => {
       const paged = createMemorySource({ resources: [GROUP_A], more: true });
       const more = vi.spyOn(paged, "more").mockImplementation(
         async () =>
-          await new Promise<Window>((resolve) => {
-            release = () => resolve(listed(GROUP_A));
+          await new Promise<void>((resolve) => {
+            release = resolve;
           }),
       );
       const store = createStore({ [ROOT_KEY]: [paged] });
@@ -269,7 +269,8 @@ describe("tree store", () => {
       const onError = vi.fn();
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
-        more: async () => await Promise.reject(new Error("unreachable")),
+        more: async () => {},
+        retrieveAll: async () => await Promise.reject(new Error("unreachable")),
         getCached: () => undefined,
         onChange: () => () => {},
       };
@@ -377,7 +378,8 @@ describe("tree store", () => {
       const root = createMemorySource(listed(GROUP_A));
       const failing: Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
-        more: async () => await Promise.reject(new Error("unreachable")),
+        more: async () => {},
+        retrieveAll: async () => await Promise.reject(new Error("unreachable")),
         getCached: () => undefined,
         onChange: () => () => {},
       };

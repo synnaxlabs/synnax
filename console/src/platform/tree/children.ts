@@ -24,8 +24,10 @@ export interface Window {
 export interface Source {
   /** Fetches the list. The window reaches onChange handlers too. */
   retrieve: () => Promise<Window>;
-  /** Fetches the next page of the list. The window reaches onChange handlers too. */
-  more: () => Promise<Window>;
+  /** Fetches the next page of the list. The window reaches onChange handlers. */
+  more: () => Promise<void>;
+  /** Fetches every resource that the list matches in one request. Leaves the window. */
+  retrieveAll: () => Promise<Resource[]>;
   /** Returns the window, or undefined before the list is fetched. */
   getCached: () => Window | undefined;
   /**
@@ -57,8 +59,9 @@ const NAME_ORDER: NameOrder["order"] = { field: "name" };
 /** The most children that a list fetches at a time. */
 const PAGE_SIZE = 1000;
 
-/** A typed client that keeps live lists of the records that queries match. */
+/** A typed client that retrieves the records that queries match and lists them live. */
 export interface Retriever<Q, D extends record.Keyed<record.Key>> {
+  retrieve: (query: Q) => Promise<D[]>;
   watch: (query: Q & NameOrder & { limit: number }) => query.List<D, unknown>;
 }
 
@@ -91,7 +94,10 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   };
   return {
     retrieve: async () => toWindow(await list.retrieve()),
-    more: async () => toWindow(await list.more(PAGE_SIZE)),
+    more: async () => {
+      await list.more(PAGE_SIZE);
+    },
+    retrieveAll: async () => (await retriever.retrieve(q)).map(convert),
     getCached: () => {
       const cached = list.getCached();
       return cached == null ? undefined : toWindow(cached);
