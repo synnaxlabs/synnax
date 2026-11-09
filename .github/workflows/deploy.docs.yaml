@@ -43,7 +43,7 @@ on:
       ref:
         description:
           "Ref to build one version from (default: main for next, else the train's
-          release branch or newest Core tag)"
+          newest Core tag, or its release branch if the branch holds that tag)"
         type: string
         default: ""
   workflow_call:

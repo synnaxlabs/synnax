@@ -42,12 +42,14 @@ To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
 
 To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
 `0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
-its `release/core-X.Y` branch if one exists, else from its newest stable Core tag. Set
-`ref` to build one version from another ref. A push to `main` deploys `next`. A stable
-release deploys `next`, `latest`, `previous`, and the train it released.
+its newest stable Core tag, or from its `release/core-X.Y` branch if the branch holds
+that tag. Set `ref` to build one version from another ref. A push to `main` deploys
+`next`. A stable release deploys `next`, `latest`, `previous`, and the train it
+released.
 
 To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
-train's release branch, and deploy the train.
+train's release branch, and deploy the train. If a patch of the train shipped from
+`main`, first merge its tag into the branch.
 
 ## Feature flags
 

@@ -36,14 +36,14 @@ export interface Lookups {
   trains: () => Promise<string[]>;
   /** Returns the newest stable Core release on a train, such as `0.60.1`. */
   newest: (train: string) => Promise<string>;
-  /** Returns whether a train has a `release/core-X.Y` branch. */
-  branched: (train: string) => Promise<boolean>;
+  /** Returns whether a branch exists and holds every commit of a tag. */
+  holds: (branch: string, tag: string) => Promise<boolean>;
 }
 
 /**
  * Plans the deployments of docs versions. `next` builds from `main`. A train builds
- * from its release branch, which carries its docs fixes, else from its newest stable
- * Core tag.
+ * from its newest stable Core tag, or from its release branch if the branch holds that
+ * tag. A patch released from `main` leaves the branch behind its newest tag.
  * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
  * @throws {Error} if no train has a site, if a version is neither `next` nor a train
@@ -52,7 +52,7 @@ export interface Lookups {
 export const plan = async (
   requested: string[],
   { ref, released }: Options,
-  { trains: listTrains, newest, branched }: Lookups,
+  { trains: listTrains, newest, holds }: Lookups,
 ): Promise<Deployment[]> => {
   const trains = await listTrains();
   if (trains.length === 0) throw new Error("No train has a docs site");
@@ -68,8 +68,9 @@ export const plan = async (
     throw new Error(`A ref builds exactly one version, not ${names.length}`);
   const refOf = async (name: string): Promise<string> => {
     if (name === NEXT) return "main";
-    if (await branched(name)) return `release/core-${name}`;
-    return `core/v${await newest(name)}`;
+    const tag = `core/v${await newest(name)}`;
+    const branch = `release/core-${name}`;
+    return (await holds(branch, tag)) ? branch : tag;
   };
   return await Promise.all(
     names.map(async (name) => {

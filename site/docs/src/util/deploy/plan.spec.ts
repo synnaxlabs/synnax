@@ -13,10 +13,14 @@ import { type Lookups, plan } from "@/util/deploy/plan";
 
 const NEWEST: Record<string, string> = { "0.61": "0.61.0", "0.60": "0.60.1" };
 
-const lookups = (trains: string[], branches: string[] = []): Lookups => ({
+// Each branch maps to the tags it holds.
+const lookups = (
+  trains: string[],
+  branches: Record<string, string[]> = {},
+): Lookups => ({
   trains: async () => trains,
   newest: async (train) => NEWEST[train],
-  branched: async (train) => branches.includes(train),
+  holds: async (branch, tag) => branches[branch]?.includes(tag) ?? false,
 });
 
 describe("plan", () => {
@@ -30,14 +34,21 @@ describe("plan", () => {
     ]);
   });
 
-  it("should build a train from its release branch", async () => {
-    expect(await plan(["0.60"], {}, lookups(["0.61", "0.60"], ["0.60"]))).toEqual([
+  it("should build a train from a release branch that holds its newest tag", async () => {
+    const branches = { "release/core-0.60": ["core/v0.60.0", "core/v0.60.1"] };
+    expect(await plan(["0.60"], {}, lookups(["0.61", "0.60"], branches))).toEqual([
       {
         version: "0.60",
         ref: "release/core-0.60",
         host: "v0-60.docs.synnaxlabs.com",
       },
     ]);
+  });
+
+  it("should build a train from its newest tag when the branch lacks it", async () => {
+    const branches = { "release/core-0.60": ["core/v0.60.0"] };
+    const [{ ref }] = await plan(["0.60"], {}, lookups(["0.61", "0.60"], branches));
+    expect(ref).toEqual("core/v0.60.1");
   });
 
   it("should deploy a version once", async () => {
