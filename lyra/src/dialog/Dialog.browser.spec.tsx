@@ -364,6 +364,27 @@ describe("Dialog", () => {
         expect(page.getByRole("dialog").query()).not.toBeNull();
       });
 
+      it("should stay open when the window gives the focus back", async () => {
+        await renderThemed(
+          <Triggers.Provider>
+            <input aria-label="Before" />
+            <Dialog.Frame id="menu">
+              <Dialog.Trigger>Menu</Dialog.Trigger>
+              <Dialog.Dialog>Content</Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        const before = field("Before");
+        before.focus();
+        Dialog.open("menu");
+        await expect.element(page.getByRole("dialog")).toBeVisible();
+        const dialog = page.getByRole("dialog").element();
+        await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+        before.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+        await userEvent.keyboard("{Shift}");
+        expect(button("Menu").getAttribute("aria-expanded")).toBe("true");
+      });
+
       it("should leave the focus where a click outside puts it", async () => {
         await openDropdown(SEARCH);
         await userEvent.click(page.getByLabelText("Before"));

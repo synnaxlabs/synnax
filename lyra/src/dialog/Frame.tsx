@@ -409,9 +409,14 @@ export const Frame = ({
 
   useEffect(() => {
     if (!visible || variant === "modal") return;
+    // A window that comes back gives the focus to the same element again.
+    let last = document.activeElement;
     const handleFocusIn = ({ target }: FocusEvent): void => {
       const frame = targetRef.current;
+      const moved = target !== last;
+      last = target instanceof Element ? target : null;
       if (
+        !moved ||
         frame == null ||
         !(target instanceof Element) ||
         contains(frame, target) ||
