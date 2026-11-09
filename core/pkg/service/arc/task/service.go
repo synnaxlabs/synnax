@@ -80,6 +80,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.ConfigLadder,
 			Legacy:          &legacy.Config,
 			SetEntryKey:     (*Config).SetKey,
+			PatchEntry:      (*Config).Patch,
+			HashEntry:       (*Config).HashContent,
 			ValidateEntry:   (*Config).Validate,
 		},
 	); !ok(err, s.Config) {

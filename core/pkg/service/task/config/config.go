@@ -22,9 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -43,14 +45,19 @@ type Store interface {
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
 	) (Record, error)
-	// PrepareStrict is Prepare, except that it also rejects data holding a member that
-	// the record type does not declare.
-	PrepareStrict(
+	// Edit applies the path actions at cursors to the record stored under key, then
+	// prepares the result as Prepare does. Each cursor is past the segment that names
+	// the config. A value that an action removes or sets to null takes its default, and
+	// a value set to zero stays zero. Edit returns the record to write, and whether it
+	// differs from the result of the actions alone, such as by a filled default. It
+	// returns an error wrapping query.ErrNotFound when no record exists, or
+	// validate.ErrValidation when an action or the result is not valid.
+	Edit(
 		ctx context.Context,
 		snap gorp.Snapshot,
 		key uuid.UUID,
-		data msgpack.EncodedJSON,
-	) (Record, error)
+		cursors []patch.Cursor,
+	) (Record, bool, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(
@@ -58,6 +65,9 @@ type Store interface {
 		snap gorp.Snapshot,
 		key uuid.UUID,
 	) (msgpack.EncodedJSON, error)
+	// Hash returns the hash of the record stored under key, as Record.Hash does, or an
+	// error wrapping query.ErrNotFound when no record exists.
+	Hash(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) (string, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 	// Copy duplicates the record stored under from into a new record stored under to,
@@ -87,12 +97,17 @@ type Store interface {
 // Record is a validated configuration record that is not written yet. Only a Store
 // builds one.
 type Record struct {
-	data  msgpack.EncodedJSON
+	hash  string
+	data  func() (msgpack.EncodedJSON, error)
 	write func(ctx context.Context, tx gorp.Tx) error
 }
 
 // Data returns the record as Read returns it once written.
-func (r Record) Data() msgpack.EncodedJSON { return r.data }
+func (r Record) Data() (msgpack.EncodedJSON, error) { return r.data() }
+
+// Hash returns 16 hexadecimal characters that hash every value of the record except its
+// keys. A list entry added again under a new key hashes as the entry it replaces.
+func (r Record) Hash() string { return r.hash }
 
 // Write writes the record under its key, creating or overwriting it. It returns a
 // validation error when no task has the key.
@@ -110,6 +125,12 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// SetEntryKey stamps key onto an entry before it is stored.
 	// [REQUIRED]
 	SetEntryKey func(e *E, key uuid.UUID)
+	// PatchEntry applies the path action at c, which is not done, to an entry.
+	// [REQUIRED]
+	PatchEntry func(e *E, c patch.Cursor) error
+	// HashEntry writes the content of an entry to h.
+	// [REQUIRED]
+	HashEntry func(e *E, h *content.Hash)
 	// Migrations is the stored-shape migration chain for the record type. Empty for a
 	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
@@ -143,6 +164,8 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Type = override.String(c.Type, other.Type)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
+	c.PatchEntry = override.Nil(c.PatchEntry, other.PatchEntry)
+	c.HashEntry = override.Nil(c.HashEntry, other.HashEntry)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.References = override.Slice(c.References, other.References)
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
@@ -160,6 +183,8 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("set_entry_key", c.SetEntryKey)
+	v.NotNil("patch_entry", c.PatchEntry)
+	v.NotNil("hash_entry", c.HashEntry)
 	v.NotNil("ladder.decode", c.Ladder.Decode)
 	return v.Error()
 }
@@ -248,26 +273,6 @@ func (s *Service[E]) Prepare(
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 ) (Record, error) {
-	return s.prepare(ctx, snap, key, data, json.RejectUnknownMembers(false))
-}
-
-// PrepareStrict implements Store.
-func (s *Service[E]) PrepareStrict(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	key uuid.UUID,
-	data msgpack.EncodedJSON,
-) (Record, error) {
-	return s.prepare(ctx, snap, key, data, json.RejectUnknownMembers(true))
-}
-
-func (s *Service[E]) prepare(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	key uuid.UUID,
-	data msgpack.EncodedJSON,
-	opts json.Options,
-) (Record, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return Record{}, errors.Wrapf(
@@ -275,30 +280,126 @@ func (s *Service[E]) prepare(
 		)
 	}
 	var e E
-	if err := json.Unmarshal(b, &e, opts); err != nil {
+	if err := json.Unmarshal(b, &e); err != nil {
 		return Record{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	s.cfg.SetEntryKey(&e, key)
+	return s.prepare(ctx, snap, key, &e)
+}
+
+// Edit implements Store.
+func (s *Service[E]) Edit(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+	cursors []patch.Cursor,
+) (Record, bool, error) {
+	e, err := s.retrieve(ctx, snap, key)
+	if err != nil {
+		return Record{}, false, err
+	}
+	var filled bool
+	for _, c := range cursors {
+		var r patch.Report
+		if c = c.Partial(&r); c.Done() {
+			err = patch.Value(&e, c)
+		} else {
+			err = s.cfg.PatchEntry(&e, c)
+		}
+		if err != nil {
+			return Record{}, false, err
+		}
+		if e, err = refill(e, r.Emptied); err != nil {
+			return Record{}, false, err
+		}
+		filled = filled || r.Filled
+	}
+	edited, keyed := s.hash(&e), e.GorpKey() == key
+	rec, err := s.prepare(ctx, snap, key, &e)
+	if err != nil {
+		return Record{}, false, err
+	}
+	return rec, filled || !keyed || rec.hash != edited, nil
+}
+
+// refill drops the members at paths from the JSON form of e and decodes the result, so
+// a removed or nulled value takes its default. An empty path drops the whole config.
+func refill[E any](e E, paths [][]string) (E, error) {
+	if len(paths) == 0 {
+		return e, nil
+	}
+	return redecode(e, func(data msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		for _, p := range paths {
+			if len(p) == 0 {
+				data = msgpack.EncodedJSON{}
+				continue
+			}
+			last := len(p) - 1
+			remove := patch.Remove{Path: p[:last], Key: p[last]}
+			if err := remove.Apply(data); err != nil {
+				return nil, err
+			}
+		}
+		return data, nil
+	})
+}
+
+// redecode decodes the result of drop on the JSON form of e, so each member that drop
+// deletes takes its schema default.
+func redecode[E any](
+	e E,
+	drop func(msgpack.EncodedJSON) (msgpack.EncodedJSON, error),
+) (E, error) {
+	var next E
+	data, err := encode(e)
+	if err != nil {
+		return next, err
+	}
+	if data, err = drop(data); err != nil {
+		return next, err
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return next, err
+	}
+	if err = json.Unmarshal(b, &next); err != nil {
+		return *new(E), err
+	}
+	return next, nil
+}
+
+// prepare gives e key, then resolves and validates it.
+func (s *Service[E]) prepare(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+	e *E,
+) (Record, error) {
+	s.cfg.SetEntryKey(e, key)
 	if s.cfg.ResolveEntry != nil {
-		if err := s.cfg.ResolveEntry(ctx, snap, &e); err != nil {
+		if err := s.cfg.ResolveEntry(ctx, snap, e); err != nil {
 			return Record{}, err
 		}
 	}
 	if s.cfg.ValidateEntry != nil {
-		if err := s.cfg.ValidateEntry(&e); err != nil {
+		if err := s.cfg.ValidateEntry(e); err != nil {
 			return Record{}, err
 		}
 	}
-	encoded, err := encode(e)
-	if err != nil {
-		return Record{}, err
-	}
 	return Record{
-		data:  encoded,
-		write: func(ctx context.Context, tx gorp.Tx) error { return s.create(ctx, tx, &e) },
+		hash: s.hash(e),
+		data: func() (msgpack.EncodedJSON, error) { return encode(*e) },
+		write: func(ctx context.Context, tx gorp.Tx) error {
+			return s.create(ctx, tx, e)
+		},
 	}, nil
+}
+
+func (s *Service[E]) hash(e *E) string {
+	h := content.NewHash()
+	s.cfg.HashEntry(e, &h)
+	return h.Sum()
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
@@ -316,6 +417,19 @@ func (s *Service[E]) Read(
 		return nil, err
 	}
 	return encode(e)
+}
+
+// Hash implements Store.
+func (s *Service[E]) Hash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+) (string, error) {
+	e, err := s.retrieve(ctx, snap, key)
+	if err != nil {
+		return "", err
+	}
+	return s.hash(&e), nil
 }
 
 func encode[E any](e E) (msgpack.EncodedJSON, error) {
@@ -384,18 +498,10 @@ func (s *Service[E]) Normalize(
 // source version lacks as a zero, while a member that in carries keeps the value the
 // lift gave it, zero or not.
 func withInputDefaults[E any](e E, in msgpack.EncodedJSON) (E, error) {
-	var filled E
-	out, err := encode(e)
-	if err != nil {
-		return filled, err
-	}
-	dropOmittedZeros(out, in)
-	b, err := json.Marshal(out)
-	if err != nil {
-		return filled, err
-	}
-	err = json.Unmarshal(b, &filled)
-	return filled, err
+	return redecode(e, func(out msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		dropOmittedZeros(out, in)
+		return out, nil
+	})
 }
 
 // dropOmittedZeros deletes from out every member, at any object depth, that in omits

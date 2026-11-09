@@ -59,7 +59,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       const panelKeys = array.toArray(data);
       if (panelKeys.length === 0) return false;
       const items = panelKeys.map((key) => {
-        const cached = client?.panels.getCached(key);
+        const cached = client?.panels.watch(key).getCached();
         return { name: query.isLive(cached) ? cached.name : "this panel" };
       });
       if (!(await confirm(items))) return false;

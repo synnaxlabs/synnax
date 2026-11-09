@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -54,14 +55,15 @@ var (
 	panelSvc   *panel.Service
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
-	// create, del, rename, importBundle, setGroup, retrieve, and export run their
-	// routes as the API layer binds them.
+	// create, del, rename, dispatch, importBundle, setGroup, retrieve, and export run
+	// their routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apiproject.CreateRequest,
 		apiproject.CreateResponse,
 	]
 	del          freighter.UnaryHandler[apiproject.DeleteRequest, struct{}]
 	rename       freighter.UnaryHandler[apiproject.RenameRequest, struct{}]
+	dispatch     freighter.UnaryHandler[apiproject.DispatchRequest, struct{}]
 	importBundle freighter.UnaryHandler[
 		apiproject.ImportRequest,
 		apiproject.ImportResponse,
@@ -133,10 +135,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: projectSvc,
 		Bundle:  bundleSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	importBundle = bind.Write(binder, apiSvc.Import)
 	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)

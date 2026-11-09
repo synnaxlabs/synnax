@@ -889,7 +889,7 @@ var _ = Describe("Reducer", func() {
 				Expect(err).To(MatchError(union.ErrMissingPayload))
 				Expect(out).To(Equal(state))
 			},
-			Entry("rename", schematic.ActionTypeRename),
+			Entry("set", schematic.ActionTypeSet),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
 			Entry("set_node", schematic.ActionTypeSetNode),
 			Entry("remove_node", schematic.ActionTypeRemoveNode),
@@ -1053,13 +1053,39 @@ var _ = Describe("Path actions", func() {
 			Expect(tank(next).Label.Label).To(Equal("T1"))
 		})
 
-		It("Should reject a path outside the element configs", func() {
-			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
+		It("Should set the name", func() {
+			next := MustSucceed(schematic.Reduce(state, set([]string{"name"}, "Other")))
+			Expect(next.Name).To(Equal("Other"))
+			Expect(next.Configs).To(Equal(state.Configs))
+		})
+
+		It("Should reject a name that is not a string", func() {
+			Expect(schematic.Reduce(state, set([]string{"name"}, 1))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
+				MatchError(ContainSubstring("decoding document")),
 			))
 		})
+
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
+			Expect(schematic.Reduce(state, set(path, value))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+			Entry(
+				"a path to another field",
+				[]string{"nodes"},
+				[]any{},
+				`unknown object member name "nodes"`,
+			),
+			Entry(
+				"a path to the element configs map",
+				[]string{"configs"},
+				map[string]any{},
+				"the path is not inside an entry of",
+			),
+		)
 
 		It("Should reject a value that fails the element config's schema", func() {
 			Expect(schematic.Reduce(
@@ -1092,6 +1118,15 @@ var _ = Describe("Path actions", func() {
 				schematic.RemovePayload{Path: []string{"configs"}, Key: "n1"},
 			)))
 			Expect(next.Configs).To(BeEmpty())
+		})
+
+		It("Should reject a remove of the name", func() {
+			Expect(schematic.Reduce(state, schematic.NewRemoveAction(
+				schematic.RemovePayload{Key: "name"},
+			))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("[name]: the document requires a value")),
+			))
 		})
 	})
 

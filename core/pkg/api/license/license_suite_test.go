@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -78,7 +79,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    rbacSvc,
 		License: licenseSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

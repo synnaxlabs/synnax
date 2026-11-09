@@ -145,6 +145,20 @@ func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord struct {
+	// Key uniquely identifies the record within the task.
+	Key string `json:"key" msgpack:"key"`
+	// RecordKey is the Kafka key of the records read here. Empty reads every record
+	// that no other record of the task claims, keyless ones included.
+	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+	// Fields contains the values to extract from the record.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+}
+
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
 type ReadConfig struct {
@@ -347,18 +361,4 @@ func (w WriteConfig) Validate() error {
 		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
-}
-
-// ReadRecord is a set of fields read from the records with one Kafka key.
-type ReadRecord struct {
-	// Key uniquely identifies the record within the task.
-	Key string `json:"key" msgpack:"key"`
-	// RecordKey is the Kafka key of the records read here. Empty reads every record
-	// that no other record of the task claims, keyless ones included.
-	RecordKey string `json:"record_key" msgpack:"record_key"`
-	// Index is the key of the field whose channel indexes the others. Empty when the
-	// task stamps samples on arrival.
-	Index string `json:"index" msgpack:"index"`
-	// Fields contains the values to extract from the record.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
 }

@@ -184,6 +184,11 @@ var (
 			Detail: protocol.NewOptional("Retrieve requests can search the field"),
 		},
 		{
+			Label:  "patch",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Path actions can edit the field"),
+		},
+		{
 			Label:  "index",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Index configuration for the field"),
@@ -192,6 +197,11 @@ var (
 			Label:  "ref",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("The field holds the keys of other resources"),
+		},
+		{
+			Label:  "group",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Which groups can hold the record"),
 		},
 		{
 			Label:  "response",

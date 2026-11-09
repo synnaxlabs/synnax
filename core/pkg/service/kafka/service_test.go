@@ -16,8 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -185,5 +187,107 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
 		)
+	})
+
+	Describe("Edit", func() {
+		begin := func(a patch.Action) patch.Cursor {
+			GinkgoHelper()
+			return MustSucceed(patch.Begin(a)).Next()
+		}
+		set := func(value any, path ...string) patch.Cursor {
+			GinkgoHelper()
+			return begin(
+				patch.Set{Path: append([]string{"config"}, path...), Value: value},
+			)
+		}
+		remove := func(path ...string) patch.Cursor {
+			GinkgoHelper()
+			last := len(path) - 1
+			return begin(patch.Remove{
+				Path: append([]string{"config"}, path[:last]...),
+				Key:  path[last],
+			})
+		}
+		edit := func(
+			ctx SpecContext,
+			store config.Store,
+			data msgpack.EncodedJSON,
+			cursors ...patch.Cursor,
+		) msgpack.EncodedJSON {
+			GinkgoHelper()
+			key := MustSucceed(tasks.Create(ctx, store, data))
+			rec, changed := MustSucceed2(store.Edit(ctx, db, key, cursors))
+			Expect(changed).To(BeTrue())
+			return MustSucceed(rec.Data())
+		}
+
+		It("Should reset a removed scan rate to its default", func(ctx SpecContext) {
+			data := edit(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 5}, remove("rate"))
+			Expect(data["rate"]).To(BeNumerically("==", 0.2))
+		})
+
+		It("Should reset a start offset set to null to its default", func(
+			ctx SpecContext,
+		) {
+			data := edit(
+				ctx,
+				svc.Read,
+				msgpack.EncodedJSON{"start_offset": "earliest"},
+				set(nil, "start_offset"),
+			)
+			Expect(data["start_offset"]).To(Equal("latest"))
+		})
+
+		It("Should reset a removed nested value pointer to its default", func(
+			ctx SpecContext,
+		) {
+			data := edit(
+				ctx,
+				svc.Write,
+				msgpack.EncodedJSON{"record": map[string]any{"value_pointer": "/v"}},
+				remove("record", "value_pointer"),
+			)
+			Expect(data["record"]).To(HaveKeyWithValue("value_pointer", "/value"))
+		})
+
+		It("Should reset a config set to null to its defaults", func(ctx SpecContext) {
+			key := MustSucceed(
+				tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 5}),
+			)
+			rec, changed := MustSucceed2(svc.Scan.Edit(ctx, db, key, []patch.Cursor{
+				begin(patch.Set{Path: []string{"config"}}),
+			}))
+			Expect(changed).To(BeTrue())
+			Expect(MustSucceed(rec.Data())).To(SatisfyAll(
+				HaveKeyWithValue("key", key.String()),
+				HaveKeyWithValue("rate", BeNumerically("==", 0.2)),
+			))
+		})
+
+		It("Should keep a scan rate that an action sets to zero", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(
+				tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 5}),
+			)
+			rec, changed := MustSucceed2(
+				svc.Scan.Edit(ctx, db, key, []patch.Cursor{set(0, "rate")}),
+			)
+			Expect(changed).To(BeFalse())
+			Expect(MustSucceed(rec.Data())["rate"]).To(BeNumerically("==", 0))
+		})
+
+		It("Should keep a value that an action sets after a removal", func(
+			ctx SpecContext,
+		) {
+			data := edit(
+				ctx,
+				svc.Scan,
+				msgpack.EncodedJSON{"rate": 5},
+				remove("rate"),
+				set(7, "rate"),
+			)
+			Expect(data["rate"]).To(BeNumerically("==", 7))
+		})
 	})
 })

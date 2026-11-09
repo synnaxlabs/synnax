@@ -1335,6 +1335,13 @@ var _ = Describe("Decode-time default generation", func() {
 
 			Base struct { rate float64 = 0.2 }
 			Cfg struct extends Base { mode string = "auto" }
+			Bases = Base[]
+			BaseMap = map<string, Base>
+			DistinctBases Base[]
+			Page struct<T> { items T[] }
+			Box struct<T> { item T }
+			Name struct { value string }
+			Pair struct<A, B> { a A b B }
 			Outer struct { ` + field + ` }
 		`
 			table, diag := Analyze(ctx, source, "x", loader)
@@ -1342,7 +1349,136 @@ var _ = Describe("Decode-time default generation", func() {
 			req := &plugin.Request{Resolutions: table}
 			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
 				"Outer.items: Base has defaults and another struct embeds it, so it " +
-					"cannot be held in a slice, a map, or an optional field",
+					"cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
+			)))
+		},
+		Entry("in a slice", "items Base[]"),
+		Entry("in a map value", "items map<string, Base>"),
+		Entry("in an optional field", "items Base?"),
+		Entry("in a named slice", "items Bases"),
+		Entry("in a named map", "items BaseMap"),
+		Entry("in a distinct slice", "items DistinctBases"),
+		Entry("in a slice of a generic struct", "items Page<Base>"),
+		Entry("in a type parameter field of a generic struct", "items Box<Base>"),
+		Entry("in a generic struct inside a slice", "items Box<Base>[]"),
+		Entry(
+			"in a second instantiation of a generic struct",
+			"items Pair<Box<Name>, Box<Base>>",
+		),
+	)
+
+	It(
+		"Should reject an embedded type with defaults that a generic struct extends",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Page struct<T> extends Base { items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.Base: Base has defaults and another struct embeds it",
+			)))
+		},
+	)
+
+	It(
+		"Should reject a generic struct that instantiates itself without end",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Box struct<T> { item T }
+			Node struct<T> { kids Node<Box<T>>[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Node.kids: Node instantiates itself without end",
+			)))
+		},
+	)
+
+	It(
+		"Should accept a generic struct that recurses into a fixed instantiation",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Wrapper struct { name string }
+			Tree struct<T> {
+				value T
+				kids  Tree<Wrapper>[]
+			}
+			Outer struct { t Tree<Base> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("T Tree[Base]")
+		},
+	)
+
+	It(
+		"Should accept a generic struct nested in itself",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Box struct<T> { item T }
+			Outer struct { items Box<Box<Base>> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("Items Box[Box[Base]]")
+		},
+	)
+
+	It(
+		"Should reject an embedded type with defaults in a required field of a "+
+			"generic struct",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Page struct<T> { meta Base items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.meta: Base has defaults and another struct embeds it",
+			)))
+		},
+	)
+
+	DescribeTable(
+		"Should reject an embedded type with defaults that an inline variant field "+
+			"holds",
+		func(ctx SpecContext, field string) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Shape union on type {
+				box { ` + field + ` }
+				dot {}
+			}
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"BoxShape.items: Base has defaults and another struct embeds it, so " +
+					"it cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
 			)))
 		},
 		Entry("in a slice", "items Base[]"),
@@ -1635,6 +1771,55 @@ var _ = Describe("Decode-time default generation", func() {
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n\t{\n" +
 					"\t\tv0 := XY{}\n\t\tv0.X = 0\n\t\tv0.Y = 3\n\t\tc.Pos = v0\n\t}\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set a restated literal's groups after the decode",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			MinMax struct {
+				min_val float64 = 0 { @default group "range" }
+				max_val float64 = 1 { @default group "range" }
+				label   string  = "signal"
+			}
+			Parent struct { range MinMax = {} }
+			Child struct extends Parent { range MinMax = { min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"\t\tv0 := MinMax{}\n\t\tv0.SetUngroupedDefaults()\n"+
+						"\t\tv0.MinVal = -10\n\t\tc.Range = v0\n",
+					"func (c *Child) DefaultGroups() {\n\tc.Parent.DefaultGroups()\n"+
+						"\tc.Range.DefaultGroups()\n}",
+				).
+				ToNotContain("v0.DefaultGroups()")
+		},
+	)
+
+	It(
+		"Should set a union literal's groups after its members",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Scale union on type {
+				map {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+				none {}
+			}
+			Cfg struct { scale Scale = { type = "map", min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0 := MapScale{}\n\t\tv0.SetUngroupedDefaults()\n" +
+					"\t\tv0.MinVal = -10\n\t\tv0.DefaultGroups()\n",
 			)
 		},
 	)

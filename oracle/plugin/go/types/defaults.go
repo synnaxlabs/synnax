@@ -170,9 +170,8 @@ func structOverrideFill(
 	goType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
 	setup := []string{"v0 := " + goType + "{}"}
 	defaulted := typeSetsDefaults(field.Type, data, set.New[string]())
-	if defaulted {
-		setup = append(setup, "v0.SetDefaults()")
-	}
+	groups := typeHasGroups(field.Type, data, set.New[string]())
+	setup = append(setup, literalDefaultsSetup("v0", defaulted, groups)...)
 	next := 1
 	lines, ok := literalAssignments(
 		"v0",
@@ -277,9 +276,8 @@ func unionLiteral(
 			casing.QualifiedVariantTypeName(unionType, variant.Name, ".") + "{}",
 	}
 	defaulted := variantSetsDefaults(form, variant, data)
-	if defaulted {
-		setup = append(setup, variable+".SetDefaults()")
-	}
+	groups := variantHasGroups(form, variant, data)
+	setup = append(setup, literalDefaultsSetup(variable, defaulted, groups)...)
 	for _, comp := range val.Fields {
 		if comp.Name == form.Discriminator {
 			continue
@@ -307,7 +305,24 @@ func unionLiteral(
 		}
 		setup = append(setup, lines...)
 	}
+	if groups {
+		setup = append(setup, variable+".DefaultGroups()")
+	}
 	return setup, variable, true
+}
+
+// literalDefaultsSetup returns the statement that sets the defaults of the literal
+// value in variable before its members are assigned. It leaves the default groups of
+// the value to a later DefaultGroups call, so a member the literal sets keeps the rest
+// of its group at zero.
+func literalDefaultsSetup(variable string, defaulted, groups bool) []string {
+	switch {
+	case groups:
+		return []string{variable + ".SetUngroupedDefaults()"}
+	case defaulted:
+		return []string{variable + ".SetDefaults()"}
+	}
+	return nil
 }
 
 // literalAssignments renders the statements that assign the literal v to the Go
@@ -1061,6 +1076,38 @@ func setDefaultsSteps(
 	return steps
 }
 
+// variantHasGroups reports whether the variant v of the union form has a `@default
+// group` in its payload or in a type it sets the defaults of.
+func variantHasGroups(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	data *templateData,
+) bool {
+	hasGroups := func(ref resolution.TypeRef) bool {
+		return typeHasGroups(ref, data, set.New[string]())
+	}
+	if !v.Inline {
+		return lo.SomeBy(append(slices.Clone(form.Extends), v.Type), hasGroups)
+	}
+	payload, ok := v.Type.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	inherited, declared := resolver.VariantBases(form, v, "go", data.table)
+	if lo.SomeBy(inherited, hasGroups) {
+		return true
+	}
+	pform, _ := payload.Form.(resolution.StructForm)
+	probe := probeData(data)
+	return lo.SomeBy(
+		slices.Concat(declared, pform.Fields),
+		func(f resolution.Field) bool {
+			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
+				(!f.Optional && hasGroups(f.Type))
+		},
+	)
+}
+
 // typeHasGroups reports whether ref names a struct that has a `@default group` with a
 // default to set, in its own fields or in a required struct field or embedded parent.
 // visited guards against cycles in recursive types.
@@ -1129,7 +1176,8 @@ func goDefaultGroups(
 		if name == "" || f.Default == nil || f.Optional {
 			continue
 		}
-		member, ok := groupMember(f, data)
+		fd := data.forField(f)
+		member, ok := groupMember(f, fd)
 		if !ok {
 			continue
 		}
@@ -1140,7 +1188,7 @@ func goDefaultGroups(
 			order = append(order, name)
 		}
 		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+		g.Fills = append(g.Fills, goDefaultFills(f, fd)...)
 	}
 	groups := make([]defaultGroupData, 0, len(order))
 	for _, name := range order {

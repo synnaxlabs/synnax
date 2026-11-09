@@ -122,6 +122,17 @@ type LabelConfig = v10.LabelConfig
 // LabeledConfig is the base configuration for any symbol that carries a label.
 type LabeledConfig = v10.LabeledConfig
 
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = v10.ScaledConfig
+
+// StalenessConfig is the staleness detection shared by every symbol that reads a
+// channel.
+type StalenessConfig = v10.StalenessConfig
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig = v10.NumericTelemConfig
+
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
 type ControlStateConfig = v10.ControlStateConfig
@@ -140,8 +151,29 @@ type ToggleSymbolConfig = v10.ToggleSymbolConfig
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig = v10.DummyToggleSymbolConfig
 
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
+// symbols that show a level against a numeric range.
+type ScaleIndicatorConfig = v10.ScaleIndicatorConfig
+
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping = v10.StateMapping
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType = v10.PageType
+
+const (
+	// PageTypeSchematic is a schematic page.
+	PageTypeSchematic PageType = v10.PageTypeSchematic
+	// PageTypeLineplot is a line plot page.
+	PageTypeLineplot PageType = v10.PageTypeLineplot
+	// PageTypeLog is a log page.
+	PageTypeLog PageType = v10.PageTypeLog
+	// PageTypeTable is a table page.
+	PageTypeTable PageType = v10.PageTypeTable
+)
+
+// Page identifies a page an off-page reference links to.
+type Page = v10.Page
 
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
@@ -1008,35 +1040,3 @@ func (s Schematic) Validate() error {
 	}
 	return v.Error()
 }
-
-// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
-// symbols that show a level against a numeric range.
-type ScaleIndicatorConfig = v10.ScaleIndicatorConfig
-
-// PageType names the kinds of page an off-page reference can link to.
-type PageType = v10.PageType
-
-const (
-	// PageTypeSchematic is a schematic page.
-	PageTypeSchematic PageType = v10.PageTypeSchematic
-	// PageTypeLineplot is a line plot page.
-	PageTypeLineplot PageType = v10.PageTypeLineplot
-	// PageTypeLog is a log page.
-	PageTypeLog PageType = v10.PageTypeLog
-	// PageTypeTable is a table page.
-	PageTypeTable PageType = v10.PageTypeTable
-)
-
-// Page identifies a page an off-page reference links to.
-type Page = v10.Page
-
-// StalenessConfig is the staleness detection shared by every symbol that reads a
-// channel.
-type StalenessConfig = v10.StalenessConfig
-
-// NumericTelemConfig is the numeric read and formatting shared by symbols that display
-// a channel's value as a number.
-type NumericTelemConfig = v10.NumericTelemConfig
-
-// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
-type ScaledConfig = v10.ScaledConfig

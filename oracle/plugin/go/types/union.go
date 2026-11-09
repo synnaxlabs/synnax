@@ -255,25 +255,29 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					inherited, pform.Fields, data.table,
 				)
 				for _, f := range inlineFields {
+					if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
+						return unionData{}, err
+					}
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
+					fd := data.forField(f)
 					if defaultGroupName(f) == "" {
-						fills := goDefaultFills(f, data)
+						fills := goDefaultFills(f, fd)
 						if defaultOnly.Contains(f.Name) {
-							fills = overrideFills(f, data)
+							fills = overrideFills(f, fd)
 						}
 						vd.SetFills = append(vd.SetFills, fills...)
 					}
-					if validateSkip(f, data) {
+					if validateSkip(f, fd) {
 						continue
 					}
-					if chk, ok := goEnumCheck(f, data); ok {
+					if chk, ok := goEnumCheck(f, fd); ok {
 						vd.EnumChecks = append(vd.EnumChecks, chk)
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, data)...,
+						goConstraintChecks(f, fd)...,
 					)
 				}
 			}
@@ -344,10 +348,11 @@ func embedRecurseSteps(
 		}
 	}
 	for _, f := range inlineFields {
-		if skip(f, data) {
+		fd := data.forField(f)
+		if skip(f, fd) {
 			continue
 		}
-		if step, ok := goRecurseStep(f, data, hasOwn, skip); ok {
+		if step, ok := goRecurseStep(f, fd, hasOwn, skip); ok {
 			steps = append(steps, step)
 		}
 	}

@@ -91,6 +91,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            ReadTaskType,
 			Ladder:          versions.ReadConfigLadder,
 			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
@@ -104,6 +106,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
 			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
@@ -116,6 +120,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            ScanTaskType,
 			Ladder:          versions.ScanConfigLadder,
 			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
@@ -128,6 +134,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            EdgeTaskType,
 			Ladder:          versions.EdgeConfigLadder,
 			SetEntryKey:     (*EdgeConfig).SetKey,
+			PatchEntry:      (*EdgeConfig).Patch,
+			HashEntry:       (*EdgeConfig).HashContent,
 			ValidateEntry:   (*EdgeConfig).Validate,
 		},
 	); !ok(err, s.Edge) {

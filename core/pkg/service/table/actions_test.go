@@ -92,17 +92,6 @@ func create3x3() table.Table {
 }
 
 var _ = Describe("Reducer", func() {
-	Describe("Rename", func() {
-		It("Should replace the table's name", func() {
-			out := MustSucceed(
-				table.Reduce(create2x2(), table.NewRenameAction(table.RenamePayload{
-					Name: "renamed",
-				})),
-			)
-			Expect(out.Name).To(Equal("renamed"))
-		})
-	})
-
 	Describe("AddRow", func() {
 		It("Should append a row with the given cells to the cells map", func() {
 			out := MustSucceed(
@@ -635,13 +624,33 @@ var _ = Describe("Path actions", func() {
 			Expect(asText(next.Cells["a"]).Value).To(BeEmpty())
 		})
 
-		It("Should reject a path outside the cells", func() {
-			Expect(table.Reduce(create2x2(), set([]string{"name"}, "Other"))).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
-			))
+		It("Should set the name", func() {
+			next := MustSucceed(
+				table.Reduce(create2x2(), set([]string{"name"}, "Other")),
+			)
+			Expect(next.Name).To(Equal("Other"))
+			Expect(next.Cells).To(Equal(create2x2().Cells))
 		})
+
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
+			Expect(table.Reduce(create2x2(), set(path, value))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+			Entry(
+				"a path to another field",
+				[]string{"rows"},
+				[]any{},
+				`unknown object member name "rows"`,
+			),
+			Entry(
+				"a path to the cells map",
+				[]string{"cells"},
+				map[string]any{},
+				"the path is not inside an entry of",
+			),
+		)
 
 		It("Should reject a value that fails the cell config's schema", func() {
 			Expect(table.Reduce(create2x2(), set([]string{"cells", "a", "weight"}, 0))).

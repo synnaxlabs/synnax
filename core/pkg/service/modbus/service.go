@@ -82,6 +82,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:          &legacy.Read,
 			Migrations:      []gorp.Migration{v2.ReadMigration},
 			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
@@ -98,6 +100,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:          &legacy.Write,
 			Migrations:      []gorp.Migration{v2.WriteMigration},
 			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
@@ -112,6 +116,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.ScanConfigLadder,
 			Legacy:          &legacy.Scan,
 			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

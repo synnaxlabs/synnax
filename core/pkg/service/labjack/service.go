@@ -80,6 +80,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.ReadConfigLadder,
 			Legacy:          &legacy.Read,
 			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
@@ -95,6 +97,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
 			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
@@ -108,6 +112,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.ScanConfigLadder,
 			Legacy:          &legacy.Scan,
 			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

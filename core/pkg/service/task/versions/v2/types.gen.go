@@ -18,7 +18,7 @@ import (
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

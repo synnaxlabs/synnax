@@ -85,10 +85,12 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
       : await client.users.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
     key == null
-      ? client.users.current.onChange(handler)
-      : client.users.onChange(key, handler),
+      ? client.users.current.watch().onChange(handler)
+      : client.users.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) =>
-    key == null ? client.users.current.getCached() : client.users.getCached(key),
+    key == null
+      ? client.users.current.watch().getCached()
+      : client.users.watch(key).getCached(),
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);

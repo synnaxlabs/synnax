@@ -466,7 +466,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Servo Drive",
             network="eth0",
-            position=0,
+            position=1,
             vendor_id=0x00000002,
             product_code=0x12345678,
             revision=0x00010000,
@@ -508,7 +508,7 @@ class TestEtherCATDevice:
         # Verify properties
         props = created_device.properties
         assert props["network"] == "eth0"
-        assert props["position"] == 0
+        assert props["position"] == 1
         assert props["vendor_id"] == 0x00000002
         assert props["product_code"] == 0x12345678
         inputs = arr(props, "pdos", "inputs")
@@ -523,7 +523,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
         )
         assert device.key != ""
         assert len(device.key) > 0
@@ -537,12 +537,18 @@ class TestEtherCATDevice:
         )
         assert device.location == "enp3s0:5"
 
+    def test_device_default_position(self) -> None:
+        """Test that Device puts the slave at the first bus position by default."""
+        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        assert device.properties["position"] == 1
+        assert device.location == "eth0:1"
+
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
             input_pdos=[
                 sy.ethercat.PDOEntry(
                     name="Input",

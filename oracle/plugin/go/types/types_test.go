@@ -2794,7 +2794,7 @@ Rack struct extends status.BaseConfig {
 			)
 
 			It(
-				"Should keep pinned and live imports of one dependency apart when persisted and transient declarations mix",
+				"Should resolve persisted and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2845,16 +2845,16 @@ Snapshot struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
-							`"github.com/synnaxlabs/synnax/core/status"`,
-							"Embedded statusv1.Status",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
+							"Embedded status.Status",
 							"Latest status.Status",
-						)
+						).
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 
 			It(
-				"Should resolve omitted fields and transient declarations against the latest version",
+				"Should resolve omitted fields and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2889,7 +2889,7 @@ Rack struct {
 }
 `,
 						"schemas/synnax/versions/rack/v2.oracle": `
-import "schemas/synnax/status"
+import "schemas/synnax/versions/status/v1"
 
 Alias = status.Status
 
@@ -2905,13 +2905,11 @@ Rack struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							// The omitted field and the alias it references are
-							// memory-only, so they track the dependency root.
-							`"github.com/synnaxlabs/synnax/core/status"`+"\n",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
 							"type Alias = status.Status",
 							"Status *Alias",
 						).
-						ToNotContain("core/status/versions/v1")
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 
