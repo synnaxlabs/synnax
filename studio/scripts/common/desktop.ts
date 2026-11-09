@@ -23,12 +23,15 @@ export const openProject = async (
 ): Promise<void> => {
   const { page } = session;
   await session.waitFor(newProject(session), 1800);
-  // The list of projects loads after the create button renders.
-  await session.settle(2000);
   const existing = page
     .locator(".console-project-splash__items [data-menu-key]")
     .filter({ hasText: project })
     .first();
+  // The list of projects loads after the create button renders.
+  for (let i = 0; i < 300; i++) {
+    if (await existing.isVisible().catch(() => false)) break;
+    await session.settle(1000 / 60);
+  }
   if (await existing.isVisible().catch(() => false))
     await existing.click({ timeout: 5000 });
   else {

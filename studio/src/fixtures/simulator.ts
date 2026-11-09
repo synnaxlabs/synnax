@@ -17,8 +17,12 @@ const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
 const CORE = path.resolve(import.meta.dirname, "../../../core");
 const KAFKA_MAIN = path.join(import.meta.dirname, "kafka/main.go");
 
+const READY_TIMEOUT_MS = 30_000;
+
 /** Long enough for the first `go run` of the Kafka broker to compile. */
-const READY_TIMEOUT_MS = 180_000;
+const KAFKA_READY_TIMEOUT_MS = 180_000;
+
+const STOP_TIMEOUT_MS = 10_000;
 
 /** The Python code that runs each server from `client/py/examples`. */
 const PROGRAMS = {
@@ -81,8 +85,16 @@ export const simulator = async ({
     // uv and go run their programs as children, so signal the whole group.
     process.kill(-proc.pid, "SIGTERM");
     await once(proc, "exit");
+    // `go run` exits before the broker it started closes its port.
+    const stopDeadline = Date.now() + STOP_TIMEOUT_MS;
+    while (await portInUse(port)) {
+      if (Date.now() > stopDeadline)
+        throw new Error(`${protocol} server did not close port ${port} in time`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   };
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+  const deadline =
+    Date.now() + (protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS);
   while (!(await portInUse(port))) {
     if (proc.exitCode != null)
       throw new Error(`${protocol} server exited with code ${proc.exitCode}`);

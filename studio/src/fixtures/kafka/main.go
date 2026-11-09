@@ -72,7 +72,11 @@ func main() {
 					Key:   []byte("oven"),
 					Value: value,
 				},
-				nil,
+				func(_ *kgo.Record, err error) {
+					if err != nil {
+						log.Print(err)
+					}
+				},
 			)
 		}
 	}
