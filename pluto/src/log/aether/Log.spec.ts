@@ -478,6 +478,23 @@ describe("log/aether/Log", () => {
       expect(source.filter?.search).toBeNull();
     });
 
+    it("should hand the source the format each channel draws with", () => {
+      const { source, updateState } = setup();
+      const channels = [
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision: 2 }),
+      ];
+      const channelDataTypes = { "1": "float64" };
+      updateState({
+        channels,
+        channelDataTypes,
+        search: { text: "1.50", filtered: true },
+      });
+      expect(source.filter.formats["1"]).toMatchObject({
+        precision: 2,
+        dataType: "float64",
+      });
+    });
+
     it("should filter nothing with an invalid regex", () => {
       const { source, updateState } = setup();
       updateState({ search: { text: "(", mode: "regex", filtered: true } });
@@ -544,6 +561,25 @@ describe("log/aether/Log", () => {
       const on = highlights("abc", { text: "b", filtered: true });
       expect(on).toEqual(off);
       expect(off).toHaveLength(1);
+    });
+
+    it("should highlight the number as the log draws it at its precision", () => {
+      const drawn = highlights(
+        "3.14159",
+        { text: "3.14$", mode: "regex" },
+        {
+          ...BARE,
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              precision: 2,
+            }),
+          ],
+          channelDataTypes: { "1": "float64" },
+        },
+      );
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([[0, 4]]);
     });
 
     it("should highlight nothing for an invalid regex", () => {

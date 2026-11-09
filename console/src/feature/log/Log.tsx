@@ -55,7 +55,7 @@ const Internal: Panel.Content = () => {
           message={
             !hasChannels
               ? "No channels configured"
-              : search.filtered
+              : search.filtered && Base.search.compile(search) != null
                 ? "No matching lines"
                 : "No data received yet"
           }

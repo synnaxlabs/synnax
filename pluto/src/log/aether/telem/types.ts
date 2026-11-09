@@ -10,6 +10,7 @@
 import { channel, type TimeRange, type TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { formatZ } from "@/log/aether/format";
 import { searchZ } from "@/log/aether/search";
 import { type Source, sourceSpecZ } from "@/telem/aether/telem";
 
@@ -27,6 +28,8 @@ const filterZ = z.object({
   hiddenChannels: z.array(channel.keyZ).default([]),
   /** Keeps only the lines that match, when set. */
   search: searchZ.nullable().default(null),
+  /** The format of each channel, which a search matches against. */
+  formats: z.record(z.string(), formatZ).default({}),
 });
 
 /** Which entries a log holds. An entry the filter rejects takes no space. */
@@ -47,7 +50,7 @@ export interface LogSource extends Source<LogEntry[]> {
   /** Whether the entries hold the oldest stored sample of each channel. A source
    * without it holds all it has. */
   readonly exhausted?: boolean;
-  /** The oldest time the reads reached, or null before any read. */
+  /** The oldest time the reads of every channel reached, or null before any read. */
   readonly reached?: TimeStamp | null;
   /** Whether the entries end at the newest samples. A source without it is live. */
   readonly live?: boolean;
