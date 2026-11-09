@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Schematic, Synnax, Task } from "@synnaxlabs/pluto";
+import { Flux, Synnax, Task } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -105,7 +105,8 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const taskList = Task.useList({
     query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
-  const schematicList = Schematic.useList({
+  const schematicList = Flux.useList((client) => client.schematics, {
+    name: "schematics",
     query: { where: { ranges: [rangeKey], snapshot: { eq: true } } },
   });
   const tasks = useResources(task.TYPE_RESOURCE_ID.type, taskList, (t) => t.name);
@@ -114,8 +115,6 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
     schematicList,
     (s) => s.name,
   );
-  const taskPager = List.usePager({ retrieve: taskList.retrieve });
-  const schematicPager = List.usePager({ retrieve: schematicList.retrieve });
   const combined = List.useCombinedData<string, resource.Resource>({
     first: tasks,
     second: schematics,
@@ -123,8 +122,8 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   if (taskList.status.variant === "error" || schematicList.status.variant === "error")
     return null;
   const handleFetchMore = () => {
-    taskPager.fetchMore();
-    schematicPager.fetchMore();
+    taskList.more();
+    schematicList.more();
   };
   return (
     <Flex.Box y>
