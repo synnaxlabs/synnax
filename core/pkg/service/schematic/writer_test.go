@@ -274,6 +274,16 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 			})
 
+			It("Should copy the stored config", func(ctx SpecContext) {
+				var cpy schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Copy(ctx, stored.Key, "copy", true, nil, &cpy)
+				})).To(Succeed())
+				Expect(cpy.Key).ToNot(Equal(stored.Key))
+				Expect(cpy.Configs).To(HaveKey("v1"))
+			})
+
 			It("Should accept a create that edits another field of the element", func(
 				ctx SpecContext,
 			) {

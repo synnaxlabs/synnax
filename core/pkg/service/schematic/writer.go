@@ -46,7 +46,12 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // schematic must belong to exactly one of a project and a range. An existing schematic
 // keeps its group, project, and range. A new schematic in a group belongs to the
 // project that holds the group.
-func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
+func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	return w.create(ctx, s, nil)
+}
+
+// create creates s. A copy passes its source, whose scales s may keep.
+func (w Writer) create(ctx context.Context, s, source *Schematic) (err error) {
 	var (
 		exists bool
 		stored Schematic
@@ -74,6 +79,9 @@ func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 	}
 	if err = s.Validate(); err != nil {
 		return err
+	}
+	if source != nil {
+		stored = *source
 	}
 	if err = validateScales(stored, *s); err != nil {
 		return err
@@ -186,6 +194,7 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	source := *result
 	result.Key = uuid.New()
 	result.Name = name
 	result.Snapshot = snapshot
@@ -193,7 +202,7 @@ func (w Writer) Copy(
 	if rng != nil {
 		result.Project, result.Range = nil, rng
 	}
-	return w.Create(ctx, result)
+	return w.create(ctx, result, &source)
 }
 
 // Delete deletes the schematics with the given keys.
