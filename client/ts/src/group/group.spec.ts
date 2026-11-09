@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
+import { query } from "@/query";
 import { type resource } from "@/resource";
 import { createTestClient } from "@/testutil";
 
@@ -42,6 +43,35 @@ describe("Group", () => {
         endpoint: "/group/create",
         payload: { name: "Pumps", parent: RACK },
       });
+    });
+    it("should write a group with a key to the cache, and roll the write back", () => {
+      const key = uuid.create();
+      const { apply } = client.groups.createRequest({
+        key,
+        name: "Pumps",
+        scope: "device",
+        parent: RACK,
+      });
+      const rollback = apply?.();
+      expect(client.groups.getCached(key)).toEqual({
+        key,
+        name: "Pumps",
+        scope: "device",
+        parent: RACK,
+      });
+      rollback?.();
+      expect(query.isLive(client.groups.getCached(key))).toBe(false);
+    });
+    it("should not write a group with no scope to the cache", () => {
+      expect(
+        client.groups.createRequest({ key: uuid.create(), name: "Pumps", parent: RACK })
+          .apply,
+      ).toBeUndefined();
+    });
+    it("should not write a group with no key to the cache", () => {
+      expect(
+        client.groups.createRequest({ name: "Pumps", scope: "channel" }).apply,
+      ).toBeUndefined();
     });
     it("should build a rename request", () => {
       expect(client.groups.renameRequest(KEY, "Valves")).toMatchObject({
@@ -83,6 +113,13 @@ describe("Group", () => {
       await expect(
         client.groups.create({ name: `group-${id.create()}` }),
       ).rejects.toThrow("scope: invalid scope");
+    });
+    it("should drop the cached group when the Core rejects the create", async () => {
+      const key = uuid.create();
+      await expect(
+        client.groups.create({ key, name: "", scope: "channel" }),
+      ).rejects.toThrow("name: required");
+      expect(query.isLive(client.groups.getCached(key))).toBe(false);
     });
     it("should update an existing group", async () => {
       const g = await createTopLevel();

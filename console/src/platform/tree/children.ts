@@ -7,26 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, resource, type Synnax as Client } from "@synnaxlabs/client";
+import { type query, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, type record } from "@synnaxlabs/x";
 
 import { type Resource } from "@/platform/tree/types";
 
-/**
- * A live list holding some of the children of a tree node. It reads each listed
- * resource by key as well, so a change to one resource reaches only its own row.
- */
+/** What a child list of a tree node holds now. */
+export interface Window {
+  /** The listed resources, in name order. */
+  resources: Resource[];
+  /** Whether more resources match past the last one listed. */
+  more: boolean;
+}
+
+/** A live list holding some of the children of a tree node, in name order. */
 export interface Source {
-  /** Fetches the list. The answer reaches onChange handlers too. */
-  retrieve: () => Promise<Resource[]>;
-  /** Calls the handler with the list each time it changes. */
-  onChange: (handler: (resources: Resource[]) => void) => destructor.Destructor;
-  /** Returns the cached list, or undefined when nothing is cached. */
-  getCached: () => Resource[] | undefined;
-  /** Returns the cached resource under the key of a resource the list holds. */
-  get: (key: string) => Resource | undefined;
-  /** Calls the handler each time the resource under the key changes. */
-  subscribe: (key: string, handler: () => void) => destructor.Destructor;
+  /** Fetches the list. The window reaches onChange handlers too. */
+  retrieve: () => Promise<Window>;
+  /** Returns the window, or undefined before the list is fetched. */
+  getCached: () => Window | undefined;
+  /**
+   * Calls the handler each time the window changes, with undefined once the window is
+   * discarded.
+   */
+  onChange: (handler: (window: Window | undefined) => void) => destructor.Destructor;
 }
 
 export interface ChildrenProps {
@@ -42,36 +46,27 @@ export interface Children {
   (props: ChildrenProps): Source[];
 }
 
-/** A typed client that answers list queries and reads records by key, both live. */
+interface NameOrder {
+  order: { field: "name" };
+}
+
+const NAME_ORDER: NameOrder["order"] = { field: "name" };
+
+/** A typed client that keeps live lists of the records that queries match. */
 export interface Retriever<Q, D extends record.Keyed<record.Key>> {
-  retrieve: (query: Q) => Promise<D[]>;
-  onChange: {
-    (key: D["key"], handler: query.ChangeHandler<D>): destructor.Destructor;
-    (query: Q, handler: query.ChangeHandler<D[]>): destructor.Destructor;
-  };
-  getCached: {
-    (key: D["key"]): query.Cached<D> | undefined;
-    (query: Q): query.Cached<D[]> | undefined;
-  };
+  list: (query: Q & NameOrder) => query.List<D, unknown>;
 }
 
-interface Reads<D extends record.Keyed<record.Key>> {
-  retrieve: () => Promise<D[]>;
-  onList: (handler: query.ChangeHandler<D[]>) => destructor.Destructor;
-  getList: () => query.Cached<D[]> | undefined;
-  onRecord: (key: D["key"], handler: query.ChangeHandler<D>) => destructor.Destructor;
-  getRecord: (key: D["key"]) => query.Cached<D> | undefined;
-}
-
-const fromReads = <D extends record.Keyed<record.Key>>(
-  reads: Reads<D>,
+/** Builds a source that lists the records a typed client matches for the query. */
+export const createSource = <Q, D extends record.Keyed<record.Key>>(
+  retriever: Retriever<Q, D>,
+  q: Q,
   toResource: (record: D) => Resource,
-  filter: (record: D) => boolean,
 ): Source => {
+  const list = retriever.list({ ...q, order: NAME_ORDER });
   // A record keeps its identity until it changes, so a row reads the same resource
   // until then.
   const resources = new WeakMap<D, Resource>();
-  const keys = new Map<string, D["key"]>();
   const convert = (record: D): Resource => {
     let res = resources.get(record);
     if (res == null) {
@@ -80,60 +75,25 @@ const fromReads = <D extends record.Keyed<record.Key>>(
     }
     return res;
   };
-  const convertList = (records: D[]): Resource[] => {
-    const listed = records.filter(filter);
-    keys.clear();
-    return listed.map((record) => {
-      const res = convert(record);
-      keys.set(resource.idToString(res.id), record.key);
-      return res;
-    });
+  let held: { from: query.Window<D, unknown>; window: Window } | undefined;
+  const toWindow = (from: query.Window<D, unknown>): Window => {
+    if (held?.from !== from)
+      held = {
+        from,
+        window: { resources: from.records.map(convert), more: from.end != null },
+      };
+    return held.window;
   };
   return {
-    retrieve: async () => (await reads.retrieve()).filter(filter).map(convert),
-    onChange: (handler) =>
-      reads.onList((answer) => {
-        if (query.isLive(answer)) handler(convertList(answer));
-      }),
+    retrieve: async () => toWindow(await list.retrieve()),
     getCached: () => {
-      const cached = reads.getList();
-      return query.isLive(cached) ? convertList(cached) : undefined;
+      const cached = list.getCached();
+      return cached == null ? undefined : toWindow(cached);
     },
-    get: (key) => {
-      const recordKey = keys.get(key);
-      if (recordKey == null) return undefined;
-      const cached = reads.getRecord(recordKey);
-      return query.isLive(cached) ? convert(cached) : undefined;
-    },
-    subscribe: (key, handler) => {
-      const recordKey = keys.get(key);
-      if (recordKey == null) return () => {};
-      return reads.onRecord(recordKey, () => handler());
-    },
+    onChange: (handler) =>
+      list.onChange((window) => handler(window == null ? undefined : toWindow(window))),
   };
 };
-
-/**
- * Builds a source that lists the records a typed client answers for the query, keeping
- * only the records that pass the filter.
- */
-export const createSource = <Q, D extends record.Keyed<record.Key>>(
-  retriever: Retriever<Q, D>,
-  q: Q,
-  toResource: (record: D) => Resource,
-  filter: (record: D) => boolean = () => true,
-): Source =>
-  fromReads(
-    {
-      retrieve: async () => await retriever.retrieve(q),
-      onList: (handler) => retriever.onChange(q, handler),
-      getList: () => retriever.getCached(q),
-      onRecord: (key, handler) => retriever.onChange(key, handler),
-      getRecord: (key) => retriever.getCached(key),
-    },
-    toResource,
-    filter,
-  );
 
 /** Returns a function that shows a typed record of the type as a tree resource. */
 export const toResource =

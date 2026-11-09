@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
@@ -42,6 +42,27 @@ describe("arc.directory", () => {
     expect(d.parent).toBe(root.key);
     const children = await client.arcs.directories.retrieve({ parents: [root.key] });
     expect(children.map((c) => c.key)).toContain(d.key);
+  });
+
+  it("should cache a directory with a key before the Core answers", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const key = uuid.create();
+    const name = uniqueName();
+    const created = client.arcs.directories.create({ parent: root.key, key, name });
+    expect(client.arcs.directories.getCached(key)).toEqual({
+      key,
+      name,
+      parent: root.key,
+    });
+    await created;
+  });
+
+  it("should drop the cached directory when the Core rejects the create", async () => {
+    const key = uuid.create();
+    const parent = uuid.create();
+    const created = client.arcs.directories.create({ parent, key, name: uniqueName() });
+    await expect(created).rejects.toThrow(`parent: arc_directory ${parent}`);
+    expect(query.isLive(client.arcs.directories.getCached(key))).toBe(false);
   });
 
   it("should rename a directory", async () => {
