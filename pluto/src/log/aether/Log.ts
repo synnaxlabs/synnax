@@ -1153,7 +1153,9 @@ export class Log
       const from = i === 0 ? start.char : 0;
       const to = start.entry + i === end.entry ? end.char : Infinity;
       const dated = this.formatEntry(entry, true);
-      if (Math.min(to, this.formatEntry(entry).line.length) <= from) return [];
+      // A cut that starts at or past the end of its line holds no character.
+      if (to <= from || (from > 0 && from >= this.formatEntry(entry).line.length))
+        return [];
       let text = dated.line;
       if (from > 0) text = this.formatEntry(entry).line.slice(from, to);
       else if (to !== Infinity)

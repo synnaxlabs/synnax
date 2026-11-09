@@ -2297,6 +2297,14 @@ describe("log/aether/Log", () => {
       expect(copied(["abc", "defg"], selection)).toEqual(["de"]);
     });
 
+    it("should keep a blank line of a whole-line selection", () => {
+      expect(copied(["a", "", "b"], { selectionStart: 0, selectionEnd: 2 })).toEqual([
+        "a",
+        "",
+        "b",
+      ]);
+    });
+
     it("should copy nothing for an empty cut", () => {
       const selection = {
         selectionStart: 0,
