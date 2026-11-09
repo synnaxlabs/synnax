@@ -482,6 +482,19 @@ func analyzeIdentifierByRole(
 	}
 
 	switch sym.Kind {
+	case symbol.KindConstant:
+		// Every module constant holds a float64.
+		value := sym.DefaultValue.(float64)
+		t := ctx.TypeMap[ctx.AST]
+		n := newConstNode(
+			kg.generate("const", sym.Name),
+			t,
+			t,
+			types.EncodeFloat(value),
+		)
+		return flowNodeResult{
+			node: newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam),
+		}, true
 	case symbol.KindSequence, symbol.KindStage:
 		intent, ok := analyzeNamedRef(ctx, sym, shell)
 		if !ok {
@@ -885,7 +898,7 @@ func lowerAssignment(
 		}
 		return lowerExprReadReassign(ctx, sym, e, expr, kg, shell)
 	}
-	if v := statement.CastConstValue(expr, sym.Type); v != nil {
+	if v := statement.CastConstValue(ctx, expr, sym.Type); v != nil {
 		n := newConstNode(kg.generate("const", sym.Name), sym.Type, sym.Type, v)
 		ref := varFeederRef(e.register)
 		return []ir.Node{n}, []ir.Edge{{
@@ -2185,6 +2198,10 @@ func extractInputValues(
 				))
 				return nil, paramType, false
 			}
+		}
+
+		if value, ok := ctx.FloatConstant(expr); ok {
+			return types.EncodeFloat(value), paramType, true
 		}
 
 		// Any other expression becomes a node that fires with the call and is

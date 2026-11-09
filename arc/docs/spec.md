@@ -74,7 +74,13 @@ mask := data > 2.0 // [false, false, true] (series bool)
 - Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Comparisons return `series bool` elementwise
-- Empty `[]` requires type annotation
+- Empty `[]` without a type takes its element type from its first typed write or use.
+  `y[0] = n` with `n i32` gives `series i32`, `y = [true]` gives `series bool`, and
+  `not y` gives `series bool`. Number literals and arithmetic keep the element numeric:
+  `y += 1` then `y += 1.5` is valid, and an element that nothing else fixes is `f64`. A
+  value of another kind after that is an error, such as `y[0] = true` after `y[0] = 1`.
+- `w series f64 := y` with an untyped empty `y` is an error. Declare the type on the
+  literal: `y series f64 := []`.
 
 ### Strings
 
@@ -296,6 +302,38 @@ length := len(data) // 3 (i64)
 msg := "hello"
 chars := len(msg) // 5 (i64)
 current := now() // current timestamp (i64 ns)
+```
+
+## NaN and infinity
+
+A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x != x` is
+true only for NaN. The `math` module has these members. They are not keywords, so a
+channel or a variable can use the name `nan` or `inf`.
+
+- `math.is_nan(x)` - Returns `true` if `x` is NaN
+- `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
+- `math.nan` - The NaN value
+- `math.inf` - The positive infinity value. `-math.inf` is negative infinity
+
+The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
+literal is read as a float. The constants act like a float literal: they fit `f32` or
+`f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
+error. In a flow, a constant sends its value: `x -> math.nan -> y`. `x != math.nan` is
+always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so
+each fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+
+```arc
+import math
+
+sequence main {
+    stage spin_down {
+        not math.is_finite(pump_speed) or pump_speed < 15 => next
+    }
+    stage stopped {
+        1 -> pump_stopped
+    }
+}
 ```
 
 ## Functions
@@ -770,7 +808,7 @@ These simplify implementation while maintaining expressiveness:
 
 ### Compile-time errors
 
-- **Type errors**: Mismatches, invalid casts, bare `[]` without type
+- **Type errors**: Mismatches, invalid casts
 - **Name resolution**: Undefined identifiers, duplicates, shadowing
 - **Structural**: Missing returns, unreachable code, wrong argument count
 - **Flow graph**: Cycles in non-transition flows, unconnected triggers, type mismatches

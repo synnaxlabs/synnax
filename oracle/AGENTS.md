@@ -53,7 +53,8 @@ or generator logic and schemas disagree.
   rejects them in version files). Edit shapes in version files; edit live-only concerns
   in the live file. A hand edit to version-owned live content is overwritten by the next
   sync, and the `versions` gate errors on the drift naming the version files as
-  authority.
+  authority. A `@doc` on a kept declaration that the chain leaves undocumented fails
+  sync and check, and the error names the version file to move it to.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
   empty v(N+1).oracle (header and a comment only) records that everything was removed at
@@ -132,7 +133,7 @@ or generator logic and schemas disagree.
 
 ## Field optionality
 
-Four states. Pick by asking whether the field always means something, and when it does
+Five states. Pick by asking whether the field always means something, and when it does
 not, whether the schema itself can tell.
 
 - **`X = value`**: always meaningful, and absence is harmless, because absence and the
@@ -148,10 +149,18 @@ not, whether the schema itself can tell.
   message, such as a channel data type. No schema can settle it, so absence is the
   honest encoding. On the wire, an absent field is left out of the JSON, never sent as
   `null`.
+- **`X = default`, the default means "not applicable"**: as `X?`, but no valid value can
+  equal the default or the type's zero value (`0`, `""`, or an enum member that this
+  field never holds). Go fills a default only over the zero value. A sample rate is
+  never `0` Hz, so `0` can mean "not supported". A client that leaves the field out
+  sends "not applicable", so use this only where that guess is harmless. The doc comment
+  says what the default means.
 
-Never fake absence with a value. No `none` enum member, no empty string meaning "not
-applicable". A sentinel claims the question was answered when it was not, and it makes
-the "did you forget" check impossible to write.
+Outside that case, never fake absence with a value. No `none` enum member, no `""`
+meaning "not applicable" where `""` is a real value, no `-1` meaning "inherit" (that is
+a behavior, not "not applicable"). A sentinel claims the question was answered when it
+was not, and it makes the "did you forget" check impossible to write. Never add a value
+to a type so that it can mean absence.
 
 One exception exists for `@ref`: a scalar with a zero default (`= 0`, `= ""`) holds no
 target while it is zero, because stored task configs use zero for "none". Give a new
