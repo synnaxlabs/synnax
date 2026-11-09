@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import re
+from collections.abc import Callable
 
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
@@ -107,20 +108,34 @@ class Log(ConsolePage):
             return ""
         return self.layout.read_clipboard()
 
-    def wait_for_copied_entries(self, *, retries: int = 20) -> list[str]:
-        """Poll the drag-select + context-menu copy until it yields entries.
+    def wait_for_copied_entries(
+        self,
+        *,
+        retries: int = 20,
+        until: Callable[[list[str]], bool] = bool,
+    ) -> list[str]:
+        """Poll the drag-select + context-menu copy until the copied lines pass
+        ``until``, which by default accepts any non-empty copy.
 
-        Returns the non-empty copied lines (one per rendered entry), or an empty
-        list if nothing was copied within the retry budget.
+        Returns the non-empty copied lines (one per rendered entry) of the last
+        attempt, whether or not they passed ``until``.
         """
         lines: list[str] = []
         for _ in range(retries):
             text = self.copy_visible_entries()
             lines = [ln for ln in text.split("\n") if ln.strip()]
-            if lines:
+            if until(lines):
                 return lines
             self.page.wait_for_timeout(250)
         return lines
+
+    def scroll_back(self, pixels: int) -> None:
+        """Scroll the log up by ``pixels`` with the mouse wheel."""
+        box = self._pane().bounding_box()
+        if box is None:
+            raise RuntimeError("Log pane has no bounding box")
+        self.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        self.page.mouse.wheel(0, -pixels)
 
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
@@ -159,6 +174,14 @@ class Log(ConsolePage):
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused (hold toggle pressed)."""
         return self._hold_toggle().get_attribute("aria-pressed") == "true"
+
+    def wait_until_scrolling_paused(self) -> bool:
+        """Wait until log scrolling is paused."""
+        try:
+            expect(self._hold_toggle()).to_have_attribute("aria-pressed", "true")
+            return True
+        except AssertionError:
+            return False
 
     def pause_scrolling(self) -> None:
         """Pause log scrolling (enter scrollback mode)."""
