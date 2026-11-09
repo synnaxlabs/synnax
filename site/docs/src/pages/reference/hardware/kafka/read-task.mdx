@@ -9,6 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -51,6 +52,8 @@ The Console has no topic browser. Type the topic, the record keys, and the point
 The Console creates a channel for each field and an index channel for each record. It
 names them from the cluster name, the record key, and the pointer. To choose a name, set
 **Channel** before you start.
+
+<Video id="hardware/kafka/read-task" />
 
   </Fragment>
   <Fragment slot="python">

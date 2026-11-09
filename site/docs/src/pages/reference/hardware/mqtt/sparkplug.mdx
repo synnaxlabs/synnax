@@ -10,6 +10,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -93,6 +94,8 @@ virtual channel, store nothing, so they drop historical values with no warning.
 6. Click <Icon.Play /> (**Start**).
 
 The Console creates a channel and an index channel for each tag.
+
+<Video id="hardware/mqtt/sparkplug-read" />
 
   </Fragment>
   <Fragment slot="python">
@@ -206,6 +209,8 @@ their births, deaths, and sequence numbers.
 4. To let a host write to a tag, right-click it and select **Add command channel**.
 5. Set **Authority**, the control authority of the writes that commands make.
 6. Click <Icon.Play /> (**Start**).
+
+<Video id="hardware/mqtt/edge-node" />
 
   </Fragment>
   <Fragment slot="python">

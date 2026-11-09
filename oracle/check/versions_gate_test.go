@@ -922,4 +922,259 @@ Channel struct {
 `)
 		Expect(aliasHints(run(p))).To(BeEmpty())
 	})
+
+	Describe("Rules on a type aliased from a frozen definer", func() {
+		const channelV1 = `
+Entry = v0.Entry
+
+Window = v0.Window
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+
+	@go marshal
+}
+`
+		frozen := func(entryRules, spanRules string) string {
+			return `
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+
+	@go marshal
+}
+`
+		}
+		live := func(entryRules, spanRules, entryGo string) string {
+			return `
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	min_val float64 = 0 {` + entryRules + `
+	}
+	max_val float64 = 1 {` + entryRules + `
+	}
+` + entryGo + `
+}
+
+Window union on variant {
+	rolling {
+		span int32 {` + spanRules + `
+		}
+	}
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	window Window
+	name string
+}
+`
+		}
+		const (
+			validate = "\n\t\t@validate max 17"
+			group    = "\n\t\t@default group \"range\""
+			fields   = "\t@go fields \"Size int\""
+		)
+
+		DescribeTable("Should fail a live rule that the frozen definer lacks",
+			func(entryRules, spanRules, entryGo, want string) {
+				write("schemas/synnax/versions/channel/v0.oracle", frozen("", ""))
+				write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+				report := run(analyzeLive(live(entryRules, spanRules, entryGo)))
+				Expect(report.Status).To(Equal(check.StatusFail))
+				Expect(report.Findings).ToNot(BeEmpty())
+				Expect(report.Findings[0].Path).
+					To(Equal("schemas/synnax/versions/channel/v1.oracle"))
+				Expect(report.Findings[0].Message).To(ContainSubstring(want))
+				Expect(report.Findings[0].FixHint).
+					To(Equal("the Go alias uses v0's rules: restate the rule in v0"))
+			},
+			Entry("on a validate rule", validate, "", "",
+				"v1 aliases Entry from v0, but the live @validate on "+
+					"Entry.min_val does not match v0's"),
+			Entry("on a default group", group, "", "",
+				"the live @default on Entry.min_val"),
+			Entry("on a Go method rule", "", "", fields,
+				"the live @go method rules on Entry"),
+			Entry("on an inline variant payload", "", validate, "",
+				"v1 aliases Window from v0, but the live @validate on "),
+		)
+
+		It("Should pass when the frozen definer restates the live rules", func() {
+			write(
+				"schemas/synnax/versions/channel/v0.oracle",
+				frozen(validate+group, validate),
+			)
+			write("schemas/synnax/versions/channel/v1.oracle", channelV1)
+			report := run(analyzeLive(live(validate+group, validate, "")))
+			Expect(report.Findings).To(BeEmpty())
+		})
+
+		// channel v1 aliases v0's Entry, which pins label v0, which pins tone v0.
+		writeDependencies := func(labelRules, toneRules string) {
+			GinkgoHelper()
+			write("schemas/synnax/versions/tone/v0.oracle", `
+Tone struct {
+	level int32 {`+toneRules+`
+	}
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/tone.oracle", `
+@go output "core/pkg/service/tone"
+
+Tone struct {
+	level int32 {
+		@validate max 9
+	}
+}
+`)
+			write("schemas/synnax/versions/label/v0.oracle", `
+import "schemas/synnax/versions/tone/v0"
+
+Label struct {
+	key uuid @key
+	name string {`+labelRules+`
+	}
+	tone tone.Tone
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/label.oracle", `
+import "schemas/synnax/tone"
+
+@go output "core/pkg/service/label"
+
+Label struct {
+	key uuid @key
+	name string {
+		@validate required
+	}
+	tone tone.Tone
+}
+`)
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/label/v0"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/versions/channel/v1.oracle", `
+Entry = v0.Entry
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/channel.oracle", `
+import "schemas/synnax/label"
+
+@go output "core/pkg/service/channel"
+
+Entry struct {
+	labels label.Label[]
+}
+
+Channel struct {
+	key uuid @key
+	entries Entry[]
+	name string
+}
+`)
+		}
+		runDependencies := func() check.GateReport {
+			GinkgoHelper()
+			loader := analyzer.NewStandardFileLoader(root)
+			table, diag := analyzer.Analyze(
+				GinkgoT().Context(),
+				[]string{
+					"schemas/synnax/tone",
+					"schemas/synnax/label",
+					"schemas/synnax/channel",
+				},
+				loader,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			chains := MustSucceed(versions.Discover(root))
+			return run(&pipeline.Result{
+				Resolutions: table,
+				Chains:      chains,
+				Versions:    versions.NewResolver(chains, loader),
+			})
+		}
+		const (
+			labelRule = "\n\t\t@validate required"
+			toneRule  = "\n\t\t@validate max 9"
+		)
+
+		DescribeTable(
+			"Should check the rules of every dependency a frozen definer reaches",
+			func(labelRules, toneRules string, want []string) {
+				writeDependencies(labelRules, toneRules)
+				report := runDependencies()
+				messages := make([]string, len(report.Findings))
+				for i, f := range report.Findings {
+					messages[i] = f.Path + ": " + f.Message
+				}
+				Expect(messages).To(Equal(want))
+			},
+			Entry("when a direct dependency's version file lacks a live rule",
+				"", toneRule,
+				[]string{"schemas/synnax/versions/label/v0.oracle: frozen " +
+					"schemas/synnax/channel v0 reaches schemas/synnax/label v0, but " +
+					"the live @validate on Label.name does not match v0's"}),
+			Entry("when a transitive dependency's version file lacks a live rule",
+				labelRule, "",
+				[]string{"schemas/synnax/versions/tone/v0.oracle: frozen " +
+					"schemas/synnax/channel v0 reaches schemas/synnax/tone v0, but " +
+					"the live @validate on Tone.level does not match v0's"}),
+			Entry("when every dependency restates its live rules",
+				labelRule, toneRule, []string{}),
+		)
+
+		It("Should fail when a reached dependency's chain cannot be resolved", func() {
+			writeDependencies(labelRule, toneRule)
+			write("schemas/synnax/versions/label/v1.oracle", "Label struct {{{\n")
+			report := runDependencies()
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(report.Findings).To(ContainElement(And(
+				HaveField("Path", "schemas/synnax/versions/channel/v1.oracle"),
+				HaveField("Message", ContainSubstring("failed to parse")),
+			)))
+		})
+	})
 })
