@@ -134,8 +134,8 @@ admin rights on the host, which is the access control for a Core update.
    `synnax update undo` if the Core undoes the update later.
 
 `synnax update undo` also puts `<binary>.old` back when it is the version of the
-restored backup. When the Core already undid the update, the undo only puts the binary
-back (§3.1).
+restored backup or, for a backup with no version, when it is older than `<binary>`. When
+the Core already undid the update, the undo only puts the binary back (§3.1).
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
