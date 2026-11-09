@@ -378,7 +378,24 @@ export default class Synnax extends framer.Client {
       batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
-    this.groups = new group.Client({ unary, cache, batch: this.batch });
+    this.groups = new group.Client({
+      unary,
+      cache,
+      batch: this.batch,
+      setGroup: {
+        channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        device: (keys, to) => this.devices.setGroupRequest(keys, to),
+        lineplot: (keys, to) => [this.lineplots.setGroupRequest(keys, to)],
+        log: (keys, to) => [this.logs.setGroupRequest(keys, to)],
+        panel: (keys, to) => [this.panels.setGroupRequest(keys, to)],
+        project: (keys, to) => this.projects.setGroupRequest(keys, to),
+        rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
+        schematic: (keys, to) => [this.schematics.setGroupRequest(keys, to)],
+        schematic_symbol: (keys, to) =>
+          this.schematics.symbols.setGroupRequest(keys, to),
+        table: (keys, to) => [this.tables.setGroupRequest(keys, to)],
+      },
+    });
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

@@ -30,16 +30,18 @@ const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID
   return parentID;
 };
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
+
 /**
  * Returns the tree items of groups. A group lists its child groups and the members of
  * its scope.
  */
 export const createTreeItems = (
-  members: PlatformGroup.Members,
+  members: PlatformGroup.Member[],
 ): { group: Tree.Item } => {
   const membersOf = ({ type }: resource.ID): PlatformGroup.Member[] => {
     if (!PlatformGroup.isScope(type)) throw new Error(`no tree holds ${type} groups`);
-    return members[type];
+    return members.filter((m) => group.MEMBER_RULES[m.type].scope === type);
   };
 
   const children: Tree.Children = ({ client, id, root }) => [
@@ -50,13 +52,13 @@ export const createTreeItems = (
   const retrieveChildren = async (
     props: Tree.ChildrenProps,
   ): Promise<resource.ID[]> => {
-    const windows = await Promise.all(
-      children(props).map(async (source) => await source.retrieve()),
+    const resources = await Promise.all(
+      children(props).map(async (source) => await source.retrieveAll()),
     );
-    return windows.flatMap(({ resources }) => resources.map(({ id }) => id));
+    return resources.flat().map(({ id }) => id);
   };
 
-  // Ungroup reads children from the Core, since the tree holds only loaded ones.
+  // Ungroup reads children from the Core, since the tree holds only the pages it shows.
   const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
     name: "resources",
     verbs: {
@@ -78,7 +80,7 @@ export const createTreeItems = (
         .filter((id) => !selected.has(resource.idToString(id)));
       const parent = resource.idsEqual(parentID, rootID) ? undefined : parentID;
       await client.batch.send([
-        ...PlatformGroup.moveRequests(client, childIDs, parent),
+        ...client.groups.moveRequests(childIDs, parent),
         client.groups.deleteRequest(ids.map(({ key }) => key)),
       ]);
       return data;
@@ -129,6 +131,7 @@ export const createTreeItems = (
           />
         )}
         <Menu.Divider />
+        <Tree.CopyContextMenuItem {...props} />
         {isSingle && (
           <>
             <Link.CopyContextMenuItem
@@ -136,7 +139,7 @@ export const createTreeItems = (
                 handleLink({ name: getResource(firstID).name, resourceID: firstID })
               }
             />
-            <Tree.CopyPropertiesContextMenuItem {...props} />
+            <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
           </>
         )}
         <Menu.Divider />
@@ -153,9 +156,9 @@ export const createTreeItems = (
   };
 
   const TreeItem = Tree.createItem({
-    type: "group",
     icon: <Icon.Group />,
     children,
+    folder: true,
     canDrop: (props) => {
       const types = new Set<resource.Type>([
         "group",
@@ -163,13 +166,12 @@ export const createTreeItems = (
       ]);
       return (
         props.moved.every(({ id }) => types.has(id.type)) &&
-        PlatformGroup.canMove(props)
+        group.canMove({ ...props, destination: props.destination.id })
       );
     },
     drop: async ({ client, destination, items }) => {
       await client.batch.send(
-        PlatformGroup.moveRequests(
-          client,
+        client.groups.moveRequests(
           items.map(({ id }) => id),
           destination.id,
         ),

@@ -66,6 +66,8 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.projects.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
@@ -145,7 +147,12 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
               Import components
             </Menu.Item>
           )}
-          <Menu.Divider />
+        </>
+      )}
+      <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <>
           <Export.ContextMenuItem
             onClick={() =>
               handleExport({
@@ -159,7 +166,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -228,7 +235,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
     else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
   });
   await client.batch.send([
-    ...Group.moveRequests(client, groups, destination.id),
+    ...client.groups.moveRequests(groups, destination.id),
     ...[...byType].map(([type, keys]) =>
       Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),
@@ -236,7 +243,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "project",
+  linkable: true,
   icon: <Icon.Project />,
   useOnSelect,
   children,
