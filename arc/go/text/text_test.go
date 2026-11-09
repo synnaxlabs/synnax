@@ -1948,18 +1948,16 @@ var _ = Describe("Text", func() {
 		})
 
 		DescribeTable(
-			"Should reject a flow on a variable with a non-constant initializer",
+			"Should lower a flow on a variable with a computed initializer",
 			func(ctx SpecContext, source string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot use 'y' in a flow: its initializer is not a compile-time constant",
-				))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Nodes).ToNot(BeEmpty())
 			},
 			Entry("top-level source", "y := 1 + 2\ny -> out_ch"),
 			Entry("stage source",
