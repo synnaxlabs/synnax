@@ -383,10 +383,10 @@ process_file() {
     local old_header_end=$OLD_HEADER_END
     local old_copyright_year=$OLD_COPYRIGHT_YEAR
 
-    # A generated file keeps the copyright year it was generated with, because Oracle
-    # freezes the files in versions/vN packages.
+    # An Oracle output keeps a past year, because Oracle freezes the files in
+    # versions/vN packages.
     local year="$CURRENT_YEAR"
-    if is_generated "$file" && [[ $old_copyright_year =~ ^[0-9]{4}$ ]] \
+    if is_oracle_output "$file" && [[ $old_copyright_year =~ ^[0-9]{4}$ ]] \
         && [ "$old_copyright_year" -le "$CURRENT_YEAR" ]; then
         year="$old_copyright_year"
         new_header="${new_header//Copyright $CURRENT_YEAR /Copyright $year }"

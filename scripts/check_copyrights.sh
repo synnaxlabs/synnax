@@ -299,10 +299,10 @@ classify_file() {
     # and the expected current year. Mirrors `grep -q` semantics (per-line).
     local has_copyright=0
     local has_current_year=0
-    # A generated file keeps the copyright year it was generated with, because Oracle
-    # freezes the files in versions/vN packages.
-    local generated=0
-    is_generated "$file" && generated=1
+    # An Oracle output may keep a past year, because Oracle freezes the files in
+    # versions/vN packages.
+    local oracle_output=0
+    is_oracle_output "$file" && oracle_output=1
     local year_re='Copyright ([0-9]{4}) Synnax Labs'
     for ((i = header_start_idx; i <= last_idx; i++)); do
         local line="${LINES[i]}"
@@ -310,7 +310,7 @@ classify_file() {
             has_copyright=1
             if [[ $line == *"Copyright $CURRENT_YEAR Synnax Labs"* ]]; then
                 has_current_year=1
-            elif [ "$generated" = "1" ] && [[ $line =~ $year_re ]] \
+            elif [ "$oracle_output" = "1" ] && [[ $line =~ $year_re ]] \
                 && [ "${BASH_REMATCH[1]}" -le "$CURRENT_YEAR" ]; then
                 has_current_year=1
                 local from="Copyright $CURRENT_YEAR " to="Copyright ${BASH_REMATCH[1]} "
