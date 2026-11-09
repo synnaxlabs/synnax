@@ -35,8 +35,9 @@ type TimestampConfig = v3.TimestampConfig
 type ChannelEntry struct {
 	// Channel is the channel this entry references.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Color is the display color for the channel.
-	Color color.Color `json:"color" msgpack:"color"`
+	// Color is the display color for the channel. Absent uses the text color of the
+	// log.
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Notation is the numeric notation used to render samples.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of digits after the decimal point, from 0 to 17. Absent

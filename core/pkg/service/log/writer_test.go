@@ -40,7 +40,7 @@ var _ = Describe("Writer", func() {
 				Channels: []log.ChannelEntry{
 					{
 						Channel: ch1,
-						Color:   MustSucceed(color.FromHex("#ff0000")),
+						Color:   new(MustSucceed(color.FromHex("#ff0000"))),
 					},
 				},
 			}
@@ -464,7 +464,7 @@ var _ = Describe("Writer", func() {
 					red := color.Color{R: 255, G: 0, B: 0, A: 255}
 					Expect(dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
-							log.SetChannelColorPayload{Channel: ch5, Color: red},
+							log.SetChannelColorPayload{Channel: ch5, Color: &red},
 						),
 						log.NewSetChannelNotationAction(
 							log.SetChannelNotationPayload{
@@ -495,7 +495,7 @@ var _ = Describe("Writer", func() {
 						),
 					})).To(Succeed())
 					entry := retrieve(ctx, l.Key).Channels[0]
-					Expect(entry.Color).To(Equal(red))
+					Expect(entry.Color).To(HaveValue(Equal(red)))
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
 					Expect(entry.Precision).To(Equal(new(uint8(4))))
 					Expect(entry.Alias).To(Equal("volts"))

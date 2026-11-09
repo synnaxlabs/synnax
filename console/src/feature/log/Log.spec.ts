@@ -9,7 +9,7 @@
 
 import { DataType, log } from "@synnaxlabs/client";
 import { aether } from "@synnaxlabs/pluto/ether";
-import { color, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -43,7 +43,7 @@ describe("log/Log", () => {
     await renderLog(Log, {
       additionalRegistry: REGISTRY,
       log: {
-        channels: [log.channelEntryZ.parse({ channel: ch.key, color: color.ZERO })],
+        channels: [log.channelEntryZ.parse({ channel: ch.key })],
       },
     });
     expect(await screen.findByText("No data received yet")).toBeDefined();

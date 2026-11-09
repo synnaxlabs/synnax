@@ -330,7 +330,7 @@ export class Log
       i.prefixColors = {};
       i.valueColors = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (!color.isZero(cfg.color)) {
+        if (cfg.color != null) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }

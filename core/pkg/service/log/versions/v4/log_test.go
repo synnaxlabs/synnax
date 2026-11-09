@@ -19,6 +19,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -165,6 +166,7 @@ var _ = Describe("Log", func() {
 				Name: "log",
 				Channels: []v4.ChannelEntry{{
 					Channel:         channel.Key(1),
+					Color:           &color.Color{R: 1, A: 255},
 					Notation:        "standard",
 					Precision:       new(uint8(3)),
 					Alias:           "alias",
@@ -175,8 +177,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 83 bytes", func() {
-			Expect(encode()).To(HaveLen(83))
+		It("Should encode the truncation fixture in 84 bytes", func() {
+			Expect(encode()).To(HaveLen(84))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -194,19 +196,20 @@ var _ = Describe("Log", func() {
 			Entry("channels presence", 23),
 			Entry("channel count", 24),
 			Entry("channel key", 28),
-			Entry("channel color", 32),
-			Entry("channel notation", 36),
-			Entry("channel precision presence", 48),
-			Entry("channel precision", 49),
-			Entry("channel alias", 50),
-			Entry("channel timestamp", 59),
-			Entry("timestamp precision", 73),
-			Entry("channel names hidden", 74),
-			Entry("timestamps hidden", 75),
-			Entry("time zone", 78),
-			Entry("group presence", 80),
-			Entry("project presence", 81),
-			Entry("range presence", 82),
+			Entry("channel color presence", 32),
+			Entry("channel color", 33),
+			Entry("channel notation", 37),
+			Entry("channel precision presence", 49),
+			Entry("channel precision", 50),
+			Entry("channel alias", 51),
+			Entry("channel timestamp", 60),
+			Entry("timestamp precision", 74),
+			Entry("channel names hidden", 75),
+			Entry("timestamps hidden", 76),
+			Entry("time zone", 79),
+			Entry("group presence", 81),
+			Entry("project presence", 82),
+			Entry("range presence", 83),
 		)
 	})
 })

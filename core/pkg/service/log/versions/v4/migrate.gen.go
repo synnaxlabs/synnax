@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 func autoMigrateLog(ctx context.Context, old v3.Log) (Log, error) {
@@ -40,14 +39,9 @@ func autoMigrateLog(ctx context.Context, old v3.Log) (Log, error) {
 	}, nil
 }
 
-func autoMigrateChannelEntry(ctx context.Context, old v3.ChannelEntry) (ChannelEntry, error) {
-	colorVal, err := color.MigrateColor(ctx, old.Color)
-	if err != nil {
-		return ChannelEntry{}, err
-	}
+func autoMigrateChannelEntry(_ context.Context, old v3.ChannelEntry) (ChannelEntry, error) {
 	return ChannelEntry{
 		Channel:         old.Channel,
-		Color:           colorVal,
 		Notation:        old.Notation,
 		Precision:       old.Precision,
 		Alias:           old.Alias,

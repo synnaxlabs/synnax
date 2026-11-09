@@ -14,6 +14,8 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateLog lifts a v3 log to v4, which stores every color alpha as a 0-255 byte.
@@ -24,10 +26,20 @@ func MigrateLog(ctx context.Context, old v3.Log) (Log, error) {
 // Migration lifts stored logs from v3 to v4.
 var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateLog)
 
-// MigrateChannelEntry lifts a v3 channel entry to v4.
+// MigrateChannelEntry lifts a v3 channel entry to v4. A zero color becomes absent, as
+// v3 stored the zero color to mean no color.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v3.ChannelEntry,
 ) (ChannelEntry, error) {
-	return autoMigrateChannelEntry(ctx, old)
+	entry, err := autoMigrateChannelEntry(ctx, old)
+	if err != nil || old.Color == (colorv0.Color{}) {
+		return entry, err
+	}
+	c, err := color.MigrateColor(ctx, old.Color)
+	if err != nil {
+		return ChannelEntry{}, err
+	}
+	entry.Color = &c
+	return entry, nil
 }

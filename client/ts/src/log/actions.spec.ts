@@ -15,8 +15,7 @@ import { log } from "@/log";
 const createChannelEntry = (
   channel: number,
   overrides: Partial<log.ChannelEntry> = {},
-): log.ChannelEntry =>
-  log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
+): log.ChannelEntry => log.channelEntryZ.parse({ channel, ...overrides });
 
 const createEmpty = (overrides: Partial<log.Log> = {}): log.Log =>
   log.logZ.parse({ name: "Test Log", ...overrides });
@@ -224,6 +223,14 @@ describe("log reducer", () => {
     it.each(cases)("$name is a no-op when the channel is absent", ({ action }) => {
       const state = createEmpty({ channels: [createChannelEntry(6)] });
       expect(apply(state, action).channels).toEqual([createChannelEntry(6)]);
+    });
+
+    it("should clear a channel color set to absent and restore it on undo", () => {
+      const state = createEmpty({ channels: [createChannelEntry(5, { color: red })] });
+      const cleared = apply(state, log.setChannelColor({ channel: 5 }));
+      expect(cleared.channels[0].color).toBeUndefined();
+      const restored = roundTrip(state, log.setChannelColor({ channel: 5 }));
+      expect(restored.channels[0].color).toEqual(red);
     });
   });
 

@@ -43,12 +43,12 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v4.ChannelEntry{
 				Channel: channel.Key(2),
-				Color: color.Color{
+				Color: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
 					A: 7,
-				},
+				}),
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(9)),
 				Alias:     "test_9",
@@ -58,13 +58,8 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v4.ChannelEntry{
-				Channel: channel.Key(0),
-				Color: color.Color{
-					R: 0,
-					G: 0,
-					B: 0,
-					A: 0,
-				},
+				Channel:   channel.Key(0),
+				Color:     nil,
 				Notation:  notation.Notation(""),
 				Precision: nil,
 				Alias:     "",
@@ -92,12 +87,12 @@ var _ = Describe("Codec", func() {
 				Channels: []v4.ChannelEntry{
 					{
 						Channel: channel.Key(5),
-						Color: color.Color{
+						Color: new(color.Color{
 							R: 7,
 							G: 8,
 							B: 9,
 							A: 10,
-						},
+						}),
 						Notation:  notation.Notation("standard"),
 						Precision: new(uint8(12)),
 						Alias:     "test_12",
@@ -146,12 +141,12 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 	seed := v4.ChannelEntry{
 		Channel: channel.Key(2),
-		Color: color.Color{
+		Color: new(color.Color{
 			R: 4,
 			G: 5,
 			B: 6,
 			A: 7,
-		},
+		}),
 		Notation:  notation.Notation("standard"),
 		Precision: new(uint8(9)),
 		Alias:     "test_9",
@@ -182,12 +177,12 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		Channels: []v4.ChannelEntry{
 			{
 				Channel: channel.Key(5),
-				Color: color.Color{
+				Color: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 10,
-				},
+				}),
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(12)),
 				Alias:     "test_12",
@@ -224,12 +219,12 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 	{
 		seed := v4.ChannelEntry{
 			Channel: channel.Key(2),
-			Color: color.Color{
+			Color: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
 				A: 7,
-			},
+			}),
 			Notation:  notation.Notation("standard"),
 			Precision: new(uint8(9)),
 			Alias:     "test_9",
@@ -246,13 +241,8 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 	}
 	{
 		seed := v4.ChannelEntry{
-			Channel: channel.Key(0),
-			Color: color.Color{
-				R: 0,
-				G: 0,
-				B: 0,
-				A: 0,
-			},
+			Channel:   channel.Key(0),
+			Color:     nil,
 			Notation:  notation.Notation(""),
 			Precision: nil,
 			Alias:     "",
@@ -297,12 +287,12 @@ func FuzzDecodeLog(f *testing.F) {
 			Channels: []v4.ChannelEntry{
 				{
 					Channel: channel.Key(5),
-					Color: color.Color{
+					Color: new(color.Color{
 						R: 7,
 						G: 8,
 						B: 9,
 						A: 10,
-					},
+					}),
 					Notation:  notation.Notation("standard"),
 					Precision: new(uint8(12)),
 					Alias:     "test_12",

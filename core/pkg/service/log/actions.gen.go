@@ -98,12 +98,12 @@ type SetChannelEntryPayload struct {
 	Entry ChannelEntry `json:"entry" msgpack:"entry"`
 }
 
-// SetChannelColorPayload sets the display color of the entry identified by channel. The
-// zero color resets it to the text color of the log. No-op when no entry references the
+// SetChannelColorPayload sets the display color of the entry identified by channel.
+// Absent resets it to the text color of the log. No-op when no entry references the
 // channel.
 type SetChannelColorPayload struct {
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	Color   color.Color `json:"color" msgpack:"color"`
+	Channel channel.Key  `json:"channel" msgpack:"channel"`
+	Color   *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetChannelNotationPayload sets the numeric notation of the entry identified by

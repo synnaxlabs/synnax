@@ -27,7 +27,7 @@ var _ = Describe("Retrieve", func() {
 			Channels: []log.ChannelEntry{
 				{
 					Channel:  ch1,
-					Color:    MustSucceed(color.FromHex("#ff0000")),
+					Color:    new(MustSucceed(color.FromHex("#ff0000"))),
 					Notation: notation.NotationStandard,
 				},
 			},

@@ -16,6 +16,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -24,8 +25,13 @@ import (
 // EncodeOrc writes the value to w in the Orc binary format.
 func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(ce.Channel))
-	if err := ce.Color.EncodeOrc(w); err != nil {
-		return err
+	if ce.Color != nil {
+		w.Bool(true)
+		if err := ce.Color.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	w.String(string(ce.Notation))
 	if ce.Precision != nil {
@@ -51,8 +57,18 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 		}
 		ce.Channel = channel.Key(rawV)
 	}
-	if err = ce.Color.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			ce.Color = &hv
+		}
 	}
 	{
 		rawV, err := r.String()

@@ -27,13 +27,19 @@ var _ = Describe("Migrate", func() {
 			old := v3.ChannelEntry{Channel: 1, Color: color.Color{R: 1, G: 2, A: a}}
 			e := MustSucceed(v4.MigrateChannelEntry(ctx, old))
 			Expect(e.Channel).To(BeEquivalentTo(1))
-			Expect(e.Color).To(Equal(colorv2.Color{R: 1, G: 2, A: expected}))
+			Expect(e.Color).To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, A: expected})))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
 		Entry("a faint alpha", 0.003, uint8(1)),
 		Entry("a half alpha", 0.5, uint8(128)),
 		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
+
+	It("Should store a zero channel color as no color", func(ctx SpecContext) {
+		e := MustSucceed(v4.MigrateChannelEntry(ctx, v3.ChannelEntry{Channel: 1}))
+		Expect(e.Channel).To(BeEquivalentTo(1))
+		Expect(e.Color).To(BeNil())
+	})
 
 	It("Should convert the color of every channel of a log", func(ctx SpecContext) {
 		key := uuid.New()
@@ -52,7 +58,7 @@ var _ = Describe("Migrate", func() {
 		Expect(l.Name).To(Equal("log"))
 		Expect(l.Group).To(HaveValue(Equal(group)))
 		Expect(l.Channels).To(HaveLen(2))
-		Expect(l.Channels[0].Color).To(Equal(colorv2.Color{R: 1, A: 128}))
-		Expect(l.Channels[1].Color).To(Equal(colorv2.Color{B: 2, A: 255}))
+		Expect(l.Channels[0].Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
+		Expect(l.Channels[1].Color).To(HaveValue(Equal(colorv2.Color{B: 2, A: 255})))
 	})
 })

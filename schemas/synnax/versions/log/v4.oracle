@@ -19,6 +19,12 @@ Key = v0.Key
 
 TimestampConfig = v3.TimestampConfig
 
-ChannelEntry struct extends v3.ChannelEntry {}
+ChannelEntry struct extends v3.ChannelEntry {
+    color color.Color? {
+        @doc value """
+            is the display color for the channel. Absent uses the text color of the log.
+        """
+    }
+}
 
 Log struct extends v3.Log {}
