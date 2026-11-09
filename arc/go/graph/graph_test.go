@@ -240,6 +240,7 @@ var _ = Describe("Graph", func() {
 			},
 			Entry("constant", "math.nan"),
 			Entry("WASM-only function", "math.is_nan"),
+			Entry("module", "math"),
 		)
 
 		Describe("Polymorphic Stages", func() {
