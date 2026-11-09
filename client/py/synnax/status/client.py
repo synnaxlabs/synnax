@@ -39,6 +39,11 @@ class _SetResponse(BaseModel):
     statuses: list[Status[JsonValue]]
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
@@ -237,7 +242,7 @@ class Client:
         :param name: The new name for the status.
         :raises NotFoundError: If no status has the given key.
         """
-        self.set(self.retrieve(key=key).model_copy(update={"name": name}))
+        self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Delete statuses by their keys.
