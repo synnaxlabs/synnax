@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/status/list/Item.css";
+
 import { status } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -48,7 +50,10 @@ export const Item = (props: ItemProps): ReactElement | null => {
     >
       <Flex.Box x grow>
         <Text.Text level="p" weight={450}>
-          <Base.Indicator variant={variant} />
+          <Base.Indicator
+            variant={variant}
+            className={CSS.BE("status", "list-item-indicator")}
+          />
           <Text.MaybeEditable
             id={List.itemNameID(itemKey)}
             value={name}
