@@ -36,9 +36,9 @@ type Group = versions.Group
 // Where is a filter that selects groups.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -48,7 +48,7 @@ type Where struct {
 	// Scope selects by scope.
 	Scope *filter.Set[resource.Type] `json:"scope,omitzero" msgpack:"scope,omitempty"`
 	// Parents matches the groups that sit in any of the given resources.
-	Parents []resource.ID `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	Parents []resource.ID `json:"parents,omitzero" msgpack:"parents"`
 	// Nested matches the groups that sit in a parent, or the top groups when false.
 	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
 }

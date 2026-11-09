@@ -101,8 +101,8 @@ var _ = Describe("Go Types Plugin", func() {
 			ExpectContent(resp, "thing/types.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
-					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"And []Where `json:\"and,omitzero\" msgpack:\"and\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or\"`",
 					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
 				)
 		})
@@ -1944,14 +1944,14 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Slices stay plain (no pointer) and carry omitzero so a nil slice is
-				// omitted while a present empty slice still serializes as [].
+				// Slices stay plain (no pointer). JSON omits a nil slice, and msgpack
+				// encodes it as nil, so an empty slice still serializes as [].
 				Expect(
 					content,
-				).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitempty\"`"))
+				).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags\"`"))
 				Expect(
 					content,
-				).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitempty\"`"))
+				).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts\"`"))
 			})
 
 			It("Should keep maps plain and tag them omitzero", func(ctx SpecContext) {
@@ -1974,7 +1974,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
-				).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitempty\"`"))
+				).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings\"`"))
 			})
 
 			It(

@@ -71,9 +71,9 @@ type Channel = versions.Channel
 // Where is a filter that selects channels.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -92,7 +92,7 @@ type Where struct {
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
 	// Groups matches the channels in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups"`
 	// Grouped matches the channels in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

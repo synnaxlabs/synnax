@@ -29,7 +29,7 @@ type StatusDetails struct {
 	// Cmd is the last command executed on this task.
 	Cmd string `json:"cmd" msgpack:"cmd"`
 	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data"`
 }
 
 // Status is task-specific status information including execution state and

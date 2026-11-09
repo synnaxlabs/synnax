@@ -35,7 +35,7 @@ type StatusDetails struct {
 	// Rack is the key of the rack running the task instance.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data"`
 }
 
 // Status is task-specific status information including execution state and

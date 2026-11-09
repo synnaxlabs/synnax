@@ -82,15 +82,15 @@ type ListMove[K any] struct {
 // exists, fails the update.
 type List[E any, K any, U any] struct {
 	// Set replaces the whole list. It cannot hold any other operator.
-	Set []E `json:"set,omitzero" msgpack:"set,omitempty"`
+	Set []E `json:"set,omitzero" msgpack:"set"`
 	// Insert adds entries at the end of the list.
-	Insert []E `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Insert []E `json:"insert,omitzero" msgpack:"insert"`
 	// Remove removes the entries with these keys.
-	Remove []K `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Remove []K `json:"remove,omitzero" msgpack:"remove"`
 	// Update merges partial entries into the entries with the same keys.
-	Update []U `json:"update,omitzero" msgpack:"update,omitempty"`
+	Update []U `json:"update,omitzero" msgpack:"update"`
 	// Move moves entries in the order given.
-	Move []ListMove[K] `json:"move,omitzero" msgpack:"move,omitempty"`
+	Move []ListMove[K] `json:"move,omitzero" msgpack:"move"`
 }
 
 // ValueList changes a list of values that are their own keys. The operators apply in
@@ -98,13 +98,13 @@ type List[E any, K any, U any] struct {
 // that exists, fails the update.
 type ValueList[E any] struct {
 	// Set replaces the whole list. It cannot hold any other operator.
-	Set []E `json:"set,omitzero" msgpack:"set,omitempty"`
+	Set []E `json:"set,omitzero" msgpack:"set"`
 	// Insert adds values at the end of the list.
-	Insert []E `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Insert []E `json:"insert,omitzero" msgpack:"insert"`
 	// Remove removes these values.
-	Remove []E `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Remove []E `json:"remove,omitzero" msgpack:"remove"`
 	// Move moves values in the order given.
-	Move []ListMove[E] `json:"move,omitzero" msgpack:"move,omitempty"`
+	Move []ListMove[E] `json:"move,omitzero" msgpack:"move"`
 }
 
 // Update changes a record by a partial record.

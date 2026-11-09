@@ -32,7 +32,7 @@ type StatusDetails struct {
 	// device whose state is unknown is not connected.
 	Connected bool `json:"connected" msgpack:"connected"`
 	// Data contains device-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data"`
 }
 
 // Status is device-specific status information including operational state and device

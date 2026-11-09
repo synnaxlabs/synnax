@@ -44,9 +44,9 @@ type Device = versions.Device
 // Where is a filter that selects devices.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
@@ -62,11 +62,11 @@ type Where struct {
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
 	// Groups matches the devices in any of the given groups.
-	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups"`
 	// Grouped matches the devices in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 	// Parents matches the devices that any of the given devices hold.
-	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	Parents []Key `json:"parents,omitzero" msgpack:"parents"`
 	// Nested matches the devices that another device holds, or the devices that sit
 	// directly on their rack when false.
 	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`

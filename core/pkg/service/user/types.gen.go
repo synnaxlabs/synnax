@@ -35,17 +35,17 @@ type User = versions.User
 // Where is a filter that selects users.
 type Where struct {
 	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	And []Where `json:"and,omitzero" msgpack:"and"`
 	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	Or []Where `json:"or,omitzero" msgpack:"or"`
 	// Not matches when the child does not match.
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Usernames matches the users whose password has any of the given usernames.
-	Usernames []string `json:"usernames,omitzero" msgpack:"usernames,omitempty"`
+	Usernames []string `json:"usernames,omitzero" msgpack:"usernames"`
 	// Roles matches the users that hold any of the given roles.
-	Roles []role.Key `json:"roles,omitzero" msgpack:"roles,omitempty"`
+	Roles []role.Key `json:"roles,omitzero" msgpack:"roles"`
 }
 
 // CreatePayload replaces the state with the created user. Only the Core emits it.
