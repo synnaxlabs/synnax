@@ -14,6 +14,7 @@ from typing import Unpack
 import synnax as sy
 from framework.test_case import Config
 from tests.arc.arc import ArcCase
+from tests.driver.task import delete_channels
 from tests.hitl.ethercat import (
     DO,
     START_TIMEOUT,
@@ -74,9 +75,18 @@ class EtherCATArc(ArcCase):
             self.wait_for_eq("hitl_ethercat_do_state_1", state)
 
     def teardown(self) -> None:
+        channels: list[int] = []
         try:
             for tsk in self.tasks:
+                if isinstance(tsk, sy.ethercat.ReadTask):
+                    channels += [ch.channel for ch in tsk.config.channels]
+                else:
+                    for w in tsk.config.channels:
+                        channels += [w.cmd_channel, w.state_channel]
                 with self._try_to(f"delete task {tsk.name}"):
                     self.client.tasks.delete(tsk.key)
         finally:
             super().teardown()
+            # The Arc writes a command channel until super().teardown() deletes it.
+            with self._try_to("delete task channels"):
+                delete_channels(self.client, channels)
