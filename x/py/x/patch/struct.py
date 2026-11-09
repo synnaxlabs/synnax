@@ -21,5 +21,10 @@ class Replace[T](TypedDict):
 
 
 # Struct is the change that an update makes to a struct field: the partial U merges into
-# the field, a Replace replaces it, and None clears it.
-type Struct[U, T] = U | Replace[T] | None
+# the field, and a Replace replaces it. An optional struct field takes a Change of a
+# Struct, whose None clears the field.
+type Struct[U, T] = U | Replace[T]
+
+# Change is the change that an update makes to a field of a TypedDict partial: a value
+# sets the field, and None clears it. An absent key makes no change.
+type Change[T] = T | None

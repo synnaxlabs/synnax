@@ -12,7 +12,6 @@ import { z } from "zod";
 import { narrow } from "@/narrow";
 import { mark } from "@/patch/kind";
 import { listMoveZ } from "@/patch/types.gen";
-import { zod } from "@/zod";
 
 /**
  * Builds the schema of a change to a scalar field of an update: a value sets the field,
@@ -26,20 +25,29 @@ export type Change<T extends z.ZodType> = z.infer<ReturnType<typeof changeZ<T>>>
 const holdsSet = (value: unknown): boolean =>
   narrow.isObject(value) && Object.hasOwn(value, "set");
 
+/** The schemas of the field that {@link structZ} changes. */
+export interface StructSchemas<U extends z.ZodType, T extends z.ZodType> {
+  /** The schema of a partial of the field. */
+  u: U;
+  /** The schema of the whole field. */
+  t: T;
+}
+
 /**
  * Builds the schema of a change to a struct field of an update: a partial merges into
- * the field, an object with only a `set` member replaces the field, and null clears
- * it.
+ * the field, and an object with only a `set` member replaces the field. An optional
+ * struct field takes `changeZ(structZ({ u, t }))`, whose null clears the field.
  */
-export const structZ = <U extends z.ZodType, T extends z.ZodType>(update: U, full: T) =>
+export const structZ = <U extends z.ZodType, T extends z.ZodType>({
+  u,
+  t,
+}: StructSchemas<U, T>) =>
   mark(
-    z
-      .union([
-        z.strictObject({ set: full }),
-        z.custom<unknown>((v) => !holdsSet(v)).pipe(update),
-      ])
-      .nullable(),
-    { kind: "struct", update, full },
+    z.union([
+      z.strictObject({ set: t }),
+      z.custom<unknown>((v) => !holdsSet(v)).pipe(u),
+    ]),
+    { kind: "struct", update: u, full: t },
   );
 export type Struct<U extends z.ZodType, T extends z.ZodType> = z.infer<
   ReturnType<typeof structZ<U, T>>
@@ -71,11 +79,11 @@ export const listZ = <E extends z.ZodType, K extends z.ZodType, U extends z.ZodT
 }: ListSchemas<E, K, U>) =>
   mark(
     z.strictObject({
-      set: zod.nullToUndefined(e.array()),
-      insert: zod.nullToUndefined(e.array()),
-      remove: zod.nullToUndefined(k.array()),
-      update: zod.nullToUndefined(u.array()),
-      move: zod.nullToUndefined(listMoveZ(k).array()),
+      set: e.array().optional(),
+      insert: e.array().optional(),
+      remove: k.array().optional(),
+      update: u.array().optional(),
+      move: listMoveZ(k).array().optional(),
     }),
     { kind: "list", entry: e, update: u },
   );
@@ -93,10 +101,10 @@ export type List<
 export const valueListZ = <E extends z.ZodType>(e: E) =>
   mark(
     z.strictObject({
-      set: zod.nullToUndefined(e.array()),
-      insert: zod.nullToUndefined(e.array()),
-      remove: zod.nullToUndefined(e.array()),
-      move: zod.nullToUndefined(listMoveZ(e).array()),
+      set: e.array().optional(),
+      insert: e.array().optional(),
+      remove: e.array().optional(),
+      move: listMoveZ(e).array().optional(),
     }),
     { kind: "valueList", entry: e },
   );

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.patch.struct import Replace, Struct
+from x.patch.struct import Change, Replace, Struct
 from x.patch.types_gen import (
     Guard,
     Insert,
@@ -21,6 +21,7 @@ from x.patch.types_gen import (
 )
 
 __all__ = [
+    "Change",
     "Guard",
     "Insert",
     "List",
