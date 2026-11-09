@@ -47,10 +47,11 @@ type Store interface {
 	) (Record, error)
 	// Edit applies the path actions at cursors to the record stored under key, then
 	// prepares the result as Prepare does. Each cursor is past the segment that names
-	// the config. Edit returns the record to write, and whether it differs from the
-	// result of the actions alone, such as by a filled default. It returns an error
-	// wrapping query.ErrNotFound when no record exists, or validate.ErrValidation when
-	// an action or the result is not valid.
+	// the config. A value that an action removes or sets to null takes its default.
+	// Edit returns the record to write, and whether it differs from the result of the
+	// actions alone, such as by a filled default. It returns an error wrapping
+	// query.ErrNotFound when no record exists, or validate.ErrValidation when an action
+	// or the result is not valid.
 	Edit(
 		ctx context.Context,
 		snap gorp.Snapshot,
@@ -148,8 +149,9 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
+	// ApplyEntryDefaults replaces each zero field of an entry with its default, an
+	// explicit zero included, before the entry is stored.
+	// [OPTIONAL] - nil when the entry type has no defaults or its decode fills them.
 	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// snap, before the entry is validated and stored.
@@ -304,7 +306,8 @@ func (s *Service[E]) Edit(
 	}
 	var filled bool
 	for _, c := range cursors {
-		if c = c.Partial(&filled); c.Done() {
+		var r patch.Report
+		if c = c.Partial(&r); c.Done() {
 			err = patch.Value(&e, c)
 		} else {
 			err = s.cfg.PatchEntry(&e, c)
@@ -312,6 +315,10 @@ func (s *Service[E]) Edit(
 		if err != nil {
 			return Record{}, false, err
 		}
+		if e, err = refill(e, r.Emptied); err != nil {
+			return Record{}, false, err
+		}
+		filled = filled || r.Filled
 	}
 	edited, keyed := s.hash(&e), e.GorpKey() == key
 	rec, err := s.prepare(ctx, snap, key, &e)
@@ -319,6 +326,37 @@ func (s *Service[E]) Edit(
 		return Record{}, false, err
 	}
 	return rec, filled || !keyed || rec.hash != edited, nil
+}
+
+// refill drops the members at paths from the JSON form of e and decodes the result, so
+// a removed or nulled value takes its default. An empty path drops the whole config.
+func refill[E any](e E, paths [][]string) (E, error) {
+	var next E
+	if len(paths) == 0 {
+		return e, nil
+	}
+	data, err := encode(e)
+	if err != nil {
+		return next, err
+	}
+	for _, p := range paths {
+		if len(p) == 0 {
+			data = msgpack.EncodedJSON{}
+			continue
+		}
+		last := len(p) - 1
+		if err = (patch.Remove{Path: p[:last], Key: p[last]}).Apply(data); err != nil {
+			return next, err
+		}
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return next, err
+	}
+	if err = json.Unmarshal(b, &next); err != nil {
+		return *new(E), err
+	}
+	return next, nil
 }
 
 // prepare fills the defaults of e, gives it key, resolves, and validates it.

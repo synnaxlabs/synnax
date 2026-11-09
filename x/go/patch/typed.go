@@ -67,15 +67,16 @@ const (
 // Cursor is a path action on its way down a typed document. A generated Patch method
 // switches on Segment and passes Next to the field that the segment names.
 type Cursor struct {
-	value   any
-	after   *string
-	filled  *bool
-	path    []string
-	guards  []Guard
-	key     string
-	depth   int
-	checked uint64
-	kind    kind
+	value        any
+	after        *string
+	report       *Report
+	path         []string
+	guards       []Guard
+	key          string
+	depth        int
+	partialDepth int
+	checked      uint64
+	kind         kind
 }
 
 func (s Set) cursor() Cursor {
@@ -110,13 +111,23 @@ func (m Move) cursor() Cursor {
 	}
 }
 
+// Report records what partial cursors do to a document.
+type Report struct {
+	// Filled is true when the document no longer matches the JSON form that the actions
+	// give, such as at a zero value where the JSON form holds nothing.
+	Filled bool
+	// Emptied holds the path of each value that a removal or null set emptied, from the
+	// cursor that Partial returned. A JSON decode of the document without the members
+	// at these paths gives them their defaults.
+	Emptied [][]string
+}
+
 // Partial returns the cursor for a document whose defaults and validation run after the
 // edit. A value that lacks a member, and a removal or null set of a required value,
 // then leave zero values, as a JSON decode of the edited document would. The Patch
-// methods set filled when the document no longer matches the JSON form that the action
-// gives, such as at a zero value where the JSON form holds nothing.
-func (c Cursor) Partial(filled *bool) Cursor {
-	c.filled = filled
+// methods record in r what the action does to the document.
+func (c Cursor) Partial(r *Report) Cursor {
+	c.report, c.partialDepth = r, c.depth
 	return c
 }
 
@@ -182,8 +193,18 @@ func (c Cursor) unguarded() error {
 
 // fill records that the document no longer matches the JSON form that the action gives.
 func (c Cursor) fill() {
-	if c.filled != nil {
-		*c.filled = true
+	if c.report != nil {
+		c.report.Filled = true
+	}
+}
+
+// empty records that the action emptied the value at its path.
+func (c Cursor) empty() {
+	if c.report != nil {
+		c.report.Emptied = append(
+			c.report.Emptied,
+			slices.Clone(c.path[c.partialDepth:]),
+		)
 	}
 }
 
@@ -233,7 +254,7 @@ func whole[T any](dst *T, c Cursor) error {
 // zero leaves the zero value in a required field that the action empties, which only a
 // partial cursor allows.
 func zero[T any](dst *T, c Cursor) error {
-	if c.filled == nil {
+	if c.report == nil {
 		return required(c.path)
 	}
 	if err := c.unguarded(); err != nil {
@@ -242,6 +263,7 @@ func zero[T any](dst *T, c Cursor) error {
 	var z T
 	*dst = z
 	c.fill()
+	c.empty()
 	return nil
 }
 
@@ -256,6 +278,7 @@ func optional[T any](dst **T, c Cursor) error {
 			// The JSON form holds null, and the field drops from the document's.
 			*dst = nil
 			c.fill()
+			c.empty()
 			return nil
 		}
 		next := new(T)
@@ -266,6 +289,7 @@ func optional[T any](dst **T, c Cursor) error {
 		return nil
 	case kindRemove:
 		*dst = nil
+		c.empty()
 		return nil
 	default:
 		return c.notList()
@@ -301,7 +325,7 @@ func decodeJSON[T any](dst *T, c Cursor, b []byte, path []string) error {
 			err,
 		)
 	}
-	if c.filled != nil {
+	if c.report != nil {
 		if !sameJSON(next, b) {
 			c.fill()
 		}

@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -625,6 +627,68 @@ var _ = Describe("Service", func() {
 		It("Should report the ladder's latest version", func() {
 			Expect(svc.Version()).To(Equal(arcversions.Latest))
 		})
+	})
+})
+
+var _ = Describe("Edit of a store that decodes its defaults", func() {
+	var (
+		svc   *config.Service[kafka.WriteConfig]
+		tasks *tasktestutil.Tasks
+		key   uuid.UUID
+	)
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(config.OpenService(
+			ctx,
+			config.ServiceConfig[kafka.WriteConfig]{
+				DB:          db,
+				Type:        "kafka_write_defaults_test",
+				Ladder:      kafkaversions.WriteConfigLadder,
+				SetEntryKey: (*kafka.WriteConfig).SetKey,
+				PatchEntry:  (*kafka.WriteConfig).Patch,
+				HashEntry:   (*kafka.WriteConfig).HashContent,
+			},
+		))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: []config.Store{svc},
+		}))
+		key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+			"record_key": "channel_key",
+			"record":     map[string]any{"value_pointer": "/v"},
+		}))
+	})
+	edit := func(ctx SpecContext, a patch.Action) msgpack.EncodedJSON {
+		GinkgoHelper()
+		c := MustSucceed(patch.Begin(a)).Next()
+		rec, _ := MustSucceed2(svc.Edit(ctx, db, key, []patch.Cursor{c}))
+		return MustSucceed(rec.Data())
+	}
+
+	It("Should reset a removed value to its default", func(ctx SpecContext) {
+		Expect(edit(ctx, patch.Remove{
+			Path: []string{"config", "record"},
+			Key:  "value_pointer",
+		})).To(HaveKeyWithValue("record", HaveKeyWithValue("value_pointer", "/value")))
+	})
+
+	It("Should reset a value set to null to its default", func(ctx SpecContext) {
+		Expect(edit(ctx, patch.Set{Path: []string{"config", "record_key"}})).
+			To(HaveKeyWithValue("record_key", "channel_name"))
+	})
+
+	It("Should keep a value set to zero", func(ctx SpecContext) {
+		Expect(edit(ctx, patch.Set{
+			Path:  []string{"config", "record", "value_pointer"},
+			Value: "",
+		})).To(HaveKeyWithValue("record", HaveKeyWithValue("value_pointer", "")))
+	})
+
+	It("Should reset a config set to null to its defaults", func(ctx SpecContext) {
+		Expect(edit(ctx, patch.Set{Path: []string{"config"}})).To(SatisfyAll(
+			HaveKeyWithValue("key", key.String()),
+			HaveKeyWithValue("record_key", "channel_name"),
+			HaveKeyWithValue("record", HaveKeyWithValue("value_pointer", "/value")),
+		))
 	})
 })
 
