@@ -493,7 +493,10 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Expect(records).To(HaveKey(a.Base().Key))
 			return records[a.Base().Key]
 		}
-		hashOf := func(a arc.Arc) string { return MustSucceed(arc.Hash(a.Base())) }
+		hashOf := func(a arc.Arc) string {
+			GinkgoHelper()
+			return MustSucceed(arc.Hash(a.Base()))
+		}
 		// run reports the task as running the config it holds, as the Driver does.
 		run := func(ctx SpecContext, key task.Key) {
 			GinkgoHelper()
