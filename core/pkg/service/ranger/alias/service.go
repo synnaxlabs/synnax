@@ -93,6 +93,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         []gorp.Index[string, Alias]{s.search},
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,

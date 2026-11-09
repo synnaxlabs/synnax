@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -47,7 +48,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Service:      svc,
 		Distribution: node.Layer,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
 	exec = bind.Write(binder, apiLayer.Batch.Exec)
 })
 
