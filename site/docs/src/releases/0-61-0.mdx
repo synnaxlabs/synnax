@@ -26,7 +26,7 @@ you set in the Console. MQTT brokers, Sparkplug B edge nodes, and Kafka clusters
 as devices and need no Driver. Logs scroll back through every stored value.
 
 Arc syntax changed, and a Core now runs alone. Read the
-[breaking changes](#breaking-changes) before you upgrade.
+[breaking changes](#breaking-changes-in-061) before you upgrade.
 
 <Divider.Divider x />
 
@@ -187,10 +187,11 @@ once. See [OPC UA](/reference/hardware/opc-ua/connect-server).
 
 #### Modbus over serial, gateways, strings, and bits
 
-Connect Modbus RTU devices on a serial port. Devices on one address or port share one
+Connect Modbus RTU servers on a serial port. Servers on one address or port share one
 connection, each with its own unit ID. Read and write strings and register bits, and use
-six-digit Modicon addresses. A **Diagnostics** tab counts requests, retries, and
-timeouts. See [Modbus](/reference/hardware/modbus/connect-server).
+six-digit Modicon addresses. The **Diagnostics** section of the connect dialog counts
+requests, retries, and timeouts. See
+[Modbus](/reference/hardware/modbus/connect-server).
 
 #### LabJack T8 and reconnects
 
@@ -210,7 +211,7 @@ with one channel. Two people who edit one task, range, or label keep both edits.
 
 Trees move and open with the arrow keys and Enter. Shift+F10 or the Menu key opens a
 context menu, and Down moves from a toolbar search into its results. Modals hold the
-focus and give it back. The Channels toolbar searches its tree, and the component
+focus and give it back. The channels toolbar searches its tree, and the component
 selector has a search field.
 
 #### Synnax Desktop: connect scripts, read the log
@@ -280,7 +281,7 @@ running task without taking control. See [Write data](/reference/client/write-da
 
 <Divider.Divider x />
 
-### Breaking changes
+### Breaking changes in 0.61
 
 #### Core and deployment
 
@@ -320,8 +321,8 @@ running task without taking control. See [Write data](/reference/client/write-da
 - Inputs go in parentheses and triggers in braces. The Core rewrites stored Arcs.
   Rewrite Arc text in scripts that call `client.arcs.create` and in files outside
   Synnax.
-- A flow that uses a variable with no compile-time value, such as `y := 1.5 + 2.0`,
-  fails to compile. Before, it read or wrote nothing. Use a literal or a channel.
+- A flow that reads a variable with no compile-time value, such as a series, fails to
+  compile. Before, it read or wrote nothing. Use a literal or a channel.
 - `^` needs numeric operands.
 - New Arcs are text only. Graph Arcs still run.
 
