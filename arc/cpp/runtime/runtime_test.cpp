@@ -110,7 +110,7 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
     EXPECT_EQ(result.first, nullptr);
 }
 
-/// @brief load rejects a config with no reporter.
+/// @brief it should reject a config with no reporter at load.
 TEST(RuntimeTest, LoadRejectsAConfigWithoutAReporter) {
     const auto result = load(Config{.program = {}});
     ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);

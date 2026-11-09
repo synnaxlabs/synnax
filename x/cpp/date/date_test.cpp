@@ -81,6 +81,7 @@ TEST(DaysFromCivil, RoundTrip) {
     }
 }
 
+/// @brief it should count weekdays from Sunday, before and after the epoch.
 TEST(WeekdayFromDays, CountsFromSunday) {
     // 1970-01-01 was a Thursday, and 1970-01-04 a Sunday.
     ASSERT_EQ(date::weekday_from_days(0), 4);
@@ -90,12 +91,14 @@ TEST(WeekdayFromDays, CountsFromSunday) {
     ASSERT_EQ(date::weekday_from_days(-7), 4);
 }
 
+/// @brief it should give the weekday at the ends of the timestamp range.
 TEST(WeekdayFromDays, HoldsAtTheEndsOfTheRange) {
     // The first and last days a nanosecond timestamp can hold, a Tuesday and a Friday.
     ASSERT_EQ(date::weekday_from_days(-106'752), 2);
     ASSERT_EQ(date::weekday_from_days(106'751), 5);
 }
 
+/// @brief it should give 53 weeks in a long ISO year and 52 in a short one.
 TEST(IsoWeeksIn, LongAndShortYears) {
     // 2015 starts on a Thursday and 2020 on a Wednesday in a leap year.
     ASSERT_EQ(date::iso_weeks_in(2015), 53);
@@ -105,6 +108,7 @@ TEST(IsoWeeksIn, LongAndShortYears) {
     ASSERT_EQ(date::iso_weeks_in(2026), 53);
 }
 
+/// @brief it should split the epoch into its calendar and clock fields.
 TEST(CivilFromNanoseconds, Epoch) {
     const date::CivilTime c = date::civil_from_nanoseconds(0);
     ASSERT_EQ(c.year, 1970);
@@ -120,6 +124,7 @@ TEST(CivilFromNanoseconds, Epoch) {
     ASSERT_EQ(c.iso_week, 1);
 }
 
+/// @brief it should split the earliest timestamp without overflow.
 TEST(CivilFromNanoseconds, Earliest) {
     const date::CivilTime c = date::civil_from_nanoseconds(INT64_MIN);
     ASSERT_EQ(c.year, 1677);
@@ -135,6 +140,7 @@ TEST(CivilFromNanoseconds, Earliest) {
     ASSERT_EQ(c.iso_week, 38);
 }
 
+/// @brief it should split the latest timestamp without overflow.
 TEST(CivilFromNanoseconds, Latest) {
     const date::CivilTime c = date::civil_from_nanoseconds(INT64_MAX);
     ASSERT_EQ(c.year, 2262);
@@ -150,6 +156,7 @@ TEST(CivilFromNanoseconds, Latest) {
     ASSERT_EQ(c.iso_week, 15);
 }
 
+/// @brief it should keep the nanosecond in range on both sides of each second.
 TEST(CivilFromNanoseconds, AroundTheSecond) {
     const int64_t secs[] = {
         INT64_MIN / 1'000'000'000 + 1,
@@ -172,6 +179,7 @@ TEST(CivilFromNanoseconds, AroundTheSecond) {
     }
 }
 
+/// @brief it should put the last nanosecond before the epoch in 1969.
 TEST(CivilFromNanoseconds, LastNanosecondBeforeTheEpoch) {
     const date::CivilTime c = date::civil_from_nanoseconds(-1);
     ASSERT_EQ(c.year, 1969);
@@ -187,6 +195,7 @@ TEST(CivilFromNanoseconds, LastNanosecondBeforeTheEpoch) {
     ASSERT_EQ(c.iso_week, 1);
 }
 
+/// @brief it should add an offset east or west of UTC.
 TEST(CivilFromNanoseconds, AddsTheOffset) {
     const date::CivilTime east = date::civil_from_nanoseconds(0, 3600);
     ASSERT_EQ(east.year, 1970);
@@ -211,6 +220,7 @@ TEST(CivilFromNanoseconds, AddsTheOffset) {
     ASSERT_EQ(west.iso_week, 1);
 }
 
+/// @brief it should add a large offset at the ends of the range without overflow.
 TEST(CivilFromNanoseconds, AddsTheOffsetAtTheEndsOfTheRange) {
     // UTC+14 at the latest timestamp, and UTC-12 at the earliest.
     const date::CivilTime latest = date::civil_from_nanoseconds(INT64_MAX, 14 * 3600);
@@ -242,6 +252,7 @@ TEST(CivilFromNanoseconds, AddsTheOffsetAtTheEndsOfTheRange) {
     ASSERT_EQ(earliest.iso_week, 38);
 }
 
+/// @brief it should put days near the new year in the correct ISO year and week.
 TEST(CivilFromNanoseconds, IsoWeekRollover) {
     // January 1, 2021 falls in ISO week 53 of 2020.
     const date::CivilTime a = date::civil_from_nanoseconds(1'609'459'200'000'000'000);
@@ -260,6 +271,7 @@ TEST(CivilFromNanoseconds, IsoWeekRollover) {
     ASSERT_EQ(c.iso_week, 52);
 }
 
+/// @brief it should match the C library on every day from 1970 to 2100.
 TEST(CivilFromNanoseconds, MatchesTheCLibraryOnEveryDay) {
     // 4'133'980'800 is 2101-01-01T00:00:00Z.
     for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {

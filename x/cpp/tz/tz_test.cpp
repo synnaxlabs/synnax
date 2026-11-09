@@ -76,7 +76,7 @@ size_t each_vector(
 }
 }
 
-/// @brief a zone loads by its exact name, in standard and daylight time.
+/// @brief it should load a zone by its exact name, in standard and daylight time.
 TEST(DatabaseTest, LoadsAZoneByItsExactName) {
     Database db;
     const auto zone = ASSERT_NIL_P(db.load("America/Denver"));
@@ -89,14 +89,14 @@ TEST(DatabaseTest, LoadsAZoneByItsExactName) {
     EXPECT_EQ(summer.offset, -6 * 3600);
 }
 
-/// @brief a name matches without regard to case.
+/// @brief it should match a name without regard to case.
 TEST(DatabaseTest, MatchesANameWithoutRegardToCase) {
     Database db;
     for (const auto *name: {"america/denver", "AMERICA/DENVER", "aMeRiCa/DeNvEr"})
         EXPECT_EQ(ASSERT_NIL_P(db.load(name))->name(), "America/Denver") << name;
 }
 
-/// @brief a short alias has the same rules as its zone.
+/// @brief it should load a short alias with the same rules as its zone.
 TEST(DatabaseTest, LoadsAShortAliasWithTheSameRules) {
     Database db;
     const auto alias = ASSERT_NIL_P(db.load("us/mountain"));
@@ -108,7 +108,7 @@ TEST(DatabaseTest, LoadsAShortAliasWithTheSameRules) {
     }
 }
 
-/// @brief a fixed zone has no daylight time.
+/// @brief it should load a fixed zone with no daylight time.
 TEST(DatabaseTest, LoadsAFixedZone) {
     Database db;
     const auto info = ASSERT_NIL_P(db.load("EST"))->at(SUMMER);
@@ -116,14 +116,14 @@ TEST(DatabaseTest, LoadsAFixedZone) {
     EXPECT_EQ(info.offset, -5 * 3600);
 }
 
-/// @brief a name loaded twice gives the same zone.
+/// @brief it should return the same zone for a name loaded twice.
 TEST(DatabaseTest, ReturnsTheSameZoneForANameLoadedTwice) {
     Database db;
     const auto first = ASSERT_NIL_P(db.load("Europe/Berlin"));
     EXPECT_EQ(ASSERT_NIL_P(db.load("europe/berlin")), first);
 }
 
-/// @brief a name that is not a zone gives a NOT_FOUND error that quotes it.
+/// @brief it should give a NOT_FOUND error that quotes a name that is not a zone.
 TEST(DatabaseTest, RejectsANameThatIsNotAZone) {
     Database db;
     for (const auto *name: {"America/Denvr", "", "PST"}) {
@@ -135,7 +135,7 @@ TEST(DatabaseTest, RejectsANameThatIsNotAZone) {
     }
 }
 
-/// @brief the database lists every zone in sorted order, and each one loads.
+/// @brief it should list every zone in sorted order and load each one.
 TEST(DatabaseTest, ListsEveryZoneInSortedOrder) {
     Database db;
     const auto names = db.names();
@@ -160,7 +160,7 @@ TEST(DatabaseTest, ListsEveryZoneInSortedOrder) {
         ASSERT_NIL_P(db.load(name));
 }
 
-/// @brief every zone matches Go at every vector.
+/// @brief it should match Go for every zone at every vector.
 TEST(DatabaseTest, MatchesEveryZoneVector) {
     Database db;
     const auto count = each_vector(
@@ -175,7 +175,7 @@ TEST(DatabaseTest, MatchesEveryZoneVector) {
     EXPECT_GT(count, 15'000u);
 }
 
-/// @brief every rule string reads as Go reads it.
+/// @brief it should read every rule string as Go reads it.
 TEST(ZoneTest, MatchesEveryRuleVector) {
     const auto count = each_vector(
         "x/go/tz/testdata/rules.tsv",
@@ -189,7 +189,7 @@ TEST(ZoneTest, MatchesEveryRuleVector) {
     EXPECT_GT(count, 1'500u);
 }
 
-/// @brief data that is not valid TZif gives a VALIDATION error.
+/// @brief it should give a VALIDATION error for data that is not valid TZif.
 TEST(ZoneTest, RejectsDataThatIsNotTZif) {
     const auto valid = rule_zone("EST5");
     auto bad_version = valid;

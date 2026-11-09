@@ -194,7 +194,7 @@ var codes = map[byte]expansion{
 	'%': func(b []byte, _ civilTime) []byte { return append(b, '%') },
 }
 
-// strftime renders ts in UTC with format. An unsupported code, and a '%' at the end
+// strftime renders ts in loc with format. An unsupported code, and a '%' at the end
 // of format, are copied through unchanged.
 func strftime(ts telem.TimeStamp, format string, loc *stdtime.Location) string {
 	c := breakDown(ts, loc)

@@ -1680,7 +1680,7 @@ private:
     }
 };
 
-/// @brief an unknown format handle warns the task and returns the empty string.
+/// @brief it should warn and return the empty string on an unknown format handle.
 TEST(FormatTest, WarnsOnAnUnknownFormatHandle) {
     FormatFixture f;
     EXPECT_EQ(f.call(0, 999, 0), 0);
@@ -1689,7 +1689,7 @@ TEST(FormatTest, WarnsOnAnUnknownFormatHandle) {
     EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
 }
 
-/// @brief an unknown time zone handle warns the task and returns the empty string.
+/// @brief it should warn and return the empty string on an unknown time zone handle.
 TEST(FormatTest, WarnsOnAnUnknownTimeZoneHandle) {
     FormatFixture f;
     EXPECT_EQ(f.call(0, 0, 999), 0);
@@ -1698,7 +1698,7 @@ TEST(FormatTest, WarnsOnAnUnknownTimeZoneHandle) {
     EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
 }
 
-/// @brief an invalid zone warns the task and returns the empty string.
+/// @brief it should warn and return the empty string on an invalid zone.
 TEST(FormatTest, WarnsOnAnInvalidZone) {
     FormatFixture f;
     EXPECT_EQ(f.format(0, "", "America/Denvr"), "");
@@ -1707,7 +1707,7 @@ TEST(FormatTest, WarnsOnAnInvalidZone) {
     EXPECT_EQ(f.reports[0].second, "The time zone \"America/Denvr\" is invalid.");
 }
 
-/// @brief valid format and zone handles format without a warning.
+/// @brief it should format valid format and zone handles without a warning.
 TEST(FormatTest, FormatsValidHandlesWithoutAWarning) {
     FormatFixture f;
     EXPECT_EQ(f.format(0, "%Y"), "1970");
@@ -1716,7 +1716,7 @@ TEST(FormatTest, FormatsValidHandlesWithoutAWarning) {
     EXPECT_TRUE(f.reports.empty());
 }
 
-/// @brief time.format with no format matches the ISO 8601 vectors byte for byte.
+/// @brief it should match the ISO 8601 vectors byte for byte with no format.
 TEST(FormatTest, MatchesTheISO8601Vectors) {
     FormatFixture f;
     EXPECT_EQ(f.format(0), "1970-01-01T00:00:00Z");
@@ -1733,7 +1733,7 @@ TEST(FormatTest, MatchesTheISO8601Vectors) {
 /// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 constexpr int64_t STAMP = 1'326'789'125'250'000'000;
 
-/// @brief every format code expands as in the Go table.
+/// @brief it should expand every format code as the Go table does.
 TEST(FormatTest, ExpandsEveryCode) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Y"), "2012");
@@ -1779,7 +1779,8 @@ TEST(FormatTest, ExpandsEveryCode) {
     EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
 }
 
-/// @brief week numbers, the 12-hour clock, and ISO week rollover match C and Python.
+/// @brief it should match C and Python for week numbers, the 12-hour clock, and ISO
+/// week rollover.
 TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
     FormatFixture f;
     // Sunday, January 1, 2012 at midnight.
@@ -1815,7 +1816,7 @@ TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
     );
 }
 
-/// @brief the ends of the timestamp range format without overflow.
+/// @brief it should format the ends of the timestamp range without overflow.
 TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
     FormatFixture f;
     const std::string_view fmt = "%F %T.%N %j %w %G-%V %C %g";
@@ -1843,7 +1844,7 @@ TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
     );
 }
 
-/// @brief an unknown code and a trailing percent copy through unchanged.
+/// @brief it should copy an unknown code and a trailing percent through unchanged.
 TEST(FormatTest, CopiesAnUnknownCodeThrough) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
@@ -1869,7 +1870,7 @@ constexpr int64_t SUMMER = 1'784'116'800'000'000'000;
 /// @brief January 1, 1800, when Denver kept local mean time at UTC-6:59:56.
 constexpr int64_t EIGHTEEN_HUNDRED = -5'364'662'400'000'000'000;
 
-/// @brief time.format prints local time in a zone.
+/// @brief it should print local time in a zone.
 TEST(FormatTest, PrintsLocalTimeInAZone) {
     const ZoneCase cases[] = {
         {"Denver in winter",
@@ -1981,7 +1982,7 @@ TEST(FormatTest, PrintsLocalTimeInAZone) {
     EXPECT_TRUE(f.reports.empty());
 }
 
-/// @brief every day from 1970 to 2100 formats as the C library does.
+/// @brief it should format every day from 1970 to 2100 as the C library does.
 TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
     const char *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F "
                          "%T %a %A %b %B %h %p %r %x %X";
