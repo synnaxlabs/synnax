@@ -648,19 +648,11 @@ class BaseAOChannel(BaseModel):
     Attributes:
         key: Uniquely identifies the channel within the task.
         disabled: Is true when the channel is excluded from the task.
-        cmd_channel: Is the Synnax channel commands are read from.
-        state_channel: Is the Synnax channel the output state is written to.
-        cmd_channel_name: Is the human-readable name of the command channel.
-        state_channel_name: Is the human-readable name of the state channel.
         port: Is the physical port the channel writes to.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    cmd_channel_name: str = ""
-    state_channel_name: str = ""
     port: int = Field(default=0, ge=0, le=4294967295)
 
     @_override
@@ -804,6 +796,22 @@ class DigitalPort(BaseModel):
     lines: int = Field(ge=0, le=32)
     input: bool = False
     output: bool = False
+
+
+class CommandedAOChannel(BaseModel):
+    """Carries the command and state channels of a commanded analog output.
+
+    Attributes:
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+    """
+
+    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    cmd_channel_name: str = ""
+    state_channel_name: str = ""
 
 
 class BuiltInCJC(BaseModel):
@@ -1445,14 +1453,14 @@ CIChannel = Annotated[
 ]
 
 
-class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a current output."""
 
     type: Literal["ao_current"] = "ao_current"
 
 
 class AOFuncGenChannel(BaseAOChannel):
-    """Drives a function-generator output."""
+    """Generates a waveform from task start to task stop, with no commands."""
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
@@ -1461,7 +1469,7 @@ class AOFuncGenChannel(BaseAOChannel):
     offset: float = 0
 
 
-class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a voltage output."""
 
     type: Literal["ao_voltage"] = "ao_voltage"

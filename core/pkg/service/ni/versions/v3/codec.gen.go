@@ -1504,6 +1504,9 @@ func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.CommandedAOChannel.EncodeOrc(w); err != nil {
+			return err
+		}
 	case AOFuncGenChannel:
 		w.String("ao_func_gen")
 		if err := v.BaseAOChannel.EncodeOrc(w); err != nil {
@@ -1522,6 +1525,9 @@ func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.EncodeOrc(w); err != nil {
 			return err
 		}
 	default:
@@ -1546,6 +1552,9 @@ func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.DecodeOrc(r); err != nil {
 			return err
 		}
 		aoc.Variant = v
@@ -1580,6 +1589,9 @@ func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.CommandedAOChannel.DecodeOrc(r); err != nil {
 			return err
 		}
 		aoc.Variant = v
@@ -1760,10 +1772,6 @@ func (baic *BaseAIChannel) DecodeOrc(r *orc.Reader) error {
 func (baoc BaseAOChannel) EncodeOrc(w *orc.Writer) error {
 	w.String(baoc.Key)
 	w.Bool(baoc.Disabled)
-	w.Uint32(uint32(baoc.CmdChannel))
-	w.Uint32(uint32(baoc.StateChannel))
-	w.String(baoc.CmdChannelName)
-	w.String(baoc.StateChannelName)
 	w.Uint32(uint32(baoc.Port))
 	return nil
 }
@@ -1775,26 +1783,6 @@ func (baoc *BaseAOChannel) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if baoc.Disabled, err = r.Bool(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		baoc.CmdChannel = channel.Key(rawV)
-	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		baoc.StateChannel = channel.Key(rawV)
-	}
-	if baoc.CmdChannelName, err = r.String(); err != nil {
-		return err
-	}
-	if baoc.StateChannelName, err = r.String(); err != nil {
 		return err
 	}
 	if baoc.Port, err = r.Uint32(); err != nil {
@@ -2438,6 +2426,41 @@ func (cjc *CJC) DecodeOrc(r *orc.Reader) error {
 		cjc.Variant = v
 	default:
 		return errors.Newf("CJC: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (caoc CommandedAOChannel) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(caoc.CmdChannel))
+	w.Uint32(uint32(caoc.StateChannel))
+	w.String(caoc.CmdChannelName)
+	w.String(caoc.StateChannelName)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (caoc *CommandedAOChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		caoc.CmdChannel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		caoc.StateChannel = channel.Key(rawV)
+	}
+	if caoc.CmdChannelName, err = r.String(); err != nil {
+		return err
+	}
+	if caoc.StateChannelName, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }

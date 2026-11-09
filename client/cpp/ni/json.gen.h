@@ -285,16 +285,6 @@ inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
     return BaseAOChannel{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
-        .cmd_channel = parser.field<::synnax::channel::Key>(
-            "cmd_channel",
-            ::synnax::channel::Key(0)
-        ),
-        .state_channel = parser.field<::synnax::channel::Key>(
-            "state_channel",
-            ::synnax::channel::Key(0)
-        ),
-        .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
-        .state_channel_name = parser.field<std::string>("state_channel_name", ""),
         .port = parser.field<std::uint32_t>("port", 0),
     };
 }
@@ -303,10 +293,6 @@ inline x::json::json BaseAOChannel::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["disabled"] = this->disabled;
-    j["cmd_channel"] = this->cmd_channel;
-    j["state_channel"] = this->state_channel;
-    j["cmd_channel_name"] = this->cmd_channel_name;
-    j["state_channel_name"] = this->state_channel_name;
     j["port"] = this->port;
     return j;
 }
@@ -687,6 +673,30 @@ inline x::json::json Hardware::to_json() const {
     j["ai_current_ranges"] = x::json::to_array(this->ai_current_ranges);
     j["ao_voltage_ranges"] = x::json::to_array(this->ao_voltage_ranges);
     j["ao_current_ranges"] = x::json::to_array(this->ao_current_ranges);
+    return j;
+}
+
+inline CommandedAOChannel CommandedAOChannel::parse(x::json::Parser parser) {
+    return CommandedAOChannel{
+        .cmd_channel = parser.field<::synnax::channel::Key>(
+            "cmd_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .state_channel = parser.field<::synnax::channel::Key>(
+            "state_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
+        .state_channel_name = parser.field<std::string>("state_channel_name", ""),
+    };
+}
+
+inline x::json::json CommandedAOChannel::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["cmd_channel"] = this->cmd_channel;
+    j["state_channel"] = this->state_channel;
+    j["cmd_channel_name"] = this->cmd_channel_name;
+    j["state_channel_name"] = this->state_channel_name;
     return j;
 }
 
@@ -2104,6 +2114,7 @@ inline AOCurrentChannel AOCurrentChannel::parse(x::json::Parser parser) {
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<CommandedAOChannel &>(result) = CommandedAOChannel::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2114,6 +2125,8 @@ inline x::json::json AOCurrentChannel::to_json() const {
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CommandedAOChannel::to_json(); parent.is_object())
         j.update(parent);
     j["type"] = this->type;
     return j;
@@ -2147,6 +2160,7 @@ inline AOVoltageChannel AOVoltageChannel::parse(x::json::Parser parser) {
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<CommandedAOChannel &>(result) = CommandedAOChannel::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2157,6 +2171,8 @@ inline x::json::json AOVoltageChannel::to_json() const {
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CommandedAOChannel::to_json(); parent.is_object())
         j.update(parent);
     j["type"] = this->type;
     return j;
