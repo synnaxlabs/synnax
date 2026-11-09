@@ -23,7 +23,7 @@ export interface LogEntry {
   alignment?: bigint;
 }
 
-export const filterZ = z.object({
+const filterZ = z.object({
   hiddenChannels: z.array(channel.keyZ).default([]),
   /** Keeps only the lines that match, when set. */
   search: searchZ.nullable().default(null),
