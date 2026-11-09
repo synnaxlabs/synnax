@@ -24,7 +24,7 @@ import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
-import { filterZ, type LogEntry } from "@/log/aether/telem/types";
+import { type LogEntry, ZERO_FILTER } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
@@ -505,7 +505,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
       core.advance(TimeSpan.seconds(1));
@@ -518,9 +518,9 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
-      log.setFilter(filterZ.parse({ hiddenChannels: [] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [] });
       await settle(log, 2 * HISTORY);
       expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
       expect(sorted(entriesOf(log))).toBe(true);
@@ -531,7 +531,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] }, undefined, 200);
       await expect.poll(() => valuesOf(entriesOf(log), a).length, POLL).toBe(90);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, 180);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 180));
     });
@@ -549,7 +549,7 @@ describe("StreamMultiChannelLog", () => {
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a] });
       await settle(log, HISTORY);
-      log.setFilter(filterZ.parse({ search: { text: "error" } }));
+      log.setFilter({ ...ZERO_FILTER, search: { text: "error", mode: "text" } });
       const errors = textOf(core, a, HISTORY).filter((v) => v.startsWith("ERROR"));
       await settle(log, errors.length);
       expect(valuesOf(entriesOf(log), a)).toEqual(errors);
@@ -563,7 +563,7 @@ describe("StreamMultiChannelLog", () => {
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a] });
       await settle(log, HISTORY);
-      log.setFilter(filterZ.parse({ search: { text: "^ok \\d*5$", mode: "regex" } }));
+      log.setFilter({ ...ZERO_FILTER, search: { text: "^ok \\d*5$", mode: "regex" } });
       const matches = textOf(core, a, HISTORY).filter((v) => /^ok \d*5$/.test(v));
       await settle(log, matches.length);
       expect(valuesOf(entriesOf(log), a)).toEqual(matches);
@@ -575,7 +575,7 @@ describe("StreamMultiChannelLog", () => {
       core.retype(a, DataType.STRING);
       const log = open(core, connect(core), { channels: [a] });
       await settle(log, 2 * HISTORY);
-      log.setFilter(filterZ.parse({ search: { text: "match" } }));
+      log.setFilter({ ...ZERO_FILTER, search: { text: "match", mode: "text" } });
       await settle(log, HISTORY);
       expect(entriesOf(log).every((e) => e.continuation !== true)).toBe(true);
     });
@@ -585,11 +585,11 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * HISTORY);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, HISTORY);
       const handler = vi.fn();
       log.onChange(handler);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       expect(handler).not.toHaveBeenCalled();
     });
   });
@@ -787,7 +787,7 @@ describe("StreamMultiChannelLog", () => {
       const [a, b] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a, b] });
       await settle(log, 2 * PAGE);
-      log.setFilter(filterZ.parse({ hiddenChannels: [b] }));
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await settle(log, PAGE);
       await page(log, STORED);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
@@ -802,7 +802,7 @@ describe("StreamMultiChannelLog", () => {
       const [a] = core.data.map((c) => c.key);
       core.retype(a, DataType.STRING);
       const log = open(core, connect(core), { channels: [a] });
-      log.setFilter(filterZ.parse({ search: { text: "ERROR" } }));
+      log.setFilter({ ...ZERO_FILTER, search: { text: "ERROR", mode: "text" } });
       const errors = textOf(core, a, STORED).filter((v) => v.startsWith("ERROR"));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
       const reached = log.reached?.valueOf();
@@ -812,6 +812,21 @@ describe("StreamMultiChannelLog", () => {
       );
       expect(valuesOf(entriesOf(log), a)).toEqual(errors);
       expect(log.reached?.valueOf()).toBeLessThan(reached ?? 0n);
+    });
+
+    it("should read no older pages of a hidden channel", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(log.exhausted).toBe(true);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
     });
 
     it("should page every channel back together", async () => {

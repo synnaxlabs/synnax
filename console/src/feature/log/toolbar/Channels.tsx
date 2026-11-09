@@ -84,9 +84,9 @@ const ChannelRow = ({
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
-  // Clearing the row's channel removes the row.
   const handleVisibleChange = () =>
     sessionDispatch(Session.Log.setChannelVisible({ key, channel, visible: hidden }));
+  // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
       to == null
