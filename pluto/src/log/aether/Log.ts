@@ -79,6 +79,8 @@ export const logStateZ = log.logZ
     thumb: thumbZ.nullable().default(null),
     // Where a dragged thumb sits on its track, from 0 at the top to 1, or -1.
     dragProgress: z.number().default(-1),
+    // The times of a range to shade, as decimal counts of nanoseconds.
+    range: z.object({ start: z.string(), end: z.string() }).nullable().default(null),
   });
 
 const lineZ = z.object({ text: z.string(), color: z.string() });
@@ -447,10 +449,10 @@ export class Log
     this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const { data, status } = this.internal.telem.value();
-      this.entries = data;
+      this.entries = this.internal.telem.value().data;
+      // A seek from reanchor changes the status.
       this.reanchor();
-      this.syncStatus(status);
+      this.syncStatus(this.internal.telem.value().status);
       this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
@@ -749,6 +751,7 @@ export class Log
       const height = Math.min(Math.max(proportional, SCROLLBAR_MIN_HEIGHT), regHeight);
       const progress = span >= 1 ? 0 : shown.top / (1 - span);
       this.track = (p) => ({ time: timeAt(range, p * (1 - span) + span) });
+      this.drawRange(draw2d, range, span, height);
       return this.drawThumb(draw2d, progress, height);
     }
     const { totalHeight } = this;
@@ -798,6 +801,41 @@ export class Log
     });
     if (dragProgress >= 0) this.drawDragTime(draw2d, top, height);
     return { top, height };
+  }
+
+  // Shades the range on the track where the middle of a dropped thumb of height
+  // seeks into it, for a view that shows span of the stored times. A range outside the
+  // stored times shades nothing.
+  private drawRange(
+    draw2d: Draw2D,
+    stored: TimeRange,
+    span: number,
+    height: number,
+  ): void {
+    const { range, region: reg } = this.state;
+    if (range == null) return;
+    const start = stored.start.valueOf();
+    const end = stored.end.valueOf();
+    const [rangeStart, rangeEnd] = [BigInt(range.start), BigInt(range.end)];
+    if (rangeEnd < start || rangeStart > end) return;
+    const y = (time: bigint): number => {
+      const share = Number(time - start) / Number(end - start);
+      const progress = bounds.clamp(
+        { lower: 0, upper: 1 },
+        (share - span) / (1 - span),
+      );
+      return box.top(reg) + height / 2 + progress * (box.height(reg) - height);
+    };
+    const top = y(rangeStart);
+    draw2d.container({
+      region: box.construct(
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y: top },
+        { width: SCROLLBAR_WIDTH, height: Math.max(y(rangeEnd) - top, 2) },
+      ),
+      bordered: false,
+      rounded: false,
+      backgroundColor: (t: theme.Theme) => color.setAlpha(t.colors.primary.z, 0.4),
+    });
   }
 
   // Shows the time under a dragged thumb, beside it.
@@ -893,14 +931,18 @@ export class Log
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
-  // Waits at the oldest entry while older pages can still reach the time. When no
-  // stored sample does, the view stays there. Entries that share the time all show.
+  // Moves the source to a time older than its entries, and waits at the oldest entry
+  // while stored samples can still reach the time. When none does, the view stays
+  // there. Entries that share the time all show.
   private reach(time: bigint): void {
     const { lineHeight, telem } = this.internal;
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
-    if (!reached && telem.wrapped.exhausted === false) return;
+    if (!reached && telem.wrapped.exhausted === false) {
+      telem.wrapped.seek?.(new TimeStamp(time));
+      return;
+    }
     if (reached) {
       let [lo, hi] = [0, this.entries.length];
       while (lo < hi) {

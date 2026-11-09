@@ -22,6 +22,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Ranger } from "@synnaxlabs/pluto";
+import { TimeRange } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
@@ -45,6 +46,9 @@ const NoRanges = (): ReactElement => {
   );
 };
 
+// The haul source of a range dragged out of the list.
+const LIST_ITEM_HAUL_TYPE = "range_toolbar_item";
+
 const List = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeRange = Session.Range.useSelectState();
@@ -56,7 +60,9 @@ const List = (): ReactElement => {
 
   const dropProps = Haul.useDrop({
     type: "range_toolbar",
-    canDrop: Ranger.canDropHaulItem,
+    // A range dragged out of the list is already in it.
+    canDrop: (hauled) =>
+      hauled.source.type !== LIST_ITEM_HAUL_TYPE && Ranger.canDropHaulItem(hauled),
     onDrop: ({ items }) => {
       const dropped = Ranger.filterHaulItems(items);
       dispatch(
@@ -94,10 +100,27 @@ const ListItem = (props: BaseList.ItemProps<string>) => {
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
   const onRename = Session.Range.useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.resourceID(itemKey));
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: LIST_ITEM_HAUL_TYPE });
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange } = entry;
+  const handleDragStart = (): void =>
+    startDrag([
+      {
+        type: Ranger.HAUL_TYPE,
+        key,
+        data: { key, name, timeRange: new TimeRange(timeRange).numeric },
+      },
+    ]);
   return (
-    <Select.Item className={CSS.B("range-list-item")} {...props} gap="small" y>
+    <Select.Item
+      className={CSS.B("range-list-item")}
+      {...props}
+      gap="small"
+      y
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+    >
       {isLocal && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>

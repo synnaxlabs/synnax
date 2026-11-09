@@ -21,6 +21,7 @@ const KEY = "log-1";
 const customState: Log.State = {
   hold: true,
   position: "",
+  range: null,
   toolbar: { selectedTab: "properties" },
 };
 

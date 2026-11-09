@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, TimeStamp } from "@synnaxlabs/x";
+import { box, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base, useSeek } from "@/log/Base";
+import { Ranger } from "@/ranger";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -387,6 +389,74 @@ describe("log/Base", () => {
       fireEvent.click(screen.getByText("Seek"));
       expect(onHold).not.toHaveBeenCalled();
       expect(seek).toHaveBeenCalledWith(TIME.valueOf().toString());
+    });
+  });
+
+  describe("range", () => {
+    const RANGE = new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20));
+
+    const DRAG_HANDLE = "drag-a-range";
+
+    // A haul source the drop specs drag RANGE out of.
+    const DragSource = (): ReactElement => {
+      const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
+      return (
+        <button
+          onDragStart={() =>
+            startDrag([
+              {
+                type: Ranger.HAUL_TYPE,
+                key: "range",
+                data: { key: "range", name: "Range", timeRange: RANGE.numeric },
+              },
+            ])
+          }
+          onDragEnd={onDragEnd}
+        >
+          {DRAG_HANDLE}
+        </button>
+      );
+    };
+
+    const dropRange = (props: Record<string, unknown>): void => {
+      const { container } = render(
+        <Haul.Provider>
+          <DragSource />
+          <Base {...props} />
+        </Haul.Provider>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.dragStart(screen.getByText(DRAG_HANDLE));
+      fireEvent.drop(getLogDiv(container));
+    };
+
+    it("should pause at the start of a dropped range and report it", () => {
+      const { seek } = setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      const onDropRange = vi.fn();
+      dropRange({ onHold, onDropRange });
+      expect(onHold).toHaveBeenCalledWith(true);
+      expect(seek).toHaveBeenCalledWith(RANGE.start.valueOf().toString());
+      expect(onDropRange).toHaveBeenCalledWith(RANGE);
+    });
+
+    it("should refuse a dropped range when no handler takes it", () => {
+      const { seek } = setupAether({ empty: false, scrolling: false });
+      dropRange({});
+      expect(seek).not.toHaveBeenCalled();
+    });
+
+    it("should send the range to the worker, open-ended ranges included", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: true });
+      const open = new TimeRange(TimeStamp.seconds(10), TimeStamp.MAX);
+      renderLog({ range: open });
+      const ranges = setState.mock.calls.map(
+        ([updater]) => (typeof updater === "function" ? updater(state) : updater).range,
+      );
+      expect(ranges).toContainEqual({
+        start: open.start.valueOf().toString(),
+        end: TimeStamp.MAX.valueOf().toString(),
+      });
     });
   });
 

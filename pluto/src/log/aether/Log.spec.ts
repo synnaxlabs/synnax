@@ -910,6 +910,35 @@ describe("log/aether/Log", () => {
       expect(log.scrollState.offset).toBe(101);
     });
 
+    it("should move the source to a time older than its entries once they arrive", () => {
+      const { log, source } = paused([]);
+      log.seek(timeOf(100));
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(source.seeks.map((t) => t.valueOf().toString())).toEqual([
+        timeOf(100),
+        timeOf(100),
+      ]);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
+    it("should report loading while a seek on a change of the entries reads", () => {
+      const { log, source } = paused([]);
+      log.seek(timeOf(100));
+      source.seek = (time) => {
+        source.seeks.push(time);
+        source.setEntries([]);
+        source.status = telem.LOADING_STATUS;
+        source.notify();
+      };
+      source.setEntries(entries.slice(150));
+      source.notify();
+      expect(log.state.loading).toBe(true);
+      expect(log.state.empty).toBe(false);
+    });
+
     it("should go to the oldest entry for a time before the first sample", () => {
       const { log, source } = paused();
       source.exhausted = true;
@@ -1529,6 +1558,66 @@ describe("log/aether/Log", () => {
       log.render();
       expect(findThumb(recorder)?.y).toBe(0);
       expect(log.state.thumb?.top).toBe(0);
+    });
+
+    describe("range", () => {
+      const shading = (recorder: ReturnType<typeof canvasTest.record>) => {
+        const call = recorder.lower2d.calls.findLast(
+          ({ op, args }) => op === "rect" && args[2] === SCROLLBAR_WIDTH,
+        );
+        if (call == null) return null;
+        const [, y, , height] = call.args as number[];
+        return { y, height };
+      };
+
+      const shaded = (start: TimeStamp, end: TimeStamp) => {
+        const handle = paused();
+        handle.h.setState((s) => ({
+          ...s,
+          range: { start: start.valueOf().toString(), end: end.valueOf().toString() },
+        }));
+        handle.recorder.clear();
+        handle.log.render();
+        const thumb = findThumb(handle.recorder);
+        assert(thumb != null);
+        // Drops the thumb with its middle at y, and returns the seconds it seeks to.
+        const dropAt = (y: number): number => {
+          const travel = box.height(REGION_500) - thumb.height;
+          handle.log.seekProgress((y - thumb.height / 2) / travel);
+          const time = handle.source.seeks.at(-1);
+          assert(time != null);
+          return Number(time.valueOf()) / 1e9;
+        };
+        return { found: shading(handle.recorder), thumb, dropAt };
+      };
+
+      it("should shade the range where a dropped thumb seeks into it", () => {
+        const { found, dropAt } = shaded(TimeStamp.seconds(0), TimeStamp.seconds(99.5));
+        assert(found != null);
+        expect(dropAt(found.y + found.height)).toBeCloseTo(99.5, 0);
+      });
+
+      it("should shade an open-ended range to the end of the track", () => {
+        const { found, thumb, dropAt } = shaded(TimeStamp.seconds(99.5), TimeStamp.MAX);
+        assert(found != null);
+        expect(dropAt(found.y)).toBeCloseTo(99.5, 0);
+        expect(found.y + found.height).toBeCloseTo(
+          box.height(REGION_500) - thumb.height / 2,
+          0,
+        );
+      });
+
+      it("should shade nothing for a range after the stored times", () => {
+        const { found } = shaded(TimeStamp.seconds(300), TimeStamp.seconds(400));
+        expect(found).toBeNull();
+      });
+
+      it("should shade nothing for a log with no range", () => {
+        const { log, recorder } = paused();
+        recorder.clear();
+        log.render();
+        expect(shading(recorder)).toBeNull();
+      });
     });
 
     // Returns where the drawn thumb sits on its track, from 0 to 1.

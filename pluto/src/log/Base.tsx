@@ -12,17 +12,19 @@ import "@/log/Log.css";
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
 import { context } from "@synnaxlabs/lyra/context";
 import { type Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { bounds, box, strings, type TimeStamp } from "@synnaxlabs/x";
+import { bounds, box, strings, TimeRange, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
+import { Ranger } from "@/ranger";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
@@ -93,6 +95,9 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   /** When set, the context menu offers undo and redo for the host document. */
   undoRedo?: Menu.UndoRedoItemsProps;
   enableTriggers?: Triggers.Condition;
+  /** When set, a range dropped on the log pauses it at the range start, then calls
+   * this with the range. */
+  onDropRange?: (range: TimeRange) => void;
 }
 
 export const Base = ({
@@ -115,6 +120,8 @@ export const Base = ({
   onHold,
   position,
   onLeave,
+  range,
+  onDropRange,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -133,6 +140,7 @@ export const Base = ({
     onHold,
     position,
     onLeave,
+    range,
   });
 
   const {
@@ -157,6 +165,20 @@ export const Base = ({
     if (!scrolling) setHold(true);
     methods.seek(time.valueOf().toString());
   };
+
+  const dropProps = Haul.useDrop({
+    type: "log",
+    canDrop: (hauled) => onDropRange != null && Ranger.canDropHaulItem(hauled),
+    onDrop: ({ items }) => {
+      const [dropped] = Ranger.filterHaulItems(items);
+      if (dropped == null || onDropRange == null) return [];
+      const timeRange = new TimeRange(dropped.data.timeRange);
+      seek(timeRange.start);
+      onDropRange(timeRange);
+      return [dropped];
+    },
+  });
+  const dragging = Haul.useDraggingState();
 
   const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,7 +350,12 @@ export const Base = ({
         ref={combinedRef}
         role="log"
         tabIndex={-1}
-        className={CSS.cls(CSS.B("log"), className)}
+        className={CSS.cls(
+          CSS.B("log"),
+          onDropRange != null && CSS.dropRegion(Ranger.canDropHaulItem(dragging)),
+          className,
+        )}
+        {...dropProps}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));

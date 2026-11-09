@@ -25,6 +25,9 @@ const stateZ = z.object({
   hold: z.boolean().default(false),
   /** Where the log stood when it last unmounted. A remount reads it while on hold. */
   position: z.string().default(""),
+  /** The range last dropped on the log, as decimal counts of nanoseconds. The scrollbar
+   * shades it until the hold ends. */
+  range: z.object({ start: z.string(), end: z.string() }).nullable().default(null),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -63,6 +66,10 @@ export interface SetHoldPayload extends KeyedPayload {
   hold?: boolean;
 }
 
+export interface SetRangePayload extends KeyedPayload {
+  range: State["range"];
+}
+
 export interface SetPositionPayload extends KeyedPayload {
   position: string;
 }
@@ -87,7 +94,14 @@ export const { actions, reducer } = createSlice({
     setHold: withSelectedState<SetHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
         state.hold = hold ?? !state.hold;
-        if (!state.hold) state.position = "";
+        if (state.hold) return;
+        state.position = "";
+        state.range = null;
+      },
+    ),
+    setRange: withSelectedState<SetRangePayload, SliceState>(
+      (state, { payload: { range } }) => {
+        state.range = range;
       },
     ),
     // A deleted log unmounts after its document goes, which must not bring it back. A
@@ -108,7 +122,8 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { create, setSelectedToolbarTab, setHold, setPosition, remove } = actions;
+export const { create, setSelectedToolbarTab, setHold, setRange, setPosition, remove } =
+  actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
@@ -117,6 +132,7 @@ export const MIDDLEWARE = [
     create,
     setSelectedToolbarTab,
     setHold,
+    setRange,
     setPosition,
   ]),
 ];
