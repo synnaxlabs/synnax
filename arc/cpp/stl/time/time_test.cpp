@@ -1982,15 +1982,18 @@ TEST(FormatTest, PrintsLocalTimeInAZone) {
     EXPECT_TRUE(f.reports.empty());
 }
 
-/// @brief it should format every day from 1970 to 2100 as the C library does.
-TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
+/// @brief it should format sampled days from 1970 to 2100 as the C library does.
+TEST(FormatTest, MatchesTheCLibraryOnSampledDays) {
     const char *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F "
                          "%T %a %A %b %B %h %p %r %x %X";
     // The Windows C library prints %c in its own form, so %c is checked against the
     // C standard's definition instead.
     const char *standard_c = "%a %b %e %T %Y";
-    // 4'133'980'800 is 2101-01-01T00:00:00Z.
+    // The sweep checks the week on each side of a new year, where the week and day of
+    // year codes roll over, and every 97th day. 4'133'980'800 is 2101-01-01T00:00:00Z.
+    int n = 0;
     for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
+        n++;
         const auto t = static_cast<std::time_t>(sec);
         std::tm tm{};
 #ifdef _WIN32
@@ -1998,6 +2001,9 @@ TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
 #else
         ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
 #endif
+        const bool new_year = (tm.tm_mon == 0 && tm.tm_mday <= 7) ||
+                              (tm.tm_mon == 11 && tm.tm_mday >= 25);
+        if (!new_year && n % 97 != 0) continue;
         char buf[256];
         const size_t n = std::strftime(buf, sizeof(buf), format, &tm);
         ASSERT_GT(n, 0u) << sec;

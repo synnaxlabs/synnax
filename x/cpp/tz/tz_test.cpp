@@ -65,8 +65,6 @@ size_t each_vector(
         std::string field;
         while (std::getline(ss, field, '\t'))
             fields.push_back(field);
-        // A rule vector for the empty rule starts with a tab.
-        if (line.back() == '\t') fields.emplace_back();
         EXPECT_EQ(fields.size(), 4u) << line;
         if (fields.size() != 4) continue;
         check(fields);

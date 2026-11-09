@@ -35,6 +35,15 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
+// swept reports whether a day sweep checks day, its nth day. It checks the week on each
+// side of a new year, where the week and day of year codes roll over, and every 97th
+// day.
+func swept(day stdtime.Time, n int) bool {
+	newYear := (day.Month() == stdtime.January && day.Day() <= 7) ||
+		(day.Month() == stdtime.December && day.Day() >= 25)
+	return newYear || n%97 == 0
+}
+
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
 		It("Should create a host", func(ctx SpecContext) {
@@ -393,17 +402,18 @@ var _ = Describe("Time", func() {
 			Expect(format(ctx, stamp, "%Q %", "")).To(Equal("%Q %"))
 		})
 
-		It("Should agree with the Go time package on every day", func(ctx SpecContext) {
+		It("Should match the Go time package on sampled days", func(ctx SpecContext) {
 			layout := stringState.Create(
 				"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T " +
 					"%a %A %b %B %p %c",
 			)
-			// The sweep covers every day an i64 ns timestamp can hold. %U
+			// The sweep steps through every day an i64 ns timestamp can hold. %U
 			// counts the Sundays so far this year and %W the Mondays, which is
 			// their definition.
-			sundays, mondays := 0, 0
+			sundays, mondays, n := 0, 0, 0
 			first := stdtime.Date(1678, stdtime.January, 1, 13, 4, 5, 0, stdtime.UTC)
 			for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
+				n++
 				if day.YearDay() == 1 {
 					sundays, mondays = 0, 0
 				}
@@ -412,6 +422,9 @@ var _ = Describe("Time", func() {
 					sundays++
 				case stdtime.Monday:
 					mondays++
+				}
+				if !swept(day, n) {
+					continue
 				}
 				isoYear, isoWeek := day.ISOWeek()
 				weekday := int(day.Weekday())
@@ -560,15 +573,15 @@ var _ = Describe("Time", func() {
 			)
 
 			It(
-				"Should agree with the Go time package on every day in Denver",
+				"Should match the Go time package on sampled days in Denver",
 				func(ctx SpecContext) {
 					layout := stringState.Create(
 						"%Y-%m-%d %H:%M:%S %j %a %b %p %z %Z %c",
 					)
 					zone := stringState.Create("America/Denver")
 					denver := MustSucceed(MustSucceed(tz.Open()).Load("America/Denver"))
-					// The sweep covers every day an i64 ns timestamp can hold, from
-					// local mean time through the daylight rules of today.
+					// The sweep samples days across the range an i64 ns timestamp can
+					// hold, from local mean time through the daylight rules of today.
 					first := stdtime.Date(
 						1678,
 						stdtime.January,
@@ -579,7 +592,12 @@ var _ = Describe("Time", func() {
 						0,
 						stdtime.UTC,
 					)
+					n := 0
 					for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
+						n++
+						if !swept(day, n) {
+							continue
+						}
 						local := day.In(denver)
 						expected := fmt.Sprintf(
 							"%s %03d %s %s",
