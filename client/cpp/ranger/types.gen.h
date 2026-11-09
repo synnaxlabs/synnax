@@ -26,6 +26,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
@@ -35,8 +36,13 @@ namespace synnax::ranger {
 
 struct Range;
 struct Where;
+struct Cursor;
+struct Order;
 struct RetrieveResponse;
 struct RetrieveRequest;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
+constexpr const char *ORDER_FIELD_TIME_RANGE_START = "time_range_start";
 
 using Key = x::uuid::UUID;
 
@@ -124,6 +130,45 @@ struct Where {
     from_proto(const ::service::ranger::pb::Where &pb);
 };
 
+/// @brief Cursor is a position in an order of ranges: the sort value and the key of a
+/// range.
+struct Cursor {
+    /// @brief key is the key of the range at the position.
+    Key key;
+    /// @brief name is the name of the range at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
+    /// @brief time_range_start is the time range start of the range at the position,
+    /// when the order sorts by it.
+    std::optional<::x::telem::TimeStamp> time_range_start;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::Cursor;
+    [[nodiscard]] std::pair<::api::ranger::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::ranger::pb::Cursor &pb);
+};
+
+/// @brief Order is a sort of ranges.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::Order;
+    [[nodiscard]] std::pair<::api::ranger::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::ranger::pb::Order &pb);
+};
+
 /// @brief RetrieveResponse holds the ranges a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief ranges are the ranges the request selects.
@@ -143,10 +188,12 @@ struct RetrieveResponse {
 struct RetrieveOptions {
     /// @brief search_term keeps the ranges that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the ranges. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the ranges strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most ranges to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching ranges to skip.
-    std::uint32_t offset = 0;
 };
 
 /// @brief RetrieveRequest is a request to retrieve ranges.
@@ -156,18 +203,21 @@ struct RetrieveRequest {
     std::optional<Where> where;
     /// @brief search_term keeps the ranges that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the ranges. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the ranges strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most ranges to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching ranges to skip.
-    std::uint32_t offset = 0;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
         return {
             .where = std::move(where),
             .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
         };
     }
 

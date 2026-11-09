@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -26,7 +26,14 @@ import {
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/secret/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/secret/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
@@ -57,11 +64,10 @@ const grantCreateReqZ = z.object({ subject: resource.idZ, secrets: keyZ.array() 
 export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
+const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
-]);
+);
 
 export type RetrieveSingleParams = {
   key: Key;
@@ -87,7 +93,7 @@ const singleQueryZ = z
   .transform(normalizeSingle);
 
 /** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
 
 /** The resources that use a secret, keyed by the secret. */
 type Uses = Pick<Base, "key" | "uses">;
@@ -124,10 +130,11 @@ export class Client extends query.Retriever<
     // The secret table never holds uses. No change stream keeps uses current, so only a
     // retrieve that asks for them writes or reads this table.
     const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
-    const usesWatch = query.watch(
+    const usesTrigger = query.trigger(
       usesStore,
       (event, q: RetrieveRequest | RetrieveSingleParams) =>
         q.includeUses === true ? [event.key] : null,
+      { contentOnly: true },
     );
     const single = cache.queries<RetrieveSingleParams, Secret, Key, Secret>({
       name: "secret",
@@ -136,19 +143,22 @@ export class Client extends query.Retriever<
       compose: (records, q) => this.compose(records[0], q.includeUses === true),
       keyOf: (q) => q.key,
       covers: (_, q) => q.includeUses !== true,
-      watch: [usesWatch],
+      triggers: [usesTrigger],
       single: true,
     });
     super(cache, {
       name: "secret",
       table: store,
+      shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (secret, req) => matches(secret, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        // Only the Core knows uses, so a change refetches a query that reads them.
+        serverComputed: (req) => req.includeUses === true || serverComputed(req.where),
         serverFields: SERVER_FIELDS,
-        watch: [usesWatch],
+        triggers: [usesTrigger],
       },
       compose: (record, q) =>
         this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
@@ -256,19 +266,19 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
-    if (includeUses === true) {
-      const since = this.store.stamp();
-      const secrets = await this.fetchThrough({
-        where: { key: { eq: key } },
-        includeUses,
+    if (includeUses === true)
+      return await this.store.track(async (since) => {
+        const secrets = await this.fetchThrough({
+          where: { key: { eq: key } },
+          includeUses,
+        });
+        if (secrets.length === 0) {
+          this.store.ingestDeletes([key], since);
+          throw new NotFoundError(`secret with key ${key} not found`);
+        }
+        this.store.ingest(secrets, { since });
+        return key;
       });
-      if (secrets.length === 0) {
-        this.store.ingestDeletes([key], since);
-        throw new NotFoundError(`secret with key ${key} not found`);
-      }
-      this.store.ingest(secrets, { since });
-      return key;
-    }
     if ((await this.store.retrieve([key])).length === 0)
       throw new NotFoundError(`secret with key ${key} not found`);
     return key;

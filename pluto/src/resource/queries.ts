@@ -8,32 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
 
 import { Flux } from "@/flux";
 
-const PLURAL_RESOURCE_NAME = "resources";
-
-export type ListQuery = List.PagerParams & {
+export interface ListQuery {
   /** Limits the list to resources of these types. Empty lists every type. */
   types?: resource.Type[];
-};
+}
 
 /**
  * Lists the records of every type that match the search term, closest match first. An
  * empty term lists the records in order of type. The list stays current while it is
  * mounted.
  */
-export const useList = Flux.createList<ListQuery, string, resource.Resource>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.resources.search(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.resources.retrieve(resource.parseID(key)),
-  onChange: ({ client, query }, handler) => client.resources.onChange(query, handler),
-  getCached: ({ client, query }) => client.resources.getCached(query),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.resources.onChange(resource.parseID(key), handler),
-});
+export const useList = (
+  params: Omit<
+    Flux.UseListParams<ListQuery, resource.Resource>,
+    "itemQuery" | "name"
+  > = {},
+): Flux.UseListReturn<string, resource.Resource> =>
+  Flux.useList((client) => client.resources, {
+    ...params,
+    name: "resources",
+    itemQuery: resource.parseID,
+  });
 
 export type RetrieveMultipleQuery = { ids: resource.ID[] };
 
@@ -45,9 +43,9 @@ export const { use: useMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   resource.Resource[]
 >({
-  name: PLURAL_RESOURCE_NAME,
+  name: "resources",
   retrieve: async ({ client, query: { ids } }) => await client.resources.retrieve(ids),
   onChange: ({ client, query: { ids } }, handler) =>
-    client.resources.onChange(ids, handler),
-  getCached: ({ client, query: { ids } }) => client.resources.getCached(ids),
+    client.resources.watch(ids).onChange(handler),
+  getCached: ({ client, query: { ids } }) => client.resources.watch(ids).getCached(),
 });

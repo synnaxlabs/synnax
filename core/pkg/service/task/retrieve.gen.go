@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/compare"
 )
 
 // tableName names the Task table for references. Pass it as
@@ -26,6 +27,7 @@ const tableName = "task"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name     *gorp.SortedIndex[Key, Task, string]
 	rack     *gorp.KeyReference[Key, Task, rack.Key]
 	rangeVal *gorp.KeyReference[Key, Task, ranger.Key]
 	search   *gorp.SearchIndex[Key, Task]
@@ -36,6 +38,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Task, string](
+			"name",
+			func(e *Task) string { return compare.TextKey(string(e.Name)) },
+		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, rack.Key]{
 			Name:     "rack",
 			Table:    "rack",
@@ -73,6 +79,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Task] {
 	return []gorp.Index[Key, Task]{
+		i.name,
 		i.search,
 	}
 }
@@ -91,5 +98,36 @@ func (i indexes) references() []gorp.Reference[Key, Task] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Task]
+
+// OrderBy walks the tasks in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Task] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Task] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
