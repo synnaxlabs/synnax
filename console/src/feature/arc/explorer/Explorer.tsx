@@ -18,7 +18,7 @@ import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
-const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
+const RootContextMenu = ({ root, state }: Tree.RootContextMenuProps) => {
   const createArc = PlatformArc.useCreate();
   const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
   const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);

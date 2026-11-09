@@ -13,6 +13,7 @@ import { type Locator, page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Menu } from "@/menu";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -117,6 +118,29 @@ const Pick = (): ReactElement => {
 };
 
 const SEARCH = <input aria-label="Search" autoFocus />;
+
+/** A dropdown that opens on a button it does not wrap. */
+const Anchored = (): ReactElement => {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <Triggers.Provider>
+      <button ref={setAnchor}>Anchor</button>
+      <Dialog.Frame id="anchored" anchor={anchor}>
+        <Dialog.Dialog>{SEARCH}</Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>
+  );
+};
+
+/** A field that opens a context menu, which takes the focus. */
+const MenuTarget = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={() => <Menu.Item itemKey="copy">Copy</Menu.Item>} {...ctx}>
+      <input aria-label="Search" autoFocus onContextMenu={ctx.open} />
+    </Menu.ContextMenu>
+  );
+};
 
 /** A dropdown holding another, whose button closes both in one render. */
 const Nested = (): ReactElement => {
@@ -328,6 +352,62 @@ describe("Dialog", () => {
         await userEvent.tab();
         expect(document.activeElement).toBe(field("First"));
         expect(page.getByLabelText("Search").query()).not.toBeNull();
+      });
+
+      it("should close when Tab moves the focus on from its trigger", async () => {
+        const trigger = await openDropdown(SEARCH);
+        trigger.focus();
+        await userEvent.tab();
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(field("After"));
+      });
+
+      it("should close when a click on its trigger toggles it", async () => {
+        const trigger = await openDropdown(SEARCH);
+        await userEvent.click(trigger);
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should stay open while its context menu holds the focus", async () => {
+        await openDropdown(<MenuTarget />);
+        await userEvent.click(page.getByLabelText("Search"), { button: "right" });
+        await expect.element(page.getByRole("menu")).toHaveFocus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByLabelText("Search")).toHaveFocus();
+        expect(page.getByRole("dialog").query()).not.toBeNull();
+      });
+
+      it("should stay open when the window gives the focus back", async () => {
+        await renderThemed(
+          <Triggers.Provider>
+            <input aria-label="Before" />
+            <Dialog.Frame id="menu">
+              <Dialog.Trigger>Menu</Dialog.Trigger>
+              <Dialog.Dialog>Content</Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        const before = field("Before");
+        before.focus();
+        Dialog.open("menu");
+        await expect.element(page.getByRole("dialog")).toBeVisible();
+        const dialog = page.getByRole("dialog").element();
+        await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+        before.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+        await userEvent.keyboard("{Shift}");
+        expect(button("Menu").getAttribute("aria-expanded")).toBe("true");
+      });
+
+      it("should stay open while its anchor holds the focus", async () => {
+        await renderThemed(<Anchored />);
+        Dialog.open("anchored");
+        await expect.element(page.getByLabelText("Search")).toHaveFocus();
+        const dialog = page.getByRole("dialog").element();
+        await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+        button("Anchor").focus();
+        await userEvent.keyboard("{Shift}");
+        const frame = document.getElementById("anchored");
+        expect(frame?.classList.contains(CSS.visible(true))).toBe(true);
       });
 
       it("should leave the focus where a click outside puts it", async () => {

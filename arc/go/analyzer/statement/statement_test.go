@@ -10,13 +10,17 @@
 package statement_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -472,6 +476,423 @@ var _ = Describe("Statement", func() {
 				},
 			)
 		})
+	})
+
+	Describe("Typed series literals", func() {
+		analyze := func(
+			specCtx SpecContext,
+			code string,
+		) context.Context[parser.IProgramContext] {
+			GinkgoHelper()
+			ast := MustSucceed(parser.Parse("func f() {v f32} {\n" + code + "\n}"))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+			analyzer.AnalyzeProgram(ctx)
+			return ctx
+		}
+
+		DescribeTable(
+			"Should give every numeric literal the element type",
+			func(specCtx SpecContext, code string, expected types.Type, count int) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				literals := 0
+				for node, t := range ctx.TypeMap {
+					lit, ok := node.(parser.ILiteralContext)
+					if !ok || lit.NumericLiteral() == nil {
+						continue
+					}
+					literals++
+					Expect(t).To(Equal(expected), node.GetText())
+				}
+				Expect(literals).To(Equal(count))
+			},
+			Entry("f32", "y series f32 := [1.5]", types.F32(), 1),
+			Entry("an integer into an empty series", "y := []\ny += 1", types.F64(), 1),
+			Entry(
+				"an integer element into an empty series",
+				"y := []\ny[0] = 1",
+				types.F64(),
+				1,
+			),
+			Entry(
+				"an integer series into an empty series",
+				"y := []\ny = [1]",
+				types.F64(),
+				1,
+			),
+			Entry(
+				"an integer then a float into an empty series",
+				"y := []\ny += 1\ny += 1.5",
+				types.F64(),
+				2,
+			),
+			Entry(
+				"a float then an integer into an empty series",
+				"y := []\ny += 1.5\ny += 1",
+				types.F64(),
+				2,
+			),
+			Entry("f64", "y series f64 := [1.5]", types.F64(), 1),
+			Entry(
+				"every f32 element",
+				"y series f32 := [1.5, 2.5, 3.5]",
+				types.F32(),
+				3,
+			),
+			Entry("mixed literals", "y series f32 := [1, 2.5]", types.F32(), 2),
+			Entry("integer in f32", "y series f32 := [3]", types.F32(), 1),
+			Entry("i32", "y series i32 := [1, 2]", types.I32(), 2),
+			Entry("i8", "y series i8 := [1]", types.I8(), 1),
+			Entry("u8", "y series u8 := [200]", types.U8(), 1),
+			Entry("u64", "y series u64 := [1]", types.U64(), 1),
+			Entry("arithmetic", "y series f32 := [1.5 + 2]", types.F32(), 2),
+			Entry("integer arithmetic", "y series i32 := [1 + 2 * 3]", types.I32(), 3),
+			Entry("negated", "y series f32 := [-1.5]", types.F32(), 1),
+			Entry("parentheses", "y series f32 := [(1.5 + 2)]", types.F32(), 2),
+			Entry("with a variable", "y series f32 := [1.5 + v]", types.F32(), 1),
+			Entry("after a variable", "y series f32 := [v, 1.5]", types.F32(), 1),
+			Entry("reassigned", "y series f32 := [1.5]\ny = [2.5]", types.F32(), 2),
+			Entry("untyped float first", "y := [1.5, 2.0, 3]", types.F64(), 3),
+			Entry("untyped integer first", "y := [1, 2.0, 2.5]", types.F64(), 3),
+		)
+
+		It(
+			"Should reject a float element in an integer series",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "y series i32 := [1.5]")
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot assign series float to 'y' (type series i32)",
+				))
+			},
+		)
+
+		DescribeTable("Should default an untyped empty series to f64",
+			func(specCtx SpecContext, code string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				s := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				block := s.FilterChildrenByKind(symbol.KindBlock)[0]
+				y := MustSucceed(block.Resolve(ctx, "y"))
+				Expect(ctx.Constraints.ApplySubstitutions(y.Type)).
+					To(Equal(types.Series(types.F64())))
+			},
+			Entry("declared", "y := []"),
+			Entry("reassigned", "y := []\ny = []"),
+		)
+
+		DescribeTable("Should bind an untyped empty series on reassignment",
+			func(specCtx SpecContext, code string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				s := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				block := s.FilterChildrenByKind(symbol.KindBlock)[0]
+				y := MustSucceed(block.Resolve(ctx, "y"))
+				Expect(ctx.Constraints.ApplySubstitutions(y.Type)).
+					To(Equal(types.Series(types.F32())))
+			},
+			Entry("a literal", "y := []\ny = [v]"),
+			Entry("a series", "s series f32 := [1.5]\ny := []\ny = s"),
+		)
+
+		DescribeTable("Should accept an empty series of any element type",
+			func(specCtx SpecContext, element string) {
+				ctx := analyze(specCtx, "y series "+element+" := []\ny = []")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("bool", "bool"),
+			Entry("str", "str"),
+			Entry("f32", "f32"),
+			Entry("i8", "i8"),
+			Entry("u64", "u64"),
+			Entry("timestamp", "i64 ns"),
+		)
+
+		DescribeTable("Should use an untyped empty series as numeric",
+			func(specCtx SpecContext, code string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("compound assignment", "y := []\ny += v"),
+			Entry("indexed compound assignment", "y := []\ny[0] += v"),
+			Entry("negation", "y := []\nz := -y"),
+		)
+
+		DescribeTable("Should bind untyped empty series to what an operator needs",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("arithmetic", "a := []\nb := []\nz := a * b\na = [true]", "bool"),
+			Entry("subtraction", "a := []\nb := []\nz := a - b\nb = [true]", "bool"),
+			Entry("addition", "a := []\nb := []\nz := a + b\na = [\"x\"]", "str"),
+			Entry("a comparison", "a := []\nb := []\nz := a < b\na = [true]", "bool"),
+			Entry("a logical and", "a := []\nz := a and a\na = [1.5]", "bool"),
+			Entry("a logical or", "a := []\nz := a or a\na = [1.5]", "bool"),
+			Entry("not", "a := []\nz := not a\na = [1.5]", "bool"),
+			Entry("numeric use", "a := []\nb := []\nz := a * b\na = [v]", ""),
+			Entry("bool use", "a := []\nz := not a\na = [true]", ""),
+		)
+
+		DescribeTable(
+			"Should give an untyped variable one type",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"a scalar read after an assignment",
+				"x := 1.5\nx = v\nw f32 := x",
+				"",
+			),
+			Entry(
+				"a scalar read before an assignment",
+				"x := 1.5\nw := x\nx = v",
+				"cannot assign",
+			),
+			Entry(
+				"a series read after an assignment",
+				"y := [1.5]\ny = [v]\nw series f32 := y",
+				"",
+			),
+			Entry(
+				"a series read before an assignment",
+				"y := [1.5]\nw := y\ny = [v]",
+				"cannot assign",
+			),
+			Entry(
+				"an element read before an assignment",
+				"y := [1.5]\nw := y[0]\ny = [v]",
+				"cannot assign",
+			),
+			Entry(
+				"an empty series read before a use",
+				"y := []\nn := len(y)\ny = [v]",
+				"",
+			),
+			Entry("an integer into a float", "x := 0.0\nx = 1\nw f64 := x", ""),
+			Entry("an integer added to a float", "x := 0.0\nx += 1\nw f64 := x", ""),
+			Entry("a float after a typed write", "x := 0\nx = v\nx = 1.5", ""),
+			Entry("a typed write after a float", "x := 0.0\nx = 1.0\nx = v", ""),
+			Entry(
+				"an integer write after a float added to an empty series",
+				"n i32 := 1\ny := []\ny += 1.5\ny[0] = n",
+				"i32",
+			),
+			Entry(
+				"an integer write after a float written to an empty series element",
+				"n i32 := 1\ny := []\nw := len(y)\ny[0] += 1.5\ny[0] = n",
+				"i32",
+			),
+			Entry(
+				"a typed element after a float bound an open element",
+				"n i32 := 1\ne := []\ny := [e[0], 1.5, n]",
+				"float is not compatible with i32",
+			),
+			Entry(
+				"a series of literals added to a series",
+				"y := [1.5, 2.5]\ny += [1, 2]\nw series f64 := y",
+				"",
+			),
+			Entry("a typed write after an integer", "x := 0\nx = 1\nx = v", ""),
+			Entry("a float added after a typed write", "x := 0\nx = v\nx += 1.5", ""),
+			Entry(
+				"an integer into a float element",
+				"y := [1.5]\ny[0] = 1\nw series f64 := y",
+				"",
+			),
+		)
+
+		DescribeTable("Should store a typed series element at its kind",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a unit on the element", "p f32 psi := v\ny series f32 := [p]", ""),
+			Entry("a unit on the series", "y series f32 psi := [v]", ""),
+			Entry("another kind", "p f64 := 1.5\ny series f32 := [p]", "cannot assign"),
+			Entry(
+				"a float after an exact float into an integer",
+				"n i32 := 1\ny := [2.0, 1.5]\ny[0] = n",
+				"i32 is not compatible with float",
+			),
+		)
+
+		DescribeTable("Should check a returned series literal",
+			func(specCtx SpecContext, returnType, message string) {
+				ast := MustSucceed(parser.Parse(
+					"func g() series " + returnType + " {\nreturn [1.5]\n}",
+				))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a float series", "f32", ""),
+			Entry("an integer series", "i32", "cannot return"),
+		)
+
+		DescribeTable(
+			"Should keep an untyped integer variable an integer",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				if message == "" {
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					return
+				}
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("reassignment", "x := 0\nx = 1.5", "cannot assign float to 'x'"),
+			Entry("an integer-valued float write", "x := 0\nx = 2.0\nw i64 := x", ""),
+			Entry(
+				"a float after an integer-valued float write",
+				"x := 0\nx = 2.0\nx = 1.5",
+				"cannot assign float to 'x'",
+			),
+			Entry(
+				"compound assignment",
+				"x := 0\nx += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"indexed assignment",
+				"y := [1, 3]\ny[0] = 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"indexed compound assignment",
+				"y := [1, 3]\ny[0] += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"series compound assignment",
+				"y := [1, 3]\ny += 1.5",
+				"expected integer, got float",
+			),
+			Entry(
+				"series compound assignment of a series",
+				"y := [1, 3]\ny += [1.5]",
+				"expected integer, got float",
+			),
+			Entry(
+				"a series element",
+				"y := [1, 3]\nz := [y[0], 1.5]",
+				"incompatible type float",
+			),
+			Entry(
+				"arithmetic",
+				"y := [1, 3]\nw f32 := y[0] + v",
+				"cannot use i64 and f32",
+			),
+			Entry(
+				"a series of another type",
+				"y := [1, 3]\nw series f32 := [y[0]]",
+				"cannot assign series i64 to 'w'",
+			),
+			Entry("an integer", "x := 0\nx = 2", ""),
+			Entry("an integer into a float", "x := 0.0\nx = 1", ""),
+			Entry("a float into an empty series", "y := []\ny += 1.5", ""),
+			Entry(
+				"an integer then a float into an empty series",
+				"y := []\ny += 1\ny += 1.5",
+				"",
+			),
+			Entry(
+				"a float then an integer into an empty series",
+				"y := []\ny += 1.5\ny += 1",
+				"",
+			),
+			Entry(
+				"a float element after an integer element into an empty series",
+				"y := []\ny[0] = 1\ny[0] = 1.5",
+				"",
+			),
+			Entry(
+				"a float series after an integer series into an empty series",
+				"y := []\ny = [1]\ny = [1.5]",
+				"",
+			),
+			Entry(
+				"a bool after an integer into an empty series",
+				"y := []\ny[0] = 1\ny[0] = true",
+				"bool",
+			),
+			Entry(
+				"an integer into an empty series of a declared type",
+				"y := []\ny[0] = 1\nw i32 := y[0]",
+				"",
+			),
+			Entry(
+				"a float series after an integer into an empty series",
+				"y := []\ny += 1\ny = [1.5]",
+				"",
+			),
+		)
+
+		It(
+			"Should keep a series read in a literal at its own type",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "y := [1, 3]\nw := [y[0]]")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				s := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				block := s.FilterChildrenByKind(symbol.KindBlock)[0]
+				y := MustSucceed(block.Resolve(ctx, "y"))
+				Expect(
+					ctx.Constraints.ApplySubstitutions(y.Type),
+				).To(Equal(types.Series(types.I64())))
+			},
+		)
+
+		DescribeTable("Should reject an empty series in non-numeric arithmetic",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("bool on the right",
+				"flags series bool := [true]\nz := [] * flags", "cannot use bool"),
+			Entry("str on the right",
+				"names series str := [\"a\"]\nz := [] - names", "cannot use str"),
+			Entry("bool on the left",
+				"flags series bool := [true]\nz := flags * []", "cannot use"),
+		)
+
+		It(
+			"Should reject a typed integer after a float literal",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "z i32 := 1\nx := [1, 1.5, z]")
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"series element 3 has incompatible type i32, expected float",
+				))
+			},
+		)
+
+		It(
+			"Should report an incompatible element once",
+			func(specCtx SpecContext) {
+				ctx := analyze(specCtx, "a i32 := 1\nx := [a, 12.5]")
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"series element 2 has incompatible type",
+				))
+			},
+		)
 	})
 
 	Describe("Assignment", func() {
@@ -1659,9 +2080,10 @@ var _ = Describe("Statement", func() {
 			fn := func(name string, t types.Type) symbol.Symbol {
 				return symbol.Symbol{
 					Name: name,
-					Kind: symbol.KindVariable,
+					Kind: symbol.KindFunction,
+					Exec: symbol.ExecBoth,
 					Type: types.Function(types.FunctionProperties{
-						Outputs: types.Params{{Type: t}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
 					}),
 				}
 			}
@@ -2252,9 +2674,10 @@ var _ = Describe("Statement", func() {
 			fn := func(name string, t types.Type) symbol.Symbol {
 				return symbol.Symbol{
 					Name: name,
-					Kind: symbol.KindVariable,
+					Kind: symbol.KindFunction,
+					Exec: symbol.ExecBoth,
 					Type: types.Function(types.FunctionProperties{
-						Outputs: types.Params{{Type: t}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
 					}),
 				}
 			}
@@ -3032,5 +3455,123 @@ var _ = Describe("Statement", func() {
 				).To(ContainSubstring("cannot assign to loop variable"))
 			})
 		})
+	})
+})
+
+var _ = Describe("Module constants in declarations", func() {
+	DescribeTable("Should accept a sequence stateful initializer",
+		func(bCtx SpecContext, value string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\nsequence main {\n" +
+				"limit f32 $= " + value + "\nstage a {\nx > 1.0 => next\n}\n" +
+				"stage b {\n}\n}\nx => main\nunused := math.inf * x"))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("a literal", "1.5"),
+		Entry("a constant", "math.inf"),
+		Entry("a cast constant", "f32(-math.nan)"),
+		Entry("a cast literal", "f32(1.5)"),
+		Entry("an expression on a constant", "math.inf * 2.0"),
+	)
+
+	It("Should fold a constant cast to its stored value", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		expr := MustSucceed(parser.ParseExpression("f32(-math.inf)"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		Expect(statement.CastConstValue(ctx, expr, types.F32())).To(Equal("-Infinity"))
+	})
+
+	DescribeTable("Should keep a sequence variable from a constant out of the flow",
+		func(bCtx SpecContext, op string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse(`import math
+sequence main {
+	limit f64 ` + op + ` math.inf
+	stage a {
+		x > limit => b
+	}
+	stage b {
+	}
+}
+x => main`))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			seq := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+			limit := MustSucceed(seq.Resolve(ctx, "limit"))
+			Expect(limit.Type).To(Equal(types.F64()))
+			Expect(limit.DefaultValue).To(Equal("Infinity"))
+		},
+		Entry("a variable", ":="),
+		Entry("a stateful variable", "$="),
+	)
+})
+
+var _ = Describe("Flow variables from module constants", func() {
+	DescribeTable(
+		"Should accept the initializer",
+		func(bCtx SpecContext, source string) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			ast := MustSucceed(parser.Parse("import math\n" + source))
+			ctx := context.NewRoot(bCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("a constant", "limit := math.inf"),
+		Entry("an expression on a constant", "limit := math.inf * 2.0"),
+		Entry(
+			"a sequence variable",
+			"sequence main {\n limit := math.nan\n stage a {\n }\n}\nx => main",
+		),
+		Entry("a channel read", "limit := x * math.inf"),
+		Entry(
+			"a function",
+			"func f() {v f64} f64 {\n limit := math.inf\n return limit\n}",
+		),
+	)
+})
+
+var _ = Describe("Computed initializers", func() {
+	It("Should give each computed initializer node its declared type", func(
+		bCtx SpecContext,
+	) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "go", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1,
+		}))
+		ast := MustSucceed(parser.Parse(
+			"sequence main {\n v u8 $= 2 + 3\n w f32 := 1.5 * 2.0\n stage a {\n }\n}\n" +
+				"go => main",
+		))
+		ctx := context.NewRoot(bCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		var outputs []types.Type
+		for _, c := range root.Children() {
+			if c.Kind != symbol.KindFunction ||
+				!strings.HasPrefix(c.Name, "expression_") {
+				continue
+			}
+			out := MustBeOk(c.Type.Outputs.Get(ir.DefaultOutputParam))
+			outputs = append(outputs, ctx.Constraints.ApplySubstitutions(out.Type))
+		}
+		Expect(outputs).To(ConsistOf(types.U8(), types.F32()))
 	})
 })

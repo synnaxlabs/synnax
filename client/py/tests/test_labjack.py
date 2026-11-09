@@ -42,7 +42,6 @@ class TestLabJackReadTask:
                             "port": "AIN0",
                             "channel": 1234,
                             "range": 10.0,
-                            "neg_chan": 199,
                             "scale": {"type": "none"},
                         },
                     ],
@@ -68,7 +67,6 @@ class TestLabJackReadTask:
                             "cjc_slope": 1.0,
                             "cjc_offset": 0.0,
                             "units": "C",
-                            "neg_chan": 199,
                             "scale": {"type": "none"},
                         },
                     ],
@@ -109,7 +107,6 @@ class TestLabJackReadTask:
                             "port": "AIN0",
                             "channel": 1000,
                             "range": 10.0,
-                            "neg_chan": 199,
                             "scale": {"type": "none"},
                         },
                         {
@@ -119,7 +116,6 @@ class TestLabJackReadTask:
                             "port": "AIN1",
                             "channel": 2000,
                             "range": 1.0,
-                            "neg_chan": 199,
                             "scale": {"type": "none"},
                         },
                         {

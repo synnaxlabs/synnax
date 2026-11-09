@@ -18,26 +18,19 @@ html {
     width: 100%;
 }
 
+/* Selection inherits, so a component turns it back on with user-select: text. */
 body {
     margin: 0;
     height: 100%;
     width: 100%;
     color: var(--pluto-gray-l10);
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .console-root {
     height: 100%;
     width: 100%;
-}
-
-*:not(:is(input, label)) {
-    user-select: none !important;
-    -webkit-user-select: none !important;
-}
-
-.pluto-editor * {
-    user-select: text !important;
-    -webkit-user-select: text !important;
 }
 
 * {

@@ -150,11 +150,6 @@ interface RemovePayload {
   keys: string[];
 }
 
-interface RestorePayload {
-  ranges: { index: number; range: State }[];
-  selected?: string;
-}
-
 interface RenamePayload {
   key: string;
   name: string;
@@ -177,17 +172,6 @@ export const { actions, reducer } = createSlice({
         state.selected = undefined;
       state.ranges = state.ranges.filter(({ key }) => !keys.includes(key));
     },
-    restore: (
-      state,
-      { payload: { ranges, selected } }: PayloadAction<RestorePayload>,
-    ) => {
-      ranges
-        .filter(({ range }) => !state.ranges.some(({ key }) => key === range.key))
-        // Ascending order keeps each splice from shifting the ones behind it.
-        .sort((a, b) => a.index - b.index)
-        .forEach(({ index, range }) => state.ranges.splice(index, 0, range));
-      if (selected != null) state.selected = selected;
-    },
     select: (state, { payload }: PayloadAction<SelectPayload>) => {
       state.selected = payload;
     },
@@ -202,6 +186,6 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, clearSelected, remove, rename, restore, select } = actions;
+export const { add, clearSelected, remove, rename, select } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

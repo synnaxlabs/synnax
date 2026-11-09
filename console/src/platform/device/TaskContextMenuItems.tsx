@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, task } from "@synnaxlabs/client";
+import { type device, query, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
@@ -53,32 +53,29 @@ export const createTaskContextMenuItem = ({
 
 export interface TaskContextMenuItemsProps extends Pick<
   Tree.ContextMenuProps,
-  "selection" | "state"
+  "client" | "selection"
 > {
   onConfigure: (deviceKey: device.Key) => void;
   items: TaskContextMenuItem[];
 }
 
 export const TaskContextMenuItems = ({
+  client,
   onConfigure,
-  state: { getResource },
   selection: { ids },
   items,
 }: TaskContextMenuItemsProps) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-  const firstID = ids[0];
-  const maybeConfigure = () => {
-    if (getResource(firstID).data?.configured !== true) onConfigure(firstID.key);
-  };
   if (!hasCreatePermission) return null;
+  const deviceKey = ids[0].key;
+  const maybeConfigure = () => {
+    const dev = client.devices.watch(deviceKey).getCached();
+    if (!query.isLive(dev) || !dev.configured) onConfigure(deviceKey);
+  };
   return (
     <>
       {items.map((Item) => (
-        <Item
-          key={Item.itemKey}
-          deviceKey={firstID.key}
-          beforeCreate={maybeConfigure}
-        />
+        <Item key={Item.itemKey} deviceKey={deviceKey} beforeCreate={maybeConfigure} />
       ))}
     </>
   );

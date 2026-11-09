@@ -95,6 +95,42 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should retrieve the roles with the keys", async () => {
+      const prefix = id.create();
+      const a = await client.access.roles.create({ name: `${prefix}-a` });
+      const b = await client.access.roles.create({ name: `${prefix}-b` });
+      const { result } = await renderHookSuspended(
+        () => Role.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map(({ key }) => key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should update when one of the roles changes", async () => {
+      const prefix = id.create();
+      const a = await client.access.roles.create({ name: `${prefix}-a` });
+      const b = await client.access.roles.create({ name: `${prefix}-b` });
+      const { result } = await renderHookSuspended(
+        () => Role.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toHaveLength(2));
+      await act(async () => {
+        await client.access.roles.rename(a.key, `${prefix}-renamed`);
+      });
+      await waitFor(() =>
+        expect(result.current).toContainEqual(
+          expect.objectContaining({ key: a.key, name: `${prefix}-renamed` }),
+        ),
+      );
+    });
+  });
+
   describe("useResultForUser", () => {
     const createUser = async (prefix: string, role: access.role.Key) =>
       await client.users.create({

@@ -39,6 +39,7 @@ export * from "@/numeric";
 export * from "@/observe";
 export * from "@/optional";
 export * from "@/patch";
+export * from "@/payload";
 export * from "@/primitive";
 export * from "@/record";
 export * from "@/require";
