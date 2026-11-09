@@ -14,7 +14,7 @@ import { NotFoundError, PathError, ValidationError } from "@/index";
 import { rack } from "@/rack";
 import { CERTIFICATE, createTestClient, waitForStreamLive } from "@/testutil";
 
-const { pem: PEM, privateKey: PRIVATE_KEY } = CERTIFICATE;
+const { pem: PEM, privateKeyPem: PRIVATE_KEY } = CERTIFICATE;
 // A key that does not match the certificate.
 const OTHER_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgCEpmg8mYhXe2mUBp
