@@ -214,16 +214,6 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
-/** A local edit waiting on its send. */
-export interface Edit {
-  /** Reverts the edit. */
-  rollback: destructor.Destructor;
-  /** Applies the edit again to the current document, returning its new rollback. */
-  reapply: () => destructor.Destructor;
-}
-
-const NO_EDIT: Edit = { rollback: destructor.NOOP, reapply: () => destructor.NOOP };
-
 /** A dispatch applied to the cached doc whose echo has not arrived. */
 interface Pending<Action> {
   dispatchKey: string;
@@ -390,22 +380,21 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * not cached and records no undo entry. When nothing is in flight for the document,
    * the actions go out at once. Otherwise they join the batch that goes out as one
    * dispatch when the in-flight send settles.
-   * @param edit - A local edit that the caller made with the actions.
    * @throws {Error} if the cached doc cannot hold an action, before any send.
-   * @throws {Error} if the send fails, after the actions and the edit roll back.
+   * @throws {Error} if the send fails, after the actions roll back.
    */
-  async send(key: Key, actions: Action[], edit: Edit = NO_EDIT): Promise<void> {
-    const made = (rollback: destructor.Destructor): Made<State, Action> => {
+  async send(key: Key, actions: Action[]): Promise<void> {
+    const made = (): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
-        edit: { actions, rollback, remake: () => made(edit.reapply()) },
+        edit: { actions, rollback: destructor.NOOP, remake: made },
         doc:
           current == null
             ? undefined
             : { current, next: this.params.reduce(current, actions).next },
       };
     };
-    const first = made(edit.rollback);
+    const first = made();
     await this.enqueue(key, (queue) => this.join(key, queue, first));
   }
 

@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor, observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import {
   Controller,
-  type Edit,
   type Frame,
   type Reducer,
   type SendDispatch,
@@ -664,13 +663,6 @@ describe("actions.Controller", () => {
       return send;
     };
 
-    // Sets a value outside the reducer, as a client's rename does.
-    const name = (docs: Table<string, Doc>, value: number): Edit => {
-      const reapply = () =>
-        docs.set("k", (d) => (d == null ? d : { values: { ...d.values, n: value } }));
-      return { rollback: reapply(), reapply };
-    };
-
     it("applies the batch over the state before a failed in-flight dispatch", async () => {
       const send = createFailingSend(1);
       const { docs, controller } = setupStore({ send });
@@ -732,7 +724,7 @@ describe("actions.Controller", () => {
       const { docs, controller } = setupStore({ send: createFailingSend(1) });
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
-      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const renamed = controller.send("k", [set("n", 7)]);
       const two = controller.dispatch("k", [set("b", 2)]);
       await expect(one).rejects.toThrow("rejected");
       await Promise.all([renamed, two]);
@@ -744,7 +736,7 @@ describe("actions.Controller", () => {
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
       const two = controller.dispatch("k", [set("b", 2)]);
-      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const renamed = controller.send("k", [set("n", 7)]);
       const three = controller.dispatch("k", [set("c", 3)]);
       await expect(one).rejects.toThrow("rejected");
       await expect(two).rejects.toThrow("rejected");
@@ -755,10 +747,7 @@ describe("actions.Controller", () => {
 
     it("sends a rename for a doc that is not cached", async () => {
       const { controller, send } = setupStore();
-      await controller.send("missing", [{ type: "noop" }], {
-        rollback: destructor.NOOP,
-        reapply: () => destructor.NOOP,
-      });
+      await controller.send("missing", [{ type: "noop" }]);
       expect(send.mock.calls.map(([key, actions]) => [key, actions])).toEqual([
         ["missing", [{ type: "noop" }]],
       ]);
@@ -811,16 +800,13 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
     });
 
-    it("sends actions the caller applied after queued dispatches", async () => {
+    it("sends the actions of a send after queued dispatches", async () => {
       const { gate, send } = createGatedSend();
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
       const two = controller.dispatch("k", [set("a", 2)]);
-      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }], {
-        rollback: destructor.NOOP,
-        reapply: () => destructor.NOOP,
-      });
+      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }]);
       gate.resolve();
       await Promise.all([one, two, tagged]);
       expect(send.mock.calls[1][1]).toEqual([
