@@ -88,13 +88,13 @@ var _ = Describe("Writer", func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
-			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+			idxCh = MustSucceed(node.CreateChannels(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
 				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			strCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+			strCh = MustSucceed(node.CreateChannels(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
 				dist:   node,
 				closer: node,
@@ -133,7 +133,7 @@ var _ = Describe("Writer", func() {
 				LocalIndex: idxCh.LocalKey,
 			}
 			floatCh = MustSucceed(
-				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
+				s.dist.CreateChannels(ctx, []channel.Channel{floatCh}),
 			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
 			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -312,12 +312,12 @@ var _ = Describe("Writer", func() {
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
-				idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}}))[0]
-				data := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:       "local",
 					DataType:   telem.Int64T,
 					LocalIndex: idx.LocalKey,
@@ -362,7 +362,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				host := testutil.NewNode(ctx)
 				keys := channel.KeysFromChannels(
-					MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 						Name:     "host_time",
 						IsIndex:  true,
 						DataType: telem.TimestampT,
@@ -434,7 +434,7 @@ var _ = Describe("Writer", func() {
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
 			host := testutil.NewNode(ctx)
-			idx := MustSucceed(host.Channel.Create(ctx, []channel.Channel{{
+			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
 				DataType:    telem.TimestampT,
@@ -486,13 +486,13 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				idx = MustSucceed(host.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				idx = MustSucceed(host.CreateChannels(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{
 					Name:       "auto_index_data",
 					DataType:   telem.Float64T,
 					LocalIndex: idx.LocalKey,
 				}
-				data = MustSucceed(host.Channel.Create(ctx, []channel.Channel{data}))[0]
+				data = MustSucceed(host.CreateChannels(ctx, []channel.Channel{data}))[0]
 
 				before := telem.Now()
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
@@ -548,11 +548,11 @@ var _ = Describe("Writer", func() {
 					}
 				)
 				idxCh = MustSucceed(
-					s.dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+					s.dist.CreateChannels(ctx, []channel.Channel{idxCh}),
 				)[0]
 				dataCh.LocalIndex = idxCh.LocalKey
 				dataCh = MustSucceed(
-					s.dist.Channel.Create(ctx, []channel.Channel{dataCh}),
+					s.dist.CreateChannels(ctx, []channel.Channel{dataCh}),
 				)[0]
 
 				keys := []channel.Key{idxCh.Key(), dataCh.Key()}
@@ -623,7 +623,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				keys := channel.Keys{ch.Key()}
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        keys,
@@ -668,7 +668,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				keys := channel.Keys{ch.Key()}
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        keys,
@@ -717,7 +717,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
-				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
 				s.dist.Framer.SetFreeIndexResolver(nil)
 				Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  channel.Keys{ch.Key()},
@@ -834,7 +834,7 @@ var _ = Describe("Writer", func() {
 			"Should span a variable-length virtual series 1ns for each sample",
 			func(ctx SpecContext) {
 				s := DeferClose(storageScenario(ctx))
-				ch := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+				ch := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:     "strings",
 					Virtual:  true,
 					DataType: telem.StringT,
@@ -898,14 +898,14 @@ var _ = Describe("Writer", func() {
 			"Should align indexed free channels and stamp index-less ones in one frame",
 			func(ctx SpecContext) {
 				s := DeferClose(storageScenario(ctx))
-				idx := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+				idx := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:        "mixed_time",
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}}))[0]
-				created := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{
+				created := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{
 					{
 						Name:        "mixed_data",
 						DataType:    telem.Float32T,
@@ -1006,7 +1006,7 @@ func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	node := testutil.OpenNode(ctx)
-	channels = MustSucceed(node.Channel.Create(ctx, channels))
+	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		name:   "Storage",
@@ -1025,7 +1025,7 @@ func freeWriterScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
 }

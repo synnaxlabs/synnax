@@ -32,7 +32,7 @@ var _ = Describe("Node", func() {
 
 	It("Should create channels in the storage layer", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
-		ch := MustSucceed(n.Channel.Create(ctx, []channel.Channel{{
+		ch := MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
 			Name:        "SG_01",
 			DataType:    telem.Float64T,
 			Virtual:     true,
@@ -48,7 +48,7 @@ var _ = Describe("Node", func() {
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
 			tx := DeferClose(n.DB.OpenTx())
-			Expect(n.Channel.Create(ctx, []channel.Channel{{
+			Expect(n.CreateChannels(ctx, []channel.Channel{{
 				Name:        "SG_02",
 				DataType:    telem.Float64T,
 				Virtual:     true,

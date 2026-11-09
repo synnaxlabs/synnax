@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, TypeAlias, cast, overload, override
+from typing import Literal, NoReturn, TypeAlias, cast, overload, override
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -24,7 +24,6 @@ from freighter import (
 )
 from freighter.transport import P
 from freighter.websocket import Message
-from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
@@ -80,8 +79,20 @@ class WriterRequest(BaseModel):
 
 class WriterResponse(BaseModel):
     command: WriterCommand
-    end: TimeStamp | None
+    end: TimeStamp
     err: ExceptionPayload
+    authorized: bool
+
+
+class CommitResult(BaseModel):
+    """The result of a commit."""
+
+    end: TimeStamp
+    """The end of the committed time range. Only valid when authorized is True."""
+    authorized: bool
+    """Whether the writer had control of every channel it writes at the commit. When
+    False, other channels may have committed. The writer stays open so that it can
+    regain control."""
 
 
 class _WSWriterCodec(WSCodec):
@@ -390,28 +401,30 @@ class Writer:
             methods have thrown an exception. Once commit fails, the writer must be
             closed and re-opened to continue use.
         """
+        return self.commit_result().end
+
+    def commit_result(self) -> CommitResult:
+        """Commits like commit, and also reports whether the writer had control.
+
+        :returns: The result of the commit.
+        :raises WriterClosed: If the writer was closed before the commit.
+        :raises EOF: If the Core ends the stream during the commit.
+        :raises ValidationError: If the Core rejects the commit.
+        """
         if self._close_exc is not None:
             raise self._close_exc
         res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
-        if res is None:
-            raise UnexpectedError("commit did not receive a response")
-        if res.end is None:
-            raise UnexpectedError("commit response missing end timestamp")
-        return res.end
+        return CommitResult(end=res.end, authorized=res.authorized)
 
     def close(self) -> None:
         """Closes the writer, raising any accumulated error encountered during
         operation. A writer MUST be closed after use, and this method should probably
         be placed in a 'finally' block.
         """
-        return self._close(None)
-
-    def _close(self, exc: Exception | None) -> None:
         if self._close_exc is not None:
             if isinstance(self._close_exc, WriterClosed):
                 return
             raise self._close_exc
-        self._close_exc = exc
         self._stream.close_send()
         while True:
             if self._close_exc is not None:
@@ -428,28 +441,28 @@ class Writer:
                 continue
             self._close_exc = self._registry.decode(res.err)
 
-    def _exec(
-        self, req: WriterRequest, timeout: int | None = None
-    ) -> WriterResponse | None:
+    def _exec(self, req: WriterRequest, timeout: int | None = None) -> WriterResponse:
         try:
             self._stream.send(req)
         except Exception as send_exc:
-            self._close(send_exc)
-            return None
+            self._fail(send_exc)
         while True:
             try:
                 res = self._stream.receive(timeout=timeout)
             except TimeoutError:
                 raise
             except Exception as recv_exc:
-                self._close(recv_exc)
-                return None
+                self._fail(recv_exc)
             decoded_exc = self._registry.decode(res.err)
             if decoded_exc is not None:
-                self._close(decoded_exc)
-                return None
+                self._fail(decoded_exc)
             if res.command == req.command:
                 return res
+
+    def _fail(self, exc: Exception) -> NoReturn:
+        self._close_exc = exc
+        self._stream.close_send()
+        raise exc
 
     def __enter__(self) -> Writer:
         return self

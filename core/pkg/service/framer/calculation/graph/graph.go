@@ -626,7 +626,6 @@ func (g *Graph) fetchChannels(
 	return channels, nil
 }
 
-// compile reads the DB with no snapshot, so a compile delays no write.
 func (g *Graph) compile(
 	ctx context.Context,
 	ch channel.Channel,
