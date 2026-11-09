@@ -35,8 +35,8 @@ func (v *Validator) Exec(fn func() error) {
 	}
 }
 
-// ruleError is a failed validation rule. It matches ErrValidation without adding the
-// text of ErrValidation to its message.
+// ruleError is a validation failure. It matches ErrValidation without adding the text
+// of ErrValidation to its message.
 type ruleError struct{ error }
 
 func (e ruleError) Unwrap() error { return e.error }

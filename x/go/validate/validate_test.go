@@ -145,12 +145,21 @@ var _ = Describe("Validate", func() {
 			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
 		})
 
-		It("Should decode a failure as a validation error", func(ctx SpecContext) {
-			v.Ternary("field", true, "wrong")
-			decoded := errors.Decode(ctx, errors.Encode(ctx, v.Error(), false))
+		DescribeTable("Should decode a failure with its exact text", func(
+			ctx SpecContext,
+			err error,
+		) {
+			decoded := errors.Decode(ctx, errors.Encode(ctx, err, false))
 			Expect(decoded).To(MatchError(validate.ErrValidation))
-			Expect(decoded).To(MatchError(ContainSubstring("field: wrong")))
-		})
+			Expect(decoded.Error()).To(Equal(err.Error()))
+		},
+			Entry("a Ternary failure", func() error {
+				v := validate.New("test")
+				v.Ternary("field", true, "100% wrong")
+				return v.Error()
+			}()),
+			Entry("a wrapped validation error", validate.ErrRequired),
+		)
 
 		It("Should keep an earlier failure through a passing check", func() {
 			v.Ternary("first", true, "failed")
