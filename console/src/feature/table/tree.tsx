@@ -95,7 +95,6 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
-  type: "table",
   linkable: true,
   icon: <Icon.Table />,
   useOnSelect: Panel.useOpenResource,

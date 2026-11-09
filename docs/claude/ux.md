@@ -285,6 +285,11 @@ bound, a log precision, or the line plot X channel.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
 - A select that shows only its icon is a square button, never a wide box.
+- A device select shows the selected device's status as a badge at the end of the
+  trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
+  "Disconnected" from the status `connected` flag, in the color of the status variant.
+  Its tooltip shows the message and the description. A word from the variant was
+  rejected, because one variant covers both states.
 
 ### Lists with checkboxes
 
@@ -390,6 +395,17 @@ says why in a sentence, then gives the raw error.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
 
+### Logs
+
+- A log follows new lines only while its view is at the end. A scroll up or a text
+  selection holds the lines, and "Jump to latest" goes back to the end.
+- An error or a warning tints its line and colors its level word with
+  `--pluto-error-text` or `--pluto-warning-text`. Times, logger names, and debug lines
+  are gray l9.
+- Long lines wrap with a hanging indent. A log never scrolls sideways.
+- "Copy logs" copies a short header (product, version, state, time), then the lines as
+  plain text with UTC ISO times.
+
 ### Plot ranges
 
 - Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
@@ -456,6 +472,20 @@ says why in a sentence, then gives the raw error.
   focus goes back to where it was.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
+
+### Text selection
+
+- Selection is off by default. The Console's `body` turns it off. Selection inherits, so
+  a component turns it back on with `-webkit-user-select: text` and `user-select: text`,
+  never with `!important`. WebKit reads only the prefixed form.
+- Text that people paste somewhere else is selectable: dialog messages, error text,
+  read-only values (IDs, keys, addresses, thumbprints, versions), code, and logs. A
+  toast is not, because its copy button copies the whole status.
+- Controls are not selectable: buttons, tabs, menu items, tree and list items, field
+  labels, and toolbar titles. A record list copies through its context menu.
+- Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
+- A copy button shows a check while it stays in view. A menu item that copies shows a
+  toast, because the menu closes.
 
 ## Prior art
 

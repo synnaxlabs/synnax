@@ -27,7 +27,7 @@ describe("CopyContextMenuItem", () => {
     const write = stubClipboardWrite();
     await renderCopyContextMenuItem({
       resources: [createResource(resource.idZ.parse("channel:1"), "pressure")],
-      items: { channel: Tree.createItem({ type: "channel", linkable: true }) },
+      items: { channel: Tree.createItem({ linkable: true }) },
       preloadedState: createCoreState([CORE], CORE.key),
     });
     fireEvent.click(screen.getByText("Copy"));

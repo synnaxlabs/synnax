@@ -96,7 +96,6 @@ export const GROUP_MEMBER: Group.Member = {
 };
 
 const TreeItem = Tree.createItem({
-  type: "lineplot",
   linkable: true,
   icon: <Icon.LinePlot />,
   useOnSelect: Panel.useOpenResource,

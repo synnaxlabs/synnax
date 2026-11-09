@@ -242,6 +242,40 @@ describe("group tree item", () => {
     );
   });
 
+  it("should move every page of the members of an ungrouped group", async () => {
+    // One past the most children that a tree list fetches at a time.
+    const count = 1001;
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    await client.channels.create(
+      Array.from({ length: count }, () => ({
+        name: uniqueName("ch"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: child.key,
+      })),
+    );
+    const nodes: PTree.Node<string>[] = [
+      { key: nodeKey(parent), children: [{ key: nodeKey(child) }] },
+    ];
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(parent), groupResource(child)],
+      selected: [group.resourceID(child.key)],
+      parentID: group.resourceID(parent.key),
+      stateOverrides: { nodes, expanded: [nodeKey(parent)] },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(
+      async () =>
+        expect(
+          await client.channels.retrieve({ where: { groups: [parent.key] } }),
+        ).toHaveLength(count),
+      { timeout: 10_000 },
+    );
+  });
+
   it("should ungroup a nested group shown at the top of flat search results", async () => {
     const parent = await createGroup();
     const child = await createGroup(parent.key);

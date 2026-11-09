@@ -47,7 +47,7 @@ import {
   type Search,
   type SearchAnswer,
 } from "@/platform/tree/search";
-import { Store } from "@/platform/tree/store";
+import { isMoreKey, Store } from "@/platform/tree/store";
 import { type GetResource, type Resource, type TreeState } from "@/platform/tree/types";
 import { useCopy } from "@/platform/tree/useCopy";
 
@@ -75,7 +75,30 @@ const [Context, useContext] = context.create<ContextValue>({
   providerName: "Tree.Tree",
 });
 
-const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+// Loads the next page of its folder on a click, or on Enter, which double-clicks it.
+const MoreItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+  const { itemKey } = rest;
+  const { store } = useContext("Tree.MoreItem");
+  const loading = useSyncExternalStore(
+    (handler) => store.subscribeKey(handler, itemKey),
+    () => store.isLoading(itemKey),
+  );
+  const handleMore = () => store.more(itemKey);
+  return (
+    <Base.Item
+      {...rest}
+      onClick={handleMore}
+      onDoubleClick={handleMore}
+      loading={loading}
+    >
+      <Text.Text level="small" color={9}>
+        Show more
+      </Text.Text>
+    </Base.Item>
+  );
+};
+
+const ResourceItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const { itemKey } = rest;
   const id = resource.parseID(itemKey);
   const treeResource = List.useItem<string, Resource>(itemKey);
@@ -127,6 +150,9 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   );
 };
 
+const TreeItem = (props: Base.ItemProps<string>) =>
+  isMoreKey(props.itemKey) ? <MoreItem {...props} /> : <ResourceItem {...props} />;
+
 const itemRenderProp = Component.renderProp(TreeItem);
 
 interface CreateStoreParams extends Pick<
@@ -154,10 +180,6 @@ const createStore = ({
       return children({ client, id, root });
     },
     hasChildren: (type) => resolveItem(type).hasChildren,
-    visible: (r) => {
-      const { visible } = resolveItem(r.id.type);
-      return visible == null || visible(r);
-    },
     onError: (e) => handleError(e, "Failed to retrieve resources"),
     results,
   });

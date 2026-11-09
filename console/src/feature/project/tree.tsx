@@ -241,7 +241,6 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "project",
   linkable: true,
   icon: <Icon.Project />,
   useOnSelect,

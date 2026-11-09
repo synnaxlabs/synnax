@@ -19,8 +19,8 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
 
 const ITEMS: Tree.Items = {
-  channel: Tree.createItem({ type: "channel", linkable: true }),
-  rack: Tree.createItem({ type: "rack" }),
+  channel: Tree.createItem({ linkable: true }),
+  rack: Tree.createItem({}),
 };
 
 const render = async (resources: Tree.Resource[], selected?: resource.ID[]) =>

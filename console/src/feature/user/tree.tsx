@@ -109,7 +109,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "user",
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
   haulItems: ({ data }) =>

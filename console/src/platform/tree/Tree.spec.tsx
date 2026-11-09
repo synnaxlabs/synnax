@@ -47,6 +47,7 @@ import {
   getTreeRow,
   itemName,
   openTreeRootContextMenu,
+  openTreeRowContextMenu,
   renderLiveTree,
   retrieveChildGroupKeys,
   searchTree,
@@ -451,6 +452,124 @@ describe("Tree.Tree", () => {
         fireEvent.keyDown(editable, { key: "Escape" });
       });
       await awaitTextEditingExit();
+    });
+  });
+
+  describe("paged folders", () => {
+    // A folder list fetches this many children at a time.
+    const PAGE_SIZE = 1000;
+    const SHOW_MORE = "Show more";
+    // A fresh client starts with no page fetched, as a list another test grew stays
+    // grown in its client's cache.
+    const renderPaged = async (items: Tree.Items = GROUP_ITEMS) =>
+      await renderTree(channel.TYPE_RESOURCE_ID, items, createTestClient(), listRoot);
+    let groupKey: string;
+    let destination: group.Group;
+    let names: string[];
+    let lastKey: channel.Key;
+    const listRoot: Tree.TreeProps["listRoot"] = (c) => [
+      Tree.createSource(
+        c.groups,
+        { parents: [group.resourceID(groupKey)] },
+        Tree.toResource("group"),
+      ),
+      Tree.createSource(
+        c.channels,
+        { where: { groups: [groupKey] } },
+        Tree.toResource("channel"),
+      ),
+    ];
+
+    beforeAll(async () => {
+      const g = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("paged"),
+      });
+      groupKey = g.key;
+      const tag = uniqueName("paged");
+      // Zero padded so the tree's name order matches creation order.
+      names = Array.from(
+        { length: PAGE_SIZE + 1 },
+        (_, i) => `${tag}_${String(i).padStart(4, "0")}`,
+      );
+      const created = await client.channels.create(
+        names.map((name) => ({
+          name,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          group: g.key,
+        })),
+      );
+      lastKey = created[PAGE_SIZE - 1].key;
+      destination = await client.groups.create({
+        parent: group.resourceID(g.key),
+        name: uniqueName("destination"),
+      });
+    });
+
+    it("should show one page and load the next from the show more node", async () => {
+      await renderPaged();
+      const more = await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      fireEvent.click(more);
+      await findTreeRow(names[PAGE_SIZE]);
+      expect(screen.queryByText(SHOW_MORE)).toBeNull();
+    });
+
+    it("should load the next page when Enter lands on the show more node", async () => {
+      await renderPaged();
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      await findTreeRow(SHOW_MORE);
+      expect(screen.queryByText(names[PAGE_SIZE])).toBeNull();
+      const tree = screen.getByRole("tree");
+      const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+      fireEvent.keyDown(tree, arrowDown);
+      fireEvent.keyUp(tree, arrowDown);
+      fireEvent.keyDown(tree, { key: "Enter", code: "Enter" });
+      fireEvent.keyUp(tree, { key: "Enter", code: "Enter" });
+      await findTreeRow(names[PAGE_SIZE]);
+    });
+
+    it("should show the root menu on the show more node", async () => {
+      await renderPaged();
+      await openTreeRowContextMenu(SHOW_MORE);
+      expect(await screen.findByText("New group")).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a selected record's menu", async () => {
+      await renderPaged({
+        ...GROUP_ITEMS,
+        channel: Tree.createItem({
+          ContextMenu: ({ selection: { ids } }: Tree.ContextMenuProps) => (
+            <span>{ids.map((id) => resource.idToString(id)).join(" ")}</span>
+          ),
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      await openTreeRowContextMenu(names[PAGE_SIZE - 1]);
+      expect(
+        await screen.findByText(resource.idToString(channel.resourceID(lastKey))),
+      ).toBeTruthy();
+    });
+
+    it("should leave the show more node out of a dragged selection", async () => {
+      const dropped: string[][] = [];
+      await renderPaged({
+        group: createGroupItem({
+          canDrop: () => true,
+          drop: async ({ items }) => {
+            dropped.push(items.map(({ id }) => resource.idToString(id)));
+          },
+        }),
+      });
+      fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
+      withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
+      fireEvent.dragStart(getTreeRow(names[PAGE_SIZE - 1]));
+      fireEvent.drop(await findTreeRow(destination.name));
+      await waitFor(() =>
+        expect(dropped).toEqual([[resource.idToString(channel.resourceID(lastKey))]]),
+      );
     });
   });
 
