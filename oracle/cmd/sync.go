@@ -84,7 +84,7 @@ func runSync(cmd *cobra.Command) error {
 		printPluginDone(name, len(files))
 	}
 
-	formatters, err := format.Default(repoRoot)
+	formatters, err := format.Default(repoRoot, time.Now().Year())
 	if err != nil {
 		return errors.Wrap(err, "build formatter registry")
 	}

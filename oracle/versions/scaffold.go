@@ -11,6 +11,8 @@ package versions
 
 import (
 	"context"
+	"path/filepath"
+	"time"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -73,7 +75,9 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 			err, "failed to format scaffold for %s", chain.LivePath(),
 		)
 	}
-	return license(ctx, r.RepoRoot(), formatted)
+	return license(
+		ctx, r.RepoRoot(), chain.FilePath(current+1)+".oracle", formatted,
+	)
 }
 
 // fileImports reconstructs a file's import paths: pins as version-file paths, live
@@ -91,13 +95,13 @@ func fileImports(f *File) []string {
 }
 
 // license prepends the repository's license header, the same one every other checked-in
-// file carries.
-func license(ctx context.Context, repoRoot, content string) (string, error) {
-	l, err := format.NewLicense(repoRoot)
+// file carries. It keeps the year of the existing file at the repo-relative path rel.
+func license(ctx context.Context, repoRoot, rel, content string) (string, error) {
+	l, err := format.NewLicense(repoRoot, time.Now().Year())
 	if err != nil {
 		return "", err
 	}
-	out, err := l.Format(ctx, []byte(content), "v.oracle")
+	out, err := l.Format(ctx, []byte(content), filepath.Join(repoRoot, rel))
 	if err != nil {
 		return "", err
 	}
