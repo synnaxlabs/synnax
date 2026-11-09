@@ -10,11 +10,12 @@
 import { destructor, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { channel } from "@/channel";
 import { group } from "@/group";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type resource } from "@/resource";
-import { createTestClient } from "@/testutil";
+import { createTestClient, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 
@@ -325,6 +326,36 @@ describe("Group", () => {
       expect(client.groups.watch(parent.key).getCached()).toEqual(
         expect.objectContaining({ parent: undefined }),
       );
+    });
+  });
+  describe("moveRequests", () => {
+    it("should move records and groups under a group", async () => {
+      const [parent, child, ch] = await Promise.all([
+        createTopLevel(),
+        createTopLevel(),
+        newVirtualChannel(client),
+      ]);
+      await client.batch.send(
+        client.groups.moveRequests(
+          [channel.resourceID(ch.key), group.resourceID(child.key)],
+          group.resourceID(parent.key),
+        ),
+      );
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(parent.key);
+      expect((await client.groups.retrieve({ key: child.key })).parent).toEqual(
+        group.resourceID(parent.key),
+      );
+    });
+    it("should move records out of their group when the parent is not a group", async () => {
+      const [g, ch] = await Promise.all([createTopLevel(), newVirtualChannel(client)]);
+      await client.batch.send(client.channels.setGroupRequest(ch.key, g.key));
+      await client.batch.send(client.groups.moveRequests([channel.resourceID(ch.key)]));
+      expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
+    });
+    it("should throw for a type that cannot sit in a group", () => {
+      expect(() =>
+        client.groups.moveRequests([{ type: "label", key: id.create() }]),
+      ).toThrow("a label cannot sit in a group");
     });
   });
   describe("delete", () => {

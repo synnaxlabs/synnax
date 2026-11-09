@@ -75,8 +75,8 @@ the server.
 1. In the devices toolbar, right-click the server and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click **Add channel**. Select the type, then enter the address. For a register,
-   select the **Data type**, and for a string, set the **String length**. For a bit, set
-   the **Bit**.
+   select the **Data type**. For a string, set the **Length**. For a bit, set the
+   **Bit**.
 4. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
@@ -221,14 +221,13 @@ Reads a discrete input as 0 or 1, as `uint8`.
   python="HoldingRegisterReadChannel"
 >
 
-Reads a number or a string from one or more holding registers.
+Reads a number from one or more holding registers.
 
-| Setting                                      | Default  | Notes                                                                                                     |
-| -------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small>         | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string`. |
-| String length <small>`string_length`</small> |          | For a string, the number of characters, from 1 to 250. See [strings](#strings).                           |
-| Bytes <small>`bytes_swapped`</small>         | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).             |
-| Words <small>`words_swapped`</small>         | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                                  |
+| Setting                              | Default  | Notes                                                                                           |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
+| Words <small>`words_swapped`</small> | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
 
 </Channel.Type>
 
@@ -238,14 +237,43 @@ Reads a number or a string from one or more holding registers.
   python="InputRegisterReadChannel"
 >
 
-Reads a number or a string from one or more input registers.
+Reads a number from one or more input registers.
 
-| Setting                                      | Default  | Notes                                                                                                     |
-| -------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small>         | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string`. |
-| String length <small>`string_length`</small> |          | For a string, the number of characters, from 1 to 250. See [strings](#strings).                           |
-| Bytes <small>`bytes_swapped`</small>         | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).             |
-| Words <small>`words_swapped`</small>         | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                                  |
+| Setting                              | Default  | Notes                                                                                           |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
+| Words <small>`words_swapped`</small> | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register string"
+  type="holding_register_string"
+  python="HoldingRegisterStringReadChannel"
+>
+
+Reads a string from consecutive holding registers. See [strings](#strings).
+
+| Setting                              | Default | Notes                                                                                              |
+| ------------------------------------ | ------- | -------------------------------------------------------------------------------------------------- |
+| Length <small>`length`</small>       |         | The number of characters, from 1 to 250.                                                           |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Input register string"
+  type="input_register_string"
+  python="InputRegisterStringReadChannel"
+>
+
+Reads a string from consecutive input registers. See [strings](#strings).
+
+| Setting                              | Default | Notes                                                                                              |
+| ------------------------------------ | ------- | -------------------------------------------------------------------------------------------------- |
+| Length <small>`length`</small>       |         | The number of characters, from 1 to 250.                                                           |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
 
 </Channel.Type>
 

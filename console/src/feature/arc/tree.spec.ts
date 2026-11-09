@@ -50,6 +50,23 @@ const createArcInDirectory = async () => {
 };
 
 describe("arc/tree", () => {
+  describe("icon", () => {
+    it("should draw the icon of the Arc's type", async () => {
+      const { arc, root, arcsID } = await createArcInDirectory();
+      const mod = await client.arcs.create({
+        name: uniqueName("mod"),
+        type: "module",
+        source: { mode: "text" },
+      });
+      await client.arcs.directories.move(arcsID, root, clientArc.resourceID(mod.key));
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      const iconOf = async (name: string, icon: string) =>
+        (await findTreeRow(name)).querySelector(`.lyra-icon--${icon}`);
+      await waitFor(async () => expect(await iconOf(arc.name, "arc")).not.toBeNull());
+      expect(await iconOf(mod.name, "module")).not.toBeNull();
+    });
+  });
+
   describe("onSelect", () => {
     it("should open the Arc as a tab when the row is double-clicked", async () => {
       const { arc, root } = await createArcInDirectory();

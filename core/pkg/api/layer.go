@@ -735,6 +735,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
 		DB:   cfg.Distribution.DB,
 		RBAC: cfg.Service.RBAC,
+		Held: auth.HeldTables(),
 	}); err != nil {
 		return nil, err
 	}

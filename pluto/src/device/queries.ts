@@ -201,6 +201,10 @@ export const useResultStatus = createResultSelector(
   (a, b) => a?.variant === b?.variant && a?.message === b?.message,
 );
 
+export const useResultMake = createResultSelector(({ make }) => make);
+
+export const useResultLocation = createResultSelector(({ location }) => location);
+
 /** Lists devices with their statuses, also for a device outside the list. */
 export const useList = ({
   query,

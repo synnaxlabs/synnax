@@ -187,29 +187,25 @@ public:
     }
 };
 
-/// @brief checks the data type and string length of a register value channel.
-/// @returns false and records a field error on ch if the channel is invalid.
-inline bool valid_value(
-    x::json::Parser &ch,
-    const ::synnax::modbus::RegisterValue &value,
-    const std::int32_t string_length
-) {
-    if (value.data_type == x::telem::STRING_T) {
-        if (string_length <= 0 ||
-            std::cmp_greater(string_length, channel::MAX_STRING_LENGTH)) {
-            ch.field_err(
-                "string_length",
-                "must be from 1 to " + std::to_string(channel::MAX_STRING_LENGTH)
-            );
-            return false;
-        }
-        return true;
-    }
-    if (!channel::is_register_type(value.data_type)) {
-        ch.field_err("data_type", "unsupported data type: " + value.data_type.name());
-        return false;
-    }
-    return true;
+/// @brief checks the data type of a register value channel.
+/// @returns false and records a field error on ch if the data type is unsupported.
+inline bool
+valid_value(x::json::Parser &ch, const ::synnax::modbus::RegisterValue &value) {
+    if (channel::is_register_type(value.data_type)) return true;
+    ch.field_err("data_type", "unsupported data type: " + value.data_type.name());
+    return false;
+}
+
+/// @brief checks the length of a register string channel.
+/// @returns false and records a field error on ch if the length is out of range.
+inline bool
+valid_string(x::json::Parser &ch, const ::synnax::modbus::RegisterString &str) {
+    if (str.length > 0 && str.length <= channel::MAX_STRING_LENGTH) return true;
+    ch.field_err(
+        "length",
+        "must be from 1 to " + std::to_string(channel::MAX_STRING_LENGTH)
+    );
+    return false;
 }
 
 /// @brief checks the bit index of a register bit channel.
@@ -285,8 +281,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             [max_registers](x::json::Parser &ch, const channel::InputRegister &reg) {
                 if (reg.width() <= max_registers) return true;
                 ch.field_err(
-                    reg.value_type == x::telem::STRING_T ? "string_length"
-                                                         : "data_type",
+                    reg.value_type == x::telem::STRING_T ? "length" : "data_type",
                     "needs " + std::to_string(reg.width()) +
                         " registers, but the device reads at most " +
                         std::to_string(max_registers) + " per request"
@@ -308,20 +303,36 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             auto *bound = &bindings;
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterReadChannel>(&parsed)) {
-                if (!valid_value(ch, *c, c->string_length)) return;
+                if (!valid_value(ch, *c)) return;
                 channel::InputRegister reg(*c, this->props.connection);
                 if (!fits(ch, reg)) return;
-                if (c->data_type == x::telem::STRING_T) bound = &strings;
                 holding_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
             ) {
-                if (!valid_value(ch, *c, c->string_length)) return;
+                if (!valid_value(ch, *c)) return;
                 channel::InputRegister reg(*c, this->props.connection);
                 if (!fits(ch, reg)) return;
-                if (c->data_type == x::telem::STRING_T) bound = &strings;
+                input_registers.push_back(std::move(reg));
+            } else if (
+                const auto *c = std::get_if<
+                    ::synnax::modbus::HoldingRegisterStringReadChannel>(&parsed)
+            ) {
+                if (!valid_string(ch, *c)) return;
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
+                bound = &strings;
+                holding_registers.push_back(std::move(reg));
+            } else if (
+                const auto *c = std::get_if<
+                    ::synnax::modbus::InputRegisterStringReadChannel>(&parsed)
+            ) {
+                if (!valid_string(ch, *c)) return;
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
+                bound = &strings;
                 input_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<

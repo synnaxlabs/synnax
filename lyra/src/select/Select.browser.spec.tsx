@@ -362,6 +362,33 @@ describe("Select", () => {
         .toHaveAttribute("aria-expanded", "false");
     });
 
+    it("should close when Tab moves the focus on from its trigger", async () => {
+      const onChange = vi.fn();
+      await renderThemed(
+        <Triggers.Provider>
+          <Select.Simple<string>
+            resourceName="level"
+            value="low"
+            onChange={onChange}
+            allowNone={false}
+            searchHidden
+          >
+            {LEVELS}
+          </Select.Simple>
+          <input aria-label="After" />
+        </Triggers.Provider>,
+      );
+      const trigger = page.getByRole("button", { name: /^Level/ });
+      trigger.element().focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+      await userEvent.tab();
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      expect(onChange).not.toHaveBeenCalled();
+      await expect.element(trigger).toHaveAttribute("aria-expanded", "false");
+    });
+
     it("should stay open when Enter adds one of many options", async () => {
       const onChange = await renderSearchless(true);
       expect(onChange.mock.calls[0][0]).toEqual(["low", "medium"]);
