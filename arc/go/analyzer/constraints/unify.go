@@ -106,7 +106,9 @@ func (s *System) Unify() error {
 
 	for name, tv := range s.TypeVars {
 		if _, resolved := s.Substitutions[name]; !resolved {
-			if tv.Constraint != nil {
+			if t, ok := s.Defaults[name]; ok {
+				s.Substitutions[name] = t
+			} else if tv.Constraint != nil {
 				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 			} else {
 				return errors.Wrapf(ErrUnresolvedVariable, "%s", name)
@@ -220,6 +222,56 @@ func (s *System) unifyTypesWithVisited(
 	return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
 }
 
+// numericYields reports whether the constrained variable a takes the type of the
+// constrained variable b when one of them is numeric. A float literal fixes a numeric
+// variable as a float, and an open series element fixes an integer literal.
+func (s *System) numericYields(a, b types.Type) bool {
+	if a.Constraint.Kind == types.KindNumericConstant {
+		return b.Constraint.Kind != types.KindNumericConstant &&
+			b.Constraint.Kind != types.KindIntegerConstant
+	}
+	return a.Constraint.Kind == types.KindIntegerConstant &&
+		s.openNumerics.Contains(b.Name)
+}
+
+// integerIntoGeneric returns the integer literal and the generic numeric variable
+// among a and b, when they are one of each. A generic numeric variable is one that
+// does not stand for an open series element.
+func (s *System) integerIntoGeneric(a, b types.Type) (types.Type, types.Type, bool) {
+	isKind := func(t types.Type, k types.Kind) bool {
+		return t.Constraint != nil && t.Constraint.Kind == k
+	}
+	isGeneric := func(t types.Type) bool {
+		return isKind(t, types.KindNumericConstant) && !s.openNumerics.Contains(t.Name)
+	}
+	if isKind(a, types.KindIntegerConstant) && isGeneric(b) {
+		return a, b, true
+	}
+	if isKind(b, types.KindIntegerConstant) && isGeneric(a) {
+		return b, a, true
+	}
+	return types.Type{}, types.Type{}, false
+}
+
+// openIntegerTarget returns the one of a and b that is the open element of an empty
+// series, unbound and with a default, when the other is an integer literal.
+func (s *System) openIntegerTarget(a, b types.Type) (types.Type, bool) {
+	isOpen := func(t types.Type) bool {
+		_, hasDefault := s.Defaults[t.Name]
+		return t.Constraint == nil && hasDefault
+	}
+	isInteger := func(t types.Type) bool {
+		return t.Constraint != nil && t.Constraint.Kind == types.KindIntegerConstant
+	}
+	if isOpen(a) && isInteger(b) {
+		return a, true
+	}
+	if isOpen(b) && isInteger(a) {
+		return b, true
+	}
+	return types.Type{}, false
+}
+
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
@@ -248,13 +300,36 @@ func (s *System) unifyTypeVariableWithVisited(
 		if otherSub, exists := s.Substitutions[other.Name]; exists {
 			return s.unifyTypeVariableWithVisited(tv, otherSub, source, visiting)
 		}
+		// An integer literal makes an empty series numeric, not integer, so on every
+		// write path a later float still fits and the element defaults to f64.
+		if open, ok := s.openIntegerTarget(tv, other); ok {
+			bound := s.OpenNumeric(open)
+			s.recordTypeVars(bound)
+			s.Substitutions[open.Name] = bound
+			return s.unifyTypeVariableWithVisited(tv, other, source, visiting)
+		}
+		// An integer literal takes a generic numeric variable's type, so a later float
+		// still widens it. With no float, the variable defaults to i64.
+		if lit, generic, ok := s.integerIntoGeneric(tv, other); ok {
+			if _, set := s.Defaults[generic.Name]; !set {
+				s.Defaults[generic.Name] = types.I64()
+			}
+			s.Substitutions[lit.Name] = generic
+			return nil
+		}
 		if tv.Constraint != nil && other.Constraint == nil {
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if tv.Constraint != nil && other.Constraint != nil &&
 			tv.Constraint.Kind == types.KindFloatConstant &&
-			other.Constraint.Kind == types.KindIntegerConstant {
-			// An integer literal in a float position takes the float's type.
+			(other.Constraint.Kind == types.KindIntegerConstant ||
+				other.Constraint.Kind == types.KindExactIntegerFloatConstant) {
+			// An integer literal, or a float literal with an integer value such as
+			// 2.0, in a float position takes the float's type.
+			s.Substitutions[other.Name] = tv
+			return nil
+		} else if tv.Constraint != nil && other.Constraint != nil &&
+			s.numericYields(other, tv) {
 			s.Substitutions[other.Name] = tv
 			return nil
 		} else if other.Constraint != nil && tv.Constraint == nil {
