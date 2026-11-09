@@ -28,8 +28,8 @@ interface Run {
 }
 
 /// @brief emits the run from `from` to `to`, arcing a tangent-continuous hop at each
-/// offset. Hops bulge up on horizontal runs, left on vertical. No offsets yields a plain
-/// lineto.
+/// offset. Hops bulge up on horizontal runs, left on vertical. No offsets yields a
+/// plain lineto.
 const straight = (from: xy.XY, to: xy.XY, offsets: number[]): string => {
   const tail = `L${to.x},${to.y}`;
   if (offsets.length === 0 || xy.equals(from, to)) return tail;
@@ -57,8 +57,8 @@ const straight = (from: xy.XY, to: xy.XY, offsets: number[]): string => {
   return `${path}${tail}`;
 };
 
-/// @brief per-run offsets at which to hop. Each jump snaps to the nearest run it projects
-/// onto, so a slightly-off jump point still lands on the right run.
+/// @brief per-run offsets at which to hop. Each jump snaps to the nearest run it
+/// projects onto, so a slightly-off jump point still lands on the right run.
 const assignJumps = (runs: Run[], jumps: xy.XY[]): number[][] => {
   const byRun: number[][] = runs.map(() => []);
   for (const j of jumps) {

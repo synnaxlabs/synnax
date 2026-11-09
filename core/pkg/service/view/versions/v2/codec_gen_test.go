@@ -17,8 +17,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
@@ -57,6 +58,7 @@ var _ = Describe("Codec", func() {
 							Name:     new(filter.String{}),
 							Overlaps: new(telem.TimeRange{}),
 							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+							Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
 						},
 					},
 					Or: []ranger.Where{
@@ -67,7 +69,8 @@ var _ = Describe("Codec", func() {
 							Key:      new(filter.Set[ranger.Key]{}),
 							Name:     new(filter.String{}),
 							Overlaps: new(telem.TimeRange{}),
-							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+							Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813")},
 						},
 					},
 					Not: new(ranger.Where{
@@ -77,19 +80,24 @@ var _ = Describe("Codec", func() {
 						Key:      new(filter.Set[ranger.Key]{}),
 						Name:     new(filter.String{}),
 						Overlaps: new(telem.TimeRange{}),
-						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b")},
+						Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
 					}),
 					Key: new(filter.Set[ranger.Key]{
-						Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
-						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+						Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781f")},
 					}),
 					Name: new(filter.String{
-						Eq:    new(string("test_30")),
-						In:    []string{"test_31"},
-						Regex: new(string("test_32")),
+						Eq:              new(string("test_33")),
+						In:              []string{"test_34"},
+						Contains:        new(string("test_35")),
+						StartsWith:      new(string("test_36")),
+						Regex:           new(string("test_37")),
+						CaseInsensitive: false,
 					}),
-					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
-					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(41), End: telem.TimeStamp(42)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782a")},
+					Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782b")},
 				}),
 			}}),
 			Entry("status variant", v2.View{Variant: v2.StatusView{
@@ -103,6 +111,7 @@ var _ = Describe("Codec", func() {
 							Key:     new(filter.Set[status.Key]{}),
 							Variant: new(filter.Set[status.Variant]{}),
 							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+							Owners:  []resource.ID{{}},
 						},
 					},
 					Or: []status.Where{
@@ -112,7 +121,8 @@ var _ = Describe("Codec", func() {
 							Not:     new(status.Where{}),
 							Key:     new(filter.Set[status.Key]{}),
 							Variant: new(filter.Set[status.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810")},
+							Owners:  []resource.ID{{}},
 						},
 					},
 					Not: new(status.Where{
@@ -121,14 +131,16 @@ var _ = Describe("Codec", func() {
 						Not:     new(status.Where{}),
 						Key:     new(filter.Set[status.Key]{}),
 						Variant: new(filter.Set[status.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567818")},
+						Owners:  []resource.ID{{}},
 					}),
-					Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_24")), In: []string{"test_25"}}),
+					Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_27")), In: []string{"test_28"}}),
 					Variant: new(filter.Set[status.Variant]{
 						Eq: new(status.Variant("success")),
 						In: []status.Variant{status.Variant("success")},
 					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820")},
+					Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_35"}},
 				}),
 			}}),
 		)
@@ -148,6 +160,7 @@ func BenchmarkEncodeDecodeView(b *testing.B) {
 					Name:     new(filter.String{}),
 					Overlaps: new(telem.TimeRange{}),
 					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+					Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
 				},
 			},
 			Or: []ranger.Where{
@@ -158,7 +171,8 @@ func BenchmarkEncodeDecodeView(b *testing.B) {
 					Key:      new(filter.Set[ranger.Key]{}),
 					Name:     new(filter.String{}),
 					Overlaps: new(telem.TimeRange{}),
-					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+					Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813")},
 				},
 			},
 			Not: new(ranger.Where{
@@ -168,19 +182,24 @@ func BenchmarkEncodeDecodeView(b *testing.B) {
 				Key:      new(filter.Set[ranger.Key]{}),
 				Name:     new(filter.String{}),
 				Overlaps: new(telem.TimeRange{}),
-				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b")},
+				Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
 			}),
 			Key: new(filter.Set[ranger.Key]{
-				Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
-				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+				Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781f")},
 			}),
 			Name: new(filter.String{
-				Eq:    new(string("test_30")),
-				In:    []string{"test_31"},
-				Regex: new(string("test_32")),
+				Eq:              new(string("test_33")),
+				In:              []string{"test_34"},
+				Contains:        new(string("test_35")),
+				StartsWith:      new(string("test_36")),
+				Regex:           new(string("test_37")),
+				CaseInsensitive: false,
 			}),
-			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
-			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(41), End: telem.TimeStamp(42)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782a")},
+			Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782b")},
 		}),
 	}}
 	w := orc.NewWriter(0)
@@ -212,6 +231,7 @@ func FuzzDecodeView(f *testing.F) {
 						Name:     new(filter.String{}),
 						Overlaps: new(telem.TimeRange{}),
 						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+						Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
 					},
 				},
 				Or: []ranger.Where{
@@ -222,7 +242,8 @@ func FuzzDecodeView(f *testing.F) {
 						Key:      new(filter.Set[ranger.Key]{}),
 						Name:     new(filter.String{}),
 						Overlaps: new(telem.TimeRange{}),
-						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+						Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813")},
 					},
 				},
 				Not: new(ranger.Where{
@@ -232,19 +253,24 @@ func FuzzDecodeView(f *testing.F) {
 					Key:      new(filter.Set[ranger.Key]{}),
 					Name:     new(filter.String{}),
 					Overlaps: new(telem.TimeRange{}),
-					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b")},
+					Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
 				}),
 				Key: new(filter.Set[ranger.Key]{
-					Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
-					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+					Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781f")},
 				}),
 				Name: new(filter.String{
-					Eq:    new(string("test_30")),
-					In:    []string{"test_31"},
-					Regex: new(string("test_32")),
+					Eq:              new(string("test_33")),
+					In:              []string{"test_34"},
+					Contains:        new(string("test_35")),
+					StartsWith:      new(string("test_36")),
+					Regex:           new(string("test_37")),
+					CaseInsensitive: false,
 				}),
-				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
-				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(41), End: telem.TimeStamp(42)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782a")},
+				Parents:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782b")},
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -265,6 +291,7 @@ func FuzzDecodeView(f *testing.F) {
 						Key:     new(filter.Set[status.Key]{}),
 						Variant: new(filter.Set[status.Variant]{}),
 						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+						Owners:  []resource.ID{{}},
 					},
 				},
 				Or: []status.Where{
@@ -274,7 +301,8 @@ func FuzzDecodeView(f *testing.F) {
 						Not:     new(status.Where{}),
 						Key:     new(filter.Set[status.Key]{}),
 						Variant: new(filter.Set[status.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810")},
+						Owners:  []resource.ID{{}},
 					},
 				},
 				Not: new(status.Where{
@@ -283,14 +311,16 @@ func FuzzDecodeView(f *testing.F) {
 					Not:     new(status.Where{}),
 					Key:     new(filter.Set[status.Key]{}),
 					Variant: new(filter.Set[status.Variant]{}),
-					Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+					Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567818")},
+					Owners:  []resource.ID{{}},
 				}),
-				Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_24")), In: []string{"test_25"}}),
+				Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_27")), In: []string{"test_28"}}),
 				Variant: new(filter.Set[status.Variant]{
 					Eq: new(status.Variant("success")),
 					In: []status.Variant{status.Variant("success")},
 				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820")},
+				Owners: []resource.ID{{Type: resource.Type("arc"), Key: "test_35"}},
 			}),
 		}}
 		w := orc.NewWriter(0)

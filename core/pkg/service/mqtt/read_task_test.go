@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -101,7 +102,7 @@ var _ = Describe("Read task", func() {
 	// start configures and starts a new read task, and waits for its subscriptions.
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 		run(ctx, t)
 		return t
 	}
@@ -308,7 +309,7 @@ var _ = Describe("Read task", func() {
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				entry := stampedEntry("plant/line7", idx, data[0])
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, entry))
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(dev, entry))
 				first := run(ctx, t)
 				broker.publish("plant/line7", `{"ts":10,"v":1}`, false)
 				broker.publish("plant/line7", `{"ts":20,"v":2}`, true)
@@ -328,16 +329,12 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
-		DescribeTable("Should skip a retained message that the stored data holds when "+
-			"another Core holds an index with no data",
-			func(ctx SpecContext, dataOnPeer bool) {
-				full, empty := host, peer
-				if dataOnPeer {
-					full, empty = peer, host
-				}
-				idx, data := createIndexedOn(ctx, full, telem.Float64T)
-				emptyIdx, emptyData := createIndexedOn(ctx, empty, telem.Float64T)
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+		It("Should skip a retained message that the stored data holds when another "+
+			"index has no data",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, telem.Float64T)
+				emptyIdx, emptyData := createIndexed(ctx, telem.Float64T)
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 					dev,
 					stampedEntry("plant/line8", idx, data[0]),
 					stampedEntry("plant/line9", emptyIdx, emptyData[0]),
@@ -357,8 +354,6 @@ var _ = Describe("Read task", func() {
 					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 			},
-			Entry("with the data on the host", false),
-			Entry("with the data on a peer", true),
 		)
 	})
 
@@ -437,14 +432,14 @@ var _ = Describe("Read task", func() {
 					configure(
 						ctx,
 						factory,
-						newTask(rackKey, mqtt.ReadTaskType, readConfig(
+						newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 							dev, plainEntry("plant/a", field("v", ch, "")),
 						)),
 					),
 					configure(
 						ctx,
 						factory,
-						newTask(rackKey, mqtt.ReadTaskType, readConfig(
+						newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 							otherDev, plainEntry("plant/b", field("v", ch, "")),
 						)),
 					),
@@ -533,9 +528,14 @@ var _ = Describe("Read task", func() {
 				_, data := createIndexed(ctx, telem.Float64T)
 				port := broker.port
 				broker.stop()
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, plainEntry(
-					"plant/line8", field("v", data[0], ""),
-				)))
+				t := newTask(
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(dev, plainEntry(
+						"plant/line8", field("v", data[0], ""),
+					)),
+				)
 				configured := configure(ctx, factory, t)
 				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -572,14 +572,24 @@ var _ = Describe("Read task", func() {
 					port:    port,
 					refused: []string{"plant/denied"},
 				})
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, plainEntry(
-					"plant/denied", field("v", data[0], ""),
-				)))
+				t := newTask(
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(dev, plainEntry(
+						"plant/denied", field("v", data[0], ""),
+					)),
+				)
 				configured := configure(ctx, factory, t)
 				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(MatchError(ContainSubstring(
-						"the broker refused the subscription to plant/denied",
-					)))
+					To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
+					"the broker refused the subscription to plant/denied",
+				))
+				Expect(stat.Details.Cmd).To(Equal("start"))
 			},
 		)
 
@@ -615,7 +625,7 @@ var _ = Describe("Read task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(message)),
@@ -655,7 +665,9 @@ var _ = Describe("Read task", func() {
 						Make:     "ni",
 						Model:    "9205",
 					}
-					Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return deviceSvc.NewWriter(tx).Create(ctx, &other)
+					})).To(Succeed())
 					return msgpack.EncodedJSON{"device": other.Key},
 						"device: Card is not an MQTT broker"
 				},
@@ -806,7 +818,7 @@ var _ = Describe("Read task", func() {
 
 		It("Should not handle a task type of another integration",
 			func(ctx SpecContext) {
-				t := newTask(rackKey, "opc_read", msgpack.EncodedJSON{})
+				t := newTask(ctx, rackKey, "opc_read", msgpack.EncodedJSON{})
 				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(driver.ErrTaskNotHandled))
 			},
@@ -818,7 +830,7 @@ var _ = Describe("Read task", func() {
 			_, data := createIndexed(ctx, telem.Float64T)
 			cfg := readConfig(dev, plainEntry("plant/auto", field("v", data[0], "")))
 			cfg["auto_start"] = true
-			t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 			configured := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())

@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
 
@@ -36,20 +35,17 @@ class ArcClient(ResourceClient):
     def _get_controls(self) -> Locator:
         """Get the Arc editor controls locator.
 
-        Returns:
-            Locator for the Arc editor controls section.
+        :returns: Locator for the Arc editor controls section.
         """
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str) -> None:
         """Create a new Arc automation via Console UI.
 
-        Args:
-            name: The name for the new Arc automation.
-            source: The source code/content for the Arc.
-            mode: The Arc mode, either "Text" or "Diagram". Defaults to "Text".
+        :param name: The name for the new Arc automation.
+        :param source: The source code for the Arc.
         """
         self._show_arc_panel()
 
@@ -60,26 +56,17 @@ class ArcClient(ResourceClient):
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 
-        mode_btn = self.layout.page.locator(
-            f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
-        )
-        mode_btn.wait_for(state="visible", timeout=5000)
-        mode_btn.click()
-
         create_btn = self.layout.page.get_by_role("button", name="Create", exact=True)
         create_btn.wait_for(state="visible", timeout=5000)
         create_btn.click()
         name_input.wait_for(state="hidden", timeout=10000)
 
-        if mode == "Text":
-            editor = self.layout.page.locator("[data-mode-id='arc']")
-            editor.wait_for(state="visible", timeout=10000)
-            editor.click()
-            editor.locator(".cursor").wait_for(state="visible", timeout=5000)
-            editor.locator(".monaco-editor.focused").wait_for(
-                state="visible", timeout=5000
-            )
-            self._paste_source(editor, source)
+        editor = self.layout.page.locator("[data-mode-id='arc']")
+        editor.wait_for(state="visible", timeout=10000)
+        editor.click()
+        editor.locator(".cursor").wait_for(state="visible", timeout=5000)
+        editor.locator(".monaco-editor.focused").wait_for(state="visible", timeout=5000)
+        self._paste_source(editor, source)
 
     def _paste_source(self, editor: Locator, source: str, max_retries: int = 3) -> None:
         """Paste source code into the Monaco editor with retry on failure.
@@ -111,11 +98,8 @@ class ArcClient(ResourceClient):
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name.
 
-        Args:
-            name: The name of the Arc to find.
-
-        Returns:
-            Locator for the Arc item, or None if not found.
+        :param name: The name of the Arc to find.
+        :returns: Locator for the Arc item, or None if not found.
         """
         self._show_arc_panel()
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
@@ -127,12 +111,9 @@ class ArcClient(ResourceClient):
     def wait_for_item(self, name: str) -> Locator:
         """Wait for an Arc item to appear in the panel by name.
 
-        Args:
-            name: The name of the Arc to wait for.
-            timeout: Maximum time to wait in milliseconds.
-
-        Returns:
-            Locator for the Arc item.
+        :param name: The name of the Arc to wait for.
+        :param timeout: Maximum time to wait in milliseconds.
+        :returns: Locator for the Arc item.
         """
         self._show_arc_panel()
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
@@ -146,14 +127,9 @@ class ArcClient(ResourceClient):
         Waits for the item to appear, since the panel's list loads
         asynchronously and may be empty when first opened.
 
-        Args:
-            name: The name of the Arc to get.
-
-        Returns:
-            Locator for the Arc item.
-
-        Raises:
-            ValueError: If the Arc does not appear in the panel before timeout.
+        :param name: The name of the Arc to get.
+        :returns: Locator for the Arc item.
+        :raises ValueError: If the Arc does not appear in the panel before timeout.
         """
         self._show_arc_panel()
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
@@ -167,8 +143,7 @@ class ArcClient(ResourceClient):
     def open(self, name: str) -> None:
         """Open an Arc by double-clicking its item in the panel.
 
-        Args:
-            name: The name of the Arc to open.
+        :param name: The name of the Arc to open.
         """
         self._show_arc_panel()
         item = self.get_item(name)
@@ -180,8 +155,7 @@ class ArcClient(ResourceClient):
     def select_rack(self, rack_name: str) -> None:
         """Select a rack from the rack dropdown in the Arc editor controls.
 
-        Args:
-            rack_name: The name of the rack to select.
+        :param rack_name: The name of the rack to select.
         """
         controls = self._get_controls()
         rack_select = controls.locator(".console-rack-select")
@@ -234,11 +208,8 @@ class ArcClient(ResourceClient):
     def wait_for_status(self, substr: str) -> str:
         """Wait for the status bar to contain a specific substring.
 
-        Args:
-            substr: The substring to wait for in the status message.
-
-        Returns:
-            The full status message text.
+        :param substr: The substring to wait for in the status message.
+        :returns: The full status message text.
         """
         controls = self._get_controls()
         msg = controls.locator(
@@ -263,8 +234,7 @@ class ArcClient(ResourceClient):
     def is_running(self) -> bool:
         """Check if the Arc is currently running by looking for the stop button.
 
-        Returns:
-            True if the Arc is running (stop button visible), False otherwise.
+        :returns: True if the Arc is running (stop button visible), False otherwise.
         """
         self._show_arc_panel()
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
@@ -281,9 +251,8 @@ class ArcClient(ResourceClient):
         is currently running, a confirmation dialog will appear warning that the
         Arc will be stopped and reconfigured.
 
-        Args:
-            old_name: The current name of the Arc.
-            new_name: The new name for the Arc.
+        :param old_name: The current name of the Arc.
+        :param new_name: The new name for the Arc.
         """
         self._show_arc_panel()
         item = self.get_item(old_name)
@@ -302,8 +271,7 @@ class ArcClient(ResourceClient):
     def delete(self, name: str) -> None:
         """Delete an Arc via context menu.
 
-        Args:
-            name: The name of the Arc to delete.
+        :param name: The name of the Arc to delete.
         """
         self._show_arc_panel()
         item = self.get_item(name)
@@ -317,8 +285,7 @@ class ArcClient(ResourceClient):
     def open_graph(self, name: str) -> None:
         """Open a graph-mode Arc, waiting on the canvas rather than the text editor.
 
-        Args:
-            name: The name of the Arc to open.
+        :param name: The name of the Arc to open.
         """
         self._show_arc_panel()
         self.get_item(name).dblclick()
@@ -347,8 +314,7 @@ class ArcClient(ResourceClient):
     def select_stage_group(self, name: str) -> None:
         """Select a stage group by name.
 
-        Args:
-            name: The group's label, e.g. "Telemetry".
+        :param name: The group's label, e.g. "Telemetry".
         """
         self._stage_groups().get_by_role("button", name=name, exact=True).click()
 

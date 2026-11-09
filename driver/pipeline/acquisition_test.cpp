@@ -253,7 +253,7 @@ TEST(AcquisitionPipeline, DoesNotReopenWriterOnUnauthorizedWrite) {
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
     ASSERT_FALSE(pipeline.stop());
     ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
-    ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
+    ASSERT_OCCURRED_AS(source->stopped_err, x::errors::UNAUTHORIZED);
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
@@ -310,7 +310,7 @@ TEST(AcquisitionPipeline, StopsAndReportsCriticalReadError) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
     ASSERT_FALSE(pipeline.stop());
-    ASSERT_EQ(source->stopped_err, critical_error);
+    ASSERT_OCCURRED_AS(source->stopped_err, critical_error);
     ASSERT_EQ(writes->size(), 0);
 }
 
@@ -404,7 +404,7 @@ TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
     pipeline.start();
     ASSERT_EVENTUALLY_TRUE(source->read_called.load());
     pipeline.stop();
-    ASSERT_EQ(source->stopped_err, x::errors::NIL);
+    ASSERT_NIL(source->stopped_err);
 }
 
 class AuthoritySource final : public Source {

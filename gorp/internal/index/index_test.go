@@ -10,6 +10,7 @@
 package index_test
 
 import (
+	"cmp"
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,8 +30,6 @@ type engine interface {
 	StageDelete(s *scope, key int)
 	Get(s *scope, values ...string) ([]int, error)
 	Committing(values ...string) []int
-	Announce(key int, value string) uint64
-	Withdraw(handle uint64)
 }
 
 // populated returns an index loaded with key 1 -> a, 2 -> a, and 3 -> b.
@@ -46,10 +45,31 @@ func populated(newEngine func() engine) engine {
 
 var errLoad = errors.New("load failed")
 
+// singleValue runs a Multi through the engine specs, with one value for each key.
+type singleValue struct {
+	*index.Multi[*scope, int, string]
+}
+
+func (m singleValue) Populate() (func(int, string), func(error)) {
+	insert, finish := m.Multi.Populate()
+	return func(k int, v string) { insert(k, []string{v}) }, finish
+}
+
+func (m singleValue) Set(key int, value string) { m.Multi.Set(key, []string{value}) }
+
+func (m singleValue) Stage(s *scope, key int, value string) {
+	m.Multi.Stage(s, key, []string{value})
+}
+
 var _ = Describe("Index", func() {
 	engines := map[string]func() engine{
 		"Lookup": func() engine { return index.NewLookup[*scope, int, string]() },
-		"Sorted": func() engine { return index.NewSorted[*scope, int, string]() },
+		"Sorted": func() engine {
+			return index.NewSorted[*scope, int, string](cmp.Compare[int])
+		},
+		"Multi": func() engine {
+			return singleValue{index.NewMulti[*scope, int, string]()}
+		},
 	}
 	for name, newEngine := range engines {
 		Describe(name, func() {
@@ -79,6 +99,17 @@ var _ = Describe("Index", func() {
 					ctx, cancel := context.WithCancel(context.Background())
 					cancel()
 					Expect(e.Wait(ctx)).To(MatchError(context.Canceled))
+				})
+
+				It("Should return the load result from Wait after ctx ends", func() {
+					e := newEngine()
+					_, finish := e.Populate()
+					finish(errLoad)
+					ctx, cancel := context.WithCancel(context.Background())
+					cancel()
+					for range 20 {
+						Expect(e.Wait(ctx)).To(MatchError(errLoad))
+					}
 				})
 
 				It(
@@ -191,33 +222,6 @@ var _ = Describe("Index", func() {
 					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
 				})
 
-				It("Should return an announced key until it is withdrawn", func() {
-					handle := e.Announce(1, "c")
-					Expect(e.Committing("c")).To(ConsistOf(1))
-					Expect(e.Committing("a")).To(BeEmpty())
-					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
-					Expect(e.Get(nil, "c")).To(BeEmpty())
-					e.Withdraw(handle)
-					Expect(e.Committing("c")).To(BeEmpty())
-				})
-
-				It("Should withdraw one announce of a key at a time", func() {
-					first := e.Announce(1, "c")
-					second := e.Announce(1, "c")
-					e.Withdraw(first)
-					Expect(e.Committing("c")).To(ConsistOf(1))
-					e.Withdraw(second)
-					Expect(e.Committing("c")).To(BeEmpty())
-				})
-
-				It("Should keep the announce of another value of a key", func() {
-					e.Announce(1, "c")
-					handle := e.Announce(1, "d")
-					e.Withdraw(handle)
-					Expect(e.Committing("c")).To(ConsistOf(1))
-					Expect(e.Committing("d")).To(BeEmpty())
-				})
-
 				It("Should drop committing keys when the commit fails", func() {
 					e.Stage(txn, 4, "a")
 					txn.committing = true
@@ -231,8 +235,16 @@ var _ = Describe("Index", func() {
 
 	Describe("Sorted walk", func() {
 		var s *index.Sorted[*scope, int, int]
+		type entry = index.Entry[int, int]
+		keys := func(entries []entry) []int {
+			out := make([]int, len(entries))
+			for i, e := range entries {
+				out[i] = e.Key
+			}
+			return out
+		}
 		BeforeEach(func() {
-			s = index.NewSorted[*scope, int, int]()
+			s = index.NewSorted[*scope, int, int](cmp.Compare[int])
 			insert, finish := s.Populate()
 			for _, k := range []int{5, 3, 1, 4, 2} {
 				insert(k, k*10)
@@ -241,16 +253,23 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should walk in ascending value order", func() {
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
 		})
 
 		It("Should walk in descending value order", func() {
-			Expect(s.Walk(true, nil, 0)).To(Equal([]int{5, 4, 3, 2, 1}))
+			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 3, 2, 1}))
+		})
+
+		It("Should return the value of each entry", func() {
+			Expect(s.Walk(false, nil, 2)).To(Equal([]entry{
+				{Key: 1, Value: 10},
+				{Key: 2, Value: 20},
+			}))
 		})
 
 		It("Should stop at the limit", func() {
-			Expect(s.Walk(false, nil, 2)).To(Equal([]int{1, 2}))
-			Expect(s.Walk(true, nil, 2)).To(Equal([]int{5, 4}))
+			Expect(keys(s.Walk(false, nil, 2))).To(Equal([]int{1, 2}))
+			Expect(keys(s.Walk(true, nil, 2))).To(Equal([]int{5, 4}))
 		})
 
 		It("Should return nil for a negative limit", func() {
@@ -258,41 +277,94 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should resume strictly past the cursor", func() {
-			after := 20
-			Expect(s.Walk(false, &after, 2)).To(Equal([]int{3, 4}))
-			Expect(s.Walk(true, &after, 0)).To(Equal([]int{1}))
+			after := entry{Key: 2, Value: 20}
+			Expect(keys(s.Walk(false, &after, 2))).To(Equal([]int{3, 4}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{1}))
+		})
+
+		It("Should resume past a cursor that names no entry", func() {
+			after := entry{Key: 9, Value: 25}
+			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{3, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{2, 1}))
+		})
+
+		It("Should order entries with equal values by key", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 3, 7, 4, 5}))
+			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 7, 3, 0, 2, 1}))
+		})
+
+		It("Should resume between entries with equal values", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			after := entry{Key: 3, Value: 30}
+			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{7, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{0, 2, 1}))
 		})
 
 		It("Should keep value order through committed writes", func() {
 			s.Set(1, 35)
 			s.Set(6, 0)
 			s.Delete(4)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{6, 2, 3, 1, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 1, 5}))
+		})
+
+		It("Should remove the moved entry among equal values", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			s.Set(3, 45)
+			s.Delete(7)
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 4, 3, 5}))
 		})
 
 		It("Should not see staged changes", func() {
 			txn := &scope{}
 			s.Stage(txn, 6, 0)
 			s.StageDelete(txn, 1)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
 			txn.end(true)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{6, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 4, 5}))
 		})
 
 		It("Should return nil when the load failed", func() {
-			failed := index.NewSorted[*scope, int, int]()
+			failed := index.NewSorted[*scope, int, int](cmp.Compare[int])
 			insert, finish := failed.Populate()
 			insert(2, 20)
 			insert(1, 10)
 			finish(errLoad)
 			Expect(failed.Walk(false, nil, 0)).To(BeNil())
+			Expect(failed.Order([]int{1, 2}, false, nil)).To(BeNil())
 		})
 
 		It("Should return nil for an empty index", func() {
-			empty := index.NewSorted[*scope, int, int]()
+			empty := index.NewSorted[*scope, int, int](cmp.Compare[int])
 			_, finish := empty.Populate()
 			finish(nil)
 			Expect(empty.Walk(false, nil, 0)).To(BeNil())
+		})
+
+		Describe("Order", func() {
+			It("Should order the given keys as a walk does", func() {
+				s.Set(0, 30)
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, nil))).
+					To(Equal([]int{1, 0, 3, 5}))
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, true, nil))).
+					To(Equal([]int{5, 3, 0, 1}))
+			})
+
+			It("Should drop keys that the index does not hold", func() {
+				Expect(keys(s.Order([]int{9, 2, 8}, false, nil))).To(Equal([]int{2}))
+			})
+
+			It("Should start strictly past the cursor", func() {
+				s.Set(0, 30)
+				after := entry{Key: 0, Value: 30}
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, &after))).
+					To(Equal([]int{3, 5}))
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, true, &after))).
+					To(Equal([]int{1}))
+			})
 		})
 	})
 })

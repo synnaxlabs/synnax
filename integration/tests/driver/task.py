@@ -124,11 +124,10 @@ def send_and_verify_commands(
     Automatically detects whether command channels are indexed (non-virtual)
     and includes timestamp writes for their index channels.
 
-    Args:
-        command_values: Two lists of values to send in each round, one value per
-            command key. If None, defaults to [42+i, ...] and [100+i, ...].
-        task_key: If set, also streams ``sy_status_set`` and fails if the
-            driver emits any warning or error status for this task.
+    :param command_values: Two lists of values to send in each round, one value per
+        command key. If None, defaults to [42+i, ...] and [100+i, ...].
+    :param task_key: If set, also streams ``sy_status_set`` and fails if the driver
+        emits any warning or error status for this task.
     """
     if command_values is None:
         command_values = [
@@ -216,7 +215,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)
+            sy.sleep(2)  # noqa: TID251 retry backoff
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -262,10 +261,10 @@ def run_and_expect_rejection(
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != sy.task.resource_id(task.key):
                         continue
                     if status.variant in ("warning", "error"):
-                        return _status_text(status)
+                        return status_text(status)
         finally:
             internal.execute_command("stop")
     return None
@@ -283,6 +282,17 @@ def assert_configure_rejected(
         return str(e)
     cleanup_task(client, task)
     raise AssertionError(f"Configure did not reject {label}")
+
+
+def assert_create_refused(client: sy.Synnax, task: sy.task.Protocol, label: str) -> str:
+    """Save a task and assert the Core refuses it with a validation error. Returns the
+    refusal message."""
+    try:
+        client.tasks.configure(task)
+    except sy.ValidationError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Core did not refuse {label}")
 
 
 def assert_start_rejected(
@@ -318,14 +328,14 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
                 status = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
-            if status.details is None or status.details.task != task_key:
+            if status.owner != sy.task.resource_id(task_key):
                 continue
             if status.variant in ("warning", "error"):
-                errors.append(f"{status.variant}: {_status_text(status)}")
+                errors.append(f"{status.variant}: {status_text(status)}")
     return errors
 
 
-def _status_text(status: sy.task.Status) -> str:
+def status_text(status: sy.task.Status) -> str:
     """Join the message and description of a status."""
     return ": ".join(part for part in (status.message, status.description) if part)
 
@@ -434,7 +444,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)
+    sy.sleep(duration.seconds)  # noqa: TID251 fixed sample window
     return start
 
 
@@ -508,7 +518,8 @@ class TaskCase(TestCase, Generic[TaskT]):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
-    Subclasses must set task_name and device_name as class attributes.
+    Subclasses must set task_name, and device_name unless they override
+    retrieve_device.
     """
 
     task_name: str
@@ -517,6 +528,8 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
+    COMMAND_TIMEOUT: sy.TimeSpan = 5 * sy.TimeSpan.SECOND
+    """How long a start or stop waits for the Driver to acknowledge it."""
 
     @abstractmethod
     def create(
@@ -529,14 +542,15 @@ class TaskCase(TestCase, Generic[TaskT]):
     ) -> TaskT:
         """Factory method to create protocol-specific task."""
 
+    def retrieve_device(self) -> sy.Device:
+        """Return the device that the task reads from or writes to."""
+        return self.client.devices.retrieve(name=self.device_name)
+
     def setup(self) -> None:
         """Create and configure task."""
-        # Get device
-        device = self.client.devices.retrieve(name=self.device_name)
-
         # Create task using child implementation
         self.tsk = self.create(
-            device=device,
+            device=self.retrieve_device(),
             task_name=self.task_name,
             sample_rate=self.SAMPLE_RATE,
             stream_rate=self.STREAM_RATE,
@@ -691,7 +705,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         channel_keys = self._channel_keys(self.tsk)
         ch = self.client.channels.retrieve(channel_keys[0])
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -729,7 +743,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             sample_rate = config.sample_rate
             frame_size = int(config.sample_rate / config.stream_rate)
             checks = [channel_keys]
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             start = collect_samples(
                 self.client, channel_keys, duration=duration, frame_size=frame_size
             )
@@ -752,7 +766,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         """Assert that no samples are persisted while the task is running."""
         channel_keys = self._channel_keys(task)
 
-        with task.run():
+        with task.run(timeout=self.COMMAND_TIMEOUT):
             with self.client.open_streamer(channel_keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -760,7 +774,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
+            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
@@ -803,7 +817,7 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
         self.log("Testing: Send commands")
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
@@ -831,7 +845,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 f"Expected: {new_name}, Actual: {retrieved.name}"
             )
 
-        with self.tsk.run():
+        with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),

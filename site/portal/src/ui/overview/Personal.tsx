@@ -17,13 +17,14 @@ import { type Invited } from "@/server/invitation";
 import { type Machine } from "@/server/license/desktop";
 import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
-import { date, machineName, statusOf } from "@/ui/format";
+import { machineName, statusOf } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { DOWNLOAD_URL } from "@/ui/links";
 import { Page, Section } from "@/ui/Page";
 import { Panel } from "@/ui/Panel";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 /** RECENT is how many machines the overview shows before linking to Devices. */
 const RECENT = 3;
@@ -114,36 +115,39 @@ interface RecentProps {
   now: Date;
 }
 
-const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
-  <Section
-    title="Recent devices"
-    actions={
-      <Button.Button variant="text" textColor={9} href={devices}>
-        View all
+const Recent = ({ machines, devices, now }: RecentProps): ReactElement => {
+  const clock = useClock();
+  return (
+    <Section
+      title="Recent devices"
+      actions={
+        <Button.Button variant="text" textColor={9} href={devices}>
+          View all
+        </Button.Button>
+      }
+    >
+      <Table columns={COLUMNS} head={["Machine", "Status", "Last renewal", ""]}>
+        {machines.slice(0, RECENT).map(({ activation: a, license: lic }) => (
+          <Row key={a.key} columns={COLUMNS}>
+            <Text.Text level="p" overflow="fade">
+              {machineName(a)}
+            </Text.Text>
+            <Flex.Box>
+              <Licenses.StatusTag status={statusOf(lic, now)} />
+            </Flex.Box>
+            <Text.Text level="p" color={9}>
+              {clock.date(a.lastSeen)}
+            </Text.Text>
+            <Flex.Box justify="end">
+              <Devices.LogOutDialog activation={a} />
+            </Flex.Box>
+          </Row>
+        ))}
+      </Table>
+      <Button.Button variant="text" size="small" textColor={9} href={DOWNLOAD_URL}>
+        <Icon.Download />
+        Download Synnax Desktop for another machine
       </Button.Button>
-    }
-  >
-    <Table columns={COLUMNS} head={["Machine", "Status", "Last renewal", ""]}>
-      {machines.slice(0, RECENT).map(({ activation: a, license: lic }) => (
-        <Row key={a.key} columns={COLUMNS}>
-          <Text.Text level="p" overflow="fade">
-            {machineName(a)}
-          </Text.Text>
-          <Flex.Box>
-            <Licenses.StatusTag status={statusOf(lic, now)} />
-          </Flex.Box>
-          <Text.Text level="p" color={9}>
-            {date(a.lastSeen)}
-          </Text.Text>
-          <Flex.Box justify="end">
-            <Devices.LogOutDialog activation={a} />
-          </Flex.Box>
-        </Row>
-      ))}
-    </Table>
-    <Button.Button variant="text" size="small" textColor={9} href={DOWNLOAD_URL}>
-      <Icon.Download />
-      Download Synnax Desktop for another machine
-    </Button.Button>
-  </Section>
-);
+    </Section>
+  );
+};

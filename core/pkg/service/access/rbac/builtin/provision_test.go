@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -32,19 +30,12 @@ var _ = Describe("Provision", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB: db,
 		}))
 		policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB:   db,
+			Role: roleSvc,
 		}))
 	})
 	provision := func(ctx context.Context) builtin.ProvisionResult {
@@ -57,7 +48,7 @@ var _ = Describe("Provision", func() {
 		Expect(roleSvc.NewRetrieve().
 			Where(role.MatchKeys(key)).
 			Entry(&r).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return r
 	}
 
@@ -77,7 +68,7 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchNames("Driver Edit Access")).
 			Entry(&edit).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewUpdate[role.Key, role.Role]().
 			Where(gorp.MatchKeys[role.Key, role.Role](first.DriverKey)).
 			Change(func(_ gorp.Context, r role.Role) role.Role {
@@ -97,13 +88,15 @@ var _ = Describe("Provision", func() {
 		Expect(policySvc.NewRetrieve().
 			Where(policy.MatchKeys(edit.Key)).
 			Entry(&renamed).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Driver Edit Access"))
 	})
 
 	It("Should leave a custom role named Driver alone", func(ctx SpecContext) {
 		custom := role.Role{Name: "Driver", Description: "custom"}
-		Expect(roleSvc.NewWriter(nil, false).Create(ctx, &custom)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return roleSvc.NewWriter(tx, false).Create(ctx, &custom)
+		})).To(Succeed())
 		result := provision(ctx)
 		Expect(result.DriverKey).ToNot(Equal(custom.Key))
 		Expect(retrieveRole(ctx, custom.Key).Description).To(Equal("custom"))

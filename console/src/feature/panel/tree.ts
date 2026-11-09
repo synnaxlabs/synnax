@@ -7,17 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel } from "@synnaxlabs/client";
+import { panel } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 
 import { renderIcon } from "@/feature/panel/icon";
+import { type Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
 const appearanceZ = panel.panelZ.pick({ icon: true, color: true });
 
-// The panel's ontology resource carries the panel, so the tree item needs no retrieve.
-const icon = (resource: ontology.Resource): Icon.ReactElement =>
+// The panel's tree resource carries the panel, so the tree item needs no retrieve.
+const icon = (resource: Tree.Resource): Icon.ReactElement =>
   renderIcon(appearanceZ.parse(resource.data ?? {}));
+
+/** Lists the panels that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "panel",
+  children: (client, key) =>
+    Tree.createSource(client.panels, { groups: [key] }, Tree.toResource("panel")),
+};
 
 const TreeItem = Tree.createItem({ type: "panel", icon });
 

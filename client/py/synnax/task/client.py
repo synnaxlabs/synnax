@@ -12,8 +12,15 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload, override
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Protocol as BaseProtocol,
+    TypeVar,
+    overload,
+    override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -21,30 +28,30 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import rack as rack_
-from synnax.device import Client as DeviceClient
-from synnax.device import Device
-from synnax.exceptions import NotFoundError
-from synnax.framer import Client as FrameClient
-from synnax.framer import Frame
-from synnax.ontology.payload import ID
-from synnax.rack import Client as RackClient
-from synnax.rack import Rack
+from synnax import device as device_, framer, rack as rack_, ranger
+from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_INFO, VARIANT_LOADING, VARIANT_SUCCESS
 from synnax.task.types_gen import (
     Command,
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     RetrieveResponse,
     Status,
     Where,
-    ontology_id,
+    WhereInput,
+    resource_id,
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
-from x import filter, lists
-from x.lists import all_none
+from synnax.util import request_where, returns_one, sole
+from x import filter
 from x.timing import Timer
+
+# synnax.arc imports synnax.task at load time.
+if TYPE_CHECKING:
+    from synnax import arc
 
 
 class _CreateRequest(BaseModel):
@@ -67,6 +74,7 @@ class _CopyRequest(BaseModel):
     key: Key
     name: str
     snapshot: bool
+    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -101,20 +109,20 @@ def assign_keys(records: Iterable[_Keyed]) -> None:
 
 class Task:
     key: Key
-    rack: int
+    rack: rack_.Key
     name: str
     type: str
     config: Mapping[str, object]
     config_hash: str
     snapshot: bool
     status: Status | None
-    _cached_frame_client: FrameClient | None
+    _cached_frame_client: framer.Client | None
 
     def __init__(
         self,
         *,
         key: Key | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | None = None,
@@ -122,7 +130,7 @@ class Task:
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
-        _frame_client: FrameClient | None = None,
+        _frame_client: framer.Client | None = None,
     ):
         self.key = uuid4() if key is None else key
         self.rack = rack
@@ -136,7 +144,7 @@ class Task:
         self._cached_frame_client = _frame_client
 
     @property
-    def _frame_client(self) -> FrameClient:
+    def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or "
@@ -164,18 +172,19 @@ class Task:
         self._cached_frame_client = task._cached_frame_client
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         Default implementation for base Task class does nothing and returns None.
         Tasks that need to update device properties (LabJack, Modbus, OPC UA)
         should override this method in their respective classes.
 
-        Returns:
-            None - base implementation performs no updates.
+        :returns: None - base implementation performs no updates.
         """
         return None
 
@@ -187,7 +196,7 @@ class Task:
 
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
-        :return: The unique key assigned to the command.
+        :returns: The unique key assigned to the command.
         """
         w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
@@ -222,7 +231,7 @@ class Task:
         while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
-        rack_key = str(rack_.ontology_id(self.rack)) if self.rack != 0 else None
+        rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
             timer = Timer()
@@ -233,7 +242,7 @@ class Task:
                 # must not renew it.
                 remaining = span - timer.elapsed()
                 if acknowledged:
-                    frame: Frame | None = s.read()
+                    frame: framer.Frame | None = s.read()
                 elif remaining > TimeSpan.ZERO:
                     frame = s.read(timeout=remaining)
                 else:
@@ -253,41 +262,36 @@ class Task:
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
-                        # The status channel carries statuses for all tasks and
-                        # racks. Rack statuses have a different schema, so
-                        # validation failures are expected and should be skipped.
-                        _raise_if_rack_down(sample, rack_key)
+                        # The channel carries every status in the cluster, and a status
+                        # that no task owns can carry other details.
                         continue
-                    if status.details is None or status.details.cmd != key:
-                        continue
-                    if status.variant != VARIANT_LOADING:
-                        return status
-                    acknowledged = True
+                    if status.details is not None and status.details.cmd == key:
+                        if status.variant != VARIANT_LOADING:
+                            return status
+                        acknowledged = True
+                    elif rack_id is not None and status.owner == rack_id:
+                        _raise_if_rack_down(status)
 
 
-def _raise_if_rack_down(sample: object, rack_key: str | None) -> None:
-    """Raises the status of the rack as an error when it reports that its Driver is
-    down. A down Driver never replies, so its rack's problem ends the wait.
+def _raise_if_rack_down(rack_status: Status) -> None:
+    """Raises a rack status as an error when it reports that the Driver of the rack
+    is down. A down Driver never replies, so the status ends the wait.
     """
-    if rack_key is None:
+    if rack_status.variant in _HEALTHY_RACK_VARIANTS:
         return
-    try:
-        rack_status = rack_.Status.model_validate(sample)
-    except ValidationError:
-        return
-    if rack_status.key != rack_key or rack_status.variant in _HEALTHY_RACK_VARIANTS:
-        return
-    raise _status_error(rack_status.message, rack_status.description)
+    raise _status_error(rack_status)
 
 
 def _raise_if_failed(status: Status) -> None:
     """Raises the final status of a command as an error when the driver failed it."""
     if status.variant == VARIANT_ERROR:
-        raise _status_error(status.message, status.description)
+        raise _status_error(status)
 
 
-def _status_error(message: str, description: str) -> RuntimeError:
-    return RuntimeError(f"{message}: {description}" if description else message)
+def _status_error(status: Status) -> RuntimeError:
+    if status.description:
+        return RuntimeError(f"{status.message}: {status.description}")
+    return RuntimeError(status.message)
 
 
 class Protocol(BaseProtocol):
@@ -298,18 +302,17 @@ class Protocol(BaseProtocol):
 
     def set_internal(self, task: Task) -> None: ...
 
-    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
+    def update_device_properties(
+        self, device_client: device_.Client
+    ) -> device_.Device | None:
         """Update device properties before task configuration.
 
         This method can be overridden by tasks that need to synchronize
         their configuration with device properties (e.g., Modbus, OPC UA, LabJack).
         The default implementation does nothing.
 
-        Args:
-            device_client: Client for accessing device operations
-
-        Returns:
-            The updated device, or None if no update was performed.
+        :param device_client: Client for accessing device operations
+        :returns: The updated device, or None if no update was performed.
         """
         return None
 
@@ -388,19 +391,19 @@ class JSONConfigMixin[C: BaseModel](Protocol):
 
 class Client:
     _client: UnaryClient
-    _frame_client: FrameClient
-    _default_rack: Rack | None
-    _racks: RackClient
-    _device_client: DeviceClient
+    _frame_client: framer.Client
+    _default_rack: rack_.Rack | None
+    _racks: rack_.Client
+    _device_client: device_.Client
     instrumentation: Instrumentation = NOOP
 
     def __init__(
         self,
         *,
         client: UnaryClient,
-        frame_client: FrameClient,
-        rack_client: RackClient,
-        device_client: DeviceClient,
+        frame_client: framer.Client,
+        rack_client: rack_.Client,
+        device_client: device_.Client,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
@@ -418,7 +421,7 @@ class Client:
         name: str,
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
     ) -> Task: ...
 
     @overload
@@ -435,7 +438,7 @@ class Client:
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
-        rack: int = 0,
+        rack: rack_.Key = 0,
     ) -> Task | list[Task]:
         is_single = True
         json_config: dict[str, JsonValue] = (
@@ -465,7 +468,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: Payload, *, rack: int = 0) -> Payload:
+    def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
         if rack == 0:
@@ -510,114 +513,174 @@ class Client:
         self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
-
-    @overload
-    def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
-
-    @overload
-    def retrieve(self, *, type: str, include_status: bool = False) -> Task: ...
+    def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...
 
     @overload
     def retrieve(
         self,
         *,
-        where: Where | None = None,
-        keys: list[Key] | None = None,
-        names: list[str] | None = None,
-        types: list[str] | None = None,
-        search_term: str = "",
-        rack: int | None = None,
-        internal: bool | None = None,
-        snapshot: bool | None = None,
-        limit: int | None = None,
-        offset: int = 0,
-        include_status: bool = False,
+        key: Key,
+        name: filter.StringInput = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: filter.StringInput = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        types: list[str] | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: Literal[True],
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        name: list[str] | filter.StringDict | filter.String = ...,
+        type: filter.StringInput = ...,
+        rack: filter.SetInput[rack_.Key] = ...,
+        internal: filter.BoolInput = ...,
+        snapshot: filter.BoolInput = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        arcs: arc.Key | list[arc.Key] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        keys: list[Key] | None = ...,
+        names: list[str] | None = ...,
+        types: list[str] | None = ...,
+        search_term: str = ...,
+        limit: int | None = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
+        include_status: bool = ...,
+        one: Literal[False] = ...,
     ) -> list[Task]: ...
 
     def retrieve(
         self,
-        key: Key | None = None,
+        key: filter.SetInput[Key] | None = None,
         *,
-        name: str | None = None,
-        type: str | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
         search_term: str = "",
-        rack: int | None = None,
-        internal: bool | None = None,
-        snapshot: bool | None = None,
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
+        one: bool = False,
+        **fields: Any,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters. Returns one task when a key,
-        name, or type is given, and a list otherwise. A filter left as None does not
-        filter.
+        """Retrieves tasks from the Core. With no arguments, retrieves every task.
 
-        :param where: Keeps tasks that match this filter tree.
+        Each filter field takes a value, a list of values, or an operator, and a task
+        must match every field. A plain ``key``, by position or by keyword, or a plain
+        ``name`` returns one task.
+
+        :param key: Keeps tasks with this key.
+        :param name: Keeps tasks with this name.
+        :param type: Keeps tasks of this type.
+        :param rack: Keeps tasks on this rack.
+        :param internal: Keeps only internal tasks when true, or only user tasks when
+            false.
+        :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
+            false.
+        :param ranges: Keeps the snapshots in any of these ranges.
+        :param arcs: Keeps the tasks that run any of these Arcs.
+        :param and_: Keeps tasks that match every filter in the list.
+        :param or_: Keeps tasks that match any filter in the list.
+        :param not_: Keeps tasks that do not match the filter.
+        :param where: A filter tree that the tasks must also match.
+        :param keys: Keeps tasks with one of these keys.
+        :param names: Keeps tasks with one of these names.
+        :param types: Keeps tasks of one of these types.
         :param search_term: A fuzzy search term matched against task names.
-        :param rack: Only return tasks on the rack with this key.
-        :param internal: Only return internal tasks when true, or only user tasks when
-            false.
-        :param snapshot: Only return snapshot tasks when true, or only live tasks when
-            false.
-        :param limit: The maximum number of tasks to return.
-        :param offset: The number of tasks to skip.
+        :param limit: The maximum number of tasks to retrieve.
+        :param order: The order of the tasks. Defaults to key order.
+        :param after: Retrieves the tasks past this position in the order: the key of
+            the last task of the page before, and its value of the order field.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
-        :raises ValueError: If two singular selectors are given, or one is
-            combined with a list filter.
-        :raises NotFoundError: If a single task is requested and none matches.
+        :param one: Returns one task for any filter.
+        :returns: One task for a plain ``key`` or ``name`` or when ``one`` is set,
+            otherwise a list of tasks. The list leaves out keys that do not exist.
+        :raises NotFoundError: If one task is wanted and none matches.
+        :raises MultipleFoundError: If one task is wanted and more than one matches.
+        :raises ValidationError: If a filter field is None, or if one task is wanted
+            beside a limit or a cursor.
         """
-        is_single = not all_none(key, name, type)
-        if sum(v is not None for v in (key, name, type)) > 1:
-            raise ValueError("only one of key, name, and type can be given")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, types, rack, internal, snapshot, limit)
-        ):
-            raise ValueError(
-                "key, name, and type cannot be combined with list filters; use "
-                "keys, names, or types instead"
-            )
-        keys = lists.override(key, keys)
-        names = lists.override(name, names)
-        types = lists.override(type, types)
+        if key is not None:
+            fields["key"] = key
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
             type=None if types is None else filter.String(in_=types),
-            rack=None if rack is None else filter.Set[rack_.Key](eq=rack),
-            internal=None if internal is None else filter.Bool(eq=internal),
-            snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
-        sug = self.sugar(res.tasks)
-        if is_single and len(sug) == 0:
-            raise NotFoundError("Task not found")
-
-        # Warn if multiple tasks found when retrieving by name
-        if is_single and name is not None and len(sug) > 1:
-            task_keys = ", ".join(str(t.key) for t in sug)
-            warnings.warn(
-                f"Multiple tasks ({len(sug)}) found with name '{name}'. "
-                f"Keys: [{task_keys}]. Returning the first task ({sug[0].key}).",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        return sug[0] if is_single else sug
+        tasks = self.sugar(res.tasks)
+        return sole("task", req, tasks) if single else tasks
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [
@@ -636,12 +699,12 @@ class Client:
             for t in tasks
         ]
 
-    def list(self, rack: int | None = None) -> list[Task]:
+    def list(self, rack: rack_.Key | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
         default rack. Excludes internal system tasks (scanner tasks and rack state).
 
         :param rack: The rack key to list tasks from. If None, uses the default rack.
-        :return: A list of all user-created tasks on the specified rack.
+        :returns: A list of all user-created tasks on the specified rack.
         """
         if rack is None:
             if self._default_rack is None:
@@ -650,17 +713,38 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
+    @overload
+    def copy(
+        self, key: Key, name: str, *, snapshot: Literal[False] = False
+    ) -> Task: ...
+
+    @overload
     def copy(
         self,
         key: Key,
         name: str,
+        *,
+        snapshot: Literal[True],
+        range_key: ranger.Key | None = None,
+    ) -> Task: ...
+
+    def copy(
+        self,
+        key: Key,
+        name: str,
+        *,
+        snapshot: bool = False,
+        range_key: ranger.Key | None = None,
     ) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
-        :return: The newly created task.
+        :param snapshot: Whether the copy is a snapshot of the task.
+        :param range_key: The key of the range that a snapshot copy sits in. Only a
+            snapshot copy can sit in a range.
+        :returns: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

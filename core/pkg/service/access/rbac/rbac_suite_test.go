@@ -10,6 +10,7 @@
 package rbac_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -27,27 +30,43 @@ import (
 
 var (
 	db          *gorp.DB
-	otg         *ontology.Ontology
 	groupSvc    *group.Service
 	rbacSvc     *rbac.Service
+	roles       *rbac.Roles
 	userSvc     *user.Service
 	passwordSvc *password.Service
+	rackSvc     *rack.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
 		Password: passwordSvc,
+	}))
+	roles = MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB: db,
+	}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: roles.Builtin.DriverKey,
+	}))
+	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
+		DB:    db,
+		Roles: roles,
+		User:  userSvc,
+		Rack:  rackSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -55,15 +74,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			userSvc,
 			passwordSvc,
 			auth.Credentials{Username: "suite-root", Password: "p"},
+			roles.Builtin.OwnerKey,
 		),
 	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
-	}))
 })
+
+// newRolesConfig opens a database apart from the suite's database.
+func newRolesConfig(ctx context.Context) rbac.RolesConfig {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	return rbac.RolesConfig{DB: db}
+}
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)

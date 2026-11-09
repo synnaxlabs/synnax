@@ -46,15 +46,18 @@ Source union on mode Mode {
 }
 
 Base struct {
-    key    Key = create {
+    key       Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name   string {
+    name      string {
         @doc value "is a human-readable name for the module."
     }
-    source Source = text {
+    source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
+    }
+    directory uuid?  {
+        @doc value "is the key of the directory that holds the Arc."
     }
 
     @doc value  "carries the fields that every Arc shares."

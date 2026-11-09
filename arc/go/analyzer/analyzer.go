@@ -31,11 +31,15 @@ import (
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	checkImportOrder(ctx)
+	checkModuleRules(ctx)
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
-	liftReassignedVarReads(ctx)
+	markExports(ctx)
 	propagateCallChannels(ctx.CallEdges)
+	statement.PromoteChannelReadLocals(ctx)
+	statement.CheckStatefulInitializers(ctx)
+	liftReassignedVarReads(ctx)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {

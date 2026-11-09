@@ -31,6 +31,7 @@ export const sendScanCommand = async (
   const scanTask = await client.tasks.retrieve<typeof SCAN_SCHEMAS>({
     type: SCAN_TYPE,
     rack,
+    one: true,
   });
   return await scanTask.executeCommandSync({ type, timeout, args });
 };

@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -29,18 +29,14 @@ import (
 type MigrationConfig struct {
 	// User retrieves the users whose legacy permission flags are converted.
 	User *user.Service
-	// Ontology holds the user-role relationships the migration creates.
-	Ontology *ontology.Ontology
-	// Role resolves the built-in roles assigned to migrated users.
-	Role *role.Service
 	// Roles is the set of provisioned built-in roles to assign.
 	Roles builtin.ProvisionResult
 }
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
-// appropriate role for each user, and creates the ontology relationships. It does
-// nothing for a store that a v0.53 Core already migrated.
+// appropriate role for each user, and sets it as the user's role. It does nothing for a
+// store that a v0.53 Core already migrated.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v0.permission_assignment",
@@ -64,27 +60,29 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 
 			policyByUser := make(map[string][]policy.Policy)
 			for _, m := range mappings {
-				policyByUser[m.UserOntologyID.String()] = m.Policies
+				policyByUser[m.UserResourceID.String()] = m.Policies
 			}
 
-			roleWriter := cfg.Role.NewWriter(tx, true)
-			otgWriter := cfg.Ontology.NewWriter(tx)
+			userGroups, err := ontology.RetrieveRelationships(
+				ctx,
+				tx,
+				func(r ontology.Relationship) bool {
+					return r.Type == ontology.RelationshipTypeParentOf &&
+						r.From.Type == resource.TypeGroup &&
+						r.To.Type == resource.TypeUser
+				},
+			)
+			if err != nil {
+				return err
+			}
+			if err = ontology.DeleteRelationships(ctx, tx, userGroups...); err != nil {
+				return err
+			}
+			userWriter := cfg.User.NewWriter(tx)
 			for _, u := range users {
-				userOntologyID := u.OntologyID()
-				policies := policyByUser[userOntologyID.String()]
+				policies := policyByUser[u.ResourceID().String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-					From: cfg.Role.UsersGroup().OntologyID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   userOntologyID,
-				}); err != nil {
-					return err
-				}
-				if err = roleWriter.AssignRole(
-					ctx,
-					userOntologyID,
-					roleKey,
-				); err != nil {
+				if err = userWriter.SetRole(ctx, roleKey, u.Key); err != nil {
 					return err
 				}
 			}
@@ -121,7 +119,7 @@ func isAdminPolicy(p policy.Policy) bool {
 	hasUserType := false
 	hasPolicyType := false
 	for _, obj := range p.Objects {
-		if obj.Type == ontology.ResourceTypeUser {
+		if obj.Type == resource.TypeUser {
 			hasUserType = true
 		}
 		if obj.Type == "policy" {

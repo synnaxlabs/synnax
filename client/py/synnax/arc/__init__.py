@@ -9,30 +9,32 @@
 
 from synnax.arc import compiler, graph, ir, program, text, types
 from synnax.arc.client import Arc, Automation, Client, Module
-from synnax.arc.graph import Edge as GraphEdge
-from synnax.arc.graph import Graph
-from synnax.arc.graph import Node as GraphNode
+from synnax.arc.graph import Edge as GraphEdge, Graph, Node as GraphNode
 from synnax.arc.ir import Edge, Handle
 from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
+    Cursor,
     GraphSource,
     Key,
     Mode,
+    Order,
     Payload,
     Source,
     TextSource,
     Where,
-    ontology_id,
+    WhereInput,
+    resource_id,
 )
 from x.spatial import XY as Position
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Arc",
     "Automation",
     "Client",
+    "Cursor",
     "Edge",
     "Graph",
     "GraphEdge",
@@ -42,6 +44,7 @@ __all__ = [
     "Key",
     "Mode",
     "Module",
+    "Order",
     "Payload",
     "Position",
     "Source",
@@ -50,11 +53,12 @@ __all__ = [
     "Text",
     "TextSource",
     "Where",
+    "WhereInput",
     "compiler",
     "graph",
     "ir",
-    "ontology_id",
     "program",
+    "resource_id",
     "text",
     "types",
 ]

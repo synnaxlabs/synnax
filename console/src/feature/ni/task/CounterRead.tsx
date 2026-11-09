@@ -186,7 +186,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   const allDevices = await client.devices.retrieve({
-    where: { key: { in: devices } },
+    key: devices,
     schemas: SCHEMAS,
   });
   PlatformDevice.checkFound(devices, allDevices);

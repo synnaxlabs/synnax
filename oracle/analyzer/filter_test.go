@@ -519,17 +519,18 @@ var _ = Describe("Filter definitions", func() {
 			req := table.MustGet("test.RetrieveRequest")
 			form := req.Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
-				"where", "search_term", "limit", "offset", "include_labels",
+				"where", "search_term", "after", "limit", "include_labels",
 			}))
 			types := fieldTypes(form)
 			Expect(types["where"]).To(Equal(resolution.TypeRef{Name: "test.Where"}))
 			Expect(types["limit"]).To(Equal(resolution.TypeRef{Name: "uint32"}))
+			Expect(types["after"]).To(Equal(resolution.TypeRef{Name: "test.Cursor"}))
 			Expect(types["include_labels"]).To(Equal(resolution.TypeRef{Name: "bool"}))
 			optional := lo.FilterMap(
 				form.Fields,
 				func(f resolution.Field, _ int) (string, bool) { return f.Name, f.Optional },
 			)
-			Expect(optional).To(Equal([]string{"where", "limit"}))
+			Expect(optional).To(Equal([]string{"where", "after", "limit"}))
 			defaults := lo.SliceToMap(
 				lo.Filter(form.Fields, func(f resolution.Field, _ int) bool {
 					return f.Default != nil
@@ -540,7 +541,6 @@ var _ = Describe("Filter definitions", func() {
 			)
 			Expect(defaults).To(Equal(map[string]resolution.ExpressionValue{
 				"search_term":    {Kind: resolution.ValueKindString},
-				"offset":         {Kind: resolution.ValueKindInt},
 				"include_labels": {Kind: resolution.ValueKindBool},
 			}))
 			Expect(req.Domains).To(HaveKey("go"))
@@ -580,7 +580,7 @@ var _ = Describe("Filter definitions", func() {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 				Expect(fieldNames(req)).To(Equal([]string{
-					"where", "limit", "offset", "include_program",
+					"where", "after", "limit", "include_program",
 				}))
 			},
 		)
@@ -613,7 +613,7 @@ var _ = Describe("Filter definitions", func() {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 				Expect(fieldNames(req)).To(Equal([]string{
-					"where", "limit", "offset", "include_program",
+					"where", "after", "limit", "include_program",
 				}))
 			},
 		)
@@ -664,16 +664,21 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
-			Expect(fieldNames(form)).To(Equal([]string{"where", "limit", "offset"}))
+			Expect(fieldNames(form)).To(Equal([]string{"where", "after", "limit"}))
 		})
 
-		It("Should derive no order from sorted fields", func(ctx SpecContext) {
+		It("Should derive an order from sorted fields", func(ctx SpecContext) {
 			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
+				Span struct {
+					start int64
+					end   int64
+				}
 				Thing struct {
-					key  uuid  { @key }
-					time int64 { @index sorted }
+					key  uuid   { @key }
+					name string { @index sorted }
+					span Span   { @index sorted start }
 				}
 				Where filter Thing {
 					key
@@ -681,10 +686,94 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
-			Expect(fieldNames(form)).To(Equal([]string{"where", "limit", "offset"}))
+			Expect(fieldNames(form)).
+				To(Equal([]string{"where", "order", "after", "limit"}))
+			field := table.MustGet("test.OrderField").Form.(resolution.EnumForm)
+			Expect(lo.Map(field.Values, func(v resolution.EnumValue, _ int) string {
+				return v.StringValue()
+			})).To(Equal([]string{"name", "span_start"}))
+			order := table.MustGet("test.Order").Form.(resolution.StructForm)
+			Expect(fieldNames(order)).To(Equal([]string{"field", "descending"}))
+			cursor := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			Expect(fieldNames(cursor)).To(Equal([]string{"key", "name", "span_start"}))
+			start := lo.Must(cursor.Field("span_start"))
+			Expect(start.Optional).To(BeTrue())
+			Expect(start.Type.Name).To(Equal("int64"))
+		})
+
+		It("Should derive no order without sorted fields", func(ctx SpecContext) {
+			table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Where filter Thing {
+					key
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			_, hasOrder := table.Get("test.Order")
 			Expect(hasOrder).To(BeFalse())
+			cursor := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			Expect(fieldNames(cursor)).To(Equal([]string{"key"}))
 		})
+
+		It("Should derive no cursor for a target with no key", func(ctx SpecContext) {
+			table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Thing struct {
+					name string
+				}
+				Where filter Thing {
+					name
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			Expect(fieldNames(form)).To(Equal([]string{"where", "limit"}))
+		})
+
+		DescribeTable("Should reject a sort mark",
+			func(ctx SpecContext, fields, message string) {
+				_, diag := Analyze(ctx, `
+					import "schemas/x/filter"
+
+					Span struct {
+						start int64
+					}
+					Thing struct {
+						`+fields+`
+					}
+					Where filter Thing {
+						name
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"with no key to order ties by",
+				"name string { @index sorted }",
+				"has sorted fields but no key to order ties by",
+			),
+			Entry(
+				"that names no sub-field",
+				"key uuid { @key }\n name string\n span Span { @index sorted end }",
+				"span: Span has no field end",
+			),
+			Entry(
+				"on an optional field",
+				"key uuid { @key }\n name string? { @index sorted }",
+				"name: an optional field cannot be sorted",
+			),
+			Entry(
+				"on a value that is not a string or a number",
+				"key uuid { @key }\n name string\n flag bool { @index sorted }",
+				"flag: only a string or a number can be sorted",
+			),
+		)
 
 		It("Should hold a generic target over any", func(ctx SpecContext) {
 			table, diag := Analyze(ctx, `
@@ -801,7 +890,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
 			Expect(fieldNames(req)).To(Equal([]string{
-				"where", "limit", "offset", "include_status",
+				"where", "after", "limit", "include_status",
 			}))
 		})
 
@@ -870,6 +959,31 @@ var _ = Describe("Filter definitions", func() {
 			Entry("without a path", "@go request_output"),
 			Entry("with an identifier", "@go request_output api"),
 			Entry("with two paths", `@go request_output "a" "b"`),
+		)
+
+		DescribeTable("Should reject a line with the name of a retrieve option",
+			func(ctx SpecContext, line, field string) {
+				_, diag := Analyze(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key    uuid     { @key }
+						labels string[]? { @include }
+					}
+					Where filter Thing {
+						`+line+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: " + field + " is reserved for retrieve",
+				))
+			},
+			Entry("where", "where bool", `"where"`),
+			Entry("limit", "limit uint32", `"limit"`),
+			Entry("one", "one bool", `"one"`),
+			Entry("an include field", "include_labels bool", `"include_labels"`),
+			Entry("a camelCase include field", "includeLabels bool", `"includeLabels"`),
 		)
 
 		It("Should reject a derived name the schema already declares", func(

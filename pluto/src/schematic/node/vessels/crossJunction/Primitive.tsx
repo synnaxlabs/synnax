@@ -44,14 +44,14 @@ export const CrossJunction = ({
       <Handle.Handle
         location="bottom"
         orientation={orientation}
-        left={50.5}
+        left={50}
         top={96.1539}
         id="3"
       />
       <Handle.Handle
         location="top"
         orientation={orientation}
-        left={50.5}
+        left={50}
         top={3.8462}
         id="4"
       />

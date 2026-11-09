@@ -11,6 +11,7 @@ import re
 import sys
 
 from examples.modbus import ModbusSerialSim
+from pydantic import JsonValue
 
 import synnax as sy
 from tests.console.device.connect_network import NETWORK
@@ -64,7 +65,7 @@ class ConnectSerial(ModbusCase):
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         connection = sy.device.ensure_object(dev.properties, "connection")
-        expected = {
+        expected: dict[str, JsonValue] = {
             "transport": "rtu",
             "serial_port": ModbusSerialSim.serial_port,
             "unit_id": 2,

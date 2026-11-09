@@ -45,7 +45,7 @@ jobs:
       id-token: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - uses: ./.github/actions/setup-pnpm
 
@@ -56,12 +56,12 @@ jobs:
           pnpm build:console-vite
           cp -r console/dist/* core/pkg/console/dist/
 
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
           aws-region: ${{ vars.PREVIEW_REGION }}
 
-      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
         id: ecr
 
       - name: Tag the image
@@ -74,9 +74,9 @@ jobs:
           echo "image=$REGISTRY/synnax-preview:$TAG" >> "$GITHUB_OUTPUT"
           echo "go=$(awk '$1 == "go" { print $2 }' core/go.mod)" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./core/Dockerfile
@@ -116,7 +116,7 @@ jobs:
       - name: Create the sample project
         run: node console/scripts/create_sample.ts "$URL"
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
         with:
           header: preview
           message: |
@@ -141,9 +141,9 @@ jobs:
       id-token: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
           aws-region: ${{ vars.PREVIEW_REGION }}
@@ -154,7 +154,7 @@ jobs:
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         run: .github/scripts/run_preview_command.sh
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
         with:
           header: preview
           only_update: true

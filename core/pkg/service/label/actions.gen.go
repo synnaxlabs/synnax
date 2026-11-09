@@ -17,11 +17,16 @@ import (
 )
 
 const (
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	ActionTypeSet    = "set"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
 	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
 	ActionTypeInsert = "insert"
-	ActionTypeMove   = "move"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the label with the given created state. Emitted by the Core

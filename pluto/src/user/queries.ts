@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, user } from "@synnaxlabs/client";
+import { user } from "@synnaxlabs/client";
 import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -48,10 +48,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 });
 
 export const formSchema = user.newZ.extend({
-  username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
-  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -72,13 +70,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    const v = value();
-    const createdUser = await client.users.create({ key: uuid.create(), ...v });
-    if (v.role == null) return;
-    await client.access.roles.assign({
-      user: createdUser.key,
-      role: v.role,
-    });
+    await client.users.create({ key: uuid.create(), ...value() });
   },
 });
 
@@ -93,10 +85,12 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
       : await client.users.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
     key == null
-      ? client.users.current.onChange(handler)
-      : client.users.onChange(key, handler),
+      ? client.users.current.watch().onChange(handler)
+      : client.users.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) =>
-    key == null ? client.users.current.getCached() : client.users.getCached(key),
+    key == null
+      ? client.users.current.watch().getCached()
+      : client.users.watch(key).getCached(),
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);

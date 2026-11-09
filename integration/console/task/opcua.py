@@ -90,12 +90,12 @@ class OPCUATask(TaskPage):
 class OPCUARead(OPCUATask):
     """OPC UA read task page."""
 
-    page_type: PageType = "OPC UA read task"
+    page_type: PageType = "opc_read"
     pluto_label: str = ".console-task-configure--opc_read"
 
 
 class OPCUAWrite(OPCUATask):
     """OPC UA write task page."""
 
-    page_type: PageType = "OPC UA write task"
+    page_type: PageType = "opc_write"
     pluto_label: str = ".console-task-configure--opc_write"

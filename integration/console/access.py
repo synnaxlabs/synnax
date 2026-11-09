@@ -23,8 +23,7 @@ NOT implemented in Console UI (no helpers for these):
 
 import time
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.base import ResourceClient
@@ -185,7 +184,7 @@ class AccessClient(ResourceClient):
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
-        role = self.layout.page.locator(".console-user-info__roles")
+        role = self.layout.page.locator(".console-user-info__role")
         try:
             role.wait_for(state="visible", timeout=5000)
             return role.inner_text().strip()
@@ -288,7 +287,7 @@ class AccessClient(ResourceClient):
         sy.sleep(0.3)
 
     def drag_user_to_role(self, username: str, role_name: str) -> None:
-        """Assign a role to a user via drag-drop in the ontology tree.
+        """Assign a role to a user via drag-drop in the resource tree.
 
         :param username: The username of the user to drag.
         :param role_name: The name of the role to drop onto.
@@ -489,12 +488,12 @@ class AccessClient(ResourceClient):
         return item
 
     def _find_role_item(self, role_name: str) -> Locator | None:
-        """Find a role item in the ontology tree by name."""
+        """Find a role item in the resource tree by name."""
         self._show_users_panel()
         return self.tree.find_by_name(self.ROLE_ITEM_PREFIX, role_name)
 
     def list_visible_roles(self) -> list[str]:
-        """List all roles visible in the ontology tree.
+        """List all roles visible in the resource tree.
 
         :returns: List of role names.
         """

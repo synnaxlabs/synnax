@@ -7,25 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax } from "@synnaxlabs/client";
+import { type resource, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
+import { type Draft } from "@/platform/tree/store";
 import { type Session } from "@/session";
 
+/** A record that a tree shows: its resource ID and name, and the record itself. */
+export interface Resource extends resource.Resource {
+  data?: record.Unknown;
+}
+
 export interface GetResource {
-  (id: ontology.ID | string): ontology.Resource;
-  (ids: (ontology.ID | string)[]): ontology.Resource[];
+  (id: resource.ID | string): Resource;
+  (ids: (resource.ID | string)[]): Resource[];
 }
 
 export interface TreeState {
-  nodes: Tree.Node[];
   shape: Tree.Shape;
-  setNodes: (nodes: Tree.Node[]) => void;
-  setResource: (resource: ontology.Resource | ontology.Resource[]) => void;
+  /** Returns the shown children of an open node, or undefined. */
+  getChildren: (key: string) => string[] | undefined;
+  /** Returns the key of the node's parent, or undefined for a node not shown. */
+  getParent: (key: string) => string | undefined;
+  /** Shows the draft until the returned function ends it. */
+  addDraft: (draft: Draft) => destructor.Destructor;
   getResource: GetResource;
   /** Calls the handler when the resource with the given key changes. */
   subscribeResource: (handler: () => void, key: string) => destructor.Destructor;
@@ -45,9 +54,11 @@ export interface BaseProps {
 export interface ContextMenuProps extends BaseProps {
   selection: {
     /** Null when the top selected items sit under more than one parent. */
-    parentID: ontology.ID | null;
-    rootID: ontology.ID;
-    ids: ontology.ID[];
+    parentID: resource.ID | null;
+    rootID: resource.ID;
+    ids: resource.ID[];
+    /** The shallowest selected items, without any inside another selected item. */
+    top: resource.ID[];
   };
   state: TreeState;
 }
@@ -55,5 +66,5 @@ export interface ContextMenuProps extends BaseProps {
 export interface ContextMenu extends FC<ContextMenuProps> {}
 
 export interface AllowRename {
-  (resource: ontology.Resource): boolean;
+  (resource: Resource): boolean;
 }

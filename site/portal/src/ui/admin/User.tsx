@@ -24,11 +24,12 @@ import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { navigate, post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, dateTime, machineName, statusOf } from "@/ui/format";
+import { type Clock, machineName, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
 import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface UserProps extends Detail {
   /** activity is the audit log of the user's machines, or null with no machines. */
@@ -39,7 +40,8 @@ export interface UserProps extends Detail {
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 3rem";
 const TEAM_COLUMNS = "minmax(0, 2fr) 14rem 3rem";
 
-const moment = (t: Date | null): string => (t == null ? "Never" : dateTime(t));
+const moment = (t: Date | null, clock: Clock): string =>
+  t == null ? "Never" : clock.dateTime(t);
 
 /** User is one account's staff page: its Desktop use, machines, teams, and activity. */
 export const User = ({
@@ -49,58 +51,63 @@ export const User = ({
   teams,
   activity,
   now,
-}: UserProps): ReactElement => (
-  <Page
-    title={account.name}
-    parent={{ label: "Users", href: "/admin/users" }}
-    subtitle={
-      <Flex.Box x align="center" gap="small">
-        {account.email}
-        {isActive(usage, "day", now) && <ActiveTag />}
-      </Flex.Box>
-    }
-    actions={
-      <>
-        <Button.Button
-          variant="outlined"
-          href={personURL(account.userID)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Icon.OpenExternal />
-          Open in PostHog
-        </Button.Button>
-        <DeleteDialog account={account} />
-      </>
-    }
-  >
-    <Facts>
-      <Fact label="Last Desktop login" value={moment(usage.lastLogin)} />
-      <Fact label="Last active" value={moment(usage.lastActive)} />
-      <Fact label="Active days" value={`${usage.days} of the last ${MONTH}`} />
-      <Fact label="Joined" value={date(account.joinedAt)} />
-      <Fact label="User ID" value={account.userID} code />
-    </Facts>
-    <Section title="Machines">
-      <Machines machines={machines} now={now} />
-    </Section>
-    <Section title="Teams">
-      <Teams teams={teams} />
-    </Section>
-    {activity != null && (
-      <Section title="Activity">
-        <ActivityTable {...activity} />
+}: UserProps): ReactElement => {
+  const clock = useClock();
+  return (
+    <Page
+      title={account.name}
+      parent={{ label: "Users", href: "/admin/users" }}
+      subtitle={
+        <Flex.Box x align="center" gap="small">
+          {account.email}
+          {isActive(usage, "day", now) && <ActiveTag />}
+        </Flex.Box>
+      }
+      actions={
+        <>
+          <Button.Button
+            variant="outlined"
+            href={personURL(account.userID)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Icon.OpenExternal />
+            Open in PostHog
+          </Button.Button>
+          <DeleteDialog account={account} />
+        </>
+      }
+    >
+      <Facts>
+        <Fact label="Last Desktop login" value={moment(usage.lastLogin, clock)} />
+        <Fact label="Last active" value={moment(usage.lastActive, clock)} />
+        <Fact label="Active days" value={`${usage.days} of the last ${MONTH}`} />
+        <Fact label="Joined" value={clock.date(account.joinedAt)} />
+        <Fact label="User ID" value={account.userID} code />
+      </Facts>
+      <Section title="Machines">
+        <Machines machines={machines} now={now} clock={clock} />
       </Section>
-    )}
-  </Page>
-);
+      <Section title="Teams">
+        <Teams teams={teams} />
+      </Section>
+      {activity != null && (
+        <Section title="Activity">
+          <ActivityTable {...activity} />
+        </Section>
+      )}
+    </Page>
+  );
+};
 
 const Machines = ({
   machines,
   now,
+  clock,
 }: {
   machines: Machine[];
   now: Date;
+  clock: Clock;
 }): ReactElement =>
   machines.length === 0 ? (
     <Empty icon={<Icon.Computer />} message="No machines logged in" />
@@ -118,10 +125,10 @@ const Machines = ({
             <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
           <Text.Text level="p" color={9}>
-            {date(a.firstSeen)}
+            {clock.date(a.firstSeen)}
           </Text.Text>
           <Text.Text level="p" color={9}>
-            {dateTime(a.lastSeen)}
+            {clock.dateTime(a.lastSeen)}
           </Text.Text>
         </Row>
       ))}

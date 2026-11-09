@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/ranger"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/ranger/kv"
 @pb
@@ -15,7 +16,11 @@ import "schemas/synnax/ranger"
 
 Pair struct {
     range ranger.Key {
-        @doc value "is the unique identifier of the range owning this key-value pair."
+        @doc value     """
+            is the unique identifier of the range owning this key-value pair.
+        """
+        @ref kind      place
+        @ref on_delete cascade
     }
     key   string     {
         @doc value "is the metadata key name."
@@ -24,10 +29,39 @@ Pair struct {
         @doc value "is the metadata value stored as a string for flexibility."
     }
 
-    @doc value  """
+    action Create {
+        pair Pair
+
+        @doc value """
+            replaces the pair with the given created state. Emitted by the Core when a
+            pair is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the pair."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the pair.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the pair."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the pair."
+    }
+
+    @doc value        """
         is a key-value metadata pair associated with a specific range, enabling
         arbitrary metadata storage on time ranges.
     """
     @go marshal
     @go migrate
+    @retrieve indexes
+    @retrieve key     "string"
 }
