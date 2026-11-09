@@ -587,6 +587,19 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Expect(rec.Stored.Modules["pt_m"]).To(Equal(hashOf(restored)))
 		})
 
+		It("Should name nothing once the Driver runs the edit", func(ctx SpecContext) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			run(ctx, key)
+			overwrite(ctx, m, moduleV2)
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			Expect(arc.Changes(record(ctx, a))).ToNot(BeEmpty())
+			run(ctx, key)
+			Expect(arc.Changes(record(ctx, a))).To(BeEmpty())
+		})
+
 		It("Should keep the module hashes when the automation stops compiling", func(
 			ctx SpecContext,
 		) {

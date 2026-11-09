@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -24,7 +25,8 @@ import (
 
 // RetrieveDrift returns the drift record in snap of each automation in keys whose task
 // has one, by automation. A task has a record from its first write by the Core until it
-// is deleted.
+// is deleted. While the Driver reports running a task's config, its stored hashes read
+// as deployed.
 func (s *Service) RetrieveDrift(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -52,6 +54,13 @@ func (s *Service) RetrieveDrift(
 		}
 		if err != nil {
 			return nil, err
+		}
+		deployed, err := runs(ctx, s.cfg.Status, snap, tasks[0])
+		if err != nil {
+			return nil, err
+		}
+		if deployed {
+			rec.Deployed = rec.Stored
 		}
 		records[key] = rec
 	}
@@ -109,6 +118,17 @@ func (w Writer) record(ctx context.Context, key task.Key) (drift.Record, error) 
 	return rec, err
 }
 
+// runs reports whether the Driver reports running the config tsk holds in snap.
+func runs(
+	ctx context.Context,
+	statuses *status.Service,
+	snap gorp.Snapshot,
+	tsk task.Task,
+) (bool, error) {
+	stat, ok, err := taskStatus(ctx, statuses, snap, tsk.Key)
+	return ok && stat.Details.Running && stat.Details.ConfigHash == tsk.ConfigHash, err
+}
+
 // writeRecord stores hashes as the content of rec's automation after a write of its
 // task. tsk is the task as it was before the write. When the Driver reports running
 // that task, the hashes it held become the deployed ones first.
@@ -118,11 +138,11 @@ func (w Writer) writeRecord(
 	rec drift.Record,
 	hashes drift.Hashes,
 ) error {
-	stat, ok, err := w.taskStatus(ctx, tsk.Key)
+	deployed, err := runs(ctx, w.status, w.tx, tsk)
 	if err != nil {
 		return err
 	}
-	if ok && stat.Details.Running && stat.Details.ConfigHash == tsk.ConfigHash {
+	if deployed {
 		rec.Deployed = rec.Stored
 	}
 	rec.Stored = hashes

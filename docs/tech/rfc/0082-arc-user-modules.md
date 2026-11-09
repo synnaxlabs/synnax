@@ -91,10 +91,10 @@ of each module its compile loads, at any depth, each with an as-built copy. A mo
 compiles only inside an importer, so its text is what it has to hash. The text hash
 leaves imports out, so a diff tells an automation edit from a module edit, and promotion
 never moves `config_hash`. A resync promotes stored to as-built when the task status
-shows the Driver running the stored config. If a save lands after a redeploy but before
-the Driver reports running it, nothing is promoted until the next redeploy. Until then,
-the tooltip can list changes the Driver already runs, and it can leave out a module that
-the save changed back.
+shows the Driver running the stored config. A read does the same, but stores nothing. If
+a save lands after a redeploy but before the Driver reports running it, nothing is
+promoted until the next redeploy. Until then, the tooltip can list changes the Driver
+already runs, and it can leave out a module that the save changed back.
 
 #### 3.2.1 Cost
 

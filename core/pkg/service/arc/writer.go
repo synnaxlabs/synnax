@@ -453,7 +453,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
-		stat, ok, err := w.taskStatus(ctx, taskKey)
+		stat, ok, err := taskStatus(ctx, w.status, w.tx, taskKey)
 		if err != nil {
 			return err
 		}
@@ -470,16 +470,18 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	return nil
 }
 
-// taskStatus returns the stored status of the task with key, false when none.
-func (w Writer) taskStatus(
+// taskStatus returns the status in snap of the task with key, false when none.
+func taskStatus(
 	ctx context.Context,
+	statuses *status.Service,
+	snap gorp.Snapshot,
 	key task.Key,
 ) (task.Status, bool, error) {
 	var stat task.Status
-	err := w.status.NewRetrieve[task.StatusDetails]().
+	err := statuses.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](task.ResourceID(key))).
 		Entry(&stat).
-		Exec(ctx, w.tx)
+		Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
 		return stat, false, nil
 	}
