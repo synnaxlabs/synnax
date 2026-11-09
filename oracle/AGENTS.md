@@ -53,7 +53,8 @@ or generator logic and schemas disagree.
   rejects them in version files). Edit shapes in version files; edit live-only concerns
   in the live file. A hand edit to version-owned live content is overwritten by the next
   sync, and the `versions` gate errors on the drift naming the version files as
-  authority.
+  authority. A `@doc` on a kept declaration that the chain leaves undocumented fails
+  sync and check, and the error names the version file to move it to.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
   empty v(N+1).oracle (header and a comment only) records that everything was removed at
