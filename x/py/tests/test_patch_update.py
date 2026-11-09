@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Any, TypedDict
+from pathlib import Path
+from typing import Any, Literal, TypedDict
 
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -150,4 +151,78 @@ class TestClears:
         assert json.loads(JSONCodec().encode(request))["update"]["value"] == {
             "settings": {"rate": 5},
             "extra": None,
+        }
+
+
+class AI(TypedDict):
+    key: str
+    type: Literal["ai"]
+    port: int
+    range: int
+    units: str
+
+
+class DI(TypedDict):
+    key: str
+    type: Literal["di"]
+    port: int
+    line: int
+
+
+class AIUpdate(TypedDict, total=False):
+    key: str
+    type: Literal["ai"]
+    port: patch.Change[int]
+    range: patch.Change[int]
+    units: patch.Change[str]
+
+
+class DIUpdate(TypedDict, total=False):
+    key: str
+    type: Literal["di"]
+    port: patch.Change[int]
+    line: patch.Change[int]
+
+
+class Config(TypedDict):
+    rate: int
+    channels: list[AI | DI]
+
+
+class ConfigUpdate(TypedDict, total=False):
+    rate: patch.Change[int]
+    channels: patch.ListDict[AI | DI, str, AIUpdate | DIUpdate]
+
+
+class Limits(TypedDict):
+    low: int
+    high: int
+
+
+class LimitsUpdate(TypedDict, total=False):
+    low: patch.Change[int]
+    high: patch.Change[int]
+
+
+class DocUpdate(TypedDict, total=False):
+    name: patch.Change[str]
+    group: patch.Change[str]
+    config: patch.Struct[ConfigUpdate, Config]
+    limits: patch.Change[patch.Struct[LimitsUpdate, Limits]]
+    tags: patch.ValueListDict[str]
+
+
+VECTORS = json.loads(
+    (Path(__file__).parents[2] / "testdata" / "update" / "vectors.json").read_text()
+)["cases"]
+
+
+class TestVectors:
+    @pytest.mark.parametrize("case", VECTORS, ids=[case["name"] for case in VECTORS])
+    def test_wire_form(self, case: dict[str, Any]) -> None:
+        """Should read and write each shared update as Go and TypeScript do."""
+        update = patch.Update[DocUpdate].model_validate(case["update"])
+        assert json.loads(update.model_dump_json()) == {
+            "guards": [],
+            **case["update"],
         }
