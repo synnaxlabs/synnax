@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, resource } from "@synnaxlabs/client";
+import { arc, type resource } from "@synnaxlabs/client";
 import { Arc } from "@synnaxlabs/pluto";
 
 import { Tree } from "@/platform/tree";
@@ -42,59 +42,12 @@ const useMatches: Tree.UseMatches = (query) => {
   ];
 };
 
-// Places each hit under the directories between its parent and the root. The
-// directories hold every directory above the hits.
-const place = (
-  hits: Tree.Hit[],
-  directories: arc.directory.Directory[],
-  root: resource.ID,
-): Tree.Placement => {
-  const byKey = new Map(directories.map((d) => [d.key, d]));
-  const pathOf = (hit: Tree.Hit): arc.directory.Directory[] | null => {
-    const path: arc.directory.Directory[] = [];
-    let { parent } = hit;
-    while (!resource.idsEqual(parent, root)) {
-      if (parent.type !== "arc_directory") return null;
-      const d = byKey.get(parent.key);
-      if (d?.parent == null) return null;
-      path.unshift(d);
-      parent = arc.directory.resourceID(d.parent);
-    }
-    return path;
-  };
-  const paths: Record<string, resource.ID[][]> = {};
-  const used = new Map<string, Tree.Resource>();
-  hits.forEach((hit) => {
-    const path = pathOf(hit);
-    if (path == null) return;
-    const shown = path.map(Tree.toResource("arc_directory"));
-    shown.forEach((d) => used.set(d.key, d));
-    paths[hit.key] = [shown.map(({ id }) => id)];
-  });
-  return { resources: [...used.values()], paths };
-};
-
-const usePlacement: Tree.UsePlacement = (query) => {
-  const above = [
-    ...new Set(
-      query?.matches
-        .map(({ parent }) => parent)
-        .filter(({ type, key }) => type === "arc_directory" && key !== query.root.key)
-        .map(({ key }) => key),
-    ),
-  ];
-  const ancestors = Arc.Directory.useResultAncestors(
-    above.length === 0 ? null : { keys: above },
-  );
-  if (query == null) return { variant: "loading" };
-  const { matches, root } = query;
-  if (above.length === 0)
-    return { variant: "success", placement: place(matches, [], root) };
-  if (ancestors.variant === "error")
-    return { variant: "error", description: ancestors.status.description };
-  if (ancestors.variant !== "success") return { variant: "loading" };
-  return { variant: "success", placement: place(matches, ancestors.data, root) };
-};
+const usePlacement = Tree.createUsePlacement({
+  type: "arc_directory",
+  parentOf: (d: arc.directory.Directory) =>
+    d.parent == null ? null : arc.directory.resourceID(d.parent),
+  useAncestors: Arc.Directory.useResultAncestors,
+});
 
 /** Searches the Arcs and directories of the tree under the root directory. */
 export const useSearch = Tree.createSearch({ noun: "Arcs", useMatches, usePlacement });

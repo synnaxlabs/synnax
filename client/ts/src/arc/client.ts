@@ -25,6 +25,7 @@ import {
   set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
+import { arcKeyOf } from "@/arc/task/task";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
@@ -121,18 +122,6 @@ export interface UpdateTaskParams {
   /** Sets how closely the task's runtime holds timer deadlines. */
   performance?: Performance;
 }
-
-/** The type of the task that runs an Arc. */
-const TASK_TYPE = "arc";
-
-const taskConfigZ = z.object({ arcKey: keyZ });
-
-/** Returns the key of the Arc that the task runs, or undefined for any other task. */
-const arcKeyOf = (t: Pick<task.Task, "type" | "config">): Key | undefined => {
-  if (t.type !== TASK_TYPE) return undefined;
-  const parsed = taskConfigZ.safeParse(t.config);
-  return parsed.success ? parsed.data.arcKey : undefined;
-};
 
 export interface ClientConfig {
   unary: UnaryClient;

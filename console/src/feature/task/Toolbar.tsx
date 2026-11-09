@@ -25,7 +25,7 @@ import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { ARC_TYPE, ArcItem, arcKeyOf } from "@/feature/task/ArcItem";
+import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import {
@@ -47,6 +47,7 @@ import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
+import { Session } from "@/session";
 
 const EmptyContent = () => {
   const openSelector = useOpenSelector();
@@ -81,14 +82,29 @@ const Content = () => {
 
   const { update: rename } = Task.useRename();
 
+  const dispatch = Session.useDispatch();
+  const { update: deleteArcs } = Arc.useDelete({
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
+      dispatch(Session.Arc.remove({ keys: array.toArray(data) }));
+      return data;
+    },
+  });
+
+  // The row of an Arc deletes the Arc, as the menu of the Arc does.
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: async ({
       data: keys,
     }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
       setSelected([]);
       if (keys.length === 0) return false;
-      if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
-      return keys;
+      const rows = getItem(array.toArray(keys));
+      if (!(await confirmDelete(rows))) return false;
+      const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
+      if (arcKeys.length > 0) deleteArcs(arcKeys);
+      const taskKeys = rows
+        .filter(({ type }) => type !== arc.task.TYPE)
+        .map(({ key }) => key);
+      return taskKeys.length > 0 ? taskKeys : false;
     },
   });
 
@@ -102,8 +118,17 @@ const Content = () => {
           .map(({ task }) => task),
       ).forEach(({ type }) => capture("task_started", { type })),
   });
-  const handleCommand = (keys: string[], type: string) =>
-    runCommand(keys.map((k) => ({ task: k, type })));
+  const captureDeploy = PlatformArc.useCaptureDeploy();
+  const { update: runArcCommand } = Task.useCommand({ afterSuccess: captureDeploy });
+  const handleCommand = (keys: task.Key[], type: string) => {
+    const rows = getItem(keys);
+    const commandsOf = (tasks: task.Task[]) =>
+      tasks.map(({ key }) => ({ task: key, type }));
+    const arcTasks = rows.filter((t) => t.type === arc.task.TYPE);
+    const otherTasks = rows.filter((t) => t.type !== arc.task.TYPE);
+    if (otherTasks.length > 0) runCommand(commandsOf(otherTasks));
+    if (arcTasks.length > 0) runArcCommand(commandsOf(arcTasks));
+  };
   const handleStart = (keys: string[]) => handleCommand(keys, "start");
   const handleStop = (keys: string[]) => handleCommand(keys, "stop");
   const { update: setDataSaving } = useSetDataSaving();
@@ -118,19 +143,13 @@ const Content = () => {
     openTab({ variant: "resource", resource: arc.resourceID(key) });
   const getArc = useGetArc();
   const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => {
-    const selected = getItem(props.keys);
-    const arcTasks = selected.filter(({ type }) => type === ARC_TYPE);
-    if (arcTasks.length > 0 && arcTasks.length === selected.length)
-      return (
-        <PlatformArc.ContextMenu
-          {...props}
-          keys={arcTasks.map(arcKeyOf)}
-          getItem={getArc}
-        />
-      );
+    const rows = getItem(props.keys);
+    const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
+    if (arcKeys.length > 0 && arcKeys.length === rows.length)
+      return <PlatformArc.ContextMenu {...props} keys={arcKeys} getItem={getArc} />;
     return (
       <ContextMenu
-        keys={selected.filter(({ type }) => type !== ARC_TYPE).map(({ key }) => key)}
+        keys={props.keys}
         getItem={getItem}
         subscribe={subscribe}
         onDelete={handleDelete}
@@ -235,14 +254,10 @@ const ListItem = ({
   ...rest
 }: ListItemProps) => {
   const tsk = List.useItem<task.Key, task.Task>(rest.itemKey);
-  if (tsk?.type === ARC_TYPE)
+  const arcKey = tsk == null ? undefined : arc.task.arcKeyOf(tsk);
+  if (arcKey != null)
     return (
-      <ArcItem
-        {...rest}
-        arcKey={arcKeyOf(tsk)}
-        onRename={onRenameArc}
-        onEdit={onEditArc}
-      />
+      <ArcItem {...rest} arcKey={arcKey} onRename={onRenameArc} onEdit={onEditArc} />
     );
   return (
     <TaskListItem
@@ -444,8 +459,10 @@ const ContextMenu = ({
       });
     copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
+  // The menu of an Arc has no snapshot.
+  const snapshotTasks = selectedTasks.filter(({ type }) => type !== arc.task.TYPE);
   const showSnapshotToActiveRange =
-    activeRange?.variant === "persisted" && selectedTasks.length > 0;
+    activeRange?.variant === "persisted" && snapshotTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (
@@ -513,7 +530,7 @@ const ContextMenu = ({
           key="snapshot"
           onClick={() =>
             snapshotToActiveRange({
-              tasks: selectedTasks.map(({ name, resourceID: { key } }) => ({
+              tasks: snapshotTasks.map(({ name, resourceID: { key } }) => ({
                 key,
                 name,
               })),

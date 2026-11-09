@@ -261,6 +261,19 @@ describe("task/Toolbar Arc rows", () => {
       expect(await awaitArcTab(created)).toBe(a.key);
     });
 
+    it("renames the Arc through the inline editor", async () => {
+      const { arc: a } = await createBoundArc();
+      await renderToolbar();
+      await openContextMenuUntil(a.name, "Rename");
+      fireEvent.click(screen.getByText("Rename"));
+      const editor = await awaitTextEditing(`text-${a.key}`);
+      const renamed = uniqueName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(async () =>
+        expect((await client.arcs.retrieve({ key: a.key })).name).toBe(renamed),
+      );
+    });
+
     it("deletes the Arc after confirmation", async () => {
       const { arc: a } = await createBoundArc();
       await renderToolbar();
@@ -270,6 +283,51 @@ describe("task/Toolbar Arc rows", () => {
       fireEvent.click(findButton("Delete"));
       await waitFor(async () => {
         await expect(client.arcs.retrieve({ key: a.key })).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+      });
+    });
+  });
+
+  describe("selection with a task", () => {
+    // Clicks the first row, then adds the others while Control is held.
+    const selectRows = async (first: string, ...others: string[]): Promise<void> => {
+      fireEvent.click(await screen.findByText(first));
+      fireEvent.keyDown(document.body, { code: "Control" });
+      for (const name of others) fireEvent.click(await screen.findByText(name));
+      fireEvent.keyUp(document.body, { code: "Control" });
+    };
+
+    it("starts the Arc and the task, reporting each", async () => {
+      const { arc: a } = await createBoundArc();
+      const t = await createTask({ running: false });
+      const analytics = createTestSink();
+      await renderToolbar(createTestClient(), analytics);
+      await selectRows(t.name, a.name);
+      await openContextMenuUntil(a.name, "Start");
+      fireEvent.click(screen.getByText("Start"));
+      await waitFor(() => {
+        expect(analytics.capture).toHaveBeenCalledWith("task_started", {
+          type: NI.Task.ANALOG_READ_TYPE,
+        });
+        expect(analytics.capture).toHaveBeenCalledWith("automation_deployed", {});
+      });
+    });
+
+    it("deletes the Arc and the task after one confirmation", async () => {
+      const { arc: a } = await createBoundArc();
+      const t = await createTask();
+      await renderToolbar();
+      await selectRows(t.name, a.name);
+      await openContextMenuUntil(a.name, "Delete");
+      fireEvent.click(screen.getByText("Delete"));
+      await screen.findByRole("dialog");
+      fireEvent.click(findButton("Delete"));
+      await waitFor(async () => {
+        await expect(client.arcs.retrieve({ key: a.key })).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+        await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });

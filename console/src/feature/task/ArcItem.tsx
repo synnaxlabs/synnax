@@ -25,13 +25,6 @@ import { type ReactElement } from "react";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 
-/** The task type of an Arc automation bound to a rack. */
-export const ARC_TYPE = "arc";
-
-/** Returns the key of the Arc that the Arc task runs. */
-export const arcKeyOf = (tsk: task.Task): arc.Key =>
-  arc.task.configZ.pick({ arcKey: true }).parse(tsk.config).arcKey;
-
 export interface ArcItemProps extends List.ItemProps<task.Key> {
   arcKey: arc.Key;
   onRename: (params: { key: arc.Key; name: string }) => void;

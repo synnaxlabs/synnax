@@ -69,7 +69,6 @@
       "lyra-text",
       "pluto-symbol-primitive"
     ],
-    "console/src/feature/task/ArcItem.css": ["lyra-list__item"],
     "console/src/feature/task/Toolbar.css": ["lyra-icon", "lyra-list__item"],
     "console/src/feature/theme/Modal.css": ["lyra-modal__body"],
     "console/src/platform/button/CreateListItem.css": ["lyra-btn"],
