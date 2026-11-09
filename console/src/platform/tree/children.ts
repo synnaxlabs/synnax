@@ -24,8 +24,8 @@ export interface Window {
 export interface Source {
   /** Fetches the list. The window reaches onChange handlers too. */
   retrieve: () => Promise<Window>;
-  /** Fetches the next page of the list. The window reaches onChange handlers. */
-  more: () => Promise<void>;
+  /** Fetches the next page of the list. The window reaches onChange handlers too. */
+  more: () => Promise<Window>;
   /** Returns the window, or undefined before the list is fetched. */
   getCached: () => Window | undefined;
   /**
@@ -91,9 +91,7 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   };
   return {
     retrieve: async () => toWindow(await list.retrieve()),
-    more: async () => {
-      await list.more(PAGE_SIZE);
-    },
+    more: async () => toWindow(await list.more(PAGE_SIZE)),
     getCached: () => {
       const cached = list.getCached();
       return cached == null ? undefined : toWindow(cached);
