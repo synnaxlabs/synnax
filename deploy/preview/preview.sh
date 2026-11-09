@@ -65,7 +65,8 @@ up() {
             # A Caddy reload closes every proxied websocket unless delayed, so without
             # the delay one preview's deploy breaks the streams of all the others.
             {
-                printf '%s {\n\treverse_proxy %s:9090 {\n' "pr-$pr.$PREVIEW_DOMAIN" "$name"
+                printf 'pr-%s.%s {\n' "$pr" "$PREVIEW_DOMAIN"
+                printf '\treverse_proxy %s:9090 {\n' "$name"
                 printf '\t\tstream_close_delay 1h\n\t}\n}\n'
             } > "$PREVIEW_SITES/pr-$pr.caddy"
             reload_caddy
