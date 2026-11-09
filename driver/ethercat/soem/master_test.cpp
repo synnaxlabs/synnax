@@ -2221,7 +2221,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
-    this->master->check(this->brk);
+    this->check_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
