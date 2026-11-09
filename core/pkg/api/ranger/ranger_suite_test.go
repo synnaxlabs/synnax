@@ -48,7 +48,7 @@ var (
 		apiranger.CreateResponse,
 	]
 	del      freighter.UnaryHandler[apiranger.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apiranger.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiranger.DispatchRequest, apiranger.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apiranger.RetrieveRequest,
 		apiranger.RetrieveResponse,

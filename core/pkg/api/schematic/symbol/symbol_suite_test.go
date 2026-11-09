@@ -55,7 +55,7 @@ var (
 		apisymbol.CreateRequest,
 		apisymbol.CreateResponse,
 	]
-	dispatch    freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
+	dispatch    freighter.UnaryHandler[apisymbol.DispatchRequest, apisymbol.DispatchResponse]
 	del         freighter.UnaryHandler[apisymbol.DeleteRequest, struct{}]
 	deleteGroup freighter.UnaryHandler[apisymbol.DeleteGroupRequest, struct{}]
 	importGroup freighter.UnaryHandler[

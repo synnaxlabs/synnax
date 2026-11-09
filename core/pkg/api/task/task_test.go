@@ -196,7 +196,7 @@ var _ = Describe("Dispatch", func() {
 		Path:  []string{"config", "routing_key"},
 		Value: "rk-2",
 	})}
-	It("Should apply the actions and return the ones the Core added", func(
+	It("Should apply the actions and return them with the ones the Core added", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
@@ -214,10 +214,13 @@ var _ = Describe("Dispatch", func() {
 		stored := retrieveTask(ctx, t.Key)
 		Expect(stored.Config["routing_key"]).To(Equal("rk-2"))
 		Expect(stored.ConfigHash).ToNot(Equal(t.ConfigHash))
-		Expect(res.Actions).To(Equal([]task.Action{task.NewSetAction(task.SetPayload{
-			Path:  []string{"config_hash"},
-			Value: stored.ConfigHash,
-		})}))
+		Expect(res.Actions).To(Equal(slices.Concat(
+			setRoutingKey,
+			[]task.Action{task.NewSetAction(task.SetPayload{
+				Path:  []string{"config_hash"},
+				Value: stored.ConfigHash,
+			})},
+		)))
 	})
 	It("Should return no actions to a subject that cannot read the task", func(
 		ctx SpecContext,

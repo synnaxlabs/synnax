@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -52,6 +53,10 @@ func (c ServiceConfig) Validate() error {
 // Service is the API-layer panel service. Its write handlers run in the transaction
 // of the write binder, which checks their access.
 type Service struct {
+	// Dispatch applies the actions of a request to a panel and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[panel.Key, panel.Action]
+
 	internal *panel.Service
 }
 
@@ -61,6 +66,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Panel.NewWriter, panel.Writer.Apply),
 		internal: cfg.Panel,
 	}, nil
 }
@@ -128,25 +134,8 @@ func (s *Service) Retrieve(
 // its own broadcast echo.
 type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 
-// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
-// of the project that a move into a group of another project needs.
+// DispatchResponse carries the actions that the Core applied for a dispatch.
 type DispatchResponse = actions.DispatchResponse[panel.Action]
-
-// Dispatch applies the action sequence to the target panel in tx. Subscribers to the
-// panel action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (DispatchResponse, error) {
-	added, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{Actions: added}, nil
-}
 
 type DeleteRequest struct {
 	Keys []panel.Key `json:"keys" msgpack:"keys"`

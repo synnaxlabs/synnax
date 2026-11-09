@@ -48,7 +48,7 @@ type (
 	dispatchServer = grpc.UnaryServer[
 		device.DispatchRequest,
 		*DispatchRequest,
-		struct{},
+		device.DispatchResponse,
 		*emptypb.Empty,
 	]
 )
@@ -187,7 +187,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.DeviceDelete = del
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: grpc.DiscardTranslator[device.DispatchResponse]{},
 		ServiceDesc:        &DeviceDispatchService_ServiceDesc,
 	}
 	t.DeviceDispatch = dispatch

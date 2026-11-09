@@ -91,7 +91,7 @@ var _ = Describe("Apply of a move", func() {
 			DeferCleanup(svc.OnAction(rec.Record))
 			tx := DeferClose(db.OpenTx())
 			Expect(svc.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))).
-				To(BeEmpty())
+				To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			Expect(rec.Snapshot()).To(BeEmpty())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			seen := rec.Snapshot()
@@ -105,7 +105,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should retrieve line plots by whether they sit in a group",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			var grouped, ungrouped []lineplot.LinePlot
 			Expect(svc.NewRetrieve().
 				Where(lineplot.MatchKeys(target.Key, other.Key)).
@@ -138,7 +140,7 @@ var _ = Describe("Apply of a move", func() {
 			rec := &Recorder[lineplot.Key, lineplot.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(apply(ctx, target.Key, setGroup(inDest.Key))).
-				To(Equal([]lineplot.Action{setProject(dest.Key)}))
+				To(Equal([]lineplot.Action{setGroup(inDest.Key), setProject(dest.Key)}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(Equal(&inDest.Key))
 			Expect(res.Project).To(Equal(&dest.Key))
@@ -150,8 +152,12 @@ var _ = Describe("Apply of a move", func() {
 	)
 
 	It("Should move a line plot out of its group", func(ctx SpecContext) {
-		Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
-		Expect(apply(ctx, target.Key, removeGroup)).To(BeEmpty())
+		Expect(
+			apply(ctx, target.Key, setGroup(g.Key)),
+		).To(Equal([]lineplot.Action{setGroup(g.Key)}))
+		Expect(
+			apply(ctx, target.Key, removeGroup),
+		).To(Equal([]lineplot.Action{removeGroup}))
 		res := retrieve(ctx, target.Key)
 		Expect(res.Group).To(BeNil())
 		Expect(res.Project).To(Equal(&proj.Key))
@@ -160,10 +166,14 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should move a line plot out of its group with a set of null",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			Expect(apply(ctx, target.Key, lineplot.NewSetAction(
 				lineplot.SetPayload{Path: []string{"group"}},
-			))).To(BeEmpty())
+			))).To(Equal([]lineplot.Action{lineplot.NewSetAction(
+				lineplot.SetPayload{Path: []string{"group"}},
+			)}))
 			Expect(retrieve(ctx, target.Key).Group).To(BeNil())
 		},
 	)
@@ -191,12 +201,14 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should move a line plot out of its group when it moves into a project",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			dest := createProject(ctx)
 			rec := &Recorder[lineplot.Key, lineplot.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(apply(ctx, target.Key, setProject(dest.Key))).
-				To(Equal([]lineplot.Action{removeGroup}))
+				To(Equal([]lineplot.Action{setProject(dest.Key), removeGroup}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(BeNil())
 			Expect(res.Project).To(Equal(&dest.Key))
@@ -221,7 +233,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should move the line plots in a group into the project the group moves under",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			dest := createProject(ctx)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.MoveGroups(
@@ -240,7 +254,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should reject a group move that leaves a line plot under no project",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]lineplot.Action{setGroup(g.Key)}))
 			Expect(svc.MoveGroups(ctx, db, []group.Key{g.Key}, nil)).To(MatchError(
 				"group: a lineplot sits only in a group under a project: validation error",
 			))

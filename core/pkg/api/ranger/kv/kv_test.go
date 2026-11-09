@@ -86,7 +86,7 @@ var _ = Describe("Dispatch", func() {
 			return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{pair})
 		})).To(Succeed())
 	})
-	dispatchAs := func(ctx SpecContext, value string) (struct{}, error) {
+	dispatchAs := func(ctx SpecContext, value string) (apikv.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apikv.DispatchRequest{
 			Key: pair.GorpKey(),
 			Actions: []kv.Action{kv.NewSetAction(

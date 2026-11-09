@@ -49,7 +49,8 @@ var _ = Describe("Dispatch", func() {
 	}
 	apply := func(ctx context.Context, acts ...view.Action) error {
 		return write(ctx, func(w view.Writer) error {
-			return w.Apply(ctx, v.GorpKey(), acts...)
+			_, err := w.Apply(ctx, v.GorpKey(), acts...)
+			return err
 		})
 	}
 	record := func() *Recorder[view.Key, view.Action] {

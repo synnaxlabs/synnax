@@ -110,9 +110,9 @@ var _ = Describe("Dispatch", func() {
 		transport.RangeDispatch.BindHandler(func(
 			_ context.Context,
 			req ranger.DispatchRequest,
-		) (struct{}, error) {
+		) (ranger.DispatchResponse, error) {
 			received = req
-			return struct{}{}, nil
+			return ranger.DispatchResponse{Actions: req.Actions}, nil
 		})
 	})
 
@@ -152,7 +152,7 @@ var _ = Describe("Dispatch", func() {
 		translator := transport.RangeDispatch.(*fgrpc.UnaryServer[
 			ranger.DispatchRequest,
 			*grpcranger.DispatchRequest,
-			struct{},
+			ranger.DispatchResponse,
 			*emptypb.Empty,
 		]).RequestTranslator.(fgrpc.Translator[
 			ranger.DispatchRequest,
@@ -190,11 +190,12 @@ var _ = Describe("Dispatch to a range", func() {
 		transport.RangeDispatch.BindHandler(func(
 			ctx context.Context,
 			req ranger.DispatchRequest,
-		) (struct{}, error) {
-			return struct{}{}, db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
+		) (ranger.DispatchResponse, error) {
+			return ranger.DispatchResponse{}, db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).
 					WithDispatchKey(req.DispatchKey).
 					Apply(ctx, req.Key, req.Actions...)
+				return err
 			})
 		})
 		MustSucceed(grpcranger.NewRangeDispatchServiceClient(conn).Exec(

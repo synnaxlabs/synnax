@@ -170,9 +170,10 @@ func createBrokerDevice(
 func editDevice(ctx context.Context, dev device.Device, props msgpack.EncodedJSON) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return deviceSvc.NewWriter(tx).Apply(ctx, dev.Key, device.NewSetAction(
+		_, err := deviceSvc.NewWriter(tx).Apply(ctx, dev.Key, device.NewSetAction(
 			device.SetPayload{Path: []string{"properties"}, Value: props},
 		))
+		return err
 	})).To(Succeed())
 }
 

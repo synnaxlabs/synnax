@@ -53,16 +53,16 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 }
 
 // Apply applies the actions to the label with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create or the
-// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
-// label has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create or the result fails to decode or
+// validate, and an error wrapping query.ErrNotFound when no label has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	if err := w.apply(ctx, key, acts); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // apply applies the actions to the label with the given key and stores the result.

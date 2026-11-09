@@ -23,10 +23,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -105,6 +107,13 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to an Arc and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[arc.Key, arc.Action]
+	// DispatchDirectory applies the actions of a request to a directory and returns the
+	// applied actions.
+	DispatchDirectory dispatch.Handler[directory.Key, directory.Action]
+
 	db              *gorp.DB
 	internal        *arc.Service
 	status          *status.Service
@@ -122,12 +131,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:              cfg.DB,
-		Instrumentation: cfg.Instrumentation,
-		internal:        cfg.Arc,
-		status:          cfg.Status,
-		rbac:            cfg.RBAC,
-		dispatchChannel: cfg.DispatchChannel,
+		Dispatch:          dispatch.New(cfg.Arc.NewWriter, arc.Writer.Apply),
+		DispatchDirectory: dispatch.New(cfg.Arc.NewWriter, arc.Writer.ApplyDirectory),
+		db:                cfg.DB,
+		Instrumentation:   cfg.Instrumentation,
+		internal:          cfg.Arc,
+		status:            cfg.Status,
+		rbac:              cfg.RBAC,
+		dispatchChannel:   cfg.DispatchChannel,
 	}, nil
 }
 
@@ -177,17 +188,8 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// Dispatch applies the action sequence to the arc in tx. Subscribers to the arc action
-// signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[arc.Action]
 
 type (
 	// UpdateTaskRequest changes the arc's task. A nil field stays as it is.

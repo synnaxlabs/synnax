@@ -286,11 +286,12 @@ var _ = Describe("Directories", func() {
 
 	Describe("SetDirectory", func() {
 		setDirectory := func(ctx SpecContext, a arc.Arc, d directory.Key) error {
-			return w.Apply(
+			_, err := w.Apply(
 				ctx,
 				a.Base().Key,
 				arc.NewSetDirectoryAction(arc.SetDirectoryPayload{Directory: d}),
 			)
+			return err
 		}
 		It("Should move an Arc into a directory", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)

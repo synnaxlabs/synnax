@@ -68,16 +68,8 @@ func (s *Service) CreateDirectory(
 // DispatchDirectoryRequest carries a sequence of actions to apply to one directory.
 type DispatchDirectoryRequest = actions.DispatchRequest[directory.Key, directory.Action]
 
-// DispatchDirectory applies the action sequence to the directory in tx.
-func (s *Service) DispatchDirectory(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchDirectoryRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		ApplyDirectory(ctx, req.Key, req.Actions...)
-}
+// DispatchDirectoryResponse carries the actions that the Core applied for a dispatch.
+type DispatchDirectoryResponse = actions.DispatchResponse[directory.Action]
 
 // DeleteDirectoryRequest deletes the directories with Keys.
 type DeleteDirectoryRequest struct {

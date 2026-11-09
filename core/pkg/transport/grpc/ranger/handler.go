@@ -50,7 +50,7 @@ type (
 	dispatchServer = grpc.UnaryServer[
 		ranger.DispatchRequest,
 		*DispatchRequest,
-		struct{},
+		ranger.DispatchResponse,
 		*emptypb.Empty,
 	]
 )
@@ -251,7 +251,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.RangeDelete = rangeDelete
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: grpc.DiscardTranslator[ranger.DispatchResponse]{},
 		ServiceDesc:        &RangeDispatchService_ServiceDesc,
 	}
 	t.RangeDispatch = dispatch

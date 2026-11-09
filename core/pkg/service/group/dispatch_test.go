@@ -77,7 +77,8 @@ var _ = Describe("Dispatch", func() {
 	}
 	apply := func(ctx context.Context, acts ...group.Action) error {
 		return write(ctx, func(w group.Writer) error {
-			return w.Apply(ctx, child.Key, acts...)
+			_, err := w.Apply(ctx, child.Key, acts...)
+			return err
 		})
 	}
 	record := func() *Recorder[group.Key, group.Action] {

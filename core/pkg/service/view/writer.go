@@ -57,11 +57,11 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 }
 
 // Apply applies the actions to the view with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create or the
-// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
-// view has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create or the result fails to decode or
+// validate, and an error wrapping query.ErrNotFound when no view has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, View](key)).
 		ChangeErr(func(_ gorp.Context, v View) (View, error) {
@@ -78,10 +78,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // CreateMany creates the given views. It returns an error wrapping
@@ -99,11 +99,12 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 // query.ErrNotFound if no view with the key exists and a validation error if name is
 // empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.Apply(
+	_, err := w.Apply(
 		ctx,
 		key,
 		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
 	)
+	return err
 }
 
 // Delete deletes the views with the given keys. Delete is idempotent.

@@ -153,10 +153,11 @@ func (w Writer) Delete(
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
 // w. A move into a group also moves the schematic into the project that holds the
 // group, and a move into another project moves it out of its group. Apply attaches the
-// actions of each such move after acts and returns them. Snapshots are immutable except
-// for their name, group, and project: returns validate.ErrValidation if the target is a
-// snapshot and any other action is included. Also returns a validation error, and
-// stores nothing, if the actions leave the schematic invalid.
+// actions of each such move after acts, and returns every action that it attaches.
+// Snapshots are immutable except for their name, group, and project: returns
+// validate.ErrValidation if the target is a snapshot and any other action is included.
+// Also returns a validation error, and stores nothing, if the actions leave the
+// schematic invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
@@ -198,6 +199,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
-	return added, nil
+	applied := slices.Concat(acts, added)
+	w.dispatcher.Attach(w.tx, key, applied...)
+	return applied, nil
 }

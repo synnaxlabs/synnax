@@ -78,7 +78,8 @@ var _ = Describe("Directory dispatch", func() {
 		acts ...directory.Action,
 	) error {
 		return write(ctx, func(w arc.Writer) error {
-			return w.ApplyDirectory(ctx, key, acts...)
+			_, err := w.ApplyDirectory(ctx, key, acts...)
+			return err
 		})
 	}
 	record := func() *Recorder[directory.Key, directory.Action] {

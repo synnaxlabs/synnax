@@ -155,7 +155,7 @@ var _ = Describe("Dispatch", func() {
 		to = createGroup(ctx, "dispatch-to")
 		sym = createSymbol(ctx, from, "Inlet")
 	})
-	move := func(ctx SpecContext) (struct{}, error) {
+	move := func(ctx SpecContext) (apisymbol.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apisymbol.DispatchRequest{
 			Key: sym.Key,
 			Actions: []symbol.Action{symbol.NewSetAction(symbol.SetPayload{

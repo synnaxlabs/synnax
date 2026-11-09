@@ -497,7 +497,7 @@ var _ = Describe("Dispatch group move", func() {
 		u user.User,
 		g group.Group,
 		d device.Device,
-	) (struct{}, error) {
+	) (apidevice.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
 			Key: d.Key,
 			Actions: []device.Action{device.NewSetAction(device.SetPayload{
@@ -669,7 +669,7 @@ var _ = Describe("Move to another rack", func() {
 			other.ResourceID(),
 		)
 	})
-	setRack := func(ctx SpecContext) (struct{}, error) {
+	setRack := func(ctx SpecContext) (apidevice.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
 			Key: d.Key,
 			Actions: []device.Action{device.NewSetRackAction(

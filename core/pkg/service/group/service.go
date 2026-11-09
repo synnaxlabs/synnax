@@ -272,12 +272,12 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 }
 
 // Apply applies the actions to the group with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. A set
-// parent action follows the rules of SetParent. Apply returns an error wrapping
-// validate.ErrValidation when an action is a create, the result fails to decode or
-// validate, or a move breaks a rule, and an error wrapping query.ErrNotFound when no
-// group has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. A set parent action follows the rules of
+// SetParent. Apply returns an error wrapping validate.ErrValidation when an action is a
+// create, the result fails to decode or validate, or a move breaks a rule, and an error
+// wrapping query.ErrNotFound when no group has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var (
 		top   *resource.ID
 		moved bool
@@ -312,15 +312,15 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	if moved {
 		if err := w.moveMembers(ctx, []Key{key}, top); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is
@@ -330,7 +330,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 func (w Writer) SetParent(ctx context.Context, parent *resource.ID, keys ...Key) error {
 	act := NewSetParentAction(SetParentPayload{Parent: parent})
 	for _, k := range keys {
-		if err := w.Apply(ctx, k, act); err != nil {
+		if _, err := w.Apply(ctx, k, act); err != nil {
 			return err
 		}
 	}
@@ -416,9 +416,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 // Rename renames the group with the given key by applying a set of the name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.Apply(
+	_, err := w.Apply(
 		ctx,
 		key,
 		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
 	)
+	return err
 }

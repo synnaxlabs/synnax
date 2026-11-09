@@ -145,8 +145,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // to the transaction of w, so its commit broadcasts them with the dispatch key of w. A
 // move into a group also moves the log into the project that holds the group, and a
 // move into another project moves it out of its group. Apply attaches the actions of
-// each such move after acts and returns them. It returns a validation error, and stores
-// nothing, if the actions leave the log invalid.
+// each such move after acts, and returns every action that it attaches. It returns a
+// validation error, and stores nothing, if the actions leave the log invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
@@ -175,6 +175,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
-	return added, nil
+	applied := slices.Concat(acts, added)
+	w.dispatcher.Attach(w.tx, key, applied...)
+	return applied, nil
 }

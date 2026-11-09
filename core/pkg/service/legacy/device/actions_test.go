@@ -119,7 +119,8 @@ var _ = Describe("Actions", func() {
 	) {
 		act := set(path, value)
 		Expect(write(ctx, func(w device.Writer) error {
-			return w.Apply(ctx, dev.Key, act)
+			_, err := w.Apply(ctx, dev.Key, act)
+			return err
 		})).To(Succeed())
 		expected := dev
 		expected.Status = nil
@@ -153,7 +154,8 @@ var _ = Describe("Actions", func() {
 		value any,
 	) {
 		Expect(write(ctx, func(w device.Writer) error {
-			return w.Apply(ctx, dev.Key, set(path, value))
+			_, err := w.Apply(ctx, dev.Key, set(path, value))
+			return err
 		})).To(MatchError(validate.ErrValidation))
 		Expect(retrieve(ctx).Make).To(Equal("Make"))
 		Expect(rec.Snapshot()).To(HaveLen(1))
@@ -166,7 +168,8 @@ var _ = Describe("Actions", func() {
 
 	It("Should refuse an empty model", func(ctx SpecContext) {
 		Expect(write(ctx, func(w device.Writer) error {
-			return w.Apply(ctx, dev.Key, set("model", ""))
+			_, err := w.Apply(ctx, dev.Key, set("model", ""))
+			return err
 		})).To(MatchError(ContainSubstring("model: required")))
 		Expect(retrieve(ctx).Model).To(Equal(dev.Model))
 		Expect(rec.Snapshot()).To(HaveLen(1))
@@ -174,11 +177,12 @@ var _ = Describe("Actions", func() {
 
 	It("Should reject a create", func(ctx SpecContext) {
 		Expect(write(ctx, func(w device.Writer) error {
-			return w.Apply(
+			_, err := w.Apply(
 				ctx,
 				dev.Key,
 				device.NewCreateAction(device.CreatePayload{Device: dev}),
 			)
+			return err
 		})).To(MatchError(actions.ErrCoreOnly))
 	})
 
@@ -222,7 +226,8 @@ var _ = Describe("Actions", func() {
 				return groupSvc.NewWriter(tx).Create(ctx, &top)
 			})).To(Succeed())
 			Expect(write(ctx, func(w device.Writer) error {
-				return w.Apply(ctx, dev.Key, set("group", top.Key.String()))
+				_, err := w.Apply(ctx, dev.Key, set("group", top.Key.String()))
+				return err
 			})).To(MatchError(ContainSubstring("does not sit under rack")))
 			Expect(retrieve(ctx).Group).To(BeNil())
 		})
@@ -238,11 +243,12 @@ var _ = Describe("Actions", func() {
 				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, dev.Key)
 			})).To(Succeed())
 			Expect(write(ctx, func(w device.Writer) error {
-				return w.Apply(
+				_, err := w.Apply(
 					ctx,
 					dev.Key,
 					device.NewSetRackAction(device.SetRackPayload{Rack: other.Key}),
 				)
+				return err
 			})).To(Succeed())
 			moved := retrieve(ctx)
 			Expect(moved.Rack).To(Equal(other.Key))
@@ -273,7 +279,8 @@ var _ = Describe("Actions", func() {
 				Parent: &parent.Key,
 			})
 			Expect(write(ctx, func(w device.Writer) error {
-				return w.Apply(ctx, dev.Key, setRack)
+				_, err := w.Apply(ctx, dev.Key, setRack)
+				return err
 			})).To(Succeed())
 			moved := retrieve(ctx)
 			Expect(moved.Rack).To(Equal(rackSvc.EmbeddedKey))

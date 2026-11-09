@@ -63,8 +63,12 @@ func (w Writer) Set(
 }
 
 // Apply applies acts to the alias with the given Gorp key and attaches them to the
-// transaction of w.
-func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
+// transaction of w. It returns the actions that it attaches.
+func (w Writer) Apply(
+	ctx context.Context,
+	key string,
+	acts ...Action,
+) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[string, Alias](key)).
 		ChangeErr(func(_ gorp.Context, a Alias) (Alias, error) {
@@ -75,10 +79,10 @@ func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // Delete deletes the alias for the given channel on the specified range.

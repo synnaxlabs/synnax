@@ -118,7 +118,7 @@ func provisionRole(
 		rol = desired
 		err = roles.Create(ctx, &rol)
 	} else if err == nil && rol.Name != desired.Name {
-		err = roles.Apply(
+		_, err = roles.Apply(
 			ctx,
 			rol.Key,
 			role.NewSetAction(
@@ -146,7 +146,7 @@ func provisionRole(
 		if errors.Is(err, query.ErrNotFound) {
 			err = writer.Create(ctx, &pol)
 		} else if err == nil {
-			err = writer.Apply(
+			_, err = writer.Apply(
 				ctx,
 				stored.Key,
 				setPolicy("name", pol.Name),

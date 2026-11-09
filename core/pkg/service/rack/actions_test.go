@@ -105,7 +105,8 @@ var _ = Describe("Actions", func() {
 	) {
 		act := set(path, value)
 		Expect(write(ctx, func(w rack.Writer) error {
-			return w.Apply(ctx, r.Key, act)
+			_, err := w.Apply(ctx, r.Key, act)
+			return err
 		})).To(Succeed())
 		expected := r
 		expected.Status = nil
@@ -125,7 +126,8 @@ var _ = Describe("Actions", func() {
 
 	It("Should refuse integrations that are not a list", func(ctx SpecContext) {
 		Expect(write(ctx, func(w rack.Writer) error {
-			return w.Apply(ctx, r.Key, set("integrations", nil))
+			_, err := w.Apply(ctx, r.Key, set("integrations", nil))
+			return err
 		})).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("integrations")),
@@ -139,7 +141,8 @@ var _ = Describe("Actions", func() {
 		value any,
 	) {
 		Expect(write(ctx, func(w rack.Writer) error {
-			return w.Apply(ctx, r.Key, set(path, value))
+			_, err := w.Apply(ctx, r.Key, set(path, value))
+			return err
 		})).To(MatchError(validate.ErrValidation))
 		Expect(retrieve(ctx).Integrations).To(Equal([]string{"ni"}))
 		Expect(rec.Snapshot()).To(HaveLen(1))
@@ -151,11 +154,12 @@ var _ = Describe("Actions", func() {
 
 	It("Should reject a create", func(ctx SpecContext) {
 		Expect(write(ctx, func(w rack.Writer) error {
-			return w.Apply(
+			_, err := w.Apply(
 				ctx,
 				r.Key,
 				rack.NewCreateAction(rack.CreatePayload{Rack: r}),
 			)
+			return err
 		})).To(MatchError(actions.ErrCoreOnly))
 	})
 })
