@@ -18,13 +18,20 @@ interface Props {
 
 const { version } = Astro.props;
 const path = Astro.url.pathname;
-const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
+// Only the newest train's site is sure to be rebuilt when a newer train ships, so
+// every other site names the root as Latest, not by its train.
+const latest = version.status === "latest";
+const nameOf = (name: string, url: string): string => {
+    if (name === NEXT) return "Next";
+    if (url === ROOT && !latest) return "Latest";
+    return name;
+};
 ---
 
 <details class="version-menu">
     <summary class="version-menu__trigger" aria-label="Docs version">
         <Icon.Version className="version-menu__icon" />
-        <span>{nameOf(version.name)}</span>
+        <span>{nameOf(version.name, version.url)}</span>
         <Icon.Caret.Down className="version-menu__caret" />
     </summary>
     <ul class="version-menu__list">
@@ -35,9 +42,11 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
                     data-origin={url}
                     aria-current={name === version.name ? "true" : undefined}
                 >
-                    <span>{nameOf(name)}</span>
+                    <span>{nameOf(name, url)}</span>
                     {name === NEXT && <span class="version-menu__tag">Unreleased</span>}
-                    {url === ROOT && <span class="version-menu__tag">Latest</span>}
+                    {url === ROOT && latest && (
+                        <span class="version-menu__tag">Latest</span>
+                    )}
                 </a>
             </li>
         ))}
