@@ -131,6 +131,44 @@ var _ = Describe("CodeAction", func() {
 					"true => main\n",
 			))
 		})
+
+		It("should move a trailing block comment too", func(ctx SpecContext) {
+			content := "import time\n\n" +
+				"sequence main {\n" +
+				"    stage a {\n" +
+				"        true => next\n" +
+				"    }\n" +
+				"    t0 := time.now() /* when\n" +
+				"       the valve\n" +
+				"       opened */\n" +
+				"    stage b {\n" +
+				"        time.wait(1s)\n" +
+				"    }\n" +
+				"}\n\n" +
+				"true => main\n"
+			OpenArcDocument(server, ctx, uri, content)
+			diags := client.Diagnostics()
+			Expect(diags).To(HaveLen(1))
+			actions := asCodeActions(
+				MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+			)
+			Expect(actions).To(HaveLen(1))
+			Expect(applyEdits(content, actions[0].Edit.Changes[uri])).To(Equal(
+				"import time\n\n" +
+					"sequence main {\n" +
+					"    t0 := time.now() /* when\n" +
+					"       the valve\n" +
+					"       opened */\n" +
+					"    stage a {\n" +
+					"        true => next\n" +
+					"    }\n" +
+					"    stage b {\n" +
+					"        time.wait(1s)\n" +
+					"    }\n" +
+					"}\n\n" +
+					"true => main\n",
+			))
+		})
 	})
 
 	Describe("Unused import quick fix", func() {

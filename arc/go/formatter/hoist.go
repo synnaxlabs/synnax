@@ -28,15 +28,15 @@ type LineMove struct {
 }
 
 // DeclarationHoists returns the moves that put each late declaration of a sequence or
-// stage body above its first step. A comment block directly above an item moves with
-// it. Unparsable content yields none, and so does a body whose items share a line with
-// another item or a brace.
+// stage body above its first step. The comments directly above an item and after it on
+// its last line move with it. Unparsable content yields none, and so does a body whose
+// items share a line with another item or a brace.
 func DeclarationHoists(content string) []LineMove {
 	program, diags := parser.Parse(content)
 	if program == nil || (diags != nil && !diags.Ok()) {
 		return nil
 	}
-	comments := ownLineComments(content)
+	comments := lineComments(content)
 	var moves []LineMove
 	walk(program, func(node antlr.Tree) {
 		switch body := node.(type) {
@@ -100,15 +100,15 @@ func bodyItems[I interface {
 func bodyHoists(
 	body antlr.ParserRuleContext,
 	items []bodyItem,
-	comments map[int]int,
+	comments commentLines,
 ) []LineMove {
-	if !onSeparateLines(body, items) {
+	if !onSeparateLines(body, items, comments) {
 		return nil
 	}
 	anchor := -1
 	var moves []LineMove
 	for _, item := range items {
-		start := leadingLine(item.node.GetStart().GetLine()-1, comments)
+		start := comments.leadingLine(item.node.GetStart().GetLine() - 1)
 		if !item.decl {
 			if anchor < 0 {
 				anchor = start
@@ -120,18 +120,24 @@ func bodyHoists(
 		}
 		moves = append(moves, LineMove{
 			Start:  start,
-			End:    item.node.GetStop().GetLine(),
+			End:    comments.lastLine(item) + 1,
 			Anchor: anchor,
 		})
 	}
 	return moves
 }
 
-// ownLineComments maps the last line of each comment with no code on its lines to the
-// comment's first line, zero-based.
-func ownLineComments(content string) map[int]int {
+// commentLines holds the zero-based lines of a document's comments.
+type commentLines struct {
+	// own maps the last line of each comment with no code on its lines to its first.
+	own map[int]int
+	// trailing maps the line where code ends and a comment starts to its last line.
+	trailing map[int]int
+}
+
+func lineComments(content string) commentLines {
 	lexer := parser.NewArcLexer(antlr.NewInputStream(content))
-	starts := make(map[int]int)
+	c := commentLines{own: make(map[int]int), trailing: make(map[int]int)}
 	codeLine := -1
 	for _, tok := range lexer.GetAllTokens() {
 		line := tok.GetLine() - 1
@@ -139,22 +145,25 @@ func ownLineComments(content string) map[int]int {
 		switch tok.GetTokenType() {
 		case parser.ArcLexerWS:
 		case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
-			if line != codeLine {
-				starts[end] = line
+			if line == codeLine {
+				c.trailing[line] = end
+				codeLine = end
+			} else {
+				c.own[end] = line
 			}
 		default:
-			delete(starts, line)
+			delete(c.own, line)
 			codeLine = end
 		}
 	}
-	return starts
+	return c
 }
 
 // leadingLine returns the first line of the comment block directly above line, or line
 // when there is none.
-func leadingLine(line int, comments map[int]int) int {
+func (c commentLines) leadingLine(line int) int {
 	for {
-		start, ok := comments[line-1]
+		start, ok := c.own[line-1]
 		if !ok {
 			return line
 		}
@@ -162,15 +171,31 @@ func leadingLine(line int, comments map[int]int) int {
 	}
 }
 
+// lastLine returns the last line of item and the comments after it.
+func (c commentLines) lastLine(item bodyItem) int {
+	line := item.node.GetStop().GetLine() - 1
+	for {
+		end, ok := c.trailing[line]
+		if !ok || end == line {
+			return line
+		}
+		line = end
+	}
+}
+
 // onSeparateLines reports whether no item shares a line with another item or with
 // the body's braces, so whole lines can move.
-func onSeparateLines(body antlr.ParserRuleContext, items []bodyItem) bool {
+func onSeparateLines(
+	body antlr.ParserRuleContext,
+	items []bodyItem,
+	comments commentLines,
+) bool {
 	last := body.GetStart().GetLine()
 	for _, item := range items {
 		if item.node.GetStart().GetLine() <= last {
 			return false
 		}
-		last = item.node.GetStop().GetLine()
+		last = comments.lastLine(item) + 1
 	}
 	return len(items) == 0 || last < body.GetStop().GetLine()
 }

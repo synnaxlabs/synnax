@@ -81,6 +81,26 @@ var _ = Describe("Formatter", func() {
 			"sequence main {\n    // start time\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
 		),
 		Entry(
+			"moves a trailing block comment over two lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       time */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       time */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing block comment over three lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       time */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       of the\n       time */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing block comment over four lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       first\n       stage */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       of the\n       first\n       stage */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a multi-line declaration with its trailing block comment",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 +\n        2 /* sum\n       of both */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 +\n        2 /* sum\n       of both */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
 			"moves a leading block comment with its declaration",
 			"sequence main {\n    stage s {\n        true => next\n    }\n    /* start\n       time */\n    a := 1\n}",
 			"sequence main {\n    /* start\n       time */\n    a := 1\n    stage s {\n        true => next\n    }\n}",
@@ -99,6 +119,16 @@ var _ = Describe("Formatter", func() {
 			"leaves the previous step's trailing comment in place",
 			"stage main {\n    wait(1s) -> done // first\n    x := 1\n}",
 			"stage main {\n    x := 1\n    wait(1s) -> done // first\n}",
+		),
+		Entry(
+			"leaves the previous step's trailing block comment in place",
+			"stage main {\n    wait(1s) -> done /* first\n       step */\n    x := 1\n}",
+			"stage main {\n    x := 1\n    wait(1s) -> done /* first\n       step */\n}",
+		),
+		Entry(
+			"leaves a declaration on the line a block comment ends alone",
+			"stage main {\n    wait(1s) -> done /* first\n       step */ x := 1\n}",
+			"stage main {\n    wait(1s) -> done /* first\n       step */ x := 1\n}",
 		),
 		Entry(
 			"leaves top-level declarations alone",
@@ -150,6 +180,11 @@ var _ = Describe("Formatter", func() {
 			"a declaration's leading comment moves with it",
 			"sequence main {\n    // first\n    stage s {\n        true => next\n    }\n    // start\n    a := 1\n}",
 			[]formatter.LineMove{{Start: 5, End: 7, Anchor: 1}},
+		),
+		Entry(
+			"a declaration's trailing block comment moves with it",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       time */\n}",
+			[]formatter.LineMove{{Start: 4, End: 7, Anchor: 1}},
 		),
 		Entry(
 			"no late declaration",
