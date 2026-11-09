@@ -222,6 +222,8 @@ export interface Edit {
   reapply: () => destructor.Destructor;
 }
 
+const NO_EDIT: Edit = { rollback: destructor.NOOP, reapply: () => destructor.NOOP };
+
 /** A dispatch applied to the cached doc whose echo has not arrived. */
 interface Pending<Action> {
   dispatchKey: string;
@@ -383,12 +385,16 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Sends the actions of a local edit the caller already made, in order with the
-   * document's other dispatches. When nothing is in flight for the document, they go
-   * out at once. Otherwise they join the batch that goes out as one dispatch when the
-   * in-flight send settles. Rejects, with the edit rolled back, when the send fails.
+   * Sends actions in order with the document's other dispatches, and applies them to
+   * the cached doc until their echo arrives. Unlike dispatch, it sends when the doc is
+   * not cached and records no undo entry. When nothing is in flight for the document,
+   * the actions go out at once. Otherwise they join the batch that goes out as one
+   * dispatch when the in-flight send settles.
+   * @param edit - A local edit that the caller made with the actions.
+   * @throws {Error} if the cached doc cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the actions and the edit roll back.
    */
-  async send(key: Key, actions: Action[], edit: Edit): Promise<void> {
+  async send(key: Key, actions: Action[], edit: Edit = NO_EDIT): Promise<void> {
     const made = (rollback: destructor.Destructor): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
