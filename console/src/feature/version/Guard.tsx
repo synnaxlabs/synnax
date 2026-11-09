@@ -25,6 +25,7 @@ import { Shell } from "@/feature/shell";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
+import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 const UPDATE_DOCS_URL =
@@ -38,6 +39,9 @@ interface MismatchProps {
 const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const logout = Core.useLogout();
+  const check = Version.useCheck();
+  const updatable = check.variant === "success" && check.available != null;
+  const openInfo = Version.useInfoModal();
   const url =
     target == null
       ? undefined
@@ -75,8 +79,19 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
           </Button.Button>
         </Flex.Box>
         <Flex.Box y gap="small" full="x">
+          {updatable && (
+            <Button.Button
+              variant="filled"
+              size="large"
+              full="x"
+              justify="center"
+              onClick={() => openInfo()}
+            >
+              Update Console
+            </Button.Button>
+          )}
           <Button.Button
-            variant="filled"
+            variant={updatable ? "outlined" : "filled"}
             size="large"
             full="x"
             justify="center"

@@ -1,0 +1,142 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { connection, type resource, type Synnax as Client } from "@synnaxlabs/client";
+import { type Channel } from "@tauri-apps/api/core";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { type DownloadEvent } from "@tauri-apps/plugin-updater";
+import { act, cleanup } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type Mock, vi } from "vitest";
+
+import { Modals } from "@/platform/modals";
+import { Version } from "@/platform/version";
+import {
+  CONNECTION_PARAMS,
+  createCore,
+  createCoreState,
+} from "@/session/core/testutil";
+import { createStatusConsoleWrapper } from "@/testutil";
+
+/** The object whose update action lets a user take the Console past its Core. */
+export const VERSION_RESOURCE_ID: resource.ID = { type: "builtin", key: "version" };
+
+/** The manifest URL of the Core that {@link createWrapper} selects. */
+export const ENDPOINT = `http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.port}/console/update/latest.json`;
+
+export interface MockUpdaterParams {
+  /** The version of the running Console. A 0.0.x version is a dev build. */
+  version?: string;
+  /** The release that the Core serves, or null when it serves none. */
+  served?: string | null;
+  /** The newest release on the docs site, or null when none is newer. */
+  latest?: string | null;
+  /** Runs the download and sends its events. Resolves at once by default. */
+  download?: (send: (event: DownloadEvent) => void) => Promise<void>;
+}
+
+export type IPC = Mock<(cmd: string, args?: unknown) => Promise<unknown>>;
+
+/**
+ * Fakes the Rust side of the updater: the app version, the check of the Core's
+ * manifest, the check of the docs site, the download, the install, and the restart.
+ * @returns the spy that receives every IPC call.
+ */
+export const mockUpdater = ({
+  version = "1.5.0",
+  served = null,
+  latest = null,
+  download = async () => {},
+}: MockUpdaterParams = {}): IPC => {
+  let rid = 0;
+  const createMetadata = (next: string) => ({
+    rid: ++rid,
+    currentVersion: version,
+    version: next,
+    rawJson: {},
+  });
+  const ipc: IPC = vi.fn(async (cmd: string, args?: unknown) => {
+    switch (cmd) {
+      case "plugin:app|version":
+        return version;
+      case "updater_check":
+        return served == null || served === version ? null : createMetadata(served);
+      case "plugin:updater|check":
+        return latest == null ? null : createMetadata(latest);
+      case "plugin:updater|download": {
+        const { onEvent } = args as { onEvent: Channel<DownloadEvent> };
+        await download((event) => onEvent.onmessage(event));
+        return ++rid;
+      }
+      default:
+        return null;
+    }
+  });
+  mockIPC(ipc);
+  return ipc;
+};
+
+/**
+ * Unmounts the rendered trees, so a Provider releases its update through the mock, then
+ * clears the mock.
+ */
+export const clearUpdater = async (): Promise<void> => {
+  cleanup();
+  await act(async () => {});
+  clearMocks();
+};
+
+/** Returns the calls that ipc received for the command. */
+export const callsOf = (ipc: IPC, cmd: string): unknown[][] =>
+  ipc.mock.calls.filter(([c]) => c === cmd);
+
+/** A status of a connected Core at version. */
+export const createStatus = (version: string): connection.Status => ({
+  ...connection.DEFAULT_STATUS,
+  variant: "success",
+  message: "Connected",
+  details: {
+    ...connection.DEFAULT_STATUS.details,
+    authenticated: true,
+    nodeVersion: version,
+    clientServerCompatible: true,
+  },
+});
+
+export interface CreateWrapperParams {
+  /** The version that the selected Core reports, or null before a check reports. */
+  coreVersion?: string | null;
+  /** The client that access checks use. */
+  client?: Client | null;
+}
+
+/**
+ * Creates a wrapper with a selected Core that reports coreVersion, a version Provider,
+ * and a modal stack after its children.
+ */
+export const createWrapper = async ({
+  coreVersion = "1.5.0",
+  client = null,
+}: CreateWrapperParams = {}): Promise<FC<PropsWithChildren>> => {
+  const core = createCore("Local");
+  const { wrapper: Console } = await createStatusConsoleWrapper({
+    client,
+    status: coreVersion == null ? undefined : createStatus(coreVersion),
+    preloadedState: createCoreState([core], core.key),
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Version.Provider>
+        {children}
+        <Modals.Stack />
+      </Version.Provider>
+    </Console>
+  );
+  return Wrapper;
+};
